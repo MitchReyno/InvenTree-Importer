@@ -360,10 +360,10 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test`, frontend typecheck/lint/build, `pnpm lint:markdown`, `pnpm workflow-sync` if skills changed (none planned). Headless browser qualification of the full synthetic flow (photo-only batch with a three-item photo and a two-photo item → live lots with correct observations and no double counting → mid-run answer → parallel Research/Images → added photo examined by the lead session and picked up by the lot's sessions) at desktop and 390 px widths.
 - **Risks and decisions:** none.
 
-- [ ] 12.1 Baseline the Processing component tests.
-- [ ] 12.2 RED: pipeline row, Examine view, label and legacy-view tests.
-- [ ] 12.3 GREEN: UI.
-- [ ] 12.4 Update the architecture docs and the complete handover; check that every doc claim matches the code.
+- [x] 12.1 Baseline the Processing component tests.
+- [x] 12.2 RED: pipeline row, Examine view, label and legacy-view tests.
+- [x] 12.3 GREEN: UI.
+- [x] 12.4 Update the architecture docs and the complete handover; check that every doc claim matches the code.
 - [ ] 12.5 Run the full browser qualification and record screenshots/evidence and limits.
 
 ## 13. Authorized live provider qualification

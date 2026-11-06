@@ -1,6 +1,12 @@
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
-import type { SourceQuestion, SourceSession, StepProgress } from '../../processing/source'
+import type {
+  PipelineCell,
+  ProcessingSource,
+  SourceQuestion,
+  SourceSession,
+  StepProgress,
+} from '../../processing/source'
 import { color, radius, space, type } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Pill, type PillTone } from '../ui/Pill'
@@ -160,5 +166,109 @@ const Rows = styled.ul`
   a {
     color: ${color.fg};
     font-weight: 600;
+  }
+`
+
+/** A Processing job's state in words for the pipeline. */
+export const JOB_STATE: Record<string, { word: string; tone: PillTone }> = {
+  queued: { word: 'Queued', tone: 'neutral' },
+  running: { word: 'Running', tone: 'info' },
+  waiting_for_user: { word: 'Waiting for you', tone: 'warn' },
+  waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
+  waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
+  ready: { word: 'Ready', tone: 'ok' },
+  failed: { word: 'Failed', tone: 'bad' },
+  cancelled: { word: 'Cancelled', tone: 'neutral' },
+  superseded: { word: 'Waiting for identity', tone: 'neutral' },
+  interrupted: { word: 'Interrupted', tone: 'bad' },
+}
+
+function PipelineStep({ label, cell }: { label: string; cell: PipelineCell }) {
+  const state = cell ? (JOB_STATE[cell.state] ?? { word: cell.state, tone: 'neutral' }) : null
+  return (
+    <Step aria-label={`${label}: ${state?.word ?? 'Not started'}`}>
+      <span>{label}</span>
+      {state ? (
+        <Pill tone={state.tone}>{state.word}</Pill>
+      ) : (
+        <Pill tone="outline" glyph="">
+          Not started
+        </Pill>
+      )}
+      {cell && cell.stale > 0 && <Pill tone="warn">{plural(cell.stale, 'stale result')}</Pill>}
+      {cell && cell.provisional > 0 && <Pill tone="neutral">{cell.provisional} provisional</Pill>}
+    </Step>
+  )
+}
+
+/**
+ * The batch's Examine lead session, then each lot's Research ∥ Images → Inventory. Research and
+ * Images start together once the lot's identity is stable; Inventory waits for both.
+ */
+export function PipelineRows({ pipeline }: { pipeline: ProcessingSource['pipeline'] }) {
+  const lead = pipeline.lead ? (JOB_STATE[pipeline.lead.state] ?? null) : null
+  return (
+    <Pipeline>
+      {pipeline.lead && (
+        <li aria-label="Examine · Whole batch">
+          <strong>Examine · Whole batch</strong>
+          {lead && <Pill tone={lead.tone}>{lead.word}</Pill>}
+        </li>
+      )}
+      {pipeline.lots.map((lot) => (
+        <li key={lot.lotId} aria-label={`Pipeline for ${lot.label}`}>
+          <strong>{lot.label}</strong>
+          <Lanes>
+            <PipelineStep label="Research" cell={lot.cells.research} />
+            <Parallel aria-hidden>∥</Parallel>
+            <PipelineStep label="Images" cell={lot.cells.images} />
+            <Parallel aria-hidden>→</Parallel>
+            <PipelineStep label="Inventory" cell={lot.cells.inventory} />
+          </Lanes>
+        </li>
+      ))}
+    </Pipeline>
+  )
+}
+
+const Pipeline = styled.ul`
+  display: grid;
+  gap: ${space[2]};
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  li {
+    display: grid;
+    gap: ${space[1]};
+    padding: ${space[2]} 0;
+    border-top: 1px solid ${color.line};
+  }
+  li:first-child {
+    border-top: 0;
+  }
+`
+
+const Lanes = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[1]} ${space[2]};
+`
+
+const Step = styled.span`
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[1]};
+  font-size: 13px;
+  > span:first-child {
+    color: ${color.muted};
+  }
+`
+
+const Parallel = styled.span`
+  color: ${color.muted};
+  @media (max-width: 480px) {
+    display: none;
   }
 `

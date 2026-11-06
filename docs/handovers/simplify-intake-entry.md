@@ -737,3 +737,15 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
   - `pnpm db:intake test:process` passed 70/70.
   - `pnpm test:intake`: contracts 76/76, intake server 213/213. Frontend 585/585. Typecheck, lint, format and `contracts:check` are clean.
 
+## PR-C task 12: pipeline UI, documentation and browser qualification
+
+- **Pipeline (`processing/source.ts`, `PipelineRows`).** The source adapter adds `pipeline`: the lead job's state, then per lot a Research, Images and Inventory cell with its job state and how many proposals are stale or provisional. The Overview's Pipeline card shows Examine · Whole batch, then each lot's Research ∥ Images → Inventory. At phone width the cells wrap and the arrows are hidden.
+- **Labels.** Job cards mark a stale candidate with its reason (for example "you corrected what it relied on") and a provisional one while a question is open.
+- **Examine view (`ExamineView`).** On the Examine step page:
+  - every active observation, grouped by photo, with its crop, readings, region and lot link, or "No lot";
+  - each formed lot with its AI-proposed or Edited chip, estimate and basis, observations, and the lead's candidates with their sources.
+  - Photos are numbered by their first observation, because the capture snapshot carries no photo labels.
+- **Legacy.** Reading and Identifying jobs still render as job cards on Examine, and the existing `/1` fixture tests pass unchanged.
+- **Tests (vitest):** `PipelineRows.test.tsx`, `ExamineView.test.tsx`, the pipeline case in `source.test.ts`, and stale/provisional labels in `ProcessingJobCard.test.tsx`.
+- **Docs.** `processing/ARCHITECTURE.md` (stable identity, selective rework, Inventory gate), `agents/ARCHITECTURE.md` (lead priority, lot-session evidence, instructions) and `frontend/ARCHITECTURE.md` (pipeline, labels, Examine view) describe the final behaviour.
+

@@ -42,6 +42,7 @@ const source: ProcessingSource = {
   ],
   sessions: [],
   jobsOn: () => [],
+  pipeline: { lead: null, lots: [] },
 }
 
 const attention = {

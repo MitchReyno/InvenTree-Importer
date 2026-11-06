@@ -66,6 +66,7 @@ const source: ProcessingSource = {
   ],
   sessions: [{ jobId: 'j2', step: 'examine', subject: 'Packet B', state: 'running' }],
   jobsOn: () => [],
+  pipeline: { lead: null, lots: [] },
 }
 
 describe('StepPage', () => {
