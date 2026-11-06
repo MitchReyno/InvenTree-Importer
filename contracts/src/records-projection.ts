@@ -569,7 +569,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     }
 
     const unsupported: Unsupported[] = []
-    // The same assessment the server applies, so every value that cannot enter a spec is shown.
+    // BI-006's shared catalogue rule, so every value that cannot enter a spec is shown.
     for (const item of assessCatalogue(
       catalogue as unknown as CatalogueProposalDto,
       capture.target_context_id,

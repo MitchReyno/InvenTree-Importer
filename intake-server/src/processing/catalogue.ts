@@ -1,4 +1,4 @@
-// The rule is shared with the records projection, so the browser and server agree on it.
+// The rule lives in contracts with the records projection; this keeps the server's import path.
 export {
   assessCatalogue,
   type CatalogueAssessment,

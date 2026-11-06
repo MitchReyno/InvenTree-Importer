@@ -740,3 +740,9 @@ Fresh read-only Claude reviewer at `1a65a68`: 2 Minor, 2 Nitpicks, all fixed. It
 - **Other assessment reasons were dropped (Minor):** the projection had its own copy of four of BI-006's reasons. `assessCatalogue` moved from `intake-server/src/processing/catalogue.ts` into contracts (the server file re-exports it, so its tests are unchanged), and the projection builds the list from its result, with one explanation per reason: a parameter waiting for an existing category or not applying to it, a stale reference, a company not set up for the role, a supplier with no SKU and a description that does not fit join the earlier cases. The projection fixture now carries its target context, which the shared rule checks; a new test covers the added reasons and a new manufacturer on a matched Part.
 - **Nitpicks:** the 14.7 results bullet names the category-mapping case; the not-supported lists key their rows by position, so identical values do not collide.
 
+### PR-G review round 7
+
+Fresh read-only Claude reviewer at `e99d14f`: clean, with 2 Nitpicks, both fixed. It confirmed the move kept `assessCatalogue` identical apart from imports, that every reason maps to one row, and that the most rows possible (37) stay within the 40-item cap.
+
+- **Nitpicks:** comments and both architecture docs no longer say the server calls `assessCatalogue` (only the projection does; the server file re-exports it for its tests), and the frontend architecture says a category or description note shows at its own field when the Part lists it.
+
