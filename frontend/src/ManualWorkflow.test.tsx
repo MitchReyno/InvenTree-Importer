@@ -367,12 +367,16 @@ test('manual review and approval keep exact A-only scope, scalar text and server
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', prep))
   view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+    expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeEnabled(),
   )
-  expect(screen.getByText('Not included')).toBeVisible()
-  expect(screen.getByText('Packet B')).toBeVisible()
-  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' }))
+  expect(screen.getByRole('checkbox', { name: 'Packet A' })).toBeChecked()
+  expect(screen.getByText('Left out')).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Packet B' })).toHaveAttribute(
+    'href',
+    `#${batchId}/review/lots?filter=needs_review`,
+  )
+  expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }))
   expect(client.approve).toHaveBeenCalledWith(
     {
       preparation_id: prep,
@@ -482,38 +486,38 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   }
   const user = userEvent.setup()
   const view = render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
-  await screen.findByText('0.000001 × Packet A')
+  await screen.findByText('Packet A · 0.000001')
   preparations = [later, preview]
   await waitFor(
     () => expect(screen.getByRole('option', { name: 'Packet B' })).toBeInTheDocument(),
     { timeout: 4000 },
   )
-  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
-  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled()
+  expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
+  expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeEnabled()
   expect(navigate).not.toHaveBeenCalled()
   preparations = [later]
   await waitFor(
-    () => expect(screen.getByText(/The pinned preparation is unavailable/)).toBeVisible(),
+    () => expect(screen.getByText(/This preparation is no longer current/)).toBeVisible(),
     { timeout: 4000 },
   )
-  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
-  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
+  expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Prepared selection'), laterId)
   expect(navigate).toHaveBeenCalledWith('approve', laterId)
   view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={laterId} />)
-  expect(await screen.findByText('23 × Packet B')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' }))
+  expect(await screen.findByText('Packet B · 23')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }))
   expect(client.approve).toHaveBeenCalledWith(
     expect.objectContaining({ preparation_id: laterId, selected_lot_ids: [b] }),
     expect.any(String),
   )
   view.unmount()
   render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
-  await screen.findByText(/The pinned preparation is unavailable/)
-  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Approve 0 lots for the owned fake' })).toBeDisabled()
+  await screen.findByText(/This preparation is no longer current/)
+  expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 0 lots and add to InvenTree' })).toBeDisabled()
 })
 
 test(
@@ -821,9 +825,9 @@ test('a cached preparation remains visible but cannot be approved before the mou
     />,
     { wrapper: Wrapper },
   )
-  await screen.findByText('0.000001 × Packet A')
+  await screen.findByText('Packet A · 0.000001')
   expect(screen.getByText(/Verifying current retained state/)).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeDisabled()
   expect(client.approve).not.toHaveBeenCalled()
   const complete = finish
   if (!complete) {
@@ -833,7 +837,7 @@ test('a cached preparation remains visible but cannot be approved before the mou
     complete(snapshot)
   })
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+    expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeEnabled(),
   )
   expect(client.approve).not.toHaveBeenCalled()
 })

@@ -20,13 +20,12 @@ import {
   ErrorNotice,
   Notice,
   Paragraph,
-  Small,
   Heading,
   HeadingRow,
 } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
-import { ApprovalWorkspace } from './ApprovalWorkspace'
+import { ReadyToAdd } from '../changes/ReadyToAdd'
 import { ResultsWorkspace } from '../results/ResultsWorkspace'
 
 const MAX_SELECTED_LOTS = 10
@@ -241,10 +240,14 @@ export function ManualWorkspace({
   }
 
   function prepare() {
+    prepareLots(selected)
+  }
+
+  function prepareLots(lotIds: string[]) {
     void perform('Reading the fixed target and preparing selected effects…', async () => {
       const result = await client.prepare(
         batch.id,
-        { expected_batch_revision: batch.revision, selected_lot_ids: selected },
+        { expected_batch_revision: batch.revision, selected_lot_ids: lotIds },
         crypto.randomUUID(),
       )
       if (result.status === 'blocked') {
@@ -343,15 +346,16 @@ export function ManualWorkspace({
     )
   } else if (stage === 'approve') {
     content = (
-      <ApprovalWorkspace
+      <ReadyToAdd
         batch={batch}
-        preparations={workspace.preparations}
+        workspace={workspace}
         preview={displayedPreview}
         busy={disabled}
         choose={choosePreparation}
         pinnedPreparationId={preparationId}
+        prepareLots={prepareLots}
         approve={approve}
-        review={() => navigate('review')}
+        readTree={client.tree}
       />
     )
   } else {
@@ -372,12 +376,11 @@ export function ManualWorkspace({
           {
             {
               review: 'Review selected lots',
-              approve: 'Approve exact effects',
-              results: 'Retained results',
+              approve: 'Ready to add',
+              results: 'Added',
             }[stage]
           }
         </Heading>
-        <Small>Owned fake only</Small>
       </HeadingRow>
       {workspace?.preparations_truncated && (
         <Notice>
