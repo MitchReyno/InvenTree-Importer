@@ -233,11 +233,11 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before each screen, write failing component tests for the scope text, the 412 path keeping drafts, and unsupported fields (RED). GREEN: implement them.
 - **Verification:** component tests for each record type, the 412 path keeping drafts, and the scope text; a browser check.
 
-- [ ] 10.1 Build the type rail with counts and decision badges, and the list per type.
-- [ ] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
-- [ ] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
-- [ ] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
-- [ ] 10.5 Add "Who proposed what" with Ask routing.
+- [x] 10.1 Build the type rail with counts and decision badges, and the list per type.
+- [x] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
+- [x] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
+- [x] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
+- [x] 10.5 Add "Who proposed what" with Ask routing.
 
 ## 11. Preparation tree and Changes
 

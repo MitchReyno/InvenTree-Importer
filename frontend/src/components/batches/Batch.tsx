@@ -28,7 +28,8 @@ import { ManualWorkspace } from '../review/ManualWorkspace'
 import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/batch-route'
 import { useBatchAttention, type AttentionClient } from '../../attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
-import { RecordDecisions } from '../review/RecordDecisions'
+import { RecordsStage } from '../review/records/RecordsStage'
+import type { RecordsClient } from '../../records/useBatchRecords'
 import { ReviewMapStage } from '../review/ReviewMapStage'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
@@ -71,6 +72,7 @@ export function Batch({
   operator,
   catalogue,
   attention,
+  records,
   route,
   onDirtyChange,
 }: {
@@ -82,6 +84,7 @@ export function Batch({
   media?: MediaClient
   operator?: OperatorReviewClient
   attention?: AttentionClient
+  records?: RecordsClient
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
@@ -418,10 +421,14 @@ export function Batch({
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'records') {
     content = (
-      <RecordDecisions
-        batchId={batch.id}
-        attention={attentionQuery.data}
-        unavailable={attentionQuery.isError}
+      <RecordsStage
+        batch={batch}
+        client={records}
+        edit={edit}
+        observe={observe}
+        onDirtyChange={reportDirty}
+        initialType={batchRoute.recordType}
+        initialRecord={batchRoute.recordId}
       />
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'map') {
