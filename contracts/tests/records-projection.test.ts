@@ -360,6 +360,33 @@ test('an AI lot taking the batch quantity shows its estimate and needs it accept
   validate('BatchRecords', result)
 })
 
+test('an AI lot with no estimate asks for an exact quantity, not to accept one', () => {
+  const unestimated = {
+    ...capture,
+    defaults: { quantity: { mode: 'set', value: '10' }, location: { mode: 'unset' } },
+    lots: capture.lots.map((item) =>
+      item.id === id(102) ? { ...item, quantity: { mode: 'inherit' }, origin: 'agent' } : item,
+    ),
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: unestimated, processing: undefined, lotGroups: null })
+  const item = of(result.records, 'stock_item').find((record) => record.label === 'Lot 2')
+  assert.equal(item?.decision?.detail, 'Set an exact quantity for this lot.')
+  assert.deepEqual(item?.fields, [{ name: 'quantity', value: null, origin: { kind: 'operator' } }])
+})
+
+test('a lot whose Part is missing names no Part', () => {
+  const missing = {
+    ...capture,
+    lots: capture.lots.map((item) =>
+      item.id === id(102) ? { ...item, part_subject_id: id(99) } : item,
+    ),
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: missing, processing: undefined, lotGroups: null })
+  const item = of(result.records, 'stock_item').find((record) => record.label === 'Lot 2')
+  assert.equal(item?.decision?.code, 'part_choice_required')
+  assert.deepEqual(item?.part_ids, [])
+})
+
 test('each type counts new, existing and to-decide records', () => {
   const result = projectRecords({ capture, processing: undefined, lotGroups: null })
   assert.deepEqual(

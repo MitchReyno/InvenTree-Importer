@@ -477,8 +477,9 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   for (const lot of activeLots) {
     // An AI lot's count is only an estimate until the operator accepts or replaces it on the lot,
     // so it never takes the batch default, as approval reads it.
-    const estimated = lot.origin === 'agent' && lot.quantity.mode === 'inherit'
-    const quantity = estimated ? (lot.estimated_quantity ?? null) : quantityOf(lot.quantity)
+    const inheritsEstimate = lot.origin === 'agent' && lot.quantity.mode === 'inherit'
+    const estimated = inheritsEstimate && lot.estimated_quantity !== undefined
+    const quantity = inheritsEstimate ? (lot.estimated_quantity ?? null) : quantityOf(lot.quantity)
     const hasPart = lot.part_subject_id !== null && partIds.has(lot.part_subject_id)
     // One decision per record: a lot needs its Part before its quantity matters.
     const decision = !hasPart
