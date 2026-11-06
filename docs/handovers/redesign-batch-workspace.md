@@ -328,7 +328,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
 - **8.2 problem fixes:** `frontend/src/operator/problem-actions.ts` maps each problem to its fix on the owning screen:
   - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
   - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. A location conflict or unconfirmed group also links to "Check evidence groups in Capture".
-  - **Warnings:** evidence warnings link to Capture, reading warnings to Processing › Examine, crop warnings to Processing › Images.
+  - **Warnings:** evidence warnings link to Capture (reading and crop routes were dropped in review round 1, because no server code raises them).
   - **Open question:** when the lot has an open Processing question, "Answer the open question" comes first and links to it. Answering inline and queuing to the asking session wait for Task 14's sessions.
   - **Unroutable problems:** no fix is offered (for example unsettled source history).
   - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
@@ -351,4 +351,22 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **Fix found:** the evidence pane showed shortened evidence and version IDs in its source picker and note headings, against "No internal identifiers inline". `mediaDisplayLabels` now labels a file by name and kind ("Packing slip · original", "· crop N") and keeps IDs only when two files share a name. A test written first covers it.
   - **Existing behaviour, not changed here:** Review reads its view from the URL when it mounts, so a hash change on an already-open Review page does not switch view.
   - **Checks:** frontend 539/539.
+
+### PR-D review round 1
+
+Fresh read-only Claude reviewer at `ac2b871`: 2 Important, 10 Minor, 1 Nitpick, all fixed, test-first except the wording changes.
+
+- **Unlink on a Part-derived link did nothing (Important):** the map now records whether each link is direct or through the lot's Part. Part-derived links show "via shared Part" with no Unlink.
+- **A failed "New lot from this" could link a later lot (Important):** `Batch.edit` reports failure as `false`. The stage now clears the pending link on `false`, and links only a new lot whose label matches. Tested with a failed save followed by an unrelated lot.
+- **Minor:**
+  - **`?edit=`:** auto-show keeps it in the URL.
+  - **Back to the list:** the choice is kept in `history.state`, so a remount after a save does not jump to a lot.
+  - **Draft location:** shown as "new" in the record chain.
+  - **Map loading:** shows "Reading evidence…" instead of "No evidence" on every lot.
+  - **Map restructuring:** split, merge and move are locked for lots already added. Merge and move ignore retired IDs, and Move is now offered.
+  - **Duplicate file names:** numbered ("image.jpg (2)") in Review and on Capture tiles, with identifiers in the viewer's Details. The attachment picker keeps exact identity labels.
+  - **Unemitted warning codes:** problem routes for them were dropped, and `possible_duplicate_part` routes to the Part comparison and Records.
+  - **Label-in-name:** "New lot from this: <file>".
+  - **Instruction-field test:** it now renders the normal map.
+- **Nitpick:** "Choose a lot to compare…" replaces the Inspect wording.
 

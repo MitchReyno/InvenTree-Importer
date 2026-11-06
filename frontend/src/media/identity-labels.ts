@@ -49,33 +49,29 @@ export function mediaIdentityLabels(evidence: readonly MediaEvidenceDto[]): Medi
 }
 
 /**
- * Labels for normal viewing: a file's name and the version's kind. Identifiers appear only when
- * two files share a name, where the name alone would be ambiguous.
+ * Labels for normal viewing: a file's name and the version's kind. Files sharing a name are
+ * numbered; identifiers stay in the viewer's Details.
  */
 export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): MediaIdentityLabels {
-  const identity = mediaIdentityLabels(evidence)
-  const names = new Map<string, number>()
+  const counts = new Map<string, number>()
   for (const item of evidence) {
-    names.set(item.label, (names.get(item.label) ?? 0) + 1)
+    counts.set(item.label, (counts.get(item.label) ?? 0) + 1)
   }
+  const seen = new Map<string, number>()
   const evidenceLabels = new Map<string, string>()
   const versionLabels = new Map<string, string>()
   for (const item of evidence) {
-    if ((names.get(item.label) ?? 0) > 1) {
-      evidenceLabels.set(item.id, identity.evidence.get(item.id)!)
-      for (const version of item.versions) {
-        versionLabels.set(version.id, identity.versions.get(version.id)!)
-      }
-      continue
-    }
-    evidenceLabels.set(item.id, item.label)
+    const ordinal = (seen.get(item.label) ?? 0) + 1
+    seen.set(item.label, ordinal)
+    const name = (counts.get(item.label) ?? 0) > 1 ? `${item.label} (${ordinal})` : item.label
+    evidenceLabels.set(item.id, name)
     let crops = 0
     for (const version of item.versions) {
       if (version.kind === 'original') {
-        versionLabels.set(version.id, `${item.label} · original`)
+        versionLabels.set(version.id, `${name} · original`)
       } else {
         crops += 1
-        versionLabels.set(version.id, `${item.label} · crop ${crops}`)
+        versionLabels.set(version.id, `${name} · crop ${crops}`)
       }
     }
   }

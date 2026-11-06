@@ -78,7 +78,7 @@ describe('ReviewMapStage', () => {
       onDirtyChange: vi.fn(),
     }
     const view = render(<ReviewMapStage batch={batch} {...props} />)
-    await user.click(await screen.findByRole('button', { name: 'New lot from Stray photo' }))
+    await user.click(await screen.findByRole('button', { name: 'New lot from this: Stray photo' }))
 
     expect(edit).toHaveBeenCalledWith({
       kind: 'add_lot',
@@ -108,5 +108,34 @@ describe('ReviewMapStage', () => {
         expect.any(String),
       ),
     )
+  })
+
+  it('forgets a new lot that was not saved, so a later lot is never linked by mistake', async () => {
+    const user = userEvent.setup()
+    const client = media()
+    const props = {
+      media: client,
+      edit: vi.fn(async () => false),
+      retiredLotIds: new Set<string>(),
+      reload: vi.fn(async () => undefined),
+      onDirtyChange: vi.fn(),
+    }
+    const view = render(<ReviewMapStage batch={batch} {...props} />)
+    await user.click(await screen.findByRole('button', { name: 'New lot from this: Stray photo' }))
+    view.rerender(
+      <ReviewMapStage
+        batch={
+          {
+            ...batch,
+            revision: '5',
+            lots: [...batch.lots, lot('x', 'Somebody else’s lot')],
+          } as unknown as CaptureSnapshotDto
+        }
+        {...props}
+      />,
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(client.edit).not.toHaveBeenCalled()
   })
 })

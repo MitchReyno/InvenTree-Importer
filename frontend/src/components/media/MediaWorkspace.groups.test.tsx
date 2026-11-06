@@ -374,13 +374,13 @@ test('duplicate filenames have distinct exact-identity selection, drag and note 
       onDirtyChange={vi.fn()}
     />,
   )
-  const first = await screen.findByRole('checkbox', { name: /Select photo.png.*60000000/ })
-  const second = screen.getByRole('checkbox', { name: /Select photo.png.*70000000/ })
+  const first = await screen.findByRole('checkbox', { name: 'Select photo.png (1)' })
+  const second = screen.getByRole('checkbox', { name: 'Select photo.png (2)' })
   expect(first).not.toBe(second)
-  expect(screen.getByRole('button', { name: /Drag photo.png.*60000000/ })).toBeVisible()
-  // Notes are edited in each file's viewer, named by the file's exact identity.
-  await userEvent.setup().click(screen.getByRole('button', { name: /Open photo.png.*70000000/ }))
-  expect(screen.getByRole('button', { name: /Edit note for photo.png.*70000000/ })).toBeVisible()
+  expect(screen.getByRole('button', { name: /Drag photo.png \(1\)/ })).toBeVisible()
+  // Files sharing a name are numbered, so each control names one file.
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Open photo.png (2)' }))
+  expect(screen.getByRole('button', { name: 'Edit note for photo.png (2)' })).toBeVisible()
 })
 
 test('the viewer cannot close over an unsaved note, so the draft is never lost', async () => {

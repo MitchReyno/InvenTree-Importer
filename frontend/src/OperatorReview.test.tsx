@@ -259,7 +259,7 @@ function renderReview(
   const reload = vi.fn(async () => undefined)
   const edit = vi.fn(overrides.edit ?? (async () => undefined))
   const onDirtyChange = vi.fn()
-  render(
+  const view = render(
     <ManualWorkspace
       batch={batch}
       client={manual}
@@ -272,7 +272,7 @@ function renderReview(
       onDirtyChange={onDirtyChange}
     />,
   )
-  return { manual, operator, reload, edit, onDirtyChange }
+  return { manual, operator, reload, edit, onDirtyChange, unmount: view.unmount }
 }
 
 beforeEach(() => {
@@ -1068,4 +1068,24 @@ test('switching between Workspace and Table keeps the same selection and filter'
   expect(screen.getByRole('checkbox', { name: 'Select Bag half' })).toBeChecked()
   expect(location.hash).toContain('filter=changed')
   expect(screen.queryByRole('checkbox', { name: 'Select Packet B' })).not.toBeInTheDocument()
+})
+
+test('opening on the first lot keeps an editor named in the URL', async () => {
+  history.replaceState(null, '', `#${batchId}/review/lots?edit=${a}`)
+  renderReview()
+
+  await waitFor(() => expect(location.hash).toBe(`#${batchId}/review/lots/${b}?edit=${a}`))
+})
+
+test('going back to the list is remembered when Review remounts after a save', async () => {
+  const user = userEvent.setup()
+  const first = renderReview()
+  // The back button shows only on narrow screens; the choice it makes is what is tested.
+  await user.click(await screen.findByText('← Physical lots and selection'))
+  expect(location.hash).toBe(`#${batchId}/review/lots`)
+  first.unmount()
+
+  renderReview()
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+  expect(location.hash).toBe(`#${batchId}/review/lots`)
 })

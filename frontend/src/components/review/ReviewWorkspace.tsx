@@ -142,6 +142,13 @@ function scopeReviewed(
   return statuses.length === selected.length && statuses.every((value) => value.reviewed)
 }
 
+/** Review remounts after each save; history state keeps a return to the list across them. */
+const LIST_CHOSEN = 'reviewListChosen'
+
+function listChosen() {
+  return (history.state as Record<string, unknown> | null)?.[LIST_CHOSEN] === true
+}
+
 /** The lot's first open Processing question, which its problems can offer to answer. */
 function openQuestionFor(processing: ProcessingSnapshotDto | undefined, lotId: string) {
   for (const job of processing?.jobs ?? []) {
@@ -209,7 +216,13 @@ export function ReviewWorkspace({
   // Review opens on the first queued lot, so its evidence shows without a separate step.
   const autoShown = useRef(false)
   useEffect(() => {
-    if (autoShown.current || route.view !== 'evidence' || focused || !visibleIds.length) {
+    if (
+      autoShown.current ||
+      listChosen() ||
+      route.view !== 'evidence' ||
+      focused ||
+      !visibleIds.length
+    ) {
       return
     }
     autoShown.current = true
@@ -237,7 +250,7 @@ export function ReviewWorkspace({
     const hash = sameLot
       ? retainEvidenceQuery(reviewHash(batch.id, value), location.hash)
       : reviewHash(batch.id, value)
-    history.replaceState(null, '', hash)
+    history.replaceState(null, '', withEditParam(hash, editing))
   }
 
   function openEditor(subjectId: string) {
@@ -261,7 +274,9 @@ export function ReviewWorkspace({
   }
 
   function inspect(id: string | null) {
+    const chosen = id === null
     navigate({ lotId: id, view: id ? 'evidence' : route.view })
+    history.replaceState(chosen ? { [LIST_CHOSEN]: true } : null, '', location.hash)
   }
 
   function move(offset: number) {
@@ -501,9 +516,7 @@ export function ReviewWorkspace({
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
             ) : (
-              <Paragraph>
-                Inspect a physical lot to compare its retained evidence and saved choices.
-              </Paragraph>
+              <Paragraph>Choose a lot to compare its evidence and saved choices.</Paragraph>
             )}
           </Panel>
           <Panel data-area="details" aria-label="Decision">

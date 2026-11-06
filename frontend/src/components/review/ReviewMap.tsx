@@ -16,7 +16,10 @@ type Props = {
   link: (evidenceId: string, lotId: string, linked: boolean) => Promise<void>
   newLotFrom: (evidenceId: string, label: string) => Promise<void>
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
-  openRestructure?: (kind: 'split' | 'merge', lotIds: string[]) => void
+  openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
+  /** Lots already added to inventory, which cannot be restructured. */
+  approvedLotIds: ReadonlySet<string>
+  loading: boolean
 }
 
 const MAX_MERGE_LOTS = 10
@@ -30,10 +33,15 @@ export function ReviewMap({
   link,
   newLotFrom,
   openRestructure,
+  approvedLotIds,
+  loading,
 }: Props) {
   const [targets, setTargets] = useState<Record<string, string>>({})
   const [merging, setMerging] = useState<string[]>([])
 
+  if (loading) {
+    return <Muted role="status">Reading evidence…</Muted>
+  }
   if (!evidence) {
     return (
       <Banner tone="bad">
@@ -46,6 +54,8 @@ export function ReviewMap({
   const map = reviewMap(batch, evidence, retiredLotIds)
   const fileLabel = new Map(map.files.map((file) => [file.id, file.label]))
   const lotLabel = new Map(map.lots.map((lot) => [lot.id, lot.label]))
+  // A merge or split retires lots; only active, unadded lots stay chosen.
+  const chosen = merging.filter((id) => lotLabel.has(id) && !approvedLotIds.has(id))
 
   return (
     <Layout>
@@ -61,17 +71,21 @@ export function ReviewMap({
               {file.lotIds.length > 0 && (
                 <Links>
                   Supports:
-                  {file.lotIds.map((lotId) => (
+                  {file.links.map(({ lotId, via }) => (
                     <Chip key={lotId}>
                       {lotLabel.get(lotId)}
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
-                        onClick={() => void link(file.id, lotId, false)}
-                      >
-                        ×
-                      </button>
+                      {via === 'part' ? (
+                        <Muted> via shared Part</Muted>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
+                          onClick={() => void link(file.id, lotId, false)}
+                        >
+                          ×
+                        </button>
+                      )}
                     </Chip>
                   ))}
                 </Links>
@@ -104,7 +118,7 @@ export function ReviewMap({
                     size="sm"
                     variant="ghost"
                     disabled={disabled}
-                    aria-label={`New lot from ${file.label}`}
+                    aria-label={`New lot from this: ${file.label}`}
                     onClick={() => void newLotFrom(file.id, file.label)}
                   >
                     New lot from this
@@ -125,9 +139,9 @@ export function ReviewMap({
                 {openRestructure && (
                   <input
                     type="checkbox"
-                    aria-label={`Choose ${lot.label} to merge`}
-                    checked={merging.includes(lot.id)}
-                    disabled={disabled}
+                    aria-label={`Choose ${lot.label} to merge or move`}
+                    checked={chosen.includes(lot.id)}
+                    disabled={disabled || approvedLotIds.has(lot.id)}
                     onChange={() =>
                       setMerging(
                         merging.includes(lot.id)
@@ -149,7 +163,7 @@ export function ReviewMap({
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={disabled}
+                    disabled={disabled || approvedLotIds.has(lot.id)}
                     aria-label={`Split ${lot.label}`}
                     onClick={() => openRestructure('split', [lot.id])}
                   >
@@ -161,12 +175,21 @@ export function ReviewMap({
           ))}
         </Rows>
         {openRestructure && (
-          <Button
-            disabled={disabled || merging.length < 2 || merging.length > MAX_MERGE_LOTS}
-            onClick={() => openRestructure('merge', merging)}
-          >
-            Merge {merging.length} lots
-          </Button>
+          <Controls>
+            <Button
+              disabled={disabled || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
+              onClick={() => openRestructure('merge', chosen)}
+            >
+              Merge {chosen.length} lots
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={disabled || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
+              onClick={() => openRestructure('move', chosen)}
+            >
+              Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal
+            </Button>
+          </Controls>
         )}
       </Column>
     </Layout>

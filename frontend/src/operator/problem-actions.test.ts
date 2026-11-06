@@ -54,15 +54,13 @@ describe('problemActions', () => {
     })
   })
 
-  it('routes evidence, reading and crop warnings to the screens that own them', () => {
+  it('routes the warnings the server raises to the screens that own them', () => {
     expect(problemActions(issue('no_supporting_evidence', 'warning'), context)).toEqual([
       { kind: 'link', label: 'Add evidence in Capture', href: `#${b}/capture` },
     ])
-    expect(problemActions(issue('reading_disagrees', 'warning'), context)).toEqual([
-      { kind: 'link', label: 'Check the reading in Examine', href: `#${b}/processing/examine` },
-    ])
-    expect(problemActions(issue('crop_unclear', 'warning'), context)).toEqual([
-      { kind: 'link', label: 'Check the crop in Images', href: `#${b}/processing/images` },
+    expect(problemActions(issue('possible_duplicate_part', 'warning'), context)).toEqual([
+      { kind: 'edit_part', label: 'Compare with the existing Part' },
+      { kind: 'link', label: 'Decide in Records', href: `#${b}/review/records` },
     ])
   })
 

@@ -78,7 +78,7 @@ function reviewBlockReason(lot: OperatorLotDto | undefined) {
 }
 
 /** The InvenTree records this lot becomes, each opening Review › Records. */
-function recordLinks(
+export function recordLinks(
   batch: CaptureSnapshotDto,
   lot: Lot,
   part: Part | undefined,
@@ -93,6 +93,8 @@ function recordLinks(
   const located = !(
     ['unset', 'unknown', 'cleared', 'unconfirmed', 'conflict'] as Provenance[]
   ).includes(location.provenance)
+  // A batch location draft is only created at approval, so it is new, not existing.
+  const draft = location.value.endsWith('created only after approval')
 
   return [
     { kind: 'Part', label: partLabel, state: partState, href: records },
@@ -105,7 +107,7 @@ function recordLinks(
     {
       kind: 'Location',
       label: located ? location.value : 'Not set',
-      state: located ? 'exists' : 'choose',
+      state: draft ? 'new' : located ? 'exists' : 'choose',
       href: records,
     },
   ]

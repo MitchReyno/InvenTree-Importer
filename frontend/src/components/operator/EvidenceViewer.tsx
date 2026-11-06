@@ -8,7 +8,7 @@ import {
   type EvidenceSelection,
 } from '../../operator/evidence-location'
 import { mediaResource } from '../../media/types'
-import { mediaDisplayLabels } from '../../media/identity-labels'
+import { mediaDisplayLabels, mediaIdentityLabels } from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
 import { Button, Label, Select, Small } from '../ui/primitives'
 import { batchHref } from '../../navigation/batch-route'
@@ -68,6 +68,7 @@ export function EvidenceViewer({
   const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const labels = mediaDisplayLabels(evidence)
+  const identities = mediaIdentityLabels(evidence)
   const source = evidence.find((item) => item.id === selected?.evidenceId)
   const version = source?.versions.find((item) => item.id === selected?.versionId)
   const page = version?.pages.find(
@@ -297,6 +298,14 @@ export function EvidenceViewer({
             note={item.note}
           />
         ))}
+      <details>
+        <summary>Details</summary>
+        {evidence.flatMap((item) =>
+          item.versions.map((value) => (
+            <Small key={value.id}>{identities.versions.get(value.id)}</Small>
+          )),
+        )}
+      </details>
     </Viewer>
   )
 }

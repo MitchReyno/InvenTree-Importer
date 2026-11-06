@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
@@ -39,6 +39,8 @@ function map(overrides: Partial<Parameters<typeof ReviewMap>[0]> = {}) {
     link: vi.fn(async () => undefined),
     newLotFrom: vi.fn(async () => undefined),
     openRestructure: vi.fn(),
+    approvedLotIds: new Set<string>(),
+    loading: false,
     ...overrides,
   }
   render(<ReviewMap {...props} />)
@@ -82,10 +84,10 @@ describe('ReviewMap', () => {
     const user = userEvent.setup()
     const props = map()
 
-    await user.click(screen.getByRole('button', { name: 'New lot from Stray photo' }))
+    await user.click(screen.getByRole('button', { name: 'New lot from this: Stray photo' }))
     expect(props.newLotFrom).toHaveBeenCalledWith('f4', 'Stray photo')
     expect(
-      screen.queryByRole('button', { name: 'New lot from Front label' }),
+      screen.queryByRole('button', { name: 'New lot from this: Front label' }),
     ).not.toBeInTheDocument()
   })
 
@@ -96,16 +98,45 @@ describe('ReviewMap', () => {
     await user.click(screen.getByRole('button', { name: 'Split Bag' }))
     expect(props.openRestructure).toHaveBeenCalledWith('split', ['c'])
 
-    await user.click(screen.getByRole('checkbox', { name: 'Choose Packet A to merge' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Choose Packet B to merge' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Choose Packet A to merge or move' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Choose Packet B to merge or move' }))
     await user.click(screen.getByRole('button', { name: 'Merge 2 lots' }))
     expect(props.openRestructure).toHaveBeenCalledWith('merge', ['a', 'b'])
   })
 
-  it('has no instruction field before agent sessions exist, and says when evidence is unavailable', () => {
-    map({ evidence: undefined })
+  it('has no instruction field before agent sessions exist', () => {
+    map()
 
+    expect(screen.getByRole('region', { name: 'Lots' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('says when evidence is unavailable or still being read', () => {
+    map({ evidence: undefined })
     expect(screen.getByText(/Evidence is unavailable/)).toBeInTheDocument()
+    cleanup()
+
+    map({ loading: true })
+    expect(screen.getByText('Reading evidence…')).toBeInTheDocument()
+    expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
+  })
+
+  it('shows a link through a Part as such, without an unlink that would not apply', () => {
+    map()
+    const slip = screen.getByRole('listitem', { name: /Packing slip/ })
+
+    expect(within(slip).getAllByText(/via shared Part/)).toHaveLength(2)
+    expect(within(slip).queryByRole('button', { name: /^Unlink Packet A/ })).not.toBeInTheDocument()
+  })
+
+  it('locks restructuring for added lots and moves lots through the existing command', async () => {
+    const user = userEvent.setup()
+    const props = map({ approvedLotIds: new Set(['c']) })
+
+    expect(screen.getByRole('button', { name: 'Split Bag' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Choose Bag to merge or move' })).toBeDisabled()
+    await user.click(screen.getByRole('checkbox', { name: 'Choose Packet A to merge or move' }))
+    await user.click(screen.getByRole('button', { name: 'Move 1 lot to a Part proposal' }))
+    expect(props.openRestructure).toHaveBeenCalledWith('move', ['a'])
   })
 })

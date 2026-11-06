@@ -14,11 +14,12 @@ type Props = {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   operator?: OperatorReviewClient
   retiredLotIds: ReadonlySet<string>
+  approvedLotIds?: ReadonlySet<string>
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
 }
 
-type PendingLot = { evidenceId: string; knownLotIds: string[] }
+type PendingLot = { evidenceId: string; label: string; knownLotIds: string[] }
 
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
@@ -27,6 +28,7 @@ export function ReviewMapStage({
   edit,
   operator,
   retiredLotIds,
+  approvedLotIds = NO_LOTS,
   reload,
   onDirtyChange,
 }: Props) {
@@ -41,7 +43,7 @@ export function ReviewMapStage({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [restructure, setRestructure] = useState<{
-    kind: 'split' | 'merge'
+    kind: 'split' | 'merge' | 'move'
     lotIds: string[]
   } | null>(null)
   // A new lot gets its id from the server, so its file is linked once the lot appears.
@@ -75,14 +77,18 @@ export function ReviewMapStage({
   async function newLotFrom(evidenceId: string, label: string) {
     setBusy(true)
     setError('')
-    pending.current = { evidenceId, knownLotIds: batch.lots.map((lot) => lot.id) }
+    pending.current = { evidenceId, label, knownLotIds: batch.lots.map((lot) => lot.id) }
     try {
-      await edit({
+      // The batch edit reports failure as false rather than throwing.
+      const saved = await edit({
         kind: 'add_lot',
         label,
         note: `Made from evidence “${label}”.`,
         part_subject_id: null,
       })
+      if (saved === false) {
+        pending.current = null
+      }
     } catch {
       pending.current = null
       setError('The lot could not be made. Refresh and try again.')
@@ -96,7 +102,9 @@ export function ReviewMapStage({
     if (!waiting) {
       return
     }
-    const created = batch.lots.find((lot) => !waiting.knownLotIds.includes(lot.id))
+    const created = batch.lots.find(
+      (lot) => !waiting.knownLotIds.includes(lot.id) && lot.label === waiting.label,
+    )
     if (created) {
       pending.current = null
       void link(waiting.evidenceId, created.id, true)
@@ -113,7 +121,9 @@ export function ReviewMapStage({
       ) : (
         <ReviewMap
           batch={batch}
-          evidence={query.isError && !query.data ? undefined : (query.data?.evidence ?? [])}
+          evidence={query.data?.evidence}
+          loading={query.isPending}
+          approvedLotIds={approvedLotIds}
           retiredLotIds={retiredLotIds}
           disabled={disabled}
           link={link}
@@ -141,3 +151,5 @@ export function ReviewMapStage({
     </>
   )
 }
+
+const NO_LOTS: ReadonlySet<string> = new Set()

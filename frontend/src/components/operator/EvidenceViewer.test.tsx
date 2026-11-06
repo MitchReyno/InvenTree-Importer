@@ -318,3 +318,26 @@ test('a uniquely named file is labelled by name and kind, with no identifier inl
   expect(source).toHaveTextContent('Packing slip · original')
   expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
 })
+
+test('two files with one name are told apart by number, with identifiers only in Details', () => {
+  const second: MediaEvidenceDto = {
+    ...evidence,
+    id: '10000000-0000-4000-8000-0000000000ee',
+    versions: [
+      {
+        ...original,
+        id: '20000000-0000-4000-8000-0000000000ee',
+        evidence_id: '10000000-0000-4000-8000-0000000000ee',
+      },
+    ],
+  }
+  render(<EvidenceViewer batchId="batch" evidence={[evidence, second]} />)
+  const source = screen.getByLabelText('Evidence source and version')
+
+  expect(source).toHaveTextContent('Packing slip (1) · original')
+  expect(source).toHaveTextContent('Packing slip (2) · original')
+  expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
+  expect(screen.getByText('Details').closest('details')?.textContent).toMatch(
+    /evidence [0-9a-f]{8}/,
+  )
+})

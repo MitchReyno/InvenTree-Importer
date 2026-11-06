@@ -42,6 +42,11 @@ describe('reviewMap', () => {
       ['f4', []],
       ['f5', []],
     ])
+    expect(map.files[1].links).toEqual([
+      { lotId: 'a', via: 'part' },
+      { lotId: 'b', via: 'part' },
+    ])
+    expect(map.files[0].links).toEqual([{ lotId: 'a', via: 'direct' }])
     expect(map.lots.map((item) => [item.id, item.fileIds])).toEqual([
       ['a', ['f1', 'f2']],
       ['b', ['f2']],

@@ -432,6 +432,13 @@ export function Batch({
         edit={edit}
         operator={operator}
         retiredLotIds={retired}
+        approvedLotIds={
+          new Set(
+            (currentOperatorReview?.lots ?? [])
+              .filter((lot) => lot.approved)
+              .map((lot) => lot.lot_id),
+          )
+        }
         reload={reloadSavedValues}
         onDirtyChange={reportDirty}
       />

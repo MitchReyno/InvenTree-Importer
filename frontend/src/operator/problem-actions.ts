@@ -60,23 +60,20 @@ export function problemActions(issue: OperatorIssueDto, context: Context): Probl
         href: batchHref(batchId, { tab: 'capture' }),
       })
     }
-  } else if (issue.code.includes('evidence')) {
+  } else if (issue.code === 'no_supporting_evidence') {
     actions.push({
       kind: 'link',
       label: 'Add evidence in Capture',
       href: batchHref(batchId, { tab: 'capture' }),
     })
-  } else if (/crop|image/.test(issue.code)) {
+  } else if (issue.code === 'possible_duplicate_part') {
+    if (context.partId) {
+      actions.push({ kind: 'edit_part', label: 'Compare with the existing Part' })
+    }
     actions.push({
       kind: 'link',
-      label: 'Check the crop in Images',
-      href: batchHref(batchId, { tab: 'processing', step: 'images' }),
-    })
-  } else if (/reading|identif|marking/.test(issue.code)) {
-    actions.push({
-      kind: 'link',
-      label: 'Check the reading in Examine',
-      href: batchHref(batchId, { tab: 'processing', step: 'examine' }),
+      label: 'Decide in Records',
+      href: batchHref(batchId, { tab: 'review', view: 'records' }),
     })
   }
 
