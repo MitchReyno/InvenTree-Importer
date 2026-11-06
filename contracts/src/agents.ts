@@ -59,6 +59,8 @@ export const AgentSessionList = object({
     { maxItems: 50 },
   ),
   next_before: Type.Union([Id, Type.Null()]),
+  /** False when the configured profile runs no agent sessions, so an empty list means nothing. */
+  sessions_supported: Type.Boolean(),
 })
 export const NativeAgentResult = object({
   proposal: Type.Union([ProcessingProposalV2, Type.Null()]),

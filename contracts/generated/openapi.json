@@ -58025,7 +58025,8 @@
         "type": "object",
         "required": [
           "sessions",
-          "next_before"
+          "next_before",
+          "sessions_supported"
         ],
         "properties": {
           "sessions": {
@@ -58379,6 +58380,9 @@
                 "type": "null"
               }
             ]
+          },
+          "sessions_supported": {
+            "type": "boolean"
           }
         }
       },
