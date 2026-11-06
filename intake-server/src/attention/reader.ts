@@ -1,5 +1,5 @@
 import type { Pool } from 'pg'
-import type { BatchAttentionDto } from '@invimport/contracts'
+import type { BatchAttentionDto, BatchRecordsDto } from '@invimport/contracts'
 import { operatorRepository } from '../operator-review/repository.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import type { LockCapture } from '../processing/capture.ts'
@@ -9,7 +9,7 @@ import type { ManualConfig } from '../review/authority.ts'
 import { projectAttention } from './projection.ts'
 
 /**
- * Reads the same processing, review and manual projections the batch screens use. Each is its
+ * Reads the same processing, review, manual and records projections the batch screens use. Each is its
  * own snapshot; the client refetches when the batch revision moves, so a mixed read is brief.
  */
 export function attentionReader(
@@ -17,16 +17,18 @@ export function attentionReader(
   manualConfig: ManualConfig,
   processingConfig: ProcessingConfig,
   lockCapture: LockCapture,
+  readRecords: (batchId: string) => Promise<BatchRecordsDto>,
 ) {
   const processing = processingRepository(pool, processingConfig, lockCapture)
   const review = operatorRepository(pool, manualConfig)
   const manual = manualRepository(pool, manualConfig)
 
   return async (batchId: string): Promise<BatchAttentionDto> => {
-    const [processingSnapshot, operatorReview, workspace] = await Promise.all([
+    const [processingSnapshot, operatorReview, workspace, records] = await Promise.all([
       processing.read(batchId),
       review.read(batchId),
       manual.workspace(batchId),
+      readRecords(batchId),
     ])
 
     return projectAttention({
@@ -34,6 +36,7 @@ export function attentionReader(
       processing: processingSnapshot,
       review: operatorReview,
       manual: workspace,
+      records,
     })
   }
 }

@@ -300,6 +300,20 @@ test('a new default location whose parent is no longer observed needs a decision
   )
 })
 
+test('a stock item with no exact quantity needs a decision', () => {
+  const unsetQuantity = {
+    ...capture,
+    lots: capture.lots.map((item) =>
+      item.id === id(102) ? { ...item, quantity: { mode: 'inherit' } } : item,
+    ),
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: unsetQuantity, processing: undefined, lotGroups: null })
+  const item = of(result.records, 'stock_item').find((record) => record.label === 'Lot 2')
+  assert.equal(item?.state, 'choose')
+  assert.equal(item?.decision?.code, 'quantity_required')
+  assert.equal(of(result.records, 'stock_item')[0].state, 'new')
+})
+
 test('each type counts new, existing and to-decide records', () => {
   const result = projectRecords({ capture, processing: undefined, lotGroups: null })
   assert.deepEqual(

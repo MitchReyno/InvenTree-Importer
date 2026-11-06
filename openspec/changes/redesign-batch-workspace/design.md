@@ -183,7 +183,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 - **Decision.** Add `GET /api/v1/batches/:id/attention`, returning counts and items grouped by owner:
   - processing questions, and failed or interrupted attempts in their step;
   - review lots changed since review, blocking, or needing an answer;
-  - record decisions: open blocking issues that need an operator choice, not status such as an earlier approval;
+  - record decisions: the records read's records waiting for a choice (a Part, a lot's quantity, a location), one per record and routed to it, not status such as an earlier approval;
   - changes failures or uncertain results.
   
   Each item carries a route. The tab badges and the panel both use it.

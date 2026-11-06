@@ -13950,6 +13950,10 @@
                       {
                         "const": "location_draft_parent_invalid",
                         "type": "string"
+                      },
+                      {
+                        "const": "quantity_required",
+                        "type": "string"
                       }
                     ]
                   },
@@ -14417,6 +14421,10 @@
                             },
                             {
                               "const": "location_draft_parent_invalid",
+                              "type": "string"
+                            },
+                            {
+                              "const": "quantity_required",
                               "type": "string"
                             }
                           ]

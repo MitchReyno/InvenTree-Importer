@@ -204,7 +204,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - **PR delivery:** PR-E.
 - **Outcome:** record-level edits and the records projection on the existing capture authority.
-- **Scope:** `contracts/src/capture.ts` (`record` change, `RecordRef`), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
+- **Scope:** `contracts/src/records.ts` (`record` change, `RecordRef`, added to the `contracts/src/capture.ts` edit union), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
 - **Acceptance:** Record-level edits with stated scope; Supported record edits; Unsupported record changes are honest (the requirement: unsupported values never enter a spec and are kept with a reason; its New category proposed scenario needs BI-006's proposals and is evidenced end to end in task 14).
 - **Approach:** design D6–D7, as one transaction per edit at `expected_revision`.
 - **TDD approach:** Baseline: confirm the intake and PostgreSQL suites pass. For each operation, first write a failing integration test (RED) covering CAS 412, fan-out, `set_category` refusal and `changed_after_review` read-back. GREEN: implement it, then refactor.

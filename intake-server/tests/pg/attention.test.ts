@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type {
   BatchAttentionDto,
+  BatchRecordsDto,
   CaptureSnapshotDto,
   ManualWorkspaceDto,
   OperatorReviewDto,
@@ -43,6 +44,7 @@ test('the attention read agrees with the review and manual reads it is built fro
     const attention = await read<BatchAttentionDto>(fixture, `/batches/${batchId}/attention`)
     const review = await read<OperatorReviewDto>(fixture, `/batches/${batchId}/operator-review`)
     const manual = await read<ManualWorkspaceDto>(fixture, `/batches/${batchId}/manual`)
+    const records = await read<BatchRecordsDto>(fixture, `/batches/${batchId}/records`)
 
     assert.equal(attention.batch_id, batchId)
     assert.equal(attention.revision, review.revision)
@@ -51,6 +53,15 @@ test('the attention read agrees with the review and manual reads it is built fro
       review.lots.filter((lot) => lot.review_state !== 'reviewed').length,
     )
     assert.equal(attention.review.changed_after_review, 1)
+    // Decisions are the records waiting for a choice, the same count Review › Records shows.
+    assert.equal(
+      attention.review.to_decide,
+      records.counts.reduce((sum, count) => sum + count.decide, 0),
+    )
+    assert.deepEqual(
+      attention.items.filter((item) => item.group === 'decision').map((item) => item.key),
+      records.records.filter((record) => record.decision).map((record) => `decision:${record.key}`),
+    )
     assert.equal(
       attention.changes.ready,
       manual.lots.filter((lot) => lot.reviewed && lot.issues.length === 0).length,

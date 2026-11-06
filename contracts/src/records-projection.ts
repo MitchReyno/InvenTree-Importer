@@ -466,16 +466,20 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   }
 
   for (const lot of activeLots) {
+    const quantity = quantityOf(lot.quantity)
     records.push({
       key: `stock_item:${lot.id}`,
       type: 'stock_item',
       label: lot.label,
-      state: 'new',
+      state: quantity === null ? 'choose' : 'new',
       target: null,
-      fields: [field('quantity', quantityOf(lot.quantity), OPERATOR)],
+      fields: [field('quantity', quantity, OPERATOR)],
       part_ids: lot.part_subject_id ? [lot.part_subject_id] : [],
       lot_ids: [lot.id],
-      decision: null,
+      decision:
+        quantity === null
+          ? { code: 'quantity_required', detail: 'Set an exact quantity for this lot.' }
+          : null,
     })
   }
 

@@ -209,23 +209,20 @@ export async function manualFixture(
     if (store) {
       registerMediaRoutes(app, api.pool, config, store)
     }
-    registerRecords(
-      app,
+    const readRecords = recordsReader(
+      api.pool,
       config,
-      recordsReader(
-        api.pool,
-        config,
-        options.processing ? (config as never) : undefined,
-        lockCaptureForEdit,
-        Boolean(store),
-      ),
+      options.processing ? (config as never) : undefined,
+      lockCaptureForEdit,
+      Boolean(store),
     )
+    registerRecords(app, config, readRecords)
     if (options.processing) {
       registerProcessing(app, api.pool, config as never, lockCaptureForEdit)
       registerAttention(
         app,
         config,
-        attentionReader(api.pool, config, config as never, lockCaptureForEdit),
+        attentionReader(api.pool, config, config as never, lockCaptureForEdit, readRecords),
       )
     }
     config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
