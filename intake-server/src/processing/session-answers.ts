@@ -15,6 +15,7 @@ import {
   processingMessages,
   processingQuestions,
 } from './schema.ts'
+import { captureSubjects } from '../capture/schema.ts'
 import { lockProcessingAttempt } from './state.ts'
 
 interface LockedCapture {
@@ -69,11 +70,26 @@ export async function answerSessionQuestion(
     question.attemptId === attempt.id &&
     job.current_attempt_id === attempt.id &&
     question.manifestDigest.toString('hex') === input.input_sha256
-  if (!current || job.subject_id === null) {
+  if (!current) {
     fail('stale_question', 412)
   }
-  const ask = retainedSessionQuestion(question, job.subject_id)
-  if (ask.kind !== input.value.kind) {
+  // A lead-session question names its own subject, or none for the whole batch.
+  const batchSubjects =
+    job.subject_id === null
+      ? new Set(
+          (
+            await executeDatabaseQuery(
+              queryDatabase(client)
+                .select({ id: captureSubjects.id })
+                .from(captureSubjects)
+                .where(eq(captureSubjects.batchId, batchId)),
+            )
+          ).map((row) => row.id),
+        )
+      : undefined
+  const ask = retainedSessionQuestion(question, job.subject_id, batchSubjects)
+  const subjectId = job.subject_id ?? ask.subject_id
+  if (ask.kind !== input.value.kind || (input.value.kind === 'quantity' && subjectId === null)) {
     fail('invalid_answer', 422)
   }
   const snapshot = await capture.apply(
@@ -82,13 +98,13 @@ export async function answerSessionQuestion(
           expected_revision: input.expected_capture_revision,
           change: {
             kind: 'lot',
-            id: job.subject_id,
+            id: subjectId!,
             quantity: { mode: 'set', value: input.value.value },
           },
         }
       : {
           expected_revision: input.expected_capture_revision,
-          change: { kind: 'note', subject_id: job.subject_id, text: input.value.text },
+          change: { kind: 'note', subject_id: subjectId, text: input.value.text },
         },
   )
   const answerId = randomUUID()

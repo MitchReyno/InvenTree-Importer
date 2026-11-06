@@ -75,15 +75,19 @@ export function retainedJobsSource(
   const questions = snapshot.jobs.flatMap((job) =>
     job.questions
       .filter((question) => question.state === 'open')
-      .map((question) => ({
-        id: question.id,
-        jobId: job.id,
-        step: workStep(job),
-        subject: subjects.get(question.spec.subject_id) ?? subject(job),
-        prompt: question.spec.prompt,
-        assumption: question.assumption ?? null,
-        lotId: activeLotIds.has(question.spec.subject_id) ? question.spec.subject_id : null,
-      })),
+      .map((question) => {
+        // The Examine lead session can ask about the whole batch.
+        const about = question.spec.subject_id
+        return {
+          id: question.id,
+          jobId: job.id,
+          step: workStep(job),
+          subject: about === null ? 'Whole batch' : (subjects.get(about) ?? subject(job)),
+          prompt: question.spec.prompt,
+          assumption: question.assumption ?? null,
+          lotId: about !== null && activeLotIds.has(about) ? about : null,
+        }
+      }),
   )
 
   return {

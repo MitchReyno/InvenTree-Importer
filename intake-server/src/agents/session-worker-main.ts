@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '../db/database.ts'
@@ -14,6 +15,7 @@ import {
   sessionHandlerVersion,
 } from '../processing/session-policy.ts'
 import { nativeAgentHost, privateDirectory } from './environment.ts'
+import { triggerExamine } from '../processing/examine-trigger.ts'
 import { acquireAgentSupervisor } from './worker.ts'
 import { startSessionToolServer } from './tools/server.ts'
 import {
@@ -51,11 +53,16 @@ async function main() {
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
+  // Without the `agent_writer` connection the lot-forming tools refuse and nothing else changes.
+  const writer = process.env.INTAKE_AGENT_WRITER_DATABASE_URL
+    ? database(localDatabaseUrl(process.env.INTAKE_AGENT_WRITER_DATABASE_URL))
+    : undefined
   let owner: Awaited<ReturnType<typeof acquireAgentSupervisor>> | undefined
   let scheduler: DBOSClient | undefined
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
   let launched = false
   const shutdown = new AbortController()
+  const examineSkipped = new Map<string, string>()
   let ownerLost = false
   try {
     if (!(await compatibleSchema(db.pool))) {
@@ -74,7 +81,13 @@ async function main() {
           await readMediaStoreIdentity(db.pool),
         )
       : undefined
-    tools = await startSessionToolServer({ pool: db.pool, config, store })
+    tools = await startSessionToolServer({
+      pool: db.pool,
+      writerPool: writer?.pool,
+      cropCacheDir: join(host.stateRoot, 'region-crops'),
+      config,
+      store,
+    })
     const deps: SessionRunnerDeps = {
       pool: db.pool,
       config,
@@ -131,6 +144,10 @@ async function main() {
       'Bench Intake session supervisor ready. No session starts until a queued command is claimed.\n',
     )
     while (!shutdown.signal.aborted) {
+      if (writer) {
+        // Lead jobs and evidence notices first, so this pass dispatches and wakes them.
+        await triggerExamine(writer.pool, config, { skipped: examineSkipped })
+      }
       await dispatchProcessingCommands(db.pool, scheduler, config)
       await wakePendingSessions(db.pool, config, scheduler)
       await delay(500, undefined, { signal: shutdown.signal }).catch(() => undefined)
@@ -146,6 +163,7 @@ async function main() {
     }
     await tools?.close()
     owner?.release(true)
+    await writer?.close()
     await db.close()
   }
 }

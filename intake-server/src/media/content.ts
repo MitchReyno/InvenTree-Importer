@@ -5,6 +5,8 @@ import { captureInTransaction, fail, type CaptureBinding } from '../capture/repo
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import { mediaPreviews, mediaVersions } from './schema.ts'
 import type { BlobStore } from './blob-store.ts'
+import type { EvidenceRegionDto } from '@invimport/contracts'
+import { regionCropCache } from './region-crops.ts'
 
 /** Object authorization precedes every private-byte read; hashes are never capabilities. */
 export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobStore) {
@@ -43,6 +45,36 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
 
     preview(batchId: string, previewId: string) {
       return lookup(batchId, previewId, 'preview')
+    },
+
+    /** An observation's pixel region, cut from its page preview through the private cache. */
+    async observationCrop(batchId: string, observationId: string, cacheDir: string) {
+      const found = await transaction(pool, async (client) => {
+        await prepareMediaTransaction(client)
+        await captureInTransaction(client, binding, batchId)
+        const rows = await client.query<{
+          version_id: string
+          page: number
+          region: EvidenceRegionDto
+          preview_id: string | null
+        }>(
+          `SELECT o.evidence_version_id AS version_id,o.page,o.region,
+             (SELECT p.id FROM public.media_preview p
+              WHERE p.batch_id=o.batch_id AND p.version_id=o.evidence_version_id AND p.page=o.page) AS preview_id
+           FROM public.capture_evidence_observation o WHERE o.batch_id=$1 AND o.id=$2`,
+          [batchId, observationId],
+        )
+        return rows.rows[0]
+      })
+      if (!found || found.region.kind !== 'pixels' || !found.preview_id) {
+        fail('not_found', 404)
+      }
+      const previewId = found.preview_id
+      return regionCropCache(cacheDir).crop(
+        { versionId: found.version_id, page: found.page },
+        found.region,
+        () => lookup(batchId, previewId, 'preview'),
+      )
     },
   }
 }

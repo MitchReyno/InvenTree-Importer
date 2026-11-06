@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import { and, eq, getTableColumns, inArray } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { canonical } from '@invimport/contracts/json'
+import { canonicalRecord } from '@invimport/contracts/json'
 import {
   validate,
   type CaptureSnapshotDto,
@@ -91,12 +91,26 @@ interface InputCurrency {
   blockedCode?: ProcessingBlockerDto
 }
 
+/** The Examine lead job's media is the whole batch, pinned by its own manifest. */
+const BATCH_SCOPED = { available: true as const, batchScoped: true as const }
+type JobMedia = ProcessingMediaAvailability | typeof BATCH_SCOPED
+
+const lotSubjects = (jobs: readonly SelectedJob[]) =>
+  jobs.flatMap((job) => (job.subjectId === null ? [] : [job.subjectId]))
+
+function jobMedia(
+  scopes: ReadonlyMap<string, ProcessingMediaAvailability>,
+  job: SelectedJob,
+): JobMedia {
+  return job.subjectId === null ? BATCH_SCOPED : processingMediaFor(scopes, job.subjectId)
+}
+
 async function inputCurrency(
   client: PoolClient,
   config: ProcessingConfig,
   job: SelectedJob,
   capture: CaptureSnapshotDto,
-  media: ProcessingMediaAvailability,
+  media: JobMedia,
 ): Promise<InputCurrency> {
   const input = decodeJobInput(job.inputBytes, job.inputDigest)
   if (input.schema_version === 'bench-intake-input/6') {
@@ -109,6 +123,9 @@ async function inputCurrency(
       job.attemptState === 'queued' &&
       input.profile_id !== String(config.profileId ?? mediaProfileId)
     return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
+  }
+  if ('batchScoped' in media) {
+    fail('unsupported_processing_stage')
   }
   const authority = await loadProcessingAuthority(client, config, job.attemptId)
   const manifest = authority.manifest
@@ -136,6 +153,7 @@ async function proposalsForJob(
   client: PoolClient,
   config: ProcessingConfig,
   job: SelectedJob,
+  batchLots: ReadonlySet<string>,
 ): Promise<ProcessingJobDto['proposals']> {
   const manifest = decodeJobInput(job.inputBytes, job.inputDigest)
   const proposals = await executeDatabaseQuery(
@@ -166,14 +184,18 @@ async function proposalsForJob(
       if (manifest.schema_version !== 'bench-intake-input/6') {
         fail('retained_proposal_binding_invalid')
       }
-      const value = retainedSessionProposal(proposal, job.subjectId, manifest)
+      const value = retainedSessionProposal(proposal, job.subjectId, manifest, batchLots)
       projected.push({ id: proposal.id, message_id: proposal.messageId, value })
       continue
     }
     if (manifest.schema_version === 'bench-intake-input/6') {
       fail('retained_proposal_binding_invalid')
     }
-    const value = retainedProposalValue(proposal, job.subjectId, manifest)
+    const value = retainedProposalValue(
+      proposal,
+      job.subjectId ?? fail('retained_proposal_binding_invalid'),
+      manifest,
+    )
     await verifyRetainedResearchSources(
       client,
       config,
@@ -194,6 +216,7 @@ async function questionsForJob(
   client: PoolClient,
   job: SelectedJob,
   currentState: ProcessingStateDto,
+  batchSubjects: ReadonlySet<string>,
 ): Promise<ProcessingJobDto['questions']> {
   const questions = await executeDatabaseQuery(
     queryDatabase(client)
@@ -227,7 +250,7 @@ async function questionsForJob(
       input_sha256: question.manifestDigest.toString('hex'),
       revision: question.revision.toString(),
       state: staleOpenQuestion ? 'superseded' : question.state,
-      ...questionSpec(question, job.subjectId),
+      ...questionSpec(question, job.subjectId, batchSubjects),
     }
   })
 }
@@ -239,12 +262,9 @@ export async function processingSnapshot(
   capture: CaptureSnapshotDto,
 ): Promise<ProcessingSnapshotDto> {
   const retainedJobs = await selectedJobs(client, capture.id)
-  const media = await readProcessingMediaScopes(
-    client,
-    config,
-    capture,
-    retainedJobs.map((job) => job.subjectId),
-  )
+  const media = await readProcessingMediaScopes(client, config, capture, lotSubjects(retainedJobs))
+  const batchLots = new Set(capture.lots.map((lot) => lot.id))
+  const batchSubjects = new Set([...batchLots, ...capture.parts.map((part) => part.id)])
   const sessionStates = new Map(
     retainedJobs.length
       ? (
@@ -265,16 +285,10 @@ export async function processingSnapshot(
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
     const sessionState = sessionStates.get(job.attemptId)
-    const currency = await inputCurrency(
-      client,
-      config,
-      job,
-      capture,
-      processingMediaFor(media, job.subjectId),
-    )
+    const currency = await inputCurrency(client, config, job, capture, jobMedia(media, job))
     const state = currentJobState(job, currency)
-    const proposals = await proposalsForJob(client, config, job)
-    const questions = await questionsForJob(client, job, state)
+    const proposals = await proposalsForJob(client, config, job, batchLots)
+    const questions = await questionsForJob(client, job, state, batchSubjects)
     jobs.push({
       id: job.id,
       subject_id: job.subjectId,
@@ -305,7 +319,7 @@ export async function processingSnapshot(
     cursor: capture.cursor,
   }
   validate('ProcessingSnapshot', snapshot)
-  if (Buffer.byteLength(canonical(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {
+  if (Buffer.byteLength(canonicalRecord(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_capacity')
   }
   return snapshot
@@ -376,15 +390,18 @@ export async function processingActivity(
     const held = await heldLaneJob(client, config, heldAttemptId)
     if (held) {
       const capture = await captureInTransaction(client, config, held.batchId)
-      const media = await readProcessingMediaScopes(client, config, capture.snapshot, [
-        held.subjectId,
-      ])
+      const media = await readProcessingMediaScopes(
+        client,
+        config,
+        capture.snapshot,
+        lotSubjects([held]),
+      )
       const currency = await inputCurrency(
         client,
         config,
         held,
         capture.snapshot,
-        processingMediaFor(media, held.subjectId),
+        jobMedia(media, held),
       )
       jobs.push(activityJob(held, currency, true))
     }
@@ -416,7 +433,7 @@ export async function processingActivity(
       client,
       config,
       capture.snapshot,
-      retainedJobs.map((job) => job.subjectId),
+      lotSubjects(retainedJobs),
     )
     for (const job of retainedJobs) {
       if (job.attemptId === heldAttemptId) {
@@ -427,7 +444,7 @@ export async function processingActivity(
         config,
         job,
         capture.snapshot,
-        processingMediaFor(media, job.subjectId),
+        jobMedia(media, job),
       )
       if (activeStates.has(currentJobState(job, currency))) {
         jobs.push(activityJob(job, currency, false))
@@ -469,7 +486,8 @@ export async function inboxProcessing(
   }
   const snapshot = await processingSnapshot(client, config, capture)
   const jobs = snapshot.jobs.filter(
-    (job) => job.subject_id !== null && activeSubjects.has(job.subject_id),
+    // The batch-level Examine lead job counts alongside the jobs of active subjects.
+    (job) => job.subject_id === null || activeSubjects.has(job.subject_id),
   )
   return {
     open_questions: jobs
@@ -492,16 +510,21 @@ function jobManifestQualification(
 /** Session questions also carry the fields they affect and the assumption in use. */
 function questionSpec(
   question: Parameters<typeof retainedQuestionSpec>[0],
-  subjectId: string,
+  subjectId: string | null,
+  batchSubjects: ReadonlySet<string>,
 ): Pick<ProcessingJobDto['questions'][number], 'spec' | 'fields' | 'assumption'> {
   if (!isSessionMessage(question)) {
-    return { spec: retainedQuestionSpec(question, subjectId) }
+    return {
+      spec: retainedQuestionSpec(question, subjectId ?? fail('retained_question_binding_invalid')),
+    }
   }
-  const ask = retainedSessionQuestion(question, subjectId)
+  const ask = retainedSessionQuestion(question, subjectId, batchSubjects)
   return {
     spec: {
       kind: ask.kind,
-      subject_id: ask.subject_id ?? fail('retained_question_binding_invalid'),
+      // Only the lead session may ask about the whole batch.
+      subject_id:
+        ask.subject_id ?? (subjectId === null ? null : fail('retained_question_binding_invalid')),
       prompt: ask.prompt,
       reason: ask.reason,
     },

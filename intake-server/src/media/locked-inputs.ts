@@ -6,6 +6,7 @@ import { Id } from '@invimport/contracts'
 import { canonicalMedia } from './encoding.ts'
 import { blobLockCoordinates, lockBlob } from './blob-store.ts'
 import {
+  resolveBatchMediaInputs,
   resolveMediaInputScopes,
   decodeMediaInputs,
   type MediaInputVersion,
@@ -233,6 +234,22 @@ export async function lockMediaInputScopes(
     handles.push(await capturedHandle(client, retainedBinding, identity, inputs))
   }
   return Object.freeze(handles)
+}
+
+/** The Examine lead job's batch scope: every ready evidence version, pinned like a subject scope. */
+export async function lockBatchMediaInputs(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+): Promise<LockedMediaInputs> {
+  const retainedBinding = Object.freeze({ ...binding })
+  const identity = await transactionIdentity(client)
+  const resolved = await resolveBatchMediaInputs(client, retainedBinding, batchId)
+  const captured = decodeMediaInputs(Buffer.from(resolved.bytes), Buffer.from(resolved.digest))
+  for (const digest of [...new Set(captured.versions.map((version) => version.digest))].sort()) {
+    await lockBlob(client, digest)
+  }
+  return capturedHandle(client, retainedBinding, identity, captured)
 }
 
 /** Compatible single-scope entry point; only the captured live transaction can pin. */

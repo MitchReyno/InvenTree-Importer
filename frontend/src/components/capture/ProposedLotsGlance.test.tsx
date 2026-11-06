@@ -36,3 +36,65 @@ describe('ProposedLotsGlance', () => {
     expect(screen.getByText(/No lots yet/)).toBeInTheDocument()
   })
 })
+
+describe('ProposedLotsGlance with lead-session lots', () => {
+  it('badges AI-proposed and edited lots and shows their observation crops', () => {
+    render(
+      <ProposedLotsGlance
+        batchId="b"
+        lots={[
+          {
+            id: 'l3',
+            label: 'LED 0603 red',
+            state: 'to_review',
+            href: '#b/review/lots/l3',
+            origin: 'agent',
+            edited: false,
+            crops: ['/crop/o1', '/crop/o2'],
+            suggestions: 1,
+          },
+          {
+            id: 'l4',
+            label: '16 MHz crystal',
+            state: 'to_review',
+            href: '#b/review/lots/l4',
+            origin: 'agent',
+            edited: true,
+            crops: [],
+            suggestions: 0,
+          },
+        ]}
+        leadStatus="Grouping the reel photos"
+      />,
+    )
+    const led = screen.getByRole('listitem', { name: 'LED 0603 red' })
+    expect(within(led).getByText('AI-proposed')).toBeInTheDocument()
+    expect(within(led).getAllByRole('img')).toHaveLength(2)
+    expect(within(led).getByText('1 suggestion')).toBeInTheDocument()
+    const crystal = screen.getByRole('listitem', { name: '16 MHz crystal' })
+    expect(within(crystal).getByText('Edited')).toBeInTheDocument()
+    expect(within(crystal).queryByText('AI-proposed')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Grouping the reel photos')
+  })
+})
+
+it('shows no stray count for an AI lot without crops or suggestions', () => {
+  render(
+    <ProposedLotsGlance
+      batchId="b"
+      lots={[
+        {
+          id: 'l5',
+          label: 'Document line lot',
+          state: 'to_review',
+          href: '#b/review/lots/l5',
+          origin: 'agent',
+          edited: false,
+          crops: [],
+          suggestions: 0,
+        },
+      ]}
+    />,
+  )
+  expect(screen.getByRole('listitem', { name: 'Document line lot' })).not.toHaveTextContent(/^.*0$/)
+})

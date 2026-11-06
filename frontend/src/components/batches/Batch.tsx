@@ -212,19 +212,18 @@ export function Batch({
   }, [batch, id, legacySubject])
 
   // Capture follows newer saved values only while it holds no local edits.
+  // Lots the Examine lead session forms appear live on Capture and Review. A screen holding an
+  // unsaved draft keeps its revision; Review then offers the explicit reload instead.
+  const reviewing = batchRoute?.tab === 'review'
   useEffect(() => {
     const latest = captureQuery.data
-    if (
-      stage === 'capture' &&
-      !processingSelected &&
-      batch &&
-      latest &&
-      !captureDirty.current &&
-      BigInt(latest.revision) > BigInt(batch.revision)
-    ) {
+    const clean =
+      (stage === 'capture' && !processingSelected && !captureDirty.current) ||
+      (reviewing && !draftDirty)
+    if (clean && batch && latest && BigInt(latest.revision) > BigInt(batch.revision)) {
       setBatch(latest)
     }
-  }, [batch, captureQuery.data, processingSelected, stage])
+  }, [batch, captureQuery.data, processingSelected, stage, reviewing, draftDirty])
 
   async function edit(change: CaptureEditDto['change']): Promise<boolean> {
     if (!batch) {
@@ -487,6 +486,7 @@ export function Batch({
         onStage={navigate}
         onDirtyChange={reportCaptureDirty}
         settings={settingsPorts}
+        processing={processing}
       />
     )
   } else {

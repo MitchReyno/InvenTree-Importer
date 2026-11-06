@@ -433,3 +433,201 @@ Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..114589a` and found no critic
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).
 - Prettier and the configured remark lint pass on the spike.
 - `openspec validate simplify-intake-entry --strict` passes after the plan updates.
+
+## PR-B task 7: observations and agent-attributed draft lots
+
+Branch `feat/simplify-intake-entry-lot-forming`, worktree `.claude/worktrees/simplify-intake-entry-lot-forming`.
+
+- **Baseline (7.1):** the capture, media and operator PostgreSQL files passed 53 of 53 before any change.
+- **Schema (7.3):** migration `0019_evidence_observations.sql` as described in `intake-server/ARCHITECTURE.md` (Evidence observations and agent-formed lots).
+  - `capture_lot.changed_revision` was added beyond design D12's column list. Lot staleness needs the batch revision of a lot's last change, and the subject `revision` is a per-subject counter.
+  - The agent guards identify agent principals by direct membership of the cluster-wide `intake_agent_writer_marker` role. `pg_has_role` is true for superusers, which wrongly refused the migration owner and test setup in the first run.
+- **Role and pool:** `grantAgentWriter` (processing grants) with `grantCaptureAgentWrites` (capture grants); the PG fixture creates a real `writer` role.
+  - `UPDATE(progress)` on `agent_session` exists only because `appendSessionOutbox` locks the session row `FOR UPDATE`.
+  - The session worker reads an optional `INTAKE_AGENT_WRITER_DATABASE_URL`; without it the lot-forming tools refuse with `tool_not_allowed`. Dev setup does not yet create this role, because changing owned dev state is out of scope until the lead session runs in the launcher (task 8).
+- **Tools:** `record_observation`, `propose_lot`, `regroup` are registered on the session tool server. They are refused (`tool_not_allowed`) for any session that is not the batch's Examine lead, and each write is appended to the lead session's outbox.
+- **Robustness fix found while testing:** an unexpected handler exception left the MCP call hanging until the client's 60-second timeout. The server now returns a typed `tool_failed` result (new `SessionToolError` code). No dedicated regression test yet.
+- **Canonical bytes:** observation regions carry integers, which `canonical` rejects. `canonicalRecord` (contracts `json.ts`) is used for capture revisions, idempotent request and response bytes and the snapshot size checks. For documents without numbers it produces the same bytes.
+- **Deferred to task 8:** wiring `fetch_evidence` to region crops and lead-session paging; widening the processing stage type for the null-subject lead job (the tool handler compares the stage as a string for now).
+
+Tests (7.2): `tests/pg/evidence-observations.test.ts` (8 tests, run as the real `agent_writer`, `api` and runner roles) and `tests/region-crops.test.ts`.
+
+## PR-B task 8: Examine lead session, trigger and new evidence
+
+- **Lead job:** `processing_job` rows and their TypeScript types now allow the null-subject `examine` job.
+  - Paths for earlier profiles call `requireLotJob` and refuse it.
+  - Read models treat its media as batch-scoped and bind its proposals and questions to the batch's subjects.
+  - Lead questions may have no subject (`ProcessingQuestion.spec.subject_id` is nullable in the projection), and a clarification answer without one becomes a batch note.
+- **Media:** `scopeMediaInputs(snapshot, BATCH_MEDIA_SCOPE)` and `lockBatchMediaInputs` pin every ready original, skipping evidence still preparing. `sessionLeadInputManifest` seals all notes plus evidence and group notes, and `createSessionAttempt` builds the lead attempt.
+- **Trigger (design adjustment, D8 updated):** `processing/examine-trigger.ts` is a sweep in the session worker loop on the `agent_writer` pool, not a DBOS debounce workflow.
+  - The quiet period is measured from the newest decode result.
+  - A concurrent sweep's unique violation is skipped.
+  - A new-evidence notice is one per new ready original that the lead's attempts did not pin, keyed by the version ID; the existing wake sweep resumes the session.
+  - It needs the Processing queueing grants, so those moved forward from task 10 to `agent_writer` (D10 updated).
+- **Found while testing:**
+  - System inbox notices were inserted through Drizzle, which lists `actor_id` and `created_at` and so needs privileges the system roles deliberately lack. Notices with no actor now use a plain insert of the permitted columns.
+  - `readAgentSettings(..., lock=true)` needs `UPDATE` on `agent_settings`, so the trigger reads the saved selection without the lock.
+  - The losing side of a concurrent sweep notified the lead about its own pinned photos; pinned versions are now excluded.
+- **Lead tools and turns:**
+  - The lead session's `fetch_evidence` reaches pinned media and evidence notices. It returns 768 px previews or region crops (`media/region-crops.ts`), each page's preview size, the evidence label and the operator's note.
+  - The opening message carries the lead instructions, and the lead's turns allow the three lot-forming tools.
+  - `propose` and `ask` from the lead stay on the runner pool and accept any live lot or batch subject; moving `propose` to `agent_writer` comes with queueing in task 10.
+- **Synthetic lead:** `agents/synthetic-lead.ts` scripts lots from each photo's note and keeps its marking-to-lot map in its private working directory between turns.
+- **Tests:**
+  - `tests/pg/examine-trigger.test.ts`: single lead job under concurrent sweeps, quiet-period restart, notices only for new photos, archived and no-default refusals.
+  - `tests/pg/examine-lead.test.ts`: one photo holding three items and one item across two photos give four observations and three lots. The shared item is counted once ("label · same item in 2 photos", 500 not 1000). A later photo joins the right lot and leaves the others unchanged.
+
+## PR-B task 9: live lots on Capture and Review
+
+- **What changed:** see `frontend/ARCHITECTURE.md`, section "Lots the Examine lead session forms". Crops are served by `GET /api/v1/batches/:id/media/observations/:observationId/crop`. The web process caches them beside `INTAKE_BLOB_ROOT`, as `<root>-region-crops`.
+- **Known limit:** each adopted live revision remounts the Review workspace (its key includes the revision), so an inspected lot's local view state resets when the lead session writes. Drafts are protected because adoption waits while any draft is dirty.
+- **Tests:** `ProposedLotsGlance`, `proposed-lots`, `lead-status`, `LotObservations` and an `OperatorReview` integration test. The integration test covers a dirty draft holding off a live lot until discard, after which the lot appears with its chip and Review stays editable.
+
+## PR-B review round 1
+
+A fresh read-only reviewer subagent reviewed `4080ea9..30200dc` and found 5 important and 7 minor findings. It confirmed that the lock order, trigger single-flight, `canonicalRecord` byte identity, legacy operator lot bytes, tool and crop-route authorization, and the guard tests are sound. Fixes:
+
+1. **Operator commands left AI lots unmarked.**
+   - `touchSubject` (used by lot, bulk and `move_lots` commands) now marks the lot edited.
+   - `recordLineage` marks every split, merged or retired predecessor.
+   - Retired lots count as edited, so observations left on them are only suggested elsewhere.
+2. **Agent writes had no capacity limit.**
+   - Agent writes are capped at 1000 observations per batch (suggestions included) and 100 active observations per lot.
+   - A new lot and its new Part count together against the subject limit.
+   - `finish()` re-projects and validates the snapshot, including its byte limit, before publishing. Overflow surfaces to the agent as `capacity_reached`.
+3. **A trigger failure stopped the session supervisor.** A failing batch (for example over 64 originals) is now logged with a safe code and skipped until its evidence signature changes. Other batches carry on, and the worker keeps the skip map across sweeps.
+4. **A real lead session could not see the batch.**
+   - The new lead-only `read_batch` tool returns the revision, lots, Parts and observations (with edits and suggestions), and the instructions and opening message point to it.
+   - Lot-forming results now return `suggested` and a created `part_subject_id`.
+   - Stale conflicts now carry the observation's current lot and edit state, and `operator_edited` as a reason. The synthetic lead reads the batch at the start of each turn.
+5. **Estimates could pass as counts.** An AI lot whose quantity is still inherited raises `quantity_required` even when the batch default is set.
+6. **Database guards had gaps.** Agent principals may rename only subjects they created and the operator has not edited, must attribute capture revisions to their session under the batch actor, and may queue only `process` commands. Membership changes are also refused for edited observations.
+7. **The marker role check was too narrow.** It now uses `pg_has_role` (inherited membership) and excludes superusers.
+8. **Crop cache.** Staging names are unique, a trailing slash on `INTAKE_BLOB_ROOT` no longer moves the cache inside the store, and there is no shared temp fallback (no cache directory means no crop image).
+9. **Tool failures were silent.** Unexpected failures are logged with the tool name and a safe code, and a regression test covers `tool_failed`.
+10. **Undelivered evidence was accepted.** `record_observation` now accepts only evidence delivered to the lead session.
+11. **Frontend.** The glance no longer renders a stray `0`. Review offers accept and dismiss for suggested revisions of edited observations. Suggestion and revision buttons and crops have distinguishing labels. The lead status line also refreshes every 15 seconds.
+12. **Docs and fixtures.** Task 8.3 and the architecture guard description now match the code. The browser fixture's session worker gets `INTAKE_AGENT_WRITER_DATABASE_URL`. The dev launcher does not start a session worker at all yet, so there is nothing more to wire there.
+
+The full PostgreSQL tier at `30200dc` passed 207 of 207. The process tier passed 66 of 70; its one failure ("owned probe must become observable") was a Docker timing failure while other PG work ran in parallel, with its 3 dependent skips, and is rechecked in the final run.
+
+## PR-B review round 2
+
+A fresh reviewer subagent reviewed `4080ea9..28e7964` and found 3 important and 4 minor findings, plus a nitpick. It confirmed round 1 fixes 1, 3, 5 and 7–11. It found fix 2 incomplete (I1 below), fix 4's conflict state not applied (I3 below; that edit had silently matched nothing), and the guards from fix 6 untested.
+
+1. **I1: extending a lot could create Parts past the subject limit.** Extending a lot with `part: { label }` now checks the subject limit too, as creating a new lot already did.
+2. **I2: migration `0019` created a cluster role.**
+   - That failed under the dev migrator, which is `NOCREATEROLE`. It was the cause of this round's `dev-stack` and `dev-environment` process failures.
+   - Trusted provisioning (`grantCaptureAgentWrites`) now creates the marker instead of the migration.
+   - `is_agent_writer()` returns false while the marker is absent, and checks `USAGE` (inherited membership), so an admin-only membership from creating a role does not count. Superusers stay excluded.
+3. **I3: stale conflicts lacked the row's current state.** They now carry the observation's current `lot_id` and `operator_edited`, and the reason is `operator_edited` when an operator edit caused the conflict. The stale test asserts the whole conflict.
+4. **M1: the trigger skipped batches after transient errors.** Only failures that repeat until the evidence changes (`media_input_capacity`, `processing_input_capacity`) skip a batch; anything else is retried next sweep. Skipped batches are filtered in SQL before the 50-batch limit.
+5. **M2: guard coverage and doc accuracy.**
+   - New raw-SQL refusals as `agent_writer` cover renaming the operator's lot, a revision without a session or under another actor, a non-`process` command, and relinking an edited observation.
+   - The architecture doc now says operator Part renames are not tracked; the application never renames Parts as the agent.
+6. **M3: `finish()` reported every error as capacity.** Only an over-limit projection (`invalid_contract` from the snapshot check) becomes `capture_capacity`; other errors stay unexpected (`tool_failed`).
+7. **M4: some suggestions could not be resolved in Review.**
+   - Review now lists unassigned observations, with their suggested lots and revisions, while no lot is inspected (`operator/UnassignedObservations.tsx`).
+   - Split, merge and retirement delete suggested memberships aimed at the retired lot.
+8. **Not changed: duplicate batch locking.** It is harmless, and `registerMediaRoutes` keeps its per-process temp default for test callers only; the web process passes its own directory and the tool handler has no fallback.
+
+Results at `28e7964`, before these fixes:
+
+| Tier | Result |
+| --- | --- |
+| Full PostgreSQL | 212 of 212 passed |
+| Process | 64 of 70; fixed: `dev-stack`, `dev-environment` (I2); timing: runtime sandbox probe, plus its 3 dependent skips |
+
+After these fixes, the focused PostgreSQL files (observations, trigger, lead, session tools, operator review) passed 43 of 43, and `dev-stack` and `dev-environment` passed 3 of 3.
+
+## PR-B review round 3
+
+A fresh reviewer subagent reviewed `4080ea9..fdc805e`. It found one important finding and five minor ones, plus two nitpicks. It confirmed round 2 fixes I1–I3 and M2–M4.
+
+1. **I-1: an oversized lead manifest was retried every sweep.** `processing_input_capacity` is raised as a `ProcessingError`, so the trigger never matched it to its permanent codes. The trigger now reads codes from both `CaptureError` and `ProcessingError`, and logs `examine_trigger_retrying` for transient failures. A test overflows the lead manifest with long evidence notes and checks the batch is skipped.
+2. **m1: a lead quantity question could never be answered.** The lead session's `quantity` question must now name a live lot. A new end-to-end test covers a batch-level clarification question: it is projected with a null subject, and its answer becomes a batch note. A quantity question with no subject is refused.
+3. **m2: the Capture glance listed retired lots.** It now hides lots the snapshot marks `retired`.
+4. **m3: missing regression tests.** New tests cover the subject limit on the extend path, and suggestions dropped when a split retires their lot.
+5. **m4: subjects inserted by an agent could be unattributed.** Agent-inserted subjects must now carry their session (`capture_agent_subject_insert_guard`).
+6. **m5: observations on retired lots were hidden.** Observations left on a split, merged or retired lot are listed with the unassigned ones in Review.
+7. **Nitpicks.**
+   - Creating the marker role tolerates a concurrent provisioner.
+   - A crop whose region no longer matches its preview raises a typed `region_preview_mismatch` (409).
+
+## PR-B review round 4
+
+A fresh reviewer subagent reviewed `4080ea9..80dbf9b` and found one important and three minor findings, plus three nitpicks. It confirmed the round 3 fixes.
+
+1. **Important: a Review split left every observation on the retired lot, with no way to move them.** This is the "Operator split is kept" scenario.
+   - The split dialog now lists the lot's observations and assigns each one to a new lot, defaulting to the first, so `split_lot` always carries `observation_ids`.
+   - A Move to… control (`operator/ObservationMove.tsx`) on the lot's observations and on the unassigned list sends `observation_move`, so unassigned observations and those left on a retired lot can be placed.
+2. **Minor: trimming a note did not retry a skipped batch.** The trigger's skip signature now includes the capture and media batch revisions as well as decode results, so editing an oversized note retries a skipped batch.
+3. **Minor: missing frontend tests and a stale comment.** Tests now cover the glance hiding retired lots, an observation left on a retired lot listed as unassigned, the split request's `observation_ids`, and the move control. The Capture comment is corrected.
+4. **Minor: the subject insert guard was untested and undocumented.** A refusal test (agent insert without a session) now covers it, and the architecture guard sentence names it.
+5. **Nitpicks.**
+   - Fixed:
+     - `frontend/ARCHITECTURE.md` now covers the unassigned list and split assignment.
+     - A crop whose region no longer fits its preview reached the lead session as `validation_failed`. Round 5 removed this branch as unreachable.
+   - Accepted: the guards check that `agent_session_id` is present, not that it belongs to the batch. Application code always passes the writing session.
+
+## PR-B review round 5
+
+A fresh reviewer subagent reviewed `4080ea9..528b79d`. It found one important and two minor findings, plus two nitpicks, and confirmed the round 4 fixes.
+
+1. **Important: removing a new lot in the split dialog could send observations to the wrong lot.**
+   - Each observation's choice was the new lot's index, which shifted when a lot was removed.
+   - Each new lot now carries a stable `key`, and observations store that key. A choice pointing at a removed lot falls back to the first new lot.
+   - Options name each lot's current label.
+   - A rendered test (`RestructureDialog.test.tsx`) removes a lot, then submits, and checks each observation goes where the screen showed.
+2. **Minor: the crop-size refusal was untested and unreachable.**
+   - Authorization already refuses a region whose source size differs from the preview row.
+   - The branch could only fire if a stored PNG disagreed with its own row, and then only after the success outbox entry was written. It is removed.
+   - Such corruption now reaches the session as `tool_failed`, logged as `session_tool_failed`.
+3. **Minor: the Move to… select stayed enabled behind the draft fence, and names could repeat.**
+   - The select is now disabled with its button.
+   - `operator/observation-names.ts` numbers observations that read the same, for example "Reel (2)". The lot list, the unassigned list and the split dialog all use it, so accessible names are distinct.
+4. **Nitpicks: fixed.** The trigger's `signature` comment names the batch and media revisions. The move control and the split fieldset use the shared `Select`, `Fieldset` and `Label` primitives.
+
+Checks on the fix: frontend 502/502, typecheck, lint and build clean.
+
+## PR-B qualification (tasks 8.4, 8.5, 9.4, 9.5)
+
+Results at the reviewed head `04c69ae`, plus the job card label fix below.
+
+- **Database tier:** `pnpm db:intake test` passed 216/216.
+- **Process tier:** `pnpm db:intake test:process` passed 66/66, with the 4 sandbox tests skipped because the probe image was missing.
+  - Those 4 passed in a separate run of `tests/process/media-resources.test.ts` with the rebuilt probe image.
+  - Media decoding and the existing processing queue are unaffected.
+- **Earlier sandbox failures were environmental.** "Owned probe must become observable" happened because the locally built probe image had been pruned: `build-media-probe.cjs` leaves it untagged.
+  - Every probe failed at once with `decoder_interrupted`. The trunk baseline run failed the same way.
+  - The build also refuses to overwrite an existing `--output-file`, so rebuild to a new path.
+- **Frontend:** all tests pass. Typecheck, lint, build and the markdown checks (`pnpm lint:markdown`) are clean.
+- **Headless browser check (9.5).**
+  - **Setup:** a local driver, not committed, ran the `session-browser` fixture with a real blob store, two PNG photos and their notes, and the session worker under the `synthetic-session/1` profile.
+    - Shelf photo note: "LED 0603 red ×500; 16 MHz crystal".
+    - Reel close-up note: "LED 0603 red ×500".
+    - The processing fixture has no Review, header or attention routes, so the driver served them as `main.ts` does, adding the manual, research and projection grants for the `api` role.
+  - **Result:** Playwright (Chromium, headless) passed all seven checks:
+    1. Capture shows no AI-proposed lots before the quiet period.
+    2. On the live page, without a reload, the glance gains "led 0603 red" and "16 mhz crystal", marked AI-proposed, while the Examine status line shows.
+    3. The LED lot draws crops from both photos (2) and the crystal lot from one.
+    4. Review lists the LED lot's observations with "Estimated 500 · label · same item in 2 photos".
+    5. Moving one observation to No lot leaves the lot with one observation, marked Edited.
+    6. The moved observation is listed under Unassigned observations, shown when no lot is inspected.
+    7. Selecting "16 mhz crystal" in Processing's "Queue work for selected saved subjects" and queuing it starts its Research and Images sessions.
+- **Fix found by the check.** The lead job's card in Processing was titled "Retained subject · examine", because its subject is null. It now reads "Whole batch · examine", the label the redesigned Processing pages use, with a test (`ProcessingJobCard.test.tsx`).
+
+## PR-B merge of `interactive-app` (#101, #102, #103)
+
+- **The conflict:** #102 replaced `ProcessingNeedsYou.tsx` with the Processing overview. PR-B had added null-subject handling to that file, so the file is dropped in the merge.
+- **Typecheck failure:** the overview's `retainedJobsSource` (`frontend/src/processing/source.ts`) failed to typecheck against PR-B's nullable question `spec.subject_id`.
+- **The fix:** a whole-batch question from the Examine lead session is now named "Whole batch" and links no lot, with a test in `source.test.ts`.
+
+## PR-B merge of `interactive-app` (#104, #105, #106)
+
+- **Conflicts:** #104 (Review lots and map) conflicted in `ReviewWorkspace.tsx` and `OperatorReview.test.tsx`. Both sides' tests are kept.
+- **Unassigned observations moved:** #104 makes Review always open a lot, so the empty state that held the unassigned list was no longer reachable.
+  - The list now renders in the evidence panel, under the open lot (or the empty state).
+  - A test in `OperatorReview.test.tsx` covers it.
+  - `frontend/ARCHITECTURE.md` says so.
+

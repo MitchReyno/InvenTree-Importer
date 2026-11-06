@@ -162,6 +162,24 @@ describe('retainedJobsSource', () => {
     ])
   })
 
+  it('names a whole-batch question without linking a lot', () => {
+    const open = question(5, 'open')
+    const source = retainedJobsSource(
+      snapshot([
+        job(5, 'examine', 'waiting_for_user', {
+          subject_id: null,
+          questions: [{ ...open, spec: { ...open.spec, subject_id: null } }],
+        } as Partial<Job>),
+      ]),
+      subjects,
+      lots,
+    )
+
+    expect(source.questions).toEqual([
+      expect.objectContaining({ subject: 'Whole batch', lotId: null, prompt: 'Question 5?' }),
+    ])
+  })
+
   it('says which steps have no retained work', () => {
     const source = retainedJobsSource(snapshot([job(1, 'reading', 'ready')]), subjects, lots)
 

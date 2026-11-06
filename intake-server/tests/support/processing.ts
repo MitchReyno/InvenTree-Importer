@@ -14,7 +14,7 @@ import { registerCapture } from '../../src/capture/routes.ts'
 import { lockCaptureForEdit } from '../../src/capture/repository.ts'
 import { registerAgents } from '../../src/agents/routes.ts'
 import { registerProcessing } from '../../src/processing/routes.ts'
-import { grantProcessing } from '../../src/processing/grants.ts'
+import { grantAgentWriter, grantProcessing } from '../../src/processing/grants.ts'
 import { grantFoundation } from '../../src/operations/grants.ts'
 import { grantCapture } from '../../src/capture/grants.ts'
 import { database } from '../../src/db/database.ts'
@@ -103,7 +103,7 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
     notifyAllocation()
     const identity = await seedAuthority(db.pool)
 
-    async function createRole(purpose: 'api' | 'runner' | 'scheduler') {
+    async function createRole(purpose: 'api' | 'runner' | 'scheduler' | 'agent_writer') {
       const name = `intake_${randomUUID().replaceAll('-', '')}`
       const password = randomUUID()
       await db.pool.query(
@@ -117,6 +117,8 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
         await grantProcessing(db.pool, name, 'api')
       } else if (purpose === 'runner') {
         await grantProcessing(db.pool, name, 'runner')
+      } else if (purpose === 'agent_writer') {
+        await grantAgentWriter(db.pool, name)
       } else {
         await db.pool.query(`GRANT CREATE ON DATABASE ${db.name} TO ${name}`)
       }
@@ -132,6 +134,7 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
     const api = await createRole('api')
     const runner = await createRole('runner')
     const scheduler = await createRole('scheduler')
+    const writer = await createRole('agent_writer')
     const config = {
       origin: 'http://127.0.0.1:1',
       actorId: identity.actor,
@@ -266,6 +269,7 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
       identity,
       api,
       runner,
+      writer,
       scheduler,
       config,
       http,

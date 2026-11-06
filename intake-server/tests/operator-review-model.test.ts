@@ -225,3 +225,30 @@ test('lineage alone seals /3 bytes so a successor review never matches its prede
   assert.ok(!before.bytes.equals(after.bytes))
   assert.deepEqual(JSON.parse(after.bytes.toString('utf8')).predecessorLotIds, [lotA.id])
 })
+
+test('an AI lot needs its own quantity before approval, even when the batch default is set', () => {
+  const capture = snapshot()
+  const [lotA] = capture.lots
+  const withDefault = {
+    ...capture,
+    defaults: { ...capture.defaults, quantity: { mode: 'set' as const, value: '1' } },
+  }
+  const agentLot = {
+    ...lotA,
+    quantity: { mode: 'inherit' as const },
+    origin: 'agent' as const,
+    agent_session_id: randomUUID(),
+    estimated_quantity: '500',
+    quantity_basis: 'label · one photo',
+  }
+  const inherited = materialize({ ...withDefault, lots: [agentLot, ...capture.lots.slice(1)] }, [
+    lotA.id,
+  ])
+  assert.ok(inherited.issues.some((issue) => issue.code === 'quantity_required'))
+  // The same lot from the operator inherits the default as before.
+  const operatorLot = { ...lotA, quantity: { mode: 'inherit' as const } }
+  const human = materialize({ ...withDefault, lots: [operatorLot, ...capture.lots.slice(1)] }, [
+    lotA.id,
+  ])
+  assert.ok(!human.issues.some((issue) => issue.code === 'quantity_required'))
+})

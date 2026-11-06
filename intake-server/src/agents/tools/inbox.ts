@@ -136,17 +136,34 @@ export async function appendSessionInbox(
     kind: submission.kind,
     payload: submission.payload,
   })
-  await executeDatabaseQuery(
-    db.insert(agentSessionInbox).values({
-      id,
-      sessionLineageId: submission.lineageId,
-      seq,
-      kind: submission.kind,
-      payload: submission.payload,
-      idempotencyKey: submission.idempotencyKey,
-      actorId: submission.actorId,
-    }),
-  )
+  if (submission.actorId === null) {
+    // A system notice names only the columns system roles may write; Drizzle would list
+    // actor_id and created_at too, and granting those would let them forge operator chat.
+    await client.query(
+      `INSERT INTO public.agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key)
+       VALUES($1,$2,$3,$4,$5,$6)`,
+      [
+        id,
+        submission.lineageId,
+        seq.toString(),
+        submission.kind,
+        submission.payload,
+        submission.idempotencyKey,
+      ],
+    )
+  } else {
+    await executeDatabaseQuery(
+      db.insert(agentSessionInbox).values({
+        id,
+        sessionLineageId: submission.lineageId,
+        seq,
+        kind: submission.kind,
+        payload: submission.payload,
+        idempotencyKey: submission.idempotencyKey,
+        actorId: submission.actorId,
+      }),
+    )
+  }
   if (publish) {
     await appendEvent(client, job.streamId, 'session_inbox_changed', { batch_id: job.batchId })
   }

@@ -18,7 +18,8 @@ export async function grantMedia(
       GRANT SELECT ON media_store_identity,media_batch,media_blob,media_group,media_evidence,media_version,
       media_decode_command,media_derivation,media_decode_result,media_preview,
       media_group_history,media_evidence_note,media_group_selection,media_subject_link,media_attachment_selection,
-      media_command_binding,media_command_pin TO ${role}`)
+      media_command_binding,media_command_pin TO ${role};
+      GRANT SELECT ON capture_evidence_observation,capture_lot_evidence_observation TO ${role}`)
     return
   }
   if (purpose === 'gc') {
@@ -27,6 +28,12 @@ export async function grantMedia(
     return
   }
   await pool.query(`GRANT SELECT ON ${tables} TO ${role}`)
+  if (purpose !== 'decoder') {
+    // Evidence links include lots reached through evidence observations.
+    await pool.query(
+      `GRANT SELECT ON capture_evidence_observation,capture_lot_evidence_observation TO ${role}`,
+    )
+  }
   if (purpose === 'api') {
     await pool.query(`GRANT INSERT ON media_batch,media_blob,media_group,media_evidence,media_version,
       media_decode_command,media_derivation,media_group_history,media_evidence_note,media_group_selection,media_subject_link,

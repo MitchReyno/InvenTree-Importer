@@ -39,6 +39,8 @@ async function main() {
           HOME: root,
           USER: process.env.USER,
           INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
+          // The Examine lead session's lot-forming writes and trigger run as agent_writer.
+          INTAKE_AGENT_WRITER_DATABASE_URL: fixture.writer.url,
           INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
           INTAKE_AGENT_STATE_ROOT: stateRoot,
           INTAKE_ACTOR_ID: fixture.config.actorId,

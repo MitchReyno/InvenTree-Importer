@@ -6,6 +6,7 @@ import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { EvidencePanel } from './EvidencePanel'
 import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '../../processing/proposed-lots'
+import { useLeadStatus } from '../../processing/lead-status'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -25,7 +26,9 @@ export function CaptureWorkspace({
   operator,
   reload,
   settings,
+  processing,
 }: CaptureWorkspaceProps) {
+  const leadStatus = useLeadStatus(processing, batch.id, batch.revision)
   const dirtyFlags = useRef<Record<DirtySource, boolean>>({
     settings: false,
     media: false,
@@ -106,6 +109,7 @@ export function CaptureWorkspace({
           <ProposedLotsGlance
             batchId={batch.id}
             lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS)}
+            leadStatus={leadStatus}
           />
           {refresh === 'failed' && (
             <Notice role="alert">
@@ -136,7 +140,7 @@ export function CaptureWorkspace({
   )
 }
 
-// Capture receives only active lots; retired ones are already filtered out.
+// The glance hides lots the snapshot marks retired; Capture has no separate retired set.
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
 const CaptureGrid = styled.div`

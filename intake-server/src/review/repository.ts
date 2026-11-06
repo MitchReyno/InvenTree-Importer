@@ -6,7 +6,7 @@ import type { Pool, PoolClient } from 'pg'
 import { validate, type ManualPreviewDto, type ManualWorkspaceDto } from '@invimport/contracts'
 import { transaction } from '../db/database.ts'
 import { captureInTransaction, fail } from '../capture/repository.ts'
-import { canonical } from '@invimport/contracts/json'
+import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { stockSourceHistory } from '../execution/source.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import { deploymentBinding, currentReviews, type ManualConfig } from './authority.ts'
@@ -222,7 +222,7 @@ export function manualRepository(
           cursor: capture.snapshot.cursor,
         }
         validate('ManualWorkspace', result)
-        if (Buffer.byteLength(canonical(result)) > 245760) {
+        if (Buffer.byteLength(canonicalRecord(result)) > 245760) {
           fail('manual_workspace_capacity', 409)
         }
         return result
