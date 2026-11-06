@@ -14,8 +14,8 @@ type Props = {
 
 /** Points every Part using this company, in this role, at another observed company. */
 export function CompanyEditor({ batch, role, pk, save, disabled, report }: Props) {
-  const [choice, setChoice] = useDraft('', report)
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const [choice, setChoice, , reset] = useDraft('', report)
+  const { send, problem, busy, retry } = useRecordSave(batch, save, reset)
   const options = companiesFor(batch, role).filter((item) => item.pk !== pk)
   const chosen = options.find((item) => item.id === choice)
 
@@ -40,6 +40,7 @@ export function CompanyEditor({ batch, role, pk, save, disabled, report }: Props
         disabled={disabled || !chosen}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={() =>
           void (
             chosen &&

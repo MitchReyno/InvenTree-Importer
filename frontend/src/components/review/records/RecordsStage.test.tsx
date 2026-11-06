@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import type {
   BatchRecordDto,
@@ -6,6 +7,7 @@ import type {
   CaptureSnapshotDto,
   InventoryPartSpecDto,
 } from '@invimport/contracts'
+import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '../../../test/render'
 import { RecordsStage } from './RecordsStage'
@@ -59,6 +61,11 @@ const observations = [
     kind: 'category_parameter',
     category_id: '82',
     template_id: '202',
+  }),
+  observation(915, 'parameter_template', '209', 'Legacy note', {
+    kind: 'parameter_template',
+    model_type: 'part.part',
+    enabled: false,
   }),
   observation(909, 'company', '12', 'Yageo', {
     kind: 'company',
@@ -432,6 +439,8 @@ describe('RecordsStage', () => {
       },
     })
 
+    // An accepted save clears the choice; choose the category again to drop instead.
+    await user.selectOptions(within(detail).getByLabelText('Move to category'), 'Capacitors')
     await user.click(within(detail).getByRole('checkbox', { name: 'Drop Composition' }))
     await user.click(within(detail).getByRole('button', { name: 'Save category' }))
     expect(edit).toHaveBeenLastCalledWith({
@@ -519,6 +528,28 @@ describe('RecordsStage', () => {
     expect(screen.queryByRole('region', { name: 'Yageo' })).not.toBeInTheDocument()
   })
 
+  it('offers only templates a Part can use, and saves a description on one trimmed line', async () => {
+    const user = userEvent.setup()
+    const { edit } = stage()
+    await open(user, /^Parameter templates/, 'Composition')
+    expect(
+      within(screen.getByLabelText('Use another template')).queryByRole('option', {
+        name: 'Legacy note',
+      }),
+    ).not.toBeInTheDocument()
+
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const description = screen.getByLabelText('Description')
+    await user.clear(description)
+    await user.type(description, '  Axial,   1/4 W  ')
+    await user.click(screen.getByRole('button', { name: 'Save description' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'record',
+      target: { kind: 'part', part_subject_id: partA },
+      operation: { op: 'set_description', value: 'Axial, 1/4 W' },
+    })
+  })
+
   it('says when records cannot be read', async () => {
     render(
       <RecordsStage
@@ -530,6 +561,100 @@ describe('RecordsStage', () => {
       />,
     )
     expect(await screen.findByText(/Records are unavailable/)).toBeInTheDocument()
+  })
+})
+
+/** Saves move the revision as the server does; the first save can be refused as a 412. */
+function LiveStage({ conflictFirst = false }: { conflictFirst?: boolean }) {
+  const [current, setCurrent] = useState(batch)
+  const [refused, setRefused] = useState(conflictFirst)
+
+  async function edit(change: CaptureEditDto['change']) {
+    if (refused) {
+      return false
+    }
+    if (change.kind !== 'record') {
+      return false
+    }
+    const { specs } = applyRecordChange(current, change)
+    setCurrent({
+      ...current,
+      revision: String(Number(current.revision) + 1),
+      parts: current.parts.map((item) =>
+        specs.has(item.id)
+          ? { ...item, choice: { mode: 'create', spec: specs.get(item.id)! } }
+          : item,
+      ),
+    } as CaptureSnapshotDto)
+    return true
+  }
+
+  return (
+    <RecordsStage
+      batch={current}
+      client={{
+        read: vi.fn(async () => ({ ...records, revision: current.revision })),
+      }}
+      edit={edit}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={vi.fn()}
+      reload={async () => {
+        setRefused(false)
+        setCurrent((value) => ({ ...value, revision: String(Number(value.revision) + 1) }))
+      }}
+    />
+  )
+}
+
+describe('RecordsStage with saves that move the revision', () => {
+  it('keeps other unsaved sections of a Part when one section saves', async () => {
+    const user = userEvent.setup()
+    render(<LiveStage />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const name = screen.getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'Carbon resistor')
+    const description = screen.getByLabelText('Description')
+    await user.clear(description)
+    await user.type(description, 'Axial, 1/4 W')
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save name' })).toBeDisabled())
+    expect(screen.getByLabelText('Name')).toHaveValue('Carbon resistor')
+    expect(screen.getByLabelText('Description')).toHaveValue('Axial, 1/4 W')
+    expect(screen.getByRole('button', { name: 'Save description' })).toBeEnabled()
+  })
+
+  it('retries a draft after a conflict by loading current values without losing it', async () => {
+    const user = userEvent.setup()
+    render(<LiveStage conflictFirst />)
+    await open(user, /^Supplier parts/, 'S-47 · Carbon film resistor')
+    const sku = screen.getByLabelText('SKU')
+    await user.clear(sku)
+    await user.type(sku, 'S-48')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Load current values, keep this draft' }),
+    )
+    expect(screen.getByLabelText('SKU')).toHaveValue('S-48')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled())
+    expect(screen.getByLabelText('SKU')).toHaveValue('S-48')
+  })
+
+  it('ignores an unknown record type in the route', async () => {
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn()}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        initialType="bogus"
+      />,
+    )
+    expect(await screen.findByRole('navigation', { name: 'Record types' })).toBeInTheDocument()
   })
 })
 

@@ -326,7 +326,7 @@ export function applyRecordChange(
           template.pk !== target.pk &&
           spec.parameters.some((item) => item.template.pk === template.pk)
         ) {
-          throw new RecordEditError('parameter_category_incompatible', partId)
+          throw new RecordEditError('duplicate_parameter_mapping', partId)
         }
         const mapping = mappingFor(
           snapshot,
@@ -392,7 +392,8 @@ export function applyRecordChange(
         break
       }
       case 'set_parameter': {
-        if (target.kind !== 'parameter') {
+        // A parameter keeps its template; mapping a template is `map_template`.
+        if (target.kind !== 'parameter' || operation.template.pk !== target.template_pk) {
           throw invalid()
         }
         requireMapping(

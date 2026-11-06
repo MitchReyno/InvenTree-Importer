@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import type { BatchRecordDto, CaptureSnapshotDto, RecordTypeDto } from '@invimport/contracts'
+import {
+  RECORD_TYPES,
+  type BatchRecordDto,
+  type CaptureSnapshotDto,
+  type RecordTypeDto,
+} from '@invimport/contracts'
 import type { CaptureWorkspaceProps } from '../../../capture/types'
 import { batchHref } from '../../../navigation/batch-route'
 import { useDirtySources } from '../../../operator/useDirtySources'
@@ -13,7 +18,7 @@ import { Pill } from '../../ui/Pill'
 import { Small } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
 import { RecordDetail, STATE_TONE } from './RecordDetail'
-import type { Save } from './draft'
+import { ReloadContext, type Save } from './draft'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -21,6 +26,8 @@ type Props = {
   edit: Save
   observe: CaptureWorkspaceProps['observe']
   onDirtyChange: (dirty: boolean) => void
+  /** Loads the current batch; record drafts stay, so a refused save can be retried. */
+  reload?: () => Promise<void>
   /** From the route: the type and record to open first. */
   initialType?: string
   initialRecord?: string
@@ -33,16 +40,16 @@ export function RecordsStage({
   edit,
   observe,
   onDirtyChange,
+  reload,
   initialType,
   initialRecord,
 }: Props) {
+  const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
   const query = useBatchRecords(client, batch.id, batch.revision)
   const drafts = useDirtySources(onDirtyChange)
-  const [chosenType, setChosenType] = useState<RecordTypeDto | null>(
-    (initialType as RecordTypeDto) ?? null,
-  )
+  const [chosenType, setChosenType] = useState<RecordTypeDto | null>(routeType)
   const [chosenKey, setChosenKey] = useState<string | null>(
-    initialType && initialRecord ? `${initialType}:${initialRecord}` : null,
+    routeType && initialRecord ? `${routeType}:${initialRecord}` : null,
   )
   const [blocked, setBlocked] = useState(false)
   const [discards, setDiscards] = useState(0)
@@ -91,85 +98,99 @@ export function RecordsStage({
   }
 
   return (
-    <Layout>
-      <Rail aria-label="Record types">
-        {records.counts.map((count) => (
-          <TypeButton
-            key={count.type}
-            type="button"
-            aria-current={count.type === type ? 'true' : undefined}
-            onClick={() => choose(count.type, null)}
-          >
-            <strong>{TYPE_LABELS[count.type]}</strong>
-            <Small>
-              {count.new} new · {count.existing} existing
-            </Small>
-            {count.decide > 0 && <Pill tone="warn">{count.decide} to decide</Pill>}
-          </TypeButton>
-        ))}
-      </Rail>
-      <List aria-label={TYPE_LABELS[type]}>
-        {ofType.length === 0 && <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>}
-        {ofType.map((record) => (
-          <RecordButton
-            key={record.key}
-            type="button"
-            aria-label={record.label}
-            aria-description={`${STATE_LABELS[record.state]}. ${lotsText(record)}`}
-            aria-current={record.key === selected?.key ? 'true' : undefined}
-            onClick={() => choose(type, record.key)}
-          >
-            <span>{record.label}</span>
-            <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
-            <Small>{lotsText(record)}</Small>
-          </RecordButton>
-        ))}
-      </List>
-      <Detail>
-        {stale && (
-          <Banner tone="warn">
-            Records may be out of date, so editing waits for a fresh read.
-          </Banner>
-        )}
-        {blocked && (
-          <div role="alert">
+    <ReloadContext.Provider value={reload}>
+      <Layout>
+        <Rail aria-label="Record types">
+          {records.counts.map((count) => (
+            <TypeButton
+              key={count.type}
+              type="button"
+              aria-current={count.type === type ? 'true' : undefined}
+              onClick={() => choose(count.type, null)}
+            >
+              <strong>{TYPE_LABELS[count.type]}</strong>
+              <Small>
+                {count.new} new · {count.existing} existing
+              </Small>
+              {count.decide > 0 && <Pill tone="warn">{count.decide} to decide</Pill>}
+            </TypeButton>
+          ))}
+        </Rail>
+        <List aria-label={TYPE_LABELS[type]}>
+          {ofType.length === 0 && (
+            <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
+          )}
+          {ofType.map((record) => (
+            <RecordButton
+              key={record.key}
+              type="button"
+              aria-label={record.label}
+              aria-description={`${STATE_LABELS[record.state]}. ${lotsText(record)}`}
+              aria-current={record.key === selected?.key ? 'true' : undefined}
+              onClick={() => choose(type, record.key)}
+            >
+              <span>{record.label}</span>
+              <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
+              <Small>{lotsText(record)}</Small>
+            </RecordButton>
+          ))}
+        </List>
+        <Detail>
+          {stale && (
             <Banner
               tone="warn"
               action={
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setDiscards((value) => value + 1)
-                    setBlocked(false)
-                  }}
-                >
-                  Discard changes
-                </Button>
+                reload && (
+                  <Button size="sm" variant="ghost" onClick={() => void reload()}>
+                    Load current values
+                  </Button>
+                )
               }
             >
-              Save or discard this record’s changes before opening another.
+              Records may be out of date, so editing waits for current values. Unsaved record
+              changes stay.
             </Banner>
-          </div>
-        )}
-        {selected ? (
-          <RecordDetail
-            key={`${selected.key}:${batch.revision}:${discards}`}
-            batch={batch}
-            record={selected}
-            save={edit}
-            disabled={disabled}
-            reportFor={drafts.forSource}
-          />
-        ) : (
-          <Small>Choose a record to see its values and who set them.</Small>
-        )}
-        <details>
-          <summary>Read another existing record</summary>
-          <MappingReader observe={observe} />
-        </details>
-      </Detail>
-    </Layout>
+          )}
+          {blocked && (
+            <div role="alert">
+              <Banner
+                tone="warn"
+                action={
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setDiscards((value) => value + 1)
+                      setBlocked(false)
+                    }}
+                  >
+                    Discard changes
+                  </Button>
+                }
+              >
+                Save or discard this record’s changes before opening another.
+              </Banner>
+            </div>
+          )}
+          {selected ? (
+            <RecordDetail
+              key={`${selected.key}:${discards}`}
+              batch={batch}
+              record={selected}
+              save={edit}
+              disabled={disabled}
+              reportFor={drafts.forSource}
+            />
+          ) : (
+            <Small>Choose a record to see its values and who set them.</Small>
+          )}
+          <details>
+            <summary>Read another existing record</summary>
+            <MappingReader observe={observe} />
+          </details>
+        </Detail>
+      </Layout>
+    </ReloadContext.Provider>
   )
 }
 

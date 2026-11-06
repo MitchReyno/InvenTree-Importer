@@ -66,6 +66,7 @@ const REFUSALS: Record<string, (part: string) => string> = {
     `No category mapping fits “${part}”. Choose one for its category, or exclude that Part.`,
   parameter_mapping_required: (part) =>
     `Map or drop every parameter of “${part}” for the new category.`,
+  duplicate_parameter_mapping: (part) => `“${part}” already has a parameter with that template.`,
   record_part_has_no_spec: (part) => `“${part}” needs a decision before it can be edited.`,
   record_scope_empty: () => 'Every Part is excluded, so nothing would change.',
   record_not_found: () => 'This record is no longer in the batch.',
@@ -99,6 +100,16 @@ export function observed<M extends CaptureObservationDto['model']>(
 ): Observed<M>[] {
   return batch.observations.filter(
     (item): item is Observed<M> => item.model === model && item.mapping?.kind === model,
+  )
+}
+
+/** Templates a Part parameter can use: enabled, and for Parts or any model. */
+export function partTemplates(batch: CaptureSnapshotDto) {
+  return observed(batch, 'parameter_template').filter(
+    (item) =>
+      item.mapping?.kind === 'parameter_template' &&
+      item.mapping.enabled &&
+      (item.mapping.model_type === null || item.mapping.model_type === 'part.part'),
   )
 }
 

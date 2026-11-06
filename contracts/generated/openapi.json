@@ -5583,7 +5583,7 @@
                   "description": {
                     "minLength": 1,
                     "maxLength": 250,
-                    "pattern": "[^\\s]",
+                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                     "type": "string"
                   },
                   "category": {
@@ -8150,7 +8150,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -9572,7 +9572,7 @@
                               {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               {
@@ -11279,7 +11279,7 @@
                             "description": {
                               "minLength": 1,
                               "maxLength": 250,
-                              "pattern": "[^\\s]",
+                              "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                               "type": "string"
                             },
                             "category": {
@@ -12547,7 +12547,7 @@
                   {
                     "minLength": 1,
                     "maxLength": 250,
-                    "pattern": "[^\\s]",
+                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                     "type": "string"
                   },
                   {
@@ -13181,7 +13181,7 @@
                       {
                         "minLength": 1,
                         "maxLength": 250,
-                        "pattern": "[^\\s]",
+                        "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                         "type": "string"
                       },
                       {
@@ -16337,7 +16337,7 @@
           "description": {
             "minLength": 1,
             "maxLength": 250,
-            "pattern": "[^\\s]",
+            "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
             "type": "string"
           },
           "category": {
@@ -23653,7 +23653,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -24104,7 +24104,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -25802,7 +25802,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -26253,7 +26253,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -29892,7 +29892,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -30343,7 +30343,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -31969,7 +31969,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -32420,7 +32420,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -33616,7 +33616,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -34067,7 +34067,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -35274,7 +35274,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -35725,7 +35725,7 @@
                               "description": {
                                 "minLength": 1,
                                 "maxLength": 250,
-                                "pattern": "[^\\s]",
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -38538,7 +38538,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -38989,7 +38989,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -40185,7 +40185,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -40636,7 +40636,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -41842,7 +41842,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -42293,7 +42293,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -43500,7 +43500,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -43951,7 +43951,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -45169,7 +45169,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -45620,7 +45620,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -46872,7 +46872,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -47323,7 +47323,7 @@
                                   "description": {
                                     "minLength": 1,
                                     "maxLength": 250,
-                                    "pattern": "[^\\s]",
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {

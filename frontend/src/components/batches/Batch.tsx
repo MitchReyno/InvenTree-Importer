@@ -427,6 +427,7 @@ export function Batch({
         edit={edit}
         observe={observe}
         onDirtyChange={reportDirty}
+        reload={reloadSavedValues}
         initialType={batchRoute.recordType}
         initialRecord={batchRoute.recordId}
       />

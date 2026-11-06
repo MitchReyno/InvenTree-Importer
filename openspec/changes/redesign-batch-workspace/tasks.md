@@ -209,7 +209,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Approach:** design D6–D7, as one transaction per edit at `expected_revision`.
 - **TDD approach:** Baseline: confirm the intake and PostgreSQL suites pass. For each operation, first write a failing integration test (RED) covering CAS 412, fan-out, `set_category` refusal and `changed_after_review` read-back. GREEN: implement it, then refactor.
 - **Verification:** `pnpm contracts:check`; intake and PostgreSQL integration tests for each operation, CAS 412, multi-Part fan-out, `changed_after_review`, re-validation failures, and unsupported items never entering a spec.
-- **Risks:** fan-out scope. The response lists the affected Parts and lots, which the UI shows.
+- **Risks:** fan-out scope. The shared `recordScope` gives the affected Parts and lots, which the UI shows before saving.
 
 - [x] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
 - [x] 9.2 Write failing integration tests (RED) for each operation and failure path:
@@ -237,7 +237,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
 - [x] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
 - [x] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
-- [x] 10.5 Add "Who proposed what" with Ask routing.
+- [x] 10.5 Add "Who proposed what", with Ask hidden until agent sessions exist (Ask routing is 14.6).
 
 ## 11. Preparation tree and Changes
 

@@ -137,7 +137,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 - **Scope.** Records edits only change Parts whose `choice` is already `create` with an `InventoryPartSpec`.
   - A Part with no spec yet (`unset` or `unknown`) shows "Needs a decision".
   - Its actions use the existing `CaptureEdit { kind: 'part', choice }`: choose an existing Part, or start a new one with a name and an observed category.
-  - The response lists the affected Part and lot IDs, which become the UI's "applies to … used by N lots" text.
+  - The browser and server share `applyRecordChange` and `recordScope` (`contracts/src/records.ts`). The UI derives the affected Parts and lots, its "applies to … used by N lots" text, and any refusal naming a Part, before sending; the server applies the same function and re-validates. The edit response stays the capture snapshot. (Adjusted during PR-E; it was a response listing the affected IDs.)
 - **Validation rules.** `validatePartSpec` checks every reference against a complete target observation. It also checks that each parameter's `category_mapping` matches the Part's category and its template, and that templates aren't duplicated on a Part. Each operation must therefore supply the following:
   - **Companies:** `map_to_existing` keeps the role. The new company must be observed with `manufacturer` or `supplier` mapping, matching the role being edited.
   - **Templates:** `map_template` supplies a `category_parameter` mapping for each category among the affected Parts. A Part is refused with `parameter_category_incompatible` unless it is named in `exclude_parts` if either:

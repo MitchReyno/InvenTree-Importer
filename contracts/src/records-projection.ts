@@ -16,6 +16,9 @@ type Field = BatchRecordDto['fields'][number]
 
 const OPERATOR: Origin = { kind: 'operator' }
 
+/** Labels joining two values stay within the contract's 256 characters. */
+const clip = (text: string) => (text.length > 256 ? `${text.slice(0, 255)}…` : text)
+
 export interface RecordsInput {
   capture: CaptureSnapshotDto
   /** Undefined when Processing is unconfigured or unreadable; origins then read as the operator's. */
@@ -243,7 +246,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         record({
           key: `manufacturer_part:${part.id}`,
           type: 'manufacturer_part',
-          label: `${spec.manufacturer.mpn} · ${spec.name}`,
+          label: clip(`${spec.manufacturer.mpn} · ${spec.name}`),
           state: 'new',
           target: { kind: 'manufacturer_part', part_subject_id: part.id },
           part_ids: [part.id],
@@ -261,7 +264,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         record({
           key: `supplier_part:${part.id}`,
           type: 'supplier_part',
-          label: `${spec.supplier.sku} · ${spec.name}`,
+          label: clip(`${spec.supplier.sku} · ${spec.name}`),
           state: 'new',
           target: { kind: 'supplier_part', part_subject_id: part.id },
           part_ids: [part.id],
@@ -280,7 +283,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         record({
           key: `parameter:${part.id}:${parameter.template.pk}`,
           type: 'parameter',
-          label: `${templateLabel}: ${parameter.value}`,
+          label: clip(`${templateLabel}: ${parameter.value}`),
           state: 'new',
           target: {
             kind: 'parameter',
@@ -306,7 +309,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         target: null,
         part_ids: [part.id],
       })
-    } else if (part.choice.mode === 'unset' || part.choice.mode === 'unknown') {
+    } else {
+      // Unset, unknown or cleared: no Part is chosen yet.
       record({
         key: `part:${part.id}`,
         type: 'part',

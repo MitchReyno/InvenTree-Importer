@@ -274,3 +274,36 @@ test('a field still matching the latest proposal shows the step that proposed it
     kind: 'operator',
   })
 })
+
+test('long names, codes and values still give labels within the contract', () => {
+  const long = 'x'.repeat(256)
+  const spec = {
+    ...specA,
+    name: long,
+    manufacturer: { company: ref(909, 'company'), mpn: long },
+    supplier: { company: ref(909, 'company'), sku: long },
+    parameters: [{ ...specA.parameters[0], value: long }],
+  }
+  const result = projectRecords({
+    capture: {
+      ...capture,
+      parts: [{ ...capture.parts[0], choice: { mode: 'create', spec } }],
+    } as CaptureSnapshotDto,
+    processing: undefined,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  assert.ok(result.records.every((record) => record.label.length <= 256))
+})
+
+test('a Part whose choice was cleared needs a decision', () => {
+  const result = projectRecords({
+    capture: {
+      ...capture,
+      parts: [{ ...capture.parts[2], choice: { mode: 'clear' } }],
+    } as CaptureSnapshotDto,
+    processing: undefined,
+    lotGroups: null,
+  })
+  assert.equal(result.records.find((record) => record.type === 'part')?.state, 'choose')
+})

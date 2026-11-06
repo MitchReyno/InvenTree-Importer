@@ -1,16 +1,7 @@
 import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
 import { batchHref } from '../../../navigation/batch-route'
 import { mappingsFor, observed, referenceTo } from '../../../records/model'
-import {
-  CheckboxLabel,
-  Fieldset,
-  Input,
-  Label,
-  Link,
-  Select,
-  Small,
-  TextArea,
-} from '../../ui/primitives'
+import { CheckboxLabel, Fieldset, Input, Label, Link, Select, Small } from '../../ui/primitives'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 import { ParameterEditor, NewParameter } from './ParameterEditor'
 import { SourcingEditor } from './SourcingEditor'
@@ -47,14 +38,16 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: P
         label="Description"
         saved={spec.description ?? ''}
         maxLength={250}
-        multiline
         disabled={disabled}
         report={reportFor('description')}
         onSave={(value, send) =>
           send({
             kind: 'record',
             target,
-            operation: { op: 'set_description', value: value.trim() ? value : null },
+            operation: {
+              op: 'set_description',
+              value: value.replace(/\s+/g, ' ').trim() || null,
+            },
           })
         }
         save={save}
@@ -155,7 +148,6 @@ function TextField({
   hint,
   saved,
   maxLength,
-  multiline = false,
   required = false,
   disabled,
   report,
@@ -167,7 +159,6 @@ function TextField({
   hint?: string
   saved: string
   maxLength: number
-  multiline?: boolean
   required?: boolean
   disabled: boolean
   report: (dirty: boolean) => void
@@ -175,26 +166,17 @@ function TextField({
   save: Save
 }) {
   const [value, setValue, dirty] = useDraft(saved, report)
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const { send, problem, busy, retry } = useRecordSave(batch, save)
   return (
     <>
       <Label>
         {label}
-        {multiline ? (
-          <TextArea
-            value={value}
-            maxLength={maxLength}
-            disabled={disabled}
-            onChange={(event) => setValue(event.target.value)}
-          />
-        ) : (
-          <Input
-            value={value}
-            maxLength={maxLength}
-            disabled={disabled}
-            onChange={(event) => setValue(event.target.value)}
-          />
-        )}
+        <Input
+          value={value}
+          maxLength={maxLength}
+          disabled={disabled}
+          onChange={(event) => setValue(event.target.value)}
+        />
       </Label>
       {hint && <Small>{hint}</Small>}
       <SaveRow
@@ -202,6 +184,7 @@ function TextField({
         disabled={disabled || !dirty || (required && !value.trim())}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={() => void onSave(value, send)}
       />
     </>
@@ -226,11 +209,11 @@ function CategoryField({
   disabled: boolean
   report: (dirty: boolean) => void
 }) {
-  const [draft, setDraft] = useDraft<CategoryDraft>(
+  const [draft, setDraft, , reset] = useDraft<CategoryDraft>(
     { category: '', mappings: {}, drop: [] },
     report,
   )
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const { send, problem, busy, retry } = useRecordSave(batch, save, reset)
   const categories = observed(batch, 'category').filter((item) => item.pk !== spec.category.pk)
   const category = categories.find((item) => item.id === draft.category)
 
@@ -330,6 +313,7 @@ function CategoryField({
         disabled={disabled || !category}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={submit}
       />
       <Small>Creating a category is not supported yet.</Small>

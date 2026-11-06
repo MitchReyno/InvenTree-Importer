@@ -26,7 +26,7 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
     { company: current?.company.observation_id ?? '', code: current?.code ?? '' },
     report,
   )
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const { send, problem, busy, retry } = useRecordSave(batch, save)
   const companies = companiesFor(batch, role)
   const company = companies.find((item) => item.id === draft.company)
   const code = role === 'manufacturer' ? 'MPN' : 'SKU'
@@ -61,6 +61,7 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
         disabled={disabled || !dirty || !company || !draft.code.trim()}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={() =>
           void (
             company &&

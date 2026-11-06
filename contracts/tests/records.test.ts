@@ -159,6 +159,8 @@ test('record changes are part of the capture edit contract', () => {
   )
   validate('InventoryPartSpec', { ...specA, description: 'Through-hole, 1/4 W' })
   assert.throws(() => validate('InventoryPartSpec', { ...specA, description: '' }))
+  assert.throws(() => validate('InventoryPartSpec', { ...specA, description: ' 1/4 W' }))
+  assert.throws(() => validate('InventoryPartSpec', { ...specA, description: '1/4 W\nAxial' }))
 })
 
 test('a shared company reaches every Part using it in that role, and their active lots', () => {
@@ -452,6 +454,65 @@ test('a Part with no spec, an unknown Part and a mismatched operation are refuse
       applyRecordChange(
         batch,
         change({ kind: 'part', part_subject_id: partA }, { op: 'remove_parameter' }),
+      ),
+    'record_operation_invalid',
+  )
+})
+
+test('a template already on a Part is refused as a duplicate, and a parameter keeps its template', () => {
+  const both = {
+    ...batch,
+    parts: [
+      {
+        ...batch.parts[0],
+        choice: {
+          mode: 'create',
+          spec: {
+            ...specA,
+            parameters: [
+              ...specA.parameters,
+              {
+                template: ref(904, 'parameter_template'),
+                category_mapping: ref(906, 'category_parameter'),
+                value: 'Axial',
+              },
+            ],
+          },
+        },
+      },
+      ...batch.parts.slice(1),
+    ],
+  } as CaptureSnapshotDto
+  refused(
+    () =>
+      applyRecordChange(
+        both,
+        change(
+          { kind: 'parameter_template', pk: '201' },
+          {
+            op: 'map_template',
+            template: ref(904, 'parameter_template'),
+            category_mappings: [ref(906, 'category_parameter'), ref(908, 'category_parameter')],
+            exclude_parts: [],
+          },
+        ),
+      ),
+    'duplicate_parameter_mapping',
+    partA,
+  )
+  refused(
+    () =>
+      applyRecordChange(
+        batch,
+        change(
+          { kind: 'parameter', part_subject_id: partA, template_pk: '201' },
+          {
+            op: 'set_parameter',
+            template: ref(904, 'parameter_template'),
+            category_mapping: ref(906, 'category_parameter'),
+            value: 'Axial',
+          },
+        ),
       ),
     'record_operation_invalid',
   )

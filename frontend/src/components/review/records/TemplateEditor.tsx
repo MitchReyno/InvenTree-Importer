@@ -1,5 +1,12 @@
 import { recordScope, type CaptureSnapshotDto } from '@invimport/contracts'
-import { mappingsFor, observed, partName, referenceTo, specOf } from '../../../records/model'
+import {
+  mappingsFor,
+  observed,
+  partName,
+  partTemplates,
+  referenceTo,
+  specOf,
+} from '../../../records/model'
 import { CheckboxLabel, Fieldset, Label, Select, Small } from '../../ui/primitives'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
@@ -15,8 +22,11 @@ type Draft = { template: string; mappings: Record<string, string>; exclude: stri
 
 /** Maps a template to another across every Part using it, with a mapping per category. */
 export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
-  const [draft, setDraft] = useDraft<Draft>({ template: '', mappings: {}, exclude: [] }, report)
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const [draft, setDraft, , reset] = useDraft<Draft>(
+    { template: '', mappings: {}, exclude: [] },
+    report,
+  )
+  const { send, problem, busy, retry } = useRecordSave(batch, save, reset)
   const target = { kind: 'parameter_template' as const, pk }
   const partIds = recordScope(batch, target).partIds
   const categories = [
@@ -33,7 +43,7 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
       }),
     ),
   ]
-  const templates = observed(batch, 'parameter_template').filter((item) => item.pk !== pk)
+  const templates = partTemplates(batch).filter((item) => item.pk !== pk)
   const template = templates.find((item) => item.id === draft.template)
   const mappingObservations = observed(batch, 'category_parameter')
 
@@ -118,7 +128,13 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
           </CheckboxLabel>
         ))}
       </Fieldset>
-      <SaveRow disabled={disabled || !template} busy={busy} problem={problem} onSave={submit} />
+      <SaveRow
+        disabled={disabled || !template}
+        busy={busy}
+        problem={problem}
+        retry={retry}
+        onSave={submit}
+      />
       <Small>
         Each category needs a mapping for the new template; a category with none is refused unless
         its Parts are left out. Creating a template is not supported yet.

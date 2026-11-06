@@ -1,5 +1,5 @@
 import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
-import { mappingsFor, observed, referenceTo } from '../../../records/model'
+import { mappingsFor, partTemplates, referenceTo } from '../../../records/model'
 import { Button } from '../../ui/Button'
 import { Input, Label, Select } from '../../ui/primitives'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
@@ -22,7 +22,7 @@ const templateLabel = (batch: CaptureSnapshotDto, parameter: Parameter) =>
 /** One parameter on one Part: change its value or remove it. */
 export function ParameterEditor({ batch, partId, parameter, save, disabled, report }: Props) {
   const [value, setValue, dirty] = useDraft(parameter.value, report)
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const { send, problem, busy, retry } = useRecordSave(batch, save)
   const name = templateLabel(batch, parameter)
   const target = {
     kind: 'parameter' as const,
@@ -45,6 +45,7 @@ export function ParameterEditor({ batch, partId, parameter, save, disabled, repo
         disabled={disabled || !dirty || !value.trim()}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={() =>
           void send({
             kind: 'record',
@@ -84,10 +85,13 @@ export function NewParameter({
   disabled,
   report,
 }: Omit<Props, 'parameter'> & { spec: InventoryPartSpecDto }) {
-  const [draft, setDraft] = useDraft<NewDraft>({ template: '', mapping: '', value: '' }, report)
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const [draft, setDraft, , reset] = useDraft<NewDraft>(
+    { template: '', mapping: '', value: '' },
+    report,
+  )
+  const { send, problem, busy, retry } = useRecordSave(batch, save, reset)
   const used = new Set(spec.parameters.map((item) => item.template.pk))
-  const templates = observed(batch, 'parameter_template').filter((item) => !used.has(item.pk))
+  const templates = partTemplates(batch).filter((item) => !used.has(item.pk))
   const template = templates.find((item) => item.id === draft.template)
   const mappings = template ? mappingsFor(batch, spec.category.pk, template.pk) : []
   const mapping = mappings.find((item) => item.id === draft.mapping)
@@ -141,6 +145,7 @@ export function NewParameter({
         disabled={disabled || !template || !mapping || !draft.value.trim()}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={() =>
           void (
             template &&

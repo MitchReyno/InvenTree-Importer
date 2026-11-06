@@ -14,8 +14,8 @@ type Props = {
 
 /** A Part with no spec: choose an existing Part, or start a new one from a name and category. */
 export function PartDecision({ batch, partId, save, disabled, report }: Props) {
-  const [draft, setDraft] = useDraft({ name: '', category: '' }, report)
-  const { send, problem, busy } = useRecordSave(batch, save)
+  const [draft, setDraft, , reset] = useDraft({ name: '', category: '' }, report)
+  const { send, problem, busy, retry } = useRecordSave(batch, save, reset)
   const categories = observed(batch, 'category')
   const category = categories.find((item) => item.id === draft.category)
   return (
@@ -56,6 +56,7 @@ export function PartDecision({ batch, partId, save, disabled, report }: Props) {
         disabled={disabled || !category || !draft.name.trim()}
         busy={busy}
         problem={problem}
+        retry={retry}
         onSave={() =>
           void (
             category &&

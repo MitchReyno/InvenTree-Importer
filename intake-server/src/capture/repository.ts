@@ -382,6 +382,8 @@ async function insertSelection(
   field: SelectionField,
   value: Selection | undefined,
   version: string,
+  /** Observations already read in this transaction, so a record edit reads them once. */
+  known?: readonly CaptureObservationDto[],
 ) {
   if (value === undefined) {
     return
@@ -393,13 +395,17 @@ async function insertSelection(
     if (field !== 'choice') {
       fail('invalid_part_creation')
     }
-    const current = await snapshot(
-      c,
-      { actorId: b.actor_id, targetId: b.target_id, targetContextId: b.target_context_id },
-      b.id,
-    )
+    const observations =
+      known ??
+      (
+        await snapshot(
+          c,
+          { actorId: b.actor_id, targetId: b.target_id, targetContextId: b.target_context_id },
+          b.id,
+        )
+      ).observations
     try {
-      validatePartSpec(value.spec, b.target_context_id, current.observations)
+      validatePartSpec(value.spec, b.target_context_id, observations)
     } catch (error) {
       if (error instanceof PartSpecError) {
         fail(error.code)
@@ -688,7 +694,15 @@ async function applyRecordEdit(
     } catch {
       fail('invalid_part_spec')
     }
-    await insertSelection(c, b, partId, 'choice', { mode: 'create', spec }, nextRevision)
+    await insertSelection(
+      c,
+      b,
+      partId,
+      'choice',
+      { mode: 'create', spec },
+      nextRevision,
+      current.observations,
+    )
     await executeDatabaseQuery(
       queryDatabase(c)
         .update(captureSubjects)
