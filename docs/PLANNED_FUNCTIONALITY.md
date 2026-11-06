@@ -107,7 +107,7 @@ No registered items.
 Developers have no real InvenTree to run Bench Intake or the importer against locally; the only options are the fake inventory or a read-only external server. Add a repository-owned Docker Compose stack, built on the pinned local InvenTree image, that starts in a ready state with generated credentials and API tokens, seeded from the importer config and a small fixture. The intake app's dev databases move onto that stack's own PostgreSQL (`inventree-db`). `pnpm dev` starts the stack when `INTAKE_TARGET_PROFILE=local-inventree`.
 
 - Change: `local-inventree-dev`
-- Status: In progress — implementation in PR-B (`feat/local-inventree-dev`)
+- Status: Done — merged in #105
 - Size: L — Compose stack and bootstrap, a database move, seeding, a new dev target profile and docs.
 - Prerequisites: Docker with Compose 2.24 or later, and the pinned `inventree/inventree` stable image, which is present locally. No BI item dependencies.
 - OpenSpec: [local-inventree-dev](../openspec/changes/local-inventree-dev/)
