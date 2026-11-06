@@ -295,3 +295,21 @@ Fresh read-only Claude reviewer at `12b04f5`: 1 Minor, 1 Nitpick, both fixed. Th
 
 Fresh read-only Claude reviewer at `8d725fd`: clean. Its only note was the missing Checks line above. Later commits on the branch change only this handover.
 
+### PR-C delivery
+
+CI on #102 passed on every job that ran: frontend, TypeScript, Markdown and the intake HTTP lane. The PostgreSQL lane is retired by #99, and the backend lanes don't apply. Squash-merged as #102 (`d38e6ad`) under Mitch's standing authorisation.
+
+### Demo videos
+
+Mitch asked for a demo-director video on every PR with visible UI changes, made without asking him, captured at 3840×2160 and rendered at 1920×1080, with a title card. Subagents recorded them from the owned fixtures, and each was attached to its PR description in a Demo section:
+
+- #96, PR-A (68 s): masthead, theme switch, component gallery.
+- #100, PR-B (64 s): Batches, header and need-you panel, Capture, Processing and Records.
+- #102, PR-C (78 s): Overview, instructions, step page, drawer, fixture profile, Agents and the not-available state.
+
+The film projects stay outside the repository. The PR-C film shows the fixture rendering correctly in dark mode, which the screenshot script had not verified.
+
+## PR-D plan: Review Lots and Map (Task 8)
+
+Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
