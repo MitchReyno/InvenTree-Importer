@@ -224,11 +224,14 @@ function conflictsFor(
     if (!row) {
       conflicts.push({ kind: 'observation', id, reason: 'missing', revision: null })
     } else if (row.revision > base) {
+      // Its current state, so the agent can re-plan without guessing.
       conflicts.push({
         kind: 'observation',
         id,
-        reason: 'changed',
+        reason: row.operatorEdited ? 'operator_edited' : 'changed',
         revision: row.revision.toString(),
+        lot_id: row.lotId,
+        operator_edited: row.operatorEdited,
       })
     } else if (row.status !== 'active') {
       conflicts.push({
@@ -254,8 +257,9 @@ function conflictsFor(
       conflicts.push({
         kind: 'lot',
         id,
-        reason: 'changed',
+        reason: lot.operatorEdited ? 'operator_edited' : 'changed',
         revision: lot.changedRevision.toString(),
+        operator_edited: lot.operatorEdited,
       })
     }
   }
@@ -515,6 +519,10 @@ export async function proposeLot(
       }
       const revision = await locked.finish({ tool: 'propose_lot', ...args }, writer.sessionId)
       return { ok: true, revision, id: lotId, suggested: true }
+    }
+    // A new draft Part counts towards the subject limit here too.
+    if (args.part && 'label' in args.part && subjects.length + 1 > MAX_LOTS_AND_PARTS) {
+      fail('capture_capacity', 409)
     }
     const partSubjectId = args.part ? await partFor(args.part) : undefined
     await executeDatabaseQuery(

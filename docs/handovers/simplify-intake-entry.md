@@ -511,3 +511,32 @@ A fresh read-only reviewer subagent reviewed `4080ea9..30200dc` and found 5 impo
 
 The full PostgreSQL tier at `30200dc` passed 207 of 207. The process tier passed 66 of 70; its one failure ("owned probe must become observable") was a Docker timing failure while other PG work ran in parallel, with its 3 dependent skips, and is rechecked in the final run.
 
+## PR-B review round 2
+
+A fresh reviewer subagent reviewed `4080ea9..28e7964` and found 3 important and 4 minor findings, plus a nitpick. It confirmed round 1 fixes 1, 3, 5 and 7–11. It found fix 2 incomplete (I1 below), fix 4's conflict state not applied (I3 below; that edit had silently matched nothing), and the guards from fix 6 untested.
+
+1. **I1: extending a lot could create Parts past the subject limit.** Extending a lot with `part: { label }` now checks the subject limit too, as creating a new lot already did.
+2. **I2: migration `0019` created a cluster role.**
+   - That failed under the dev migrator, which is `NOCREATEROLE`. It was the cause of this round's `dev-stack` and `dev-environment` process failures.
+   - Trusted provisioning (`grantCaptureAgentWrites`) now creates the marker instead of the migration.
+   - `is_agent_writer()` returns false while the marker is absent, and checks `USAGE` (inherited membership), so an admin-only membership from creating a role does not count. Superusers stay excluded.
+3. **I3: stale conflicts lacked the row's current state.** They now carry the observation's current `lot_id` and `operator_edited`, and the reason is `operator_edited` when an operator edit caused the conflict. The stale test asserts the whole conflict.
+4. **M1: the trigger skipped batches after transient errors.** Only failures that repeat until the evidence changes (`media_input_capacity`, `processing_input_capacity`) skip a batch; anything else is retried next sweep. Skipped batches are filtered in SQL before the 50-batch limit.
+5. **M2: guard coverage and doc accuracy.**
+   - New raw-SQL refusals as `agent_writer` cover renaming the operator's lot, a revision without a session or under another actor, a non-`process` command, and relinking an edited observation.
+   - The architecture doc now says operator Part renames are not tracked; the application never renames Parts as the agent.
+6. **M3: `finish()` reported every error as capacity.** Only an over-limit projection (`invalid_contract` from the snapshot check) becomes `capture_capacity`; other errors stay unexpected (`tool_failed`).
+7. **M4: some suggestions could not be resolved in Review.**
+   - Review now lists unassigned observations, with their suggested lots and revisions, while no lot is inspected (`operator/UnassignedObservations.tsx`).
+   - Split, merge and retirement delete suggested memberships aimed at the retired lot.
+8. **Not changed: duplicate batch locking.** It is harmless, and `registerMediaRoutes` keeps its per-process temp default for test callers only; the web process passes its own directory and the tool handler has no fallback.
+
+Results at `28e7964`, before these fixes:
+
+| Tier | Result |
+| --- | --- |
+| Full PostgreSQL | 212 of 212 passed |
+| Process | 64 of 70; fixed: `dev-stack`, `dev-environment` (I2); timing: runtime sandbox probe, plus its 3 dependent skips |
+
+After these fixes, the focused PostgreSQL files (observations, trigger, lead, session tools, operator review) passed 43 of 43, and `dev-stack` and `dev-environment` passed 3 of 3.
+

@@ -849,10 +849,11 @@ export async function lockCaptureForAgentWrite(
       try {
         await snapshot(client, config, batchId)
       } catch (error) {
-        if (error instanceof CaptureError) {
-          throw error
+        // Only an over-limit projection is capacity; anything else stays an unexpected failure.
+        if (error instanceof Error && error.message === 'invalid_contract') {
+          fail('capture_capacity', 409)
         }
-        fail('capture_capacity', 409)
+        throw error
       }
       const bytes = Buffer.from(canonicalRecord(payload))
       await executeDatabaseQuery(

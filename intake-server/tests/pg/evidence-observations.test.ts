@@ -220,8 +220,18 @@ test('an unrelated edit does not block forming, but a changed observation is sta
       }),
     )
     assert.equal(stale.ok, false)
-    assert.ok(
-      !stale.ok && stale.conflicts.some((c) => c.id === second.id && c.reason === 'changed'),
+    // The conflict carries the observation's current state: edited by the operator, in no lot.
+    assert.ok(!stale.ok)
+    assert.deepEqual(
+      stale.conflicts.find((c) => c.id === second.id),
+      {
+        kind: 'observation',
+        id: second.id,
+        reason: 'operator_edited',
+        revision: (await read()).evidence_observations!.find((o) => o.id === second.id)!.revision,
+        lot_id: null,
+        operator_edited: true,
+      },
     )
     assert.equal((await read()).lots.length, lotsBefore)
   })
@@ -431,6 +441,39 @@ test('the agent writer cannot set human-only values or touch edited rows, and th
       `INSERT INTO capture_evidence_observation(id,batch_id,evidence_version_id,region,readings,origin,revision)
        VALUES(gen_random_uuid(),$1,$2,'{"kind":"lines","from_line":1,"to_line":1}','{"markings":[]}','operator',1)`,
       [batchId, photo.version],
+    )
+    // Agent principals rename only their own subjects, attribute revisions to a session under
+    // the batch actor, queue only processing, and cannot relink an edited observation.
+    const packet = (await read()).lots.find((lot) => lot.label === 'Packet A')!
+    await refused(fixture.writer.pool, "UPDATE capture_subject SET label='Renamed' WHERE id=$1", [
+      packet.id,
+    ])
+    await refused(
+      fixture.writer.pool,
+      `INSERT INTO capture_revision(batch_id,revision,actor_id,command_bytes,command_digest)
+       VALUES($1,999,$2,'\\x7b7d',decode(repeat('00',32),'hex'))`,
+      [batchId, fixture.identity.actor],
+    )
+    await refused(
+      fixture.writer.pool,
+      `INSERT INTO capture_revision(batch_id,revision,actor_id,agent_session_id,command_bytes,command_digest)
+       VALUES($1,999,gen_random_uuid(),$2,'\\x7b7d',decode(repeat('00',32),'hex'))`,
+      [batchId, writer.sessionId],
+    )
+    await refused(
+      fixture.writer.pool,
+      `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest)
+       VALUES(gen_random_uuid(),$1,$2,$3,'apply','x','x','x','\\x7b7d',decode(repeat('00',32),'hex'))`,
+      [fixture.identity.actor, fixture.identity.target, fixture.identity.context],
+    )
+    await fixture.db.pool.query(
+      'UPDATE capture_evidence_observation SET operator_edited=true WHERE id=$1',
+      [tape.id],
+    )
+    await refused(
+      fixture.writer.pool,
+      'DELETE FROM capture_lot_evidence_observation WHERE evidence_observation_id=$1',
+      [tape.id],
     )
     // Readers that serve media links can see the new tables.
     for (const pool of [fixture.runner.pool, fixture.api.pool]) {

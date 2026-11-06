@@ -1,6 +1,7 @@
 import { activeMediaGroups } from '../media/context.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
 import type {
   CaptureLotContextDto,
   BulkEditDto,
@@ -18,6 +19,7 @@ import {
 import {
   captureInstructions,
   captureIssueDispositions,
+  captureLotEvidenceObservations,
   captureLotLineages,
   captureLotRetirements,
 } from './schema.ts'
@@ -92,8 +94,19 @@ async function recordLineage(
     }
   }
   for (const predecessor of predecessors) {
-    // A split, merged or retired lot is the operator's; observations left on it stay put.
+    // A split, merged or retired lot is the operator's; observations left on it stay put, and
+    // suggestions aimed at it can no longer be accepted.
     await markLotEdited(client, predecessor, revision)
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .delete(captureLotEvidenceObservations)
+        .where(
+          and(
+            eq(captureLotEvidenceObservations.lotId, predecessor),
+            eq(captureLotEvidenceObservations.status, 'suggested'),
+          ),
+        ),
+    )
     await executeDatabaseQuery(
       queryDatabase(client).insert(captureLotRetirements).values({
         batchId: scope.batchId,

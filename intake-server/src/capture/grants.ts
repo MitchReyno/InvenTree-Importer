@@ -42,6 +42,13 @@ export async function grantCapture(pool: Pool, role: string) {
  * No notes, selections or media links; the database guards keep edited rows out of reach.
  */
 export async function grantCaptureAgentWrites(pool: Pool, role: string) {
+  // The cluster-wide marker the database guards recognise; provisioning creates it once.
+  await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='intake_agent_writer_marker') THEN
+        CREATE ROLE intake_agent_writer_marker NOLOGIN;
+      END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$`)
   await grantCaptureRead(pool, role)
   await pool.query(`GRANT INSERT ON capture_subject,capture_part,capture_lot,capture_revision,
       capture_evidence_observation,capture_lot_evidence_observation TO ${role};

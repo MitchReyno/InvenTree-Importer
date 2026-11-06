@@ -100,20 +100,18 @@ $$;
 CREATE TRIGGER capture_lot_membership_guard BEFORE UPDATE ON capture_lot_evidence_observation
   FOR EACH ROW EXECUTE FUNCTION capture_lot_membership_guard();
 
--- Agent writer roles are members of this cluster-wide marker, so the guards below can tell them apart.
-DO $$
+-- Agent writer roles inherit the cluster-wide marker role, which trusted provisioning creates
+-- (`grantAgentWriter`); a migration never creates roles. USAGE follows inheritance only, so an
+-- admin-only membership (a provisioner that created the role) does not count, and superusers,
+-- which pg_has_role treats as members of every role, are never agent principals.
+CREATE FUNCTION is_agent_writer() RETURNS boolean LANGUAGE plpgsql STABLE AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='intake_agent_writer_marker') THEN
-    CREATE ROLE intake_agent_writer_marker NOLOGIN;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='intake_agent_writer_marker') THEN
+    RETURN false;
   END IF;
+  RETURN pg_has_role(current_user, 'intake_agent_writer_marker', 'USAGE')
+    AND NOT (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname=current_user);
 END;
-$$;
-
--- Inherited membership counts; superusers, which pg_has_role treats as members of every role,
--- are never agent principals.
-CREATE FUNCTION is_agent_writer() RETURNS boolean LANGUAGE sql STABLE AS $$
-  SELECT pg_has_role(current_user, 'intake_agent_writer_marker', 'MEMBER')
-    AND NOT (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname=current_user)
 $$;
 
 -- Agent principals never touch edited rows except through suggestions, and never set counted values.

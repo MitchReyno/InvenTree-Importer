@@ -32,6 +32,7 @@ import { DecisionPanel } from '../operator/DecisionPanel'
 import { TableWorkspace } from '../operator/TableWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
+import { UnassignedObservations } from '../operator/UnassignedObservations'
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 
 interface Props {
@@ -467,9 +468,16 @@ export function ReviewWorkspace({
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
             ) : (
-              <Paragraph>
-                Inspect a physical lot to compare its retained evidence and saved choices.
-              </Paragraph>
+              <>
+                <Paragraph>
+                  Inspect a physical lot to compare its retained evidence and saved choices.
+                </Paragraph>
+                <UnassignedObservations
+                  batch={batch}
+                  edit={edit}
+                  disabled={busy || stale || batch.archived || drafts.dirty}
+                />
+              </>
             )}
           </Panel>
           <Panel data-area="details" aria-label="Decision">

@@ -13,6 +13,9 @@ import { processingJobs } from './schema.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 
+/** Failures that repeat until the batch's evidence changes. */
+const PERMANENT_CODES = new Set(['media_input_capacity', 'processing_input_capacity'])
+
 /** Evidence must have stopped becoming ready for this long before the lead session looks. */
 export const EXAMINE_QUIET_PERIOD_MS = 20_000
 
@@ -28,9 +31,16 @@ interface Candidate {
  * Batches in this worker's account whose ready originals are not yet covered by an evidence
  * observation or an evidence notice, once no evidence has become ready for the quiet period.
  */
-async function candidates(pool: Pool, config: ProcessingConfig, quietMs: number) {
+async function candidates(
+  pool: Pool,
+  config: ProcessingConfig,
+  quietMs: number,
+  skipped: ReadonlyMap<string, string>,
+) {
+  // Skipped batches are filtered before the limit, so they cannot crowd out the others.
+  const keys = [...skipped].map(([batchId, signature]) => `${batchId}|${signature}`)
   const rows = await pool.query<Candidate>(
-    `SELECT b.id AS batch_id, b.stream_id,
+    `WITH candidate AS (SELECT b.id AS batch_id, b.stream_id, b.updated_at,
        (SELECT j.id FROM public.processing_job j WHERE j.batch_id=b.id AND j.stage='examine') AS lead_job_id,
        (SELECT count(*)::text || ':' || coalesce(max(r.created_at)::text,'') FROM public.media_version v
          JOIN public.media_decode_command c ON c.version_id=v.id AND c.derivation_id IS NULL
@@ -53,10 +63,12 @@ async function candidates(pool: Pool, config: ProcessingConfig, quietMs: number)
        AND (SELECT max(r.created_at) FROM public.media_version v
          JOIN public.media_decode_command c ON c.version_id=v.id AND c.derivation_id IS NULL
          JOIN public.media_decode_result r ON r.command_id=c.id
-         WHERE v.batch_id=b.id) <= now() - make_interval(secs => $4::double precision / 1000)
-     ORDER BY b.updated_at, b.id
+         WHERE v.batch_id=b.id) <= now() - make_interval(secs => $4::double precision / 1000))
+     SELECT batch_id, stream_id, lead_job_id, signature FROM candidate
+     WHERE NOT (batch_id::text || '|' || signature = ANY($5::text[]))
+     ORDER BY updated_at, batch_id
      LIMIT 50`,
-    [config.actorId, config.targetId, config.targetContextId, quietMs],
+    [config.actorId, config.targetId, config.targetContextId, quietMs, keys],
   )
   return rows.rows
 }
@@ -109,10 +121,7 @@ export async function triggerExamine(
   const created: string[] = []
   const notified: string[] = []
   const failed: string[] = []
-  for (const candidate of await candidates(pool, config, quietMs)) {
-    if (skipped.get(candidate.batch_id) === candidate.signature) {
-      continue
-    }
+  for (const candidate of await candidates(pool, config, quietMs, skipped)) {
     await transaction(pool, async (client) => {
       const capture = await captureInTransaction(client, config, candidate.batch_id, true)
       if (capture.snapshot.archived) {
@@ -197,11 +206,14 @@ export async function triggerExamine(
       if ((error as { code?: string }).code === '23505') {
         return
       }
-      // One batch never stops the others: it is skipped until its evidence changes.
-      skipped.set(candidate.batch_id, candidate.signature)
-      failed.push(candidate.batch_id)
+      // One batch never stops the others. A batch that cannot fit (too much evidence for one
+      // lead input) is skipped until its evidence changes; anything else is retried next sweep.
       // Only known codes are logged; anything else could carry data.
       const code = error instanceof CaptureError ? error.code : 'examine_trigger_failed'
+      if (PERMANENT_CODES.has(code)) {
+        skipped.set(candidate.batch_id, candidate.signature)
+      }
+      failed.push(candidate.batch_id)
       process.stderr.write(
         JSON.stringify({ event: 'examine_trigger_skipped', batch_id: candidate.batch_id, code }) +
           '\n',
