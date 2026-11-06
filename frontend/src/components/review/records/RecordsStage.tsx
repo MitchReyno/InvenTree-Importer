@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
   RECORD_TYPES,
@@ -53,14 +53,19 @@ export function RecordsStage({
   )
   const [blocked, setBlocked] = useState(false)
   const [discards, setDiscards] = useState(0)
+  // A failed read after a save keeps the last good records, so the open drafts stay mounted.
+  const lastGood = useRef(query.data)
+  if (query.data) {
+    lastGood.current = query.data
+  }
+  const records = query.data ?? lastGood.current
 
   if (!client) {
     return <Banner tone="plain">Records are not available in this setup.</Banner>
   }
-  if (query.isPending) {
+  if (!records && query.isPending) {
     return <Small role="status">Reading records…</Small>
   }
-  const records = query.data
   if (!records) {
     return (
       <div role="alert">
@@ -140,11 +145,18 @@ export function RecordsStage({
             <Banner
               tone="warn"
               action={
-                reload && (
-                  <Button size="sm" variant="ghost" onClick={() => void reload()}>
-                    Load current values
-                  </Button>
-                )
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    void (async () => {
+                      await reload?.()
+                      await query.refetch()
+                    })()
+                  }}
+                >
+                  Load current values
+                </Button>
               }
             >
               Records may be out of date, so editing waits for current values. Unsaved record

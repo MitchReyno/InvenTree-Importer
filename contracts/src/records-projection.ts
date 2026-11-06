@@ -30,22 +30,48 @@ function stepOf(stage: string): Step {
   return stage === 'research' || stage === 'images' || stage === 'inventory' ? stage : 'examine'
 }
 
-/** The latest proposal about each subject, with the step that made it. */
-function latestProposals(processing: ProcessingSnapshotDto | undefined) {
-  const latest = new Map<string, { proposal: Proposal; step: Step }>()
+type Proposed = { proposal: Proposal; step: Step }
+
+/** Every retained proposal about each subject, with the step that made it. */
+function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
+  const bySubject = new Map<string, Proposed[]>()
   for (const job of processing?.jobs ?? []) {
     for (const proposal of job.proposals) {
-      latest.set(proposal.value.subject_id, { proposal, step: stepOf(job.stage) })
+      const subject = proposal.value.subject_id
+      bySubject.set(subject, [
+        ...(bySubject.get(subject) ?? []),
+        { proposal, step: stepOf(job.stage) },
+      ])
     }
   }
-  return latest
+  return bySubject
 }
 
-/** Compares a spec's fields with the latest proposal; a field it still matches keeps that step. */
-function originsFor(
-  spec: InventoryPartSpecDto,
-  latest: { proposal: Proposal; step: Step } | undefined,
-) {
+/**
+ * A field shows the step of a proposal it still matches. Retained proposals carry no reliable
+ * order, so any match counts rather than only the last one read.
+ */
+function originsFor(spec: InventoryPartSpecDto, proposals: readonly Proposed[]) {
+  const each = proposals.map((entry) => originsFromOne(spec, entry))
+
+  const first = (pick: (origins: ReturnType<typeof originsFromOne>) => Origin) =>
+    each.map(pick).find((origin) => origin.kind === 'step') ?? OPERATOR
+
+  return {
+    category: () => first((origins) => origins.category()),
+    tags: () => first((origins) => origins.tags()),
+    description: () => first((origins) => origins.description()),
+    parameter: (templatePk: string, value: string) =>
+      first((origins) => origins.parameter(templatePk, value)),
+    manufacturer: () => first((origins) => origins.manufacturer()),
+    mpn: () => first((origins) => origins.mpn()),
+    supplier: () => first((origins) => origins.supplier()),
+    sku: () => first((origins) => origins.sku()),
+  }
+}
+
+/** Compares a spec's fields with one proposal. */
+function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined) {
   const none = () => OPERATOR
 
   if (!latest) {
@@ -127,7 +153,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       .filter((lot) => lot.part_subject_id !== null && partIds.includes(lot.part_subject_id))
       .map((lot) => lot.id)
 
-  const latest = latestProposals(processing)
+  const proposals = proposalsBySubject(processing)
   const records: BatchRecordDto[] = []
 
   const field = (name: string, value: string | null, origin: Origin): Field => ({
@@ -223,7 +249,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   for (const part of capture.parts) {
     if (part.choice.mode === 'create') {
       const spec = part.choice.spec
-      const origin = originsFor(spec, latest.get(part.id))
+      const origin = originsFor(spec, proposals.get(part.id) ?? [])
       record({
         key: `part:${part.id}`,
         type: 'part',

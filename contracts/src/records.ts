@@ -124,7 +124,8 @@ export const BatchRecords = object({
   counts: Type.Array(object({ type: RecordType, new: count, existing: count, decide: count }), {
     maxItems: RECORD_TYPES.length,
   }),
-  records: Type.Array(BatchRecord, { maxItems: 2000 }),
+  // 100 subjects, each Part with up to 32 parameters and 32 tags, plus shared records.
+  records: Type.Array(BatchRecord, { maxItems: 10000 }),
 })
 
 export const recordSchemas = {

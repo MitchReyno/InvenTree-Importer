@@ -568,11 +568,15 @@ describe('RecordsStage', () => {
 function LiveStage({
   conflictFirst = false,
   renamedElsewhere,
+  failReadAfterSave = false,
 }: {
   conflictFirst?: boolean
   /** A name another client saves, which loading current values brings in. */
   renamedElsewhere?: string
+  /** The records read for any revision after the first fails once. */
+  failReadAfterSave?: boolean
 }) {
+  const [failing, setFailing] = useState(failReadAfterSave)
   const [current, setCurrent] = useState(batch)
   const [refused, setRefused] = useState(conflictFirst)
 
@@ -600,7 +604,13 @@ function LiveStage({
     <RecordsStage
       batch={current}
       client={{
-        read: vi.fn(async () => ({ ...records, revision: current.revision })),
+        read: vi.fn(async () => {
+          if (failing && current.revision !== batch.revision) {
+            setFailing(false)
+            throw new Error('records read failed')
+          }
+          return { ...records, revision: current.revision }
+        }),
       }}
       edit={edit}
       observe={vi.fn(async () => null)}
@@ -705,6 +715,27 @@ describe('RecordsStage with saves that move the revision', () => {
     await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Resistor, carbon'))
     expect(screen.getByRole('button', { name: 'Save name' })).toBeDisabled()
     expect(screen.getByLabelText('Tags')).toHaveValue('THT')
+  })
+
+  it('keeps drafts when the read after a save fails, and reads again on request', async () => {
+    const user = userEvent.setup()
+    render(<LiveStage failReadAfterSave />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const description = screen.getByLabelText('Description')
+    await user.clear(description)
+    await user.type(description, 'Axial')
+    const name = screen.getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'Carbon resistor')
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
+
+    expect(await screen.findByText(/Records may be out of date/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Description')).toHaveValue('Axial')
+    await user.click(screen.getByRole('button', { name: 'Load current values' }))
+    await waitFor(() =>
+      expect(screen.queryByText(/Records may be out of date/)).not.toBeInTheDocument(),
+    )
+    expect(screen.getByLabelText('Description')).toHaveValue('Axial')
   })
 
   it('ignores an unknown record type in the route', async () => {

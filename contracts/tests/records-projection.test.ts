@@ -307,3 +307,52 @@ test('a Part whose choice was cleared needs a decision', () => {
   })
   assert.equal(result.records.find((record) => record.type === 'part')?.state, 'choose')
 })
+
+test('a field shows the step of any proposal it still matches, whatever their order', () => {
+  const later = {
+    ...processing.jobs[0],
+    proposals: [
+      processing.jobs[0].proposals[0],
+      proposal(720, {
+        schema_version: 'bench-intake-proposal/4',
+        subject_id: partA,
+        summary: 'Earlier tags only.',
+        sources: [{ kind: 'note', note_id: id(800), text_sha256: 'a'.repeat(64) }],
+        tags: ['THT'],
+      }),
+    ],
+  }
+  const result = projectRecords({
+    capture,
+    processing: { ...processing, jobs: [later] } as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  const part = of(result.records, 'part')[0]
+  assert.equal(part.fields.find((field) => field.name === 'tags')?.origin.kind, 'step')
+  assert.equal(part.fields.find((field) => field.name === 'category')?.origin.kind, 'step')
+})
+
+test('a batch at the subject limit with every Part full stays within the contract', () => {
+  const parameter = specA.parameters[0]
+  const full = {
+    ...specA,
+    parameters: Array.from({ length: 32 }, (_, n) => ({
+      ...parameter,
+      template: { ...parameter.template, pk: String(1000 + n) },
+    })),
+    tags: Array.from({ length: 32 }, (_, n) => `Tag ${n}`),
+  }
+  const parts = Array.from({ length: 60 }, (_, n) => ({
+    id: id(3000 + n),
+    label: `P${n}`,
+    revision: '1',
+    choice: { mode: 'create', spec: { ...full, name: `Part ${n}` } },
+  }))
+  const lots = parts.slice(0, 40).map((part, n) => lot(60 + n, part.id, inBin))
+  const result = projectRecords({
+    capture: { ...capture, parts, lots } as unknown as CaptureSnapshotDto,
+    processing: undefined,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+})
