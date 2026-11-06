@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   validate,
+  type BatchRecordsDto,
   type ManualWorkspaceDto,
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
@@ -123,8 +124,35 @@ const manual = {
   cursor,
 } as unknown as ManualWorkspaceDto
 
+function record(key: string, state: 'new' | 'choose', decision: string | null) {
+  const type = key.slice(0, key.indexOf(':'))
+  return {
+    key,
+    type,
+    label: `Record ${key}`,
+    state,
+    target: null,
+    fields: [],
+    part_ids: [],
+    lot_ids: [lot(1)],
+    decision: decision ? { code: decision, detail: `Decide ${key}` } : null,
+  }
+}
+
+// Two lots share the undecided Part: one record decision, not one per lot.
+const records = {
+  batch_id: batch,
+  revision: '7',
+  counts: [],
+  records: [
+    record(`part:${id(8)}`, 'choose', 'part_choice_required'),
+    record(`stock_item:${lot(1)}`, 'choose', 'quantity_required'),
+    record(`stock_item:${lot(2)}`, 'new', null),
+  ],
+} as unknown as BatchRecordsDto
+
 test('counts each tab from the same reads the screens use', () => {
-  const attention = projectAttention({ batchId: batch, processing, review, manual })
+  const attention = projectAttention({ batchId: batch, processing, review, manual, records })
 
   validate('BatchAttention', attention)
   assert.deepEqual(attention.processing, {
@@ -137,13 +165,13 @@ test('counts each tab from the same reads the screens use', () => {
       inventory: { questions: 0, failed: 0 },
     },
   })
-  assert.deepEqual(attention.review, { to_check: 2, changed_after_review: 1, to_decide: 1 })
+  assert.deepEqual(attention.review, { to_check: 2, changed_after_review: 1, to_decide: 2 })
   assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1 })
   assert.equal(attention.revision, '7')
 })
 
 test('routes each item to the screen that owns it', () => {
-  const { items } = projectAttention({ batchId: batch, processing, review, manual })
+  const { items } = projectAttention({ batchId: batch, processing, review, manual, records })
   const byKey = Object.fromEntries(items.map((item) => [item.key, item]))
 
   assert.deepEqual(byKey[`question:${id(1)}`], {
@@ -158,11 +186,19 @@ test('routes each item to the screen that owns it', () => {
   assert.equal(byKey[`question:${id(2)}`], undefined)
   assert.equal(byKey[`changed:${lot(2)}`].route, `${batch}/review/lots/${lot(2)}`)
   assert.equal(byKey[`changed:${lot(2)}`].group, 'changed_lot')
-  assert.equal(byKey[`decision:${lot(1)}:part_choice_required`].group, 'decision')
+  assert.deepEqual(byKey[`decision:part:${id(8)}`], {
+    key: `decision:part:${id(8)}`,
+    group: 'decision',
+    tab: 'review',
+    title: `Decide part:${id(8)}`,
+    detail: `Record part:${id(8)}`,
+    route: `${batch}/review/records/part/${id(8)}`,
+  })
   assert.equal(
-    byKey[`decision:${lot(1)}:part_choice_required`].route,
-    `${batch}/review/lots/${lot(1)}`,
+    byKey[`decision:stock_item:${lot(1)}`].route,
+    `${batch}/review/records/stock_item/${lot(1)}`,
   )
+  assert.equal(byKey[`decision:stock_item:${lot(2)}`], undefined)
   assert.equal(byKey[`result:${id(6)}`].route, `${batch}/changes/added/${id(6)}`)
   assert.equal(byKey[`result:${id(7)}`].group, 'result')
   assert.equal(byKey[`result:${id(5)}`], undefined)
@@ -181,7 +217,7 @@ test('orders items by tab and keeps counts exact when items are truncated', () =
       })),
     })),
   } as ProcessingSnapshotDto
-  const attention = projectAttention({ batchId: batch, processing: many, review, manual })
+  const attention = projectAttention({ batchId: batch, processing: many, review, manual, records })
 
   assert.equal(attention.processing.questions, 270)
   // Step counts stay exact although the item list is cut at 200.
@@ -201,7 +237,13 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
       { ...job(6, 'research', []), state: 'succeeded' },
     ],
   } as unknown as ProcessingSnapshotDto
-  const attention = projectAttention({ batchId: batch, processing: withFailed, review, manual })
+  const attention = projectAttention({
+    batchId: batch,
+    processing: withFailed,
+    review,
+    manual,
+    records,
+  })
   const failed = attention.items.filter((item) => item.group === 'failed_job')
 
   validate('BatchAttention', attention)
@@ -225,13 +267,19 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
 })
 
 test('works without processing, as in setups with no runner', () => {
-  const attention = projectAttention({ batchId: batch, processing: undefined, review, manual })
+  const attention = projectAttention({
+    batchId: batch,
+    processing: undefined,
+    review,
+    manual,
+    records,
+  })
 
   assert.equal(attention.processing.questions, 0)
   assert.equal(attention.items[0].tab, 'review')
 })
 
-test('status issues and approved lots are not decisions or work to check', () => {
+test('lot issues and approved lots are not decisions or work to check', () => {
   const status = (code: string) => ({
     code,
     severity: 'blocking',
@@ -261,13 +309,52 @@ test('status issues and approved lots are not decisions or work to check', () =>
     processing,
     review: withStatus,
     manual: manualWithApproved,
+    records,
   })
 
-  assert.equal(attention.review.to_decide, 1)
+  // Decisions come from records; lot issues, blocking or not, add none.
+  assert.equal(attention.review.to_decide, 2)
   assert.equal(attention.review.to_check, 3)
   assert.equal(attention.changes.ready, 2)
   assert.deepEqual(
     attention.items.filter((item) => item.group === 'decision').map((item) => item.key),
-    [`decision:${lot(1)}:part_choice_required`],
+    [`decision:part:${id(8)}`, `decision:stock_item:${lot(1)}`],
+  )
+})
+
+test('a record whose id needs encoding still has a valid route', () => {
+  const withDraft = {
+    ...records,
+    records: [record(`location:draft:${id(5)}`, 'choose', 'location_draft_parent_invalid')],
+  } as unknown as BatchRecordsDto
+  const attention = projectAttention({
+    batchId: batch,
+    processing,
+    review,
+    manual,
+    records: withDraft,
+  })
+
+  validate('BatchAttention', attention)
+  const item = attention.items.find((entry) => entry.group === 'decision')
+  assert.equal(item?.route, `${batch}/review/records/location/draft%3A${id(5)}`)
+})
+
+test('a record waiting with no decision reads as needing one, not unsupported', () => {
+  const waiting = {
+    ...records,
+    records: [record('location:unavailable', 'choose', null)],
+  } as unknown as BatchRecordsDto
+  const attention = projectAttention({
+    batchId: batch,
+    processing,
+    review,
+    manual,
+    records: waiting,
+  })
+
+  assert.equal(
+    attention.items.find((entry) => entry.group === 'decision')?.title,
+    'Needs a decision',
   )
 })

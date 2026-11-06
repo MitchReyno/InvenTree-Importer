@@ -143,7 +143,7 @@ test('values a Part spec cannot hold yet are kept and flagged with a reason', ()
       manufacturer: 'new_manufacturer',
       supplier: 'new_supplier',
       'supplier.price': 'supplier_price_unsupported',
-      description: 'description_unsupported',
+      description: 'applicable',
     },
   )
 })
@@ -284,4 +284,23 @@ test('unsupported catalogue values stay in the proposal and never reach a Part s
   assert.equal(spec.manufacturer, null)
   assert.equal(spec.parameters.length, 1)
   assert.equal('price' in spec.supplier!, false)
+})
+
+test('a description applies when it fits a Part description, and is unsupported otherwise', () => {
+  const described = (text: string) =>
+    byPath({ ...applicable, description: { text, sources } }).description
+  assert.equal(described('Thick film resistor, 0603, 1%.'), 'applicable')
+  assert.equal(described('x'.repeat(251)), 'description_unsupported')
+  assert.equal(described('Thick film\nresistor'), 'description_unsupported')
+})
+
+test('an applicable description is copied into the Part spec', () => {
+  const spec = applicableCatalogueSpec(
+    { ...applicable, description: { text: 'Thick film resistor, 0603, 1%.', sources } },
+    context,
+    observations,
+    { name: 'RC0603 1k', tags: [] },
+  )
+  assert.equal(spec?.description, 'Thick film resistor, 0603, 1%.')
+  assert.doesNotThrow(() => validatePartSpec(spec!, context, observations))
 })

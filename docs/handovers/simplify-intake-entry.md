@@ -818,3 +818,19 @@ A fresh reviewer subagent reviewed `b462069` and found it clean: no critical or 
 2. **Minor: the operator-regroup notice told lot sessions to publish an identity.** Only the lead session's lineage is now asked to publish the identity again. A Research or Images session is asked to revise what relied on the lot's observations.
 3. **Nitpick, fixed:** a comment explains that the cascade's depth bound of 8 is not expected to be reached.
 
+## PR-C review round 4 and the merge of `interactive-app` (#108–#111)
+
+- **Round 4.** A fresh reviewer subagent reviewed `5c363a5` and found it clean. Its two minor notes:
+  - The answer-cascade line in `processing/ARCHITECTURE.md` now says "at any depth".
+  - **Accepted limit:** a session pinned to a proposal that goes stale two or more levels down, and that has published nothing yet, gets no notice. Its proposal is stale, so Inventory still waits.
+- **Tiers on `5c363a5`:**
+  - `pnpm db:intake test` passed 238/238, and `pnpm db:intake test:process` passed 70/70.
+  - Contracts passed 76/76, the intake server 213/213, and the frontend 589/589.
+- **Merge.** #110 (redesign: agent sessions, observations and proposals) conflicted in seven files. Every conflict was resolved by keeping both sides:
+  - **Contract:** `latest_status` is kept beside proposal `currentness`.
+  - **Catalogue:** `assessCatalogue` now lives in contracts and is re-exported; `applicableCatalogueSpec` builds on it. The Part spec gained a `description`, so an applicable catalogue description is now copied into the spec, with a test.
+  - **Source and Parts:** `source.ts` keeps upstream's lead session and status lines beside the pipeline, and `ProcessingParts.tsx` keeps both components.
+  - **Read model:** `read.ts` computes both the status lines and the currentness.
+  - **Docs:** `frontend/ARCHITECTURE.md` combines both descriptions.
+- **Checks after the merge:** contracts passed 117/117, the intake server 227/227, and the frontend 660/660. Typecheck, lint, format and `contracts:check` are clean.
+

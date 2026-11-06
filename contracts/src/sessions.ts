@@ -6,23 +6,18 @@ import {
   ProcessingProposalV5,
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
+  STATUS_LINE_MAX_CHARACTERS,
+  statusLine,
 } from './processing.ts'
 import { LeadBatchView, LotFormingConflict } from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
-export const STATUS_LINE_MAX_CHARACTERS = 120
 const timestamp = Type.String({ maxLength: 40 })
 const message = Type.String({ minLength: 1, maxLength: 4096 })
-/** One line: no line breaks, at most 120 characters. */
-const statusLine = Type.String({
-  minLength: 1,
-  maxLength: STATUS_LINE_MAX_CHARACTERS,
-  pattern: '^[^\\r\\n\\u2028\\u2029]*$',
-})
 
-export { SessionState }
+export { SessionState, STATUS_LINE_MAX_CHARACTERS }
 
 export const SessionStatusArgs = object({ text: statusLine })
 /** A question names the fields it affects and the assumption the agent continues with. */

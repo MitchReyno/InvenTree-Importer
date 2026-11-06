@@ -204,24 +204,24 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - **PR delivery:** PR-E.
 - **Outcome:** record-level edits and the records projection on the existing capture authority.
-- **Scope:** `contracts/src/capture.ts` (`record` change, `RecordRef`), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
+- **Scope:** `contracts/src/records.ts` (`record` change, `RecordRef`, added to the `contracts/src/capture.ts` edit union), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
 - **Acceptance:** Record-level edits with stated scope; Supported record edits; Unsupported record changes are honest (the requirement: unsupported values never enter a spec and are kept with a reason; its New category proposed scenario needs BI-006's proposals and is evidenced end to end in task 14).
 - **Approach:** design D6–D7, as one transaction per edit at `expected_revision`.
 - **TDD approach:** Baseline: confirm the intake and PostgreSQL suites pass. For each operation, first write a failing integration test (RED) covering CAS 412, fan-out, `set_category` refusal and `changed_after_review` read-back. GREEN: implement it, then refactor.
 - **Verification:** `pnpm contracts:check`; intake and PostgreSQL integration tests for each operation, CAS 412, multi-Part fan-out, `changed_after_review`, re-validation failures, and unsupported items never entering a spec.
-- **Risks:** fan-out scope. The response lists the affected Parts and lots, which the UI shows.
+- **Risks:** fan-out scope. The shared `recordScope` gives the affected Parts and lots, which the UI shows before saving.
 
-- [ ] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
-- [ ] 9.2 Write failing integration tests (RED) for each operation and failure path:
-  - [ ] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
-  - [ ] 9.2.2 Role-mismatched company map refused.
-  - [ ] 9.2.3 `map_template` refused for a Part without a category mapping, unless excluded.
-  - [ ] 9.2.4 `set_category` refused for unmapped, undropped parameters.
-  - [ ] 9.2.5 `lotReviewState` reads `changed_after_review` for reviewed lots of an edited Part, with no capture call into operator-review.
-  - [ ] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
-- [ ] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
-- [ ] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
-- [ ] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from the latest processing proposal, and proposed-new values only from retained structured proposals.
+- [x] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
+- [x] 9.2 Write failing integration tests (RED) for each operation and failure path:
+  - [x] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
+  - [x] 9.2.2 Role-mismatched company map refused.
+  - [x] 9.2.3 `map_template` refused for a Part without a category mapping, unless excluded.
+  - [x] 9.2.4 `set_category` refused for unmapped, undropped parameters.
+  - [x] 9.2.5 `lotReviewState` reads `changed_after_review` for reviewed lots of an edited Part, with no capture call into operator-review.
+  - [x] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
+- [x] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
+- [x] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
+- [x] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from a retained processing proposal (about the Part or one of its lots) the field still matches, and proposed-new values only from retained structured proposals.
 
 ## 10. Records UI
 
@@ -233,11 +233,11 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before each screen, write failing component tests for the scope text, the 412 path keeping drafts, and unsupported fields (RED). GREEN: implement them.
 - **Verification:** component tests for each record type, the 412 path keeping drafts, and the scope text; a browser check.
 
-- [ ] 10.1 Build the type rail with counts and decision badges, and the list per type.
-- [ ] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
-- [ ] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
-- [ ] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
-- [ ] 10.5 Add "Who proposed what" with Ask routing.
+- [x] 10.1 Build the type rail with counts and decision badges, and the list per type.
+- [x] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
+- [x] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
+- [x] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
+- [x] 10.5 Add "Who proposed what", with Ask hidden until agent sessions exist (Ask routing is 14.6).
 
 ## 11. Preparation tree and Changes
 
@@ -255,10 +255,10 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - Tests for the WAI-ARIA tree keyboard pattern.
   - Existing manual workflow tests ported to the new screens: a stale preparation stays disabled, and no create-again on an unknown result.
 
-- [ ] 11.1 Add `GET /api/v1/preparations/:id/tree`, computed from the stored plan for each plan version (`tree: null` for an unknown version). First write a failing test (RED) that reads a stored preparation of each version, and checks that replayed preparation results stay byte-identical.
-- [ ] 11.2 Build Ready to add: lot selection that triggers preparation, the By type view, the Tree view with category or location grouping, and the sticky approve action.
-- [ ] 11.3 Build Added: outcome strip, runs with InvenTree links, recovery actions, pending changes, not included, activity log.
-- [ ] 11.4 Remove the old Approve and Results presentation after the ported tests pass.
+- [x] 11.1 Add `GET /api/v1/preparations/:id/tree`, computed from the stored plan for each plan version (`nodes: null` for an unknown version). First write a failing test (RED) that reads a stored preparation of each version, and checks that replayed preparation results stay byte-identical.
+- [x] 11.2 Build Ready to add: lot selection that triggers preparation, the By type view, the Tree view with category or location grouping, and the sticky approve action.
+- [x] 11.3 Build Added: outcome strip, runs with InvenTree links, recovery actions, pending changes, not included, activity log. A value InvenTree rejected is named and linked to where it is set (Review, or Capture for a new location or supplier); re-sending a corrected value needs the executor to settle a refused create, which is follow-up work outside this change (design D7).
+- [x] 11.4 Remove the old Approve and Results presentation after the ported tests pass.
 
 ## 12. Agents page
 
@@ -281,8 +281,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Documentation only, so test-first does not apply. It is verified by checking each statement against the merged code, plus the markdown lint.
 - **Verification:** headless screenshots of each canvas screen in both themes at 1440, 860 and 390 and 200%, against the owned fake and the fixture profile, linked from the handover, with stated limits (no live provider, no real InvenTree).
 
-- [ ] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
-- [ ] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
+- [x] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
+- [x] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
 
 ## 14. BI-006 sessions, observations and proposals (conditional)
 
@@ -290,27 +290,27 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Outcome:** Processing, the Agents page, the Capture lots glance, Review › Map and Records show live sessions, region-level observations and BI-006's proposed-new and unsupported catalogue values.
 - **Scope:** `frontend/src/processing/` (a second `ProcessingSource` adapter); the Processing overview session list and session drawer; the Agents page; the Capture Proposed lots glance's status line; the Review evidence pane's region crops and Lot details' agent line; the Map's region links and instruction field; the Records Ask control; and the records projection's reading of BI-006's structured catalogue proposals (`bench-intake-proposal/5`) in `contracts/src/` and `intake-server/src/` (the `/api/v1/batches/:id/records` read from task 9).
 - **Prerequisites:** tasks 6, 7, 8, 9, 10 and 12, and BI-006's contracts merged. It is not a prerequisite of any other task, and BI-008 can be marked Done without it; until then the screens keep their honest "not available" states.
-- **Acceptance:** capture-batch-settings: Read-only lots glance, with sessions; processing-workspace: Overview with running agents and the session drawer; agents-overview: Waiting sessions do not count as running; review-workspace: Evidence pane with region crops, Lot details with the agent line, and the Map at region level with its instruction field; review-records Steering routed to the proposing step, for the Ask scenario; review-records New company with a likely match and New category proposed, end to end.
+- **Acceptance:** capture-batch-settings: Read-only lots glance (its agent status line); processing-workspace: Overview with running agents, and Session drawer; agents-overview: Waiting sessions do not count as running; review-workspace: Lot details with the agent line, Evidence pane with region crops, and Map at region level with its instruction field; review-records: Ask about a proposed value (steering routed to the proposing step), New company with a likely match, and New category proposed, end to end.
 - **TDD approach:** write failing adapter tests against BI-006's `synthetic-session/1` fixture data, and failing records-projection tests with `bench-intake-proposal/5` fixtures, first (RED), then implement (GREEN).
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks, and a browser check of each screen with the synthetic session profile.
 
-- [ ] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
-- [ ] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
-- [ ] 14.3 Turn on the Processing overview session list and the session drawer.
-- [ ] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
-- [ ] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
-- [ ] 14.6 Turn on Ask on Records.
-- [ ] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
-- [ ] 14.8 Record the browser check of every screen above in the handover.
+- [x] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
+- [x] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
+- [x] 14.3 Turn on the Processing overview session list and the session drawer.
+- [x] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
+- [x] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
+- [x] 14.6 Turn on Ask on Records.
+- [x] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
+- [x] 14.8 Record the browser check of every screen above in the handover.
 
 ## Delivery evidence and lifecycle follow-up
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
 - [x] D.2 PR-B: same gates. Review clear at `7c42f99` after seven rounds; merged as #100 (`4080ea9`). Every CI job passed; the HTTP lane's two start-up timeouts, which also fail on `interactive-app`'s own push, passed on rerun, and #99 retired the PostgreSQL lane.
 - [x] D.3 PR-C: same gates. Review clear at `8d725fd` after five rounds; merged as #102 (`d38e6ad`) with every CI job green and a demo video attached.
-- [ ] D.4 PR-D: same gates.
-- [ ] D.5 PR-E: same gates.
-- [ ] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7.
-- [ ] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`.
+- [x] D.4 PR-D: same gates. Review clear at `7330b65` after eight rounds; merged as #104 (`1672e00`) with every CI job that ran green and a demo video attached.
+- [x] D.5 PR-E: same gates. Review clear at `18b2381` after fourteen rounds, then the merge of #107 and its two fixes reviewed clear at `ad15957`; merged as #108 (`ab80c3b`) with every CI job that ran green and a demo video attached.
+- [x] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7. Review clear at `cabe29c` after six rounds; merged as #109 (`c15e9ce`) with every CI job that ran green and a demo video attached. BI-008 is Done; task 14 follows as PR-G.
+- [x] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`. Review clear at `e99d14f` after seven rounds, with its wording follow-up `2139767` reviewed clear; merged as #110 (`3ed53f2`) with every CI job that ran green and a demo video attached.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

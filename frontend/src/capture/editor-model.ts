@@ -97,7 +97,7 @@ export function captureEditorChange(
       ...location,
       choice:
         values.partMode === 'create'
-          ? { mode: 'create', spec: partSpecFromValues(batch, values) }
+          ? { mode: 'create', spec: keepDescription(partSpecFromValues(batch, values), part) }
           : choice.mode === 'inherit'
             ? empty
             : choice,
@@ -110,6 +110,15 @@ export function captureEditorChange(
     return { kind: 'add_lot', label, note: text, part_subject_id: partId || null }
   }
   throw new Error('capture_subject_not_selected')
+}
+
+/** The editor has no description field; a description set in Records stays with the Part. */
+function keepDescription(
+  spec: InventoryPartSpecDto,
+  part: Snapshot['parts'][number],
+): InventoryPartSpecDto {
+  const description = part.choice.mode === 'create' ? part.choice.spec.description : undefined
+  return description === undefined ? spec : { ...spec, description }
 }
 
 export function partSpecFromValues(

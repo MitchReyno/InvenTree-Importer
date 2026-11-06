@@ -13,23 +13,19 @@ import type { MediaClient } from '../../media/types'
 import type { ProcessingClient } from '../../processing/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
-import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
-import { useDirtySources } from '../../operator/useDirtySources'
 import {
-  Button,
-  ErrorNotice,
-  Notice,
-  Paragraph,
-  Small,
-  Heading,
-  HeadingRow,
-} from '../ui/primitives'
+  MAX_SELECTED_LOTS,
+  type ManualClient,
+  type ManualStage,
+  type RunRecoverySelection,
+} from '../../manual/types'
+import { useDirtySources } from '../../operator/useDirtySources'
+import { Button, ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
-import { ApprovalWorkspace } from './ApprovalWorkspace'
-import { ResultsWorkspace } from '../results/ResultsWorkspace'
-
-const MAX_SELECTED_LOTS = 10
+import { ReadyToAdd } from '../changes/ReadyToAdd'
+import { Added } from '../changes/Added'
+import { useTargetNavigation } from '../../header/useTargetNavigation'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -113,6 +109,7 @@ export function ManualWorkspace({
   const connectionLost = workspaceQuery.isError || workspaceQuery.fetchStatus === 'paused'
   const waitingForFirstRead = !workspaceQuery.isFetchedAfterMount
   const drafts = useDirtySources(onDirtyChange)
+  const targetUrl = useTargetNavigation()
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
   const [busy, setBusy] = useState('')
@@ -241,10 +238,14 @@ export function ManualWorkspace({
   }
 
   function prepare() {
+    prepareLots(selected)
+  }
+
+  function prepareLots(lotIds: string[]) {
     void perform('Reading the fixed target and preparing selected effects…', async () => {
       const result = await client.prepare(
         batch.id,
-        { expected_batch_revision: batch.revision, selected_lot_ids: selected },
+        { expected_batch_revision: batch.revision, selected_lot_ids: lotIds },
         crypto.randomUUID(),
       )
       if (result.status === 'blocked') {
@@ -343,25 +344,27 @@ export function ManualWorkspace({
     )
   } else if (stage === 'approve') {
     content = (
-      <ApprovalWorkspace
+      <ReadyToAdd
         batch={batch}
-        preparations={workspace.preparations}
+        workspace={workspace}
         preview={displayedPreview}
         busy={disabled}
         choose={choosePreparation}
         pinnedPreparationId={preparationId}
+        prepareLots={prepareLots}
         approve={approve}
-        review={() => navigate('review')}
+        readTree={client.tree}
       />
     )
   } else {
     content = (
-      <ResultsWorkspace
-        batchId={batch.id}
-        runs={workspace.runs}
+      <Added
+        batch={batch}
+        workspace={workspace}
         focusedRunId={runId}
         busy={disabled}
         command={command}
+        targetUrl={targetUrl}
       />
     )
   }
@@ -372,12 +375,11 @@ export function ManualWorkspace({
           {
             {
               review: 'Review selected lots',
-              approve: 'Approve exact effects',
-              results: 'Retained results',
+              approve: 'Ready to add',
+              results: 'Added',
             }[stage]
           }
         </Heading>
-        <Small>Owned fake only</Small>
       </HeadingRow>
       {workspace?.preparations_truncated && (
         <Notice>

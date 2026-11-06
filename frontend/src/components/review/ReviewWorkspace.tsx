@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { subjectStatuses, type LotStatus } from '../../processing/source'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type {
@@ -203,6 +204,7 @@ export function ReviewWorkspace({
   const retired = retiredLotIds(operatorReview, batch)
   const activeLotIds = batch.lots.filter((lot) => !retired.has(lot.id)).map((lot) => lot.id)
   const openQuestions = openQuestionsByLot(processing, batch)
+  const agentLines = processing ? subjectStatuses(processing) : new Map<string, LotStatus>()
   const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter, openQuestions)
   const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null
 
@@ -357,8 +359,7 @@ export function ReviewWorkspace({
       </ScopeBar>
       {!workspace.supported && (
         <Notice>
-          Stock execution is unavailable for this target. Only a separately configured owned fake is
-          qualified; the real inventory stays read-only.
+          Adding stock isn’t available for this target, so lots can be reviewed but not added.
         </Notice>
       )}
       <SubjectActions aria-label="Manual subjects">
@@ -550,6 +551,7 @@ export function ReviewWorkspace({
                 inspect={inspect}
                 markReviewed={() => reviewLots([lot.id])}
                 openQuestion={openQuestions.get(lot.id) ?? null}
+                agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}

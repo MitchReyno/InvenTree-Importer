@@ -18,8 +18,17 @@ export const mappedReference = <
 ) =>
   object({ observation_id: Id, target_context_id: Id, model: Type.Literal(model), pk: PositivePk })
 
+/** InvenTree's Part description limit; an unset description is absent, never empty. */
+export const PartDescription = Type.String({
+  minLength: 1,
+  maxLength: 250,
+  // One line with no outer whitespace, so the target stores exactly what is confirmed.
+  pattern: '^\\S(?:[^\\r\\n]*\\S)?$',
+})
+
 export const InventoryPartSpec = object({
   name: text,
+  description: Type.Optional(PartDescription),
   category: mappedReference('category'),
   parameters: Type.Array(
     object({
@@ -108,6 +117,8 @@ export const SupportedEffectResult = object({
     Type.Literal('resume_effect'),
     Type.Literal('verify_effect'),
   ]),
+  /** InvenTree refused the latest create as invalid (400) and no record is attributed to it. */
+  rejected: Type.Optional(Type.Literal(true)),
 })
 export const effectsSchemas = {
   InventoryModel,

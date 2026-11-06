@@ -17,7 +17,7 @@ import {
 } from '@invimport/contracts'
 import type { ManualClient } from './manual/types'
 import { ManualWorkspace } from './components/review/ManualWorkspace'
-import { ResultsWorkspace } from './components/results/ResultsWorkspace'
+import { Added } from './components/changes/Added'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
@@ -166,6 +166,23 @@ const run: ManualRunDto = {
   cursor: { stream_id: stream, sequence: '10' },
 }
 
+/** Added for these runs alone, as the Changes tab shows them. */
+function Results({
+  runs,
+  ...props
+}: Omit<Parameters<typeof Added>[0], 'batch' | 'workspace' | 'targetUrl'> & {
+  runs: ManualRunDto[]
+}) {
+  return (
+    <Added
+      batch={batch}
+      workspace={{ lots: [], runs, preparations: [] } as unknown as ManualWorkspaceDto}
+      targetUrl={null}
+      {...props}
+    />
+  )
+}
+
 test('unstarted effects offer initial dispatch instead of recovery, preserving later uncertainty', async () => {
   const user = userEvent.setup()
   const command = vi.fn()
@@ -198,10 +215,8 @@ test('unstarted effects offer initial dispatch instead of recovery, preserving l
       },
     ],
   }
-  const { rerender } = render(
-    <ResultsWorkspace batchId={batchId} runs={[waiting]} busy={false} command={command} />,
-  )
-  expect(screen.getByText('Part creation is planned · not queued')).toBeVisible()
+  const { rerender } = render(<Results runs={[waiting]} busy={false} command={command} />)
+  expect(screen.getByText('Will be created once this round is queued')).toBeVisible()
   expect(screen.getByText('Planned effect · not queued')).toBeVisible()
   expect(
     screen.queryByRole('button', { name: /Resume selected original effect/ }),
@@ -214,9 +229,7 @@ test('unstarted effects offer initial dispatch instead of recovery, preserving l
     state: 'settled_incomplete',
     dispatch_state: 'finished',
   }
-  rerender(
-    <ResultsWorkspace batchId={batchId} runs={[incomplete]} busy={false} command={command} />,
-  )
+  rerender(<Results runs={[incomplete]} busy={false} command={command} />)
   await user.click(
     screen.getByRole('button', { name: 'Resume selected original effect: Create shared Part' }),
   )
@@ -239,8 +252,8 @@ test('unstarted effects offer initial dispatch instead of recovery, preserving l
       },
     ],
   }
-  rerender(<ResultsWorkspace batchId={batchId} runs={[uncertain]} busy={false} command={command} />)
-  expect(screen.getByText('Part identity needs inspection')).toBeVisible()
+  rerender(<Results runs={[uncertain]} busy={false} command={command} />)
+  expect(screen.getByText('Being checked; it is never created again')).toBeVisible()
   expect(screen.getByText('Effect is unknown; no create retry is allowed')).toBeVisible()
   expect(
     screen.queryByRole('button', { name: /Resume selected original effect/ }),
@@ -367,12 +380,18 @@ test('manual review and approval keep exact A-only scope, scalar text and server
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', prep))
   view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+    expect(
+      screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }),
+    ).toBeEnabled(),
   )
-  expect(screen.getByText('Not included')).toBeVisible()
-  expect(screen.getByText('Packet B')).toBeVisible()
-  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' }))
+  expect(screen.getByRole('checkbox', { name: 'Packet A' })).toBeChecked()
+  expect(screen.getByText('Left out')).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Packet B' })).toHaveAttribute(
+    'href',
+    `#${batchId}/review/lots/${b}?filter=needs_review`,
+  )
+  expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }))
   expect(client.approve).toHaveBeenCalledWith(
     {
       preparation_id: prep,
@@ -421,13 +440,13 @@ test('unknown results retain uncertainty without create retry', async () => {
   const command = vi.fn()
   render(
     <>
-      <ResultsWorkspace batchId={batchId} runs={[unknown]} busy={false} command={command} />
+      <Results runs={[unknown]} busy={false} command={command} />
     </>,
   )
   expect(
     screen.getByText(/Stock may have been created, or the original physical owner/),
   ).toBeVisible()
-  expect(screen.getByText(/Attributed record #7101/)).toBeVisible()
+  expect(screen.getByText(/Matched stock item 7101/)).toBeVisible()
   expect(
     screen.queryByRole('button', { name: /resume|retry|queue supervised/i }),
   ).not.toBeInTheDocument()
@@ -482,38 +501,38 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   }
   const user = userEvent.setup()
   const view = render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
-  await screen.findByText('0.000001 × Packet A')
+  await screen.findByText('Packet A · 0.000001')
   preparations = [later, preview]
   await waitFor(
     () => expect(screen.getByRole('option', { name: 'Packet B' })).toBeInTheDocument(),
     { timeout: 4000 },
   )
-  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
-  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled()
+  expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
+  expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeEnabled()
   expect(navigate).not.toHaveBeenCalled()
   preparations = [later]
   await waitFor(
-    () => expect(screen.getByText(/The pinned preparation is unavailable/)).toBeVisible(),
+    () => expect(screen.getByText(/This preparation is no longer current/)).toBeVisible(),
     { timeout: 4000 },
   )
-  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
-  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
+  expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Prepared selection'), laterId)
   expect(navigate).toHaveBeenCalledWith('approve', laterId)
   view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={laterId} />)
-  expect(await screen.findByText('23 × Packet B')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' }))
+  expect(await screen.findByText('Packet B · 23')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }))
   expect(client.approve).toHaveBeenCalledWith(
     expect.objectContaining({ preparation_id: laterId, selected_lot_ids: [b] }),
     expect.any(String),
   )
   view.unmount()
   render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
-  await screen.findByText(/The pinned preparation is unavailable/)
-  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Approve 0 lots for the owned fake' })).toBeDisabled()
+  await screen.findByText(/This preparation is no longer current/)
+  expect(screen.queryByText('Packet B · 23')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 0 lots and add to InvenTree' })).toBeDisabled()
 })
 
 test(
@@ -821,9 +840,9 @@ test('a cached preparation remains visible but cannot be approved before the mou
     />,
     { wrapper: Wrapper },
   )
-  await screen.findByText('0.000001 × Packet A')
+  await screen.findByText('Packet A · 0.000001')
   expect(screen.getByText(/Verifying current retained state/)).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' })).toBeDisabled()
   expect(client.approve).not.toHaveBeenCalled()
   const complete = finish
   if (!complete) {
@@ -833,25 +852,19 @@ test('a cached preparation remains visible but cannot be approved before the mou
     complete(snapshot)
   })
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+    expect(
+      screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }),
+    ).toBeEnabled(),
   )
   expect(client.approve).not.toHaveBeenCalled()
 })
 
 test('an unavailable pinned approval round never substitutes another retained round', () => {
   const command = vi.fn()
-  render(
-    <ResultsWorkspace
-      batchId={batchId}
-      runs={[run]}
-      focusedRunId="unavailable"
-      busy={false}
-      command={command}
-    />,
-  )
-  expect(screen.getByRole('status')).toHaveTextContent('No other round has been substituted')
+  render(<Results runs={[run]} focusedRunId="unavailable" busy={false} command={command} />)
+  expect(screen.getByRole('status')).toHaveTextContent('no other has been put in its place')
   expect(screen.queryByRole('button', { name: 'Queue supervised apply' })).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Show all retained rounds' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Show every round' })).toHaveAttribute(
     'href',
     `#${batchId}/changes/added`,
   )

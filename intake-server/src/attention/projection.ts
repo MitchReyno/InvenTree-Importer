@@ -2,6 +2,7 @@ import {
   MAX_ATTENTION_ITEMS,
   type AttentionItemDto,
   type BatchAttentionDto,
+  type BatchRecordsDto,
   type ManualWorkspaceDto,
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
@@ -12,6 +13,7 @@ export type AttentionSources = {
   processing: ProcessingSnapshotDto | undefined
   review: OperatorReviewDto
   manual: ManualWorkspaceDto
+  records: BatchRecordsDto
 }
 
 /** Reading and Identifying are the Examine step on the redesigned Processing tab. */
@@ -23,15 +25,6 @@ const STEP_BY_STAGE: Record<string, string> = {
   images: 'images',
   inventory: 'inventory',
 }
-
-/** Issues the operator settles with a choice; the rest report status, such as approval or archive. */
-const DECISION_CODES = new Set([
-  'part_choice_required',
-  'quantity_required',
-  'location_required',
-  'location_conflict',
-  'location_draft_parent_invalid',
-])
 
 const STEP_LABEL: Record<string, string> = {
   examine: 'An Examine',
@@ -96,25 +89,22 @@ function openLots(review: OperatorReviewDto) {
   return review.lots.filter((lot) => !lot.approved)
 }
 
-/** Until record decisions exist, an open blocking choice is the decision Review needs. */
-function decisionItems({ batchId, review }: AttentionSources): AttentionItemDto[] {
-  return openLots(review).flatMap((lot) =>
-    lot.issues
-      .filter(
-        (issue) =>
-          issue.severity === 'blocking' &&
-          issue.disposition === null &&
-          DECISION_CODES.has(issue.code),
-      )
-      .map((issue) => ({
-        key: `decision:${lot.lot_id}:${issue.code}`,
-        group: 'decision' as const,
-        tab: 'review' as const,
-        title: issue.message || lot.label,
-        detail: lot.label,
-        route: `${batchId}/review/lots/${lot.lot_id}`,
-      })),
-  )
+/** A record waiting for a choice, as Review › Records counts it: once per record, not per lot. */
+function decisionItems({ batchId, records }: AttentionSources): AttentionItemDto[] {
+  return records.records
+    .filter((record) => record.state === 'choose' || record.state === 'unsupported')
+    .map((record) => ({
+      key: `decision:${record.key}`,
+      group: 'decision' as const,
+      tab: 'review' as const,
+      title:
+        record.decision?.detail ??
+        (record.state === 'unsupported' ? 'Not supported yet' : 'Needs a decision'),
+      detail: record.label,
+      route: `${batchId}/review/records/${record.type}/${encodeURIComponent(
+        record.key.slice(record.type.length + 1),
+      )}`,
+    }))
 }
 
 function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] {

@@ -3,6 +3,19 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Pool } from 'pg'
 import { createHash } from 'node:crypto'
 
+// Records with distinct shapes for record-edit tests; every other pk keeps the defaults.
+const CATEGORY_NAMES: Record<string, string> = { '82': 'Capacitors' }
+const TEMPLATE_NAMES: Record<string, string> = { '202': 'Resistor type' }
+const CATEGORY_PARAMETERS: Record<string, { category: string; template: string }> = {
+  '311': { category: '81', template: '202' },
+  '312': { category: '82', template: '201' },
+  '313': { category: '82', template: '202' },
+}
+const COMPANY_ROLES: Record<string, { is_manufacturer: boolean; is_supplier: boolean }> = {
+  '601': { is_manufacturer: true, is_supplier: false },
+  '602': { is_manufacturer: false, is_supplier: true },
+}
+
 /** Created locations and companies start here; these PKs are served only from stored rows. */
 export const FIRST_RECORD_PK = 12001
 
@@ -49,12 +62,20 @@ export async function effectsFakeRequest(
     }
     const body =
       family === 'part/category'
-        ? { pk, name: 'Resistors', structural: false }
+        ? { pk, name: CATEGORY_NAMES[pk] ?? 'Resistors', structural: false }
         : family === 'parameter/template'
-          ? { pk, name: 'Resistance', model_type: 'part.part', enabled: true }
+          ? { pk, name: TEMPLATE_NAMES[pk] ?? 'Resistance', model_type: 'part.part', enabled: true }
           : family === 'part/category/parameters'
-            ? { pk, category: '81', template: '201', default_value: '' }
-            : { pk, name: `Company ${pk}`, is_manufacturer: true, is_supplier: true }
+            ? {
+                pk,
+                ...(CATEGORY_PARAMETERS[pk] ?? { category: '81', template: '201' }),
+                default_value: '',
+              }
+            : {
+                pk,
+                name: `Company ${pk}`,
+                ...(COMPANY_ROLES[pk] ?? { is_manufacturer: true, is_supplier: true }),
+              }
     if (fault === 'mapping_incomplete' && family === 'parameter/template') {
       response.end(JSON.stringify({ pk, name: 'Resistance' }))
       return true
@@ -82,6 +103,16 @@ export async function effectsFakeRequest(
   } as const
   const family = endpoints[path as keyof typeof endpoints]
   if (request.method === 'POST' && family) {
+    if (fault === 'reject_parameter' && family === 'parameter') {
+      response.statusCode = 400
+      response.end(JSON.stringify({ data: ['Enter a valid value.'] }))
+      return true
+    }
+    if (fault === 'forbid_parameter' && family === 'parameter') {
+      response.statusCode = 403
+      response.end(JSON.stringify({ detail: 'You do not have permission.' }))
+      return true
+    }
     const requested = JSON.parse(bytes.toString('utf8'))
     const { tags: _ignoredTags, ...withoutTags } = requested
     const body = family === 'part' && !tagsField ? withoutTags : requested

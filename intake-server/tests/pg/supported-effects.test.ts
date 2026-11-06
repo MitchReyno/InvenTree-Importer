@@ -32,7 +32,7 @@ async function dispatch(fixture: Fixture, runId: string) {
     JSON.parse(row.payload_bytes.toString('utf8')),
   )
 }
-async function createChoice(fixture: Fixture) {
+async function createChoice(fixture: Fixture, description?: string) {
   const captured = await fixture.seedCapture()
   let batch = captured.batch
   async function observe<M extends 'category' | 'parameter_template' | 'category_parameter'>(
@@ -61,6 +61,7 @@ async function createChoice(fixture: Fixture) {
         mode: 'create',
         spec: {
           name: 'Shared resistor Ω',
+          ...(description ? { description } : {}),
           category,
           parameters: [{ template, category_mapping: categoryMapping, value: '4.7 kΩ' }],
           manufacturer: null,
@@ -106,6 +107,75 @@ async function recover(fixture: Fixture, id: string, keys: string[]) {
   assert.equal(result.status, 200, JSON.stringify(result.value))
   await dispatch(fixture, id)
 }
+
+test('a Part description is sent with the create and confirmed from the target', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const capture = await createChoice(fixture, 'Through-hole, 1/4 W')
+    const runId = await approve(fixture, capture.batch, capture.a.id)
+    const queued = await fixture.http(`/runs/${runId}/start`, {
+      expected_run_revision: (await run(fixture, runId)).revision,
+    })
+    assert.equal(queued.status, 200, JSON.stringify(queued.value))
+    await dispatch(fixture, runId)
+    const current = await run(fixture, runId)
+    assert.equal(current.state, 'settled_complete')
+    const partRequest = (await fixture.fake.records()).find(
+      (record) => record.method === 'POST' && record.path === '/api/part/?tags=true',
+    )!
+    assert.equal(JSON.parse(partRequest.body.toString('utf8')).description, 'Through-hole, 1/4 W')
+    const create = current.supported_effects!.find((effect) => effect.kind === 'create_part')!
+    assert.equal(create.certainty, 'confirmed')
+    assert.equal(create.inputs.description, 'Through-hole, 1/4 W')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a value InvenTree refuses is reported as rejected, and only that one', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const capture = await createChoice(fixture)
+    await fixture.fake.fault('reject_parameter')
+    const runId = await approve(fixture, capture.batch, capture.a.id)
+    const queued = await fixture.http(`/runs/${runId}/start`, {
+      expected_run_revision: (await run(fixture, runId)).revision,
+    })
+    assert.equal(queued.status, 200, JSON.stringify(queued.value))
+    await dispatch(fixture, runId)
+    const current = await run(fixture, runId)
+    const byKind = (kind: string) =>
+      current.supported_effects!.find((effect) => effect.kind === kind)!
+    assert.equal(byKind('parameter').rejected, true)
+    assert.equal(byKind('parameter').certainty, 'unknown')
+    assert.deepEqual(byKind('parameter').remote_pks, [])
+    assert.equal(byKind('create_part').certainty, 'confirmed')
+    assert.equal('rejected' in byKind('create_part'), false)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a permission error is not a refused value', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const capture = await createChoice(fixture)
+    await fixture.fake.fault('forbid_parameter')
+    const runId = await approve(fixture, capture.batch, capture.a.id)
+    const queued = await fixture.http(`/runs/${runId}/start`, {
+      expected_run_revision: (await run(fixture, runId)).revision,
+    })
+    assert.equal(queued.status, 200, JSON.stringify(queued.value))
+    await dispatch(fixture, runId)
+    const parameter = (await run(fixture, runId)).supported_effects!.find(
+      (effect) => effect.kind === 'parameter',
+    )!
+    assert.equal(parameter.certainty, 'unknown')
+    assert.equal('rejected' in parameter, false)
+  } finally {
+    await fixture.dispose()
+  }
+})
 
 test('one new shared Part survives dependent failure, restart, selected repair and later lot without duplicate stock', async () => {
   const fixture = await manualFixture({ effects: true })

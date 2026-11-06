@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   agentsClient,
   attentionClient,
+  recordsClient,
   captureClient,
   catalogueClient,
   inboxClient,
@@ -104,6 +105,11 @@ export default function App() {
       bootstrap?.csrf_token ? attentionClient(location.origin, bootstrap.csrf_token) : undefined,
     [bootstrap?.csrf_token],
   )
+  const records = useMemo(
+    () =>
+      bootstrap?.csrf_token ? recordsClient(location.origin, bootstrap.csrf_token) : undefined,
+    [bootstrap?.csrf_token],
+  )
   const header = useMemo(
     () => (bootstrap?.csrf_token ? headerClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap?.csrf_token],
@@ -162,6 +168,7 @@ export default function App() {
         operator={operator}
         catalogue={catalogue}
         attention={attention}
+        records={records}
         route={route}
         onDirtyChange={onDirtyChange}
       />
@@ -212,11 +219,6 @@ export default function App() {
           {manual && <Diagnostics />}
         </LiveUpdates>
       </ServerStateProvider>
-      <Footer>
-        Saved in the application database. Exact manual approvals can queue the separately
-        supervised owned fake. Native agents require an explicitly supervised worker and a saved
-        model default. Real inventory mutation remains unavailable.
-      </Footer>
     </AppShell>
   )
 }
@@ -231,13 +233,6 @@ const AppShell = styled.div`
 `
 const Main = styled.main`
   margin: 0 auto 16px auto;
-`
-const Footer = styled.footer`
-  padding: 24px 0;
-  border-top: 1px solid ${color.line};
-  font-size: 12px;
-  color: ${color.muted};
-  line-height: 1.6;
 `
 
 const SetupStatus = styled.span`

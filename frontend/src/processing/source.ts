@@ -40,7 +40,11 @@ export type SourceSession = {
   jobId: string
   step: WorkStep
   subject: string
+  /** The active lot the session works on; null for the Examine lead session. */
+  lotId: string | null
   state: NonNullable<Job['session_state']>
+  /** The session's newest status line, if it has posted one. */
+  status: string | null
 }
 
 /** A lot's step in the pipeline: its job's state and how many of its proposals need a look. */
@@ -60,11 +64,15 @@ export type PipelineLot = {
   cells: Record<PipelineStage, PipelineCell>
 }
 
-/** What Processing presents, whatever produces it. */
+export type LotStatus = { step: WorkStep; text: string; state: SourceSession['state'] }
+
+/** What Processing presents from retained jobs, with session state and status lines. */
 export type ProcessingSource = {
   steps: StepProgress[]
   questions: SourceQuestion[]
   sessions: SourceSession[]
+  /** The batch's Examine lead session. */
+  lead: SourceSession | null
   jobsOn: (step: WorkStep) => Job[]
   /** The batch's Examine lead job, then each lot's per-lot work. */
   pipeline: { lead: { jobId: string; state: Job['state'] } | null; lots: PipelineLot[] }
@@ -122,6 +130,49 @@ function workStep(job: Job): WorkStep {
   return step === 'overview' ? 'examine' : step
 }
 
+/** Sessions that will not read another message; Processing offers a fresh one instead. */
+export const ENDED_SESSIONS: ReadonlySet<string> = new Set([
+  'cancelled',
+  'cancelling',
+  'failed',
+  'resume_unavailable',
+])
+
+/** The batch's Examine lead job: the batch-level Examine job that runs as a session. */
+export function examineLead(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
+  return (
+    snapshot.jobs.find(
+      (job) => job.stage === 'examine' && job.subject_id === null && job.session_state,
+    ) ?? null
+  )
+}
+
+/** Each subject's newest status line across its live session jobs: finished or ended ones are history. */
+export function subjectStatuses(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
+  const newest = new Map<string, Job>()
+  for (const job of snapshot.jobs) {
+    if (
+      job.subject_id === null ||
+      !job.session_state ||
+      job.session_state === 'finished' ||
+      ENDED_SESSIONS.has(job.session_state) ||
+      !job.latest_status
+    ) {
+      continue
+    }
+    const known = newest.get(job.subject_id)
+    if (!known || job.latest_status.at > known.latest_status!.at) {
+      newest.set(job.subject_id, job)
+    }
+  }
+  return new Map<string, LotStatus>(
+    [...newest].map(([subjectId, job]) => [
+      subjectId,
+      { step: workStep(job), text: job.latest_status!.text, state: job.session_state! },
+    ]),
+  )
+}
+
 export function retainedJobsSource(
   snapshot: ProcessingSnapshotDto,
   subjects: ReadonlyMap<string, string>,
@@ -150,6 +201,22 @@ export function retainedJobsSource(
       }),
   )
 
+  const sessions: SourceSession[] = snapshot.jobs.flatMap((job) =>
+    job.session_state
+      ? [
+          {
+            jobId: job.id,
+            step: workStep(job),
+            subject: subject(job),
+            lotId:
+              job.subject_id !== null && activeLotIds.has(job.subject_id) ? job.subject_id : null,
+            state: job.session_state,
+            status: job.latest_status?.text ?? null,
+          },
+        ]
+      : [],
+  )
+
   return {
     steps: WORK_STEPS.map(({ step, label }) => {
       const jobs = jobsOn(step)
@@ -169,11 +236,8 @@ export function retainedJobsSource(
       }
     }),
     questions,
-    sessions: snapshot.jobs.flatMap((job) =>
-      job.session_state
-        ? [{ jobId: job.id, step: workStep(job), subject: subject(job), state: job.session_state }]
-        : [],
-    ),
+    sessions,
+    lead: sessions.find((session) => session.jobId === examineLead(snapshot)?.id) ?? null,
     jobsOn,
     pipeline: pipeline(snapshot, subjects),
   }

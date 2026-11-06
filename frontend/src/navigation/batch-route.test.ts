@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { batchRouteHash, parseBatchRoute } from './batch-route'
+import { batchHref, batchRouteHash, parseBatchRoute } from './batch-route'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
 const lot = 'a0000000-0000-4000-8000-00000000000a'
@@ -58,6 +58,10 @@ describe('new batch routes', () => {
       `${b}/review/records/company/7`,
       { tab: 'review', view: 'records', recordType: 'company', recordId: '7' },
     ],
+    [
+      `${b}/review/records/tag/1%2F4W%20Bin`,
+      { tab: 'review', view: 'records', recordType: 'tag', recordId: '1/4W Bin' },
+    ],
     [`${b}/changes/ready/${p}`, { tab: 'changes', view: 'ready', preparationId: p }],
     [`${b}/changes/added/${r}`, { tab: 'changes', view: 'added', runId: r }],
     [`${b}/changes`, { tab: 'changes', view: 'ready' }],
@@ -92,4 +96,10 @@ describe('new batch routes', () => {
       `${b}/review/lots/${lot}?view=table`,
     )
   })
+})
+
+it('encodes a record id so it reads back the same', () => {
+  const route = { tab: 'review', view: 'records', recordType: 'tag', recordId: '1/4W Bin' } as const
+  const hash = batchHref('10000000-0000-4000-8000-000000000001', route).slice(1)
+  expect(parseBatchRoute(hash)).toMatchObject({ kind: 'route', route })
 })

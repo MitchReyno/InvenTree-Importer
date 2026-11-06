@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { render } from './test/render'
 import { CaptureEditor } from './components/capture/CaptureEditor'
 import { DecisionPanel } from './components/operator/DecisionPanel'
-import { SupportedEffectResult } from './components/results/SupportedEffectResult'
+import { EffectOutcome as SupportedEffectResult } from './components/changes/EffectOutcome'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 
 const batchId = '10000000-0000-4000-8000-000000000001'

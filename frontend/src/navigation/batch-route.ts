@@ -85,6 +85,15 @@ function processingRoute(first?: string, second?: string): BatchRoute {
   return second ? { tab: 'processing', step, questionId: second } : { tab: 'processing', step }
 }
 
+/** Record ids are encoded in the hash, since a tag record's id can hold any character. */
+function decodeSegment(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 function reviewRoute(first?: string, second?: string, third?: string): BatchRoute {
   if (first === 'map') {
     return { tab: 'review', view: 'map' }
@@ -94,7 +103,7 @@ function reviewRoute(first?: string, second?: string, third?: string): BatchRout
       tab: 'review',
       view: 'records',
       ...(second ? { recordType: second } : {}),
-      ...(third ? { recordId: third } : {}),
+      ...(third ? { recordId: decodeSegment(third) } : {}),
     }
   }
 
@@ -148,7 +157,12 @@ function routeSegments(route: BatchRoute): (string | undefined)[] {
         return ['review', 'lots', route.lotId]
       }
       if (route.view === 'records') {
-        return ['review', 'records', route.recordType, route.recordId]
+        return [
+          'review',
+          'records',
+          route.recordType,
+          route.recordId === undefined ? undefined : encodeURIComponent(route.recordId),
+        ]
       }
       return ['review', 'map']
     case 'changes':

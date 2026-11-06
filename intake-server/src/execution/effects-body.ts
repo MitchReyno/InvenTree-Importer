@@ -70,6 +70,7 @@ export async function supportedCreateBody(
     const binding = plan.parts.find((part) => part.subjectId === step.partSubjectId)!
     return {
       name: binding.spec.name,
+      ...(binding.spec.description === undefined ? {} : { description: binding.spec.description }),
       category: binding.spec.category.pk,
       tags: binding.spec.tags,
       copy_category_parameters: false,

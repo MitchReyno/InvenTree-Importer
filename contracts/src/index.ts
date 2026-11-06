@@ -16,8 +16,11 @@ export * from './header.ts'
 import { attentionSchemas } from './attention.ts'
 export * from './attention.ts'
 import { captureSchemas } from './capture.ts'
+import { recordSchemas } from './records.ts'
 import { catalogueSchemas } from './catalogue.ts'
 import { manualSchemas } from './manual.ts'
+import { preparationTreeSchemas } from './preparation-tree.ts'
+export * from './preparation-tree.ts'
 import { mediaSchemas } from './media.ts'
 import { processingSchemas } from './processing.ts'
 import { operatorReviewSchemas } from './operator-review.ts'
@@ -32,6 +35,9 @@ export * from './sessions.ts'
 export * from './live.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
+export * from './records.ts'
+export * from './records-projection.ts'
+export * from './catalogue-assessment.ts'
 export * from './capture-intent.ts'
 export * from './catalogue.ts'
 export * from './manual.ts'
@@ -166,11 +172,13 @@ export const schemas = {
   Bootstrap,
   Health,
   ...captureSchemas,
+  ...recordSchemas,
   ...catalogueSchemas,
   ...headerSchemas,
   ...attentionSchemas,
   ...effectsSchemas,
   ...manualSchemas,
+  ...preparationTreeSchemas,
   ...processingSchemas,
   ...operatorReviewSchemas,
   ...researchSchemas,

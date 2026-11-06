@@ -105,3 +105,28 @@ export function resolveLotLocation(
     location: snapshot.defaults.location as ResolvedLocation,
   }
 }
+
+/**
+ * The new-location draft chosen as Default location, while the batch default is still unset. Its
+ * parent must match a retained location observation in this context, or the draft needs correcting.
+ */
+export function defaultLocationDraft(snapshot: CaptureSnapshotDto) {
+  const draftId = snapshot.settings_intent?.default_location_draft
+  const draft = snapshot.reference_drafts?.find(
+    (record) => record.draft_id === draftId && record.kind === 'location',
+  )
+  if (!draft || draft.kind !== 'location' || snapshot.defaults.location.mode !== 'unset') {
+    return null
+  }
+  const parent = draft.value.parent
+  const observed = parent
+    ? snapshot.observations.find((item) => item.id === parent.observation_id)
+    : null
+  const parentValid =
+    !parent ||
+    (observed?.model === 'location' &&
+      observed.pk === parent.pk &&
+      observed.target_context_id === snapshot.target_context_id &&
+      parent.target_context_id === snapshot.target_context_id)
+  return { draftId: draft.draft_id, value: draft.value, parentValid }
+}

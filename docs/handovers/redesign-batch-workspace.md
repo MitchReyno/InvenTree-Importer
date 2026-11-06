@@ -419,3 +419,336 @@ Fresh read-only Claude reviewer at `0b8c86e`: 1 Minor, 1 Nitpick, fixed (the Min
 - **Stale Map link target (Minor):** after a successful link the chosen lot left the "Link to a lot…" list but stayed chosen, so Link stayed enabled and could resend the link, or send one to a lot retired since. A choice that is no longer offered now counts as none. The test links, rerenders with the new link, and expects the placeholder and a disabled Link; it failed first, then passed.
 - **Nitpick:** the architecture and the 8.2 Warnings line now name the Map among the places problems route to.
 
+### PR-D review round 8
+
+Fresh read-only Claude reviewer at `7330b65`: clean. Its one optional Nitpick was accepted: the Map remembers a lot chosen before a link, so after that link is removed the lot shows as chosen again. It is visible and harmless.
+
+### PR-D delivery
+
+CI on #104 passed on every job that ran (frontend, TypeScript, Markdown); the intake and backend lanes did not apply. Squash-merged as #104 (`1672e00`) under Mitch's standing authorisation. The demo (72 s) was recorded at `d9538a3` from `batch-capture.html` and attached to the PR; it shows Lots with problem fixes, the record chain and Mark reviewed, the shared Table selection, and the Map's flags, Link, New lot, Merge, Move and Split. The fixture has no single-file lot, Part link, lineage, open question or location problem, so those are not filmed.
+
+## PR-E plan: Records (Tasks 9 and 10)
+
+Branch `feat/redesign-batch-workspace-records` from `1672e00`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
+## PR-E results
+
+- **9.1 Contract:** `contracts/src/records.ts` adds the `record` capture change (`RecordRef` target, one operation), an optional Part `description` (1–250 characters, absent when unset) and the shared `recordScope` and `applyRecordChange`. Contract tests cover every operation and refusal (12 after review).
+- **Design adjustment (D6, now also in `design.md`):** the edit response stays the capture snapshot. Instead of the server listing affected Parts and lots, the browser and server share `applyRecordChange`: the UI states the scope and names a refused Part before sending, and the server applies the same function and re-validates.
+- **9.2–9.4 Apply:** `repository.ts` applies a record edit in the edit's transaction, writing each rewritten spec as a new operator `choice` version through `insertSelection` (so `validatePartSpec` runs) and bumping each Part's subject revision. PostgreSQL tests, written first and failing on a temporary refusal: CAS 412 with nothing written, a company map reaching two Parts in one revision with the operator as actor, a role-mismatched company refused, a template map refused for an unmapped category and accepted with that Part excluded, a category change refused until each parameter is mapped or dropped, reviewed lots of the edited Part reading `changed_after_review` (others still reviewed), a static check that capture never imports operator review, and a description set then cleared. The owned effects fake gained a second category, mappings and single-role companies on unused pks.
+- **9.3 Description:** `partEffects` and `supportedCreateBody` include it only when set. A unit test fixes the digests of a description-free spec recorded before the change; an end-to-end test sends a description to the fake and confirms the create.
+- **9.5 Records read:** `projectRecords` (in contracts, so the browser fixture uses the same projection) and `GET /api/v1/batches/:id/records`. Unit tests (19 after review) and a route test (the read follows an edit and writes nothing). Locations group lots by where they resolve; a lot with no location is a decision. Tags read as Update (applied to new Parts). Images and attachments are not listed: they are chosen as evidence in Capture, and the Part record links there.
+- **10 Records UI:** see `frontend/ARCHITECTURE.md` "Review Records". Twelve component tests at first (27 after review, including `CompanyDecision`): counts, a company map with scope text and role-filtered options, a refused save keeping its draft, a template map naming the Part with no mapping and then excluding it, Part name and description (cleared to null) with origins and no Ask, a Part decision starting a new Part, a SKU edit, category change mapping and dropping, parameter edit/remove/add and tags, blocking another record while dirty, and a failed read. The first nine were written first and failed; the last three were written after the editors and passed at once. `CompanyDecision` is tested with a fixture proposal; real proposals arrive with task 14.7.
+- **Browser:** `frontend/tests/fixtures/records.html` applies edits in memory with `applyRecordChange` and projects with `projectRecords`. Checked at 1440 and 390 px (no horizontal overflow) for the type rail, a company, a Part, a decision and a template.
+- **Gaps:** proposed-new and unsupported values, Ask and the GCT and new-category scenarios end to end are task 14 (14.6, 14.7). Creating companies, categories and templates is shown as not supported yet.
+
+### PR-E review round 1
+
+Fresh read-only Claude reviewer at `36a738c`: 3 Important, 6 Minor, 2 Nitpick, all fixed; behaviour fixes test-first.
+
+- **A section save discarded the Part's other drafts (Important):** the detail was keyed by batch revision, so an accepted save remounted every editor. It is now keyed by record only; a clean draft follows its saved value, and choice drafts (company, template, category, new parameter, new Part) clear after an accepted save. A test with saves that move the revision keeps an unsaved description across a name save; it fails with the old key.
+- **One long label failed the whole read (Important):** labels joining two values are clipped to 256 characters; a projection test validates long names, codes and values.
+- **A kept draft could not be retried after a 412 (Important):** a refused save offers "Load current values, keep this draft", which loads the batch (`reloadSavedValues`, clearing the stale pending edit) without remounting Records. A test refuses the first save, loads, and saves the same draft.
+- **Minor:** an unknown record type in the route is ignored; a Part whose choice was cleared needs a decision; the stale banner offers "Load current values"; a description is one trimmed line (schema pattern and a single-line input); template pickers offer only templates enabled for Parts; a template already on a Part is `duplicate_parameter_mapping` with its own message, and `set_parameter` must keep its target template; `design.md` D6 and tasks 9 and 10.5 now match.
+- **Nitpick:** a record edit validates each Part against the observations it already read, instead of a snapshot per Part.
+- **Accepted:** other server-only refusals (for example tag rules) still use the batch's generic "Save not confirmed" path; "Load current values, keep this draft" now recovers from it.
+
+### PR-E review round 2
+
+Fresh read-only Claude reviewer at `fef57d0`: 1 Important, 1 Minor, 1 Nitpick, all fixed. It confirmed that loading current values keeps Records drafts (nothing remounts Records or the detail).
+
+- **Normalised saves stayed unsaved (Important):** Tags and Description send a normalised value (tags split, trimmed and de-duplicated; description on one trimmed line), but the field kept the raw text, so it stayed dirty after the save was accepted. The field now sends the normalised form and keeps it once accepted. A test with saves that move the revision checks both fields and that another record then opens; it failed first.
+- **Follow-saved read the ref late (Minor):** `useDraft`'s updater compared with a ref it reassigns, which React can read on a later render. It now compares with the old saved text captured first. A test loads current values that rename the Part and expects the clean Name to follow while the Tags draft stays; it passed before and after, since the deferred case did not reproduce in the test.
+- **Nitpick:** record ids are encoded in the hash and decoded when parsed, so a tag such as "1/4W Bin" reopens.
+
+### PR-E review round 3
+
+Fresh read-only Claude reviewer at `3046bce`: 3 Minor, 1 Nitpick, all fixed test-first. It confirmed the round-2 fixes.
+
+- **A failed read after a save dropped every draft (Minor):** a new revision's records read starts without data, so a failure unmounted the detail. Records keeps the last good read, shows it as out of date with editing paused, and "Load current values" loads the batch and reads records again. A test fails the read after an accepted save, keeps an unsaved description, and reads again.
+- **"Latest proposal" was not the latest (Minor):** retained proposals come back ordered by stage name and random id. A field now shows the step of any proposal about the Part that it still matches. A test with an unmatched proposal read last keeps the matched step.
+- **The records cap could be exceeded by a valid batch (Minor):** raised from 2000 (to 10000 here, then to the derived bound in round 4).
+- **Nitpick:** the test counts above are updated.
+
+### PR-E review round 4
+
+Fresh read-only Claude reviewer at `8321c3b`: 1 Important, 1 Minor, both fixed test-first. It confirmed the round-3 fixes.
+
+- **The shared Part editor dropped a description (Important):** `captureEditorChange` rebuilds a new Part's whole spec, and the editor has no description field, so saving a label or location there deleted a description set in Records. It now keeps the Part's existing description. A unit test (`capture/editor-model.test.ts`) changes only the label and expects the description kept; it failed first. Other spec writers (shared tags, processing suggestions) already spread the spec.
+- **The records cap was still below the worst case (Minor):** a Part yields at most 102 records (35 of its own, 67 shared when nothing is shared with another Part), so 100 Parts give 10,200. The cap is 12,000, with the arithmetic beside it; a test projects exactly that worst case and validates it.
+
+### PR-E review round 5
+
+Fresh read-only Claude reviewer at `b2f93a4`: 3 Minor, 1 Nitpick, all fixed test-first. It confirmed the round-4 fixes and that every other Part spec writer keeps the description (they spread the spec), effects include it only when set, and review material takes it in by design.
+
+- **The catalogue check still called descriptions unsupported (Minor):** `assessCatalogue` (`intake-server/src/processing/catalogue.ts`) now marks a proposed description applicable when it fits `PartDescription` (one trimmed line, at most 250 characters), and `description_unsupported` otherwise. Tests cover a fitting, a long and a multi-line description.
+- **A stock item inheriting the batch quantity showed none (Minor):** the projection resolves an inherited quantity to the batch default, as approval does for operator lots (an AI lot's estimate is handled separately; see the merge of #107 below). A projection test covers it.
+- **Docs (Minor):** `design.md` D6 and task 9.5 now say a field shows the step of a retained proposal it still matches.
+- **Nitpick:** Records trims the Part name, a new Part's name, parameter values, MPN and SKU before sending; tests type padded values and expect them trimmed.
+
+### PR-E review round 6
+
+Fresh read-only Claude reviewer at `1fa964c`: 1 Minor, fixed test-first. It confirmed the round-5 fixes.
+
+- **Padded values stayed unsaved (Minor):** round 5 trimmed the parameter value, MPN and SKU it sent but kept the raw draft, so after an accepted save the field stayed dirty and blocked opening another record (the round-2 failure, for these editors). `ParameterEditor` and `SourcingEditor` now keep the trimmed value once the save is accepted. A test with saves that move the revision saves a padded SKU, opens another record, and saves a padded parameter value; it failed first.
+
+### PR-E review round 7
+
+Fresh read-only Claude reviewer at `e9e6e6a`: 1 Minor, 2 Nitpick, all fixed. It swept every Records editor for drafts that differ from the saved value after an accepted save and found none, and confirmed the round-6 fix.
+
+- **Tags suggested from a lot read "Set by you" (Minor):** a lot's proposal can add tags to its Part ("Add suggested tags"), but origins looked only at proposals about the Part. A Part's fields now also check proposals about its active lots. A projection test with a lot-subject proposal failed first.
+- **Nitpicks:** the text, parameter and sourcing inputs are disabled while their save is in flight, so nothing typed meanwhile is replaced when the save is accepted; the test counts above are updated.
+
+### PR-E review round 8
+
+Fresh read-only Claude reviewer at `024a633`: 1 Minor, 1 Nitpick, both fixed. It confirmed the round-7 fixes.
+
+- **Docs (Minor):** `intake-server/ARCHITECTURE.md`, `design.md` D6 and task 9.5 now say a field's origin can come from a proposal about the Part or one of its active lots.
+- **Nitpick:** every Records editor now disables its inputs while its save is in flight, including the ones that clear after a save (new parameter, category, company, template, new Part), so input typed meanwhile is not cleared.
+
+### PR-E review round 9
+
+Fresh read-only Claude reviewer at `dcd63c4`: 1 Minor, 1 Nitpick, both fixed test-first. It confirmed the round-8 fixes.
+
+- **A second save was dropped silently (Minor):** the batch sends one edit at a time, so a save clicked in another section while one was in flight returned unsaved with no reason. A shared `SavingContext` now disables every record Save (and Remove) while any record save is in flight. A test holds one save open and expects the other section's Save disabled until it ends.
+- **The out-of-date banner flashed after each save (Nitpick):** until the new revision's read arrives, the previous read stands in; that is now shown as refreshing (editing paused, no warning), and the banner stays for a failed read or a settled mismatch. A test with a slow read checks there is no warning; it fails with the old condition.
+
+### PR-E review round 10
+
+Fresh read-only Claude reviewer at `f733137`: 2 Minor, 2 Nitpick. Both Minor findings are fixed test-first, the first Nitpick is fixed (its test came in round 11), and the second Nitpick is recorded. It confirmed the round-9 fixes.
+
+- **A lot taking a new default location read as a decision (Minor):** with Default location set to a new-location draft, the default stays `unset`, so `projectRecords` filed the lot under "No location – Needs a decision", although review counts it placed and approval creates the location. A lot whose location resolves from the batch while that draft is chosen is now listed under a new record named after the draft. A projection test covers it; with the old code it read "No location", `choose`.
+- **The batch's "Discard local edits" kept record drafts (Minor):** `reloadSavedValues` remounts the other stages through `reset`, but Records keeps drafts across a reload so a refused save can be retried. The batch-level discard buttons now call `discardLocalEdits`, which reloads and, once the saved batch is read, bumps a `discarded` counter that `RecordsStage` adds to the detail's key and that clears the "Save or discard" block. A test fails without the key change.
+- **Nitpick, fixed:** `reloadSavedValues` returns whether it read the batch, and "Load current values, keep this draft" stays offered when it did not.
+- **Nitpick, recorded:** leaving Records mid-save and coming back remounts the stage before the batch's edit settles, so a Save clicked in that window returns unsaved with the generic message; "Load current values, keep this draft" recovers.
+- **Gap:** the batch's new-supplier draft is not listed under Companies yet.
+
+### PR-E review round 11
+
+Fresh read-only Claude reviewer at `297cc0c`: 1 Minor, 2 Nitpick, all fixed. It confirmed the round-10 fixes.
+
+- **A new default location with an invalid parent read as new (Minor):** approval refuses lots taking a location draft whose parent no longer matches a retained location observation in this context (`location_draft_parent_invalid`), but Records listed the draft as new with nothing to decide. The draft lookup and parent check moved to `defaultLocationDraft` in `contracts/src/capture-location.ts`, used by both `review/model.ts` and `projectRecords`; such a draft now reads "Needs a decision" with the new `location_draft_parent_invalid` decision code. A projection test with a missing parent observation failed first.
+- **Untested retry (Nitpick):** a test now has the reload fail and expects "Load current values, keep this draft" to stay, with the draft kept; it fails if the retry clears unconditionally.
+- **Stale counts (Nitpick):** the projection and component test counts above are current.
+
+### PR-E review round 12
+
+Fresh read-only Claude reviewer at `f19cac4`: 2 Minor, 1 Nitpick, all fixed. It confirmed the round-11 fix leaves approval and its digests unchanged.
+
+- **The Records badge counted lot issues (Minor):** attention's `to_decide` counted open blocking lot issues, once per lot and including a missing quantity, while Review › Records counts record decisions and never marked a missing quantity. Attention now reads the records projection (`attentionReader` takes the records reader) and makes one decision item per record waiting for a choice, routed to that record; a stock item without an exact quantity is now a `quantity_required` decision in `projectRecords`. Unit tests: two lots sharing an undecided Part give one decision, a lot issue adds none, and a missing quantity reads as a decision. The PostgreSQL attention test checks the badge equals the records read's to-decide total and the items its decision records.
+- **Doc drift (Minor):** `frontend/ARCHITECTURE.md` no longer describes the deleted `RecordDecisions` list; `intake-server/ARCHITECTURE.md` and design D8 describe record decisions.
+- **Task scope (Nitpick):** task 9's scope names `contracts/src/records.ts`.
+
+### PR-E review round 13
+
+Fresh read-only Claude reviewer at `ab10bb6`: 3 Important, 1 Minor, 1 Nitpick, all fixed test-first.
+
+- **An encoded record id broke the attention read (Important):** a `location:draft:<id>` decision routes as `…/location/draft%3A<id>`, which the `AttentionItem.route` pattern refused, so the response failed its contract and every badge vanished. The pattern now admits percent-encoded octets; a test validates such an item.
+- **A lot with no Part was no decision anywhere (Important):** decisions now come from records, and a lot without a Part (a Map "New lot") had no Part record. Its stock item is now a `part_choice_required` decision (ahead of a missing quantity), and its detail links to the lot in Lots, where the Part is chosen.
+- **Needs-you links did nothing with Records open (Important):** the stage read its route only at mount and replaces history itself, so the guard's route string could not change. `RecordsStage` now follows `hashchange` and opens the linked record unless a draft is open; the test also links back to the record first opened.
+- **"Not supported yet" for a waiting location (Minor):** "Location not yet known" now carries a `location_groups_unavailable` decision with its reason, and a decision item without a reason reads "Needs a decision" unless the record is unsupported.
+- **Nitpick:** the browser proof fixture's decision item uses the record shape.
+
+### PR-E review round 14
+
+Fresh read-only Claude reviewer at `18b2381`: clean, with 3 Nitpicks. The `hashchange` listener re-subscribes each render, because `useDirtySources` returns a new object (harmless; recorded). A lot whose Part is missing listed that id in `part_ids`; it now lists none (fixed with the merge fix below). Design D8 could also name a lot's Part (fixed below).
+
+### Merge of #107 (simplify-intake-entry PR-B)
+
+`interactive-app` gained #107, which adds the observation capture edits and lots the Examine lead session forms. A rebase conflicted on the first commit, so `origin/interactive-app` was merged in at `c358ba1`. Conflicts: the `CaptureEdit` union and `applyCaptureEdit`'s switch, where both sides added kinds; both were kept, `record` with its own `break`, and the generated contracts were regenerated. Every check and the record-edit, attention and evidence-observation PostgreSQL tests passed on the merge.
+
+A fresh reviewer of the merge found one Important and one Minor finding, both fixed:
+
+- **An AI lot's estimate read as ready (Important):** #107 makes approval refuse an agent lot that inherits the batch quantity until its estimate is accepted or replaced on the lot. `projectRecords` resolved it to the batch default, so Records and Needs you showed nothing to decide. Such a lot now shows its `estimated_quantity` with the new `estimate` origin ("Estimated by Examine") and a `quantity_required` decision in approval's words. A projection test and a component test cover it.
+- **Handover (Minor):** this entry.
+- **Missing Part:** a stock item whose lot names a missing Part now lists no `part_ids`, so the detail never offers that Part's decision (round 14's Nitpick); a projection test covers it.
+
+A fresh reviewer of `152fb43` found 2 Minor and 1 Nitpick, all fixed. It confirmed every approval-blocking lot condition now shows as a record decision, and that every `RecordOrigin` consumer handles `estimate`.
+
+- **An AI lot with no estimate (Minor):** `estimated_quantity` is optional, so such a lot read "—, Estimated by Examine" and asked to accept nothing. Only a lot with an estimate shows it; one without shows no quantity, as the operator's, with "Set an exact quantity for this lot." A projection test covers it.
+- **Doc drift (Minor):** `frontend/ARCHITECTURE.md` "Review Records" names the "Estimated by Examine" origin.
+- **Nitpick:** the missing-Part bullet above.
+
+### PR-E delivery
+
+CI on #108 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend and PostgreSQL lanes did not apply. Squash-merged as #108 (`ab80c3b`) under Mitch's standing authorisation, at the reviewed head `ad15957`. The demo (103 s) was recorded at `fef57d0` from `records.html` and attached; it shows the type rail, a company map with its scope, a template map, Part edits and a Part decision. Later fixes (record decisions in attention, the AI estimate) are not filmed.
+
+Nitpicks left from the last reviews, handled in PR-F's first commit: the `hashchange` listener depends on the stable `isDirty` rather than the per-render `drafts` object, and design D6 names the "Estimated by Examine" origin.
+
+## PR-F plan: Changes (Tasks 11 and 13)
+
+Branch `feat/redesign-batch-workspace-changes` from `ab80c3b`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
+## PR-F results
+
+- **11.1 Preparation tree:** `GET /api/v1/preparations/:id/tree` returns one flat list of records with `parent_key` and `location_key` rather than two nested trees, so By type, Tree by category and Tree by location are built from the same list and cannot disagree. A stock-plan or media-plan Part is an existing record at the root; an effects-plan Part sits under its category, with its parameters and manufacturer and supplier parts. A Part made by an earlier run, and its records, read as existing. Unit tests (written first, failing on the missing module) cover each plan version, a prior Part, a prior location and company, missing names and an unknown version. PostgreSQL tests read a stock and an effects preparation, check the stored plan, preview and sealed response bytes are unchanged afterwards, and approve the stock one.
+- **11.2 Ready to add:** `components/changes/ReadyToAdd.tsx` replaces the old approval screen under `ManualWorkspace`, which still owns commands, errors and the pinned preparation. Reviewed lots without problems are listed with the shown preparation's lots ticked; unticking or ticking one prepares exactly the ticked lots again (`prepareLots`), and approval stays disabled until that preparation is current. Lots left out link to the Review filter that shows why (not reviewed, or blocking). "What will change" offers By type and, when the tree read has nodes, a Tree grouped by category or location (`PreparationTreeView`, the WAI-ARIA tree pattern with one tab stop). Both come from `changes/model.ts` over the same node list; until the tree is read, or without it, By type shows the preview's stock items, Parts and locations. The sticky footer carries "N new · M update", the Test InvenTree note and "Approve N lots and add to InvenTree". Rows link to their lot or Part record in Review; tree nodes do not carry links, so arrow keys stay the tree's. Tests: model tests written first (failing on the missing module), including the property test that By type, the category tree and the location tree count the same records per state; component tests for unticking, a preparation no longer current (it fails if approval ignores currency), the By type counts and links, the tree keyboard and the fallback without a tree. The ported workflow tests use the new copy.
+- **Deviation:** with no preparation yet, the reviewed lots show ticked with "Show what will change" rather than preparing on arrival, so opening Changes never reads the target by itself. A purchase order has no plan record yet, so By type has no purchase-order group.
+- **11.3 Added:** `components/changes/Added.tsx` opens on an outcome strip (stock items added, records being checked, values InvenTree refused, and the Test InvenTree note), then each approval round (`RoundOutcome`, the former run result), pending changes (unapproved preparations, linked to Ready to add), lots not included (linked to Review) and an activity log of rounds. Rounds keep no timestamps, so the log lists them in approval order without times. Confirmed stock items and Parts link into InvenTree through the connection status's web address (`useTargetNavigation` reads the header's cached connection read; no address, no link). An uncertain stock item reads "being checked by its import reference" with no create-again action and changes when its result is confirmed. A value InvenTree refused as invalid (the run read's `rejected`, after review rounds 2 and 3) says so and links "See in Review" to its Part record or lot ("See in Capture" for a new location or supplier, after round 4); resume, inspect and attachment repair keep their existing commands. Tests were written first and failed on the missing component: the strip, InvenTree links, the uncertain stock item and its resolution, the refusal link, the pending, not-included and activity lists, and the empty state.
+- **11.4 Removal:** `ApprovalWorkspace`, `ResultsWorkspace`, `PreparedRecordEffects` and `PreparedMediaEffects` are gone; the run, effect and attachment results and the Part attachment list moved to `components/changes/`. Their tests were ported first: the manual workflow tests render Ready to add and Added, and the record-result test moved to `EffectOutcome.test.tsx`. The app-wide disclaimer footer, the "Owned fake only" heading note and the old owned-fake copy in Review and Diagnostics are gone, so only the connection status, the Ready to add footer and the Added outcome strip name the test target. Ready to add no longer offers download links for stock attachments; the records they belonged to are listed in By type and the Tree, with each new record's details.
+- **13.1 Docs:** `frontend/ARCHITECTURE.md` gains a Changes section and no longer describes the Approve and Results screens, the results folder or the disclaimer footer; its styling paragraph names the design-system components in `components/ui/`. `frontend/README.md` names the four tabs and Changes. `intake-server/ARCHITECTURE.md` describes the preparation tree beside the record edit, records and attention reads.
+- **13.2 Browser qualification:** headless Chromium (Playwright) against the Vite dev server, with owned fixtures only, so no API, provider or InvenTree traffic and no live provider. Eleven screens: the component gallery, Batches home, Capture, Review › Lots, Map and Records, Processing Overview and Examine, Agents, and Changes › Ready to add and Added (`changes.html`, new in this PR). Each was captured full-page in light and dark at 1440, 860 and 390 px and at 200% zoom (a 720 px viewport at device scale 2): 88 screenshots, with no horizontal overflow, no console or page errors, and the requested theme applied on every page. Ready to add was also captured in its Tree view by category and by location (32 more, same results). The screenshots stay outside the repository. Fixes found this way: the approve action uses the design-system primary button; tree rows lay out as a grid so a long label wraps in its own column rather than leaving the marker alone on a line; Added's Not included leaves out lots waiting in a prepared selection, which Pending changes already lists.
+- **Deviations from the canvas:** Ready to add waits for "Show what will change" when nothing is prepared, rather than preparing on arrival. By type has no purchase-order group, since no plan creates a purchase order. Tree nodes carry no links, so the arrow keys stay the tree's; By type rows link to Review. Added's activity log lists rounds without times, since runs keep none. Stock-attachment downloads are no longer offered before approval; attachments are listed by name. The changes-commit spec's "fix in Review for a rejected value" is met only in part: Added names the refused value and links it to Review, but its round stays open and holds the source, so the corrected value cannot be sent until the executor can settle a refused create (follow-up, recorded in design D7). The fixtures stand in for the owned fake; the PostgreSQL tests exercise the tree against it.
+
+### PR-F review round 1
+
+Fresh read-only Claude reviewer at `2dd8784`: 2 Important, 4 Minor, 1 Nitpick and three hardening points, all fixed. It confirmed the tree read writes nothing and leaves the replayed bytes alone.
+
+- **Unticking before the first preparation did nothing (Important):** the ticks were recomputed from the preview, or every ready lot, on each render. Ready to add now keeps the operator's ticks in state, reset when the shown preparation changes; "Show what will change" prepares exactly those, and approval waits until the shown preparation is exactly the ticked lots. A test unticks before anything is prepared.
+- **Fix in Review on effects that never ran (Important):** it covered every effect with no result in a stopped round, including stock creates (owned by the lot) and record creates (owned by a draft), which linked to records that are not Parts, and a resumable effect. It now covers only Part values (`create_part`, `parameter`, `manufacturer`, `supplier`) with no result and no resume or inspect action, in a round that was not cancelled. The test fixtures carry the server's real `create_stock` effects, a resumable effect and a cancelled round.
+- **"Being checked" counted uncertain stock twice (Minor):** stock creates also appear among a round's effects; they are counted once, from its operations.
+- **Stock rows in the category tree did not name a location (Minor):** they now end with the location, or "No location".
+- **Fields lost before approval (Minor):** each node carries a `detail` (a new Part's description and tags; a new location's description and parent; a new company's description, manufacturer role and logo), shown under its row in By type and the Tree.
+- **Left-out links used the wrong filter (Minor):** each issue maps to the filter that lists it (blocking, warnings or changed), otherwise All, and the link opens the lot.
+- **Docs (Nitpick):** design D7 and task 11.1 describe the flat list and `nodes: null`.
+- **Hardening:** tree items carry `aria-setsize` and `aria-posinset`; a stock item whose location is not listed goes under "No location"; labels and details are cut by character, never splitting a surrogate pair (a unit test checks it).
+
+### PR-F review round 2
+
+Fresh read-only Claude reviewer at `0374a0b`: 1 Important, 3 Minor, 1 Nitpick, all fixed. It confirmed round 1's fixes, including how the ticks reset with `ManualWorkspace`'s navigation.
+
+- **Fix in Review keyed on the wrong state (Important):** the server records a refused create as unknown, not none, and a round with any unknown needs checking, so round 1's rule flagged effects never sent and missed the refused one. The run read now marks a supported effect `rejected: true` when its latest create got a 4xx response with nothing attributed (`effects-state.ts` reads the stored status); certainty and recovery are unchanged. Fix in Review and the "to fix" count key on that flag for Part values, the effect says InvenTree refused it, and a refused value is not counted as being checked. A PostgreSQL test has the owned fake refuse a parameter (new `reject_parameter` fault) and checks only that effect is marked; the Added fixtures now use the states the server produces.
+- **InvenTree links used the old UI (Minor):** they use `web/part/<pk>/` and `web/stock/item/<pk>/`, as the backend does.
+- **A location or company made by an earlier run appeared twice (Minor):** it is keyed by its pk, as the stock item's location is. A unit test covers both.
+- **A ticked lot that stopped being ready stayed ticked (Minor):** ticks are filtered to ready lots, so it is never sent or counted against the 10-lot cap. A test covers it.
+- **Nitpick:** "Show what will change" is also offered when the shown preparation is no longer current, to prepare the same lots again.
+
+### PR-F review round 3
+
+Fresh read-only Claude reviewer at `c1e1d4d`: 1 Important, 3 Minor, 1 Nitpick. It confirmed the `rejected` flag changes no stored or replayed bytes, no recovery decision and no other consumer of the effect states, and that a later retry cannot follow a refused create.
+
+- **Fix in Review led nowhere (Important):** a refused create stays unknown, so its round is `recovery_required`, holds the batch's source and offers no action; a corrected value can never be sent. Making a refused create settle changes the executor's recovery authority, which task 11 reuses unchanged, so it is recorded as follow-up work (design D7 and the deviations above) rather than done here. Added now says what is true: the strip counts values "refused by InvenTree"; a refused value or stock item says InvenTree refused it and that the round stays open, so a corrected value cannot be sent yet; "See in Review" opens its Part record or lot; and a round held only by refusals gets its own notice and log entry instead of "Stock may have been created". Tests cover a refused Part value, a refused stock item and a round held only by refusals.
+- **Every 4xx counted as refused (Minor):** only a 400 validation error does; a PostgreSQL test has the fake answer a parameter with 403 and checks it is not marked.
+- **A stale preparation's changed lot stayed ticked (Minor):** a preparation's lots count as ready only while it is current, and every source of ticks is filtered to ready lots, so a lot that changed since review is neither ticked nor prepared again. A test covers it.
+- **The 11.3 entry described the old rule (Minor):** it and the architecture notes describe the refusal flag.
+- **A refused stock item read as being checked (Nitpick):** it now reads as refused and is not counted as being checked.
+
+### PR-F review round 4
+
+Fresh read-only Claude reviewer at `9d20ab6`: no Critical or Important findings; 3 Minor and 2 Nitpicks, all fixed. It judged deferring the settling of a refused create acceptable under task 11's reuse of the existing certainty and recovery, now that Added never promises a fix.
+
+- **Traceability of the deferral (Minor):** the changes-commit spec's Added requirement now says a rejected value is named and linked to Review, and that re-sending a corrected value waits until the executor can settle a refused create; task 11.3 records the follow-up beside design D7.
+- **A refused new Part read as being checked (Minor):** its row now says InvenTree refused it and it was not created.
+- **Stale attachment wording (Minor):** `frontend/ARCHITECTURE.md` says Ready to add lists each attachment and binds the plan digest, and Added shows each attachment's identity, verification and recovery.
+- **Nitpicks:** the approval-view sentence names Ready to add, and the README no longer calls owned-fake notices intentional. A refused new location or supplier links "See in Capture", where its draft is set, and a refused Part attachment links to its Part record. A test covers a refused Part, location and attachment.
+
+### PR-F review round 5
+
+Fresh read-only Claude reviewer at `d9f33f6`: 1 Minor, 3 Nitpicks, all fixed. It confirmed round 4's code.
+
+- **Docs said every refused value links to Review (Minor):** the spec, design D7, task 11.3, the frontend architecture and the 11.3 entry now say a Part value, Part attachment or stock item links to Review and a new location or supplier to Capture.
+- **Nitpicks:** a refused Part or stock item no longer adds "It is never created again" beside "cannot be sent yet"; the link's place comes with its address instead of being read from the URL; the test checks where the refused attachment link points.
+
+### PR-F delivery
+
+CI on #109 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend and PostgreSQL lanes did not apply. Squash-merged as #109 (`c15e9ce`) under Mitch's standing authorisation, at the reviewed head `cabe29c`. The demo (93 s) was recorded at `2dd8784` from `changes.html` and attached; later review fixes are not filmed. BI-008 is marked Done; task 14 follows as PR-G.
+
+Nitpicks left from round 6, handled in PR-G's first commit: Ready to add and the Review selection share one `MAX_SELECTED_LOTS` (in `manual/types.ts`, matching `ManualScope`), and the changes-commit Tree requirement names the Part's records under the Part, as design D7 does.
+
+## PR-G plan: BI-006 agent data (Task 14)
+
+Branch `feat/redesign-batch-workspace-agent-data` from `c15e9ce`. BI-006's contracts (sessions from #97; evidence observations, lead-session lots and `bench-intake-proposal/5` from #107) are on `interactive-app`; its PR-C (per-lot Research and Images) is not, and no branch for it is open. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
+## PR-G results
+
+- **Starting point:** much of task 14 arrived with BI-006's own PRs. The Processing overview and step pages already list sessions and open the session drawer (`SessionPanel`: timeline and chat), the Agents page already counts slots from `occupies_lane` and leaves waiting sessions out, and Review's evidence pane already shows each lot's observation crops. PR-G adds what those lacked and records what BI-006 has not yet published.
+- **14.1–14.3 Adapter and status lines:** `ProcessingJob` gains an optional `latest_status` (the latest session's newest status line), read with the Agents list's `latestStatuses` and present only once a session has posted one. `retainedJobsSource` now gives each session its active lot and status line, the batch's Examine lead session (`lead`, chosen by the shared `examineLead`: the batch-level Examine job running as a session) and, through `subjectStatuses`, each lot's newest line across its sessions. The adapter is the same one: it switches on per job when `session_state` is present, so the fixture profile shows no sessions. Session rows show the status line under their name. Tests: adapter tests written first and failing (status lines, lead session, a lot's newest line, no lead without a session); the session-row test shows a status line and none for a session without one; the PostgreSQL Examine trigger test checks the processing read carries the newest status line of the lead session and none before it posts.
+- **14.4 Agents page and Capture glance:** the Agents page already met the scenario; a test now pins it (three running and two waiting with a limit of three: "3 of 3 slots in use", "2 waiting for you", and both waiting sessions labelled as holding no slot). It passed at once, as expected. Capture's glance shows each lot's newest agent line ("Research · Checking the datasheet") under the lot. `processing/session-status.ts` (`useSessionStatuses`, replacing `useLeadStatus`) reads the processing snapshot once per capture revision and every 15 s, giving the lead session's line and each lot's newest line; it no longer reads the lead session's timeline, and reads nothing where sessions are not supported. Both the hook and `retainedJobsSource` use `subjectStatuses` for "a lot's newest line". Tests were written first and failed: the hook (lead and lot lines, revision re-read, no timeline read, no read without sessions) and the glance line.
+- **14.5 Review:** Lot details show the lot's agent line (`AgentLine`: "Research · <latest line>", the session's state and "Open in Processing"), from the same `subjectStatuses` over the processing snapshot Review already reads; a lot no session works on shows none. The evidence pane's region crops were already built by BI-006 (`LotObservations`). Review › Map lists each file's observed regions (active observations on the file's versions) with the lot each supports, labelled by their first marking or text, otherwise "Region N"; a file that supports a lot only through a region counts as used, and its lots appear on the lot side. File-level links, and their unlink controls, stay as they were. Tell Examine (`TellExamine`) appears on the Map only when the batch has an Examine lead session; it sends the instruction as chat to that session's inbox (`processing.chat`, idempotency key per send), says it was sent, and keeps the text when it is not. It does not use the batch instructions command, which stores instructions and sends nothing to a session. Tests were written first and failed: the agent line, the region-level map model, Tell Examine (sent to the lead session, kept on failure, absent without a session); the Map component test renders regions beside file links.
+- **Spec alignment:** task 14 named seven acceptance scenarios that did not exist. The delta specs gain "Lot details with the agent line", "Evidence pane with region crops", "Map at region level with its instruction field" (review-workspace) and "Session drawer" (processing-workspace), and the acceptance line names the existing "Read-only lots glance" and "Overview with running agents", and "Ask about a proposed value" (reworded after review round 1).
+- **Deviation:** task 14's scope names a second `ProcessingSource` adapter; the existing adapter switches on per job instead, when `session_state` is present, so one adapter serves both profiles.
+- **14.6 Ask:** a field whose origin is a step offers "Ask <Step>" when a session of that step is working on the record's Part or one of its lots (from the processing snapshot `RecordsStage` reads when the client has `chat`). It opens a short message, prefilled ("Please check the category of <record>."), sent to that session's inbox; the field then shows "Asked <Step>". Without sessions, or for a field set by the operator, no Ask appears, so the existing "no Ask" test still holds. Direct edits are unaffected. The test was written first and failed.
+- **Deviation:** the inbox message carries text only, with no field or subject, so "Asked <Step>" lasts until the field's value changes on this page rather than until the session replies; the reply is in the session drawer in Processing.
+- **14.7 Catalogue proposals:** `projectRecords` reads each Part's `bench-intake-proposal/5` catalogue (from proposals about the Part or its lots) without writing anything into a spec.
+  - A proposed-new manufacturer or supplier becomes a company record per Part (`company:proposed:<role>:<part>`, after review round 1) that needs a decision (`company_proposed_new`), carrying `proposed` (role, name, the agent's reason, the proposed part number or SKU, and a likely match). A role the Part already has is the operator's choice and is not asked about again.
+  - The likely match is an observed company in that role found by an explicit rule, in order: the same name, its initials (GCT and Global Connector Technology), or one name containing the other; otherwise none.
+  - A proposed-new category, a parameter with no template or no category mapping and a supplier price are listed on the Part record as `unsupported`, each with why it is not supported yet and the agent's reason. Since review round 6 the list comes from `assessCatalogue` itself, so it covers every reason the server's assessment gives.
+  - Records shows the company decision with `CompanyDecision` (its card is now labelled "Proposed new <role>: <name>", so it does not share the record's region name): "Use <likely>" or another observed company in the role sets the manufacturer or supplier part on the record's Part, with its proposed number (one record per Part since review round 1), through the existing record edits; without a proposed number it says to set the role on each Part. A Part lists its values not supported yet; since review round 1 a new category shows at the category field and only values with no field of their own go under "Not supported yet".
+  - Tests were written first and failed: the GCT decision with its likely match by initials, no likely match without a rule, no question for a role already set, and the unsupported list; the component tests map the proposed company to its likely match and to another, and list the unsupported values.
+- **Gap:** no session runner publishes a catalogue block yet (BI-006 PR-C, its task 10.4), so the GCT and new-category scenarios are proved with seeded `/5` proposals in unit tests and the browser fixture, not with the synthetic worker. Proposals carry no likely-match field (BI-006 D13), so the projection's rule above stands in for it.
+- **14.8 Browser check:** headless Chromium (Playwright) against the Vite dev server, owned fixtures only: no API, provider, session worker or InvenTree.
+  - **Fixtures:**
+    - `batch-capture.html?agents` adds observations, an Examine lead session and a Research session on the ATmega328P lot, each with a status line.
+    - `records.html` now has a capacitor whose Research proposal names a new manufacturer "GCT" (the observed "Global Connector Technology" is its likely match by initials), a new category, a parameter with no template and a supplier price, with Research sessions so Ask appears.
+    - `processing.html` sessions carry status lines.
+  - **Views:** nine, each captured full-page in light and dark at 1440, 860 and 390 px and at 200% zoom: 72 screenshots.
+    - The Processing overview with status lines, and the Agents page.
+    - The Capture glance with each lot's line and the lead line.
+    - The region-level Map with Tell Examine, and the Map without sessions (no instruction field).
+    - Lot details with the agent line.
+    - The GCT decision.
+    - A Part's not-supported list, and Ask on a Part field.
+  - **Results:** every view showed its expected text (and the Map without sessions no "Tell Examine"), with no horizontal overflow, no console or page errors and the requested theme applied.
+  - **Fixes found this way:** region rows inherited the file rows' padding and divider (the row style is now scoped to direct children), and a proposed company repeated its decision's detail above the decision card.
+  - **Limits:** region crops in the evidence pane were not re-checked here, since the fixture cannot serve the crop route, so the fixture's observations sit on lots the screenshots do not open; BI-006's own qualification checked them against its server.
+
+### PR-G review round 1
+
+Fresh read-only Claude reviewer at `3160ae7`: 3 Important, 6 Minor, 4 Nitpicks, all fixed or recorded. It confirmed `latest_status` is keyed and bounded like the Agents list, touches no hashed or replayed bytes, and that the processing query keys match the other readers.
+
+- **A proposed company used by several Parts could not be applied (Important):** each send reused the render's batch revision, so the second was refused, and merged records gave every Part the first Part's number. A proposed company is now one record per Part and role (`company:proposed:<role>:<part>`), so each choice is one edit with that Part's own number. A test has two Parts propose "GCT" with different numbers.
+- **A decision nothing could resolve (Important):** a Part already matched to an InvenTree Part, or still unset, has no spec to set a company on; it is no longer asked about. A test covers both.
+- **Names (Minor):** words are split by any script's letters and digits, so "村田製作所" keeps its identity and "東芝" matches nothing rather than every unlabelled company; containment needs whole consecutive words, so "ADI" no longer matches "Radiall" while "Murata" still matches "Murata Manufacturing".
+- **Which proposal wins (Minor):** a Part's catalogue comes from a current job before a superseded one, and from the Part before one of its lots; ties take the first read, as before. A test has a superseded proposed-new company lose to a current one.
+- **Chat retries (Minor):** Tell Examine and Ask keep the idempotency key with the unsent text until it is confirmed or edited, so retrying an unconfirmed send cannot queue it twice, and say it may already be queued. Tell Examine is not offered for a cancelled Examine session (Processing offers a fresh one), and words its confirmation by the session's state, as the session drawer does (`chatConfirmation`). Both queries now poll like the other processing reads, so the controls appear when a session starts.
+- **Spec drift (Minor):** a proposed-new category is now explained at the Part's category field, beside the category editor; other values not supported yet keep their list. Ask needs a field a step proposed, and a value missing altogether has no field, so the scenario is reworded to "Ask about a proposed value" (spec and acceptance).
+- **Lead selection (Minor):** `examineLead` is the one rule for the lead session, used by the adapter, the status hook and Tell Examine; the unused `lotStatus` is gone.
+- **Nitpicks:** the status-line schema is shared (`statusLine` in `processing.ts`, imported by `sessions.ts`); the agent line is a plain paragraph rather than a labelled live region; the Map's arrow is hidden from screen readers and reads "supports".
+- **Deviation:** Ask cannot ask about a value missing altogether, since Records lists no field for it; the operator can message the session from its drawer in Processing.
+
+### PR-G review round 2
+
+Fresh read-only Claude reviewer at `45341d0`: 5 Minor, 4 Nitpicks, all fixed. It confirmed round 1's fixes, and that `STATUS_LINE_MAX_CHARACTERS` exported by both modules is one binding.
+
+- **Ask reached sessions that will not read it (Minor):** Ask now skips cancelled, cancelling, failed and unresumable sessions (`ENDED_SESSIONS`), and asks the Part's own session before a lot's. A test has a cancelled session offer no Ask.
+- **Identical proposed-company rows (Minor):** each is labelled "<name> for <Part>", so the list, its accessible names and Needs you tell them apart.
+- **Drafts and keys lost on leaving the page (Minor):** Tell Examine and Ask keep their unsent text and its idempotency key in `processing/pending-messages.ts` (keyed by batch, and by record and field for Ask), as the session drawer does, and report unsent text to the navigation guard (the Map through its own `useDirtySources`, so the restructure dialog and Tell Examine do not clear each other). A test sends, fails, leaves the Map and returns: the text is back, still reported, and the retry reuses the key.
+- **Two confirmation wordings (Minor):** the session drawer now uses `chatConfirmation` too, with its fallback "Queued. The session resumes to answer."
+- **Docs (Minor):** the frontend architecture and this handover describe one record per Part and the category note at its field.
+- **Nitpicks:** the Capture glance leaves out a finished or ended session's last line (a test covers it); once a current job has proposed for a Part, a superseded job's catalogue no longer counts (a test covers it); Ask returns focus to "Asked <Step>" after sending and to the Ask button after cancelling; `ProposedCompanyEditor` handles its one Part directly.
+
+### PR-G review round 3
+
+Fresh read-only Claude reviewer at `e13327e`: 1 Important, 3 Minor, 2 Nitpicks, all fixed. It confirmed round 2's fixes, including the pending-store key scoping and stable guard callbacks.
+
+- **Discard kept an Ask draft (Important):** the pending store restored the message after "Discard changes" remounted the record, so it reported dirty again and blocked the next switch; the batch's discard left it too. Discarding a record now clears that record's Ask messages (`clearPending`) before the remount, and the batch's discard clears every Ask message. A test types an Ask message, discards, and finds it gone and the guard clean; it fails without the clear.
+- **Opening Ask lost focus (Minor):** focus moves into the message box when Ask opens (the same test checks it).
+- **Tell Examine could leave the guard dirty (Minor):** it reported a draft even when its form was hidden (a cancelled session, no session, an archived batch) and never reported clean on leaving. It now reports unsent text only while the form is shown, and clean when it unmounts. A test covers leaving and a kept draft with no session to show it.
+- **Docs (Minor):** `frontend/ARCHITECTURE.md` says where unsent messages are kept and that discards drop Ask drafts, and the Map's lineage note sits with the split and merge lineage it explains.
+- **Nitpicks:** the catalogue comment says any current job counts; a region's label skips an empty first marking.
+
+### PR-G review round 4
+
+Fresh read-only Claude reviewer at `7000b35`: 2 Minor, 1 Nitpick, all fixed. It confirmed round 3's fixes, including the ordering of the discard clears against the remount.
+
+- **Ask on an archived batch (Minor):** the server refuses messages for an archived batch, so Ask now offers nothing there, as Tell Examine already did. A test covers it.
+- **Lot lines from ended sessions (Minor):** `subjectStatuses` now picks a lot's newest line among live sessions only (not finished, cancelled, cancelling, failed or unresumable), so a later finished line no longer hides a running one in Capture, and Lot details show no agent line for a lot no session works on. A test covers both.
+- **Batch discard (Nitpick):** `Batch`'s "Discard local edits" clears every unsent Ask message itself, wherever the batch is shown; Records' own clear on the same signal stays as a second guard. A Records test types an Ask draft, signals the batch discard to Records, and finds it gone; `Batch`'s own clear (for when Records is not open) is not covered by a test.
+
+### PR-G review round 5
+
+Fresh read-only Claude reviewer at `41daef9`: 1 Minor, 2 Nitpicks, all fixed. It confirmed round 4's fixes.
+
+- **A parameter with no category mapping was dropped (Minor):** a proposed parameter whose template exists but has no mapping to the Part's category cannot enter a spec, and BI-006's spec lists it as unsupported, never dropped. It is now listed as not supported yet ("Mapping this parameter template to the Part's category is not supported yet."), beside a parameter without a template. The projection test covers both.
+- **Nitpicks:** the round-4 note on the batch discard says which path its test covers; the frontend architecture says Ask and Tell Examine are withheld on an archived batch.
+
+### PR-G review round 6
+
+Fresh read-only Claude reviewer at `1a65a68`: 2 Minor, 2 Nitpicks, all fixed. It confirmed round 5's fix and that `latest_status` is keyed by attempt.
+
+- **A proposed company outside a decision vanished (Minor):** a proposed-new manufacturer or supplier on a Part matched in InvenTree, still unset, or already having that role appeared nowhere. It is now listed on the Part as not supported yet, with its name, proposed number and the agent's reason; only a Part being created with no company in that role gets the decision record.
+- **Other assessment reasons were dropped (Minor):** the projection had its own copy of four of BI-006's reasons. `assessCatalogue` moved from `intake-server/src/processing/catalogue.ts` into contracts (the server file re-exports it, so its tests are unchanged), and the projection builds the list from its result, with one explanation per reason: a parameter waiting for an existing category or not applying to it, a stale reference, a company not set up for the role, a supplier with no SKU and a description that does not fit join the earlier cases. The projection fixture now carries its target context, which the shared rule checks; a new test covers the added reasons and a new manufacturer on a matched Part.
+- **Nitpicks:** the 14.7 results bullet names the category-mapping case; the not-supported lists key their rows by position, so identical values do not collide.
+
+### PR-G review round 7
+
+Fresh read-only Claude reviewer at `e99d14f`: clean, with 2 Nitpicks, both fixed. It confirmed the move kept `assessCatalogue` identical apart from imports, that every reason maps to one row, and that the most rows possible (37) stay within the 40-item cap.
+
+- **Nitpicks:** comments and both architecture docs no longer say the server calls `assessCatalogue` (only the projection does; the server file re-exports it for its tests), and the frontend architecture says a category or description note shows at its own field when the Part lists it.
+
+### PR-G delivery
+
+CI on #110 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend, PostgreSQL and workflow-sync lanes did not apply. Squash-merged as #110 (`3ed53f2`) under Mitch's standing authorisation, at the reviewed head `2139767`. The demo (108 s) was recorded at `3160ae7` from `processing.html`, `batch-capture.html?agents` and `records.html` and attached; later review fixes are not filmed. Every task in the change is now ticked.
+
+A fresh read-only review of the wording follow-up `2139767` was clean, with one optional Nitpick: saying the server never calls `assessCatalogue` was literally true but missed that it runs through `projectRecords`. It is handled in this record: `intake-server/ARCHITECTURE.md` says no server code calls `assessCatalogue` directly, and the server runs it only through `projectRecords`. Syncing and archiving the change wait for Mitch's authorisation.
+

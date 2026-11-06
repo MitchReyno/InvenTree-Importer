@@ -200,6 +200,10 @@ export function partEffects(binding: PartBinding): EffectOperation[] {
       dependencies: [],
       input: {
         name: binding.spec.name,
+        // Absent when unset, so plans frozen before descriptions keep their bytes.
+        ...(binding.spec.description === undefined
+          ? {}
+          : { description: binding.spec.description }),
         category: binding.spec.category.pk,
         tags: canonical(binding.spec.tags),
       },

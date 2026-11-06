@@ -11,7 +11,7 @@ interface Props {
   recover: () => void
 }
 
-export function AttachmentResult({ attachment, busy, recover }: Props) {
+export function AttachmentOutcome({ attachment, busy, recover }: Props) {
   let status = 'No attachment effect is confirmed.'
   if (attachment.certainty === 'confirmed') {
     status = `Attachment #${attachment.remote_pk} was verified against its approved bytes and stock destination.`

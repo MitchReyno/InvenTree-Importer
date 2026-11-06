@@ -35,6 +35,12 @@ Each step page SHALL show the step's outputs: readings, sources, crops or matche
 - **WHEN** the operator corrects it
 - **THEN** the correction shows as “Your edit”, the affected lot is marked for re-examination, and other lots are unchanged.
 
+#### Scenario: Session drawer
+
+- **GIVEN** a running session on a step page or the Overview
+- **WHEN** the operator opens it
+- **THEN** a drawer shows its status timeline, its open question and a chat, and closing it returns to the page.
+
 ### Requirement: Works before agent sessions exist
 
 Until session contracts from `simplify-intake-entry` are available, Processing SHALL present the retained jobs, questions and proposals of the current profiles in the same Overview and step structure. A step that has no data SHALL say so, rather than fabricating sessions or progress.

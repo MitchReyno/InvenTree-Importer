@@ -85,11 +85,11 @@ Retained proposals the executor cannot apply SHALL be shown as “Not supported 
 
 Each record SHALL show which step proposed each field. When agent sessions exist, an “Ask” control SHALL send a message to that step's session; when they don't, Ask SHALL be hidden. Direct edits SHALL apply immediately, independently of the message.
 
-#### Scenario: Ask about a missing value
+#### Scenario: Ask about a proposed value
 
-- **GIVEN** a required parameter missing on a Part, proposed by Research
-- **WHEN** the operator asks Research to find it
-- **THEN** the message is queued to Research for that Part, and the parameter shows “Asked Research” until a value or reply arrives.
+- **GIVEN** a Part field proposed by Research, while Research's session works on that Part
+- **WHEN** the operator asks Research about it
+- **THEN** the message is queued to Research's session for that Part, and the field shows “Asked Research” until its value changes; the reply is in the session's drawer in Processing.
 
 #### Scenario: No agent sessions yet
 

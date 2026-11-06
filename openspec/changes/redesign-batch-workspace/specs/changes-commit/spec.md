@@ -28,7 +28,7 @@ Changes › Ready to add SHALL list reviewed lots (ticked by default, each can b
 
 ### Requirement: Tree view
 
-“What will change” SHALL offer a Tree view of the same preparation: Category › Part › manufacturer part › supplier part, with parameters, stock items (with location) and images under each Part, grouped by category or by location. Every node SHALL show New, Update, Exists or Choose, and the tree SHALL follow the WAI-ARIA tree keyboard pattern.
+“What will change” SHALL offer a Tree view of the same preparation: Category › Part, with the Part's parameters, manufacturer part, supplier part, stock items (with location) and images under it, grouped by category or by location. Every node SHALL show New, Update, Exists or Choose, and the tree SHALL follow the WAI-ARIA tree keyboard pattern.
 
 #### Scenario: Keyboard through the tree
 
@@ -42,7 +42,7 @@ Changes › Added SHALL show:
 
 - an outcome strip;
 - each approval run's records, with links into InvenTree;
-- failures with their own fix: retry attachment; check by import reference for an uncertain result, never a plain retry that could duplicate stock; fix in Review for a rejected value;
+- failures with their own fix: retry attachment; check by import reference for an uncertain result, never a plain retry that could duplicate stock; a value InvenTree rejected is named and linked to where it is set: its Part record or lot in Review, or its draft in Capture for a new location or supplier (re-sending a corrected value waits until the executor can settle a refused create);
 - lots not included;
 - new pending changes;
 - an activity log.

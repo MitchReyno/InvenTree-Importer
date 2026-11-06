@@ -131,13 +131,13 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 
   - The server applies the change in a single transaction at `expected_revision`.
   - It rewrites every affected Part's `InventoryPartSpec` in place, re-validated with `validatePartSpec`.
-  - Each rewritten `choice` selection is written as a new version with the operator as its actor. Per-field origin in the UI comes from comparing the current spec with the latest processing proposal for that subject. Only the selection row stores an actor.
+  - Each rewritten `choice` selection is written as a new version with the operator as its actor. Per-field origin in the UI comes from comparing the current spec with the retained processing proposals about the Part or one of its active lots: a field shows the step of a proposal it still matches (retained proposals have no reliable order). An AI lot's unaccepted quantity reads "Estimated by Examine". Only the selection row stores an actor.
   - It does not call into operator-review. Rewriting a Part's selection changes its material in `materialize()` (`intake-server/src/review/model.ts`), so reviewed lots that use the Part read as `changed_after_review`.
   - On a revision mismatch it returns 412 with current values, as other capture edits do.
 - **Scope.** Records edits only change Parts whose `choice` is already `create` with an `InventoryPartSpec`.
   - A Part with no spec yet (`unset` or `unknown`) shows "Needs a decision".
   - Its actions use the existing `CaptureEdit { kind: 'part', choice }`: choose an existing Part, or start a new one with a name and an observed category.
-  - The response lists the affected Part and lot IDs, which become the UI's "applies to … used by N lots" text.
+  - The browser and server share `applyRecordChange` and `recordScope` (`contracts/src/records.ts`). The UI derives the affected Parts and lots, its "applies to … used by N lots" text, and any refusal naming a Part, before sending; the server applies the same function and re-validates. The edit response stays the capture snapshot. (Adjusted during PR-E; it was a response listing the affected IDs.)
 - **Validation rules.** `validatePartSpec` checks every reference against a complete target observation. It also checks that each parameter's `category_mapping` matches the Part's category and its template, and that templates aren't duplicated on a Part. Each operation must therefore supply the following:
   - **Companies:** `map_to_existing` keeps the role. The new company must be observed with `manufacturer` or `supplier` mapping, matching the role being edited.
   - **Templates:** `map_template` supplies a `category_parameter` mapping for each category among the affected Parts. A Part is refused with `parameter_category_incompatible` unless it is named in `exclude_parts` if either:
@@ -170,9 +170,11 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
     - decisions needed.
   - `GET /api/v1/preparations/:id/tree`, alongside the existing `/api/v1/preparations/:id/approvals`. It returns a deterministic hierarchy computed when read from that preparation's stored plan.
     - It never alters `ManualPreparationResult`, `ManualPreview`, `preview_bytes` or `response_bytes`, all of which are byte-compared or re-validated on replay (`runs.ts`, `preparations.ts`).
-    - Plans in `bench-effects-plan/1` and `/2` produce the full Category › Part › manufacturer part › supplier part hierarchy, with parameters, stock and images.
-    - Plans in `bench-stock-plan/1` and `bench-media-plan/1` produce Part › stock item › location, and Part › attachment.
-    - An unknown plan version returns `tree: null`, and the UI offers By type only.
+    - It returns one flat list of records, each once, with a parent (its category, Part or stock item) and, for a stock item, its location; the By type view and the Tree view (by category or by location) are built from that list.
+    - Plans in `bench-effects-plan/1` and `/2` give Category › Part, with the Part's parameters, manufacturer part, supplier part, stock items and attachments under it; new locations and companies are listed with what they set.
+    - Plans in `bench-stock-plan/1` and `bench-media-plan/1` give each existing Part with its stock items (located by location) and their attachments.
+    - An unknown plan version returns `nodes: null`, and the UI offers By type only, from the preview.
+  - Added reports a value InvenTree refused as invalid from the run read's `rejected` flag and links it to where it is set (its Part record or lot in Review, or a new location's or supplier's draft in Capture). The executor still records a refused create as unknown, so its round holds the batch's source and a corrected value cannot be sent until a refused create can be settled. That settling is follow-up executor work, outside this change.
   - The tree and the By type view come from the same stored plan, so they cannot disagree.
 - **Rejected.**
   - Adding the tree to the preparation response, which would break replay of stored results.
@@ -183,7 +185,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 - **Decision.** Add `GET /api/v1/batches/:id/attention`, returning counts and items grouped by owner:
   - processing questions, and failed or interrupted attempts in their step;
   - review lots changed since review, blocking, or needing an answer;
-  - record decisions: open blocking issues that need an operator choice, not status such as an earlier approval;
+  - record decisions: the records read's records waiting for a choice (a Part, a lot's Part or quantity, a location), one per record and routed to it, not status such as an earlier approval;
   - changes failures or uncertain results.
   
   Each item carries a route. The tab badges and the panel both use it.

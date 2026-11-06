@@ -64,7 +64,17 @@ const source: ProcessingSource = {
       lotId: null,
     },
   ],
-  sessions: [{ jobId: 'j2', step: 'examine', subject: 'Packet B', state: 'running' }],
+  sessions: [
+    {
+      jobId: 'j2',
+      step: 'examine',
+      subject: 'Packet B',
+      lotId: null,
+      state: 'running',
+      status: null,
+    },
+  ],
+  lead: null,
   jobsOn: () => [],
   pipeline: { lead: null, lots: [] },
 }
