@@ -94,6 +94,7 @@ function toolResult(output: SessionToolOutput) {
 export interface SessionToolServerOptions {
   pool: Pool
   writerPool?: Pool
+  cropCacheDir?: string
   config: ProcessingConfig
   store?: BlobStore
   statusIntervalMs?: number
@@ -104,6 +105,7 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
   const tools = sessionTools({
     pool: options.pool,
     writerPool: options.writerPool,
+    cropCacheDir: options.cropCacheDir,
     config: options.config,
     store: options.store,
     statusIntervalMs: options.statusIntervalMs ?? DEFAULT_STATUS_INTERVAL_MS,

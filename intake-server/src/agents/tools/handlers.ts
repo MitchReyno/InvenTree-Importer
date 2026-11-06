@@ -44,6 +44,10 @@ import { sha256 } from '../../db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { agentSessionOutbox, agentSessions } from '../schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import sharp from 'sharp'
+import { regionCropCache } from '../../media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
@@ -60,6 +64,166 @@ export interface SessionToolContext {
   imageBudget: Map<string, number>
   /** Media versions actually returned to each lineage by fetch_evidence. */
   deliveredMedia: Map<string, Set<string>>
+  /** Private directory for region crops, outside the blob store. */
+  cropCacheDir?: string
+}
+
+/** Lead-session previews are downscaled to this long edge before they reach the agent. */
+export const LEAD_PREVIEW_LONG_EDGE = 768
+
+/**
+ * The lead session's evidence: its pinned batch media plus versions sent to it as evidence
+ * notices. Previews come back downscaled; a region comes back as a crop of the full preview.
+ * Every answer lists each page's full preview size, which regions are measured against.
+ */
+async function leadFetchEvidence(
+  context: SessionToolContext,
+  token: string,
+  run: string,
+  args: unknown,
+): Promise<SessionToolOutput> {
+  let plan:
+    | {
+        batchId: string
+        jobId: string
+        versionId: string
+        preview: { id: string; page: number; width: number; height: number; digest: string }
+        region?: {
+          x: number
+          y: number
+          width: number
+          height: number
+          source_width: number
+          source_height: number
+        }
+      }
+    | undefined
+  const authorized = await withSession(
+    context,
+    token,
+    { capture: false },
+    async (client, principal) => {
+      const request = validated<{
+        evidence_id: string
+        version_id?: string
+        page?: number
+        region?: {
+          x: number
+          y: number
+          width: number
+          height: number
+          source_width: number
+          source_height: number
+        }
+      }>('SessionFetchEvidenceArgs', args)
+      const pinned = decodeMediaInputs(
+        Buffer.from(principal.manifest.media.manifest, 'utf8'),
+        Buffer.from(principal.manifest.media.sha256, 'hex'),
+      ).versions.filter((item) => item.kind === 'original')
+      const notices = await client.query<{ evidence_id: string; version_id: string }>(
+        `SELECT payload->>'evidence_id' AS evidence_id, payload->>'version_id' AS version_id
+       FROM public.agent_session_inbox WHERE session_lineage_id=$1 AND kind='evidence'`,
+        [principal.lineageId],
+      )
+      const delivered = [
+        ...pinned.map((item) => ({ evidence_id: item.evidenceId, version_id: item.versionId })),
+        ...notices.rows,
+      ]
+      const version = delivered.find(
+        (item) =>
+          item.evidence_id === request.evidence_id &&
+          (request.version_id === undefined || item.version_id === request.version_id),
+      )
+      if (!version) {
+        refuse('source_not_delivered', 'That evidence was not delivered to this session.')
+      }
+      const previews = await client.query<{
+        id: string
+        page: number
+        width: number
+        height: number
+        digest: string
+      }>(
+        `SELECT id,page,width,height,encode(blob_digest,'hex') AS digest FROM public.media_preview
+       WHERE batch_id=$1 AND version_id=$2 ORDER BY page`,
+        [principal.batchId, version!.version_id],
+      )
+      const page = request.page ?? 1
+      const preview = previews.rows.find((row) => row.page === page)
+      if (!preview) {
+        refuse('validation_failed', 'That page has no preview yet.')
+      }
+      if (
+        request.region &&
+        (request.region.source_width !== preview!.width ||
+          request.region.source_height !== preview!.height ||
+          request.region.x + request.region.width > preview!.width ||
+          request.region.y + request.region.height > preview!.height)
+      ) {
+        refuse('validation_failed', 'The region must lie within the page preview it names.')
+      }
+      plan = {
+        batchId: principal.batchId,
+        jobId: principal.jobId,
+        versionId: version!.version_id,
+        preview: preview!,
+        region: request.region,
+      }
+      const described = await client.query<{ label: string; note: string | null }>(
+        `SELECT e.label,
+         (SELECT n.text FROM public.media_evidence_note n WHERE n.evidence_id=e.id
+          ORDER BY n.revision DESC LIMIT 1) AS note
+       FROM public.media_evidence e WHERE e.batch_id=$1 AND e.id=$2`,
+        [principal.batchId, request.evidence_id],
+      )
+      const note = described.rows[0]?.note?.trim()
+      return ok(client, principal, {
+        id: version!.version_id,
+        pages: previews.rows.map(({ page: number, width, height }) => ({
+          page: number,
+          width,
+          height,
+        })),
+        evidence_label: described.rows[0]?.label,
+        ...(note ? { evidence_note: note } : {}),
+      })
+    },
+  )
+  if (!plan || !authorized.result.ok || !context.store) {
+    return authorized
+  }
+  const { preview, region } = plan
+
+  const source = () => context.store!.read(preview.digest)
+
+  const bytes = region
+    ? await regionCropCache(context.cropCacheDir ?? join(tmpdir(), 'intake-region-crops')).crop(
+        { versionId: plan.versionId, page: preview.page },
+        { kind: 'pixels', ...region },
+        source,
+      )
+    : await sharp(await source(), { limitInputPixels: false })
+        .resize({
+          width: LEAD_PREVIEW_LONG_EDGE,
+          height: LEAD_PREVIEW_LONG_EDGE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .png()
+        .toBuffer()
+  // The image budget counts what reaches the agent, reserved for this provider run.
+  const used = context.imageBudget.get(run) ?? 0
+  if (bytes.length > SESSION_IMAGE_BUDGET_BYTES - used) {
+    return authorized
+  }
+  context.imageBudget.set(run, used + bytes.length)
+  const fetched = context.deliveredMedia.get(plan.jobId) ?? new Set<string>()
+  fetched.add(plan.versionId)
+  context.deliveredMedia.set(plan.jobId, fetched)
+  return {
+    result: authorized.result,
+    images: [{ mediaType: 'image/png', base64: bytes.toString('base64') }],
+  }
 }
 
 export interface SessionToolOutput {
@@ -529,7 +693,13 @@ export function sessionTools(context: SessionToolContext) {
           'SessionProposeArgs',
           args,
         )
-        if (principal.subjectId === null || proposal.subject_id !== principal.subjectId) {
+        // The lead session proposes for any live lot of its batch; a lot session for its own lot.
+        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+        if (
+          principal.subjectId === null
+            ? !lots.includes(proposal.subject_id)
+            : proposal.subject_id !== principal.subjectId
+        ) {
           refuse('validation_failed', 'A proposal must be for this session’s lot.')
         }
         await requireDeliveredSources(client, context, principal, proposal)
@@ -565,7 +735,16 @@ export function sessionTools(context: SessionToolContext) {
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
         await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
-        if (principal.subjectId === null || ask.subject_id !== principal.subjectId) {
+        // Only the lead session may ask about the whole batch or another subject of it.
+        const subjects = [
+          ...capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id),
+          ...capture!.snapshot.parts.map((part) => part.id),
+        ]
+        if (
+          principal.subjectId === null
+            ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
+            : ask.subject_id !== principal.subjectId
+        ) {
           refuse('validation_failed', 'A question must be about this session’s lot.')
         }
         const { messageId, streamId } = await retainSessionMessage(
@@ -610,6 +789,10 @@ export function sessionTools(context: SessionToolContext) {
 
     fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> => {
       const run = capabilityDigest(token).toString('hex')
+      const found = await resolveSessionCapability(context.pool, token)
+      if (found && (found.stage as string) === 'examine') {
+        return leadFetchEvidence(context, token, run, args)
+      }
       let reserved: { version: MediaInputVersion; jobId: string; batchId: string } | undefined
       // Authorize and reserve under the session locks; the bytes are read after the transaction,
       // so a fetch never holds one pooled connection while waiting for another.

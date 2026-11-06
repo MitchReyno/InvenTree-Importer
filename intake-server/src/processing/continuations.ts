@@ -7,7 +7,7 @@ import { processingAttempts, processingDependencies, processingJobs } from './sc
 import { supersedeJobAttempts } from './jobs.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail } from './model.ts'
-import { lockProcessingAttempt } from './state.ts'
+import { lockProcessingAttempt, requireLotJob } from './state.ts'
 import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 import { reservedMediaFor } from './media.ts'
 
@@ -49,7 +49,9 @@ export async function continueDependentJobs(
         fail('processing_dependency_cycle')
       }
 
-      const { job, attempt } = await lockProcessingAttempt(client, dependent.jobId, dependent.id)
+      const locked = await lockProcessingAttempt(client, dependent.jobId, dependent.id)
+      const job = requireLotJob(locked.job)
+      const attempt = locked.attempt
       const dependencyRows = await executeDatabaseQuery(
         queryDatabase(client)
           .select({ dependencyAttemptId: processingDependencies.dependencyAttemptId })

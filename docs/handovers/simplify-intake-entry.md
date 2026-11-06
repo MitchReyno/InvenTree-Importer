@@ -452,3 +452,34 @@ Branch `feat/simplify-intake-entry-lot-forming`, worktree `.claude/worktrees/sim
 
 Tests (7.2): `tests/pg/evidence-observations.test.ts` (8 tests, run as the real `agent_writer`, `api` and runner roles) and `tests/region-crops.test.ts`.
 
+## PR-B task 8: Examine lead session, trigger and new evidence
+
+- **Lead job:** `processing_job` rows and their TypeScript types now allow the null-subject `examine` job.
+  - Paths for earlier profiles call `requireLotJob` and refuse it.
+  - Read models treat its media as batch-scoped and bind its proposals and questions to the batch's subjects.
+  - Lead questions may have no subject (`ProcessingQuestion.spec.subject_id` is nullable in the projection), and a clarification answer without one becomes a batch note.
+- **Media:** `scopeMediaInputs(snapshot, BATCH_MEDIA_SCOPE)` and `lockBatchMediaInputs` pin every ready original, skipping evidence still preparing. `sessionLeadInputManifest` seals all notes plus evidence and group notes, and `createSessionAttempt` builds the lead attempt.
+- **Trigger (design adjustment, D8 updated):** `processing/examine-trigger.ts` is a sweep in the session worker loop on the `agent_writer` pool, not a DBOS debounce workflow.
+  - The quiet period is measured from the newest decode result.
+  - A concurrent sweep's unique violation is skipped.
+  - A new-evidence notice is one per new ready original that the lead's attempts did not pin, keyed by the version ID; the existing wake sweep resumes the session.
+  - It needs the Processing queueing grants, so those moved forward from task 10 to `agent_writer` (D10 updated).
+- **Found while testing:**
+  - System inbox notices were inserted through Drizzle, which lists `actor_id` and `created_at` and so needs privileges the system roles deliberately lack. Notices with no actor now use a plain insert of the permitted columns.
+  - `readAgentSettings(..., lock=true)` needs `UPDATE` on `agent_settings`, so the trigger reads the saved selection without the lock.
+  - The losing side of a concurrent sweep notified the lead about its own pinned photos; pinned versions are now excluded.
+- **Lead tools and turns:**
+  - The lead session's `fetch_evidence` reaches pinned media and evidence notices. It returns 768 px previews or region crops (`media/region-crops.ts`), each page's preview size, the evidence label and the operator's note.
+  - The opening message carries the lead instructions, and the lead's turns allow the three lot-forming tools.
+  - `propose` and `ask` from the lead stay on the runner pool and accept any live lot or batch subject; moving `propose` to `agent_writer` comes with queueing in task 10.
+- **Synthetic lead:** `agents/synthetic-lead.ts` scripts lots from each photo's note and keeps its marking-to-lot map in its private working directory between turns.
+- **Tests:**
+  - `tests/pg/examine-trigger.test.ts`: single lead job under concurrent sweeps, quiet-period restart, notices only for new photos, archived and no-default refusals.
+  - `tests/pg/examine-lead.test.ts`: one photo holding three items and one item across two photos give four observations and three lots. The shared item is counted once ("label · same item in 2 photos", 500 not 1000). A later photo joins the right lot and leaves the others unchanged.
+
+## PR-B task 9: live lots on Capture and Review
+
+- **What changed:** see `frontend/ARCHITECTURE.md`, section "Lots the Examine lead session forms". Crops are served by `GET /api/v1/batches/:id/media/observations/:observationId/crop`. The web process caches them beside `INTAKE_BLOB_ROOT`, as `<root>-region-crops`.
+- **Known limit:** each adopted live revision remounts the Review workspace (its key includes the revision), so an inspected lot's local view state resets when the lead session writes. Drafts are protected because adoption waits while any draft is dirty.
+- **Tests:** `ProposedLotsGlance`, `proposed-lots`, `lead-status`, `LotObservations` and an `OperatorReview` integration test. The integration test covers a dirty draft holding off a live lot until discard, after which the lot appears with its chip and Review stays editable.
+

@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '../db/database.ts'
@@ -14,6 +15,7 @@ import {
   sessionHandlerVersion,
 } from '../processing/session-policy.ts'
 import { nativeAgentHost, privateDirectory } from './environment.ts'
+import { triggerExamine } from '../processing/examine-trigger.ts'
 import { acquireAgentSupervisor } from './worker.ts'
 import { startSessionToolServer } from './tools/server.ts'
 import {
@@ -78,7 +80,13 @@ async function main() {
           await readMediaStoreIdentity(db.pool),
         )
       : undefined
-    tools = await startSessionToolServer({ pool: db.pool, writerPool: writer?.pool, config, store })
+    tools = await startSessionToolServer({
+      pool: db.pool,
+      writerPool: writer?.pool,
+      cropCacheDir: join(host.stateRoot, 'region-crops'),
+      config,
+      store,
+    })
     const deps: SessionRunnerDeps = {
       pool: db.pool,
       config,
@@ -135,6 +143,10 @@ async function main() {
       'Bench Intake session supervisor ready. No session starts until a queued command is claimed.\n',
     )
     while (!shutdown.signal.aborted) {
+      if (writer) {
+        // Lead jobs and evidence notices first, so this pass dispatches and wakes them.
+        await triggerExamine(writer.pool, config)
+      }
       await dispatchProcessingCommands(db.pool, scheduler, config)
       await wakePendingSessions(db.pool, config, scheduler)
       await delay(500, undefined, { signal: shutdown.signal }).catch(() => undefined)

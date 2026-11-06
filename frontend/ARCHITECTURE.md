@@ -122,6 +122,15 @@ Media blockers retain job history and report unavailable input separately from o
 
 Processing questions use React Hook Form without replacing the first pinned question/context on polling. Exact retry payload/key survives an unknown acknowledgement. Archived batches disable mutation while explicit local discard remains available to release the navigation guard. All research shown here is fixture-only; no model call or content inspection is implied.
 
+## Lots the Examine lead session forms
+
+Lots the batch's Examine lead session forms appear while it works.
+
+- **Capture:** the Proposed lots glance badges them AI-proposed, or Edited once the operator changes one. It shows their observation crops (`media/observations/:id/crop`) and open suggestion counts, plus the lead session's latest status line (`processing/lead-status.ts`, re-read when the batch revision moves).
+- **Review:** queue rows carry the same chip. The lot panel's Observations section (`operator/LotObservations.tsx`) shows crops, markings, the estimated quantity with its basis, and the lead session's suggestions. Add to this lot and Dismiss send `observation_suggestion` edits behind the usual draft fence.
+- **Live updates:** `Batch` adopts a newer capture snapshot on Review as it does on Capture, but only while no draft is dirty. A dirty draft keeps its revision and the existing explicit reload.
+- **Processing candidates:** Review matches the lead job's proposals to a lot by the proposal's own `subject_id`.
+
 ## Live server updates
 
 `components/operations/LiveUpdates.tsx` owns one scoped WebSocket lifetime beneath `ServerStateProvider`. Validated ready/change frames cancel older read publication before refreshing retained queries; hints arriving during that refresh are queued for another fresh read. No socket payload owns edits or executes a command. Exact cursor strings survive reconnect. Healthy channels suspend routine polling, disconnections restore the existing two-second fallback and truncated stream windows retain a slower safety poll. Focus/reconnect reconciles retained reads. Malformed/regressing frames and incompatible protocol versions require an update without clearing unsaved input. Bootstrap refresh after restart rotates development authorization; private actor/target/context changes still replace the entire keyed cache. Settings autosave uses HTTP commands only; agent dialogue requires separately reviewed command semantics. Connection establishment is never command acknowledgement.

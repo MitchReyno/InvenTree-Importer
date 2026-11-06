@@ -16,4 +16,9 @@ export function mediaResource(batchId: string, kind: 'versions' | 'previews', re
   return `/api/v1/batches/${encodeURIComponent(batchId)}/media/${kind}/${encodeURIComponent(resourceId)}`
 }
 
+/** The region an evidence observation covers, cut from its page preview. */
+export function observationCrop(batchId: string, observationId: string) {
+  return `/api/v1/batches/${encodeURIComponent(batchId)}/media/observations/${encodeURIComponent(observationId)}/crop`
+}
+
 export type EditMedia = (change: MediaEditDto['change'], revision?: string) => Promise<boolean>

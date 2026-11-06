@@ -147,6 +147,19 @@ export async function resolveMediaInputScopes(
   return Object.freeze(selectedScopes.map((subjects) => scopeMediaInputs(snapshot, subjects)))
 }
 
+/** The batch scope under the same media exclusion as subject scopes. */
+export async function resolveBatchMediaInputs(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+): Promise<MediaInputs> {
+  await prepareMediaTransaction(client)
+  await captureInTransaction(client, binding, batchId, true)
+  await lockMediaRevision(client, batchId)
+  const snapshot = await mediaSnapshot(client, binding, batchId)
+  return scopeMediaInputs(snapshot, BATCH_MEDIA_SCOPE)
+}
+
 /** Compatible single-scope resolver; pin-capable consumers use lockMediaInputs instead. */
 export async function resolveMediaInputs(
   client: PoolClient,
@@ -158,12 +171,16 @@ export async function resolveMediaInputs(
   return scopes[0]
 }
 
+/** Every evidence item of the batch whose originals are ready, for the Examine lead session. */
+export const BATCH_MEDIA_SCOPE = Symbol('batch media scope')
+
 /** Pure selected closure over an already authorized, validated media snapshot. */
 export function scopeMediaInputs(
   snapshot: MediaSnapshotDto,
-  subjectIds: readonly string[],
+  subjectIds: readonly string[] | typeof BATCH_MEDIA_SCOPE,
 ): MediaInputs {
-  const selectedSubjects = [...new Set(subjectIds)].sort()
+  const batchScope = subjectIds === BATCH_MEDIA_SCOPE
+  const selectedSubjects = batchScope ? [] : [...new Set(subjectIds)].sort()
   if (selectedSubjects.length > MEDIA_INPUT_MAX_SUBJECTS) {
     throw new MediaInputUnavailableError('capacity')
   }
@@ -178,11 +195,17 @@ export function scopeMediaInputs(
       attachment.version_id ? [attachment.version_id] : [],
     ),
   )
-  const relevantEvidence = snapshot.evidence.filter(
-    (evidence) =>
-      evidence.linked_subject_ids.some((subjectId) => selectedSubjects.includes(subjectId)) ||
-      evidence.versions.some((version) => chosenVersions.has(version.id)),
-  )
+  // The batch scope skips evidence still preparing; it arrives later as new evidence.
+  const relevantEvidence = batchScope
+    ? snapshot.evidence.filter((evidence) => {
+        const originals = evidence.versions.filter((version) => version.kind === 'original')
+        return originals.length > 0 && originals.every((version) => version.state === 'ready')
+      })
+    : snapshot.evidence.filter(
+        (evidence) =>
+          evidence.linked_subject_ids.some((subjectId) => selectedSubjects.includes(subjectId)) ||
+          evidence.versions.some((version) => chosenVersions.has(version.id)),
+      )
   const versions: MediaInputVersion[] = []
   for (const evidence of relevantEvidence) {
     for (const version of evidence.versions) {

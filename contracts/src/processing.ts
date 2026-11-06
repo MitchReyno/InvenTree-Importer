@@ -467,7 +467,11 @@ export const ProcessingQuestion = object({
   input_sha256: Digest,
   revision: Revision,
   state: Type.Union([Type.Literal('open'), Type.Literal('answered'), Type.Literal('superseded')]),
-  spec: ProcessingQuestionSpec,
+  /** A lead-session question about the whole batch has a null subject. */
+  spec: object({
+    ...ProcessingQuestionSpec.properties,
+    subject_id: Type.Union([Id, Type.Null()]),
+  }),
   /** Session questions only: the fields affected and the assumption the agent continues with. */
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),

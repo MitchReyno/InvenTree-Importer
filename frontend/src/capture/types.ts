@@ -9,6 +9,7 @@ import type {
 import type { CaptureBatchSettingsChangeDto, MediaReceiptDto } from '@invimport/contracts'
 import type { CatalogueClient } from '../catalogue/types'
 import type { MediaClient } from '../media/types'
+import type { ProcessingClient } from '../processing/types'
 import type { OperatorReviewClient } from '../operator/types'
 
 export type Snapshot = CaptureSnapshotDto
@@ -18,6 +19,8 @@ export type CaptureWorkspaceProps = {
   batch: Snapshot
   busy: boolean
   media?: MediaClient
+  /** For the Examine lead session's status line on the lots glance. */
+  processing?: ProcessingClient
   /** Resolves false when the change was not saved; the host shows why. */
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   observe: (model: InventoryModelDto, pk: string) => Promise<CaptureObservationDto | null>

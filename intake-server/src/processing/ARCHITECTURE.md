@@ -91,3 +91,15 @@ Group/evidence note text stays verbatim within the existing note bound, while sc
 For `native-agent/2` and `synthetic-session/1`, `createAttempt` hands off to `session-attempts.ts`: a `/6` opening manifest built from the `/2` media manifest checks, a `/5` command on `bench-sessions`, and a queued session whose lineage is the job. A Processing start for a session profile queues Research and Images as independent per-lot sessions; reading and identifying belong to the batch-level Examine lead session, and Inventory waits for a stable identity.
 
 Session proposals and questions are retained in `processing_message` as `bench-intake-session/1` envelopes, bound to job, attempt, command and opening manifest like runner envelopes. Proposals record what they rely on (`relies_on`); staleness is appended to `processing_proposal_stale`, never written into the proposal. A session question does not block its session: an answer applies the same human capture edit as before, is recorded against the same attempt, and reaches the session as an inbox item. Snapshot, session-list and header reads decode `/6` inputs and session envelopes; a session job's currentness is its current attempt, a live batch and available media until per-proposal currentness arrives.
+
+## Examine lead job
+
+- **Job:** the batch-level `examine` job has no subject (`ProcessingJobRow.subject_id` is null). Paths that predate it call `requireLotJob` and refuse it.
+- **Reads:** its proposals and questions bind to the batch rather than the job's subject. `processingSnapshot`, `processingActivity` and the inbox projection treat its media as batch-scoped.
+- **Creation:** `processing/examine-trigger.ts` creates it, or sends evidence notices to it, from the session worker loop on the `agent_writer` pool (design D8).
+- **Inputs:** `sessionLeadInputManifest` seals all notes, evidence and group notes as hints, and `lockBatchMediaInputs` pins every ready original.
+- **Evidence:** the lead session's `fetch_evidence` reaches its pinned media and evidence notices. It returns 768 px previews or region crops, plus each page's preview size, the evidence label and the operator's note.
+- **Turns:** the opening message carries the lead instructions, and the lead's turns also allow `record_observation`, `propose_lot` and `regroup`.
+- **Synthetic profile:** `agents/synthetic-lead.ts` scripts the lead from each photo's note: one observation per listed item, the same marking across photos as one lot, and a quantity basis without summing photos of the same items.
+- **Operator answers:** a lead question names its subject or none. A quantity answer needs a lot; a clarification without one becomes a batch note.
+

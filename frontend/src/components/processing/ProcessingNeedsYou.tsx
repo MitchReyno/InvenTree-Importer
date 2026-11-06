@@ -9,7 +9,11 @@ interface Props {
   snapshot: ProcessingSnapshotDto
 }
 
-function subjectLabel(batch: CaptureSnapshotDto, id: string) {
+function subjectLabel(batch: CaptureSnapshotDto, id: string | null) {
+  if (id === null) {
+    // The Examine lead session can ask about the whole batch.
+    return 'This batch'
+  }
   const subject = [...batch.lots, ...batch.parts].find((value) => value.id === id)
   return subject?.label ?? 'Retained subject'
 }
@@ -54,7 +58,7 @@ export function ProcessingNeedsYou({ batch, snapshot }: Props) {
                     href={batchHref(batch.id, {
                       tab: 'review',
                       view: 'lots',
-                      lotId: question.spec.subject_id,
+                      lotId: question.spec.subject_id ?? undefined,
                     })}
                   >
                     Open in Review

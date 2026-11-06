@@ -237,8 +237,8 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - [x] 7.1 Baseline the capture/edit and media crop PG tests.
 - [x] 7.2 RED: region validation, derived links, stale revision, human-only values, edit protection and the suggestion path, run as the real `agent_writer` and runner roles (the runner role is refused capture writes).
 - [x] 7.3 GREEN: migration, attribution columns, the `agent_writer` role and pool, the `linked_subject_ids` union, region validation and crop cache, handlers, suggestions, and observation-level `CaptureEdit` and `Restructure` forms.
-- [ ] 7.4 Verify the existing review/approval and media-plan tests are unchanged.
-- [ ] 7.5 Record the results.
+- [x] 7.4 Verify the existing review/approval and media-plan tests are unchanged.
+- [x] 7.5 Record the results.
 
 ## 8. Examine lead session, debounce trigger and new evidence
 
@@ -263,9 +263,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process` with `synthetic-session/1`.
 - **Risks and decisions:** the quiet period is a constant that can be tuned. Large batches beyond 48 previews depend on `fetch_evidence` paging, and run serially in one session (design D8).
 
-- [ ] 8.1 Baseline the media readiness and processing trigger tests.
-- [ ] 8.2 RED: single-flight, debounce restart, resume, eligibility, new-evidence-only examination and quantity-basis regressions.
-- [ ] 8.3 GREEN: lead job, debounce workflow, preview staging, instructions and evidence notices.
+- [x] 8.1 Baseline the media readiness and processing trigger tests.
+- [x] 8.2 RED: single-flight, debounce restart, resume, eligibility, new-evidence-only examination and quantity-basis regressions.
+- [x] 8.3 GREEN: lead job, debounce workflow, preview staging, instructions and evidence notices.
 - [ ] 8.4 Verify that media decoding and the existing processing queue are unaffected.
 - [ ] 8.5 Record the results.
 
@@ -284,9 +284,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** frontend test/lint/typecheck/build; headless browser check on a photo-only synthetic batch; markdown checks.
 - **Risks and decisions:** live inserts must not reset dirty Review drafts. Reuse the existing dirty-guard pattern.
 
-- [ ] 9.1 Baseline the Review/Capture component tests.
-- [ ] 9.2 RED: live insert, badge, edited state and dirty-draft preservation.
-- [ ] 9.3 GREEN: UI.
+- [x] 9.1 Baseline the Review/Capture component tests.
+- [x] 9.2 RED: live insert, badge, edited state and dirty-draft preservation.
+- [x] 9.3 GREEN: UI.
 - [ ] 9.4 Update the docs and handover for PR-B; run the markdown checks.
 - [ ] 9.5 Headless browser check: lots appear while the lead session runs, with the right observations, and can be queued with the existing Processing controls; record evidence.
 

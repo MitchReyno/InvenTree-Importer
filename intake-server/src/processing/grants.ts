@@ -77,5 +77,10 @@ export async function grantAgentWriter(pool: Pool, role: string) {
     GRANT UPDATE(state,revision) ON processing_question TO ${role};
     -- FOR UPDATE needs an UPDATE privilege; outbox appends lock the session row to keep their
     -- sequence gap-free. progress is a display hint only.
-    GRANT UPDATE(progress) ON agent_session TO ${role};`)
+    GRANT UPDATE(progress) ON agent_session TO ${role};
+    -- The Examine trigger creates the lead job and sends new-evidence notices; no actor_id, so
+    -- it can never write operator chat or answers.
+    GRANT INSERT ON processing_job,processing_attempt,processing_input,command,outbox,agent_session TO ${role};
+    GRANT UPDATE(current_attempt_id) ON processing_job TO ${role};
+    GRANT INSERT(id,session_lineage_id,seq,kind,payload,idempotency_key) ON agent_session_inbox TO ${role};`)
 }

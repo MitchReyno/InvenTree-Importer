@@ -86,6 +86,8 @@ export async function seedPhoto(
   batchId: string,
   size: { width: number; height: number },
   label = 'Photo',
+  /** How long ago decoding finished; the Examine quiet period counts from it. */
+  readySecondsAgo = 0,
 ) {
   const ids = { evidence: randomUUID(), version: randomUUID(), decode: randomUUID() }
   const digest = createHash('sha256').update(ids.version).digest()
@@ -111,8 +113,9 @@ export async function seedPhoto(
       [ids.decode, batchId, ids.version],
     )
     await client.query(
-      "INSERT INTO media_decode_result(command_id,state,decoder_build) VALUES($1,'ready','observation-fixture/1')",
-      [ids.decode],
+      `INSERT INTO media_decode_result(command_id,state,decoder_build,created_at)
+       VALUES($1,'ready','observation-fixture/1',now()-make_interval(secs => $2))`,
+      [ids.decode, readySecondsAgo],
     )
     await client.query(
       `INSERT INTO media_preview(id,batch_id,version_id,command_id,page,width,height,blob_digest)

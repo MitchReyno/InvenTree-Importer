@@ -12212,7 +12212,7 @@ export interface components {
             state: "open" | "answered" | "superseded";
             spec: {
                 kind: "quantity" | "clarification";
-                subject_id: string;
+                subject_id: string | null;
                 prompt: string;
                 reason: string;
             };
@@ -12579,7 +12579,7 @@ export interface components {
                 state: "open" | "answered" | "superseded";
                 spec: {
                     kind: "quantity" | "clarification";
-                    subject_id: string;
+                    subject_id: string | null;
                     prompt: string;
                     reason: string;
                 };
@@ -12952,7 +12952,7 @@ export interface components {
                     state: "open" | "answered" | "superseded";
                     spec: {
                         kind: "quantity" | "clarification";
-                        subject_id: string;
+                        subject_id: string | null;
                         prompt: string;
                         reason: string;
                     };
@@ -14640,6 +14640,13 @@ export interface components {
                     reason: string;
                 };
             })[];
+            pages?: {
+                page: number;
+                width: number;
+                height: number;
+            }[];
+            evidence_label?: string;
+            evidence_note?: string;
         } | {
             /** @constant */
             ok: false;

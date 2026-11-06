@@ -51,3 +51,35 @@ describe('proposedLots', () => {
     ])
   })
 })
+
+describe('proposedLots for lead-session lots', () => {
+  it('carries origin, edited state, observation crops and open suggestions', () => {
+    const batch = {
+      id: 'b',
+      lots: [
+        {
+          id: 'l1',
+          label: 'LED 0603 red',
+          origin: 'agent',
+          agent_session_id: 's',
+          evidence_observation_ids: ['o1', 'o2'],
+        },
+        { id: 'l2', label: 'Packet A', operator_edited: true },
+      ],
+      evidence_observations: [
+        { id: 'o1', region: { kind: 'pixels' }, suggested_lot_ids: [] },
+        { id: 'o2', region: { kind: 'lines' }, suggested_lot_ids: [] },
+        { id: 'o3', region: { kind: 'pixels' }, suggested_lot_ids: ['l1'] },
+      ],
+    } as unknown as Parameters<typeof proposedLots>[0]
+    const [led, packet] = proposedLots(batch, undefined, new Set())
+    expect(led).toMatchObject({ origin: 'agent', edited: false, suggestions: 1 })
+    expect(led.crops).toEqual(['/api/v1/batches/b/media/observations/o1/crop'])
+    expect(packet).toEqual({
+      id: 'l2',
+      label: 'Packet A',
+      state: 'to_review',
+      href: '#b/review/lots/l2',
+    })
+  })
+})

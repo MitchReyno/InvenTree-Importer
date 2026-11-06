@@ -23,6 +23,7 @@ import { agentEnvironment, privateDirectory, type NativeAgentHost } from './envi
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from './tools/capability.ts'
 import { acknowledgeSessionInbox, pendingSessionInbox } from './tools/inbox.ts'
+import { syntheticLeadTurn } from './synthetic-lead.ts'
 import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
 import {
   runClaudeSession,
@@ -38,6 +39,18 @@ const SLOT_WAIT_LIMIT_MS = 30_000
 const CANCEL_POLL_MS = 500
 
 export const SESSION_TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
+/** The batch's Examine lead session also forms lots. */
+export const LEAD_SESSION_TOOLS = [...SESSION_TOOLS, 'propose_lot', 'record_observation', 'regroup']
+
+const LEAD_INSTRUCTIONS = [
+  'You are this batch’s Examine lead session: find the items in the evidence, group them into lots and identify each lot, looping until the lots are stable.',
+  'Fetch each photo with fetch_evidence. Previews arrive downscaled; give regions in the page sizes it returns. A photo can hold several items, and one item can appear in several photos.',
+  'Record each item you see with record_observation: one region per item, with its markings and any visible count.',
+  'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
+  'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items.',
+  'Pass the revision from your last tool response as base_revision. On a stale result, re-plan from the conflicts it returns. Lots and observations the operator edited only accept suggestions.',
+  'Evidence notes and groups are hints, not lot boundaries. When new evidence arrives in the inbox, examine only that evidence.',
+].join(' ')
 
 type AttemptState = Parameters<typeof transitionAttempt>[3]
 const attemptStateFor: Record<SessionStateDto, AttemptState> = {
@@ -324,6 +337,7 @@ function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: b
     })),
     pending_inbox: pending,
     instructions:
+      (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero.',
   })
 }
@@ -454,7 +468,7 @@ export async function runSessionTurn(
     resume: current.providerSessionId ?? undefined,
     toolUrl: deps.toolUrl,
     capability: current.capability,
-    tools: SESSION_TOOLS,
+    tools: current.manifest.stage === 'examine' ? LEAD_SESSION_TOOLS : SESSION_TOOLS,
     // At least once: items stay pending until the session acknowledges them with read_inbox.
     nextDelivery: async () => {
       if (delivered === undefined) {
@@ -637,8 +651,34 @@ export const syntheticSessionDriver: SessionDriver = async (turn, context) => {
     const result = await client.callTool({ name, arguments: args })
     return result.structuredContent as {
       ok: boolean
-      items?: { id: string; seq: string; kind: string }[]
+      items?: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[]
     }
+  }
+
+  if (context.manifest.stage === 'examine') {
+    try {
+      await call('status', {
+        text: turn.resume ? 'Examining new evidence' : 'Finding items in the photos',
+      })
+      const read = await call('read_inbox', { after_seq: '0' })
+      const items = read.items ?? []
+      await syntheticLeadTurn(
+        call as unknown as Parameters<typeof syntheticLeadTurn>[0],
+        context.manifest,
+        context.cwd,
+        items,
+      )
+      for (const item of items.filter((entry) => entry.kind === 'chat')) {
+        await call('reply', { inbox_item_id: item.id, text: 'Synthetic reply: noted.' })
+      }
+      const last = items.at(-1)
+      if (last) {
+        await call('read_inbox', { after_seq: last.seq })
+      }
+    } finally {
+      await client.close()
+    }
+    return
   }
 
   try {
