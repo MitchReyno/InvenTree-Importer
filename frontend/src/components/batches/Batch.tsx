@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
-import { approvedLotIds, retiredLotIds } from '../../operator/review-model'
+import { approvedLotIds, predecessorLotIds, retiredLotIds } from '../../operator/review-model'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { validate } from '@invimport/contracts'
 import type {
@@ -432,6 +432,7 @@ export function Batch({
         edit={edit}
         operator={operator}
         retiredLotIds={retired}
+        predecessors={predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)}
         restructureUnavailable={operatorUnavailable}
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
         reload={reloadSavedValues}

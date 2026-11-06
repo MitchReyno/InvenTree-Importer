@@ -14,6 +14,7 @@ type Props = {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   operator?: OperatorReviewClient
   retiredLotIds: ReadonlySet<string>
+  predecessors?: ReadonlyMap<string, readonly string[]>
   approvedLotIds?: ReadonlySet<string>
   /** True while the latest operator review is unread, so added lots may not be known yet. */
   restructureUnavailable?: boolean
@@ -30,6 +31,7 @@ export function ReviewMapStage({
   edit,
   operator,
   retiredLotIds,
+  predecessors,
   approvedLotIds = NO_LOTS,
   restructureUnavailable = false,
   reload,
@@ -129,6 +131,7 @@ export function ReviewMapStage({
           approvedLotIds={approvedLotIds}
           restructureUnavailable={restructureUnavailable}
           retiredLotIds={retiredLotIds}
+          predecessors={predecessors}
           disabled={disabled}
           link={link}
           newLotFrom={newLotFrom}

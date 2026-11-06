@@ -365,6 +365,7 @@ test('names are numbered across the snapshot it is given, and Details pairs each
   expect(source).toHaveTextContent('Packing slip (2) · original')
   expect(source).toHaveTextContent('Packing slip (3) · original')
   expect(source).not.toHaveTextContent('Packing slip (1)')
+  expect(screen.getByRole('img')).toHaveAccessibleName('Packing slip (2) · original · page 1')
   expect(screen.getByText('Details').closest('details')?.textContent).toMatch(
     /Packing slip \(2\) · original: Packing slip · evidence 10000000/,
   )

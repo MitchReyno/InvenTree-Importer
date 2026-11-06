@@ -193,7 +193,7 @@ export function EvidenceViewer({
               key={`${page.preview_id}:${loadAttempt}`}
               $zoom={zoom}
               src={mediaResource(batchId, 'previews', page.preview_id)}
-              alt={`${source.label} · ${version.kind === 'original' ? 'original' : 'crop'} · page ${page.page}`}
+              alt={`${labels.versions.get(version.id) ?? source.label} · page ${page.page}`}
               onError={() => setFailedPreview(page.preview_id)}
             />
           </Preview>

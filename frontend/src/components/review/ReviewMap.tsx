@@ -12,6 +12,8 @@ type Props = {
   /** Undefined while the media read is unavailable. */
   evidence: MediaSnapshotDto['evidence'] | undefined
   retiredLotIds: ReadonlySet<string>
+  /** Each lot's direct predecessors, whose evidence its successors inherit. */
+  predecessors?: ReadonlyMap<string, readonly string[]>
   disabled: boolean
   link: (evidenceId: string, lotId: string, linked: boolean) => Promise<void>
   newLotFrom: (evidenceId: string, label: string) => Promise<void>
@@ -31,6 +33,7 @@ export function ReviewMap({
   batch,
   evidence,
   retiredLotIds,
+  predecessors,
   disabled,
   link,
   newLotFrom,
@@ -54,7 +57,7 @@ export function ReviewMap({
     )
   }
 
-  const map = reviewMap(batch, evidence, retiredLotIds)
+  const map = reviewMap(batch, evidence, retiredLotIds, predecessors)
   const fileLabel = new Map(map.files.map((file) => [file.id, file.label]))
   const lotLabel = new Map(map.lots.map((lot) => [lot.id, lot.label]))
   // A merge or split retires lots; only active, unadded lots stay chosen.
@@ -78,8 +81,8 @@ export function ReviewMap({
                   {file.links.map(({ lotId, via }) => (
                     <Chip key={lotId}>
                       {lotLabel.get(lotId)}
-                      {via === 'part' ? (
-                        <Muted> via shared Part</Muted>
+                      {via !== 'direct' ? (
+                        <Muted>{via === 'part' ? ' via shared Part' : ' via earlier lot'}</Muted>
                       ) : (
                         <button
                           type="button"
@@ -179,7 +182,10 @@ export function ReviewMap({
           ))}
         </Rows>
         {openRestructure && restructureUnavailable && (
-          <Muted role="status">Split, merge and move wait for the latest review to load.</Muted>
+          <Muted role="status">
+            Split, merge and move, and evidence inherited through them, wait for the latest review
+            to load.
+          </Muted>
         )}
         {openRestructure && (
           <Controls>

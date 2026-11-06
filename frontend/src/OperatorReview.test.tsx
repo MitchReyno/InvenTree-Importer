@@ -1104,3 +1104,21 @@ test('going back to the list survives filter changes and the editor before a rem
   expect(location.hash).toMatch(new RegExp(`^#${batchId}/review/lots\\?`))
   expect(location.hash).toContain('filter=changed')
 })
+
+test('a blocked return to the list is not remembered as the operator’s choice', async () => {
+  const user = userEvent.setup()
+  const first = renderReview()
+  await user.click(await screen.findByRole('button', { name: 'Show Packet A' }))
+  await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
+  const quantity = screen.getByLabelText('Exact pieces')
+  await user.clear(quantity)
+  await user.type(quantity, '123')
+  await user.click(screen.getByText('← Physical lots and selection'))
+  expect(location.hash).toContain(`/review/lots/${a}`)
+  await user.click(screen.getByRole('button', { name: 'Discard lot edits' }))
+  first.unmount()
+
+  history.replaceState(history.state, '', `#${batchId}/review/lots`)
+  renderReview()
+  await waitFor(() => expect(location.hash).toBe(`#${batchId}/review/lots/${b}`))
+})

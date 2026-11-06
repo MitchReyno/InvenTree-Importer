@@ -374,9 +374,18 @@ Fresh read-only Claude reviewer at `ac2b871`: 2 Important, 10 Minor, 1 Nitpick, 
 
 Fresh read-only Claude reviewer at `b4a8815`: 4 Minor, 1 Nitpick, all fixed test-first except the doc lines. It confirmed the server stores `add_lot` labels unchanged and that evidence order is stable, so the label match and the numbering hold across polls.
 
-- **Back to the list was lost by other URL writes (Minor):** every Review URL write now keeps the choice, and it is written only after navigation succeeds, so a blocked navigation leaves it alone. Tested by going back, changing the filter and opening the editor before a remount.
+- **Back to the list was lost by other URL writes (Minor):** every Review URL write now keeps the choice, and it is written only after navigation succeeds, so a blocked navigation leaves it alone. Tested by going back, changing the filter and opening the editor before a remount; the blocked case gained its own test in round 3.
 - **Failed-save test (Minor):** the later lot now has the same label, so only clearing the pending link on `false` keeps the test green; checked by removing the fix.
 - **Numbering across the batch (Minor):** names are numbered once over the whole media snapshot (`evidenceDisplayNames`), so a file reads the same in Capture, Review's viewer, Processing images and the Map. The Map's rows, controls and "From:" lists use the numbered names. Details pairs each numbered name with its identifier.
 - **Map locks while the review is stale (Minor):** the added-lot set falls back to the last accepted review (`approvedLotIds`), since adding is never undone, and split, merge and move are disabled with a note until the latest review is read. Linking stays available.
 - **Nitpick:** the handover lines on numbering and Capture links were corrected.
+
+### PR-D review round 3
+
+Fresh read-only Claude reviewer at `d9538a3`: 1 Important, 2 Minor, 1 Nitpick, all fixed. It confirmed the round-2 fixes.
+
+- **The Map ignored lineage (Important):** a split or merge keeps media links on the retired lot, and the server counts a predecessor's evidence for its successors, so the Map marked the file "Used by no lot" and the successors "No evidence". `predecessorLotIds` now reads each lot's predecessors from the operator review's retired lots, and `reviewMap` walks them to the server's depth of 100. Inherited files show "via earlier lot" with no Unlink. Tested for a split followed by a merge, and for a looping lineage. Until the next operator review is read after a restructure, the lineage is the last accepted one; the Map's status note says inherited evidence waits for it.
+- **Blocked return to the list (Minor):** a test now makes a draft dirty, presses back, discards and remounts, and expects the lot still open; it fails if `inspect` writes the choice unconditionally.
+- **Raw names left (Minor):** the Processing images versions region and the viewer's image alt text now use the numbered names.
+- **Nitpick:** the architecture says identifiers appear only in a viewer (Review's Details, Capture's file viewer).
 

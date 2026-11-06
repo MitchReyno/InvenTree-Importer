@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { reviewMap } from './review-map'
+import { predecessorLotIds } from './review-model'
 
 const lot = (id: string, label: string, part: string | null = null) => ({
   id,
@@ -73,6 +74,49 @@ describe('reviewMap', () => {
       'photo.png (1)',
       'photo.png (2)',
       'label.png',
+    ])
+  })
+
+  it('counts evidence of a split or merged lot as support for its successors', () => {
+    const lineage = {
+      lots: [lot('s1', 'Half one'), lot('s2', 'Half two'), lot('m', 'Merged')],
+    } as unknown as CaptureSnapshotDto
+    const files = [
+      file('photo', 'photo.jpg', ['old']),
+      file('slip', 'slip.jpg', ['s2']),
+    ] as unknown as MediaSnapshotDto['evidence']
+    // old split into s1 and s2; s2 was later merged into m along with s1.
+    const predecessors = predecessorLotIds({
+      retired_lots: [
+        { lot_id: 'old', successor_lot_ids: ['s1', 's2'] },
+        { lot_id: 's1', successor_lot_ids: ['m'] },
+        { lot_id: 's2', successor_lot_ids: ['m'] },
+      ],
+    } as unknown as OperatorReviewDto)
+    const map = reviewMap(
+      { ...lineage, lots: [...lineage.lots, lot('old', 'Old')] } as CaptureSnapshotDto,
+      files,
+      new Set(['old', 's1', 's2']),
+      predecessors,
+    )
+
+    expect(map.files[0]).toMatchObject({ unused: false, links: [{ lotId: 'm', via: 'earlier' }] })
+    expect(map.files[1].links).toEqual([{ lotId: 'm', via: 'earlier' }])
+    expect(map.lots).toEqual([
+      { id: 'm', label: 'Merged', fileIds: ['photo', 'slip'], singleSource: false },
+    ])
+  })
+
+  it('stops walking a lineage that loops', () => {
+    const predecessors = new Map([
+      ['a', ['b']],
+      ['b', ['a']],
+    ])
+    const map = reviewMap(batch, [file('x', 'x.jpg', ['b'])] as never, new Set(), predecessors)
+
+    expect(map.files[0].links).toEqual([
+      { lotId: 'a', via: 'earlier' },
+      { lotId: 'b', via: 'direct' },
     ])
   })
 })

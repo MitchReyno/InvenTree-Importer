@@ -59,7 +59,7 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
               labels={labels}
               unavailable={unavailable}
             />
-            <Versions aria-label={`Versions of ${source.label}`}>
+            <Versions aria-label={`Versions of ${labels?.evidence.get(source.id) ?? source.label}`}>
               {source.versions.map((version) => (
                 <div key={version.id}>
                   <strong>{version.kind === 'original' ? 'Original' : 'Documentary crop'}</strong>

@@ -164,6 +164,19 @@ export function approvedLotIds(
   return ids
 }
 
+/** Each lot's direct predecessors, read from the retired lots' successors so every level is known. */
+export function predecessorLotIds(
+  review: OperatorReviewDto | undefined,
+): ReadonlyMap<string, readonly string[]> {
+  const predecessors = new Map<string, string[]>()
+  for (const retired of review?.retired_lots ?? []) {
+    for (const successor of retired.successor_lot_ids) {
+      predecessors.set(successor, [...(predecessors.get(successor) ?? []), retired.lot_id])
+    }
+  }
+  return predecessors
+}
+
 export type Provenance =
   | 'human'
   | 'inherited'

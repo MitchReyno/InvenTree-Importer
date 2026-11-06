@@ -150,4 +150,16 @@ describe('ReviewMap', () => {
     expect(screen.getByText(/wait for the latest review/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New lot from this: Stray photo' })).toBeEnabled()
   })
+
+  it('shows evidence inherited from a split lot as such, without an unlink', () => {
+    map({
+      evidence: [file('f9', 'Old photo', ['gone'])] as unknown as MediaSnapshotDto['evidence'],
+      predecessors: new Map([['c', ['gone']]]),
+    })
+    const photo = screen.getByRole('listitem', { name: /Old photo/ })
+
+    expect(photo).toHaveTextContent('Bag via earlier lot')
+    expect(photo).not.toHaveTextContent('Used by no lot')
+    expect(within(photo).queryByRole('button', { name: /^Unlink/ })).not.toBeInTheDocument()
+  })
 })
