@@ -118,6 +118,7 @@ export const BatchRecord = object({
         'location_conflict',
         'location_draft_parent_invalid',
         'quantity_required',
+        'location_groups_unavailable',
       ]),
       detail: Type.String({ minLength: 1, maxLength: 512 }),
     }),

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import type {
@@ -554,6 +554,61 @@ describe('RecordsStage', () => {
       screen.getByRole('button', { name: 'Load current values, keep this draft' }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Use another supplier')).toHaveValue(id(911))
+  })
+
+  it('opens a record a link points to, including the one it first opened', async () => {
+    const user = userEvent.setup()
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        initialType="parameter_template"
+        initialRecord="201"
+      />,
+    )
+    expect(await screen.findByRole('region', { name: 'Composition' })).toBeInTheDocument()
+    await open(user, /^Companies/, 'Yageo')
+    expect(screen.getByRole('region', { name: 'Yageo' })).toBeInTheDocument()
+
+    act(() => {
+      location.hash = `${batch.id}/review/records/parameter_template/201`
+      dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+    expect(await screen.findByRole('region', { name: 'Composition' })).toBeInTheDocument()
+  })
+
+  it('sends a lot with no Part to its lot, with the reason', async () => {
+    const user = userEvent.setup()
+    const lotless = entry({
+      key: `stock_item:${id(109)}`,
+      type: 'stock_item',
+      label: 'Lot 9',
+      state: 'choose',
+      lot_ids: [id(109)],
+      decision: { code: 'part_choice_required', detail: 'Choose the Part for this lot.' },
+    })
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{
+          read: vi.fn(async () => ({ ...records, records: [...records.records, lotless] })),
+        }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Stock items/, 'Lot 9')
+    const detail = screen.getByRole('region', { name: 'Lot 9' })
+
+    expect(detail).toHaveTextContent('Choose the Part for this lot.')
+    expect(within(detail).getByRole('link', { name: 'Open this lot' })).toHaveAttribute(
+      'href',
+      `#${batch.id}/review/lots/${id(109)}`,
+    )
   })
 
   it('drops record drafts when the batch discards local edits', async () => {

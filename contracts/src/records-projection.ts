@@ -402,7 +402,14 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     } else if (resolved.status === 'groups_unavailable') {
       place(
         'location:unavailable',
-        { label: 'Location not yet known', state: 'choose', decision: null },
+        {
+          label: 'Location not yet known',
+          state: 'choose',
+          decision: {
+            code: 'location_groups_unavailable',
+            detail: 'These lots’ locations wait until evidence groups can be read.',
+          },
+        },
         lot.id,
       )
     } else if (resolved.location.mode === 'set') {
@@ -465,21 +472,26 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     return resolved.mode === 'set' ? resolved.value : null
   }
 
+  const partIds = new Set(capture.parts.map((part) => part.id))
   for (const lot of activeLots) {
     const quantity = quantityOf(lot.quantity)
+    // One decision per record: a lot needs its Part before its quantity matters.
+    const decision =
+      !lot.part_subject_id || !partIds.has(lot.part_subject_id)
+        ? { code: 'part_choice_required' as const, detail: 'Choose the Part for this lot.' }
+        : quantity === null
+          ? { code: 'quantity_required' as const, detail: 'Set an exact quantity for this lot.' }
+          : null
     records.push({
       key: `stock_item:${lot.id}`,
       type: 'stock_item',
       label: lot.label,
-      state: quantity === null ? 'choose' : 'new',
+      state: decision ? 'choose' : 'new',
       target: null,
       fields: [field('quantity', quantity, OPERATOR)],
       part_ids: lot.part_subject_id ? [lot.part_subject_id] : [],
       lot_ids: [lot.id],
-      decision:
-        quantity === null
-          ? { code: 'quantity_required', detail: 'Set an exact quantity for this lot.' }
-          : null,
+      decision,
     })
   }
 

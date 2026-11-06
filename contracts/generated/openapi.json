@@ -13954,6 +13954,10 @@
                       {
                         "const": "quantity_required",
                         "type": "string"
+                      },
+                      {
+                        "const": "location_groups_unavailable",
+                        "type": "string"
                       }
                     ]
                   },
@@ -14425,6 +14429,10 @@
                             },
                             {
                               "const": "quantity_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_groups_unavailable",
                               "type": "string"
                             }
                           ]
@@ -16023,7 +16031,7 @@
           },
           "route": {
             "maxLength": 512,
-            "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$",
+            "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/([A-Za-z0-9_-]|%[0-9A-F]{2})+)*$",
             "type": "string"
           }
         }
@@ -16294,7 +16302,7 @@
                 },
                 "route": {
                   "maxLength": 512,
-                  "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$",
+                  "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/([A-Za-z0-9_-]|%[0-9A-F]{2})+)*$",
                   "type": "string"
                 }
               }

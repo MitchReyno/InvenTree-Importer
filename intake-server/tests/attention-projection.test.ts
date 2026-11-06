@@ -321,3 +321,40 @@ test('lot issues and approved lots are not decisions or work to check', () => {
     [`decision:part:${id(8)}`, `decision:stock_item:${lot(1)}`],
   )
 })
+
+test('a record whose id needs encoding still has a valid route', () => {
+  const withDraft = {
+    ...records,
+    records: [record(`location:draft:${id(5)}`, 'choose', 'location_draft_parent_invalid')],
+  } as unknown as BatchRecordsDto
+  const attention = projectAttention({
+    batchId: batch,
+    processing,
+    review,
+    manual,
+    records: withDraft,
+  })
+
+  validate('BatchAttention', attention)
+  const item = attention.items.find((entry) => entry.group === 'decision')
+  assert.equal(item?.route, `${batch}/review/records/location/draft%3A${id(5)}`)
+})
+
+test('a record waiting with no decision reads as needing one, not unsupported', () => {
+  const waiting = {
+    ...records,
+    records: [record('location:unavailable', 'choose', null)],
+  } as unknown as BatchRecordsDto
+  const attention = projectAttention({
+    batchId: batch,
+    processing,
+    review,
+    manual,
+    records: waiting,
+  })
+
+  assert.equal(
+    attention.items.find((entry) => entry.group === 'decision')?.title,
+    'Needs a decision',
+  )
+})

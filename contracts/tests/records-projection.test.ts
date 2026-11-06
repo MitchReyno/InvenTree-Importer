@@ -314,6 +314,32 @@ test('a stock item with no exact quantity needs a decision', () => {
   assert.equal(of(result.records, 'stock_item')[0].state, 'new')
 })
 
+test('a lot with no Part needs one, ahead of its quantity', () => {
+  const noPart = {
+    ...capture,
+    lots: capture.lots.map((item) =>
+      item.id === id(102) ? { ...item, part_subject_id: null, quantity: { mode: 'unset' } } : item,
+    ),
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: noPart, processing: undefined, lotGroups: null })
+  const item = of(result.records, 'stock_item').find((record) => record.label === 'Lot 2')
+  assert.equal(item?.state, 'choose')
+  assert.equal(item?.decision?.code, 'part_choice_required')
+})
+
+test('locations waiting on evidence groups are a decision with a reason', () => {
+  const grouped = {
+    ...capture,
+    group_locations: [{ group_id: id(960), version: '1', location: inBin }],
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: grouped, processing: undefined, lotGroups: null })
+  const waiting = of(result.records, 'location').find(
+    (record) => record.key === 'location:unavailable',
+  )
+  assert.equal(waiting?.state, 'choose')
+  assert.equal(waiting?.decision?.code, 'location_groups_unavailable')
+})
+
 test('each type counts new, existing and to-decide records', () => {
   const result = projectRecords({ capture, processing: undefined, lotGroups: null })
   assert.deepEqual(

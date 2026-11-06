@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
+import { batchHref } from '../../../navigation/batch-route'
 import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '../../../records/model'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
 import { Pill, type PillTone } from '../../ui/Pill'
@@ -68,8 +69,24 @@ export function RecordDetail({ batch, record, save, disabled, reportFor }: Props
           </Small>
         )
       )}
-      {record.decision && record.decision.code !== 'part_choice_required' && (
-        <Small>{record.decision.detail}</Small>
+      {record.decision && record.type !== 'part' && (
+        <Small>
+          {record.decision.detail}
+          {record.type === 'stock_item' && record.lot_ids[0] && (
+            <>
+              {' '}
+              <a
+                href={batchHref(batch.id, {
+                  tab: 'review',
+                  view: 'lots',
+                  lotId: record.lot_ids[0],
+                })}
+              >
+                Open this lot
+              </a>
+            </>
+          )}
+        </Small>
       )}
       {record.fields.length > 0 && (
         <Fields>

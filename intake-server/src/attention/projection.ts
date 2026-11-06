@@ -97,7 +97,9 @@ function decisionItems({ batchId, records }: AttentionSources): AttentionItemDto
       key: `decision:${record.key}`,
       group: 'decision' as const,
       tab: 'review' as const,
-      title: record.decision?.detail ?? 'Not supported yet',
+      title:
+        record.decision?.detail ??
+        (record.state === 'unsupported' ? 'Not supported yet' : 'Needs a decision'),
       detail: record.label,
       route: `${batchId}/review/records/${record.type}/${encodeURIComponent(
         record.key.slice(record.type.length + 1),

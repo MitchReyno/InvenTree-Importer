@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
   RECORD_TYPES,
@@ -7,7 +7,7 @@ import {
   type RecordTypeDto,
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps } from '../../../capture/types'
-import { batchHref } from '../../../navigation/batch-route'
+import { batchHref, parseBatchRoute } from '../../../navigation/batch-route'
 import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
 import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
@@ -68,6 +68,25 @@ export function RecordsStage({
     lastGood.current = query.data
   }
   const records = query.data ?? lastGood.current
+
+  // A link to a record, such as a Needs you item, opens it unless a draft is open (the navigation
+  // guard keeps the route then). The stage replaces history itself, so it follows the hash directly.
+  useEffect(() => {
+    function follow() {
+      const parsed = parseBatchRoute(location.hash.slice(1))
+      const route = parsed.kind === 'route' && parsed.batchId === batch.id ? parsed.route : null
+      if (route?.tab !== 'review' || route.view !== 'records' || drafts.isDirty()) {
+        return
+      }
+      const nextType = RECORD_TYPES.find((value) => value === route.recordType) ?? null
+      setBlocked(false)
+      setChosenType(nextType)
+      setChosenKey(nextType && route.recordId ? `${nextType}:${route.recordId}` : null)
+    }
+
+    addEventListener('hashchange', follow)
+    return () => removeEventListener('hashchange', follow)
+  }, [batch.id, drafts])
 
   if (!client) {
     return <Banner tone="plain">Records are not available in this setup.</Banner>
