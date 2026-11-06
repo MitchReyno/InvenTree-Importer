@@ -44,7 +44,7 @@ export function proposedLots(
   retiredLotIds: ReadonlySet<string>,
 ): ProposedLot[] {
   return batch.lots
-    .filter((lot) => !retiredLotIds.has(lot.id))
+    .filter((lot) => !lot.retired && !retiredLotIds.has(lot.id))
     .map((lot) => {
       const members = new Set(lot.evidence_observation_ids ?? [])
       const observations = batch.evidence_observations ?? []

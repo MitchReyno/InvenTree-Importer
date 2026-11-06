@@ -18,7 +18,10 @@ interface Props {
 export function UnassignedObservations({ batch, edit, disabled }: Props) {
   const observations = batch.evidence_observations ?? []
   const lots = new Map(batch.lots.filter((lot) => !lot.retired).map((lot) => [lot.id, lot.label]))
-  const unassigned = observations.filter((o) => o.status === 'active' && o.lot_id === null)
+  // Also those left on a lot the operator split, merged or retired.
+  const unassigned = observations.filter(
+    (o) => o.status === 'active' && (o.lot_id === null || !lots.has(o.lot_id)),
+  )
   if (!unassigned.length) {
     return null
   }
@@ -31,7 +34,7 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
   return (
     <section aria-label="Unassigned observations">
       <Subheading>Unassigned observations</Subheading>
-      <Small>Items the Examine session or you recorded that are in no lot yet.</Small>
+      <Small>Items the Examine session or you recorded that are in no live lot.</Small>
       <List>
         {unassigned.map((observation) => {
           const revisions = observations.filter(

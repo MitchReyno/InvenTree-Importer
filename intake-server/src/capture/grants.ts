@@ -47,7 +47,7 @@ export async function grantCaptureAgentWrites(pool: Pool, role: string) {
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='intake_agent_writer_marker') THEN
         CREATE ROLE intake_agent_writer_marker NOLOGIN;
       END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
     END $$`)
   await grantCaptureRead(pool, role)
   await pool.query(`GRANT INSERT ON capture_subject,capture_part,capture_lot,capture_revision,

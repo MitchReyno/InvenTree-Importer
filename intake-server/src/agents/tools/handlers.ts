@@ -773,6 +773,14 @@ export function sessionTools(context: SessionToolContext) {
         ) {
           refuse('validation_failed', 'A question must be about this session’s lot.')
         }
+        // A quantity is answered on a lot, so a quantity question must name one.
+        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+        if (
+          ask.kind === 'quantity' &&
+          (ask.subject_id === null || !lots.includes(ask.subject_id))
+        ) {
+          refuse('validation_failed', 'A quantity question must be about one live lot.')
+        }
         const { messageId, streamId } = await retainSessionMessage(
           client,
           capture!,

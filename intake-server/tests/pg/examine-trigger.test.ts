@@ -152,3 +152,29 @@ test('a batch too large to pin is skipped until its evidence changes, without st
     await fixture.dispose()
   }
 })
+
+test('a batch whose lead manifest would be too large is skipped, not retried every sweep', async () => {
+  const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  try {
+    const capture = await fixture.seedCapture()
+    const batchId = capture.batch.id
+    // Long evidence notes reach the lead manifest but not the capture snapshot.
+    for (let n = 0; n < 32; n += 1) {
+      const photo = await seedPhoto(fixture, batchId, { width: 64, height: 64 }, `Photo ${n}`)
+      await fixture.db.pool.query(
+        'INSERT INTO media_evidence_note(id,batch_id,evidence_id,revision,text,actor_id) VALUES(gen_random_uuid(),$1,$2,1,$3,$4)',
+        [batchId, photo.evidence, `${n} `.padEnd(8000, 'n'), fixture.identity.actor],
+      )
+    }
+    const skipped = new Map<string, string>()
+    const first = await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })
+    assert.deepEqual(first.failed, [batchId])
+    assert.ok(skipped.has(batchId))
+    assert.deepEqual(
+      (await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })).failed,
+      [],
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})

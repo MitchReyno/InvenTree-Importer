@@ -925,3 +925,201 @@ test('an unexpected tool failure answers with tool_failed instead of leaving the
     await fixture.dispose()
   }
 })
+
+test('extending a lot with a new Part stops at the subject limit', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write, read }) => {
+    const observe = async (x: number, marking: string) => {
+      const base = (await read()).revision
+      const result = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: base,
+          evidence_version_id: photo.version,
+          region: region(x, 50),
+          readings: readings(marking),
+        }),
+      )
+      assert.ok(result.ok)
+      return result.id
+    }
+    const first = await observe(0, 'A')
+    const base = (await read()).revision
+    const lot = await write((client) =>
+      proposeLot(client, writer, { base_revision: base, label: 'A lot', observation_ids: [first] }),
+    )
+    assert.ok(lot.ok)
+    // Fill the batch to 100 subjects with Parts.
+    const count = Number(
+      (
+        await fixture.db.pool.query('SELECT count(*) FROM capture_subject WHERE batch_id=$1', [
+          batchId,
+        ])
+      ).rows[0].count,
+    )
+    await fixture.db.pool.query(
+      `WITH ids AS (SELECT gen_random_uuid() AS id FROM generate_series(1,$2::int)),
+         s AS (INSERT INTO capture_subject(batch_id,id,kind,label) SELECT $1,id,'part','Filler' FROM ids RETURNING id)
+       INSERT INTO capture_part(batch_id,id) SELECT $1,id FROM s`,
+      [batchId, 100 - count],
+    )
+    const second = await observe(100, 'A again')
+    const full = (await read()).revision
+    await assert.rejects(
+      write((client) =>
+        proposeLot(client, writer, {
+          base_revision: full,
+          lot_id: lot.id,
+          observation_ids: [second],
+          part: { label: 'One more Part' },
+        }),
+      ),
+      /capture_capacity/,
+    )
+  })
+})
+
+test('a lead session asks about the whole batch, and the clarification answer becomes a batch note', async () => {
+  const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client')
+  const { startSessionToolServer } = await import('../../src/agents/tools/server.ts')
+  const { issueSessionCapability } = await import('../../src/agents/tools/capability.ts')
+  const { sealed } = await import('../../src/processing/model.ts')
+  const fixture = await processingFixture()
+  const server = await startSessionToolServer({
+    pool: fixture.runner.pool,
+    writerPool: fixture.writer.pool,
+    config: fixture.config,
+    statusIntervalMs: 60_000,
+  })
+  try {
+    const capture = await fixture.seedCapture()
+    const lead = await leadSession(fixture, capture)
+    const token = await transaction(fixture.runner.pool, (client) =>
+      issueSessionCapability(client, lead.attempt),
+    )
+    const client = new Client({ name: 'lead-question-test', version: '1' })
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(server.url), {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+      }),
+    )
+    let questionId = ''
+    try {
+      const ask = (args: Record<string, unknown>) =>
+        client
+          .callTool({ name: 'ask', arguments: args })
+          .then((r) => r.structuredContent as { ok: boolean; id?: string; error?: string })
+      const quantity = await ask({
+        kind: 'quantity',
+        subject_id: null,
+        prompt: 'How many in total?',
+        reason: 'Testing.',
+        fields: ['quantity'],
+        assumption: 'None.',
+      })
+      assert.deepEqual([quantity.ok, quantity.error], [false, 'validation_failed'])
+      const asked = await ask({
+        kind: 'clarification',
+        subject_id: null,
+        prompt: 'Are these all from one order?',
+        reason: 'Two invoices are in the photos.',
+        fields: ['identity'],
+        assumption: 'Treating them as one order.',
+      })
+      assert.equal(asked.ok, true)
+      questionId = asked.id!
+    } finally {
+      await client.close()
+    }
+    const processing = (await fixture.http(`/batches/${capture.batch.id}/processing`)).value as {
+      jobs: { stage: string; questions: { id: string; spec: { subject_id: string | null } }[] }[]
+    }
+    const question = processing.jobs.find((job) => job.stage === 'examine')!.questions[0]
+    assert.deepEqual([question.id, question.spec.subject_id], [questionId, null])
+    const batch = (await fixture.http(`/batches/${capture.batch.id}`)).value as { revision: string }
+    const manifest = (
+      await fixture.db.pool.query<{ manifest_bytes: Buffer }>(
+        'SELECT i.manifest_bytes FROM processing_input i JOIN processing_attempt a ON a.input_id=i.id WHERE a.id=$1',
+        [lead.attempt],
+      )
+    ).rows[0].manifest_bytes
+    const answered = await fixture.http(
+      `/batches/${capture.batch.id}/questions/${questionId}/answers`,
+      {
+        schema_version: 'bench-intake-answer/1',
+        expected_question_revision: '1',
+        expected_capture_revision: batch.revision,
+        attempt_id: lead.attempt,
+        input_sha256: sealed(JSON.parse(manifest.toString('utf8'))).digest.toString('hex'),
+        value: { kind: 'clarification', text: 'Yes, one order.' },
+      },
+    )
+    assert.equal(answered.status, 200, JSON.stringify(answered.value))
+    const notes = (
+      (await fixture.http(`/batches/${capture.batch.id}`)).value as {
+        notes: { subject_id: string | null; text: string }[]
+      }
+    ).notes
+    assert.ok(notes.some((note) => note.subject_id === null && note.text === 'Yes, one order.'))
+  } finally {
+    await server.close()
+    await fixture.dispose()
+  }
+})
+
+test('a split drops suggestions aimed at the lot it retires', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write, read }) => {
+    const observe = async (x: number, marking: string) => {
+      const base = (await read()).revision
+      const result = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: base,
+          evidence_version_id: photo.version,
+          region: region(x, 50),
+          readings: readings(marking),
+        }),
+      )
+      assert.ok(result.ok)
+      return result.id
+    }
+    const first = await observe(0, 'A')
+    const formedAt = (await read()).revision
+    const lot = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: formedAt,
+        label: 'A lot',
+        observation_ids: [first],
+      }),
+    )
+    assert.ok(lot.ok)
+    const second = await observe(100, 'A again')
+    const { operatorRepository } = await import('../../src/operator-review/repository.ts')
+    const { grantManual } = await import('../../src/review/grants.ts')
+    await grantManual(fixture.db.pool, fixture.api.name, 'api')
+    await fixture.db.pool.query('UPDATE capture_lot SET operator_edited=true WHERE id=$1', [lot.id])
+    const suggestedAt = (await read()).revision
+    const suggestion = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: suggestedAt,
+        lot_id: lot.id,
+        observation_ids: [second],
+      }),
+    )
+    assert.ok(suggestion.ok && suggestion.suggested)
+    await operatorRepository(fixture.api.pool, fixture.config).restructure(batchId, randomUUID(), {
+      expected_revision: (await read()).revision,
+      preview: false,
+      change: {
+        kind: 'split_lot',
+        lot_id: lot.id,
+        children: [
+          { label: 'A1', quantity: '1' },
+          { label: 'A2', quantity: '1' },
+        ],
+      },
+    } as never)
+    const after = await read()
+    assert.deepEqual(
+      after.evidence_observations!.find((o) => o.id === second)!.suggested_lot_ids,
+      [],
+    )
+  })
+})

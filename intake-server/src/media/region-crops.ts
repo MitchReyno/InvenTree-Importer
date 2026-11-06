@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 import type { EvidenceRegionDto } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
+import { CaptureError } from '../capture/repository.ts'
 
 type PixelRegion = Extract<EvidenceRegionDto, { kind: 'pixels' }>
 
@@ -31,7 +32,8 @@ export function regionCropCache(directory: string) {
       const source = sharp(await preview(), { limitInputPixels: false })
       const { width, height } = await source.metadata()
       if (width !== region.source_width || height !== region.source_height) {
-        throw new Error('region_preview_mismatch')
+        // The page was re-rendered at another size; the region no longer applies.
+        throw new CaptureError(409, 'region_preview_mismatch')
       }
       const bytes = await source
         .extract({ left: region.x, top: region.y, width: region.width, height: region.height })

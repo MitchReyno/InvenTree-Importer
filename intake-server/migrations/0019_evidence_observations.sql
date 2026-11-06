@@ -167,6 +167,18 @@ $$;
 CREATE TRIGGER capture_subject_agent_write BEFORE UPDATE ON capture_subject
   FOR EACH ROW EXECUTE FUNCTION capture_agent_subject_guard();
 
+-- A subject an agent principal creates is always attributed to its session.
+CREATE FUNCTION capture_agent_subject_insert_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF public.is_agent_writer() AND NEW.agent_session_id IS NULL THEN
+    RAISE EXCEPTION 'agent_write_refused' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER capture_subject_agent_insert BEFORE INSERT ON capture_subject
+  FOR EACH ROW EXECUTE FUNCTION capture_agent_subject_insert_guard();
+
 CREATE FUNCTION capture_agent_revision_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF public.is_agent_writer() AND (NEW.agent_session_id IS NULL OR NEW.actor_id IS DISTINCT FROM

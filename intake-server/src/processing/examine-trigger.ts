@@ -10,6 +10,7 @@ import { readAgentSettings } from '../agents/settings.ts'
 import { appendSessionInbox } from '../agents/tools/inbox.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingJobs } from './schema.ts'
+import { ProcessingError } from './model.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
 
@@ -209,14 +210,20 @@ export async function triggerExamine(
       // One batch never stops the others. A batch that cannot fit (too much evidence for one
       // lead input) is skipped until its evidence changes; anything else is retried next sweep.
       // Only known codes are logged; anything else could carry data.
-      const code = error instanceof CaptureError ? error.code : 'examine_trigger_failed'
+      const code =
+        error instanceof CaptureError || error instanceof ProcessingError
+          ? error.code
+          : 'examine_trigger_failed'
       if (PERMANENT_CODES.has(code)) {
         skipped.set(candidate.batch_id, candidate.signature)
       }
       failed.push(candidate.batch_id)
       process.stderr.write(
-        JSON.stringify({ event: 'examine_trigger_skipped', batch_id: candidate.batch_id, code }) +
-          '\n',
+        JSON.stringify({
+          event: PERMANENT_CODES.has(code) ? 'examine_trigger_skipped' : 'examine_trigger_retrying',
+          batch_id: candidate.batch_id,
+          code,
+        }) + '\n',
       )
     })
   }

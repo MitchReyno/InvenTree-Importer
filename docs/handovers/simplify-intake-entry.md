@@ -540,3 +540,17 @@ Results at `28e7964`, before these fixes:
 
 After these fixes, the focused PostgreSQL files (observations, trigger, lead, session tools, operator review) passed 43 of 43, and `dev-stack` and `dev-environment` passed 3 of 3.
 
+## PR-B review round 3
+
+A fresh reviewer subagent reviewed `4080ea9..fdc805e`. It found one important finding and five minor ones, plus two nitpicks. It confirmed round 2 fixes I1–I3 and M2–M4.
+
+1. **I-1: an oversized lead manifest was retried every sweep.** `processing_input_capacity` is raised as a `ProcessingError`, so the trigger never matched it to its permanent codes. The trigger now reads codes from both `CaptureError` and `ProcessingError`, and logs `examine_trigger_retrying` for transient failures. A test overflows the lead manifest with long evidence notes and checks the batch is skipped.
+2. **m1: a lead quantity question could never be answered.** The lead session's `quantity` question must now name a live lot. A new end-to-end test covers a batch-level clarification question: it is projected with a null subject, and its answer becomes a batch note. A quantity question with no subject is refused.
+3. **m2: the Capture glance listed retired lots.** It now hides lots the snapshot marks `retired`.
+4. **m3: missing regression tests.** New tests cover the subject limit on the extend path, and suggestions dropped when a split retires their lot.
+5. **m4: subjects inserted by an agent could be unattributed.** Agent-inserted subjects must now carry their session (`capture_agent_subject_insert_guard`).
+6. **m5: observations on retired lots were hidden.** Observations left on a split, merged or retired lot are listed with the unassigned ones in Review.
+7. **Nitpicks.**
+   - Creating the marker role tolerates a concurrent provisioner.
+   - A crop whose region no longer matches its preview raises a typed `region_preview_mismatch` (409).
+
