@@ -47,3 +47,37 @@ export function mediaIdentityLabels(evidence: readonly MediaEvidenceDto[]): Medi
   }
   return { evidence: evidenceLabels, versions: versionLabels }
 }
+
+/**
+ * Labels for normal viewing: a file's name and the version's kind. Identifiers appear only when
+ * two files share a name, where the name alone would be ambiguous.
+ */
+export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): MediaIdentityLabels {
+  const identity = mediaIdentityLabels(evidence)
+  const names = new Map<string, number>()
+  for (const item of evidence) {
+    names.set(item.label, (names.get(item.label) ?? 0) + 1)
+  }
+  const evidenceLabels = new Map<string, string>()
+  const versionLabels = new Map<string, string>()
+  for (const item of evidence) {
+    if ((names.get(item.label) ?? 0) > 1) {
+      evidenceLabels.set(item.id, identity.evidence.get(item.id)!)
+      for (const version of item.versions) {
+        versionLabels.set(version.id, identity.versions.get(version.id)!)
+      }
+      continue
+    }
+    evidenceLabels.set(item.id, item.label)
+    let crops = 0
+    for (const version of item.versions) {
+      if (version.kind === 'original') {
+        versionLabels.set(version.id, `${item.label} · original`)
+      } else {
+        crops += 1
+        versionLabels.set(version.id, `${item.label} · crop ${crops}`)
+      }
+    }
+  }
+  return { evidence: evidenceLabels, versions: versionLabels }
+}

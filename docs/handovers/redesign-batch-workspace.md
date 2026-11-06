@@ -346,4 +346,9 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
 
   The Map replaces the placeholder at Review › Map, and the header's Map tab is now a link.
   - **Tests:** model 2 (written alongside the model, not before), map component 5 and stage 2 (written first; they failed on the missing module). The header test now expects a Map link. Frontend 538/538; typecheck, lint and build pass.
+- **Browser check and the ID fix:** `batch-capture.html` now gives `Batch` a synthetic manual client and operator projection, with a lot blocked twice and one with a warning, so Review › Lots, Table, Map and Records render.
+  - **Captures:** Lots (opened on the blocked lot), the blocked lot's details, Table and Map at 1440px and 390px. No horizontal overflow.
+  - **Fix found:** the evidence pane showed shortened evidence and version IDs in its source picker and note headings, against "No internal identifiers inline". `mediaDisplayLabels` now labels a file by name and kind ("Packing slip · original", "· crop N") and keeps IDs only when two files share a name. A test written first covers it.
+  - **Existing behaviour, not changed here:** Review reads its view from the URL when it mounts, so a hash change on an already-open Review page does not switch view.
+  - **Checks:** frontend 539/539.
 

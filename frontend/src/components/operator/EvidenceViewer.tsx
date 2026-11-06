@@ -8,7 +8,7 @@ import {
   type EvidenceSelection,
 } from '../../operator/evidence-location'
 import { mediaResource } from '../../media/types'
-import { mediaIdentityLabels } from '../../media/identity-labels'
+import { mediaDisplayLabels } from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
 import { Button, Label, Select, Small } from '../ui/primitives'
 import { batchHref } from '../../navigation/batch-route'
@@ -67,7 +67,7 @@ export function EvidenceViewer({
   const [zoom, setZoom] = useState(1)
   const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const labels = mediaIdentityLabels(evidence)
+  const labels = mediaDisplayLabels(evidence)
   const source = evidence.find((item) => item.id === selected?.evidenceId)
   const version = source?.versions.find((item) => item.id === selected?.versionId)
   const page = version?.pages.find(
@@ -293,7 +293,7 @@ export function EvidenceViewer({
         .map((item) => (
           <MediaNoteSummary
             key={item.id}
-            title={`Evidence ${labels.evidence.get(item.id)}`}
+            title={labels.evidence.get(item.id) ?? item.label}
             note={item.note}
           />
         ))}

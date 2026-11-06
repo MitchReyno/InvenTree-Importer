@@ -310,3 +310,11 @@ test('retained group and evidence notes are readable without replacing source id
   )
   expect(screen.getAllByText(/Version 2/)).toHaveLength(2)
 })
+
+test('a uniquely named file is labelled by name and kind, with no identifier inline', () => {
+  render(<EvidenceViewer batchId="batch" evidence={[evidence]} />)
+  const source = screen.getByLabelText('Evidence source and version')
+
+  expect(source).toHaveTextContent('Packing slip · original')
+  expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
+})
