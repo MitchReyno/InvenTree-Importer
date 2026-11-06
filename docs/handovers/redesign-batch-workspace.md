@@ -419,3 +419,15 @@ Fresh read-only Claude reviewer at `0b8c86e`: 1 Minor, 1 Nitpick, fixed (the Min
 - **Stale Map link target (Minor):** after a successful link the chosen lot left the "Link to a lot…" list but stayed chosen, so Link stayed enabled and could resend the link, or send one to a lot retired since. A choice that is no longer offered now counts as none. The test links, rerenders with the new link, and expects the placeholder and a disabled Link; it failed first, then passed.
 - **Nitpick:** the architecture and the 8.2 Warnings line now name the Map among the places problems route to.
 
+### PR-D review round 8
+
+Fresh read-only Claude reviewer at `7330b65`: clean. Its one optional Nitpick was accepted: the Map remembers a lot chosen before a link, so after that link is removed the lot shows as chosen again. It is visible and harmless.
+
+### PR-D delivery
+
+CI on #104 passed on every job that ran (frontend, TypeScript, Markdown); the intake and backend lanes did not apply. Squash-merged as #104 (`1672e00`) under Mitch's standing authorisation. The demo (72 s) was recorded at `d9538a3` from `batch-capture.html` and attached to the PR; it shows Lots with problem fixes, the record chain and Mark reviewed, the shared Table selection, and the Map's flags, Link, New lot, Merge, Move and Split. The fixture has no single-file lot, Part link, lineage, open question or location problem, so those are not filmed.
+
+## PR-E plan: Records (Tasks 9 and 10)
+
+Branch `feat/redesign-batch-workspace-records` from `1672e00`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
