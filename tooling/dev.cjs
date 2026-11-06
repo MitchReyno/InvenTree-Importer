@@ -18,12 +18,7 @@ const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const {
-  prepareDevelopment,
-  apiTargetEnv,
-  serviceEnvironment,
-  confirmLocalInventree,
-} = require('./dev/stack.cjs')
+const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -165,51 +160,47 @@ async function main() {
   const { readLocalInventree } = await import(
     pathToFileURL(join(intake, 'src/dev/local-inventree.ts')).href
   )
-  const serviceEnv = serviceEnvironment(baseEnv, settings, stateDirectory)
   // The database server comes first: the state root is scoped to its identity.
   const preparing = new AbortController()
   const abortPreparing = () => preparing.abort()
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.once(signal, abortPreparing)
   }
-  let prepared
+  let started
   try {
-    prepared = await prepareDevelopment(settings, target, {
-      startServices: () =>
+    started = await startSupervision(settings, target, {
+      baseEnv,
+      stateDirectory,
+      startServices: (childEnv) =>
         run(
           process.execPath,
           [join(intake, 'scripts/dev-services.cjs'), 'start'],
-          serviceEnv,
+          childEnv,
           repository,
           preparing.signal,
         ),
-      startLocalInventree: () =>
+      startLocalInventree: (childEnv) =>
         run(
           process.execPath,
           [join(repository, 'tooling/inventree-dev/cli.cjs'), 'up'],
-          serviceEnv,
+          childEnv,
           repository,
           preparing.signal,
         ),
       serverIdentity: (values) => serverIdentity(values),
       readLocalInventree: (values) => readLocalInventree(values),
       stateRoot: developmentStateRoot,
+      privateState,
     })
   } finally {
     for (const signal of ['SIGINT', 'SIGTERM']) {
       process.removeListener(signal, abortPreparing)
     }
   }
+  const { serviceEnv, prepared, release } = started
   const root = prepared.root
   // The local read key exists only once `inventree:dev up` has run.
   const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
-  const release = await privateState(root)
-  try {
-    await confirmLocalInventree(settings, target, prepared, readLocalInventree)
-  } catch (error) {
-    await release()
-    throw error
-  }
   const env = { ...serviceEnv, INTAKE_APP_STATE: root }
   const setupEnv = {
     ...env,

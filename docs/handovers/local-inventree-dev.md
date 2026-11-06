@@ -141,3 +141,7 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
   - under its lock, the supervisor re-reads the local instance and refuses with `local_inventree_changed_during_startup` if a reset changed the instance ID or read token after `up`.
 
   A live `local-inventree` start with both changes read seeded part 2 (`SEED328 microcontroller`) with 201.
+- **Round 6** (fresh reviewer, `74a58d0`) found no Critical or Important issues. It confirmed the round-5 changes, found one Minor test gap and one stale-count nitpick. Fixed:
+  - the supervisor's whole startup sequence (shared child env, services, scoped root, lock, instance re-check, release on failure) is one tested `startSupervision` helper that `tooling/dev.cjs` calls, so removing a step fails a test.
+
+  Current totals: `pnpm test:dev` 52/52 and `pnpm --filter @invimport/intake-server test` 208/208. A live `local-inventree` start read seeded part 3 with 201.

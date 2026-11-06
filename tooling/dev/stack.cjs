@@ -48,4 +48,33 @@ async function confirmLocalInventree(settings, target, prepared, readLocalInvent
   }
 }
 
-module.exports = { prepareDevelopment, apiTargetEnv, serviceEnvironment, confirmLocalInventree }
+/**
+ * The supervisor's startup order: services with the shared child env, the scoped state root,
+ * its lock, then a re-check that the local instance did not change before the lock was held.
+ */
+async function startSupervision(settings, target, deps) {
+  const serviceEnv = serviceEnvironment(deps.baseEnv, settings, deps.stateDirectory)
+  const prepared = await prepareDevelopment(settings, target, {
+    startServices: () => deps.startServices(serviceEnv),
+    startLocalInventree: () => deps.startLocalInventree(serviceEnv),
+    serverIdentity: deps.serverIdentity,
+    readLocalInventree: deps.readLocalInventree,
+    stateRoot: deps.stateRoot,
+  })
+  const release = await deps.privateState(prepared.root)
+  try {
+    await confirmLocalInventree(settings, target, prepared, deps.readLocalInventree)
+  } catch (error) {
+    await release()
+    throw error
+  }
+  return { serviceEnv, prepared, release }
+}
+
+module.exports = {
+  prepareDevelopment,
+  apiTargetEnv,
+  serviceEnvironment,
+  confirmLocalInventree,
+  startSupervision,
+}

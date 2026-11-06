@@ -143,3 +143,56 @@ test('a local instance reset between up and the supervisor lock is refused', asy
     throw new Error('not read for other profiles')
   })
 })
+
+const { startSupervision } = require('../dev/stack.cjs')
+
+test('supervision starts the stack with the shared child env, locks the root, then re-checks the instance', async () => {
+  const calls = []
+  let instance = { instanceId: '1'.repeat(32), readToken: 'inv-read-20261106' }
+  const deps = {
+    baseEnv: { PATH: '/bin' },
+    stateDirectory: () => '/resolved/state',
+    startServices: async () => calls.push('start-services'),
+    startLocalInventree: async (env) => calls.push(['start-local', env]),
+    serverIdentity: async () => 'd'.repeat(32),
+    readLocalInventree: async () => {
+      calls.push('read-local')
+      return instance
+    },
+    stateRoot: () => '/state/local',
+    privateState: async (root) => {
+      calls.push(`lock:${root}`)
+      return async () => calls.push('release')
+    },
+  }
+  const target = {
+    kind: 'local-inventree',
+    origin: 'http://127.0.0.1:4320',
+    credentialRef: 'local_inventree_dev',
+  }
+  const started = await startSupervision({}, target, deps)
+  assert.deepEqual(calls, [
+    ['start-local', { PATH: '/bin', INTAKE_DEV_STATE: '/resolved/state', INTAKE_ENV_FILE: '' }],
+    'read-local',
+    'lock:/state/local',
+    'read-local',
+  ])
+  assert.deepEqual(started.serviceEnv, {
+    PATH: '/bin',
+    INTAKE_DEV_STATE: '/resolved/state',
+    INTAKE_ENV_FILE: '',
+  })
+  calls.length = 0
+  deps.readLocalInventree = async () => {
+    calls.push('read-local')
+    const seen = instance
+    instance = { instanceId: '2'.repeat(32), readToken: 'inv-new-20261106' }
+    return seen
+  }
+  await assert.rejects(startSupervision({}, target, deps), /local_inventree_changed_during_startup/)
+  assert.deepEqual(
+    calls.slice(-2),
+    ['read-local', 'release'],
+    'the lock is released when the re-check fails',
+  )
+})
