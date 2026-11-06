@@ -491,6 +491,13 @@ export const ProcessingJob = object({
   blocked_code: Type.Optional(ProcessingBlocker),
   /** Present for session profiles: the state of the job's latest session. */
   session_state: Type.Optional(SessionState),
+  /** The latest session's newest status line, when it has posted one. */
+  latest_status: Type.Optional(
+    object({
+      text: Type.String({ minLength: 1, maxLength: 120, pattern: '^[^\\r\\n\\u2028\\u2029]*$' }),
+      at: Type.String({ maxLength: 40 }),
+    }),
+  ),
   proposals: Type.Array(object({ id: Id, message_id: Id, value: ProcessingProposal }), {
     maxItems: 100,
   }),

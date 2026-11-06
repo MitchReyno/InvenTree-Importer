@@ -44,11 +44,34 @@ test('photos that finish preparing get exactly one Examine lead session, after t
       [jobs[0].id],
     )
     assert.equal(pins.rowCount, 2)
-    const processing = (await fixture.http(`/batches/${batchId}/processing`)).value as {
-      jobs: { stage: string; subject_id: string | null; session_state?: string }[]
+    type Read = {
+      jobs: {
+        stage: string
+        subject_id: string | null
+        attempt_id: string
+        session_state?: string
+        latest_status?: { text: string; at: string }
+      }[]
     }
+    const processing = (await fixture.http(`/batches/${batchId}/processing`)).value as Read
     const lead = processing.jobs.find((job) => job.stage === 'examine')!
     assert.deepEqual([lead.subject_id, lead.session_state], [null, 'queued'])
+    assert.equal('latest_status' in lead, false)
+    // The newest status line the session posted is carried on its job.
+    for (const [seq, text] of [
+      [1, 'Finding items in the photos'],
+      [2, 'Grouping the packets'],
+    ] as const) {
+      await fixture.db.pool.query(
+        "INSERT INTO agent_session_outbox(session_id,seq,kind,payload) VALUES($1,$2,'status',$3)",
+        [lead.attempt_id, seq, { text }],
+      )
+    }
+    const later = (await fixture.http(`/batches/${batchId}/processing`)).value as Read
+    assert.equal(
+      later.jobs.find((job) => job.stage === 'examine')!.latest_status?.text,
+      'Grouping the packets',
+    )
   } finally {
     await fixture.dispose()
   }

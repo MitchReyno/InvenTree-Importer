@@ -41,6 +41,8 @@ const source: ProcessingSource = {
     },
   ],
   sessions: [],
+  lead: null,
+  lotStatus: () => null,
   jobsOn: () => [],
 }
 
@@ -114,13 +116,32 @@ describe('ProcessingOverview', () => {
     overview({
       source: {
         ...source,
-        sessions: [{ jobId: 'j2', step: 'research', subject: 'Packet B', state: 'waiting_input' }],
+        sessions: [
+          {
+            jobId: 'j2',
+            step: 'research',
+            subject: 'Packet B',
+            lotId: null,
+            state: 'waiting_input',
+            status: 'Checking the datasheet',
+          },
+          {
+            jobId: 'j3',
+            step: 'images',
+            subject: 'Packet C',
+            lotId: null,
+            state: 'running',
+            status: null,
+          },
+        ],
       },
       onOpenSession,
     })
     const sessions = screen.getByRole('region', { name: 'Sessions' })
 
     expect(within(sessions).getByText('Research · Packet B')).toBeInTheDocument()
+    expect(within(sessions).getByText('Checking the datasheet')).toBeInTheDocument()
+    expect(within(sessions).getAllByRole('listitem')[1]).not.toHaveTextContent('Checking')
     expect(within(sessions).getByText('Waiting for you')).toBeInTheDocument()
     await userEvent.click(
       within(sessions).getByRole('button', { name: 'Open session: Research · Packet B' }),

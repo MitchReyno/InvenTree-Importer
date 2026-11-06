@@ -12972,6 +12972,10 @@ export interface components {
             can_cancel?: boolean;
             blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
             session_state?: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
+            latest_status?: {
+                text: string;
+                at: string;
+            };
             proposals: {
                 id: string;
                 message_id: string;
@@ -13345,6 +13349,10 @@ export interface components {
                 can_cancel?: boolean;
                 blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
                 session_state?: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
+                latest_status?: {
+                    text: string;
+                    at: string;
+                };
                 proposals: {
                     id: string;
                     message_id: string;

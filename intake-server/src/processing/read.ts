@@ -38,6 +38,7 @@ import {
 } from './retained.ts'
 import { decodeJobInput } from './session-input.ts'
 import { agentSessions } from '../agents/schema.ts'
+import { latestStatuses } from '../agents/tools/outbox.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
 import {
@@ -282,9 +283,11 @@ export async function processingSnapshot(
         ).map((row) => [row.attemptId, row.state])
       : [],
   )
+  const statuses = await latestStatuses(client, [...sessionStates.keys()])
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
     const sessionState = sessionStates.get(job.attemptId)
+    const latestStatus = statuses.get(job.attemptId)
     const currency = await inputCurrency(client, config, job, capture, jobMedia(media, job))
     const state = currentJobState(job, currency)
     const proposals = await proposalsForJob(client, config, job, batchLots)
@@ -306,6 +309,7 @@ export async function processingSnapshot(
       ),
       ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
       ...(sessionState ? { session_state: sessionState } : {}),
+      ...(latestStatus ? { latest_status: latestStatus } : {}),
       proposals,
       questions,
     })

@@ -40,17 +40,24 @@ export type SourceSession = {
   jobId: string
   step: WorkStep
   subject: string
+  /** The active lot the session works on; null for the Examine lead session. */
+  lotId: string | null
   state: NonNullable<Job['session_state']>
+  /** The session's newest status line, if it has posted one. */
+  status: string | null
 }
 
-/**
- * What Processing presents, whatever produces it. Today's adapter reads retained jobs; a later
- * one adds observations and session status lines.
- */
+export type LotStatus = { step: WorkStep; text: string; state: SourceSession['state'] }
+
+/** What Processing presents from retained jobs, with session state and status lines. */
 export type ProcessingSource = {
   steps: StepProgress[]
   questions: SourceQuestion[]
   sessions: SourceSession[]
+  /** The batch's Examine lead session, which Tell Examine writes to. */
+  lead: SourceSession | null
+  /** A lot's newest status line across its sessions. */
+  lotStatus: (lotId: string) => LotStatus | null
   jobsOn: (step: WorkStep) => Job[]
 }
 
@@ -90,6 +97,22 @@ export function retainedJobsSource(
       }),
   )
 
+  const sessions: SourceSession[] = snapshot.jobs.flatMap((job) =>
+    job.session_state
+      ? [
+          {
+            jobId: job.id,
+            step: workStep(job),
+            subject: subject(job),
+            lotId:
+              job.subject_id !== null && activeLotIds.has(job.subject_id) ? job.subject_id : null,
+            state: job.session_state,
+            status: job.latest_status?.text ?? null,
+          },
+        ]
+      : [],
+  )
+
   return {
     steps: WORK_STEPS.map(({ step, label }) => {
       const jobs = jobsOn(step)
@@ -109,11 +132,16 @@ export function retainedJobsSource(
       }
     }),
     questions,
-    sessions: snapshot.jobs.flatMap((job) =>
-      job.session_state
-        ? [{ jobId: job.id, step: workStep(job), subject: subject(job), state: job.session_state }]
-        : [],
-    ),
+    sessions,
+    lead: sessions.find((session) => session.step === 'examine' && session.lotId === null) ?? null,
+    lotStatus: (lotId) => {
+      const newest = snapshot.jobs
+        .filter((job) => job.subject_id === lotId && job.session_state && job.latest_status)
+        .sort((left, right) => right.latest_status!.at.localeCompare(left.latest_status!.at))[0]
+      return newest
+        ? { step: workStep(newest), text: newest.latest_status!.text, state: newest.session_state! }
+        : null
+    },
     jobsOn,
   }
 }

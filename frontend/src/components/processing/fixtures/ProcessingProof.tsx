@@ -88,7 +88,9 @@ const snapshot = (withSessions: boolean) =>
     jobs: [
       job(1, 'reading', 'ready', lot(1)),
       job(2, 'identifying', 'waiting_for_user', lot(2), {
-        questions: [question(2, lot(2), 'Is the last letter of the marking a P?', 'Assuming ATmega328P')],
+        questions: [
+          question(2, lot(2), 'Is the last letter of the marking a P?', 'Assuming ATmega328P'),
+        ],
         ...(withSessions ? { session_state: 'waiting_input' } : {}),
       }),
       job(3, 'research', 'running', lot(3), withSessions ? { session_state: 'running' } : {}),
@@ -115,7 +117,11 @@ const attention = {
   items_truncated: false,
 } as BatchAttentionDto
 
-const selection = { provider: 'claude', authentication: 'subscription', model: 'claude-opus-5-5' } as const
+const selection = {
+  provider: 'claude',
+  authentication: 'subscription',
+  model: 'claude-opus-5-5',
+} as const
 
 function session(n: number, stage: string, subject: string | null, extra: object) {
   return {
@@ -146,7 +152,10 @@ const sessionList = (supported: boolean) =>
     sessions: supported
       ? [
           session(3, 'research', lot(3), {
-            latest_status: { text: 'Comparing two supplier listings', at: '2026-11-06T08:05:00.000Z' },
+            latest_status: {
+              text: 'Comparing two supplier listings',
+              at: '2026-11-06T08:05:00.000Z',
+            },
           }),
           session(2, 'examine', lot(2), {
             state: 'waiting_for_user',
@@ -225,7 +234,10 @@ export function ProcessingProof() {
             onDirtyChange={() => {}}
             onSaved={async () => {}}
             attention={attention}
-            instructions={{ text: 'Keep the two resistor packets apart.', instruct: async () => {} }}
+            instructions={{
+              text: 'Keep the two resistor packets apart.',
+              instruct: async () => {},
+            }}
           />
         )}
       </main>

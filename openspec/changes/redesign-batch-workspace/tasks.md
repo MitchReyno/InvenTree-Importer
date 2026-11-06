@@ -294,9 +294,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** write failing adapter tests against BI-006's `synthetic-session/1` fixture data, and failing records-projection tests with `bench-intake-proposal/5` fixtures, first (RED), then implement (GREEN).
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks, and a browser check of each screen with the synthetic session profile.
 
-- [ ] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
-- [ ] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
-- [ ] 14.3 Turn on the Processing overview session list and the session drawer.
+- [x] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
+- [x] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
+- [x] 14.3 Turn on the Processing overview session list and the session drawer.
 - [ ] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
 - [ ] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
 - [ ] 14.6 Turn on Ask on Records.
