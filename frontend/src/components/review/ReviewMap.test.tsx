@@ -223,3 +223,67 @@ describe('ReviewMap', () => {
     expect(within(stray()).getByRole('button', { name: 'Link' })).toBeDisabled()
   })
 })
+
+describe('ReviewMap at region level', () => {
+  it('lists each file’s observed regions with the lot each supports, and keeps file links', () => {
+    const observed = {
+      ...batch,
+      evidence_observations: [
+        {
+          id: 'o1',
+          evidence_version_id: 'v4',
+          page: null,
+          region: {
+            kind: 'pixels',
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            source_width: 9,
+            source_height: 9,
+          },
+          readings: { markings: ['1N4148'], text: null },
+          status: 'active',
+          lot_id: 'c',
+        },
+        {
+          id: 'o2',
+          evidence_version_id: 'v4',
+          page: null,
+          region: {
+            kind: 'pixels',
+            x: 1,
+            y: 1,
+            width: 1,
+            height: 1,
+            source_width: 9,
+            source_height: 9,
+          },
+          readings: { markings: [], text: null },
+          status: 'active',
+          lot_id: null,
+        },
+      ],
+    } as unknown as CaptureSnapshotDto
+    map({
+      batch: observed,
+      evidence: [
+        { ...evidence[0], versions: [{ id: 'v1', evidence_id: 'f1' }] },
+        { ...evidence[3], versions: [{ id: 'v4', evidence_id: 'f4' }] },
+      ] as unknown as MediaSnapshotDto['evidence'],
+    })
+    const stray = screen.getByRole('listitem', { name: /Stray photo/ })
+
+    expect(stray).not.toHaveTextContent('Used by no lot')
+    const regions = within(stray).getByRole('list', { name: 'Regions of Stray photo' })
+    expect(
+      within(regions)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['1N4148 → Bag', 'Region 2 → no lot'])
+    expect(
+      within(screen.getByRole('listitem', { name: /Front label/ })).getByText('Packet A'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Regions of Front label' })).not.toBeInTheDocument()
+  })
+})

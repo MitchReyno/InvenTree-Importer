@@ -91,7 +91,9 @@ const resistorSpec: InventoryPartSpecDto = {
 const capacitorSpec: InventoryPartSpecDto = {
   name: '100 nF ceramic capacitor 0805',
   category: capacitors,
-  parameters: [{ template: composition, category_mapping: capacitorsComposition, value: 'Ceramic' }],
+  parameters: [
+    { template: composition, category_mapping: capacitorsComposition, value: 'Ceramic' },
+  ],
   manufacturer: { company: kemet, mpn: 'C0805C104K5RACTU' },
   supplier: { company: mouser, sku: '80-C0805C104K5R' },
   tags: ['SMD'],
@@ -181,10 +183,14 @@ function apply(change: CaptureEditDto['change']) {
   if (change.kind === 'record') {
     const { specs } = applyRecordChange(current, change)
     parts = parts.map((item) =>
-      specs.has(item.id) ? { ...item, choice: { mode: 'create', spec: specs.get(item.id)! } } : item,
+      specs.has(item.id)
+        ? { ...item, choice: { mode: 'create', spec: specs.get(item.id)! } }
+        : item,
     )
   } else if (change.kind === 'part' && change.choice) {
-    parts = parts.map((item) => (item.id === change.id ? { ...item, choice: change.choice! } : item))
+    parts = parts.map((item) =>
+      item.id === change.id ? { ...item, choice: change.choice! } : item,
+    )
   }
   current = { ...current, parts, revision: String(Number(current.revision) + 1) }
   return current

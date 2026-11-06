@@ -120,3 +120,63 @@ describe('reviewMap', () => {
     ])
   })
 })
+
+describe('reviewMap at region level', () => {
+  const observation = (
+    id: string,
+    version: string,
+    lotId: string | null,
+    markings: string[],
+    status = 'active',
+  ) => ({
+    id,
+    evidence_version_id: version,
+    page: null,
+    region: {
+      kind: 'pixels',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      source_width: 100,
+      source_height: 100,
+    },
+    readings: { markings, text: null },
+    visible_count: null,
+    status,
+    lot_id: lotId,
+  })
+
+  const withVersions = [
+    { ...evidence[3], versions: [{ id: 'v4', evidence_id: 'f4' }] },
+    { ...evidence[0], versions: [{ id: 'v1', evidence_id: 'f1' }] },
+  ] as unknown as MediaSnapshotDto['evidence']
+  const observed = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v4', 'c', ['1N4148']),
+      observation('o2', 'v4', 'b', []),
+      observation('o3', 'v4', null, ['LM358']),
+      observation('o4', 'v4', 'a', ['ignored'], 'suggested'),
+    ],
+  } as unknown as CaptureSnapshotDto
+
+  it('lists each file’s regions with the lot each supports, and a region link counts as use', () => {
+    const map = reviewMap(observed, withVersions, new Set(['old']))
+    const stray = map.files.find((item) => item.id === 'f4')!
+    expect(stray.regions).toEqual([
+      { id: 'o1', label: '1N4148', lotId: 'c' },
+      { id: 'o2', label: 'Region 2', lotId: 'b' },
+      { id: 'o3', label: 'LM358', lotId: null },
+    ])
+    expect(stray.unused).toBe(false)
+    expect(stray.lotIds).toEqual(['c', 'b'])
+    expect(map.lots.find((item) => item.id === 'b')?.fileIds).toEqual(['f4'])
+    expect(map.files.find((item) => item.id === 'f1')?.regions).toEqual([])
+  })
+
+  it('has no regions before observations exist', () => {
+    const map = reviewMap(batch, withVersions, new Set())
+    expect(map.files.every((item) => item.regions.length === 0)).toBe(true)
+  })
+})

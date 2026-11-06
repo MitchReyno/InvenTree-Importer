@@ -26,6 +26,12 @@ The Workspace SHALL have three panes: a lot list grouped by state, the lot's evi
 - **WHEN** it is selected
 - **THEN** Mark reviewed is disabled with “Fix 2 blocking problems first”, and each problem shows its fix actions.
 
+#### Scenario: Lot details with the agent line
+
+- **GIVEN** a lot that a Research session is working on
+- **WHEN** it is selected
+- **THEN** details show “Research ·” with the session's latest status line and state, and a link to Research in Processing; a lot no session works on shows no agent line.
+
 ### Requirement: Evidence pane shows the lot's own evidence
 
 The evidence pane SHALL show the evidence that supports the selected lot. Where observations with regions exist, it SHALL show the lot's crops from each file. Otherwise it SHALL show the lot's linked files. Group and photo notes SHALL appear beside the evidence.
@@ -35,6 +41,12 @@ The evidence pane SHALL show the evidence that supports the selected lot. Where 
 - **GIVEN** a lot supported by a close-up photo and a packing-slip line
 - **WHEN** it is selected
 - **THEN** both are shown with labels saying what each shows, without the operator pressing Inspect first.
+
+#### Scenario: Evidence pane with region crops
+
+- **GIVEN** a lot formed from two regions of one photo and one region of another
+- **WHEN** it is selected
+- **THEN** the pane shows its three crops, each with its reading, without opening the files.
 
 ### Requirement: Problems route to their owner
 
@@ -68,6 +80,12 @@ Links SHALL be drawn at region level when observations exist, and at file level 
 - **GIVEN** a photo that supports no lot
 - **WHEN** the Map opens
 - **THEN** that photo is flagged, and “New lot from this” creates a draft lot attributed to the operator.
+
+#### Scenario: Map at region level with its instruction field
+
+- **GIVEN** observations on the batch's photos and a running Examine lead session
+- **WHEN** the Map opens
+- **THEN** each file lists its regions with the lot each supports, a file that supports a lot only through a region is not flagged as unused, and an instruction field sends free text to the Examine lead session.
 
 #### Scenario: Map before agent sessions
 

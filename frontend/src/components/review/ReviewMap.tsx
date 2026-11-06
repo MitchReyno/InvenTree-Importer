@@ -100,7 +100,7 @@ export function ReviewMap({
                   </Pill>
                 )}
               </Head>
-              {file.lotIds.length > 0 && (
+              {file.links.length > 0 && (
                 <Links>
                   Supports:
                   {file.links.map(({ lotId, via }) => (
@@ -121,6 +121,16 @@ export function ReviewMap({
                     </Chip>
                   ))}
                 </Links>
+              )}
+              {file.regions.length > 0 && (
+                <Regions aria-label={`Regions of ${file.label}`}>
+                  {file.regions.map((region) => (
+                    <li key={region.id}>
+                      {region.label} →{' '}
+                      {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                    </li>
+                  ))}
+                </Regions>
               )}
               <Controls>
                 <select
@@ -313,6 +323,12 @@ const Controls = styled.div`
   gap: ${space[2]};
 `
 
+const Regions = styled.ul`
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: ${space[4]};
+`
 const Muted = styled.span`
   font-size: 12.5px;
   color: ${color.muted};

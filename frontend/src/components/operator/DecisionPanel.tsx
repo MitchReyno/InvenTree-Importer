@@ -21,6 +21,8 @@ import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
 import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
 import { RecordChain, type RecordLink } from '../ui/RecordChain'
+import { AgentLine } from './AgentLine'
+import type { LotStatus } from '../../processing/source'
 import { problemActions } from '../../operator/problem-actions'
 import type { Provenance } from '../../operator/review-model'
 
@@ -50,6 +52,8 @@ interface Props {
   editPart?: (partId: string) => void
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
+  /** The lot's latest agent status line, where a session works on it. */
+  agent?: LotStatus | null
   onDirtyChange?: (dirty: boolean) => void
 }
 
@@ -151,6 +155,7 @@ export function DecisionPanel({
   editPart,
   editSignal = 0,
   onDirtyChange,
+  agent = null,
 }: Props) {
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
@@ -182,6 +187,7 @@ export function DecisionPanel({
       <RecordChain
         links={recordLinks(batch, lot, part, operatorLot, lotLocationFact(batch, lot, media))}
       />
+      <AgentLine batchId={batch.id} status={agent} />
       {openQuestion && (
         <Paragraph>
           Processing has an open question about this lot.{' '}

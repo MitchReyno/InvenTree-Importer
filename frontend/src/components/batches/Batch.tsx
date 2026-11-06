@@ -460,6 +460,7 @@ export function Batch({
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
         reload={reloadForStage}
         onDirtyChange={reportDirty}
+        processing={processing}
       />
     )
   } else if (batch && stage !== 'capture') {

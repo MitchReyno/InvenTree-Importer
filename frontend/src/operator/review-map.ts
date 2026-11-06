@@ -27,18 +27,25 @@ function ancestors(predecessors: ReadonlyMap<string, readonly string[]>, lotId: 
   return found
 }
 
+/** A region of a file that an observation records, and the lot it supports. */
+export type MapRegion = { id: string; label: string; lotId: string | null }
+
 export type MapFile = {
   id: string
   label: string
+  /** Lots the file supports, through a file link or one of its regions. */
   lotIds: string[]
+  /** File-level links, which the Map can unlink. */
   links: MapLink[]
+  /** Regions observations record on this file; empty before observations exist. */
+  regions: MapRegion[]
   unused: boolean
 }
 export type MapLot = { id: string; label: string; fileIds: string[]; singleSource: boolean }
 
 /**
- * How the evidence became lots, at file level: a file supports a lot when it is linked to the lot,
- * to the lot's Part or to a lot it was split or merged from. Region-level links wait for observations.
+ * How the evidence became lots. A file supports a lot when it is linked to the lot, to the lot's
+ * Part or to a lot it was split or merged from, or when one of its observed regions is in the lot.
  */
 export function reviewMap(
   batch: CaptureSnapshotDto,
@@ -63,8 +70,24 @@ export function reviewMap(
     return file.linked_subject_ids.some((id) => lineage?.has(id)) ? 'earlier' : null
   }
 
-  const supports = (file: MediaSnapshotDto['evidence'][number], lot: (typeof lots)[number]) =>
-    via(file, lot) !== null
+  const active = new Set(lots.map((lot) => lot.id))
+  const observations = (batch.evidence_observations ?? []).filter(
+    (item) => item.status === 'active',
+  )
+
+  const regionsOf = (file: MediaSnapshotDto['evidence'][number]): MapRegion[] => {
+    const versions = new Set((file.versions ?? []).map((version) => version.id))
+    return observations
+      .filter((item) => versions.has(item.evidence_version_id))
+      .map((item, index) => ({
+        id: item.id,
+        label: item.readings?.markings?.[0] ?? item.readings?.text ?? `Region ${index + 1}`,
+        lotId:
+          item.lot_id !== null && item.lot_id !== undefined && active.has(item.lot_id)
+            ? item.lot_id
+            : null,
+      }))
+  }
 
   const names = evidenceDisplayNames(evidence)
   const files: MapFile[] = evidence.map((file) => {
@@ -72,17 +95,24 @@ export function reviewMap(
       const route = via(file, lot)
       return route ? [{ lotId: lot.id, via: route }] : []
     })
-    const lotIds = links.map((link) => link.lotId)
+    const regions = regionsOf(file)
+    const lotIds = [
+      ...new Set([
+        ...links.map((link) => link.lotId),
+        ...regions.flatMap((region) => (region.lotId ? [region.lotId] : [])),
+      ]),
+    ]
     return {
       id: file.id,
       label: names.get(file.id) ?? file.label,
       lotIds,
       links,
+      regions,
       unused: lotIds.length === 0,
     }
   })
   const mapLots: MapLot[] = lots.map((lot) => {
-    const fileIds = evidence.filter((file) => supports(file, lot)).map((file) => file.id)
+    const fileIds = files.filter((file) => file.lotIds.includes(lot.id)).map((file) => file.id)
     return { id: lot.id, label: lot.label, fileIds, singleSource: fileIds.length === 1 }
   })
 
