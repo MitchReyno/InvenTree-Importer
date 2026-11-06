@@ -16,6 +16,8 @@ type Props = {
   unavailable?: boolean
   /** Why instructions cannot change here, such as an archived batch. */
   readOnlyReason?: string
+  /** Another draft is saving and reloading Processing. */
+  locked?: boolean
   /** Why saving is held back, such as another unsaved draft that a save would reload. */
   saveBlockedReason?: string
 }
@@ -31,6 +33,7 @@ export function InstructionField({
   unavailable = false,
   readOnlyReason,
   saveBlockedReason,
+  locked = false,
 }: Props) {
   const [draft, setDraft] = useState(text ?? '')
   const [edited, setEdited] = useState(false)
@@ -81,7 +84,7 @@ export function InstructionField({
         id="batch-instructions"
         value={draft}
         maxLength={MAX_CHARACTERS}
-        disabled={!instruct || !loaded || saving}
+        disabled={!instruct || !loaded || saving || locked}
         onChange={(event) => {
           setDraft(event.target.value)
           setEdited(true)

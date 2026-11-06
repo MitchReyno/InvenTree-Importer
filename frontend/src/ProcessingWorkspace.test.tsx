@@ -524,7 +524,10 @@ test('with both drafts open, neither can save until the other is saved or discar
   expect(screen.getByText(/Save or discard the batch instructions first/)).toBeInTheDocument()
 
   await userEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
-  expect(screen.getByRole('button', { name: 'Save instructions' })).toBeDisabled()
+  expect(
+    within(form).getByRole('button', { name: 'Save answer and queue continuation' }),
+  ).toBeEnabled()
+  expect(screen.queryByText(/Save or discard the batch instructions first/)).not.toBeInTheDocument()
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(instruct).not.toHaveBeenCalled()
 })
@@ -584,4 +587,41 @@ test('the drawer closes when its link points at the question already open', asyn
   await userEvent.click(within(drawer).getByRole('link', { name: 'How many are in Packet A?' }))
 
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('while one draft saves and Processing reloads, the other cannot be edited', async () => {
+  let finishInstructions: () => void = () => undefined
+
+  const instruct = vi.fn(
+    () => new Promise<void>((resolve) => (finishInstructions = () => resolve())),
+  )
+  const client = clientFixture()
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view="overview"
+        questionId={questionId}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={() => new Promise(() => undefined)}
+        instructions={{ text: '', instruct }}
+      />
+    </ServerStateProvider>,
+  )
+  const form = await screen.findByRole('form', { name: 'Pinned application question' })
+  await userEvent.type(screen.getByLabelText('Instructions for the whole batch'), 'Keep apart')
+  await userEvent.click(screen.getByRole('button', { name: 'Save instructions' }))
+  expect(within(form).getByLabelText('Quantity')).toBeDisabled()
+  await act(async () => finishInstructions())
+  expect(within(form).getByLabelText('Quantity')).toBeEnabled()
+
+  await userEvent.type(within(form).getByLabelText('Quantity'), '51')
+  await userEvent.click(
+    within(form).getByRole('button', { name: 'Save answer and queue continuation' }),
+  )
+  // The answer is saved and Processing is still reloading.
+  await waitFor(() => expect(client.answer).toHaveBeenCalled())
+  expect(screen.getByLabelText('Instructions for the whole batch')).toBeDisabled()
 })

@@ -83,6 +83,8 @@ export function ProcessingWorkspace({
   const [sessionJobId, setSessionJobId] = useState<string | null>(null)
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
+  // A save reloads Processing; the other draft is locked until that finishes.
+  const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
   // Opening a question navigates; the drawer closes only once that navigation happens.
   useEffect(() => {
     setSessionJobId(null)
@@ -204,14 +206,28 @@ export function ProcessingWorkspace({
   }
 
   async function answer(id: string, input: ProcessingAnswerDto, key: string) {
-    await perform(() => client.answer(batch.id, id, input, key))
-    drafts.forSource('answer')(false)
+    setSaving('answer')
     try {
-      await onSaved()
-    } catch {
-      setError(
-        'Answer saved. Current capture is unavailable; refresh before making another change.',
-      )
+      await perform(() => client.answer(batch.id, id, input, key))
+      drafts.forSource('answer')(false)
+      try {
+        await onSaved()
+      } catch {
+        setError(
+          'Answer saved. Current capture is unavailable; refresh before making another change.',
+        )
+      }
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function saveInstructions(text: string, revision: string, key: string) {
+    setSaving('instructions')
+    try {
+      await instructions?.instruct?.(text, revision, key)
+    } finally {
+      setSaving(null)
     }
   }
 
@@ -399,7 +415,7 @@ export function ProcessingWorkspace({
                 currentQuestion={currentQuestion}
                 currentCaptureRevision={snapshot.capture_revision}
                 disabled={runnerDisabled || drafts.isDirty('instructions')}
-                readOnly={batch.archived}
+                readOnly={batch.archived || saving === 'instructions'}
                 answer={answer}
                 onDirtyChange={drafts.forSource('answer')}
               />
@@ -429,7 +445,10 @@ export function ProcessingWorkspace({
                 <InstructionField
                   text={instructions ? instructions.text : ''}
                   revision={batch.revision}
-                  instruct={batch.archived ? undefined : instructions?.instruct}
+                  instruct={
+                    batch.archived || !instructions?.instruct ? undefined : saveInstructions
+                  }
+                  locked={saving === 'answer'}
                   unavailable={instructions?.unavailable}
                   readOnlyReason={
                     batch.archived ? 'Resume the batch to change its instructions.' : undefined
@@ -481,8 +500,11 @@ export function ProcessingWorkspace({
                   <a
                     key={question.id}
                     onClick={() => {
-                      // The current question's link changes no route, so close here.
-                      if (question.id === questionId) {
+                      // On this question's own step page the link changes no route.
+                      if (
+                        question.id === questionId &&
+                        processingStepFor(sessionJob.stage) === view
+                      ) {
                         setSessionJobId(null)
                       }
                     }}

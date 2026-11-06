@@ -272,3 +272,14 @@ Fresh read-only Claude reviewer at `eafda58`: 1 Important, 4 Minor, 1 Nitpick, a
 - **Nitpick:** an archived batch reads "Resume the batch to change its instructions."
 - **Checks:** frontend 515/515.
 
+### PR-C review round 3
+
+Fresh read-only Claude reviewer at `453000e`: 2 Minor, 2 Nitpick, all fixed.
+
+- **Other draft editable during a save (Minor):** the workspace now records which draft is saving across the command and the reload, and locks the other draft's input until it finishes (the answer form read-only, the instruction field disabled). A test holds each save open and checks the other draft is locked, then unlocked.
+- **Spec drift on "No session support yet" (Minor):** the agents-overview scenario and the D9 adjustment now say the page names the server's processing profile instead of linking to Agent settings, which has no profile control. The test name matches what it asserts. `openspec validate --strict` passes.
+- **Nitpick:**
+  - **Drawer link:** it closes the drawer only on the question's own step page, where the link changes no route.
+  - **Both-drafts test:** it now checks that the answer's save re-enables once the instructions are discarded.
+- **Checks:** frontend 516/516; typecheck, lint and build pass.
+

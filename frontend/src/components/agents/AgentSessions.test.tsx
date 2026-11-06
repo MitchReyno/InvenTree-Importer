@@ -148,7 +148,7 @@ test('sessions are grouped by batch, each group linking to its Processing', asyn
   expect(await screen.findByRole('region', { name: 'Bench bag' })).toBeInTheDocument()
 })
 
-test('a setup without agent sessions says so and links to Agent settings', async () => {
+test('a setup without agent sessions says the server profile runs none', async () => {
   render(
     <AgentSessions
       client={client({ sessions: [], sessions_supported: false })}
