@@ -368,6 +368,7 @@ export async function runSessionTurn(
           .select({
             state: agentSessions.sessionState,
             attemptState: processingAttempts.state,
+            turnCount: agentSessions.turnCount,
             lineageId: agentSessions.sessionLineageId,
             providerSessionId: agentSessions.nativeSessionId,
             jobId: processingAttempts.jobId,
@@ -433,8 +434,12 @@ export async function runSessionTurn(
       if (row.state !== 'queued') {
         throw new Error('session_not_queued')
       }
-      // A successor starts only while the identity it was pinned to is still current.
-      if (!(await pinnedIdentityCurrent(client, manifest.pinned_proposal_ids))) {
+      // A successor starts only while the identity it was pinned to is still current. Once it has
+      // run, a revised identity reaches it as an inbox item instead, so a resume is never stopped.
+      if (
+        row.turnCount === 0n &&
+        !(await pinnedIdentityCurrent(client, manifest.pinned_proposal_ids))
+      ) {
         await supersedeJobAttempts(client, row.jobId)
         await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
         await publish(client, row.batchId)

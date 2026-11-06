@@ -287,3 +287,33 @@ test('a regroup and an identity racing for the lot: the identity waits, then see
   // The earlier successors are untouched by the losing identity.
   assert.equal((await successors(led.id)).length, 2)
 })
+
+test('a successor that has run is resumed after its pinned identity goes stale, not superseded', async (t) => {
+  const { fixture, deps, lot, successors, identities } = await formedBatch(t)
+  const led = await lot('led 0603 red')
+  const research = (await successors(led.id)).find((row) => row.stage === 'research')!
+  assert.notEqual(
+    await runSessionTurn(deps, research.attempt_id, new AbortController().signal),
+    'cancelled',
+  )
+  const [identity] = await identities(led.id)
+  await fixture.db.pool.query(
+    "INSERT INTO processing_proposal_stale(proposal_id,reason) VALUES($1,'answer_received')",
+    [identity.id],
+  )
+  // A revision notice wakes it, as the fan-out does.
+  await fixture.db.pool.query(
+    `INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key)
+     SELECT gen_random_uuid(),$1,COALESCE(max(seq),0)+1,'revision',$2::jsonb,'test-revision'
+     FROM agent_session_inbox WHERE session_lineage_id=$1`,
+    [research.job_id, JSON.stringify({ fields: ['identity'], reason: 'Revised.' })],
+  )
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, research.job_id))
+  assert.notEqual(
+    await runSessionTurn(deps, research.attempt_id, new AbortController().signal),
+    'cancelled',
+  )
+  const after = (await successors(led.id)).find((row) => row.stage === 'research')!
+  assert.equal(after.attempt_id, research.attempt_id)
+  assert.notEqual(after.attempt_state, 'superseded')
+})

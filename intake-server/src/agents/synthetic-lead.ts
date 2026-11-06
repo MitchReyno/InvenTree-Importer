@@ -46,9 +46,13 @@ export async function syntheticLeadTurn(
   inbox: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[],
 ) {
   const path = join(cwd, 'synthetic-lead.json')
+  let firstTurn = false
   const memory: Memory = await readFile(path, 'utf8')
     .then((text) => JSON.parse(text) as Memory)
-    .catch(() => ({ revision: manifest.capture_revision, lots: {} }))
+    .catch(() => {
+      firstTurn = true
+      return { revision: manifest.capture_revision, lots: {} }
+    })
   // The batch as it is now: other writers may have moved it on since the last turn.
   const view = await call('read_batch', {})
   memory.revision = String(
@@ -59,7 +63,9 @@ export async function syntheticLeadTurn(
     Buffer.from(manifest.media.sha256, 'hex'),
   )
   const notices = inbox.filter((item) => item.kind === 'evidence')
-  const evidence = notices.length
+  // The first turn examines every photo; later turns only evidence sent as notices, so a turn
+  // woken by an answer or a revision examines nothing again.
+  const evidence = !firstTurn
     ? notices.map((item) => ({
         evidenceId: String(item.payload?.evidence_id),
         versionId: String(item.payload?.version_id),

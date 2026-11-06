@@ -748,4 +748,24 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
 - **Legacy.** Reading and Identifying jobs still render as job cards on Examine, and the existing `/1` fixture tests pass unchanged.
 - **Tests (vitest):** `PipelineRows.test.tsx`, `ExamineView.test.tsx`, the pipeline case in `source.test.ts`, and stale/provisional labels in `ProcessingJobCard.test.tsx`.
 - **Docs.** `processing/ARCHITECTURE.md` (stable identity, selective rework, Inventory gate), `agents/ARCHITECTURE.md` (lead priority, lot-session evidence, instructions) and `frontend/ARCHITECTURE.md` (pipeline, labels, Examine view) describe the final behaviour.
+- **Answering a lot's quantity marks it edited (found in qualification).** An answer applies the same capture `lot` edit as the operator, and PR-B marks any operator change to a lot `operator_edited`. Later evidence the lead session reads for that lot therefore arrives as a suggested membership, not an active one. This follows PR-B's reviewed rule, "Lots and observations the operator edited only accept suggestions". The qualification answers one lot's question and adds a photo of another. Whether an answer should count as an edit that blocks grouping is left open.
+- **Browser qualification (12.5).**
+  - **Setup:** a local driver, not committed (as for PR-B), served the synthetic preview with the session worker. The batch was photo-only: a shelf photo noting three items ("1N4148 diodes ×100; 16 MHz crystal; LED 0603 red ×500") and a reel close-up ("LED 0603 red ×500"). A third photo ("Reel back") was added mid-run.
+  - **Result:** Playwright (Chromium, headless, 1920 px at 2x and 390 px) passed 14 checks:
+    1. The batch starts with no lots.
+    2. Three AI-proposed lots appear live, and the reel in both photos is one lot with two crops.
+    3. The Examine view lists the shelf photo's three regions.
+    4. The LED estimate reads "Estimated 500 · label · same item in 2 photos", counted once.
+    5. Each lot's Research and Images both start, in parallel, from the stable identity.
+    6. A mid-run answer to the diodes lot's Research question, through the question form, makes the lead's "Estimated 100" stale ("an answer changed what it relied on").
+    7. The diodes identity stays current.
+    8. The added photo joins the LED lot (three crops).
+    9. The LED Research session resumes and reads the notices ("Reading new inbox items").
+    10. At 390 px, the LED pipeline row is shown.
+    11. At 390 px, the Overview fits without horizontal scroll.
+    12. At 390 px, the Examine page fits without horizontal scroll.
+- **Fixes found by the qualification.**
+  - A successor's claim checked its pinned identity on every turn. A resumed Research or Images session, woken by a revision, was therefore superseded once its identity went stale. The check now runs only before a session's first turn (`turn_count` 0), with a regression test in `stable-identity.test.ts`.
+  - The synthetic lead re-examined every photo when woken by an answer or a revision. Now only its first turn examines every photo; later turns examine evidence sent as notices.
+  - Pipeline and Examine-view pills no longer stretch to the full row width.
 

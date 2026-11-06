@@ -169,6 +169,7 @@ const Crop = styled.img`
 
 const LotBlock = styled.section`
   display: grid;
+  justify-items: start;
   gap: ${space[1]};
   padding: ${space[2]} 0;
   border-top: 1px solid ${color.line};

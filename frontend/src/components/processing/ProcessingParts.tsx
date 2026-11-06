@@ -239,6 +239,7 @@ const Pipeline = styled.ul`
   list-style: none;
   li {
     display: grid;
+    justify-items: start;
     gap: ${space[1]};
     padding: ${space[2]} 0;
     border-top: 1px solid ${color.line};
