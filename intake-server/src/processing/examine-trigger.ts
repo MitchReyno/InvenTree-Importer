@@ -46,7 +46,11 @@ async function candidates(
        (SELECT count(*)::text || ':' || coalesce(max(r.created_at)::text,'') FROM public.media_version v
          JOIN public.media_decode_command c ON c.version_id=v.id AND c.derivation_id IS NULL
          JOIN public.media_decode_result r ON r.command_id=c.id
-         WHERE v.batch_id=b.id) AS signature
+         WHERE v.batch_id=b.id)
+         -- Note and capture edits change it too, so trimming an oversized note retries the batch.
+         || ':' || b.revision::text || ':'
+         || coalesce((SELECT mb.revision::text FROM public.media_batch mb WHERE mb.batch_id=b.id),'')
+         AS signature
      FROM public.capture_batch b
      WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
        AND EXISTS (SELECT 1 FROM public.media_version v

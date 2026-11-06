@@ -66,3 +66,28 @@ it('renders nothing when every observation is in a lot', () => {
   )
   expect(container).toBeEmptyDOMElement()
 })
+
+it('lists an observation left on a retired lot as unassigned', () => {
+  const retired = {
+    ...batch,
+    lots: [
+      { id: 'l1', label: 'Red LEDs' },
+      { id: 'gone', label: 'Split away', retired: true },
+    ],
+    evidence_observations: [
+      {
+        ...base,
+        id: 'o9',
+        readings: { markings: ['Left behind'] },
+        status: 'active',
+        supersedes_observation_id: null,
+        operator_edited: false,
+        lot_id: 'gone',
+        suggested_lot_ids: [],
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(<UnassignedObservations batch={retired} edit={vi.fn()} disabled={false} />)
+  expect(screen.getByText('Left behind')).toBeInTheDocument()
+  expect(screen.getByLabelText('Move Left behind to')).toBeInTheDocument()
+})

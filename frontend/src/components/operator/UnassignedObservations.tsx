@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { observationCrop } from '../../media/types'
 import { Button, Field, Small, Subheading } from '../ui/primitives'
+import { ObservationMove } from './ObservationMove'
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 
@@ -50,6 +51,14 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
                 />
               )}
               <span>{describe(observation)}</span>
+              <ObservationMove
+                batch={batch}
+                observationId={observation.id}
+                lotId={null}
+                name={describe(observation)}
+                edit={edit}
+                disabled={disabled}
+              />
               {targets.map((lotId) => (
                 <Field key={lotId}>
                   <Button

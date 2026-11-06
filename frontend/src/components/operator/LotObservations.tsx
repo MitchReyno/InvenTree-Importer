@@ -3,6 +3,7 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { observationCrop } from '../../media/types'
 import { Button, Field, Small, Subheading } from '../ui/primitives'
 import { StatusChip } from './StatusChip'
+import { ObservationMove } from './ObservationMove'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
@@ -94,6 +95,14 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
             {crop(observation)}
             <Reading observation={observation} />
             {observation.operator_edited && <StatusChip $tone="neutral">Edited</StatusChip>}
+            <ObservationMove
+              batch={batch}
+              observationId={observation.id}
+              lotId={lot.id}
+              name={describe(observation)}
+              edit={edit}
+              disabled={disabled}
+            />
           </li>
         ))}
       </List>

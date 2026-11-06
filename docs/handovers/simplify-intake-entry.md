@@ -554,3 +554,19 @@ A fresh reviewer subagent reviewed `4080ea9..fdc805e`. It found one important fi
    - Creating the marker role tolerates a concurrent provisioner.
    - A crop whose region no longer matches its preview raises a typed `region_preview_mismatch` (409).
 
+## PR-B review round 4
+
+A fresh reviewer subagent reviewed `4080ea9..80dbf9b` and found one important and three minor findings, plus three nitpicks. It confirmed the round 3 fixes.
+
+1. **Important: a Review split left every observation on the retired lot, with no way to move them.** This is the "Operator split is kept" scenario.
+   - The split dialog now lists the lot's observations and assigns each one to a new lot, defaulting to the first, so `split_lot` always carries `observation_ids`.
+   - A Move to… control (`operator/ObservationMove.tsx`) on the lot's observations and on the unassigned list sends `observation_move`, so unassigned observations and those left on a retired lot can be placed.
+2. **Minor: trimming a note did not retry a skipped batch.** The trigger's skip signature now includes the capture and media batch revisions as well as decode results, so editing an oversized note retries a skipped batch.
+3. **Minor: missing frontend tests and a stale comment.** Tests now cover the glance hiding retired lots, an observation left on a retired lot listed as unassigned, the split request's `observation_ids`, and the move control. The Capture comment is corrected.
+4. **Minor: the subject insert guard was untested and undocumented.** A refusal test (agent insert without a session) now covers it, and the architecture guard sentence names it.
+5. **Nitpicks.**
+   - Fixed:
+     - `frontend/ARCHITECTURE.md` now covers the unassigned list and split assignment.
+     - A crop whose region no longer fits its preview reaches the lead session as `validation_failed`, not `tool_failed`.
+   - Accepted: the guards check that `agent_session_id` is present, not that it belongs to the batch. Application code always passes the writing session.
+

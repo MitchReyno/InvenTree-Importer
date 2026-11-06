@@ -28,6 +28,8 @@ const MAX_SPLIT_CHILDREN = 10
 
 interface Values {
   children: { label: string; quantity: string }[]
+  /** Split only: which new lot (by index) each of the lot's observations goes to. */
+  observations: { id: string; child: string }[]
   label: string
   quantity: string
   partId: string
@@ -56,6 +58,12 @@ const TITLES: Record<RestructureKind, string> = {
   move: 'Move lots to a Part proposal',
 }
 
+/** What an observation shows, to tell several apart in the split dialog. */
+function observationName(batch: CaptureSnapshotDto, id: string) {
+  const observation = batch.evidence_observations?.find((item) => item.id === id)
+  return `Observation: ${observation?.readings.markings.join(' · ') || 'unread item'}`
+}
+
 function lotLabels(batch: CaptureSnapshotDto, ids: string[]) {
   return ids.map((id) => batch.lots.find((lot) => lot.id === id)?.label ?? id)
 }
@@ -68,6 +76,8 @@ function defaults(batch: CaptureSnapshotDto, lotIds: string[]): Values {
       { label: `${label} · 1`, quantity: '' },
       { label: `${label} · 2`, quantity: '' },
     ],
+    // Every observation goes somewhere, so a split never strands one on the retired lot.
+    observations: (first?.evidence_observation_ids ?? []).map((id) => ({ id, child: '0' })),
     label: lotLabels(batch, lotIds).join(' + ').slice(0, 256),
     quantity: '',
     partId: first?.part_subject_id ?? '',
@@ -84,10 +94,20 @@ export function restructureChange(kind: RestructureKind, lotIds: string[], value
     return {
       kind: 'split_lot' as const,
       lot_id: lotIds[0],
-      children: values.children.map((child) => ({
-        label: child.label.trim(),
-        quantity: child.quantity.trim(),
-      })),
+      children: values.children.map((child, index) => {
+        // A removed new lot's observations fall back to the first one.
+        const ids = values.observations
+          .filter((item) => {
+            const target = Number(item.child)
+            return (target < values.children.length ? target : 0) === index
+          })
+          .map((item) => item.id)
+        return {
+          label: child.label.trim(),
+          quantity: child.quantity.trim(),
+          ...(ids.length ? { observation_ids: ids } : {}),
+        }
+      }),
     }
   }
   if (kind === 'merge') {
@@ -138,6 +158,7 @@ export function RestructureDialog({
     formState: { errors, isDirty },
   } = useForm<Values>({ defaultValues: defaults(batch, lotIds) })
   const children = useFieldArray({ control, name: 'children' })
+  const splitObservations = kind === 'split' ? defaults(batch, lotIds).observations : []
   const [preview, setPreview] = useState<{
     change: RestructureDto['change']
     impact: OperatorImpactDto
@@ -275,6 +296,23 @@ export function RestructureDialog({
               >
                 Add another new lot
               </Button>
+              {splitObservations.length > 0 && (
+                <fieldset>
+                  <legend>Where each observation goes</legend>
+                  {splitObservations.map((observation, index) => (
+                    <Label key={observation.id}>
+                      {observationName(batch, observation.id)}
+                      <select {...register(`observations.${index}.child`)}>
+                        {children.fields.map((child, childIndex) => (
+                          <option key={child.id} value={String(childIndex)}>
+                            New lot {childIndex + 1}
+                          </option>
+                        ))}
+                      </select>
+                    </Label>
+                  ))}
+                </fieldset>
+              )}
               <Small>
                 Each new lot keeps the Part proposal and location choice, with its own exact
                 quantity.

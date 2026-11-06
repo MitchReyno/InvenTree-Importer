@@ -450,6 +450,11 @@ test('the agent writer cannot set human-only values or touch edited rows, and th
     ])
     await refused(
       fixture.writer.pool,
+      "INSERT INTO capture_subject(batch_id,id,kind,label) VALUES($1,gen_random_uuid(),'part','Unattributed')",
+      [batchId],
+    )
+    await refused(
+      fixture.writer.pool,
       `INSERT INTO capture_revision(batch_id,revision,actor_id,command_bytes,command_digest)
        VALUES($1,999,$2,'\\x7b7d',decode(repeat('00',32),'hex'))`,
       [batchId, fixture.identity.actor],

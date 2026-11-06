@@ -140,7 +140,7 @@ export function CaptureWorkspace({
   )
 }
 
-// Capture receives only active lots; retired ones are already filtered out.
+// The glance hides lots the snapshot marks retired; Capture has no separate retired set.
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
 const CaptureGrid = styled.div`

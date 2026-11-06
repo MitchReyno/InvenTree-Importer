@@ -128,6 +128,7 @@ Lots the batch's Examine lead session forms appear while it works.
 
 - **Capture:** the Proposed lots glance badges them AI-proposed, or Edited once the operator changes one. It shows their observation crops (`media/observations/:id/crop`) and open suggestion counts, plus the lead session's latest status line (`processing/lead-status.ts`, re-read when the batch revision moves).
 - **Review:** queue rows carry the same chip. The lot panel's Observations section (`operator/LotObservations.tsx`) shows crops, markings, the estimated quantity with its basis, and the lead session's suggestions. Add to this lot and Dismiss send `observation_suggestion` edits behind the usual draft fence.
+- **Unassigned observations:** while no lot is inspected, Review lists observations in no live lot (including those left on a split, merged or retired lot), with their suggestions and a Move to… control. The split dialog assigns each of the lot's observations to a new lot, defaulting to the first.
 - **Live updates:** `Batch` adopts a newer capture snapshot on Review as it does on Capture, but only while no draft is dirty. A dirty draft keeps its revision and the existing explicit reload.
 - **Processing candidates:** Review matches the lead job's proposals to a lot by the proposal's own `subject_id`.
 

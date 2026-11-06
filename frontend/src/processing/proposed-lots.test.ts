@@ -83,3 +83,14 @@ describe('proposedLots for lead-session lots', () => {
     })
   })
 })
+
+it('leaves out lots the snapshot marks retired', () => {
+  const batch = {
+    id: 'b',
+    lots: [
+      { id: 'l1', label: 'Kept' },
+      { id: 'l2', label: 'Merged away', retired: true },
+    ],
+  } as unknown as Parameters<typeof proposedLots>[0]
+  expect(proposedLots(batch, undefined, new Set()).map((lot) => lot.label)).toEqual(['Kept'])
+})
