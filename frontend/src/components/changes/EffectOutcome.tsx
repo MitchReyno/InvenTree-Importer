@@ -56,7 +56,11 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, review
           : {effect.label}
         </Button>
       )}
-      {reviewHref && <Link href={reviewHref}>See in Review: {effect.label}</Link>}
+      {reviewHref && (
+        <Link href={reviewHref}>
+          {reviewHref.includes('/capture') ? 'See in Capture' : 'See in Review'}: {effect.label}
+        </Link>
+      )}
     </Field>
   )
 }

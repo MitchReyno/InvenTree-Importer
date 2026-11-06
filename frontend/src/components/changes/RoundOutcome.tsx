@@ -102,7 +102,15 @@ function TargetLink({
   return base ? <Link href={`${base}${path}`}>{children}</Link> : <>{children}</>
 }
 
-function partStatus(output: PartOutputDto, unstarted: boolean, base: string | null) {
+function partStatus(
+  output: PartOutputDto,
+  unstarted: boolean,
+  base: string | null,
+  refusedPart: boolean,
+) {
+  if (refusedPart) {
+    return 'InvenTree refused this Part, so it was not created. It is never created again.'
+  }
   if (output.usable) {
     return (
       <>
@@ -134,14 +142,15 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
       ? undefined
       : effect.kind === 'create_stock'
         ? batchHref(run.batch_id, { tab: 'review', view: 'lots', lotId: effect.part_subject_id })
-        : PART_VALUES.has(effect.kind)
+        : PART_VALUES.has(effect.kind) || effect.kind === 'part_attachment'
           ? batchHref(run.batch_id, {
               tab: 'review',
               view: 'records',
               recordType: 'part',
               recordId: effect.part_subject_id,
             })
-          : undefined
+          : // A new location or supplier is a draft in Capture's batch settings.
+            batchHref(run.batch_id, { tab: 'capture' })
 
   return (
     <Panel id={`run-${run.run_id}`} aria-label={`Round ${run.round_number}`}>
@@ -176,7 +185,14 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
       {run.part_outputs?.map((output) => (
         <Row key={output.operation_key}>
           <strong>{output.label}</strong>
-          <Paragraph>{partStatus(output, unstarted, targetUrl)}</Paragraph>
+          <Paragraph>
+            {partStatus(
+              output,
+              unstarted,
+              targetUrl,
+              refused(run).some((effect) => effect.operation_key === output.operation_key),
+            )}
+          </Paragraph>
           {!output.usable && output.remote_pks.length > 0 && (
             <Small>Matched records: {output.remote_pks.join(', ')}</Small>
           )}

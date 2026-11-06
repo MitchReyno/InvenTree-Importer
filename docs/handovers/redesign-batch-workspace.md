@@ -623,3 +623,12 @@ Fresh read-only Claude reviewer at `c1e1d4d`: 1 Important, 3 Minor, 1 Nitpick. I
 - **The 11.3 entry described the old rule (Minor):** it and the architecture notes describe the refusal flag.
 - **A refused stock item read as being checked (Nitpick):** it now reads as refused and is not counted as being checked.
 
+### PR-F review round 4
+
+Fresh read-only Claude reviewer at `9d20ab6`: no Critical or Important findings; 3 Minor and 2 Nitpicks, all fixed. It judged deferring the settling of a refused create acceptable under task 11's reuse of the existing certainty and recovery, now that Added never promises a fix.
+
+- **Traceability of the deferral (Minor):** the changes-commit spec's Added requirement now says a rejected value is named and linked to Review, and that re-sending a corrected value waits until the executor can settle a refused create; task 11.3 records the follow-up beside design D7.
+- **A refused new Part read as being checked (Minor):** its row now says InvenTree refused it and it was not created.
+- **Stale attachment wording (Minor):** `frontend/ARCHITECTURE.md` says Ready to add lists each attachment and binds the plan digest, and Added shows each attachment's identity, verification and recovery.
+- **Nitpicks:** the approval-view sentence names Ready to add, and the README no longer calls owned-fake notices intentional. A refused new location or supplier links "See in Capture", where its draft is set, and a refused Part attachment links to its Part record. A test covers a refused Part, location and attachment.
+

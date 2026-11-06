@@ -285,6 +285,55 @@ describe('Added', () => {
     )
   })
 
+  it('a refused new Part, location or attachment says so and links where it is set', () => {
+    const effect = (n: number, kind: string, label: string) => ({
+      operation_key: id(n),
+      part_subject_id: kind === 'create_location' ? id(40) : partSubject,
+      kind,
+      label,
+      dependencies: [],
+      inputs: {},
+      certainty: 'unknown',
+      remote_pks: [],
+      verification: null,
+      recovery_action: null,
+      rejected: true,
+    })
+
+    const held = run(5, {
+      state: 'recovery_required',
+      effect_certainty: 'unknown',
+      part_outputs: [
+        {
+          operation_key: id(810),
+          label: 'Carbon film resistor',
+          usable: false,
+          certainty: 'unknown',
+          remote_pks: [],
+          verification: null,
+        },
+      ] as unknown as ManualRunDto['part_outputs'],
+      supported_effects: [
+        effect(810, 'create_part', 'Create one shared Part'),
+        effect(811, 'create_location', 'Create new stock location'),
+        effect(812, 'part_attachment', 'Attach selected file to Part'),
+      ] as ManualRunDto['supported_effects'],
+    })
+    setup([held])
+    const round = screen.getByRole('region', { name: 'Round 5' })
+    expect(round).toHaveTextContent('InvenTree refused this Part, so it was not created.')
+    expect(round).not.toHaveTextContent('Being checked')
+    expect(
+      within(round).getByRole('link', { name: 'See in Review: Create one shared Part' }),
+    ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
+    expect(
+      within(round).getByRole('link', { name: 'See in Capture: Create new stock location' }),
+    ).toHaveAttribute('href', `#${batch.id}/capture`)
+    expect(
+      within(round).getByRole('link', { name: 'See in Review: Attach selected file to Part' }),
+    ).toBeVisible()
+  })
+
   it('lists pending changes, lots not included and the activity log', () => {
     const pending = {
       id: id(900),

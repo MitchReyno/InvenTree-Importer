@@ -42,7 +42,7 @@ Changes › Added SHALL show:
 
 - an outcome strip;
 - each approval run's records, with links into InvenTree;
-- failures with their own fix: retry attachment; check by import reference for an uncertain result, never a plain retry that could duplicate stock; fix in Review for a rejected value;
+- failures with their own fix: retry attachment; check by import reference for an uncertain result, never a plain retry that could duplicate stock; a value InvenTree rejected is named and linked to its record or lot in Review (re-sending a corrected value waits until the executor can settle a refused create);
 - lots not included;
 - new pending changes;
 - an activity log.

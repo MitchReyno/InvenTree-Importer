@@ -257,7 +257,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - [x] 11.1 Add `GET /api/v1/preparations/:id/tree`, computed from the stored plan for each plan version (`nodes: null` for an unknown version). First write a failing test (RED) that reads a stored preparation of each version, and checks that replayed preparation results stay byte-identical.
 - [x] 11.2 Build Ready to add: lot selection that triggers preparation, the By type view, the Tree view with category or location grouping, and the sticky approve action.
-- [x] 11.3 Build Added: outcome strip, runs with InvenTree links, recovery actions, pending changes, not included, activity log.
+- [x] 11.3 Build Added: outcome strip, runs with InvenTree links, recovery actions, pending changes, not included, activity log. A value InvenTree rejected is named and linked to Review; re-sending a corrected value needs the executor to settle a refused create, which is follow-up work outside this change (design D7).
 - [x] 11.4 Remove the old Approve and Results presentation after the ported tests pass.
 
 ## 12. Agents page
