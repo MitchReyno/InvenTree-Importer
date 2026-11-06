@@ -847,3 +847,14 @@ A fresh reviewer subagent reviewed `716ea1e` and confirmed every conflict resolu
 3. **Minor: docs drifted after the merge.** `intake-server/ARCHITECTURE.md` now says that session runners publish catalogues, that `applicableCatalogueSpec` builds on `assessCatalogue`, and that Records prefers current proposals.
 4. **Nitpick, fixed:** the pipeline's lead uses `examineLead`, so the Overview's two lead lookups agree.
 
+## PR-C delivery (D.3)
+
+- **Review:** six independent review rounds by fresh Claude subagents.
+  - Round 6 cleared `37bfd829276942f548c093c0ebf8d2ae5bc1bf95`, after the merge of `interactive-app` (#108–#111).
+  - Round 5, which covered that merge, found the Records currentness issue fixed in `37bfd82`.
+- **Published:** [#112](https://github.com/MitchReyno/InvenTree-Importer/pull/112) against `interactive-app`, with no reviewers, and a demo video recorded from the synthetic preview on the merged UI.
+- **CI on `37bfd82`:** every selected job passed. The PostgreSQL and process job is skipped in CI.
+- **Local tiers on `37bfd82`:** `pnpm db:intake test` passed 251/251, and `pnpm db:intake test:process` passed 70/70.
+- **Merged:** squash-merged at `37bfd82` as `236a165`.
+- **Planning:** BI-006 is now In progress. It moves to Done only after PR-D's authorized live provider qualification (task 13, D.4).
+
