@@ -13,7 +13,12 @@ import type { MediaClient } from '../../media/types'
 import type { ProcessingClient } from '../../processing/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
-import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
+import {
+  MAX_SELECTED_LOTS,
+  type ManualClient,
+  type ManualStage,
+  type RunRecoverySelection,
+} from '../../manual/types'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { Button, ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
@@ -21,8 +26,6 @@ import type { CaptureWorkspaceProps } from '../../capture/types'
 import { ReadyToAdd } from '../changes/ReadyToAdd'
 import { Added } from '../changes/Added'
 import { useTargetNavigation } from '../../header/useTargetNavigation'
-
-const MAX_SELECTED_LOTS = 10
 
 interface Props {
   batch: CaptureSnapshotDto

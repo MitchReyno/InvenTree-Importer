@@ -28,7 +28,7 @@ Changes › Ready to add SHALL list reviewed lots (ticked by default, each can b
 
 ### Requirement: Tree view
 
-“What will change” SHALL offer a Tree view of the same preparation: Category › Part › manufacturer part › supplier part, with parameters, stock items (with location) and images under each Part, grouped by category or by location. Every node SHALL show New, Update, Exists or Choose, and the tree SHALL follow the WAI-ARIA tree keyboard pattern.
+“What will change” SHALL offer a Tree view of the same preparation: Category › Part, with the Part's parameters, manufacturer part, supplier part, stock items (with location) and images under it, grouped by category or by location. Every node SHALL show New, Update, Exists or Choose, and the tree SHALL follow the WAI-ARIA tree keyboard pattern.
 
 #### Scenario: Keyboard through the tree
 

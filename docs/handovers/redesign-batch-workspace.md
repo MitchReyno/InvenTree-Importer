@@ -639,3 +639,13 @@ Fresh read-only Claude reviewer at `d9f33f6`: 1 Minor, 3 Nitpicks, all fixed. It
 - **Docs said every refused value links to Review (Minor):** the spec, design D7, task 11.3, the frontend architecture and the 11.3 entry now say a Part value, Part attachment or stock item links to Review and a new location or supplier to Capture.
 - **Nitpicks:** a refused Part or stock item no longer adds "It is never created again" beside "cannot be sent yet"; the link's place comes with its address instead of being read from the URL; the test checks where the refused attachment link points.
 
+### PR-F delivery
+
+CI on #109 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend and PostgreSQL lanes did not apply. Squash-merged as #109 (`c15e9ce`) under Mitch's standing authorisation, at the reviewed head `cabe29c`. The demo (93 s) was recorded at `2dd8784` from `changes.html` and attached; later review fixes are not filmed. BI-008 is marked Done; task 14 follows as PR-G.
+
+Nitpicks left from round 6, handled in PR-G's first commit: Ready to add and the Review selection share one `MAX_SELECTED_LOTS` (in `manual/types.ts`, matching `ManualScope`), and the changes-commit Tree requirement names the Part's records under the Part, as design D7 does.
+
+## PR-G plan: BI-006 agent data (Task 14)
+
+Branch `feat/redesign-batch-workspace-agent-data` from `c15e9ce`. BI-006's contracts (sessions from #97; evidence observations, lead-session lots and `bench-intake-proposal/5` from #107) are on `interactive-app`; its PR-C (per-lot Research and Images) is not, and no branch for it is open. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+

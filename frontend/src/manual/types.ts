@@ -35,6 +35,9 @@ export interface ManualClient {
   ) => Promise<ManualAcceptedDto>
 }
 
+/** One preparation covers at most this many lots, as `ManualScope` allows. */
+export const MAX_SELECTED_LOTS = 10
+
 export type ManualStage = 'capture' | 'review' | 'approve' | 'results'
 
 export type RunRecoverySelection = {
