@@ -167,7 +167,7 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] 6.1 An independent read-only review of the exact PR-B head is clean. Record the reviewed SHA.
+- [x] 6.1 An independent read-only review of the exact PR-B head is clean. Record the reviewed SHA. (Clean on `9f57ec6`; see the handover.)
 - [ ] 6.2 PR-B is opened against `interactive-app` and CI is green.
 - [ ] 6.3 PR-B is merged, and BI-009 is updated to its evidenced status.
 

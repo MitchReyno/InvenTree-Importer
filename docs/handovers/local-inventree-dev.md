@@ -149,3 +149,4 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
   - a fake-profile `startSupervision` case asserts the shared child env passed to `startServices` and the lock order. Reverting `startServices` to run without that env now fails it.
 
   Current totals: `pnpm test:dev` 53/53 and `pnpm --filter @invimport/intake-server test` 208/208.
+- **Round 8** (fresh reviewer, `9f57ec6`) did a full final pass and reported no findings at any severity. It noted one cosmetic point that is not a finding: the docs write the fake namespace as `app-<server id>`, and the code uses the first 16 hex characters. Its checks: `pnpm test:dev` 53/53, intake-server 208/208, `.github/scripts` 22/22, `lint:backend` and typecheck clean. Since then the branch has changed only to record this outcome here and tick task 6.1.
