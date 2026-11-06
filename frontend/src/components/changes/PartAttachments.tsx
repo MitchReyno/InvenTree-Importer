@@ -1,11 +1,7 @@
 import type { ManualPartAttachmentDto } from '@invimport/contracts'
 import { Field, Paragraph, Small, Summary } from '../ui/primitives'
 
-export function PreparedPartAttachments({
-  attachments,
-}: {
-  attachments: ManualPartAttachmentDto[]
-}) {
+export function PartAttachments({ attachments }: { attachments: ManualPartAttachmentDto[] }) {
   if (!attachments.length) {
     return null
   }

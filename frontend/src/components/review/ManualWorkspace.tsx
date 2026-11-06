@@ -15,18 +15,12 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
 import { useDirtySources } from '../../operator/useDirtySources'
-import {
-  Button,
-  ErrorNotice,
-  Notice,
-  Paragraph,
-  Heading,
-  HeadingRow,
-} from '../ui/primitives'
+import { Button, ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { ReadyToAdd } from '../changes/ReadyToAdd'
-import { ResultsWorkspace } from '../results/ResultsWorkspace'
+import { Added } from '../changes/Added'
+import { useTargetNavigation } from '../../header/useTargetNavigation'
 
 const MAX_SELECTED_LOTS = 10
 
@@ -112,6 +106,7 @@ export function ManualWorkspace({
   const connectionLost = workspaceQuery.isError || workspaceQuery.fetchStatus === 'paused'
   const waitingForFirstRead = !workspaceQuery.isFetchedAfterMount
   const drafts = useDirtySources(onDirtyChange)
+  const targetUrl = useTargetNavigation()
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
   const [busy, setBusy] = useState('')
@@ -360,12 +355,13 @@ export function ManualWorkspace({
     )
   } else {
     content = (
-      <ResultsWorkspace
-        batchId={batch.id}
-        runs={workspace.runs}
+      <Added
+        batch={batch}
+        workspace={workspace}
         focusedRunId={runId}
         busy={disabled}
         command={command}
+        targetUrl={targetUrl}
       />
     )
   }

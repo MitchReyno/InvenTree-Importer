@@ -1,14 +1,16 @@
 import type { SupportedEffectResultDto } from '@invimport/contracts'
-import { Button, Field, Paragraph, Small } from '../ui/primitives'
+import { Button, Field, Link, Paragraph, Small } from '../ui/primitives'
 
 interface Props {
   effect: SupportedEffectResultDto
   busy: boolean
   recover: () => void
   unstarted?: boolean
+  /** Where to correct a value InvenTree did not take. */
+  fixHref?: string
 }
 
-export function SupportedEffectResult({ effect, busy, recover, unstarted = false }: Props) {
+export function EffectOutcome({ effect, busy, recover, unstarted = false, fixHref }: Props) {
   const planned =
     unstarted &&
     effect.certainty === 'none' &&
@@ -51,7 +53,7 @@ export function SupportedEffectResult({ effect, busy, recover, unstarted = false
           : {effect.label}
         </Button>
       )}
-      <Small>Original run and approval only. New effects require fresh review.</Small>
+      {fixHref && <Link href={fixHref}>Fix in Review: {effect.label}</Link>}
     </Field>
   )
 }

@@ -219,11 +219,6 @@ export default function App() {
           {manual && <Diagnostics />}
         </LiveUpdates>
       </ServerStateProvider>
-      <Footer>
-        Saved in the application database. Exact manual approvals can queue the separately
-        supervised owned fake. Native agents require an explicitly supervised worker and a saved
-        model default. Real inventory mutation remains unavailable.
-      </Footer>
     </AppShell>
   )
 }
@@ -238,13 +233,6 @@ const AppShell = styled.div`
 `
 const Main = styled.main`
   margin: 0 auto 16px auto;
-`
-const Footer = styled.footer`
-  padding: 24px 0;
-  border-top: 1px solid ${color.line};
-  font-size: 12px;
-  color: ${color.muted};
-  line-height: 1.6;
 `
 
 const SetupStatus = styled.span`

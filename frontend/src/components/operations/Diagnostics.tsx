@@ -34,7 +34,7 @@ export function Diagnostics() {
           <dt>Media</dt>
           <dd>{query.data.media === 'configured' ? 'Configured' : 'Disabled'}</dd>
           <dt>Inventory execution</dt>
-          <dd>Separately supervised owned fake only</dd>
+          <dd>Supervised runner only</dd>
           <dt>Research</dt>
           <dd>Unavailable pending provider qualification</dd>
           <dt>Deployment</dt>
