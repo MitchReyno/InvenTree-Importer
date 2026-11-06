@@ -20,6 +20,8 @@ import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
 import { batchHref } from '../../navigation/batch-route'
+import { RecordChain, type RecordLink } from '../ui/RecordChain'
+import type { Provenance } from '../../operator/review-model'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -39,11 +41,71 @@ interface Props {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
   inspect: (lotId: string) => void
+  /** Marks this one lot reviewed; refused while it has unresolved problems. */
+  markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
   editPart?: (partId: string) => void
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
   onDirtyChange?: (dirty: boolean) => void
+}
+
+/** Why this lot cannot be marked reviewed yet, in words; null when it can. */
+function reviewBlockReason(lot: OperatorLotDto | undefined) {
+  if (!lot) {
+    return null
+  }
+  if (lot.approved) {
+    return 'Already added'
+  }
+  if (lot.review_state === 'reviewed') {
+    return 'Already reviewed'
+  }
+  const blocking = lot.issues.filter((issue) => issue.severity === 'blocking').length
+  if (blocking) {
+    return `Fix ${blocking} blocking ${blocking === 1 ? 'problem' : 'problems'} first`
+  }
+  const warnings = lot.issues.filter(
+    (issue) => issue.severity === 'warning' && !issue.disposition,
+  ).length
+  if (warnings) {
+    return `Dismiss or fix ${warnings} ${warnings === 1 ? 'warning' : 'warnings'} first`
+  }
+  return null
+}
+
+/** The InvenTree records this lot becomes, each opening Review › Records. */
+function recordLinks(
+  batch: CaptureSnapshotDto,
+  lot: Lot,
+  part: Part | undefined,
+  operatorLot: OperatorLotDto | undefined,
+  location: { value: string; provenance: Provenance },
+): RecordLink[] {
+  const records = batchHref(batch.id, { tab: 'review', view: 'records' })
+  const partState: RecordLink['state'] =
+    part?.choice.mode === 'set' ? 'exists' : part?.choice.mode === 'create' ? 'new' : 'choose'
+  const partLabel =
+    part?.choice.mode === 'create' ? part.choice.spec.name : (part?.label ?? 'Not chosen')
+  const located = !(
+    ['unset', 'unknown', 'cleared', 'unconfirmed', 'conflict'] as Provenance[]
+  ).includes(location.provenance)
+
+  return [
+    { kind: 'Part', label: partLabel, state: partState, href: records },
+    {
+      kind: 'Stock item',
+      label: lot.label,
+      state: operatorLot?.approved ? 'exists' : 'new',
+      href: records,
+    },
+    {
+      kind: 'Location',
+      label: located ? location.value : 'Not set',
+      state: located ? 'exists' : 'choose',
+      href: records,
+    },
+  ]
 }
 
 function partValue(batch: CaptureSnapshotDto, part: Part | undefined) {
@@ -79,6 +141,7 @@ export function DecisionPanel({
   edit,
   reload,
   inspect,
+  markReviewed,
   editPart,
   editSignal = 0,
   onDirtyChange,
@@ -106,9 +169,26 @@ export function DecisionPanel({
   }, [editSignal])
 
   const restructureLocked = disabled || drafts.dirty || !operator || Boolean(operatorLot?.approved)
+  const reviewBlock = reviewBlockReason(operatorLot)
   return (
     <>
       <Heading>{lot.label}</Heading>
+      <RecordChain
+        links={recordLinks(batch, lot, part, operatorLot, lotLocationFact(batch, lot, media))}
+      />
+      {markReviewed && operatorLot && (
+        <LotActions>
+          <Button
+            disabled={disabled || drafts.dirty || reviewBlock !== null}
+            onClick={markReviewed}
+          >
+            Mark reviewed
+          </Button>
+          <Button disabled>Exclude</Button>
+          {reviewBlock && <Small>{reviewBlock}</Small>}
+          <Small>Excluding a lot arrives with record edits.</Small>
+        </LotActions>
+      )}
       <dl>
         <FactRow
           label={part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part'}
@@ -292,4 +372,12 @@ const Actions = styled.div`
   align-items: center;
   gap: 8px;
   margin: 8px 0;
+`
+
+const LotActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
 `

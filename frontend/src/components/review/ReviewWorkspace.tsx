@@ -184,6 +184,16 @@ export function ReviewWorkspace({
   const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter)
   const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null
 
+  // Review opens on the first queued lot, so its evidence shows without a separate step.
+  const autoShown = useRef(false)
+  useEffect(() => {
+    if (autoShown.current || route.view !== 'evidence' || focused || !visibleIds.length) {
+      return
+    }
+    autoShown.current = true
+    navigate({ lotId: visibleIds[0] })
+  })
+
   useEffect(() => {
     if (focused) {
       evidenceRef.current?.focus({ preventScroll: true })
@@ -494,6 +504,7 @@ export function ReviewWorkspace({
                 edit={edit}
                 reload={reload}
                 inspect={inspect}
+                markReviewed={() => reviewLots([lot.id])}
                 editPart={openEditor}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}

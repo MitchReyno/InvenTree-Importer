@@ -313,3 +313,16 @@ The film projects stay outside the repository. The PR-C film shows the fixture r
 
 Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
 
+### Existing Review, mapped before planning
+
+- **What exists:** Review › Lots already has the three-column Evidence mode (queue, `LotEvidence`, `DecisionPanel`) and a Table mode (`TableWorkspace`, `BulkEditPanel` naming its scope), plus split, merge and move through `RestructureDialog`.
+- **What does not:** there is no Exclude command, no Review command that links evidence to a lot or creates a lot from evidence (the media `link` edit and capture `add_lot` exist), and no inline question answer in Review.
+- **Selection:** the Table keeps its own selection, separate from the approval selection.
+
+## PR-D results
+
+- **8.1 Workspace panes:** Review opens on the first queued lot, once per mount (the narrow layout's back-to-list still works), so its evidence and details show without a separate step. Each queue row has a "Show" button (named "Show <lot>", current lot marked).
+  - **Details pane:** it now starts with the lot's record chain (Part, Stock item, Location, each with its state, linking to Review › Records). A per-lot "Mark reviewed" is disabled with a stated reason ("Fix N blocking problems first", "Dismiss or fix N warnings first", already reviewed or added).
+  - **Exclude:** shown disabled with "Excluding a lot arrives with record edits", because no command backs it yet (gap for Task 9/10).
+  - **Tests:** five new tests (open on the first lot, show a chosen lot, blocked lot reason, Exclude and no UUIDs in details, record chain) failed first, then passed. Existing tests now use "Show <lot>", and URL assertions include the auto-shown lot. Frontend 522/522.
+

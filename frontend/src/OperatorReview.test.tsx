@@ -248,7 +248,11 @@ function operatorClient(): OperatorReviewClient {
 }
 
 function renderReview(
-  overrides: { operator?: OperatorReviewClient; edit?: () => Promise<void> } = {},
+  overrides: {
+    operator?: OperatorReviewClient
+    edit?: () => Promise<void>
+    review?: OperatorReviewDto
+  } = {},
 ) {
   const manual = manualClient()
   const operator = overrides.operator ?? operatorClient()
@@ -263,7 +267,7 @@ function renderReview(
       edit={edit}
       navigate={vi.fn()}
       reload={reload}
-      operatorReview={operatorReview}
+      operatorReview={overrides.review ?? operatorReview}
       operator={operator}
       onDirtyChange={onDirtyChange}
     />,
@@ -288,7 +292,7 @@ test('filters persist in the URL and retired lots are history, not selectable', 
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   expect(screen.queryByRole('checkbox', { name: 'Select Original bag' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /^Warnings/ }))
-  expect(location.hash).toBe(`#${batchId}/review/lots?filter=warnings`)
+  expect(location.hash).toBe(`#${batchId}/review/lots/${b}?filter=warnings`)
   expect(screen.getByRole('checkbox', { name: 'Select Packet B' })).toBeVisible()
   expect(screen.queryByRole('checkbox', { name: 'Select Packet A' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /^Retired/ }))
@@ -301,7 +305,7 @@ test('filters persist in the URL and retired lots are history, not selectable', 
 test('a successor lot shows its predecessor evidence', async () => {
   const user = userEvent.setup()
   renderReview()
-  await user.click(await screen.findByRole('button', { name: 'Inspect Bag half' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Bag half' }))
   expect(screen.getByText('From predecessor Original bag')).toBeVisible()
   expect(screen.getByText('Bag holds two date codes.')).toBeVisible()
   expect(location.hash).toBe(`#${batchId}/review/lots/${d}`)
@@ -310,7 +314,7 @@ test('a successor lot shows its predecessor evidence', async () => {
 test('a warning dismissal requires a reason and sends the exact digest', async () => {
   const user = userEvent.setup()
   const { operator, reload } = renderReview()
-  await user.click(await screen.findByRole('button', { name: 'Inspect Packet B' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
   await user.click(screen.getByRole('button', { name: 'Dismiss…' }))
   await user.click(screen.getByRole('button', { name: 'Dismiss with this reason' }))
   expect(await screen.findByText('Give a reason before dismissing.')).toBeVisible()
@@ -346,7 +350,7 @@ test('mark reviewed stays disabled while a selected lot has an open warning', as
 test('a shared Part choice confirms every affected lot before saving', async () => {
   const user = userEvent.setup()
   const { edit } = renderReview()
-  await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Packet A' }))
   expect(screen.getByLabelText('Lots sharing this Part proposal')).toHaveTextContent(
     'Shared with 1 other lot: Packet B',
   )
@@ -368,7 +372,7 @@ test('a shared Part choice confirms every affected lot before saving', async () 
 
 async function openTableAndSelect(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('tab', { name: 'Table' }))
-  expect(location.hash).toBe(`#${batchId}/review/lots?view=table`)
+  expect(location.hash).toBe(`#${batchId}/review/lots/${b}?view=table`)
   const table = screen.getByRole('region', { name: 'Lot table' })
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet A' }))
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
@@ -382,7 +386,7 @@ test('an uncertain dismissal retries the exact intent, then closes and reloads',
     throw new TypeError('connection reset')
   })
   const { reload } = renderReview({ operator })
-  await user.click(await screen.findByRole('button', { name: 'Inspect Packet B' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
   await user.click(screen.getByRole('button', { name: 'Dismiss…' }))
   await user.type(screen.getByLabelText('Why is this acceptable?'), 'Checked on the bench.')
   await user.click(screen.getByRole('button', { name: 'Dismiss with this reason' }))
@@ -476,11 +480,13 @@ test('a conflicting bulk edit keeps the local input and does not reapply', async
 test('keyboard shortcuts move and review, but never fire while typing', async () => {
   const user = userEvent.setup()
   const { manual } = renderReview()
-  await screen.findByRole('button', { name: 'Inspect Packet A' })
+  await screen.findByRole('button', { name: 'Show Packet A' })
   // Queue order is most urgent first: B (warning), Bag half (changed), A (reviewed).
-  await user.keyboard('j')
+  // Review opens on B.
   await waitFor(() => expect(location.hash).toContain(`/review/lots/${b}`))
-  await user.keyboard('jj')
+  await user.keyboard('j')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
+  await user.keyboard('j')
   await waitFor(() => expect(location.hash).toContain(`/review/lots/${a}`))
   await user.keyboard('k')
   await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
@@ -495,7 +501,7 @@ test('keyboard shortcuts move and review, but never fire while typing', async ()
 test('split sends exact decimal strings and merge requires explicit confirmation', async () => {
   const user = userEvent.setup()
   const { operator } = renderReview()
-  await user.click(await screen.findByRole('button', { name: 'Inspect Bag half' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Bag half' }))
   await user.click(screen.getByRole('button', { name: 'Split lot…' }))
   const split = screen.getByRole('dialog', { name: 'Split lot' })
   await user.type(within(split).getByLabelText('New lot 1 quantity'), '0.000001')
@@ -544,12 +550,12 @@ test('split sends exact decimal strings and merge requires explicit confirmation
 test('dirty lot drafts survive local navigation, keyboard movement and closing until explicit discard', async () => {
   const user = userEvent.setup()
   const { onDirtyChange } = renderReview()
-  await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Packet A' }))
   await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
   const quantity = screen.getByLabelText('Exact pieces')
   await user.clear(quantity)
   await user.type(quantity, '123')
-  await user.click(screen.getByRole('button', { name: 'Inspect Packet B' }))
+  await user.click(screen.getByRole('button', { name: 'Show Packet B' }))
   expect(quantity).toHaveValue('123')
   expect(location.hash).toContain(`/review/lots/${a}`)
   await user.click(screen.getByRole('tab', { name: 'Table' }))
@@ -563,14 +569,14 @@ test('dirty lot drafts survive local navigation, keyboard movement and closing u
   expect(screen.getByRole('button', { name: 'Compare matches' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Split lot…' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Discard lot edits' }))
-  await user.click(screen.getByRole('button', { name: 'Inspect Packet B' }))
+  await user.click(screen.getByRole('button', { name: 'Show Packet B' }))
   expect(location.hash).toContain(`/review/lots/${b}`)
 })
 
 test('closing a clean sibling editor cannot clear a warning draft guard', async () => {
   const user = userEvent.setup()
   const { onDirtyChange } = renderReview()
-  await user.click(await screen.findByRole('button', { name: 'Inspect Packet B' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
   await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
   await user.click(screen.getByRole('button', { name: 'Dismiss…' }))
   const reason = screen.getByLabelText('Why is this acceptable?')
@@ -602,7 +608,7 @@ test('snapshot retirement hides lots while the operator projection is unavailabl
   )
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   expect(screen.queryByRole('checkbox', { name: 'Select Original bag' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Inspect Original bag' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Show Original bag' })).not.toBeInTheDocument()
 })
 
 test.each(['bulk', 'dismissal'] as const)(
@@ -648,7 +654,7 @@ test.each(['bulk', 'dismissal'] as const)(
       vi.mocked(operator.dismiss).mockRejectedValueOnce(
         new IntakeRequestError(500, 'internal_error'),
       )
-      await user.click(await screen.findByRole('button', { name: 'Inspect Packet B' }))
+      await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
       await user.click(screen.getByRole('button', { name: 'Dismiss…' }))
       await user.type(screen.getByLabelText('Why is this acceptable?'), 'Retain this reason')
       await user.click(screen.getByRole('button', { name: 'Dismiss with this reason' }))
@@ -702,7 +708,7 @@ test.each(['bulk', 'split'] as const)(
       expect(screen.queryByRole('button', { name: 'Apply to 2 lots' })).not.toBeInTheDocument()
     } else {
       vi.mocked(operator.restructure).mockImplementationOnce(() => pending)
-      await user.click(await screen.findByRole('button', { name: 'Inspect Bag half' }))
+      await user.click(await screen.findByRole('button', { name: 'Show Bag half' }))
       await user.click(screen.getByRole('button', { name: 'Split lot…' }))
       const input = screen.getByLabelText('New lot 1 quantity')
       await user.type(input, '5')
@@ -778,7 +784,7 @@ test.each(['quick', 'bulk'] as const)(
 
     const view = render(element(operatorReview))
     if (kind === 'quick') {
-      await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
+      await user.click(await screen.findByRole('button', { name: 'Show Packet A' }))
       await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
       await user.type(screen.getByLabelText('Exact pieces'), '3')
     } else {
@@ -818,7 +824,7 @@ test('keyboard review cannot bypass an unavailable current operator projection',
   )
 
   const view = render(element(operatorReview))
-  await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
+  await user.click(await screen.findByRole('button', { name: 'Show Packet A' }))
   view.rerender(element(undefined))
   await user.keyboard('r')
   expect(manual.review).not.toHaveBeenCalled()
@@ -915,4 +921,84 @@ test('a polled operator projection at a newer revision keeps the instruction dra
   })
   await user.click(reload)
   await waitFor(() => expect(screen.getByLabelText('Custom instructions')).toHaveValue(''))
+})
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+
+test('Review opens on the first queued lot with its evidence, without an Inspect step', async () => {
+  renderReview()
+  const details = await screen.findByRole('region', { name: 'Decision' })
+
+  // Warnings come before changed and reviewed lots in the queue.
+  expect(within(details).getByRole('heading', { name: /Packet B/ })).toBeVisible()
+  expect(screen.queryByText(/Inspect a physical lot/)).not.toBeInTheDocument()
+  expect(location.hash).toBe(`#${batchId}/review/lots/${b}`)
+})
+
+test('choosing a lot in the list shows it at once', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await user.click(await screen.findByRole('button', { name: 'Show Packet A' }))
+
+  expect(
+    within(screen.getByRole('region', { name: 'Decision' })).getByRole('heading', {
+      name: /Packet A/,
+    }),
+  ).toBeVisible()
+  expect(location.hash).toBe(`#${batchId}/review/lots/${a}`)
+})
+
+test('a blocked lot cannot be marked reviewed and says how many problems to fix', async () => {
+  const blocking = (code: string, message: string) => ({
+    code,
+    severity: 'blocking' as const,
+    message,
+    subject_id: b,
+    lot_id: b,
+    run_id: null,
+    dependency_digest: null,
+    disposition: null,
+  })
+
+  renderReview({
+    review: {
+      ...operatorReview,
+      lots: operatorReview.lots.map((item) =>
+        item.lot_id === b
+          ? {
+              ...item,
+              issues: [
+                blocking('part_choice_required', 'Choose the Part for this lot.'),
+                blocking('quantity_required', 'Choose an exact positive quantity for this lot.'),
+              ],
+            }
+          : item,
+      ),
+    },
+  })
+  const details = await screen.findByRole('region', { name: 'Decision' })
+
+  expect(within(details).getByRole('button', { name: 'Mark reviewed' })).toBeDisabled()
+  expect(within(details).getByText('Fix 2 blocking problems first')).toBeVisible()
+})
+
+test('lot details show Exclude with its reason and no internal identifiers inline', async () => {
+  renderReview()
+  const details = await screen.findByRole('region', { name: 'Decision' })
+
+  expect(within(details).getByRole('button', { name: 'Exclude' })).toBeDisabled()
+  expect(within(details).getByText(/Excluding a lot arrives with record edits/)).toBeVisible()
+  expect(details.textContent).not.toMatch(UUID)
+})
+
+test('lot details show the records the lot becomes', async () => {
+  renderReview()
+  const details = await screen.findByRole('region', { name: 'Decision' })
+
+  expect(within(details).getByLabelText('Stock item Packet B: new')).toHaveAttribute(
+    'href',
+    `#${batchId}/review/records`,
+  )
+  expect(within(details).getByLabelText(/^Part .*: (exists|new|choose)$/)).toBeVisible()
+  expect(within(details).getByLabelText(/^Location .*: (exists|choose)$/)).toBeVisible()
 })

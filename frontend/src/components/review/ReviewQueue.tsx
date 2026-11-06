@@ -138,8 +138,13 @@ export function ReviewQueue({
                 ) : (
                   <Small>{legacyStatus(approved, status?.reviewed)}</Small>
                 )}
-                <Button disabled={busy} onClick={() => inspect(lot.id)}>
-                  Inspect {lot.label}
+                <Button
+                  disabled={busy}
+                  aria-label={`Show ${lot.label}`}
+                  aria-current={focused === lot.id ? 'true' : undefined}
+                  onClick={() => inspect(lot.id)}
+                >
+                  Show
                 </Button>
               </QueueRow>
             )
