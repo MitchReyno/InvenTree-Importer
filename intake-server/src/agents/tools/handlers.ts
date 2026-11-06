@@ -472,12 +472,34 @@ async function requireDeliveredSources(
     ).versions.map((item) => item.versionId),
   )
 
-  // A version from an evidence notice is outside the manifest; fetching it delivered it.
-  const delivered = (source: ProcessingSourceDto) =>
-    source.kind === 'note'
-      ? inManifest(source)
-      : fetched.has(source.version_id) &&
-        (manifestVersions.has(source.version_id) ? inManifest(source) : true)
+  // A version from an evidence notice is outside the manifest: fetching it delivered it, and a
+  // citation must still name its own evidence and digest.
+  const noticed = [...fetched].filter((id) => !manifestVersions.has(id))
+  const actual = new Map(
+    noticed.length
+      ? (
+          await client.query<{ id: string; evidence_id: string; sha256: string }>(
+            `SELECT id, evidence_id, encode(blob_digest,'hex') AS sha256 FROM public.media_version
+             WHERE batch_id=$1 AND id = ANY($2::uuid[])`,
+            [principal.batchId, noticed],
+          )
+        ).rows.map((row) => [row.id, row])
+      : [],
+  )
+
+  const delivered = (source: ProcessingSourceDto) => {
+    if (source.kind === 'note') {
+      return inManifest(source)
+    }
+    if (!fetched.has(source.version_id)) {
+      return false
+    }
+    if (manifestVersions.has(source.version_id)) {
+      return inManifest(source)
+    }
+    const version = actual.get(source.version_id)
+    return version?.evidence_id === source.evidence_id && version.sha256 === source.sha256
+  }
 
   for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
     if (!delivered(source)) {

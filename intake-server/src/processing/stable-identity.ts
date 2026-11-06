@@ -3,6 +3,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { CaptureSnapshotDto, ProcessingProposalV5Dto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { captureLots } from '../capture/schema.ts'
+import { agentSessions } from '../agents/schema.ts'
 import { appendSessionInbox } from '../agents/tools/inbox.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import type { ProcessingConfig } from './attempts.ts'
@@ -10,8 +11,9 @@ import { checkJobCapacity, queueJob } from './jobs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
 
-/** The per-lot sessions a stable identity starts, in parallel. Inventory waits for both. */
-export const SUCCESSOR_STAGES = ['research', 'images'] as const
+import { SUCCESSOR_STAGES } from './supersede.ts'
+
+export { SUCCESSOR_STAGES }
 
 /**
  * Attempt states that end a successor: only then does a stable identity queue a fresh one. Any
@@ -89,9 +91,14 @@ export async function onLeadIdentity(
   for (const stage of SUCCESSOR_STAGES) {
     const jobs = await executeDatabaseQuery(
       queryDatabase(client)
-        .select({ id: processingJobs.id, attemptState: processingAttempts.state })
+        .select({
+          id: processingJobs.id,
+          attemptState: processingAttempts.state,
+          turnCount: agentSessions.turnCount,
+        })
         .from(processingJobs)
         .innerJoin(processingAttempts, eq(processingAttempts.id, processingJobs.currentAttemptId))
+        .leftJoin(agentSessions, eq(agentSessions.attemptId, processingAttempts.id))
         .where(
           and(
             eq(processingJobs.batchId, snapshot.id),
@@ -102,7 +109,10 @@ export async function onLeadIdentity(
         .for('update', { of: processingJobs }),
     )
     const job = jobs[0]
-    if (job && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
+    // A successor that has not started yet is replaced, pinned to this identity; one that has
+    // run gets the revision as a notice instead.
+    const unstarted = job?.attemptState === 'queued' && (job.turnCount ?? 0n) === 0n
+    if (job && !unstarted && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
       await appendSessionInbox(
         client,
         {
@@ -128,7 +138,9 @@ export async function onLeadIdentity(
   }
   await checkJobCapacity(client, snapshot.id, [lotId], [...toQueue])
   for (const stage of toQueue) {
-    await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId])
+    await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
+      lockSettings: false,
+    })
   }
   return 'queued'
 }

@@ -92,7 +92,12 @@ function pipeline(
   const byLot = new Map<string, PipelineLot>()
   for (const job of snapshot.jobs) {
     const stage = job.stage as string
-    if (job.subject_id === null || !(PIPELINE_STAGES as readonly string[]).includes(stage)) {
+    // Only session work forms the pipeline; legacy attempts stay in their step pages.
+    if (
+      !job.session_state ||
+      job.subject_id === null ||
+      !(PIPELINE_STAGES as readonly string[]).includes(stage)
+    ) {
       continue
     }
     const row = byLot.get(job.subject_id) ?? {

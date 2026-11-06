@@ -54,6 +54,7 @@ export async function createAttempt(
   parentId: string | null = null,
   answerId: string | null = null,
   pinnedProposalIds: readonly string[] = [],
+  { lockSettings = true }: { lockSettings?: boolean } = {},
 ) {
   const selectedProfile = config.profileId ?? mediaProfileId
   if (isSessionProfile(selectedProfile)) {
@@ -69,7 +70,7 @@ export async function createAttempt(
       number,
       media,
       parentId,
-      { pinnedProposalIds },
+      { pinnedProposalIds, lockSettings },
     )
   }
   const attemptId = randomUUID()

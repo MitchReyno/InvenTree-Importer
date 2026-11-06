@@ -320,7 +320,7 @@ async function bumpObservationSet(
   client: PoolClient,
   lotId: string,
   revision: bigint,
-  change: { added?: string; removed?: string } = {},
+  change: { added?: string; removed?: string; operator?: boolean } = {},
 ) {
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -332,13 +332,15 @@ async function bumpObservationSet(
       .where(eq(captureLots.id, lotId)),
   )
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
-  const { observationAdded, observationRemoved } = await import('../processing/currentness.ts')
+  const { observationAdded, observationRemoved, lotRegroupedNotices } =
+    await import('../processing/currentness.ts')
   // Proposals citing a removed observation are stale for that reason, before the regroup.
   if (change.removed) {
     await observationRemoved(client, lotId, change.removed)
   }
   // Successors that have not started wait for the next stable identity.
-  await lotRegrouped(client, lotId)
+  const regrouped = await lotRegrouped(client, lotId)
+  await lotRegroupedNotices(client, regrouped.stale, { operator: change.operator === true })
   // Sessions already working on the lot hear about new evidence.
   if (change.added) {
     await observationAdded(client, lotId, change.added)
@@ -729,7 +731,7 @@ async function moveByOperator(
           ),
         ),
     )
-    await bumpObservationSet(client, from, revision, { removed: observationId })
+    await bumpObservationSet(client, from, revision, { removed: observationId, operator: true })
     await markLotEdited(client, from, revision)
   }
   if (to) {
@@ -752,7 +754,7 @@ async function moveByOperator(
           set: { status: 'active', revision },
         }),
     )
-    await bumpObservationSet(client, to, revision, { added: observationId })
+    await bumpObservationSet(client, to, revision, { added: observationId, operator: true })
     await markLotEdited(client, to, revision)
   }
 }

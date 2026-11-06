@@ -186,7 +186,7 @@ export const JOB_STATE: Record<string, { word: string; tone: PillTone }> = {
 function PipelineStep({ label, cell }: { label: string; cell: PipelineCell }) {
   const state = cell ? (JOB_STATE[cell.state] ?? { word: cell.state, tone: 'neutral' }) : null
   return (
-    <Step aria-label={`${label}: ${state?.word ?? 'Not started'}`}>
+    <Step role="group" aria-label={`${label}: ${state?.word ?? 'Not started'}`}>
       <span>{label}</span>
       {state ? (
         <Pill tone={state.tone}>{state.word}</Pill>

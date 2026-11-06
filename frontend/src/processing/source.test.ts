@@ -192,11 +192,15 @@ describe('retainedJobsSource', () => {
       snapshot([
         job(1, 'examine', 'running', { subject_id: null } as Partial<Job>),
         job(2, 'research', 'running', {
+          session_state: 'running',
           proposals: [proposal(10, { state: 'stale', reason: 'answer_received' })],
         } as Partial<Job>),
         job(3, 'images', 'ready', {
+          session_state: 'finished',
           proposals: [proposal(12, { state: 'provisional' })],
         } as Partial<Job>),
+        // A legacy attempt never joins the pipeline.
+        job(4, 'inventory', 'ready'),
       ]),
       subjects,
       lots,

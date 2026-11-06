@@ -675,7 +675,7 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
 - **Synthetic lead.**
   - It re-states the identity of every lot it touched in a turn, citing the set version from a fresh `read_batch`.
   - When later evidence's note is not in its opening manifest, it cites a note that is.
-- **Tests (`tests/pg/stable-identity.test.ts`, 10 tests):**
+- **Tests (`tests/pg/stable-identity.test.ts`):**
   - stable-identity queueing as `agent_writer`;
   - a regroup by new evidence;
   - a revision notice to a running successor;
@@ -710,7 +710,7 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
 - **Evidence hooks.** `bumpObservationSet` now knows the observation that moved.
   - **Removed:** proposals citing the observation as an `evidence_observation` source become stale (`evidence_removed`) before the regroup, and their sessions get a revision notice.
   - **Added:** the lot's Research and Images sessions get an `evidence` notice for the observation's photo. The wake sweep resumes finished or waiting sessions with unread items.
-  - **Lazy loading:** capture loads `currentness.ts` lazily, to avoid an import cycle with media.
+  - **Lazy loading:** capture loads `currentness.ts` lazily. Processing depends on capture, and an eager import from capture formed a load-time cycle through the media modules. `regroup.ts` imports only the database layer, so it is loaded eagerly.
 - **Finished successors are revised, not replaced.** A stable identity now queues a fresh attempt only when the successor is missing, superseded, cancelled or failed. Running, waiting and finished sessions get the revision as an inbox item and are resumed.
 - **Lot sessions fetch previews.** A lot session's `fetch_evidence` uses the preview path for pages, region crops and versions outside its manifest (from evidence notices), and it may cite a version it fetched. The path is `previewFetchEvidence`, formerly `leadFetchEvidence`.
 - **Read model.**
@@ -751,12 +751,12 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
 - **Answering a lot's quantity marks it edited (found in qualification).** An answer applies the same capture `lot` edit as the operator, and PR-B marks any operator change to a lot `operator_edited`. Later evidence the lead session reads for that lot therefore arrives as a suggested membership, not an active one. This follows PR-B's reviewed rule, "Lots and observations the operator edited only accept suggestions". The qualification answers one lot's question and adds a photo of another. Whether an answer should count as an edit that blocks grouping is left open.
 - **Browser qualification (12.5).**
   - **Setup:** a local driver, not committed (as for PR-B), served the synthetic preview with the session worker. The batch was photo-only: a shelf photo noting three items ("1N4148 diodes ×100; 16 MHz crystal; LED 0603 red ×500") and a reel close-up ("LED 0603 red ×500"). A third photo ("Reel back") was added mid-run.
-  - **Result:** Playwright (Chromium, headless, 1920 px at 2x and 390 px) passed 14 checks:
+  - **Result:** Playwright (Chromium, headless, 1920 px at 2x and 390 px) passed all 14 checks in its evidence file. They cover:
     1. The batch starts with no lots.
     2. Three AI-proposed lots appear live, and the reel in both photos is one lot with two crops.
     3. The Examine view lists the shelf photo's three regions.
     4. The LED estimate reads "Estimated 500 · label · same item in 2 photos", counted once.
-    5. Each lot's Research and Images both start, in parallel, from the stable identity.
+    5. Each lot's Research and Images both start, in parallel, from the stable identity (one check per lot).
     6. A mid-run answer to the diodes lot's Research question, through the question form, makes the lead's "Estimated 100" stale ("an answer changed what it relied on").
     7. The diodes identity stays current.
     8. The added photo joins the LED lot (three crops).
@@ -768,4 +768,28 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
   - A successor's claim checked its pinned identity on every turn. A resumed Research or Images session, woken by a revision, was therefore superseded once its identity went stale. The check now runs only before a session's first turn (`turn_count` 0), with a regression test in `stable-identity.test.ts`.
   - The synthetic lead re-examined every photo when woken by an answer or a revision. Now only its first turn examines every photo; later turns examine evidence sent as notices.
   - Pipeline and Examine-view pills no longer stretch to the full row width.
+
+## PR-C review round 1
+
+A fresh reviewer subagent reviewed `6ca5360` and found one critical, four important and six minor findings, plus two nitpicks.
+
+1. **Critical: on `native-agent/2`, the lead identity's queueing failed on a privilege error.** `createSessionAttempt` read Agent settings `FOR SHARE`, which `agent_writer` has no UPDATE privilege for.
+   - `queueJob` and `createAttempt` now pass `lockSettings: false` on this path, as the Examine trigger does.
+   - A PG test queues successors for a `native-agent/2` identity with saved settings.
+2. **Important: a gated Inventory could hold the slot queue against the Research and Images it waits for.** Per-lot sessions no longer count queued Inventory sessions ahead of them. A test resumes Research at a limit of 1 behind a gated Inventory.
+3. **Important: a republished identity lost an unstarted successor.** The successor got only a notice, then was superseded at claim for its stale pin. A successor that is still queued and has never run (`turn_count` 0) is now replaced, pinned to the new identity, with a test.
+4. **Important: an operator move left the destination lot stranded.** After an operator regroup, the lead session gets a revision notice for each identity made stale (`lotRegroupedNotices`). Agent regroups are not notified, since the lead itself made them.
+5. **Important: staleness did not cascade from a regroup or a removal.**
+   - Proposals relying on a stale identity through a `proposal` source are now stale for the same reason, and their sessions are told (`cascadeStale`).
+   - A removed observation now also notifies the lot's Research and Images sessions.
+   - Tests cover both.
+6. **Minor findings, all fixed:**
+   - A null-subject answer no longer marks every lot's proposals stale; it affects none.
+   - The regroup and removal queries are filtered to the lot's batch.
+   - A citation of a notice-delivered version must match that version's evidence ID and digest.
+   - Evidence notices are keyed by the lot's set version, so an observation that returns is noticed again.
+   - The Pipeline card is built only from session jobs, so legacy `/1` work stays on the step pages.
+   - Handover counts and the lazy-loading note are corrected.
+   - D6's lot locking stands: `propose` holds the batch lock and the subject heads (`lockCaptureSubjectHeads`), then locks the lot row.
+7. **Nitpicks, fixed.** Pipeline steps are `role="group"`, so their labels are announced. `SUCCESSOR_STAGES` lives in `supersede.ts` and is shared.
 

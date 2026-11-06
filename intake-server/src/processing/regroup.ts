@@ -3,9 +3,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { agentSessions } from '../agents/schema.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
-import { supersedeJobAttempts } from './supersede.ts'
-
-const SUCCESSOR_STAGES = ['research', 'images'] as const
+import { SUCCESSOR_STAGES, supersedeJobAttempts } from './supersede.ts'
 
 /**
  * A lot's observation set changed. Caller holds the capture lock. Research and Images attempts
@@ -48,7 +46,10 @@ export async function lotRegrouped(client: PoolClient, lotId: string) {
   }
   const relying = await client.query<{ id: string }>(
     `SELECT p.id FROM public.processing_proposal p
-     WHERE p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object('kind','observation_set','lot_id',$1::text))
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id
+     WHERE j.batch_id=(SELECT l.batch_id FROM public.capture_lot l WHERE l.id=$1)
+       AND p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object('kind','observation_set','lot_id',$1::text))
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)`,
     [lotId],
   )

@@ -99,8 +99,8 @@ export async function fieldsSuperseded(
        JOIN public.processing_attempt a ON a.id=p.attempt_id
        JOIN public.processing_job j ON j.id=a.job_id
        WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
-         AND ($2::uuid IS NULL OR COALESCE(j.subject_id,
-               (convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id')::uuid)=$2::uuid)
+         AND COALESCE(j.subject_id,
+               (convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id')::uuid)=$2::uuid
          AND (p.relies_on->'fields') ?| $3::text[]
          AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
      ), downstream AS (
@@ -165,8 +165,10 @@ export async function observationAdded(client: PoolClient, lotId: string, observ
     return []
   }
   const lineages = await lotSessions(client, lotId)
+  // Keyed by the lot's set version, so an observation that leaves and returns is noticed again.
+  const version = await setVersion(client, lotId)
   for (const lineage of lineages) {
-    await notice(client, lineage, `observation:${observationId}:${lotId}`, 'evidence', {
+    await notice(client, lineage, `observation:${observationId}:${lotId}:${version}`, 'evidence', {
       evidence_id: observation.rows[0].evidence_id,
       version_id: observation.rows[0].version_id,
     })
@@ -186,9 +188,10 @@ export async function observationRemoved(client: PoolClient, lotId: string, obse
     `SELECT p.id, j.id AS lineage, ARRAY(SELECT jsonb_array_elements_text(p.relies_on->'fields')) AS fields
      FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id JOIN public.processing_job j ON j.id=a.job_id
-     WHERE p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object('kind','evidence_observation','evidence_observation_id',$1::text))
+     WHERE j.batch_id=(SELECT l.batch_id FROM public.capture_lot l WHERE l.id=$2)
+       AND p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object('kind','evidence_observation','evidence_observation_id',$1::text))
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)`,
-    [observationId],
+    [observationId, lotId],
   )
   if (citing.rows.length) {
     await client.query(
@@ -203,5 +206,93 @@ export async function observationRemoved(client: PoolClient, lotId: string, obse
       reason: 'An observation a proposal cited left the lot; revise the proposal.',
     })
   }
-  return citing.rows.map((row) => row.id)
+  const ids = citing.rows.map((row) => row.id)
+  await cascadeStale(client, ids, 'evidence_removed')
+  // The lot's own sessions hear about the change too, whether or not they cited it.
+  const version = await setVersion(client, lotId)
+  const told = new Set(citing.rows.map((row) => row.lineage))
+  for (const lineage of await lotSessions(client, lotId)) {
+    if (!told.has(lineage)) {
+      await notice(client, lineage, `removed:${observationId}:${lotId}:${version}`, 'revision', {
+        fields: ['identity'],
+        reason: 'An observation left the lot; check what relied on it.',
+      })
+    }
+  }
+  return ids
+}
+
+async function setVersion(client: PoolClient, lotId: string) {
+  const rows = await client.query<{ version: string }>(
+    'SELECT observation_set_version::text AS version FROM public.capture_lot WHERE id=$1',
+    [lotId],
+  )
+  return rows.rows[0]?.version ?? '0'
+}
+
+/**
+ * Proposals relying on newly stale ones through a `proposal` source are stale for the same
+ * reason, in the same transaction, and their sessions are told; Inventory then waits.
+ */
+async function cascadeStale(client: PoolClient, ids: readonly string[], reason: StaleReason) {
+  if (!ids.length) {
+    return []
+  }
+  const downstream = await client.query<{ id: string; lineage: string; fields: string[] }>(
+    `SELECT p.id, j.id AS lineage,
+       ARRAY(SELECT jsonb_array_elements_text(p.relies_on->'fields')) AS fields
+     FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id JOIN public.processing_job j ON j.id=a.job_id
+     WHERE j.batch_id=(SELECT j2.batch_id FROM public.processing_proposal p2
+                       JOIN public.processing_attempt a2 ON a2.id=p2.attempt_id
+                       JOIN public.processing_job j2 ON j2.id=a2.job_id WHERE p2.id=$1::uuid)
+       AND EXISTS (SELECT 1 FROM unnest($2::uuid[]) AS stale(id)
+         WHERE p.relies_on->'sources' @> jsonb_build_array(jsonb_build_object('kind','proposal','proposal_id',stale.id::text)))
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)`,
+    [ids[0], [...ids]],
+  )
+  if (downstream.rows.length) {
+    await client.query(
+      `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
+       SELECT unnest($1::uuid[]),$2 ON CONFLICT DO NOTHING`,
+      [downstream.rows.map((row) => row.id), reason],
+    )
+  }
+  for (const row of downstream.rows) {
+    await notice(client, row.lineage, `cascade:${row.id}`, 'revision', {
+      fields: row.fields.length ? row.fields : ['identity'],
+      reason: 'A proposal this one relied on is no longer current; revise it.',
+    })
+  }
+  return downstream.rows.map((row) => row.id)
+}
+
+/**
+ * After a regroup: results relying on the lot's stale identities are stale too. When the operator
+ * regrouped, the session that published those identities is told, so it can publish again.
+ */
+export async function lotRegroupedNotices(
+  client: PoolClient,
+  staleIds: readonly string[],
+  { operator }: { operator: boolean },
+) {
+  if (!staleIds.length || !(await processingVisible(client))) {
+    return
+  }
+  await cascadeStale(client, staleIds, 'lot_regrouped')
+  if (!operator) {
+    return
+  }
+  const owners = await client.query<{ id: string; lineage: string }>(
+    `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id JOIN public.processing_job j ON j.id=a.job_id
+     WHERE p.id = ANY($1::uuid[])`,
+    [[...staleIds]],
+  )
+  for (const row of owners.rows) {
+    await notice(client, row.lineage, `regrouped:${row.id}`, 'revision', {
+      fields: ['identity'],
+      reason: 'The operator changed this lot’s observations; publish its identity again.',
+    })
+  }
 }

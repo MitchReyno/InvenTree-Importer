@@ -22,6 +22,8 @@ export async function queueJob(
   dependencies: string[],
   media: LockedMediaInputs,
   pinnedProposalIds: readonly string[] = [],
+  /** agent_writer reads Agent settings without the row lock it has no privilege for. */
+  { lockSettings = true }: { lockSettings?: boolean } = {},
 ) {
   const jobs = await executeDatabaseQuery(
     queryDatabase(client)
@@ -68,6 +70,7 @@ export async function queueJob(
     parentInputId,
     null,
     pinnedProposalIds,
+    { lockSettings },
   )
   if (priorJob) {
     await executeDatabaseQuery(

@@ -3,6 +3,9 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { processingAttempts, processingQuestions } from './schema.ts'
 
+/** The per-lot sessions a stable identity starts, in parallel. Inventory waits for both. */
+export const SUCCESSOR_STAGES = ['research', 'images'] as const
+
 /** Caller holds the actor lane and selected job lock before invalidating attempts/questions. */
 export async function supersedeJobAttempts(client: PoolClient, jobId: string) {
   await executeDatabaseQuery(

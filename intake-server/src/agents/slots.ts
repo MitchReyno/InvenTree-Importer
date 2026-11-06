@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
@@ -81,7 +81,11 @@ export async function claimSessionSlot(
   }
   const mine = await executeDatabaseQuery(
     db
-      .select({ queuedAt: agentSessions.queuedSince, subjectId: processingJobs.subjectId })
+      .select({
+        queuedAt: agentSessions.queuedSince,
+        subjectId: processingJobs.subjectId,
+        stage: processingJobs.stage,
+      })
       .from(agentSessions)
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
       .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
@@ -119,6 +123,8 @@ export async function claimSessionSlot(
           lead
             ? and(isNull(processingJobs.subjectId), older)
             : or(isNull(processingJobs.subjectId), older),
+          // Inventory waits for Research and Images, so they never queue behind it.
+          mine[0]?.stage === 'inventory' ? undefined : ne(processingJobs.stage, 'inventory'),
         ),
       ),
   )

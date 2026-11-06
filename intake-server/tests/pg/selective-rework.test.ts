@@ -235,3 +235,45 @@ test('Photo added mid-run: a paused Research session gets the new evidence and i
   )
   assert.equal(resumed, research.attempt_id)
 })
+
+test('an operator move makes results relying on the moved-into lot’s identity stale and tells the lead', async (t) => {
+  const formed = await formedBatch(t)
+  const led = await formed.lot('led 0603 red')
+  const crystal = await formed.lot('16 mhz crystal')
+  const research = (await formed.successors(crystal.id)).find((row) => row.stage === 'research')!
+  await run(formed, research.attempt_id)
+  const snapshot = await formed.read()
+  const observation = snapshot.evidence_observations!.find((item) => item.lot_id === led.id)!
+  const moved = await formed.fixture.http(`/batches/${formed.batchId}/edits`, {
+    expected_revision: snapshot.revision,
+    change: { kind: 'observation_move', observation_id: observation.id, lot_id: crystal.id },
+  })
+  assert.equal(moved.status, 200)
+  const job = (await processing(formed)).find((item) => item.id === research.job_id)!
+  // Research relied on the crystal's identity, which the move made stale.
+  assert.deepEqual(job.proposals[0].currentness, { state: 'stale', reason: 'lot_regrouped' })
+  assert.ok(
+    (await inbox(formed, formed.leadJob)).some(
+      (item) => item.kind === 'revision' && item.payload.fields?.includes('identity'),
+    ),
+  )
+})
+
+test('an observation leaving a lot tells the lot’s Research and Images', async (t) => {
+  const formed = await formedBatch(t)
+  const led = await formed.lot('led 0603 red')
+  const crystal = await formed.lot('16 mhz crystal')
+  const [images, research] = await formed.successors(led.id)
+  for (const row of [images, research]) {
+    await run(formed, row.attempt_id)
+  }
+  const snapshot = await formed.read()
+  const observation = snapshot.evidence_observations!.find((item) => item.lot_id === led.id)!
+  await formed.fixture.http(`/batches/${formed.batchId}/edits`, {
+    expected_revision: snapshot.revision,
+    change: { kind: 'observation_move', observation_id: observation.id, lot_id: crystal.id },
+  })
+  for (const lineage of [images.job_id, research.job_id]) {
+    assert.ok((await inbox(formed, lineage)).some((item) => item.kind === 'revision'))
+  }
+})

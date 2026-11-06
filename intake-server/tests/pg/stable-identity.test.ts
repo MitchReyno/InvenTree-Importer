@@ -317,3 +317,107 @@ test('a successor that has run is resumed after its pinned identity goes stale, 
   assert.equal(after.attempt_id, research.attempt_id)
   assert.notEqual(after.attempt_state, 'superseded')
 })
+
+const identityFor = (lotId: string, version: string) =>
+  ({
+    schema_version: 'bench-intake-proposal/5',
+    subject_id: lotId,
+    summary: 'Identity from the label.',
+    sources: [{ kind: 'observation', observation_id: randomUUID() }],
+    relies_on: {
+      fields: ['identity'],
+      sources: [{ kind: 'observation_set', lot_id: lotId, version }],
+    },
+  }) as unknown as ProcessingProposalV5Dto
+
+test('on native-agent/2, a stable identity queues successors as agent_writer with saved settings', async (t) => {
+  const { fixture, batchId, lot, successors, identities, pinned } = await formedBatch(t)
+  const crystal = await lot('16 mhz crystal')
+  const before = await successors(crystal.id)
+  await fixture.db.pool.query(
+    "UPDATE processing_attempt SET state='cancelled' WHERE id = ANY($1::uuid[])",
+    [before.map((row) => row.attempt_id)],
+  )
+  const [identity] = await identities(crystal.id)
+  const native = { ...fixture.config, profileId: 'native-agent/2' as const }
+  const outcome = await transaction(fixture.writer.pool, async (client) => {
+    const capture = await lockCaptureForInputSettlement(client, native, batchId)
+    return onLeadIdentity(
+      client,
+      native,
+      capture.snapshot,
+      identityFor(crystal.id, crystal.observation_set_version!),
+      identity.id,
+    )
+  })
+  assert.equal(outcome, 'queued')
+  for (const row of await successors(crystal.id)) {
+    assert.equal(row.attempt_state, 'queued')
+    assert.deepEqual(pinned(row), [identity.id])
+  }
+})
+
+test('a republished identity replaces a successor that has not started', async (t) => {
+  const { fixture, batchId, lot, successors, pinned } = await formedBatch(t)
+  const led = await lot('led 0603 red')
+  const before = await successors(led.id)
+  // Another current proposal stands in for the lead's next identity.
+  const next = (
+    await fixture.db.pool.query<{ id: string }>(
+      `SELECT p.id FROM processing_proposal p JOIN processing_attempt a ON a.id=p.attempt_id
+       JOIN processing_job j ON j.id=a.job_id
+       WHERE j.stage='examine' AND p.relies_on->'fields' ? 'quantity' LIMIT 1`,
+    )
+  ).rows[0].id
+  await transaction(fixture.writer.pool, async (client) => {
+    const capture = await lockCaptureForInputSettlement(client, fixture.config, batchId)
+    assert.equal(
+      await onLeadIdentity(
+        client,
+        fixture.config,
+        capture.snapshot,
+        identityFor(led.id, led.observation_set_version!),
+        next,
+      ),
+      'queued',
+    )
+  })
+  const after = await successors(led.id)
+  for (const row of after) {
+    assert.ok(!before.some((prior) => prior.attempt_id === row.attempt_id))
+    assert.deepEqual(pinned(row), [next])
+  }
+})
+
+test('a gated Inventory never holds back the Research and Images it waits for', async (t) => {
+  const { fixture, deps, batchId, read, lot, successors } = await formedBatch(t)
+  const led = await lot('led 0603 red')
+  const [images, research] = await successors(led.id)
+  for (const row of [images, research]) {
+    await runSessionTurn(deps, row.attempt_id, new AbortController().signal)
+  }
+  const started = await fixture.http(`/batches/${batchId}/processing`, {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: (await read()).revision,
+    subject_ids: [led.id],
+    stages: ['inventory'],
+  })
+  assert.equal(started.status, 202)
+  const current = await fixture.http('/agent-settings')
+  await saveAgentSettings(fixture.api.pool, fixture.config, {
+    expected_revision: (current.value as { revision: string }).revision,
+    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+    session_concurrency: 1,
+  })
+  // Only the LED lot is in play: the crystal's queued successors are set aside.
+  const crystal = await lot('16 mhz crystal')
+  await fixture.db.pool.query(
+    "UPDATE processing_attempt SET state='cancelled' WHERE id = ANY($1::uuid[])",
+    [(await successors(crystal.id)).map((row) => row.attempt_id)],
+  )
+  // Research is woken after Inventory queued; Inventory must not keep it from a slot.
+  await transaction(fixture.runner.pool, (client) => queueSessionResume(client, research.job_id))
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, research.attempt_id), true)
+  })
+})
