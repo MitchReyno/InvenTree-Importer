@@ -5,6 +5,7 @@ import {
   FILTER_LABELS,
   REVIEW_FILTERS,
   matchesFilter,
+  type LotIds,
   type ReviewFilter,
 } from '../../operator/review-model'
 
@@ -12,16 +13,29 @@ interface Props {
   review: OperatorReviewDto
   filter: ReviewFilter
   choose: (filter: ReviewFilter) => void
+  questionLotIds?: LotIds
+  /** False until Processing is read, when "Needs answer" cannot be counted yet. */
+  questionsKnown?: boolean
 }
 
-function count(review: OperatorReviewDto, filter: ReviewFilter) {
+function count(
+  review: OperatorReviewDto,
+  filter: ReviewFilter,
+  questionLotIds: LotIds | undefined,
+) {
   if (filter === 'retired') {
     return review.retired_lots.length
   }
-  return review.lots.filter((lot) => matchesFilter(lot, filter)).length
+  return review.lots.filter((lot) => matchesFilter(lot, filter, questionLotIds)).length
 }
 
-export function ReviewFilters({ review, filter, choose }: Props) {
+export function ReviewFilters({
+  review,
+  filter,
+  choose,
+  questionLotIds,
+  questionsKnown = true,
+}: Props) {
   return (
     <Chips role="group" aria-label="Filter lots" tabIndex={0}>
       {REVIEW_FILTERS.map((value) => (
@@ -31,7 +45,12 @@ export function ReviewFilters({ review, filter, choose }: Props) {
           aria-pressed={filter === value}
           onClick={() => choose(value)}
         >
-          {FILTER_LABELS[value]} <span>{count(review, value)}</span>
+          {FILTER_LABELS[value]}{' '}
+          <span>
+            {value === 'needs_answer' && !questionsKnown
+              ? '…'
+              : count(review, value, questionLotIds)}
+          </span>
         </Chip>
       ))}
     </Chips>

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
-import { retiredLotIds } from '../../operator/review-model'
+import { approvedLotIds, predecessorLotIds, retiredLotIds } from '../../operator/review-model'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { validate } from '@invimport/contracts'
 import type {
@@ -29,7 +29,7 @@ import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/ba
 import { useBatchAttention, type AttentionClient } from '../../attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
 import { RecordDecisions } from '../review/RecordDecisions'
-import { MapPending } from '../review/MapPending'
+import { ReviewMapStage } from '../review/ReviewMapStage'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -425,7 +425,20 @@ export function Batch({
       />
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'map') {
-    content = <MapPending batchId={batch.id} />
+    content = (
+      <ReviewMapStage
+        batch={batch}
+        media={media}
+        edit={edit}
+        operator={operator}
+        retiredLotIds={retired}
+        predecessors={predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)}
+        restructureUnavailable={operatorUnavailable}
+        approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
+        reload={reloadSavedValues}
+        onDirtyChange={reportDirty}
+      />
+    )
   } else if (batch && stage !== 'capture') {
     content = (
       <ManualWorkspace

@@ -207,8 +207,11 @@ test('attachment options distinguish colliding identities and match visible reta
   )
   const user = userEvent.setup()
   for (const option of options) {
-    // Version labels show in each file's viewer; the option names the same identity.
-    const fileName = option.textContent!.split(' · crop')[0]
+    // Each file opens by its numbered name; its viewer shows the same exact version identity.
+    const index = populated.evidence.findIndex((evidence) =>
+      evidence.versions.some((version) => version.id === option.value),
+    )
+    const fileName = `photo.png (${index + 1})`
     await user.click(screen.getByRole('button', { name: `Open ${fileName}` }))
     const viewer = screen.getByRole('dialog', { name: fileName })
     const visibleVersion = within(viewer).getAllByText(

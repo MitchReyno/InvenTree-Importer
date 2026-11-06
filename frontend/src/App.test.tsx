@@ -810,7 +810,10 @@ test('following an inbox workflow filter opens Review through the actual App rou
   render(<App />)
   await user.click(await screen.findByRole('link', { name: '1 need review' }))
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
-  expect(location.hash).toBe(`#${batchId}/review/lots?filter=needs_review`)
+  // Review then opens on the first lot.
+  await waitFor(() =>
+    expect(location.hash).toBe(`#${batchId}/review/lots/${lotId}?filter=needs_review`),
+  )
   expect(
     within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
       name: /^Review/,
@@ -1018,7 +1021,8 @@ test('Review offers manual lot and Part creation; a dirty editor cannot be close
   )
   await user.click(await screen.findByRole('button', { name: 'Add physical lot' }))
   const editor = screen.getByRole('region', { name: 'Add a physical lot' })
-  expect(location.hash).toBe(`#${route}?edit=add_lot`)
+  // Review opens on the first lot, which stays in the URL.
+  expect(location.hash).toBe(`#${route}/${lotId}?edit=add_lot`)
   await user.type(within(editor).getByLabelText('Lot label'), 'Packet C')
   expect(
     within(editor).getByRole('button', { name: /Close editor · save or discard first/ }),

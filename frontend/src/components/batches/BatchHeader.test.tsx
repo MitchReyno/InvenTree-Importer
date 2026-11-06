@@ -121,7 +121,10 @@ describe('BatchHeader', () => {
       'href',
       `#${batchId}/review/records`,
     )
-    expect(views.getByText('Map').closest('a')).toHaveAttribute('aria-disabled', 'true')
+    expect(views.getByRole('link', { name: 'Map' })).toHaveAttribute(
+      'href',
+      `#${batchId}/review/map`,
+    )
   })
 
   it('lists the Processing steps and the Changes views', () => {

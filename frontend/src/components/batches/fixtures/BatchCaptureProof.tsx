@@ -136,6 +136,77 @@ const attention: BatchAttentionDto = {
   items_truncated: false,
 }
 
+const issue = (lot: number, code: string, severity: 'blocking' | 'warning', message: string) => ({
+  code,
+  severity,
+  message,
+  subject_id: lotId(lot),
+  lot_id: lotId(lot),
+  run_id: null,
+  dependency_digest: severity === 'warning' ? 'a'.repeat(64) : null,
+  disposition: null,
+})
+
+const operatorReview = {
+  batch_id: batchId,
+  revision: batch.revision,
+  lots: lotNames.map((label, index) => ({
+    lot_id: lotId(index + 1),
+    label,
+    part_subject_id: null,
+    shared_lot_ids: [],
+    review_state: index === 0 ? 'reviewed' : index === 1 ? 'changed_after_review' : 'unreviewed',
+    approved: false,
+    issues:
+      index === 2
+        ? [
+            issue(3, 'part_choice_required', 'blocking', 'Choose the Part for this lot.'),
+            issue(3, 'quantity_required', 'blocking', 'Choose an exact positive quantity for this lot.'),
+          ]
+        : index === 4
+          ? [issue(5, 'no_supporting_evidence', 'warning', 'Only one photo supports this lot.')]
+          : [],
+    predecessor_lot_ids: [],
+  })),
+  retired_lots: [],
+  instructions: [],
+  cursor: batch.cursor,
+}
+
+const unsupported = async () => {
+  throw new Error('fixture commands are disabled')
+}
+
+const manualClient = {
+  workspace: async () => ({
+    batch_id: batchId,
+    revision: batch.revision,
+    supported: true,
+    capability: 'owned-fake-stock/1',
+    lots: batch.lots.map((lot) => ({ lot_id: lot.id, reviewed: false, issues: [] })),
+    runs: [],
+    preparations: [],
+    preparations_truncated: false,
+    cursor: batch.cursor,
+  }),
+  activity: async () => ({ runs: [], truncated: false }),
+  review: unsupported,
+  prepare: unsupported,
+  approve: unsupported,
+  run: unsupported,
+  start: unsupported,
+  cancel: unsupported,
+  recover: unsupported,
+}
+
+const operatorClient = {
+  read: async () => operatorReview,
+  dismiss: unsupported,
+  bulkEdit: unsupported,
+  restructure: unsupported,
+  instruct: unsupported,
+}
+
 const captureClient = {
   read: async () => batch,
   edit: async () => batch,
@@ -209,7 +280,8 @@ export function BatchCaptureProof() {
             id={batchId}
             route={route}
             client={captureClient as never}
-            manual={{} as never}
+            manual={manualClient as never}
+            operator={operatorClient as never}
             media={mediaClient}
             attention={{ read: async () => attention }}
             onDirtyChange={() => {}}

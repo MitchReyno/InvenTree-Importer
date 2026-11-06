@@ -7,13 +7,15 @@ import {
   type OperatorIssueDto,
   type OperatorLotDto,
   type OperatorReviewDto,
+  type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { display } from '../capture/display'
-import { batchHref } from '../navigation/batch-route'
+import { batchHref, processingStepFor, type ProcessingStep } from '../navigation/batch-route'
 
 export const REVIEW_FILTERS = [
   'all',
   'needs_review',
+  'needs_answer',
   'blocking',
   'warnings',
   'changed',
@@ -27,6 +29,7 @@ export type ReviewView = 'evidence' | 'table'
 export const FILTER_LABELS: Record<ReviewFilter, string> = {
   all: 'All',
   needs_review: 'Needs review',
+  needs_answer: 'Needs answer',
   blocking: 'Blocking',
   warnings: 'Warnings',
   changed: 'Changed after review',
@@ -81,12 +84,54 @@ export function dismissedWarnings(lot: OperatorLotDto): OperatorIssueDto[] {
   return lot.issues.filter((issue) => issue.severity === 'warning' && issue.disposition)
 }
 
-export function matchesFilter(lot: OperatorLotDto, filter: ReviewFilter): boolean {
+/** Lot ids with an open question; a lot-keyed map of questions also fits. */
+export type LotIds = Pick<ReadonlySet<string>, 'has'>
+
+const NO_QUESTIONS: LotIds = new Set()
+
+export type OpenQuestion = { id: string; step: ProcessingStep }
+
+/**
+ * Each active lot's first open Processing question: its own, else its Part's, since a job can be
+ * about a Part that several lots share.
+ */
+export function openQuestionsByLot(
+  processing: ProcessingSnapshotDto | undefined,
+  batch: Pick<CaptureSnapshotDto, 'lots'>,
+): ReadonlyMap<string, OpenQuestion> {
+  const bySubject = new Map<string, OpenQuestion>()
+  for (const job of processing?.jobs ?? []) {
+    for (const question of job.questions) {
+      const subject = question.spec.subject_id
+      if (question.state === 'open' && subject && !bySubject.has(subject)) {
+        bySubject.set(subject, { id: question.id, step: processingStepFor(job.stage) })
+      }
+    }
+  }
+  const byLot = new Map<string, OpenQuestion>()
+  for (const lot of batch.lots) {
+    const question =
+      bySubject.get(lot.id) ??
+      (lot.part_subject_id ? bySubject.get(lot.part_subject_id) : undefined)
+    if (question) {
+      byLot.set(lot.id, question)
+    }
+  }
+  return byLot
+}
+
+export function matchesFilter(
+  lot: OperatorLotDto,
+  filter: ReviewFilter,
+  questionLotIds: LotIds = NO_QUESTIONS,
+): boolean {
   switch (filter) {
     case 'all':
       return true
     case 'needs_review':
       return lot.review_state !== 'reviewed' && !lot.approved
+    case 'needs_answer':
+      return questionLotIds.has(lot.lot_id)
     case 'blocking':
       return blockingIssues(lot).length > 0
     case 'warnings':
@@ -146,6 +191,35 @@ export function retiredLotIds(
   const fromReview = review?.retired_lots.map((lot) => lot.lot_id) ?? []
   const fromSnapshot = batch?.lots.filter((lot) => lot.retired === true).map((lot) => lot.id) ?? []
   return new Set([...fromReview, ...fromSnapshot])
+}
+
+/** Lots already added to inventory. Adding is never undone, so an older accepted review still counts. */
+export function approvedLotIds(
+  current: OperatorReviewDto | undefined,
+  accepted: OperatorReviewDto | undefined,
+): ReadonlySet<string> {
+  const ids = new Set<string>()
+  for (const review of [current, accepted]) {
+    for (const lot of review?.lots ?? []) {
+      if (lot.approved) {
+        ids.add(lot.lot_id)
+      }
+    }
+  }
+  return ids
+}
+
+/** Each lot's direct predecessors, read from the retired lots' successors so every level is known. */
+export function predecessorLotIds(
+  review: OperatorReviewDto | undefined,
+): ReadonlyMap<string, readonly string[]> {
+  const predecessors = new Map<string, string[]>()
+  for (const retired of review?.retired_lots ?? []) {
+    for (const successor of retired.successor_lot_ids) {
+      predecessors.set(successor, [...(predecessors.get(successor) ?? []), retired.lot_id])
+    }
+  }
+  return predecessors
 }
 
 export type Provenance =

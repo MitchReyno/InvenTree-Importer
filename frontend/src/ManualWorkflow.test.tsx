@@ -352,7 +352,7 @@ test('manual review and approval keep exact A-only scope, scalar text and server
   const view = render(<ManualWorkspace {...props} stage="review" />)
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
-  await user.click(screen.getByRole('button', { name: 'Inspect Packet A' }))
+  await user.click(screen.getByRole('button', { name: 'Show Packet A' }))
   expect(screen.getByText('Human count; do not merge packets.')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
   expect(client.review).toHaveBeenCalledWith(

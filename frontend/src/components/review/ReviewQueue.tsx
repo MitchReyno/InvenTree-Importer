@@ -13,6 +13,7 @@ import {
   GROUP_ORDER,
   matchesFilter,
   queueGroup,
+  type LotIds,
   type QueueGroup,
   type ReviewFilter,
 } from '../../operator/review-model'
@@ -55,6 +56,7 @@ export function visibleQueueLotIds(
   batch: CaptureSnapshotDto,
   operatorReview: OperatorReviewDto | undefined,
   filter: ReviewFilter,
+  questionLotIds?: LotIds,
 ): string[] {
   if (!operatorReview) {
     return batch.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
@@ -62,7 +64,11 @@ export function visibleQueueLotIds(
   const active = new Map(operatorReview.lots.map((lot) => [lot.lot_id, lot]))
   const lots = batch.lots.filter((lot) => {
     const operatorLot = active.get(lot.id)
-    return !lot.retired && operatorLot !== undefined && matchesFilter(operatorLot, filter)
+    return (
+      !lot.retired &&
+      operatorLot !== undefined &&
+      matchesFilter(operatorLot, filter, questionLotIds)
+    )
   })
   return groupsFor(lots, operatorReview).flatMap((group) => group.lots.map((lot) => lot.id))
 }
@@ -138,8 +144,13 @@ export function ReviewQueue({
                 ) : (
                   <Small>{legacyStatus(approved, status?.reviewed)}</Small>
                 )}
-                <Button disabled={busy} onClick={() => inspect(lot.id)}>
-                  Inspect {lot.label}
+                <Button
+                  disabled={busy}
+                  aria-label={`Show ${lot.label}`}
+                  aria-current={focused === lot.id ? 'true' : undefined}
+                  onClick={() => inspect(lot.id)}
+                >
+                  Show
                 </Button>
               </QueueRow>
             )

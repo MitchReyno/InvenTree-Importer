@@ -9,7 +9,7 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
-import type { MediaIdentityLabels } from '../../media/identity-labels'
+import { mediaDisplayLabels, type MediaIdentityLabels } from '../../media/identity-labels'
 import type { EditMedia } from '../../media/types'
 import { Button, Paragraph } from '../ui/primitives'
 import { color, space, type } from '../../theme/generated/tokens'
@@ -89,12 +89,11 @@ export function EvidenceGroupPanel({
     return count === 1 ? '1 lot' : `${count} lots`
   }
 
-  // Two files with the same label get their distinguishing identity label.
+  // Files sharing a name are numbered; their identifiers stay in the viewer's details.
+  const displayLabels = mediaDisplayLabels(snapshot.evidence)
+
   function fileName(item: MediaSnapshotDto['evidence'][number]) {
-    const duplicate = snapshot.evidence.some(
-      (other) => other.id !== item.id && other.label === item.label,
-    )
-    return duplicate ? (labels.evidence.get(item.id) ?? item.label) : item.label
+    return displayLabels.evidence.get(item.id) ?? item.label
   }
 
   const instructionKey = `instructions:${groupId}`

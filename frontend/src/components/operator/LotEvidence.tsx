@@ -7,6 +7,7 @@ import type {
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { Field, Heading, Paragraph, Small, Subheading } from '../ui/primitives'
+import { mediaDisplayLabels } from '../../media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
@@ -107,6 +108,7 @@ export function LotEvidence({
           lotId={lot.id}
           evidence={evidence}
           groups={media.groups}
+          labels={mediaDisplayLabels(media.evidence)}
           unavailable={mediaUnavailable}
         />
       )}

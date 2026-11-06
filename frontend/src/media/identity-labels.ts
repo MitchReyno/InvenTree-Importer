@@ -47,3 +47,46 @@ export function mediaIdentityLabels(evidence: readonly MediaEvidenceDto[]): Medi
   }
   return { evidence: evidenceLabels, versions: versionLabels }
 }
+
+/**
+ * Labels for normal viewing: a file's name and the version's kind. Files sharing a name are
+ * numbered; identifiers stay in the viewer's Details.
+ */
+export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): MediaIdentityLabels {
+  const evidenceLabels = evidenceDisplayNames(evidence)
+  const versionLabels = new Map<string, string>()
+  for (const item of evidence) {
+    const name = evidenceLabels.get(item.id) ?? item.label
+    let crops = 0
+    for (const version of item.versions) {
+      if (version.kind === 'original') {
+        versionLabels.set(version.id, `${name} · original`)
+      } else {
+        crops += 1
+        versionLabels.set(version.id, `${name} · crop ${crops}`)
+      }
+    }
+  }
+  return { evidence: evidenceLabels, versions: versionLabels }
+}
+
+/** Each file's name, numbered in snapshot order when several files share it. */
+export function evidenceDisplayNames(
+  evidence: readonly Pick<MediaEvidenceDto, 'id' | 'label'>[],
+): Map<string, string> {
+  const counts = new Map<string, number>()
+  for (const item of evidence) {
+    counts.set(item.label, (counts.get(item.label) ?? 0) + 1)
+  }
+  const seen = new Map<string, number>()
+  const names = new Map<string, string>()
+  for (const item of evidence) {
+    const ordinal = (seen.get(item.label) ?? 0) + 1
+    seen.set(item.label, ordinal)
+    names.set(
+      item.id,
+      (counts.get(item.label) ?? 0) > 1 ? `${item.label} (${ordinal})` : item.label,
+    )
+  }
+  return names
+}
