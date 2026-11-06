@@ -20,4 +20,4 @@ The Agents page SHALL list every agent session in authorised scope, grouped by b
 
 - **GIVEN** a profile without native sessions
 - **WHEN** the page opens
-- **THEN** it says agent sessions are not available for this setup and links to Agent settings, without showing an empty list as “nothing running”.
+- **THEN** it says agent sessions are not available for this setup because the server's processing profile runs none, without showing an empty list as “nothing running”.

@@ -361,7 +361,10 @@ test('a lead job and its session have no subject', () => {
       },
     ],
     next_before: null,
+    sessions_supported: true,
   })
+  validate('AgentSessionList', { sessions: [], next_before: null, sessions_supported: false })
+  assert.throws(() => validate('AgentSessionList', { sessions: [], next_before: null }))
 })
 
 test('tool results report the pending inbox and typed errors', () => {

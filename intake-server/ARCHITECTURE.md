@@ -167,6 +167,8 @@ The inbox reuses exact operator review/dependency rules, original-run snapshots 
 
 ## Native provider sessions
 
+`GET /api/v1/agent-sessions` also returns `sessions_supported`, true only when the configured processing profile is a session profile, so a client can tell "no sessions" from "sessions are not available in this setup".
+
 [Native agents](src/agents/ARCHITECTURE.md) add one scoped global default, immutable queue-time model/authentication selection and retained session history over Processing. The web process never launches providers. A separately supervised local worker can use unmodified Codex or Claude Code CLIs with explicit API-key or native subscription authentication. Deterministic qualification does not prove live provider access; current capability remains `native_unverified`. No native output grants inventory effects or human selections.
 
 ## Capture settings and grouped context foundations

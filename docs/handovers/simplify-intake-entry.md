@@ -615,5 +615,11 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
     5. Moving one observation to No lot leaves the lot with one observation, marked Edited.
     6. The moved observation is listed under Unassigned observations, shown when no lot is inspected.
     7. Selecting "16 mhz crystal" in Processing's "Queue work for selected saved subjects" and queuing it starts its Research and Images sessions.
-- **Fix found by the check.** The lead job's card in Processing was titled "Retained subject · examine", because its subject is null. It now reads "This batch · examine", as Needs you already did, with a test (`ProcessingJobCard.test.tsx`).
+- **Fix found by the check.** The lead job's card in Processing was titled "Retained subject · examine", because its subject is null. It now reads "Whole batch · examine", the label the redesigned Processing pages use, with a test (`ProcessingJobCard.test.tsx`).
+
+## PR-B merge of `interactive-app` (#101, #102, #103)
+
+- **The conflict:** #102 replaced `ProcessingNeedsYou.tsx` with the Processing overview. PR-B had added null-subject handling to that file, so the file is dropped in the merge.
+- **Typecheck failure:** the overview's `retainedJobsSource` (`frontend/src/processing/source.ts`) failed to typecheck against PR-B's nullable question `spec.subject_id`.
+- **The fix:** a whole-batch question from the Examine lead session is now named "Whole batch" and links no lot, with a test in `source.test.ts`.
 

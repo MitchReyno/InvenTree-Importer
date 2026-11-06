@@ -13845,6 +13845,7 @@ export interface components {
                 } | null;
             }[];
             next_before: string | null;
+            sessions_supported: boolean;
         };
         SessionLatestStatus: {
             text: string;

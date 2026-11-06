@@ -50,6 +50,10 @@ const Body = styled.div<{ $tone: BannerTone }>`
   padding: ${space['2-5']} ${space['3-5']};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
+  a {
+    color: inherit;
+    font-weight: 600;
+  }
   ${({ $tone }) => css`
     background: ${grounds[$tone]};
     border-color: ${$tone === 'plain' ? color.line : 'transparent'};

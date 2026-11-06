@@ -190,6 +190,8 @@ test('session history pages every retained attempt in queue order and refuses id
     const older = await listAgentSessions(fixture.api.pool, fixture.config, newest.next_before)
     assert.equal(older.sessions.length, 3)
     assert.equal(older.next_before, null)
+    // native-agent/1 runs one-shot attempts, not sessions.
+    assert.equal(newest.sessions_supported, false)
     const all = [...newest.sessions, ...older.sessions]
     assert.deepEqual(new Set(all.map((session) => session.attempt_id)), ids)
     assert.ok(

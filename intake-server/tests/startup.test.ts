@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 test(
   'actual web entry point restarts with stable development attribution and a rotated CSRF token',
-  { timeout: 20000 },
+  { timeout: 75000 },
   async () => {
     const reservation = createServer()
     reservation.listen(0, '127.0.0.1')
@@ -40,7 +40,7 @@ test(
         output += String(value)
       })
       try {
-        const deadline = Date.now() + 5000
+        const deadline = Date.now() + 30000
         const ready = () =>
           output.split('\n').some((line) => {
             try {

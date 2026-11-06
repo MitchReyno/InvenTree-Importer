@@ -20,7 +20,7 @@ const job = (subject: string | null) =>
 it('names the batch for the Examine lead session and the lot otherwise', () => {
   const props = { batch, disabled: false, cancel: vi.fn(), chooseQuestion: vi.fn() }
   const { unmount } = render(<ProcessingJobCard job={job(null)} {...props} />)
-  expect(screen.getByRole('heading', { name: 'This batch · examine' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Whole batch · examine' })).toBeInTheDocument()
   unmount()
   render(<ProcessingJobCard job={job('l1')} {...props} />)
   expect(screen.getByRole('heading', { name: 'Reels · research' })).toBeInTheDocument()

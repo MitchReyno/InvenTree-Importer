@@ -175,10 +175,10 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the adapter, write failing tests mapping each fixture job kind to its step, and asserting that no session appears (RED). GREEN: implement the adapter. Screen layout is verified in the browser.
 - **Verification:** component tests with the fixture profile (no fabricated sessions); a browser check.
 
-- [ ] 7.1 Define the `ProcessingSource` interface and the retained-jobs adapter, with tests mapping each job kind to its step.
-- [ ] 7.2 Build Overview: step progress, the session list, Needs you, batch instructions, activity, and glances.
-- [ ] 7.3 Build the step-page pattern and the Examine, Research, Images and Inventory pages from it.
-- [ ] 7.4 Build the session drawer (status timeline, question, chat), shown only when the adapter reports sessions.
+- [x] 7.1 Define the `ProcessingSource` interface and the retained-jobs adapter, with tests mapping each job kind to its step.
+- [x] 7.2 Build Overview: step progress, the session list, Needs you, batch instructions, activity, and glances.
+- [x] 7.3 Build the step-page pattern and the Examine, Research, Images and Inventory pages from it.
+- [x] 7.4 Build the session drawer (status timeline, question, chat), shown only when the adapter reports sessions.
 
 ## 8. Review Lots and Map
 
@@ -269,8 +269,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the page, write failing tests for the summary's no-session state, the filters and the "not available for this setup" state (RED). GREEN: implement it. Slot-counting tests belong to 14.4.
 - **Verification:** component tests for the no-session summary, the filters and the "not available for this setup" state.
 
-- [ ] 12.1 Build the Agents page with summary, filters and per-batch groups.
-- [ ] 12.2 Add the explicit "not available for this setup" state for adapters without sessions.
+- [x] 12.1 Build the Agents page with summary, filters and per-batch groups.
+- [x] 12.2 Add the explicit "not available for this setup" state for adapters without sessions.
 
 ## 13. Documentation and browser qualification
 
@@ -306,7 +306,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 ## Delivery evidence and lifecycle follow-up
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
-- [ ] D.2 PR-B: same gates.
+- [x] D.2 PR-B: same gates. Review clear at `7c42f99` after seven rounds; merged as #100 (`4080ea9`). Every CI job passed; the HTTP lane's two start-up timeouts, which also fail on `interactive-app`'s own push, passed on rerun, and #99 retired the PostgreSQL lane.
 - [ ] D.3 PR-C: same gates.
 - [ ] D.4 PR-D: same gates.
 - [ ] D.5 PR-E: same gates.

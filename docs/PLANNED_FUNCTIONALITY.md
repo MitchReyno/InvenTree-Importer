@@ -57,7 +57,7 @@ Remove manual lot entry and question-blocked processing from Capture and Process
 Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions.
 
 - Change: `redesign-batch-workspace`
-- Status: In progress — PR-A (tokens, themes, components, masthead) merged in #96
+- Status: In progress — PR-A (tokens, themes, components, masthead) merged in #96; PR-B (navigation, attention, Batches and Capture) merged in #100
 - Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in six PRs.
 - Prerequisites: None to start. Agent-backed panels (sessions, live lots, region-level Map) arrive with BI-006 and fall back to retained jobs until then.
 - OpenSpec: [redesign-batch-workspace](../openspec/changes/redesign-batch-workspace/)
@@ -99,6 +99,18 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 No registered items.
 
 ## Improvements
+
+### Normal
+
+#### BI-009 — Local development InvenTree
+
+Developers have no real InvenTree to run Bench Intake or the importer against locally; the only options are the fake inventory or a read-only external server. Add a repository-owned Docker Compose stack, built on the pinned local InvenTree image, that starts in a ready state with generated credentials and API tokens, seeded from the importer config and a small fixture. The intake app's dev databases move onto that stack's own PostgreSQL (`inventree-db`). `pnpm dev` starts the stack when `INTAKE_TARGET_PROFILE=local-inventree`.
+
+- Change: `local-inventree-dev`
+- Status: Planned
+- Size: L — Compose stack and bootstrap, a database move, seeding, a new dev target profile and docs.
+- Prerequisites: Docker with Compose 2.24 or later, and the pinned `inventree/inventree` stable image, which is present locally. No BI item dependencies.
+- OpenSpec: [local-inventree-dev](../openspec/changes/local-inventree-dev/)
 
 ### Unassessed
 
