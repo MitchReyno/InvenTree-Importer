@@ -102,4 +102,3 @@ Session proposals and questions are retained in `processing_message` as `bench-i
 - **Turns:** the opening message carries the lead instructions, and the lead's turns also allow `record_observation`, `propose_lot` and `regroup`.
 - **Synthetic profile:** `agents/synthetic-lead.ts` scripts the lead from each photo's note: one observation per listed item, the same marking across photos as one lot, and a quantity basis without summing photos of the same items.
 - **Operator answers:** a lead question names its subject or none. A quantity answer needs a lot; a clarification without one becomes a batch note.
-

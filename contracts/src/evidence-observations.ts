@@ -106,6 +106,8 @@ export const LeadBatchView = object({
       retired: Type.Boolean(),
       part_subject_id: Type.Union([Id, Type.Null()]),
       estimated_quantity: Type.Union([Quantity, Type.Null()]),
+      /** Cite as an `observation_set` source; an identity relying on the current one is stable. */
+      observation_set_version: Revision,
       observation_ids: Type.Array(Id, { maxItems: 100 }),
       suggested_observation_ids: Type.Array(Id, { maxItems: 1000 }),
     }),

@@ -1,43 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
-import { processingAttempts, processingJobs, processingQuestions } from './schema.ts'
+import { supersedeJobAttempts } from './supersede.ts'
+import { processingAttempts, processingJobs } from './schema.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, type Stage } from './model.ts'
 import { processingJobColumns, requireLotJob } from './state.ts'
 import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
-/** Caller holds the actor lane and selected job lock before invalidating attempts/questions. */
-export async function supersedeJobAttempts(client: PoolClient, jobId: string) {
-  await executeDatabaseQuery(
-    queryDatabase(client)
-      .update(processingAttempts)
-      .set({ state: 'superseded' })
-      .where(
-        and(
-          eq(processingAttempts.jobId, jobId),
-          inArray(processingAttempts.state, [
-            'queued',
-            'running',
-            'waiting_for_user',
-            'waiting_for_login',
-            'waiting_for_capacity',
-            'interrupted',
-          ]),
-        ),
-      ),
-  )
-  await executeDatabaseQuery(
-    queryDatabase(client)
-      .update(processingQuestions)
-      .set({ state: 'superseded', revision: sql`${processingQuestions.revision}+1` })
-      .where(and(eq(processingQuestions.jobId, jobId), eq(processingQuestions.state, 'open'))),
-  )
-  // Logical supersession does not prove that a held worker command ended.
-}
+export { supersedeJobAttempts } from './supersede.ts'
 
 export async function queueJob(
   client: PoolClient,
@@ -47,6 +21,7 @@ export async function queueJob(
   stage: Stage,
   dependencies: string[],
   media: LockedMediaInputs,
+  pinnedProposalIds: readonly string[] = [],
 ) {
   const jobs = await executeDatabaseQuery(
     queryDatabase(client)
@@ -91,6 +66,8 @@ export async function queueJob(
     dependencies,
     media,
     parentInputId,
+    null,
+    pinnedProposalIds,
   )
   if (priorJob) {
     await executeDatabaseQuery(

@@ -56,6 +56,17 @@ export type SelectedProcessingProfile =
 export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 
 export type Stage = (typeof stageOrder)[number]
+/**
+ * Session profiles run one batch-level Examine lead stage, then Research and Images in parallel
+ * per lot once its identity is stable, then Inventory.
+ */
+export const sessionStageOrder = ['examine', 'research', 'images', 'inventory'] as const
+
+export function stageOrderFor(profileId: string | undefined) {
+  return profileId === 'native-agent/2' || profileId === 'synthetic-session/1'
+    ? sessionStageOrder
+    : stageOrder
+}
 
 export class ProcessingError extends Error {
   constructor(

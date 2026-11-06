@@ -37,7 +37,14 @@ export async function createSessionAttempt(
   media: LockedMediaInputs,
   parentId: string | null,
   /** The Examine trigger reads the saved selection without locking the settings row. */
-  { lockSettings = true }: { lockSettings?: boolean } = {},
+  {
+    lockSettings = true,
+    pinnedProposalIds = [],
+  }: {
+    lockSettings?: boolean
+    /** The identity proposals a per-lot successor starts from; revisions arrive as inbox items. */
+    pinnedProposalIds?: readonly string[]
+  } = {},
 ) {
   const lead = job.stage === 'examine' && job.subject_id === null
   // Reading and identifying are replaced by the batch-level Examine session.
@@ -65,6 +72,7 @@ export async function createSessionAttempt(
           job.stage as SessionLotStage,
           descriptor,
           profile,
+          pinnedProposalIds,
         ),
   )
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {

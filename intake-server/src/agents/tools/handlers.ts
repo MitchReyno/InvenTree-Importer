@@ -13,6 +13,7 @@ import {
   type SessionToolResultDto,
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
+import { onLeadIdentity } from '../../processing/stable-identity.ts'
 import { appendEvent } from '../../db/authority.ts'
 import { captureBatches } from '../../capture/schema.ts'
 import {
@@ -282,15 +283,23 @@ type LockedCapture = Awaited<ReturnType<typeof lockCaptureForInputSettlement>>
 async function withSession(
   context: SessionToolContext,
   token: string,
-  options: { capture: boolean },
+  options: { capture: boolean; leadWriter?: boolean },
   work: (
     client: PoolClient,
     principal: SessionPrincipal,
     capture: LockedCapture | undefined,
+    writer: boolean,
   ) => Promise<SessionToolOutput['result'] | SessionToolOutput>,
 ): Promise<SessionToolOutput> {
   try {
-    return await transaction(context.pool, async (client) => {
+    // The Examine lead session's results can queue its lots' successors, which only the
+    // agent_writer role may create; every other session writes as the runner.
+    let writer = false
+    if (options.leadWriter && context.writerPool) {
+      const found = await resolveSessionCapability(context.pool, token)
+      writer = found !== undefined && found !== null && found.subjectId === null
+    }
+    return await transaction(writer ? context.writerPool! : context.pool, async (client) => {
       const found =
         (await resolveSessionCapability(client, token)) ??
         refuse('capability_refused', 'This session capability is not valid.')
@@ -317,7 +326,7 @@ async function withSession(
       if (capture?.snapshot.archived) {
         refuse('session_not_running', 'This session can no longer publish results.')
       }
-      const output = await work(client, found, capture)
+      const output = await work(client, found, capture, writer)
       return 'result' in output ? output : { result: output }
     })
   } catch (error) {
@@ -484,9 +493,32 @@ async function requireDeliveredSources(
       if (!own && !manifest.pinned_proposal_ids.includes(source.proposal_id)) {
         refuse('source_not_delivered', 'A relied-on proposal was not delivered to this session.')
       }
+    } else if (source.kind === 'observation_set') {
+      // The lead session may rely on any lot of its batch; a lot session on its own lot only.
+      const lots = await client.query(
+        'SELECT 1 FROM public.capture_lot WHERE id=$1 AND batch_id=$2',
+        [source.lot_id, principal.batchId],
+      )
+      if (
+        !lots.rowCount ||
+        (principal.subjectId !== null && source.lot_id !== principal.subjectId)
+      ) {
+        refuse('source_not_delivered', 'A relied-on lot does not belong to this session.')
+      }
     } else {
-      // Evidence observations and lot membership arrive with the lead session.
-      refuse('source_not_delivered', 'Evidence observations are not available to this session.')
+      // An observation of the batch; a lot session sees only its lot's members.
+      const rows = await client.query(
+        principal.subjectId === null
+          ? 'SELECT 1 FROM public.capture_evidence_observation WHERE id=$1 AND batch_id=$2'
+          : `SELECT 1 FROM public.capture_lot_evidence_observation
+             WHERE evidence_observation_id=$1 AND batch_id=$2 AND lot_id=$3 AND status='active'`,
+        principal.subjectId === null
+          ? [source.evidence_observation_id, principal.batchId]
+          : [source.evidence_observation_id, principal.batchId, principal.subjectId],
+      )
+      if (!rows.rowCount) {
+        refuse('source_not_delivered', 'A relied-on observation was not delivered to this session.')
+      }
     }
   }
 }
@@ -714,48 +746,57 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     propose: (token: string, args: unknown) =>
-      withSession(context, token, { capture: true }, async (client, principal, capture) => {
-        const { proposal } = validated<{ proposal: ProcessingProposalV5Dto }>(
-          'SessionProposeArgs',
-          args,
-        )
-        // The lead session proposes for any live lot of its batch; a lot session for its own lot.
-        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
-        if (
-          principal.subjectId === null
-            ? !lots.includes(proposal.subject_id)
-            : proposal.subject_id !== principal.subjectId
-        ) {
-          refuse('validation_failed', 'A proposal must be for this session’s lot.')
-        }
-        await requireDeliveredSources(client, context, principal, proposal)
-        await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
-        const { messageId, streamId } = await retainSessionMessage(
-          client,
-          capture!,
-          principal,
-          'proposal',
-          proposal,
-        )
-        const value = sealed(proposal)
-        const id = randomUUID()
-        await executeDatabaseQuery(
-          queryDatabase(client).insert(processingProposals).values({
-            id,
-            attemptId: principal.attemptId,
-            messageId,
-            valueBytes: value.bytes,
-            valueDigest: value.digest,
-            reliesOn: proposal.relies_on,
-          }),
-        )
-        await appendSessionOutbox(client, principal.attemptId, {
-          kind: 'proposal',
-          payload: { proposal_id: id },
-        })
-        await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
-        return ok(client, principal, { id })
-      }),
+      withSession(
+        context,
+        token,
+        { capture: true, leadWriter: true },
+        async (client, principal, capture, writer) => {
+          const { proposal } = validated<{ proposal: ProcessingProposalV5Dto }>(
+            'SessionProposeArgs',
+            args,
+          )
+          // The lead session proposes for any live lot of its batch; a lot session for its own lot.
+          const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+          if (
+            principal.subjectId === null
+              ? !lots.includes(proposal.subject_id)
+              : proposal.subject_id !== principal.subjectId
+          ) {
+            refuse('validation_failed', 'A proposal must be for this session’s lot.')
+          }
+          await requireDeliveredSources(client, context, principal, proposal)
+          await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
+          const { messageId, streamId } = await retainSessionMessage(
+            client,
+            capture!,
+            principal,
+            'proposal',
+            proposal,
+          )
+          const value = sealed(proposal)
+          const id = randomUUID()
+          await executeDatabaseQuery(
+            queryDatabase(client).insert(processingProposals).values({
+              id,
+              attemptId: principal.attemptId,
+              messageId,
+              valueBytes: value.bytes,
+              valueDigest: value.digest,
+              reliesOn: proposal.relies_on,
+            }),
+          )
+          await appendSessionOutbox(client, principal.attemptId, {
+            kind: 'proposal',
+            payload: { proposal_id: id },
+          })
+          // A stable identity from the lead session starts the lot's Research and Images.
+          if (writer && principal.subjectId === null) {
+            await onLeadIdentity(client, context.config, capture!.snapshot, proposal, id)
+          }
+          await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
+          return ok(client, principal, { id })
+        },
+      ),
 
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {

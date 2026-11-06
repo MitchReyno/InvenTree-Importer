@@ -1,3 +1,4 @@
+import { lotRegrouped } from '../processing/regroup.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
@@ -325,6 +326,8 @@ async function bumpObservationSet(client: PoolClient, lotId: string, revision: b
       })
       .where(eq(captureLots.id, lotId)),
   )
+  // Successors that have not started wait for the next stable identity.
+  await lotRegrouped(client, lotId)
 }
 
 /** A suggested membership row for the operator; it counts towards nothing until accepted. */
@@ -953,9 +956,11 @@ export async function leadBatchView(
     operator_edited: boolean | null
     part_subject_id: string | null
     estimated_quantity: string | null
+    observation_set_version: string | null
     retired: boolean
   }>(
     `SELECT s.id,s.kind,s.label,l.origin,l.operator_edited,l.part_subject_id,l.estimated_quantity,
+       l.observation_set_version::text AS observation_set_version,
        EXISTS (SELECT 1 FROM public.capture_lot_retirement r WHERE r.lot_id=s.id) AS retired
      FROM public.capture_subject s LEFT JOIN public.capture_lot l ON l.id=s.id
      WHERE s.batch_id=$1 ORDER BY s.id`,
@@ -996,6 +1001,7 @@ export async function leadBatchView(
         retired: row.retired,
         part_subject_id: row.part_subject_id,
         estimated_quantity: row.estimated_quantity,
+        observation_set_version: row.observation_set_version ?? '0',
         observation_ids: members.rows
           .filter((m) => m.lot_id === row.id && m.status === 'active')
           .map((m) => m.observation_id),

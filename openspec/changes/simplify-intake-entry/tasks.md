@@ -308,12 +308,12 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process`.
 - **Risks and decisions:** none beyond the design's notes on token cost.
 
-- [ ] 10.1 Baseline the dependency and stage tests.
-- [ ] 10.2 RED: stable-identity queueing under `agent_writer`; concurrent `regroup` and `propose` (only one wins under the lot lock); a regrouped lot supersedes its queued successors and the next identity creates fresh deliverable attempts; parallelism; Inventory gate; `require_processing_dependency_order` untouched; legacy invariance.
-- [ ] 10.3 GREEN: stage order, stable-identity triggers and claim-time re-check.
-- [ ] 10.4 Research and Examine publish `/5` catalogue values with sources. Tests: an observed manufacturer company with MPN applies cleanly through `validatePartSpec` ("Existing manufacturer"); a parameter carries both `template` and `category_mapping`; new categories, templates, companies, unmapped parameters and prices stay unsupported and never reach a Part spec ("New sub-category proposed").
-- [ ] 10.5 Verify the exact-predecessor suites for `/1`.
-- [ ] 10.6 Record the results.
+- [x] 10.1 Baseline the dependency and stage tests.
+- [x] 10.2 RED: stable-identity queueing under `agent_writer`; concurrent `regroup` and `propose` (only one wins under the lot lock); a regrouped lot supersedes its queued successors and the next identity creates fresh deliverable attempts; parallelism; Inventory gate; `require_processing_dependency_order` untouched; legacy invariance.
+- [x] 10.3 GREEN: stage order, stable-identity triggers and claim-time re-check.
+- [x] 10.4 Research and Examine publish `/5` catalogue values with sources. Tests: an observed manufacturer company with MPN applies cleanly through `validatePartSpec` ("Existing manufacturer"); a parameter carries both `template` and `category_mapping`; new categories, templates, companies, unmapped parameters and prices stay unsupported and never reach a Part spec ("New sub-category proposed").
+- [x] 10.5 Verify the exact-predecessor suites for `/1`.
+- [x] 10.6 Record the results.
 
 ## 11. Proposal currentness, selective rework and new evidence pickup
 

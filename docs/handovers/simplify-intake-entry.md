@@ -641,3 +641,55 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
 - **Local tiers on `0948449`:** `pnpm db:intake test` passed 216/216, and `pnpm db:intake test:process` passed 70/70.
 - **Merged:** squash-merged at `0948449` as `776c302`.
 
+## PR-C task 10: per-lot Research and Images on a stable identity
+
+- **Stable identity (`processing/stable-identity.ts`).**
+  - The lead session's identity proposal must cite the lot's current observation set in `relies_on` as `{kind: 'observation_set', lot_id, version}`. `read_batch` now returns each lot's `observation_set_version`.
+  - The lead session's `propose` runs on the `agent_writer` pool (the `leadWriter` option of `withSession`).
+  - In the same transaction, `onLeadIdentity` locks the lot row and compares versions:
+    - If the version matches, it queues the lot's Research and Images through `queueJob`, pinned to the identity (`pinned_proposal_ids`).
+    - Successors that are already live get a `revision` inbox item instead of a new attempt.
+    - An identity relying on an older set is stale at once (`lot_regrouped`) and queues nothing.
+  - `/2` successors record no `processing_dependency` rows.
+- **Regrouping (`processing/regroup.ts`).** Every observation-set change (`bumpObservationSet`: agent `propose_lot`/`regroup` and the operator's moves, splits and merges) calls `lotRegrouped`.
+  - It supersedes the lot's Research and Images attempts that have not started, and marks those jobs `superseded`.
+  - It marks identities relying on the lot's set stale (`lot_regrouped`).
+  - Running sessions keep running. The next stable identity queues fresh attempts and commands.
+- **Claim re-check (`session-runner.ts`).**
+  - A superseded or cancelled attempt now settles its session as cancelled instead of failing with `session_not_queued`.
+  - A queued successor whose pinned identity went stale is superseded when it is claimed.
+- **Queue order (`agents/slots.ts`).** Examine lead sessions go ahead of per-lot sessions. Without this, at the default limit of 3, a lead resumed for new evidence waited behind every successor it had started. Design D9 records the decision.
+- **Inventory gate.** Session profiles may now start Inventory, but only once the lot's Research and Images each have a current proposal. Otherwise the start is refused with `inventory_waiting` (409).
+- **Stage order.** `sessionStageOrder` (`examine`, `research`, `images`, `inventory`) sits beside the `/1` order (`stageOrderFor`).
+- **Observation sources.**
+  - `propose` now accepts `observation_set` and `evidence_observation` sources in `relies_on`, which PR-A refused with a placeholder.
+  - The lead session may cite any lot or observation of its batch. A lot session may cite only its own lot and its lot's active observations.
+- **Catalogue (10.4).**
+  - `applicableCatalogueSpec` (`processing/catalogue.ts`) builds the Part spec an operator could accept from a `/5` catalogue block. It copies applicable values only, so the result passes `validatePartSpec`, and it returns null without an applicable category.
+  - Tests cover:
+    - an existing manufacturer with its MPN;
+    - a parameter carrying both its template and the category mapping;
+    - new categories, templates and companies, unmapped parameters and prices, which never reach a spec.
+  - Session instructions now ask for catalogue values with sources, and ask the lead session to cite the observation set.
+  - The synthetic Research session publishes a catalogue block, and lot sessions cite their pinned identity as a `proposal` source.
+- **Synthetic lead.**
+  - It re-states the identity of every lot it touched in a turn, citing the set version from a fresh `read_batch`.
+  - When later evidence's note is not in its opening manifest, it cites a note that is.
+- **Tests (`tests/pg/stable-identity.test.ts`, 10 tests):**
+  - stable-identity queueing as `agent_writer`;
+  - a regroup by new evidence;
+  - a revision notice to a running successor;
+  - an operator move superseding successors, and settling at claim;
+  - a stale pin at claim;
+  - an identity relying on an older set;
+  - the Inventory gate;
+  - parallel slots;
+  - lead priority;
+  - a regroup and an identity racing under the capture lock.
+- **Baseline (10.1):** the Examine, observation, dependency, processing, slot and session-tool suites passed 54/54 before the change.
+- **Results (10.5, 10.6):**
+  - `pnpm db:intake test` passed 226/226. The `/1` exact-predecessor suites (`processing-dependencies`, `processing`) pass unchanged.
+  - `pnpm db:intake test:process` passed 70/70.
+  - `pnpm test:intake`: contracts 76/76, intake server 213/213. Frontend 585/585. Typecheck, lint, format and `contracts:check` are clean.
+  - An earlier tier run hung for about 2.7 hours in `processing-suggestions.test.ts`. It was started without `INTAKE_MEDIA_DECODER_IMAGE`, so the media fixtures refused to start. Tier runs now get a hard time cap and a stall check.
+

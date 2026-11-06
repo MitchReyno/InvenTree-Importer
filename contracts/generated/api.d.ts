@@ -14661,6 +14661,8 @@ export interface components {
                     retired: boolean;
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
+                    /** Format: int64 */
+                    observation_set_version: string;
                     observation_ids: string[];
                     suggested_observation_ids: string[];
                 }[];
@@ -14968,6 +14970,8 @@ export interface components {
                 retired: boolean;
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
+                /** Format: int64 */
+                observation_set_version: string;
                 observation_ids: string[];
                 suggested_observation_ids: string[];
             }[];

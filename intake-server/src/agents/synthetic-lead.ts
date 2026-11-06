@@ -119,6 +119,7 @@ export async function syntheticLeadTurn(
     }
   }
 
+  const formedNew: { lotId: string; marking: string; quantity?: string }[] = []
   for (const [key, group] of seen) {
     const existing = memory.lots[key]
     const marking = key
@@ -139,22 +140,40 @@ export async function syntheticLeadTurn(
     }
     const lotId = String(formed.id)
     memory.lots[key] = lotId
-    // A new lot gets an identity proposal citing the operator's note on its first photo.
-    const note = evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean)
-    if (!existing && note) {
-      const source = {
-        kind: 'note',
-        note_id: note.id,
-        text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
-      }
+    // A lot that gained observations needs its identity re-stated against the new set.
+    formedNew.push({ lotId, marking, quantity: group.quantity })
+  }
+
+  // A new lot gets an identity proposal citing the operator's note on its first photo and the
+  // lot's current observation set, which makes the identity stable for Research and Images.
+  // Later evidence arrives after the opening manifest, so its note may not be citable yet.
+  const note =
+    evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean) ?? [...noteOf.values()][0]
+  if (note && formedNew.length) {
+    const after = await call('read_batch', {})
+    const lots = ((after.batch as { lots?: { id: string; observation_set_version: string }[] })
+      ?.lots ?? []) as { id: string; observation_set_version: string }[]
+    const source = {
+      kind: 'note',
+      note_id: note.id,
+      text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
+    }
+    for (const { lotId, marking, quantity } of formedNew) {
+      const version = lots.find((lot) => lot.id === lotId)?.observation_set_version
       await call('propose', {
         proposal: {
           schema_version: 'bench-intake-proposal/5',
           subject_id: lotId,
           summary: `Identity from the label: ${marking}.`,
           sources: [source],
-          ...(group.quantity ? { quantity: { value: group.quantity, status: 'estimated' } } : {}),
-          relies_on: { fields: ['identity'], sources: [source] },
+          ...(quantity ? { quantity: { value: quantity, status: 'estimated' } } : {}),
+          relies_on: {
+            fields: ['identity'],
+            sources: [
+              source,
+              ...(version ? [{ kind: 'observation_set', lot_id: lotId, version }] : []),
+            ],
+          },
         },
       })
     }
