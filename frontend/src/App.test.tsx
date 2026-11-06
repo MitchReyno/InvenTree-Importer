@@ -810,7 +810,10 @@ test('following an inbox workflow filter opens Review through the actual App rou
   render(<App />)
   await user.click(await screen.findByRole('link', { name: '1 need review' }))
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
-  expect(location.hash).toBe(`#${batchId}/review/lots/${lotId}?filter=needs_review`)
+  // Review then opens on the first lot.
+  await waitFor(() =>
+    expect(location.hash).toBe(`#${batchId}/review/lots/${lotId}?filter=needs_review`),
+  )
   expect(
     within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
       name: /^Review/,
