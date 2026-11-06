@@ -5353,6 +5353,11 @@ export interface components {
             kind: "step";
             step: "examine" | "research" | "images" | "inventory";
             proposal_id: string;
+        } | {
+            /** @constant */
+            kind: "estimate";
+            /** @constant */
+            step: "examine";
         };
         RecordField: {
             name: string;
@@ -5365,6 +5370,11 @@ export interface components {
                 kind: "step";
                 step: "examine" | "research" | "images" | "inventory";
                 proposal_id: string;
+            } | {
+                /** @constant */
+                kind: "estimate";
+                /** @constant */
+                step: "examine";
             };
         };
         BatchRecord: {
@@ -5408,6 +5418,11 @@ export interface components {
                     kind: "step";
                     step: "examine" | "research" | "images" | "inventory";
                     proposal_id: string;
+                } | {
+                    /** @constant */
+                    kind: "estimate";
+                    /** @constant */
+                    step: "examine";
                 };
             }[];
             part_ids: string[];
@@ -5468,6 +5483,11 @@ export interface components {
                         kind: "step";
                         step: "examine" | "research" | "images" | "inventory";
                         proposal_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "estimate";
+                        /** @constant */
+                        step: "examine";
                     };
                 }[];
                 part_ids: string[];

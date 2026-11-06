@@ -611,6 +611,41 @@ describe('RecordsStage', () => {
     )
   })
 
+  it('shows an AI lot’s estimate as Examine’s, waiting to be accepted on the lot', async () => {
+    const user = userEvent.setup()
+    const estimated = entry({
+      key: `stock_item:${id(110)}`,
+      type: 'stock_item',
+      label: 'Lot 10',
+      state: 'choose',
+      lot_ids: [id(110)],
+      fields: [{ name: 'quantity', value: '12', origin: { kind: 'estimate', step: 'examine' } }],
+      decision: {
+        code: 'quantity_required',
+        detail: 'Accept or replace the estimated quantity on this lot before approving it.',
+      },
+    })
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{
+          read: vi.fn(async () => ({ ...records, records: [...records.records, estimated] })),
+        }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Stock items/, 'Lot 10')
+    const detail = screen.getByRole('region', { name: 'Lot 10' })
+
+    expect(within(detail).getByRole('row', { name: 'Quantity as saved' })).toHaveTextContent(
+      '12Estimated by Examine',
+    )
+    expect(detail).toHaveTextContent('Accept or replace the estimated quantity')
+    expect(within(detail).getByRole('link', { name: 'Open this lot' })).toBeInTheDocument()
+  })
+
   it('drops record drafts when the batch discards local edits', async () => {
     const user = userEvent.setup()
     const onDirtyChange = vi.fn()

@@ -340,6 +340,26 @@ test('locations waiting on evidence groups are a decision with a reason', () => 
   assert.equal(waiting?.decision?.code, 'location_groups_unavailable')
 })
 
+test('an AI lot taking the batch quantity shows its estimate and needs it accepted', () => {
+  const estimated = {
+    ...capture,
+    defaults: { quantity: { mode: 'set', value: '10' }, location: { mode: 'unset' } },
+    lots: capture.lots.map((item) =>
+      item.id === id(102)
+        ? { ...item, quantity: { mode: 'inherit' }, origin: 'agent', estimated_quantity: '12' }
+        : item,
+    ),
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: estimated, processing: undefined, lotGroups: null })
+  const item = of(result.records, 'stock_item').find((record) => record.label === 'Lot 2')
+  assert.equal(item?.state, 'choose')
+  assert.equal(item?.decision?.code, 'quantity_required')
+  assert.deepEqual(item?.fields, [
+    { name: 'quantity', value: '12', origin: { kind: 'estimate', step: 'examine' } },
+  ])
+  validate('BatchRecords', result)
+})
+
 test('each type counts new, existing and to-decide records', () => {
   const result = projectRecords({ capture, processing: undefined, lotGroups: null })
   assert.deepEqual(

@@ -19,6 +19,7 @@ type Origin = RecordOriginDto
 type Field = BatchRecordDto['fields'][number]
 
 const OPERATOR: Origin = { kind: 'operator' }
+const ESTIMATE: Origin = { kind: 'estimate', step: 'examine' }
 
 /** Labels joining two values stay within the contract's 256 characters. */
 const clip = (text: string) => (text.length > 256 ? `${text.slice(0, 255)}…` : text)
@@ -474,11 +475,19 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
 
   const partIds = new Set(capture.parts.map((part) => part.id))
   for (const lot of activeLots) {
-    const quantity = quantityOf(lot.quantity)
+    // An AI lot's count is only an estimate until the operator accepts or replaces it on the lot,
+    // so it never takes the batch default, as approval reads it.
+    const estimated = lot.origin === 'agent' && lot.quantity.mode === 'inherit'
+    const quantity = estimated ? (lot.estimated_quantity ?? null) : quantityOf(lot.quantity)
+    const hasPart = lot.part_subject_id !== null && partIds.has(lot.part_subject_id)
     // One decision per record: a lot needs its Part before its quantity matters.
-    const decision =
-      !lot.part_subject_id || !partIds.has(lot.part_subject_id)
-        ? { code: 'part_choice_required' as const, detail: 'Choose the Part for this lot.' }
+    const decision = !hasPart
+      ? { code: 'part_choice_required' as const, detail: 'Choose the Part for this lot.' }
+      : estimated
+        ? {
+            code: 'quantity_required' as const,
+            detail: 'Accept or replace the estimated quantity on this lot before approving it.',
+          }
         : quantity === null
           ? { code: 'quantity_required' as const, detail: 'Set an exact quantity for this lot.' }
           : null
@@ -488,8 +497,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       label: lot.label,
       state: decision ? 'choose' : 'new',
       target: null,
-      fields: [field('quantity', quantity, OPERATOR)],
-      part_ids: lot.part_subject_id ? [lot.part_subject_id] : [],
+      fields: [field('quantity', quantity, estimated ? ESTIMATE : OPERATOR)],
+      part_ids: hasPart ? [lot.part_subject_id!] : [],
       lot_ids: [lot.id],
       decision,
     })

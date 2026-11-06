@@ -102,7 +102,9 @@ export function RecordDetail({ batch, record, save, disabled, reportFor }: Props
                   <Small>
                     {field.origin.kind === 'step'
                       ? `Proposed by ${STEP_LABELS[field.origin.step]}`
-                      : 'Set by you'}
+                      : field.origin.kind === 'estimate'
+                        ? `Estimated by ${STEP_LABELS[field.origin.step]}`
+                        : 'Set by you'}
                   </Small>
                 </td>
               </tr>

@@ -13982,6 +13982,24 @@
                 "type": "string"
               }
             }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "step"
+            ],
+            "properties": {
+              "kind": {
+                "const": "estimate",
+                "type": "string"
+              },
+              "step": {
+                "const": "examine",
+                "type": "string"
+              }
+            }
           }
         ]
       },
@@ -14061,6 +14079,24 @@
                   },
                   "proposal_id": {
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "step"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "estimate",
+                    "type": "string"
+                  },
+                  "step": {
+                    "const": "examine",
                     "type": "string"
                   }
                 }
@@ -14371,6 +14407,24 @@
                         },
                         "proposal_id": {
                           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "step"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "estimate",
+                          "type": "string"
+                        },
+                        "step": {
+                          "const": "examine",
                           "type": "string"
                         }
                       }
@@ -14847,6 +14901,24 @@
                               },
                               "proposal_id": {
                                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "step"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "estimate",
+                                "type": "string"
+                              },
+                              "step": {
+                                "const": "examine",
                                 "type": "string"
                               }
                             }

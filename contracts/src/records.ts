@@ -92,6 +92,8 @@ export const RecordOrigin = Type.Union([
     step: choice(['examine', 'research', 'images', 'inventory']),
     proposal_id: Id,
   }),
+  /** The Examine lead session's estimate, which the operator accepts or replaces. */
+  object({ kind: Type.Literal('estimate'), step: Type.Literal('examine') }),
 ])
 export const RecordField = object({
   name: Type.String({ minLength: 1, maxLength: 64 }),
