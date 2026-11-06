@@ -326,6 +326,7 @@ export function ManualWorkspace({
           processingQuery.data?.capture_revision === batch.revision
         }
         selected={selected}
+        setSelection={setSelected}
         maxSelected={MAX_SELECTED_LOTS}
         busy={disabled}
         stale={stale}

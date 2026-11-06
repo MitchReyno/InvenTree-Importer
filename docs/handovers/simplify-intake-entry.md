@@ -623,3 +623,11 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
 - **Typecheck failure:** the overview's `retainedJobsSource` (`frontend/src/processing/source.ts`) failed to typecheck against PR-B's nullable question `spec.subject_id`.
 - **The fix:** a whole-batch question from the Examine lead session is now named "Whole batch" and links no lot, with a test in `source.test.ts`.
 
+## PR-B merge of `interactive-app` (#104, #105, #106)
+
+- **Conflicts:** #104 (Review lots and map) conflicted in `ReviewWorkspace.tsx` and `OperatorReview.test.tsx`. Both sides' tests are kept.
+- **Unassigned observations moved:** #104 makes Review always open a lot, so the empty state that held the unassigned list was no longer reachable.
+  - The list now renders in the evidence panel, under the open lot (or the empty state).
+  - A test in `OperatorReview.test.tsx` covers it.
+  - `frontend/ARCHITECTURE.md` says so.
+

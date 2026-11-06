@@ -114,13 +114,7 @@ function reviewRow(batchId: string, attention: BatchAttentionDto | undefined): T
       href: batchHref(batchId, { tab: 'review', view: 'lots' }),
       ...(review ? { count: review.to_check, countLabel: 'to check' } : {}),
     },
-    // The Map arrives with the Review redesign; until then it is shown but not linked.
-    {
-      id: 'map',
-      label: 'Map',
-      href: batchHref(batchId, { tab: 'review', view: 'map' }),
-      disabled: true,
-    },
+    { id: 'map', label: 'Map', href: batchHref(batchId, { tab: 'review', view: 'map' }) },
     {
       id: 'records',
       label: 'Records',

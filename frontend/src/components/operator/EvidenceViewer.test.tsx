@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { EvidenceViewer } from './EvidenceViewer'
+import { mediaDisplayLabels } from '../../media/identity-labels'
 
 const original: MediaVersionDto = {
   id: '20000000-0000-4000-8000-000000000002',
@@ -309,4 +310,63 @@ test('retained group and evidence notes are readable without replacing source id
     '/api/v1/batches/batch/media/previews/30000000-0000-4000-8000-000000000003',
   )
   expect(screen.getAllByText(/Version 2/)).toHaveLength(2)
+})
+
+test('a uniquely named file is labelled by name and kind, with no identifier inline', () => {
+  render(<EvidenceViewer batchId="batch" evidence={[evidence]} />)
+  const source = screen.getByLabelText('Evidence source and version')
+
+  expect(source).toHaveTextContent('Packing slip · original')
+  expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
+})
+
+test('two files with one name are told apart by number, with identifiers only in Details', () => {
+  const second: MediaEvidenceDto = {
+    ...evidence,
+    id: '10000000-0000-4000-8000-0000000000ee',
+    versions: [
+      {
+        ...original,
+        id: '20000000-0000-4000-8000-0000000000ee',
+        evidence_id: '10000000-0000-4000-8000-0000000000ee',
+      },
+    ],
+  }
+  render(<EvidenceViewer batchId="batch" evidence={[evidence, second]} />)
+  const source = screen.getByLabelText('Evidence source and version')
+
+  expect(source).toHaveTextContent('Packing slip (1) · original')
+  expect(source).toHaveTextContent('Packing slip (2) · original')
+  expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
+  expect(screen.getByText('Details').closest('details')?.textContent).toMatch(
+    /evidence [0-9a-f]{8}/,
+  )
+})
+
+test('names are numbered across the snapshot it is given, and Details pairs each with its identifier', () => {
+  const twin = (id: string): MediaEvidenceDto => ({
+    ...evidence,
+    id: `10000000-0000-4000-8000-0000000000${id}`,
+    versions: [
+      {
+        ...original,
+        id: `20000000-0000-4000-8000-0000000000${id}`,
+        evidence_id: `10000000-0000-4000-8000-0000000000${id}`,
+      },
+    ],
+  })
+
+  const all = [twin('a1'), twin('b2'), twin('d4')]
+  render(
+    <EvidenceViewer batchId="batch" evidence={[all[1], all[2]]} labels={mediaDisplayLabels(all)} />,
+  )
+  const source = screen.getByLabelText('Evidence source and version')
+
+  expect(source).toHaveTextContent('Packing slip (2) · original')
+  expect(source).toHaveTextContent('Packing slip (3) · original')
+  expect(source).not.toHaveTextContent('Packing slip (1)')
+  expect(screen.getByRole('img')).toHaveAccessibleName('Packing slip (2) · original · page 1')
+  expect(screen.getByText('Details').closest('details')?.textContent).toMatch(
+    /Packing slip \(2\) · original: Packing slip · evidence 10000000/,
+  )
 })

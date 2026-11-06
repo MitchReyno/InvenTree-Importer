@@ -15,6 +15,7 @@ import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
   openWarnings,
+  openQuestionsByLot,
   parseReviewLocation,
   reviewHash,
   retiredLotIds,
@@ -53,6 +54,8 @@ interface Props {
   toggle: (id: string) => void
   review: () => void
   reviewLots: (ids: string[]) => void
+  /** Replaces the shared selection; the Table may select more than the Workspace cap. */
+  setSelection: (ids: string[]) => void
   prepare: () => void
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
@@ -96,10 +99,14 @@ function initialLocation(batch: CaptureSnapshotDto): ReviewLocation {
 function selectionProblem(
   selected: string[],
   workspace: ManualWorkspaceDto,
-  operatorReview?: OperatorReviewDto,
+  operatorReview: OperatorReviewDto | undefined,
+  maxSelected: number,
 ) {
   if (!selected.length) {
     return null
+  }
+  if (selected.length > maxSelected) {
+    return `Select at most ${maxSelected} lots to review or prepare together.`
   }
   if (operatorReview) {
     const lots = operatorReview.lots.filter((lot) => selected.includes(lot.lot_id))
@@ -136,6 +143,18 @@ function scopeReviewed(
   return statuses.length === selected.length && statuses.every((value) => value.reviewed)
 }
 
+/** Review remounts after each save; history state keeps a return to the list across them. */
+const LIST_CHOSEN = 'reviewListChosen'
+
+function listChosen() {
+  return (history.state as Record<string, unknown> | null)?.[LIST_CHOSEN] === true
+}
+
+/** Rewrites the URL, keeping the list choice unless it is being set or cleared. */
+function writeHash(hash: string, chosen = listChosen()) {
+  history.replaceState(chosen ? { [LIST_CHOSEN]: true } : null, '', hash)
+}
+
 export function ReviewWorkspace({
   batch,
   workspace,
@@ -153,6 +172,7 @@ export function ReviewWorkspace({
   toggle,
   review,
   reviewLots,
+  setSelection,
   prepare,
   edit,
   reload,
@@ -182,8 +202,25 @@ export function ReviewWorkspace({
   const previousFocus = useRef(route.lotId)
   const retired = retiredLotIds(operatorReview, batch)
   const activeLotIds = batch.lots.filter((lot) => !retired.has(lot.id)).map((lot) => lot.id)
-  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter)
+  const openQuestions = openQuestionsByLot(processing, batch)
+  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter, openQuestions)
   const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null
+
+  // Review opens on the first queued lot, so its evidence shows without a separate step.
+  const autoShown = useRef(false)
+  useEffect(() => {
+    if (
+      autoShown.current ||
+      listChosen() ||
+      route.view !== 'evidence' ||
+      focused ||
+      !visibleIds.length
+    ) {
+      return
+    }
+    autoShown.current = true
+    navigate({ lotId: visibleIds[0] })
+  })
 
   useEffect(() => {
     if (focused) {
@@ -194,10 +231,10 @@ export function ReviewWorkspace({
     previousFocus.current = focused
   }, [focused])
 
-  function navigate(next: Partial<ReviewLocation>) {
+  function navigate(next: Partial<ReviewLocation>): boolean {
     if (drafts.isDirty()) {
       setNavigationBlocked(true)
-      return
+      return false
     }
     setNavigationBlocked(false)
     const value = { ...route, ...next }
@@ -206,7 +243,8 @@ export function ReviewWorkspace({
     const hash = sameLot
       ? retainEvidenceQuery(reviewHash(batch.id, value), location.hash)
       : reviewHash(batch.id, value)
-    history.replaceState(null, '', hash)
+    writeHash(withEditParam(hash, editing))
+    return true
   }
 
   function openEditor(subjectId: string) {
@@ -216,21 +254,23 @@ export function ReviewWorkspace({
     }
     setNavigationBlocked(false)
     setEditing(subjectId)
-    history.replaceState(null, '', withEditParam(location.hash, subjectId))
+    writeHash(withEditParam(location.hash, subjectId))
   }
 
   function closeEditor() {
     drafts.forSource('subject')(false)
     setEditing(null)
-    history.replaceState(null, '', withEditParam(location.hash, null))
+    writeHash(withEditParam(location.hash, null))
   }
 
   function retainEditorRoute(retain: boolean) {
-    history.replaceState(null, '', withEditParam(location.hash, retain ? editing : null))
+    writeHash(withEditParam(location.hash, retain ? editing : null))
   }
 
   function inspect(id: string | null) {
-    navigate({ lotId: id, view: id ? 'evidence' : route.view })
+    if (navigate({ lotId: id, view: id ? 'evidence' : route.view })) {
+      writeHash(location.hash, id === null)
+    }
   }
 
   function move(offset: number) {
@@ -253,7 +293,7 @@ export function ReviewWorkspace({
           !reviewUnavailable &&
           !busy &&
           !stale &&
-          !selectionProblem([focused], workspace, operatorReview)
+          !selectionProblem([focused], workspace, operatorReview, maxSelected)
         ) {
           reviewLots([focused])
         }
@@ -271,7 +311,7 @@ export function ReviewWorkspace({
   const lot = batch.lots.find((value) => value.id === focused)
   const part = batch.parts.find((value) => value.id === lot?.part_subject_id)
   const operatorLot = operatorReview?.lots.find((value) => value.lot_id === lot?.id)
-  const problem = selectionProblem(selected, workspace, operatorReview)
+  const problem = selectionProblem(selected, workspace, operatorReview, maxSelected)
   const reviewed = scopeReviewed(selected, workspace, operatorReview)
   return (
     <>
@@ -411,8 +451,15 @@ export function ReviewWorkspace({
         <ReviewFilters
           review={operatorReview}
           filter={route.filter}
+          questionLotIds={openQuestions}
+          questionsKnown={processing !== undefined}
           choose={(filter: ReviewFilter) => navigate({ filter })}
         />
+      )}
+      {route.filter === 'needs_answer' && processing === undefined && (
+        <Small role="status">
+          Open questions have not been read from Processing, so this list may be incomplete.
+        </Small>
       )}
       {operatorReview && operator && route.view === 'table' ? (
         <TableWorkspace
@@ -424,6 +471,8 @@ export function ReviewWorkspace({
           activeLotIds={activeLotIds}
           disabled={busy || stale || reviewUnavailable || drafts.hasOtherSources('workspace')}
           maxReviewLots={maxSelected}
+          selected={selected}
+          setSelection={setSelection}
           inspect={inspect}
           reviewLots={reviewLots}
           reload={reload}
@@ -468,17 +517,14 @@ export function ReviewWorkspace({
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
             ) : (
-              <>
-                <Paragraph>
-                  Inspect a physical lot to compare its retained evidence and saved choices.
-                </Paragraph>
-                <UnassignedObservations
-                  batch={batch}
-                  edit={edit}
-                  disabled={busy || stale || batch.archived || drafts.dirty}
-                />
-              </>
+              <Paragraph>Choose a lot to compare its evidence and saved choices.</Paragraph>
             )}
+            {/* Review always opens a lot, so observations in no lot are listed beside it. */}
+            <UnassignedObservations
+              batch={batch}
+              edit={edit}
+              disabled={busy || stale || batch.archived || drafts.dirty}
+            />
           </Panel>
           <Panel data-area="details" aria-label="Decision">
             {lot ? (
@@ -502,6 +548,8 @@ export function ReviewWorkspace({
                 edit={edit}
                 reload={reload}
                 inspect={inspect}
+                markReviewed={() => reviewLots([lot.id])}
+                openQuestion={openQuestions.get(lot.id) ?? null}
                 editPart={openEditor}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}

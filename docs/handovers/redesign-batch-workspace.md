@@ -295,3 +295,127 @@ Fresh read-only Claude reviewer at `12b04f5`: 1 Minor, 1 Nitpick, both fixed. Th
 
 Fresh read-only Claude reviewer at `8d725fd`: clean. Its only note was the missing Checks line above. Later commits on the branch change only this handover.
 
+### PR-C delivery
+
+CI on #102 passed on every job that ran: frontend, TypeScript, Markdown and the intake HTTP lane. The PostgreSQL lane is retired by #99, and the backend lanes don't apply. Squash-merged as #102 (`d38e6ad`) under Mitch's standing authorisation.
+
+### Demo videos
+
+Mitch asked for a demo-director video on every PR with visible UI changes, made without asking him, captured at 3840×2160 and rendered at 1920×1080, with a title card. Subagents recorded them from the owned fixtures, and each was attached to its PR description in a Demo section:
+
+- #96, PR-A (68 s): masthead, theme switch, component gallery.
+- #100, PR-B (64 s): Batches, header and need-you panel, Capture, Processing and Records.
+- #102, PR-C (78 s): Overview, instructions, step page, drawer, fixture profile, Agents and the not-available state.
+
+The film projects stay outside the repository. The PR-C film shows the fixture rendering correctly in dark mode, which the screenshot script had not verified.
+
+## PR-D plan: Review Lots and Map (Task 8)
+
+Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
+### Existing Review, mapped before planning
+
+- **What exists:** Review › Lots already has the three-column Evidence mode (queue, `LotEvidence`, `DecisionPanel`) and a Table mode (`TableWorkspace`, `BulkEditPanel` naming its scope), plus split, merge and move through `RestructureDialog`.
+- **What does not:** there is no Exclude command, no Review command that links evidence to a lot or creates a lot from evidence (the media `link` edit and capture `add_lot` exist), and no inline question answer in Review.
+- **Selection:** the Table keeps its own selection, separate from the approval selection.
+
+## PR-D results
+
+- **8.1 Workspace panes:** Review opens on the first queued lot, once per mount (the narrow layout's back-to-list still works), so its evidence and details show without a separate step. Each queue row has a "Show" button (named "Show <lot>", current lot marked).
+  - **Details pane:** it now starts with the lot's record chain (Part, Stock item, Location, each with its state, linking to Review › Records). A per-lot "Mark reviewed" is disabled with a stated reason ("Fix N blocking problems first", "Dismiss or fix N warnings first", already reviewed or added).
+  - **Exclude:** shown disabled with "Excluding a lot arrives with record edits", because no command backs it yet (gap for Task 9/10). The spec's "excluded" filter waits for the same command, since no lot can be excluded yet; it is not mapped to Retired, which means split or merged.
+  - **Tests:** five new tests (open on the first lot, show a chosen lot, blocked lot reason, Exclude and no UUIDs in details, record chain) failed first, then passed. Existing tests now use "Show <lot>", and URL assertions include the auto-shown lot. Frontend 522/522.
+- **8.2 problem fixes:** `frontend/src/operator/problem-actions.ts` maps each problem to its fix on the owning screen:
+  - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
+  - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. Every location problem except a missing location (a conflict, an invalid draft parent, an unconfirmed group) also links to "Check evidence groups in Capture".
+  - **Warnings:** evidence warnings link to Capture, and a missing-evidence warning also to "Link evidence on the Map" (since round 4) (reading and crop routes were dropped in review round 1, because no server code raises them).
+  - **Open question:** when the lot (or, since round 5, its Part) has an open Processing question, the details pane links to it under the record chain (since round 6), and "Answer the open question" also comes first on the problems an answer can settle (Part choice, quantity, location). Answering inline and queuing to the asking session wait for Task 14's sessions.
+  - **Unroutable problems:** no fix is offered (for example unsettled source history).
+  - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
+  - **Tests:** first 5 unit tests, then 1 integration test (Records link, Capture link for a warning, "Set the quantity" opening the lot editor). Each failed first, then passed.
+- **8.3 Table:** one selection, held by `ManualWorkspace`, is now shared by the Workspace and the Table, and the filter was already shared through the URL, so switching views keeps both. The Workspace queue keeps its 10-lot cap. The Table can select more for bulk edits, which the contract allows up to the active-lot limit. Mark reviewed and Prepare then say "Select at most 10 lots to review or prepare together." The Table already used the design tokens from PR-A, and its bulk edit already named its scope ("applies to every selected lot or to none", "Apply to N lots"); its look was then checked in the browser. The test (select in Workspace, see it in Table, change it and the filter there, see both back in Workspace) failed first, then passed.
+- **8.4 Map:** `operator/review-map.ts` derives file-level links (a file supports a lot when linked to the lot, its Part, or, since round 3, a lot it was split or merged from), flags files no active lot uses, and flags lots resting on a single file. `ReviewMap` shows Evidence and Lots side by side:
+  - **Files:** "Supports" chips with Unlink, a "Link to a lot…" choice, and "New lot from this" on unused files.
+  - **Lots:** "From" file lists, Split, and merge checkboxes.
+  - **No instruction field:** none appears without agent sessions.
+
+  `ReviewMapStage` reads the media snapshot and applies the edits through existing commands:
+  - **Link and unlink:** the media `link` edit at the read revision.
+  - **New lot from this:** capture `add_lot` with the note "Made from evidence “<file>”." When the refreshed batch shows the new lot, the file is linked to it, because `add_lot` takes no client id.
+  - **Split and merge:** the existing `RestructureDialog`.
+
+  The Map replaces the placeholder at Review › Map, and the header's Map tab is now a link.
+  - **Tests:** model 2 (written alongside the model, not before), map component 5 and stage 2 (written first; they failed on the missing module). The header test now expects a Map link. Frontend 538/538; typecheck, lint and build pass.
+- **Browser check and the ID fix:** `batch-capture.html` now gives `Batch` a synthetic manual client and operator projection, with a lot blocked twice and one with a warning, so Review › Lots, Table, Map and Records render.
+  - **Captures:** Lots (opened on the blocked lot), the blocked lot's details, Table and Map at 1440px and 390px. No horizontal overflow.
+  - **Fix found:** the evidence pane showed shortened evidence and version IDs in its source picker and note headings, against "No internal identifiers inline". `mediaDisplayLabels` now labels a file by name and kind ("Packing slip · original", "· crop N") and numbers files that share a name (round 1), with IDs only in the viewer's Details. A test written first covers it.
+  - **Existing behaviour, not changed here:** Review reads its view from the URL when it mounts, so a hash change on an already-open Review page does not switch view.
+  - **Checks:** frontend 539/539.
+
+### PR-D review round 1
+
+Fresh read-only Claude reviewer at `ac2b871`: 2 Important, 10 Minor, 1 Nitpick, all fixed, test-first except the wording changes.
+
+- **Unlink on a Part-derived link did nothing (Important):** the map now records whether each link is direct or through the lot's Part. Part-derived links show "via shared Part" with no Unlink.
+- **A failed "New lot from this" could link a later lot (Important):** `Batch.edit` reports failure as `false`. The stage now clears the pending link on `false`, and links only a new lot whose label matches. Tested with a failed save followed by a lot with the same label (tightened in round 2).
+- **Minor:**
+  - **`?edit=`:** auto-show keeps it in the URL.
+  - **Back to the list:** the choice is kept in `history.state`, so a remount after a save does not jump to a lot.
+  - **Draft location:** shown as "new" in the record chain.
+  - **Map loading:** shows "Reading evidence…" instead of "No evidence" on every lot.
+  - **Map restructuring:** split, merge and move are locked for lots already added. Merge and move ignore retired IDs, and Move is now offered.
+  - **Duplicate file names:** numbered ("image.jpg (2)") in Review and on Capture tiles, with identifiers in the viewer's Details. The attachment picker keeps exact identity labels.
+  - **Unemitted warning codes:** problem routes for them were dropped, and `possible_duplicate_part` routes to the Part comparison and Records.
+  - **Label-in-name:** "New lot from this: <file>".
+  - **Instruction-field test:** it now renders the normal map.
+- **Nitpick:** "Choose a lot to compare…" replaces the Inspect wording.
+
+### PR-D review round 2
+
+Fresh read-only Claude reviewer at `b4a8815`: 4 Minor, 1 Nitpick, all fixed test-first except the doc lines. It confirmed the server stores `add_lot` labels unchanged and that evidence order is stable, so the label match and the numbering hold across polls.
+
+- **Back to the list was lost by other URL writes (Minor):** every Review URL write now keeps the choice, and it is written only after navigation succeeds, so a blocked navigation leaves it alone. Tested by going back, changing the filter and opening the editor before a remount; the blocked case gained its own test in round 3.
+- **Failed-save test (Minor):** the later lot now has the same label, so only clearing the pending link on `false` keeps the test green; checked by removing the fix.
+- **Numbering across the batch (Minor):** names are numbered once over the whole media snapshot (`evidenceDisplayNames`), so a file reads the same in Capture, Review's viewer, Processing images and the Map. The Map's rows, controls and "From:" lists use the numbered names. Details pairs each numbered name with its identifier.
+- **Map locks while the review is stale (Minor):** the added-lot set falls back to the last accepted review (`approvedLotIds`), since adding is never undone, and split, merge and move are disabled with a note until the latest review is read. Linking stays available.
+- **Nitpick:** the handover lines on numbering and Capture links were corrected.
+
+### PR-D review round 3
+
+Fresh read-only Claude reviewer at `d9538a3`: 1 Important, 2 Minor, 1 Nitpick, all fixed. It confirmed the round-2 fixes.
+
+- **The Map ignored lineage (Important):** a split or merge keeps media links on the retired lot, and the server counts a predecessor's evidence for its successors, so the Map marked the file "Used by no lot" and the successors "No evidence". `predecessorLotIds` now reads each lot's predecessors from the operator review's retired lots, and `reviewMap` walks them to the server's depth of 100. Inherited files show "via earlier lot" with no Unlink. Tested for a split followed by a merge, and for a looping lineage. Until the next operator review is read after a restructure, the lineage is the last accepted one; the Map's status note says inherited evidence waits for it.
+- **Blocked return to the list (Minor):** a test now makes a draft dirty, presses back, discards and remounts, and expects the lot still open; it fails if `inspect` writes the choice unconditionally.
+- **Raw names left (Minor):** the Processing images versions region and the viewer's image alt text now use the numbered names.
+- **Nitpick:** the architecture says identifiers appear only in a viewer (Review's Details, Capture's file viewer).
+
+### PR-D review round 4
+
+Fresh read-only Claude reviewer at `7d24e81`: 2 Minor, 3 Nitpick, all fixed except the "excluded" filter, recorded as a gap. It confirmed the round-3 lineage matches the server's edges and walk.
+
+- **Missing filters (Minor):** "Needs answer" now lists lots with an open Processing question, with a count (extended to Part questions in round 5). "Excluded" waits for the Exclude command (Task 9/10), recorded with Exclude above.
+- **Stale lineage looked final (Minor):** while the latest review is unread and the batch has retired lots, the Map's "Used by no lot" and "No evidence" read "… · checking history", and "New lot from this" is disabled for files linked to a retired lot. Linking stays available.
+- **Nitpicks:** the 8.4 line above mentions earlier lots; "No supporting evidence" also offers "Link evidence on the Map"; the Map's link list now offers lots the file supports only through a Part or an earlier lot, so a direct link can be added.
+
+### PR-D review round 5
+
+Fresh read-only Claude reviewer at `02e0374`: 3 Minor, 2 Nitpick, all fixed. It confirmed the round-4 fixes.
+
+- **Questions on a Part (Minor):** a Processing job can be about a Part, so its question applies to every lot using that Part. `openQuestionsByLot` (in `operator/review-model.ts`, replacing `openQuestionFor` and `openQuestionLotIds`) gives each lot its own first open question, else its Part's. It drives both "Needs answer" and "Answer the open question". Unit-tested.
+- **Unknown questions looked like none (Minor):** before Processing is read, or without a Processing client, the "Needs answer" count reads "…" and the filtered list says the open questions have not been read.
+- **Wiring test (Minor):** an integration test gives one lot an open question, then expects only that lot under "Needs answer" with a count of 1, in the Workspace and the Table. It fails if the queue is not given the questions.
+- **Nitpicks:** "No lot yet · checking history" now shows only on files linked to a retired lot, with "Used by no lot" on others; the lot-side "No evidence yet · checking history" is tested.
+
+### PR-D review round 6
+
+Fresh read-only Claude reviewer at `d24198f`: 1 Minor, fixed test-first. It confirmed the round-5 fixes.
+
+- **A lot under "Needs answer" could have no way to its question (Minor):** the question link appeared only on Part-choice, quantity and location problems. The details pane now says "Processing has an open question about this lot" with "Answer the open question" under the record chain whenever the lot has one. The integration test puts a question on a lot whose only problem is missing evidence; it failed first, then passed.
+
+### PR-D review round 7
+
+Fresh read-only Claude reviewer at `0b8c86e`: 1 Minor, 1 Nitpick, fixed (the Minor test-first). It confirmed the round-6 fix.
+
+- **Stale Map link target (Minor):** after a successful link the chosen lot left the "Link to a lot…" list but stayed chosen, so Link stayed enabled and could resend the link, or send one to a lot retired since. A choice that is no longer offered now counts as none. The test links, rerenders with the new link, and expects the placeholder and a disabled Link; it failed first, then passed.
+- **Nitpick:** the architecture and the 8.2 Warnings line now name the Map among the places problems route to.
+

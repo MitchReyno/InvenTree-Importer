@@ -3,6 +3,7 @@ import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { once } from 'node:events'
 import type { PgTools } from '../../src/operations/pg-tools.ts'
+import { PG } from '../../src/dev/pg-identity.ts'
 
 /** Same owned PostgreSQL17 binary, lease and database; no host package install or credential argv. */
 async function postgres(
@@ -13,7 +14,7 @@ async function postgres(
   input?: string,
 ) {
   const url = new URL(databaseUrl)
-  const container = process.env.INTAKE_TEST_PG_CONTAINER ?? 'bench-intake-dev-pg'
+  const container = process.env.INTAKE_TEST_PG_CONTAINER ?? PG.container
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(container))
     throw new Error('owned_postgres_container_required')
   const child = spawn(

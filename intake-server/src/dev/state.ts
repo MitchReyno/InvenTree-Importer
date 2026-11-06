@@ -10,6 +10,7 @@ import { developmentTarget, type DevelopmentTarget } from './target.ts'
 
 export interface FakeDevState {
   version: 1
+  serverId?: string
   databaseName: string
   identity: { actor: string; target: string; context: string }
   apiUrl: string
@@ -24,6 +25,7 @@ export interface FakeDevState {
 
 export interface ReadOnlyDevState {
   version: 2
+  serverId?: string
   databaseName: string
   identity: { actor: string; target: string; context: string }
   apiUrl: string
@@ -35,13 +37,33 @@ export interface ReadOnlyDevState {
   target: Extract<DevelopmentTarget, { kind: 'read-only' }>
 }
 
-export type DevState = FakeDevState | ReadOnlyDevState
+export interface LocalDevState extends Omit<ReadOnlyDevState, 'version' | 'target'> {
+  version: 3
+  instanceId: string
+  target: Extract<DevelopmentTarget, { kind: 'local-inventree' }>
+}
+
+export type DevState = FakeDevState | ReadOnlyDevState | LocalDevState
+
+/** App state belongs to one database server; state from another server, or none, is stale. */
+export function assertStateServer(state: { serverId?: unknown }, serverId: string): void {
+  if (state.serverId !== serverId) {
+    throw new Error('development_state_server_changed')
+  }
+}
 
 export function schedulerUrl(state: DevState): string {
   return state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl
 }
 
-function readonlyState(value: Record<string, unknown>, root: string): ReadOnlyDevState {
+function readonlyState(
+  value: Record<string, unknown>,
+  root: string,
+): ReadOnlyDevState | LocalDevState {
+  const local = value.version === 3
+  if (local && (typeof value.instanceId !== 'string' || !/^[a-f0-9]{32}$/.test(value.instanceId))) {
+    throw new Error('invalid_dev_state')
+  }
   if (
     typeof value.schedulerUrl !== 'string' ||
     value.schedulerUrl.length > 4096 ||
@@ -56,21 +78,27 @@ function readonlyState(value: Record<string, unknown>, root: string): ReadOnlyDe
   const fields = target as Record<string, unknown>
   if (
     Object.keys(fields).sort().join(',') !== 'credentialRef,kind,origin' ||
-    fields.kind !== 'read-only' ||
+    fields.kind !== (local ? 'local-inventree' : 'read-only') ||
     typeof fields.origin !== 'string' ||
     typeof fields.credentialRef !== 'string'
   ) {
     throw new Error('invalid_readonly_dev_target')
   }
-  const binding = developmentTarget({
-    INTAKE_TARGET_PROFILE: 'read-only',
-    INTAKE_READ_ORIGIN: fields.origin,
-    INTAKE_CREDENTIAL_REF: fields.credentialRef,
-  })
-  if (binding.kind !== 'read-only' || binding.origin !== fields.origin) {
+  const binding = local
+    ? developmentTarget({ INTAKE_TARGET_PROFILE: 'local-inventree' })
+    : developmentTarget({
+        INTAKE_TARGET_PROFILE: 'read-only',
+        INTAKE_READ_ORIGIN: fields.origin,
+        INTAKE_CREDENTIAL_REF: fields.credentialRef,
+      })
+  if (
+    binding.kind === 'fake' ||
+    binding.origin !== fields.origin ||
+    binding.credentialRef !== fields.credentialRef
+  ) {
     throw new Error('invalid_readonly_dev_target')
   }
-  const state = value as unknown as ReadOnlyDevState
+  const state = value as unknown as ReadOnlyDevState | LocalDevState
   for (const url of [state.apiUrl, state.processingUrl, state.mediaUrl, state.schedulerUrl]) {
     developmentRuntimeUrl(url, state.databaseName)
   }
@@ -97,7 +125,7 @@ export async function readDevState(root: string): Promise<DevState> {
     !value ||
     typeof value !== 'object' ||
     !('version' in value) ||
-    (value.version !== 1 && value.version !== 2) ||
+    (value.version !== 1 && value.version !== 2 && value.version !== 3) ||
     !('databaseName' in value) ||
     typeof value.databaseName !== 'string' ||
     !/^intake_dev_[a-f0-9]{32}$/.test(value.databaseName)
@@ -126,7 +154,13 @@ export async function readDevState(root: string): Promise<DevState> {
   if (typeof raw.channelSecret !== 'string' || !/^[a-f0-9]{64}$/.test(raw.channelSecret)) {
     throw new Error('invalid_dev_channel')
   }
-  if (raw.version === 2) {
+  if (
+    raw.serverId !== undefined &&
+    (typeof raw.serverId !== 'string' || !/^[a-f0-9]{32}$/.test(raw.serverId))
+  ) {
+    throw new Error('invalid_dev_state')
+  }
+  if (raw.version === 2 || raw.version === 3) {
     return readonlyState(raw, root)
   }
   for (const key of ['fakeUrl', 'runnerConfigPath']) {
