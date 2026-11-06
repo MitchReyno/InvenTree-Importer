@@ -81,7 +81,8 @@ export function reviewMap(
       .filter((item) => versions.has(item.evidence_version_id))
       .map((item, index) => ({
         id: item.id,
-        label: item.readings?.markings?.[0] ?? item.readings?.text ?? `Region ${index + 1}`,
+        label:
+          item.readings?.markings?.find(Boolean) || item.readings?.text || `Region ${index + 1}`,
         lotId:
           item.lot_id !== null && item.lot_id !== undefined && active.has(item.lot_id)
             ? item.lot_id

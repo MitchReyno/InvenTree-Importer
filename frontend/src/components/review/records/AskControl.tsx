@@ -37,7 +37,8 @@ export function AskControl({
   const [asked, setAsked] = useState(false)
   const [failed, setFailed] = useState(false)
   const askedValue = useRef(value)
-  const focus = useRef<'asked' | 'ask' | null>(null)
+  const focus = useRef<'asked' | 'ask' | 'message' | null>(null)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
   const askedRef = useRef<HTMLElement>(null)
   const askRef = useRef<HTMLSpanElement>(null)
 
@@ -53,6 +54,8 @@ export function AskControl({
   useEffect(() => {
     if (focus.current === 'asked') {
       askedRef.current?.focus()
+    } else if (focus.current === 'message') {
+      messageRef.current?.focus()
     } else if (focus.current === 'ask') {
       askRef.current?.querySelector('button')?.focus()
     }
@@ -69,7 +72,14 @@ export function AskControl({
   if (!open) {
     return (
       <span ref={askRef}>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            focus.current = 'message'
+            setOpen(true)
+          }}
+        >
           Ask {step}
         </Button>
       </span>
@@ -95,6 +105,7 @@ export function AskControl({
       }}
     >
       <TextArea
+        ref={messageRef}
         aria-label={`Message to ${step}`}
         value={text}
         rows={2}

@@ -440,7 +440,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     const entries = subjects.flatMap((subject, rank) =>
       (proposals.get(subject) ?? []).map((entry) => ({ entry, rank })),
     )
-    // Once a current job has proposed, a superseded job's catalogue no longer counts.
+    // Once any current job has proposed about the Part or its lots, a superseded job's catalogue
+    // no longer counts, whatever step proposed.
     const current = entries.filter(({ entry }) => entry.current)
     return (current.length ? current : entries)
       .sort((left, right) => left.rank - right.rank)

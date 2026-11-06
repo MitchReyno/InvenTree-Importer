@@ -11,6 +11,7 @@ import { batchHref, parseBatchRoute, processingStepFor } from '../../../navigati
 import { serverQueryKey, useServerScope } from '../../../queries/scope'
 import { useRetainedPollInterval } from '../../operations/LiveUpdates'
 import { ENDED_SESSIONS } from '../../../processing/source'
+import { clearPending } from '../../../processing/pending-messages'
 import type { ProcessingClient } from '../../../processing/types'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
@@ -70,6 +71,8 @@ export function RecordsStage({
   if (seenDiscard !== discarded) {
     setSeenDiscard(discarded)
     setBlocked(false)
+    // Unsent Ask messages are record drafts too; the remount must not restore them.
+    clearPending(`${batch.id}:ask:`)
   }
   // A failed read after a save keeps the last good records, so the open drafts stay mounted.
   const lastGood = useRef(query.data)
@@ -245,6 +248,9 @@ export function RecordsStage({
                       size="sm"
                       variant="ghost"
                       onClick={() => {
+                        if (selected) {
+                          clearPending(`${batch.id}:ask:${selected.key}:`)
+                        }
                         setDiscards((value) => value + 1)
                         setBlocked(false)
                       }}

@@ -799,6 +799,48 @@ describe('RecordsStage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('discarding a record also discards its unsent Ask message', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(async () => ({ id: 'inbox' })),
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={onDirtyChange}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    await user.click(
+      await within(within(detail).getByRole('row', { name: 'Category as saved' })).findByRole(
+        'button',
+        { name: 'Ask Research' },
+      ),
+    )
+    expect(within(detail).getByLabelText('Message to Research')).toHaveFocus()
+    await user.type(within(detail).getByLabelText('Message to Research'), ' Please hurry.')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+    await user.click(screen.getByRole('button', { name: /^Companies/ }))
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }))
+    expect(screen.queryByLabelText('Message to Research')).not.toBeInTheDocument()
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    await user.click(screen.getByRole('button', { name: /^Companies/ }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('offers no Ask for a session that has been cancelled', async () => {
     const user = userEvent.setup()
     const processing = {

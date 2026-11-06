@@ -707,3 +707,13 @@ Fresh read-only Claude reviewer at `45341d0`: 5 Minor, 4 Nitpicks, all fixed. It
 - **Docs (Minor):** the frontend architecture and this handover describe one record per Part and the category note at its field.
 - **Nitpicks:** the Capture glance leaves out a finished or ended session's last line (a test covers it); once a current job has proposed for a Part, a superseded job's catalogue no longer counts (a test covers it); Ask returns focus to "Asked <Step>" after sending and to the Ask button after cancelling; `ProposedCompanyEditor` handles its one Part directly.
 
+### PR-G review round 3
+
+Fresh read-only Claude reviewer at `e13327e`: 1 Important, 3 Minor, 2 Nitpicks, all fixed. It confirmed round 2's fixes, including the pending-store key scoping and stable guard callbacks.
+
+- **Discard kept an Ask draft (Important):** the pending store restored the message after "Discard changes" remounted the record, so it reported dirty again and blocked the next switch; the batch's discard left it too. Discarding a record now clears that record's Ask messages (`clearPending`) before the remount, and the batch's discard clears every Ask message. A test types an Ask message, discards, and finds it gone and the guard clean; it fails without the clear.
+- **Opening Ask lost focus (Minor):** focus moves into the message box when Ask opens (the same test checks it).
+- **Tell Examine could leave the guard dirty (Minor):** it reported a draft even when its form was hidden (a cancelled session, no session, an archived batch) and never reported clean on leaving. It now reports unsent text only while the form is shown, and clean when it unmounts. A test covers leaving and a kept draft with no session to show it.
+- **Docs (Minor):** `frontend/ARCHITECTURE.md` says where unsent messages are kept and that discards drop Ask drafts, and the Map's lineage note sits with the split and merge lineage it explains.
+- **Nitpicks:** the catalogue comment says any current job counts; a region's label skips an empty first marking.
+

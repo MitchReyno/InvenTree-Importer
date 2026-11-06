@@ -104,3 +104,20 @@ it('keeps an unsent instruction and its key when the Map closes, and reports it 
   expect(processing.chat.mock.calls[1][3]).toBe(processing.chat.mock.calls[0][3])
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })
+
+it('reports clean when it leaves, and a kept draft is not unsaved work while no session shows it', async () => {
+  const user = userEvent.setup()
+  const onDirtyChange = vi.fn()
+  const view = render(
+    <TellExamine batchId="leaving" processing={client(true)} onDirtyChange={onDirtyChange} />,
+  )
+  await user.type(await screen.findByLabelText('Instruction for Examine'), 'Hold this')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  view.unmount()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+  const hidden = client(false)
+  render(<TellExamine batchId="leaving" processing={hidden} onDirtyChange={onDirtyChange} />)
+  await waitFor(() => expect(hidden.read).toHaveBeenCalled())
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})

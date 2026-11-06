@@ -38,10 +38,6 @@ export function TellExamine({
   const [busy, setBusy] = useState(false)
   const [outcome, setOutcome] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  // A draft restored from the store is unsaved work too.
-  useEffect(() => {
-    onDirtyChange?.(Boolean(pendingMessage(storeKey).text.trim()))
-  }, [onDirtyChange, storeKey])
   const snapshot = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batchId),
     queryFn: () => processing!.read(batchId),
@@ -50,6 +46,13 @@ export function TellExamine({
   })
   const lead = snapshot.data ? examineLead(snapshot.data) : null
   const chat = processing?.chat
+  const visible = Boolean(chat && lead?.session_state && lead.session_state !== 'cancelled')
+  // Unsent text is unsaved work only while the form is shown; hiding or leaving reports clean.
+  const dirty = visible && Boolean(text.trim())
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
   if (!lead?.session_state || lead.session_state === 'cancelled' || !chat) {
     return null
   }
@@ -70,7 +73,6 @@ export function TellExamine({
       )
       confirmPending(storeKey)
       setText('')
-      onDirtyChange?.(false)
       setOutcome(chatConfirmation(state))
     } catch {
       setFailed(true)
@@ -96,7 +98,6 @@ export function TellExamine({
           onChange={(event) => {
             setText(event.target.value)
             editPending(storeKey, event.target.value)
-            onDirtyChange?.(Boolean(event.target.value.trim()))
             setOutcome(null)
             setFailed(false)
           }}

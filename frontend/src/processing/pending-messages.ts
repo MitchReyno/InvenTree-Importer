@@ -30,3 +30,12 @@ export function sendKey(storeKey: string, text: string) {
 export function confirmPending(storeKey: string) {
   pending.delete(storeKey)
 }
+
+/** Drops every unsent message whose key starts with `prefix`, when its drafts are discarded. */
+export function clearPending(prefix: string) {
+  for (const key of [...pending.keys()]) {
+    if (key.startsWith(prefix)) {
+      pending.delete(key)
+    }
+  }
+}
