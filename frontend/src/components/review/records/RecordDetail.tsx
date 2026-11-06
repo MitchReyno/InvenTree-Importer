@@ -34,6 +34,7 @@ const FIELD_LABELS: Record<string, string> = {
   value: 'Value',
   quantity: 'Quantity',
   parameter: 'Parameter',
+  manufacturer: 'Manufacturer',
   supplier: 'Supplier',
 }
 
@@ -133,8 +134,8 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
                     })()}
                   {atField
                     .filter((item) => item.field === field.name)
-                    .map((item) => (
-                      <Small key={item.value}>
+                    .map((item, index) => (
+                      <Small key={index}>
                         Proposed {item.value}: {item.why}
                         {item.reason && ` Proposed because: ${item.reason}`}
                       </Small>
@@ -148,8 +149,8 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
       {elsewhere.length > 0 && (
         <Unsupported aria-label="Not supported yet">
           <strong>Not supported yet</strong>
-          {elsewhere.map((item) => (
-            <div key={`${item.field}:${item.value}`}>
+          {elsewhere.map((item, index) => (
+            <div key={index}>
               <span>
                 {FIELD_LABELS[item.field] ?? item.field}: {item.value}
               </span>

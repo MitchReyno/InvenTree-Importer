@@ -5,7 +5,8 @@ import {
   type LotLocationGroups,
 } from './capture-location.ts'
 import type { InventoryPartSpecDto } from './effects.ts'
-import type { ProcessingSnapshotDto } from './processing.ts'
+import type { CatalogueProposalDto, ProcessingSnapshotDto } from './processing.ts'
+import { assessCatalogue, type CatalogueUnsupportedReason } from './catalogue-assessment.ts'
 import {
   RECORD_TYPES,
   type BatchRecordDto,
@@ -31,6 +32,7 @@ type Catalogue = {
     sku: string | null
     price: { amount: string; currency: string } | null
   } | null
+  description?: { text: string } | null
 }
 type Role = 'manufacturer' | 'supplier'
 
@@ -221,6 +223,84 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
       ),
     sku: () => when(spec.supplier !== null && catalogue?.supplier?.sku === spec.supplier.sku),
   }
+}
+
+const WHY: Record<CatalogueUnsupportedReason, string> = {
+  new_category: 'Creating a category is not supported yet; choose an existing category.',
+  new_parameter_template: 'Creating a parameter template is not supported yet.',
+  parameter_mapping_missing:
+    "Mapping this parameter template to the Part's category is not supported yet.",
+  parameter_category_incompatible: "This parameter template does not apply to the Part's category.",
+  category_not_applicable: 'This parameter waits for an existing category.',
+  new_manufacturer: 'Creating a manufacturer is not supported yet.',
+  new_supplier: 'Creating a supplier is not supported yet.',
+  supplier_sku_missing: 'A supplier part needs a SKU.',
+  supplier_price_unsupported: 'Supplier prices are not supported yet.',
+  company_role_incompatible: 'This company is not set up for that role in InvenTree.',
+  description_unsupported: 'A description must be one line of at most 250 characters.',
+  mapping_observation_invalid:
+    'This no longer matches what was read from InvenTree; read it again.',
+}
+
+/** One unsupported catalogue value as Records shows it, with its reason. */
+function unsupportedValue(
+  catalogue: Catalogue,
+  path: string,
+  reason: CatalogueUnsupportedReason,
+  label: (observationId: string, fallback: string) => string,
+): Unsupported | null {
+  const choiceText = (choice: Choice, fallback: string) =>
+    choice.choice === 'proposed_new'
+      ? (choice.name ?? fallback)
+      : choice.reference
+        ? label(choice.reference.observation_id, fallback)
+        : fallback
+
+  const because = (choice: Choice | undefined) =>
+    choice?.choice === 'proposed_new' ? choice.reason?.slice(0, 512) || null : null
+
+  const why = WHY[reason]
+  if (path === 'category' && catalogue.category) {
+    return {
+      field: 'category',
+      value: clip(choiceText(catalogue.category, 'Category')),
+      why,
+      reason: because(catalogue.category),
+    }
+  }
+  if (path.startsWith('parameters.')) {
+    const parameter = catalogue.parameters[Number(path.slice('parameters.'.length))]
+    return parameter
+      ? {
+          field: 'parameter',
+          value: clip(`${parameter.name}: ${parameter.value}`),
+          why,
+          reason: null,
+        }
+      : null
+  }
+  if (path === 'supplier.price' && catalogue.supplier?.price) {
+    const { amount, currency } = catalogue.supplier.price
+    return { field: 'supplier', value: clip(`${amount} ${currency}`), why, reason: null }
+  }
+  if (path === 'manufacturer' || path === 'supplier') {
+    const entry = catalogue[path]
+    if (!entry) {
+      return null
+    }
+    const number = 'mpn' in entry ? entry.mpn : entry.sku
+    const name = choiceText(entry.company, path === 'manufacturer' ? 'Manufacturer' : 'Supplier')
+    return {
+      field: path,
+      value: clip(number ? `${name} · ${number}` : name),
+      why,
+      reason: because(entry.company),
+    }
+  }
+  if (path === 'description' && catalogue.description) {
+    return { field: 'description', value: clip(catalogue.description.text), why, reason: null }
+  }
+  return null
 }
 
 /** Every record the batch touches, from capture state. Proposed-new values arrive with task 14. */
@@ -477,50 +557,47 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     if (!catalogue) {
       continue
     }
+    const spec = part.choice.mode === 'create' ? part.choice.spec : null
+
+    // A proposed-new company becomes its own decision record only on a Part being created that
+    // has no company in that role; anywhere else it is listed as not supported.
+    const decides = (role: Role) => {
+      const entry = catalogue[role]
+      return Boolean(
+        spec && entry?.company.choice === 'proposed_new' && entry.company.name && !spec[role],
+      )
+    }
+
     const unsupported: Unsupported[] = []
-    if (catalogue.category?.choice === 'proposed_new' && catalogue.category.name) {
-      unsupported.push({
-        field: 'category',
-        value: clip(catalogue.category.name),
-        why: 'Creating a category is not supported yet; choose an existing category.',
-        reason: catalogue.category.reason?.slice(0, 512) || null,
-      })
-    }
-    for (const parameter of catalogue.parameters) {
-      // A template the category has no mapping for cannot enter the spec either.
-      if (parameter.template === null || parameter.category_mapping === null) {
-        unsupported.push({
-          field: 'parameter',
-          value: clip(`${parameter.name}: ${parameter.value}`),
-          why:
-            parameter.template === null
-              ? 'Creating a parameter template is not supported yet.'
-              : "Mapping this parameter template to the Part's category is not supported yet.",
-          reason: null,
-        })
+    // The same assessment the server applies, so every value that cannot enter a spec is shown.
+    for (const item of assessCatalogue(
+      catalogue as unknown as CatalogueProposalDto,
+      capture.target_context_id,
+      capture.observations,
+    )) {
+      if (item.status !== 'unsupported') {
+        continue
       }
-    }
-    if (catalogue.supplier?.price) {
-      unsupported.push({
-        field: 'supplier',
-        value: `${catalogue.supplier.price.amount} ${catalogue.supplier.price.currency}`,
-        why: 'Supplier prices are not supported yet.',
-        reason: null,
-      })
+      const shown = unsupportedValue(catalogue, item.path, item.reason, label)
+      if (
+        !shown ||
+        ((item.reason === 'new_manufacturer' || item.reason === 'new_supplier') &&
+          decides(item.reason === 'new_manufacturer' ? 'manufacturer' : 'supplier'))
+      ) {
+        continue
+      }
+      unsupported.push(shown)
     }
     const partRecord = records.find((item) => item.key === `part:${part.id}`)
     if (partRecord && unsupported.length) {
       partRecord.unsupported = unsupported.slice(0, 40)
     }
-    const spec = part.choice.mode === 'create' ? part.choice.spec : null
-    // Only a Part being created can take an existing company; one already chosen in InvenTree,
-    // or still unset, has nothing to set it on. A role the Part already has is not asked again.
     if (!spec) {
       continue
     }
     for (const role of ['manufacturer', 'supplier'] as const) {
       const entry = catalogue[role]
-      if (!entry || entry.company.choice !== 'proposed_new' || !entry.company.name || spec[role]) {
+      if (!entry || !decides(role) || !entry.company.name) {
         continue
       }
       const name = clip(entry.company.name)

@@ -97,6 +97,7 @@ const inherit = { mode: 'inherit' as const }
 const capture = {
   id: id(1),
   revision: '7',
+  target_context_id: context,
   defaults: { quantity: { mode: 'unset' }, location: { mode: 'unset' } },
   parts: [
     { id: partA, label: 'A', revision: '1', choice: { mode: 'create', spec: specA } },
@@ -736,6 +737,65 @@ test('values the executor cannot create are listed on the Part as not supported 
   assert.equal(
     of(result.records, 'part').find((record) => record.key === `part:${partA}`)?.unsupported,
     undefined,
+  )
+})
+
+test('every value the shared assessment cannot apply is listed, never dropped', () => {
+  const long = 'x'.repeat(251)
+  const result = projectRecords({
+    capture: withGct,
+    processing: catalogueJob(partD, {
+      category: proposedNew('Thin-film resistors', 'The packet says thin film'),
+      parameters: [
+        {
+          name: 'Resistance',
+          value: '10 kΩ',
+          template: ref(903, 'parameter_template'),
+          category_mapping: ref(905, 'category_parameter'),
+          sources: [],
+        },
+      ],
+      manufacturer: {
+        company: proposedNew('GCT', 'The reel label reads GCT'),
+        mpn: 'R-10',
+        sources: [],
+      },
+      supplier: {
+        company: { choice: 'existing', reference: ref(909, 'company'), sources: [] },
+        sku: null,
+        price: null,
+        sources: [],
+      },
+      description: { text: long, sources: [] },
+    }),
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  // Part D is matched in InvenTree, so the new manufacturer is listed rather than decided.
+  assert.equal(
+    of(result.records, 'company').some((record) => record.proposed?.name === 'GCT'),
+    false,
+  )
+  const part = of(result.records, 'part').find((record) => record.key === `part:${partD}`)
+  assert.deepEqual(
+    part?.unsupported?.map((item) => [item.field, item.value, item.why, item.reason]),
+    [
+      [
+        'category',
+        'Thin-film resistors',
+        'Creating a category is not supported yet; choose an existing category.',
+        'The packet says thin film',
+      ],
+      ['parameter', 'Resistance: 10 kΩ', 'This parameter waits for an existing category.', null],
+      [
+        'manufacturer',
+        'GCT · R-10',
+        'Creating a manufacturer is not supported yet.',
+        'The reel label reads GCT',
+      ],
+      ['supplier', 'Yageo', 'A supplier part needs a SKU.', null],
+      ['description', long, 'A description must be one line of at most 250 characters.', null],
+    ],
   )
 })
 
