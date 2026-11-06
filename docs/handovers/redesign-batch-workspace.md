@@ -329,7 +329,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
   - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. Every location problem except a missing location (a conflict, an invalid draft parent, an unconfirmed group) also links to "Check evidence groups in Capture".
   - **Warnings:** evidence warnings link to Capture (reading and crop routes were dropped in review round 1, because no server code raises them).
-  - **Open question:** when the lot has an open Processing question, "Answer the open question" comes first and links to it. Answering inline and queuing to the asking session wait for Task 14's sessions.
+  - **Open question:** when the lot (or, since round 5, its Part) has an open Processing question, the details pane links to it under the record chain (since round 6), and "Answer the open question" also comes first on the problems an answer can settle (Part choice, quantity, location). Answering inline and queuing to the asking session wait for Task 14's sessions.
   - **Unroutable problems:** no fix is offered (for example unsettled source history).
   - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
   - **Tests:** first 5 unit tests, then 1 integration test (Records link, Capture link for a warning, "Set the quantity" opening the lot editor). Each failed first, then passed.
@@ -405,4 +405,10 @@ Fresh read-only Claude reviewer at `02e0374`: 3 Minor, 2 Nitpick, all fixed. It 
 - **Unknown questions looked like none (Minor):** before Processing is read, or without a Processing client, the "Needs answer" count reads "…" and the filtered list says the open questions have not been read.
 - **Wiring test (Minor):** an integration test gives one lot an open question, then expects only that lot under "Needs answer" with a count of 1, in the Workspace and the Table. It fails if the queue is not given the questions.
 - **Nitpicks:** "No lot yet · checking history" now shows only on files linked to a retired lot, with "Used by no lot" on others; the lot-side "No evidence yet · checking history" is tested.
+
+### PR-D review round 6
+
+Fresh read-only Claude reviewer at `d24198f`: 1 Minor, fixed test-first. It confirmed the round-5 fixes.
+
+- **A lot under "Needs answer" could have no way to its question (Minor):** the question link appeared only on Part-choice, quantity and location problems. The details pane now says "Processing has an open question about this lot" with "Answer the open question" under the record chain whenever the lot has one. The integration test puts a question on a lot whose only problem is missing evidence; it failed first, then passed.
 

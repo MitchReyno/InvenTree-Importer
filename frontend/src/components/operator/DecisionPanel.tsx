@@ -182,6 +182,20 @@ export function DecisionPanel({
       <RecordChain
         links={recordLinks(batch, lot, part, operatorLot, lotLocationFact(batch, lot, media))}
       />
+      {openQuestion && (
+        <Paragraph>
+          Processing has an open question about this lot.{' '}
+          <Link
+            href={batchHref(batch.id, {
+              tab: 'processing',
+              step: openQuestion.step,
+              questionId: openQuestion.id,
+            })}
+          >
+            Answer the open question
+          </Link>
+        </Paragraph>
+      )}
       {markReviewed && operatorLot && (
         <LotActions>
           <Button

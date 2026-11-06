@@ -1160,3 +1160,25 @@ test('Needs answer says when open questions are unknown rather than counting non
 
   expect(screen.getByText(/Open questions have not been read/)).toBeInTheDocument()
 })
+
+test('a lot with an open question links to it even when no problem asks for an answer', async () => {
+  const user = userEvent.setup()
+  const snapshot = {
+    batch_id: batchId,
+    jobs: [
+      {
+        id: 'job',
+        stage: 'identifying',
+        subject_id: b,
+        proposals: [],
+        questions: [{ id: 'q-b', state: 'open', spec: { subject_id: b } }],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+  renderReview({ processing: { read: vi.fn(async () => snapshot) } as unknown as ProcessingClient })
+  await user.click(await screen.findByRole('button', { name: /^Needs answer 1/ }))
+  await user.click(screen.getByRole('button', { name: 'Show Packet B' }))
+
+  const links = await screen.findAllByRole('link', { name: 'Answer the open question' })
+  expect(links[0]).toHaveAttribute('href', `#${batchId}/processing/examine/q-b`)
+})
