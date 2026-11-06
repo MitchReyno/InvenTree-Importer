@@ -46,9 +46,13 @@ export async function syntheticLeadTurn(
   inbox: { id: string; seq: string; kind: string; payload?: Record<string, unknown> }[],
 ) {
   const path = join(cwd, 'synthetic-lead.json')
+  let firstTurn = false
   const memory: Memory = await readFile(path, 'utf8')
     .then((text) => JSON.parse(text) as Memory)
-    .catch(() => ({ revision: manifest.capture_revision, lots: {} }))
+    .catch(() => {
+      firstTurn = true
+      return { revision: manifest.capture_revision, lots: {} }
+    })
   // The batch as it is now: other writers may have moved it on since the last turn.
   const view = await call('read_batch', {})
   memory.revision = String(
@@ -59,7 +63,9 @@ export async function syntheticLeadTurn(
     Buffer.from(manifest.media.sha256, 'hex'),
   )
   const notices = inbox.filter((item) => item.kind === 'evidence')
-  const evidence = notices.length
+  // The first turn examines every photo; later turns only evidence sent as notices, so a turn
+  // woken by an answer or a revision examines nothing again.
+  const evidence = !firstTurn
     ? notices.map((item) => ({
         evidenceId: String(item.payload?.evidence_id),
         versionId: String(item.payload?.version_id),
@@ -72,6 +78,7 @@ export async function syntheticLeadTurn(
   )
 
   const seen = new Map<string, { observationIds: string[]; photos: number; quantity?: string }>()
+  const observedAt = new Map<string, string>()
   for (const item of evidence) {
     const fetched = await call('fetch_evidence', {
       evidence_id: item.evidenceId,
@@ -112,6 +119,7 @@ export async function syntheticLeadTurn(
       const key = keyOf(entry.marking)
       const group = seen.get(key) ?? { observationIds: [], photos: 0 }
       group.observationIds.push(String(recorded.id))
+      observedAt.set(String(recorded.id), memory.revision)
       group.photos += 1
       // The same items seen again are one count, never a sum.
       group.quantity ??= entry.quantity
@@ -119,6 +127,12 @@ export async function syntheticLeadTurn(
     }
   }
 
+  const formedNew: {
+    lotId: string
+    marking: string
+    quantity?: string
+    observationIds: string[]
+  }[] = []
   for (const [key, group] of seen) {
     const existing = memory.lots[key]
     const marking = key
@@ -139,24 +153,62 @@ export async function syntheticLeadTurn(
     }
     const lotId = String(formed.id)
     memory.lots[key] = lotId
-    // A new lot gets an identity proposal citing the operator's note on its first photo.
-    const note = evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean)
-    if (!existing && note) {
-      const source = {
-        kind: 'note',
-        note_id: note.id,
-        text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
-      }
+    // A lot that gained observations needs its identity re-stated against the new set.
+    formedNew.push({
+      lotId,
+      marking,
+      quantity: group.quantity,
+      observationIds: group.observationIds,
+    })
+  }
+
+  // A new lot gets an identity proposal citing the operator's note on its first photo and the
+  // lot's current observation set, which makes the identity stable for Research and Images.
+  // Later evidence arrives after the opening manifest, so its note may not be citable yet.
+  const note =
+    evidence.map((item) => noteOf.get(item.evidenceId)).find(Boolean) ?? [...noteOf.values()][0]
+  if (note && formedNew.length) {
+    const after = await call('read_batch', {})
+    const lots = ((after.batch as { lots?: { id: string; observation_set_version: string }[] })
+      ?.lots ?? []) as { id: string; observation_set_version: string }[]
+    const source = {
+      kind: 'note',
+      note_id: note.id,
+      text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
+    }
+    for (const { lotId, marking, quantity, observationIds } of formedNew) {
+      const version = lots.find((lot) => lot.id === lotId)?.observation_set_version
+      const lotSources = [
+        ...(version ? [{ kind: 'observation_set', lot_id: lotId, version }] : []),
+        // The observations this turn read on the lot; moving one out makes these stale.
+        ...observationIds.map((id) => ({
+          kind: 'evidence_observation',
+          evidence_observation_id: id,
+          revision: observedAt.get(id) ?? memory.revision,
+        })),
+      ]
       await call('propose', {
         proposal: {
           schema_version: 'bench-intake-proposal/5',
           subject_id: lotId,
           summary: `Identity from the label: ${marking}.`,
           sources: [source],
-          ...(group.quantity ? { quantity: { value: group.quantity, status: 'estimated' } } : {}),
-          relies_on: { fields: ['identity'], sources: [source] },
+          relies_on: { fields: ['identity'], sources: [source, ...lotSources] },
         },
       })
+      // The estimate is its own proposal, so a quantity answer leaves the identity current.
+      if (quantity) {
+        await call('propose', {
+          proposal: {
+            schema_version: 'bench-intake-proposal/5',
+            subject_id: lotId,
+            summary: `Estimated ${quantity} from the label.`,
+            sources: [source],
+            quantity: { value: quantity, status: 'estimated' },
+            relies_on: { fields: ['quantity'], sources: [source, ...lotSources] },
+          },
+        })
+      }
     }
   }
   await writeFile(path, JSON.stringify(memory), { mode: 0o600 })

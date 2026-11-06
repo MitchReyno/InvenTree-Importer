@@ -8,6 +8,7 @@ import {
   Card,
   CardTitle,
   Muted,
+  PipelineRows,
   QuestionRows,
   SessionRows,
   plural,
@@ -47,6 +48,13 @@ export function ProcessingOverview({
           ))}
         </Steps>
       </Card>
+
+      {(source.pipeline.lead || source.pipeline.lots.length > 0) && (
+        <Card aria-label="Pipeline">
+          <CardTitle>Pipeline</CardTitle>
+          <PipelineRows pipeline={source.pipeline} />
+        </Card>
+      )}
 
       {source.sessions.length > 0 && (
         <Card aria-label="Sessions">

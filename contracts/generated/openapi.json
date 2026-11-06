@@ -55525,6 +55525,78 @@
                       }
                     }
                   ]
+                },
+                "currentness": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "state"
+                      ],
+                      "properties": {
+                        "state": {
+                          "const": "current",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "state"
+                      ],
+                      "properties": {
+                        "state": {
+                          "const": "provisional",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "state",
+                        "reason"
+                      ],
+                      "properties": {
+                        "state": {
+                          "const": "stale",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "const": "source_superseded",
+                              "type": "string"
+                            },
+                            {
+                              "const": "evidence_removed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "answer_received",
+                              "type": "string"
+                            },
+                            {
+                              "const": "operator_correction",
+                              "type": "string"
+                            },
+                            {
+                              "const": "lot_regrouped",
+                              "type": "string"
+                            },
+                            {
+                              "const": "subject_retired",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -57643,6 +57715,78 @@
                                     ]
                                   }
                                 }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "currentness": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "state"
+                            ],
+                            "properties": {
+                              "state": {
+                                "const": "current",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "state"
+                            ],
+                            "properties": {
+                              "state": {
+                                "const": "provisional",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "state",
+                              "reason"
+                            ],
+                            "properties": {
+                              "state": {
+                                "const": "stale",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "anyOf": [
+                                  {
+                                    "const": "source_superseded",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "evidence_removed",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "answer_received",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "operator_correction",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "lot_regrouped",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "subject_retired",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           }
@@ -67522,6 +67666,7 @@
                         "retired",
                         "part_subject_id",
                         "estimated_quantity",
+                        "observation_set_version",
                         "observation_ids",
                         "suggested_observation_ids"
                       ],
@@ -67574,6 +67719,11 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "observation_set_version": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
                         },
                         "observation_ids": {
                           "maxItems": 100,
@@ -69250,6 +69400,7 @@
                 "retired",
                 "part_subject_id",
                 "estimated_quantity",
+                "observation_set_version",
                 "observation_ids",
                 "suggested_observation_ids"
               ],
@@ -69302,6 +69453,11 @@
                       "type": "null"
                     }
                   ]
+                },
+                "observation_set_version": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
                 },
                 "observation_ids": {
                   "maxItems": 100,

@@ -241,6 +241,49 @@ describe('retainedJobsSource', () => {
     ])
   })
 
+  it('lays out the lead session, then each lot’s Research and Images in parallel before Inventory', () => {
+    const proposal = (n: number, currentness: Record<string, string>) => ({
+      id: id(n),
+      message_id: id(n + 1),
+      value: { subject_id: lot, summary: 'Candidate' },
+      currentness,
+    })
+
+    const source = retainedJobsSource(
+      snapshot([
+        job(1, 'examine', 'running', {
+          subject_id: null,
+          session_state: 'running',
+        } as Partial<Job>),
+        job(2, 'research', 'running', {
+          session_state: 'running',
+          proposals: [proposal(10, { state: 'stale', reason: 'answer_received' })],
+        } as Partial<Job>),
+        job(3, 'images', 'ready', {
+          session_state: 'finished',
+          proposals: [proposal(12, { state: 'provisional' })],
+        } as Partial<Job>),
+        // A legacy attempt never joins the pipeline.
+        job(4, 'inventory', 'ready'),
+      ]),
+      subjects,
+      lots,
+    )
+
+    expect(source.pipeline.lead).toEqual({ jobId: id(1), state: 'running' })
+    expect(source.pipeline.lots).toEqual([
+      {
+        lotId: lot,
+        label: 'Packet A',
+        cells: {
+          research: { jobId: id(2), state: 'running', stale: 1, provisional: 0 },
+          images: { jobId: id(3), state: 'ready', stale: 0, provisional: 1 },
+          inventory: null,
+        },
+      },
+    ])
+  })
+
   it('says which steps have no retained work', () => {
     const source = retainedJobsSource(snapshot([job(1, 'reading', 'ready')]), subjects, lots)
 

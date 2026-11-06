@@ -1,10 +1,10 @@
-import { and, asc, eq, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
 import { captureBatches } from '../capture/schema.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
-import { processingAttempts, processingLanes } from '../processing/schema.ts'
+import { processingAttempts, processingJobs, processingLanes } from '../processing/schema.ts'
 import { agentSessions, agentSettings, agentSlots } from './schema.ts'
 import { DEFAULT_SESSION_CONCURRENCY } from './settings.ts'
 
@@ -29,7 +29,9 @@ async function sessionLimit(client: PoolClient, config: ProcessingConfig) {
 /**
  * Claims a slot for a queued session, or returns false to keep it queued. Claims for one actor
  * are serialized, the limit is read on each claim, a `/1` lane holder counts as one slot, and
- * queued sessions start oldest first. Lowering the limit only stops new claims.
+ * queued sessions start oldest first, Examine lead sessions before per-lot ones. No session
+ * waits behind a queued Inventory, which may be held at its gate. Lowering the limit only stops
+ * new claims.
  */
 export async function claimSessionSlot(
   client: PoolClient,
@@ -80,11 +82,23 @@ export async function claimSessionSlot(
   }
   const mine = await executeDatabaseQuery(
     db
-      .select({ queuedAt: agentSessions.queuedSince })
+      .select({
+        queuedAt: agentSessions.queuedSince,
+        subjectId: processingJobs.subjectId,
+        stage: processingJobs.stage,
+      })
       .from(agentSessions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+      .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
       .where(eq(agentSessions.attemptId, attemptId)),
   )
   const queuedAt = mine[0]?.queuedAt ?? sql`now()`
+  // Examine lead sessions (no subject) go before per-lot sessions, whose lots they form.
+  const lead = mine[0] !== undefined && mine[0].subjectId === null
+  const older = or(
+    lt(agentSessions.queuedSince, queuedAt),
+    and(eq(agentSessions.queuedSince, queuedAt), lt(agentSessions.attemptId, attemptId)),
+  )
   // Older queued sessions without a slot go first, so sessions start in queue order.
   const ahead = await executeDatabaseQuery(
     db
@@ -94,6 +108,7 @@ export async function claimSessionSlot(
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
       .leftJoin(agentSlots, eq(agentSlots.attemptId, agentSessions.attemptId))
       .innerJoin(captureBatches, eq(captureBatches.id, processingAttempts.batchId))
+      .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
       .where(
         and(
           // Archived work does not run, so it holds no place in the queue.
@@ -106,10 +121,12 @@ export async function claimSessionSlot(
           // A cancelled attempt never runs, so it holds no place in the queue.
           notInArray(processingAttempts.state, ['cancelled', 'superseded']),
           isNull(agentSlots.slotIndex),
-          or(
-            lt(agentSessions.queuedSince, queuedAt),
-            and(eq(agentSessions.queuedSince, queuedAt), lt(agentSessions.attemptId, attemptId)),
-          ),
+          lead
+            ? and(isNull(processingJobs.subjectId), older)
+            : or(isNull(processingJobs.subjectId), older),
+          // A queued Inventory may be waiting at its gate without a slot, so no session queues
+          // behind one: Research and Images it waits for, nor another lot's ready Inventory.
+          ne(processingJobs.stage, 'inventory'),
         ),
       ),
   )

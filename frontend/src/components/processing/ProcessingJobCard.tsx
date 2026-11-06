@@ -4,6 +4,7 @@ import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
 import { Button, Heading, Paragraph, Panel, Small } from '../ui/primitives'
 import { ProcessingSources } from './ProcessingSources'
+import { Pill } from '../ui/Pill'
 
 type Job = ProcessingJobDto
 
@@ -18,6 +19,19 @@ const labels: Record<Job['state'], string> = {
   cancelled: 'Cancelled',
   superseded: 'Superseded',
   interrupted: 'Interrupted — start a new attempt',
+}
+
+/** Why a candidate stopped being current, in the operator's terms. */
+const STALE_REASON: Record<
+  Extract<NonNullable<Job['proposals'][number]['currentness']>, { state: 'stale' }>['reason'],
+  string
+> = {
+  answer_received: 'an answer changed what it relied on',
+  operator_correction: 'you corrected what it relied on',
+  evidence_removed: 'evidence it cited left the lot',
+  lot_regrouped: 'the lot was regrouped',
+  source_superseded: 'a source it relied on changed',
+  subject_retired: 'the lot was retired',
 }
 
 const blockerLabels: Record<NonNullable<Job['blocked_code']>, string> = {
@@ -75,7 +89,13 @@ export function ProcessingJobCard({
       {job.proposals.map((proposal) => (
         <div key={proposal.id}>
           <Paragraph>
-            <strong>Candidate:</strong> {proposal.value.summary}
+            <strong>Candidate:</strong> {proposal.value.summary}{' '}
+            {proposal.currentness?.state === 'stale' && (
+              <Pill tone="warn">Stale · {STALE_REASON[proposal.currentness.reason]}</Pill>
+            )}
+            {proposal.currentness?.state === 'provisional' && (
+              <Pill tone="neutral">Provisional · a question is open</Pill>
+            )}
             <Small>Candidate assertions do not replace your selections.</Small>
           </Paragraph>
           <ProcessingSources proposal={proposal.value} />

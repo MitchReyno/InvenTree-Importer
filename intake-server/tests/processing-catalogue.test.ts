@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { CaptureObservationDto, CatalogueProposalDto } from '@invimport/contracts'
-import { assessCatalogue } from '../src/processing/catalogue.ts'
+import { applicableCatalogueSpec, assessCatalogue } from '../src/processing/catalogue.ts'
+import { validatePartSpec } from '../src/capture/part-spec.ts'
 
 const id = (n: number) => `5d2a8f71-0c3b-4e9a-a6d4-${n.toString(16).padStart(12, '0')}`
 const context = id(900)
@@ -218,10 +219,88 @@ test('references that fail Part spec checks are unsupported, not silently applie
   )
 })
 
+test('an existing manufacturer with its MPN applies cleanly through validatePartSpec', () => {
+  const spec = applicableCatalogueSpec(applicable, context, observations, {
+    name: 'RC0603 1k',
+    tags: [],
+  })
+  assert.ok(spec)
+  assert.doesNotThrow(() => validatePartSpec(spec, context, observations))
+  assert.deepEqual(spec.manufacturer, {
+    company: ref(4, 'company', '12'),
+    mpn: 'RC0603FR-071KL',
+  })
+  // A parameter carries both its template and the category's mapping for it.
+  assert.deepEqual(spec.parameters, [
+    {
+      template: ref(2, 'parameter_template', '57'),
+      category_mapping: ref(3, 'category_parameter', '203'),
+      value: '1k',
+    },
+  ])
+})
+
+test('unsupported catalogue values stay in the proposal and never reach a Part spec', () => {
+  const newCategory: CatalogueProposalDto = {
+    ...applicable,
+    category: {
+      choice: 'proposed_new',
+      name: 'Precision resistors',
+      reason: 'Tighter tolerance',
+      sources,
+    },
+  }
+  assert.equal(
+    applicableCatalogueSpec(newCategory, context, observations, { name: 'x', tags: [] }),
+    null,
+  )
+
+  const mixed: CatalogueProposalDto = {
+    ...applicable,
+    parameters: [
+      ...applicable.parameters,
+      { name: 'Power', value: '0.1W', template: null, category_mapping: null, sources },
+      {
+        name: 'Tolerance',
+        value: '1%',
+        template: ref(2, 'parameter_template', '57'),
+        category_mapping: null,
+        sources,
+      },
+    ],
+    manufacturer: {
+      company: { choice: 'proposed_new', name: 'Yageo', reason: 'Not on the server', sources },
+      mpn: 'RC0603FR-071KL',
+      sources,
+    },
+    supplier: {
+      ...applicable.supplier!,
+      price: { amount: '0.10', currency: 'USD' },
+    },
+  }
+  const spec = applicableCatalogueSpec(mixed, context, observations, { name: 'x', tags: [] })
+  assert.ok(spec)
+  assert.doesNotThrow(() => validatePartSpec(spec, context, observations))
+  assert.equal(spec.manufacturer, null)
+  assert.equal(spec.parameters.length, 1)
+  assert.equal('price' in spec.supplier!, false)
+})
+
 test('a description applies when it fits a Part description, and is unsupported otherwise', () => {
   const described = (text: string) =>
     byPath({ ...applicable, description: { text, sources } }).description
   assert.equal(described('Thick film resistor, 0603, 1%.'), 'applicable')
   assert.equal(described('x'.repeat(251)), 'description_unsupported')
   assert.equal(described('Thick film\nresistor'), 'description_unsupported')
+})
+
+test('an applicable description is copied into the Part spec', () => {
+  const spec = applicableCatalogueSpec(
+    { ...applicable, description: { text: 'Thick film resistor, 0603, 1%.', sources } },
+    context,
+    observations,
+    { name: 'RC0603 1k', tags: [] },
+  )
+  assert.equal(spec?.description, 'Thick film resistor, 0603, 1%.')
+  assert.doesNotThrow(() => validatePartSpec(spec!, context, observations))
 })

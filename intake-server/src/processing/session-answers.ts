@@ -5,6 +5,7 @@ import type { CaptureEditDto, ProcessingAnswerDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { appendEvent } from '../db/authority.ts'
 import { appendSessionInbox } from '../agents/tools/inbox.ts'
+import { fieldsSuperseded } from './currentness.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { fail, sealed } from './model.ts'
 import { retainedSessionQuestion } from './retained.ts'
@@ -142,6 +143,16 @@ export async function answerSessionQuestion(
     },
     { publish: false },
   )
+  // Every other session relying on the answered fields is told, and their proposals are stale.
+  await fieldsSuperseded(client, {
+    batchId,
+    subjectId,
+    fields: ask.fields,
+    reason: 'answer_received',
+    message: `A question was answered: ${ask.prompt}`,
+    key: `answer:${questionId}`,
+    except: job.id,
+  })
   await capture.publish()
   await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
   return {

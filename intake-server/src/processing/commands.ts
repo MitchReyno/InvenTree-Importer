@@ -14,6 +14,7 @@ import { prepareMediaTransaction } from '../media/transaction.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'
+import { successorsCurrent } from './stable-identity.ts'
 import { fail, stageOrder } from './model.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { canCancelProcessingAttempt, lockProcessingAttempt, processingJobColumns } from './state.ts'
@@ -34,7 +35,7 @@ async function lockedSnapshot(
   return capture
 }
 
-const SESSION_START_STAGES: readonly string[] = ['research', 'images']
+const SESSION_START_STAGES: readonly string[] = ['research', 'images', 'inventory']
 
 export async function startProcessing(
   pool: Pool,
@@ -82,6 +83,14 @@ export async function startProcessing(
         )
         if (!stages.length) {
           fail('unsupported_processing_stage', 422)
+        }
+        // Inventory waits for the lot's current Research and Images results.
+        if (sessions && stages.includes('inventory')) {
+          for (const subjectId of input.subject_ids) {
+            if (!(await successorsCurrent(client, batchId, subjectId))) {
+              fail('inventory_waiting', 409)
+            }
+          }
         }
         await checkJobCapacity(client, batchId, input.subject_ids, stages)
         for (const subjectId of [...input.subject_ids].sort()) {

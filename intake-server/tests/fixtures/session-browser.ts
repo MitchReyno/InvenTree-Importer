@@ -31,7 +31,11 @@ async function main() {
     const capture = await fixture.seedCapture()
     worker = spawn(
       process.execPath,
-      ['--import', 'tsx', fileURLToPath(new URL('../../src/agents/session-worker-main.ts', import.meta.url))],
+      [
+        '--import',
+        'tsx',
+        fileURLToPath(new URL('../../src/agents/session-worker-main.ts', import.meta.url)),
+      ],
       {
         cwd: fileURLToPath(new URL('../../', import.meta.url)),
         env: {

@@ -15,7 +15,10 @@ appendFileSync(process.env.INTAKE_FIXTURE_CALLS!, `${JSON.stringify(args)}\n`)
 const scenario: Scenario = process.env.INTAKE_FIXTURE_SCENARIO
   ? JSON.parse(readFileSync(process.env.INTAKE_FIXTURE_SCENARIO, 'utf8'))
   : {}
-const command = args[0] === 'compose' ? `compose ${args.find((arg) => !arg.startsWith('-') && arg !== 'compose' && !arg.endsWith('.yaml') && arg !== 'bench-inventree-dev') ?? ''}` : args[0]
+const command =
+  args[0] === 'compose'
+    ? `compose ${args.find((arg) => !arg.startsWith('-') && arg !== 'compose' && !arg.endsWith('.yaml') && arg !== 'bench-inventree-dev') ?? ''}`
+    : args[0]
 
 if (scenario.fail?.includes(command)) {
   process.stderr.write(`fixture failure for ${command}\n`)

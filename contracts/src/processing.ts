@@ -500,9 +500,39 @@ export const ProcessingJob = object({
   session_state: Type.Optional(SessionState),
   /** The latest session's newest status line, when it has posted one. */
   latest_status: Type.Optional(object({ text: statusLine, at: Type.String({ maxLength: 40 }) })),
-  proposals: Type.Array(object({ id: Id, message_id: Id, value: ProcessingProposal }), {
-    maxItems: 100,
-  }),
+  proposals: Type.Array(
+    object({
+      id: Id,
+      message_id: Id,
+      value: ProcessingProposal,
+      /**
+       * Session proposals only. Stale when a source it relies on changed; provisional while a
+       * question about one of its fields is open.
+       */
+      currentness: Type.Optional(
+        Type.Union([
+          object({ state: Type.Literal('current') }),
+          object({ state: Type.Literal('provisional') }),
+          object({
+            state: Type.Literal('stale'),
+            reason: Type.Union(
+              (
+                [
+                  'source_superseded',
+                  'evidence_removed',
+                  'answer_received',
+                  'operator_correction',
+                  'lot_regrouped',
+                  'subject_retired',
+                ] as const
+              ).map((reason) => Type.Literal(reason)),
+            ),
+          }),
+        ]),
+      ),
+    }),
+    { maxItems: 100 },
+  ),
   questions: Type.Array(ProcessingQuestion, { maxItems: 100 }),
 })
 export const ProcessingSnapshot = object({

@@ -47,6 +47,23 @@ export type SourceSession = {
   status: string | null
 }
 
+/** A lot's step in the pipeline: its job's state and how many of its proposals need a look. */
+export type PipelineCell = {
+  jobId: string
+  state: Job['state']
+  stale: number
+  provisional: number
+} | null
+
+export type PipelineStage = 'research' | 'images' | 'inventory'
+
+/** Research and Images run in parallel once the lot's identity is stable; Inventory follows. */
+export type PipelineLot = {
+  lotId: string
+  label: string
+  cells: Record<PipelineStage, PipelineCell>
+}
+
 export type LotStatus = { step: WorkStep; text: string; state: SourceSession['state'] }
 
 /** What Processing presents from retained jobs, with session state and status lines. */
@@ -57,6 +74,52 @@ export type ProcessingSource = {
   /** The batch's Examine lead session. */
   lead: SourceSession | null
   jobsOn: (step: WorkStep) => Job[]
+  /** The batch's Examine lead job, then each lot's per-lot work. */
+  pipeline: { lead: { jobId: string; state: Job['state'] } | null; lots: PipelineLot[] }
+}
+
+const PIPELINE_STAGES: readonly PipelineStage[] = ['research', 'images', 'inventory']
+
+function cell(job: Job): NonNullable<PipelineCell> {
+  const count = (state: string) =>
+    job.proposals.filter((proposal) => proposal.currentness?.state === state).length
+
+  return {
+    jobId: job.id,
+    state: job.state,
+    stale: count('stale'),
+    provisional: count('provisional'),
+  }
+}
+
+function pipeline(
+  snapshot: ProcessingSnapshotDto,
+  subjects: ReadonlyMap<string, string>,
+): ProcessingSource['pipeline'] {
+  const lead = examineLead(snapshot)
+  const byLot = new Map<string, PipelineLot>()
+  for (const job of snapshot.jobs) {
+    const stage = job.stage as string
+    // Only session work forms the pipeline; legacy attempts stay in their step pages.
+    if (
+      !job.session_state ||
+      job.subject_id === null ||
+      !(PIPELINE_STAGES as readonly string[]).includes(stage)
+    ) {
+      continue
+    }
+    const row = byLot.get(job.subject_id) ?? {
+      lotId: job.subject_id,
+      label: subjects.get(job.subject_id) ?? 'Unknown subject',
+      cells: { research: null, images: null, inventory: null },
+    }
+    row.cells[stage as PipelineStage] = cell(job)
+    byLot.set(job.subject_id, row)
+  }
+  return {
+    lead: lead ? { jobId: lead.id, state: lead.state } : null,
+    lots: [...byLot.values()].sort((a, b) => a.label.localeCompare(b.label)),
+  }
 }
 
 const WAITING = new Set(['waiting_for_user', 'waiting_for_login', 'waiting_for_capacity'])
@@ -176,5 +239,6 @@ export function retainedJobsSource(
     sessions,
     lead: sessions.find((session) => session.jobId === examineLead(snapshot)?.id) ?? null,
     jobsOn,
+    pipeline: pipeline(snapshot, subjects),
   }
 }

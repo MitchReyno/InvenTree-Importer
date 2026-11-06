@@ -1,3 +1,5 @@
+import { pinnedIdentityCurrent, successorsCurrent } from '../processing/stable-identity.ts'
+import { supersedeJobAttempts } from '../processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
@@ -54,6 +56,7 @@ const LEAD_INSTRUCTIONS = [
   'Record each item you see with record_observation: one region per item, with its markings and any visible count.',
   'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
   'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items.',
+  'An identity relies on the lot’s current observation set: cite it in relies_on as {kind: "observation_set", lot_id, version} with the observation_set_version read_batch returns. That makes the identity stable, which starts the lot’s Research and Images; after you regroup a lot, publish its identity again.',
   'Call read_batch for the current lots, Parts and observations. Pass the revision from your last tool response as base_revision. On a stale result, read_batch again and re-plan. Lots and observations the operator edited only accept suggestions; a response with suggested: true changed nothing else.',
   'Evidence notes and groups are hints, not lot boundaries. When new evidence arrives in the inbox, examine only that evidence.',
 ].join(' ')
@@ -345,7 +348,8 @@ function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: b
     pending_inbox: pending,
     instructions:
       (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
-      'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero.',
+      'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero. ' +
+      'Put catalogue values in the proposal’s catalogue block, each with its sources: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator.',
   })
 }
 
@@ -363,6 +367,8 @@ export async function runSessionTurn(
         queryDatabase(client)
           .select({
             state: agentSessions.sessionState,
+            attemptState: processingAttempts.state,
+            turnCount: agentSessions.turnCount,
             lineageId: agentSessions.sessionLineageId,
             providerSessionId: agentSessions.nativeSessionId,
             jobId: processingAttempts.jobId,
@@ -418,8 +424,34 @@ export async function runSessionTurn(
       ) {
         throw new Error('agent_input_invalid')
       }
+      // Superseded before it started (its lot regrouped, or a new attempt replaced it): settle
+      // the session and never run it.
+      if (row.attemptState === 'superseded' || row.attemptState === 'cancelled') {
+        await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
+        await publish(client, row.batchId)
+        return 'cancelled' as const
+      }
       if (row.state !== 'queued') {
         throw new Error('session_not_queued')
+      }
+      // A successor starts only while the identity it was pinned to is still current. Once it has
+      // run, a revised identity reaches it as an inbox item instead, so a resume is never stopped.
+      if (
+        row.turnCount === 0n &&
+        !(await pinnedIdentityCurrent(client, manifest.pinned_proposal_ids))
+      ) {
+        await supersedeJobAttempts(client, row.jobId)
+        await setSessionState(client, attemptId, row.jobId, 'cancelled', ['queued'])
+        await publish(client, row.batchId)
+        return 'cancelled' as const
+      }
+      // Inventory waits, queued and without a slot, until the lot's Research and Images are current.
+      if (
+        manifest.stage === 'inventory' &&
+        manifest.subject_id &&
+        !(await successorsCurrent(client, row.batchId, manifest.subject_id))
+      ) {
+        return 'waiting' as const
       }
       // Without a free slot the session stays queued; the caller waits and tries again.
       if (!(await claimSessionSlot(client, config, attemptId))) {
@@ -459,7 +491,7 @@ export async function runSessionTurn(
   if (claimed === 'cancelled') {
     return 'cancelled' as const
   }
-  if (claimed === 'archived') {
+  if (claimed === 'archived' || claimed === 'waiting') {
     return 'queued' as const
   }
   const current = claimed
@@ -709,9 +741,31 @@ export const syntheticSessionDriver: SessionDriver = async (turn, context) => {
             fields: ['identity'],
             sources: [
               source,
+              // The lead session's identity this session started from.
+              ...context.manifest.pinned_proposal_ids.map((id) => ({
+                kind: 'proposal',
+                proposal_id: id,
+              })),
               ...items.map((item) => ({ kind: 'inbox_item', inbox_item_id: item.id })),
             ],
           },
+          // Research publishes catalogue values; with no observed references they are proposals.
+          ...(context.manifest.stage === 'research'
+            ? {
+                catalogue: {
+                  category: {
+                    choice: 'proposed_new',
+                    name: note.text.slice(0, 64).trim() || 'Uncategorised',
+                    reason: 'No observed category matches the note.',
+                    sources: [source],
+                  },
+                  parameters: [],
+                  manufacturer: null,
+                  supplier: null,
+                  description: null,
+                },
+              }
+            : {}),
         },
       })
     }

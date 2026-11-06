@@ -631,3 +631,219 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
   - A test in `OperatorReview.test.tsx` covers it.
   - `frontend/ARCHITECTURE.md` says so.
 
+## PR-B delivery (D.2)
+
+- **Review:** ten independent review rounds by fresh Claude subagents.
+  - Rounds 6–8 were clear. Round 8 covered `2d7dbac070626e22c86d47df16d3f36c98454b71`.
+  - Rounds 9 and 10 cleared the two merges of `interactive-app`: `15d97607f1941423a405a3c0ef40ec63c1c43e20` and `09484490c3c180fac8625d4be560fcfcdd8fc8f6`.
+- **Published:** [#107](https://github.com/MitchReyno/InvenTree-Importer/pull/107) against `interactive-app`, with no reviewers, and a demo video recorded from the synthetic preview.
+- **CI on `0948449`:** every selected job passed. The PostgreSQL and process job is skipped in CI.
+- **Local tiers on `0948449`:** `pnpm db:intake test` passed 216/216, and `pnpm db:intake test:process` passed 70/70.
+- **Merged:** squash-merged at `0948449` as `776c302`.
+
+## PR-C task 10: per-lot Research and Images on a stable identity
+
+- **Stable identity (`processing/stable-identity.ts`).**
+  - The lead session's identity proposal must cite the lot's current observation set in `relies_on` as `{kind: 'observation_set', lot_id, version}`. `read_batch` now returns each lot's `observation_set_version`.
+  - The lead session's `propose` runs on the `agent_writer` pool (the `leadWriter` option of `withSession`).
+  - In the same transaction, `onLeadIdentity` locks the lot row and compares versions:
+    - If the version matches, it queues the lot's Research and Images through `queueJob`, pinned to the identity (`pinned_proposal_ids`).
+    - A successor that is queued but has never run is replaced, pinned to the new identity. One that has run gets a `revision` inbox item instead (round 1).
+    - An identity relying on an older set is stale at once (`lot_regrouped`) and queues nothing.
+  - `/2` successors record no `processing_dependency` rows.
+- **Regrouping (`processing/regroup.ts`).** Every observation-set change (`bumpObservationSet`: agent `propose_lot`/`regroup` and the operator's moves, splits and merges) calls `lotRegrouped`.
+  - It supersedes the lot's Research and Images attempts that have not started, and marks those jobs `superseded`.
+  - It marks identities relying on the lot's set stale (`lot_regrouped`).
+  - Running sessions keep running. The next stable identity queues fresh attempts and commands.
+- **Claim re-check (`session-runner.ts`).**
+  - A superseded or cancelled attempt now settles its session as cancelled instead of failing with `session_not_queued`.
+  - A queued successor whose pinned identity went stale is superseded when it is claimed.
+- **Queue order (`agents/slots.ts`).** Examine lead sessions go ahead of per-lot sessions. Without this, at the default limit of 3, a lead resumed for new evidence waited behind every successor it had started. Design D9 records the decision.
+- **Inventory gate.** Session profiles may now start Inventory, but only once the lot's Research and Images each have a current proposal. Otherwise the start is refused with `inventory_waiting` (409).
+- **Stage order.** `sessionStageOrder` (`examine`, `research`, `images`, `inventory`) sits beside the `/1` order (`stageOrderFor`).
+- **Observation sources.**
+  - `propose` now accepts `observation_set` and `evidence_observation` sources in `relies_on`, which PR-A refused with a placeholder.
+  - The lead session may cite any lot or observation of its batch. A lot session may cite only its own lot and its lot's active observations.
+- **Catalogue (10.4).**
+  - `applicableCatalogueSpec` (`processing/catalogue.ts`) builds the Part spec an operator could accept from a `/5` catalogue block. It copies applicable values only, so the result passes `validatePartSpec`, and it returns null without an applicable category.
+  - Tests cover:
+    - an existing manufacturer with its MPN;
+    - a parameter carrying both its template and the category mapping;
+    - new categories, templates and companies, unmapped parameters and prices, which never reach a spec.
+  - Session instructions now ask for catalogue values with sources, and ask the lead session to cite the observation set.
+  - The synthetic Research session publishes a catalogue block, and lot sessions cite their pinned identity as a `proposal` source.
+- **Synthetic lead.**
+  - It re-states the identity of every lot it touched in a turn, citing the set version from a fresh `read_batch`.
+  - When later evidence's note is not in its opening manifest, it cites a note that is.
+- **Tests (`tests/pg/stable-identity.test.ts`):**
+  - stable-identity queueing as `agent_writer`;
+  - a regroup by new evidence;
+  - a revision notice to a running successor;
+  - an operator move superseding successors, and settling at claim;
+  - a stale pin at claim;
+  - an identity relying on an older set;
+  - the Inventory gate;
+  - parallel slots;
+  - lead priority;
+  - a regroup and an identity racing under the capture lock.
+- **Baseline (10.1):** the Examine, observation, dependency, processing, slot and session-tool suites passed 54/54 before the change.
+- **Results (10.5, 10.6):**
+  - `pnpm db:intake test` passed 226/226. The `/1` exact-predecessor suites (`processing-dependencies`, `processing`) pass unchanged.
+  - `pnpm db:intake test:process` passed 70/70.
+  - `pnpm test:intake`: contracts 76/76, intake server 213/213. Frontend 585/585. Typecheck, lint, format and `contracts:check` are clean.
+  - An earlier tier run hung for about 2.7 hours in `processing-suggestions.test.ts`. It was started without `INTAKE_MEDIA_DECODER_IMAGE`, so the media fixtures refused to start. Tier runs now get a hard time cap and a stall check.
+
+## PR-C task 11: proposal currentness, selective rework and new evidence pickup
+
+- **Fan-out (`processing/currentness.ts`, `fieldsSuperseded`).**
+  - **What goes stale:** an answer or an operator correction supersedes fields of a subject. In the same transaction, these proposals become stale:
+    - every current proposal for that subject whose `relies_on.fields` overlaps the answered fields;
+    - every proposal relying on one of those through a `proposal` source.
+  - **Who is told:** each relying session gets a `revision` inbox item:
+    - the owners of those proposals;
+    - sessions whose opening manifest pinned one of them, even before they have published anything.
+  - The asker already has its `answer` item. Proposals relying on other fields stay current.
+- **Answers.** `answerSessionQuestion` calls the fan-out with the question's declared `fields` (`answer_received`). A quantity answer therefore leaves identity proposals current.
+- **Corrections.** In `capture.edit`, a `lot` edit of `part_subject_id` corrects `identity` and one of `quantity` corrects `quantity` (`operator_correction`).
+  - The answer path applies its value through `capture.apply`, not `edit`, so an answer is not counted twice.
+  - Bulk and operator-review edit paths do not fan out yet.
+- **Evidence hooks.** `bumpObservationSet` now knows the observation that moved.
+  - **Removed:** proposals citing the observation as an `evidence_observation` source become stale (`evidence_removed`) before the regroup, and their sessions get a revision notice.
+  - **Added:** the lot's Research and Images sessions get an `evidence` notice for the observation's photo. The wake sweep resumes finished or waiting sessions with unread items.
+  - **Lazy loading:** capture loads `currentness.ts` lazily. Processing depends on capture, and an eager import from capture formed a load-time cycle through the media modules. `regroup.ts` imports only the database layer, so it is loaded eagerly.
+- **Finished successors are revised, not replaced.** A stable identity now queues a fresh attempt only when the successor is missing, superseded, cancelled or failed. Running, waiting and finished sessions get the revision as an inbox item and are resumed.
+- **Lot sessions fetch previews.** A lot session's `fetch_evidence` uses the preview path for pages, region crops and versions outside its manifest (from evidence notices), and it may cite a version it fetched. The path is `previewFetchEvidence`, formerly `leadFetchEvidence`.
+- **Read model.**
+  - Each session proposal in the Processing snapshot has `currentness`:
+    - `stale`, with its reason;
+    - `provisional`, while an open question on a current attempt shares one of its fields and its subject;
+    - `current` otherwise.
+  - It is one bounded query per batch (`proposalCurrentness` in `processing/read.ts`).
+- **Inventory waits.** A queued Inventory whose lot's Research and Images are not current stays queued at claim, without taking a slot.
+- **Synthetic lead.**
+  - It publishes its quantity estimate as a separate proposal relying on `quantity`.
+  - It cites each lot's observations as `evidence_observation` sources.
+- **Tests (`tests/pg/selective-rework.test.ts`):**
+  - "Unclear quantity" (provisional, then stale on answer, with the identity current);
+  - an identity correction reaching Research and Images, including Research with nothing published;
+  - Inventory waiting;
+  - "Evidence removed";
+  - "Photo added mid-run".
+- **Ask validation.** `session-tools.test.ts` now refuses an `ask` without fields or without an assumption ("Agent asks without an assumption").
+- **Shared helpers.** These moved to `tests/support/lot-pipeline.ts`.
+- **Deployments without Processing.** On a manual-only deployment the capture `api` role has no Processing grants, so the currentness and regroup hooks do nothing there (`has_table_privilege` check). The first tier run failed 57 manual-execution tests on exactly this.
+- **Results (11.4, 11.5):**
+  - `pnpm db:intake test` passed 231/231. The `/1` answer, closure and supersession suites (`processing`, `processing-dependencies`) pass unchanged.
+  - `pnpm db:intake test:process` passed 70/70.
+  - `pnpm test:intake`: contracts 76/76, intake server 213/213. Frontend 585/585. Typecheck, lint, format and `contracts:check` are clean.
+
+## PR-C task 12: pipeline UI, documentation and browser qualification
+
+- **Pipeline (`processing/source.ts`, `PipelineRows`).** The source adapter adds `pipeline`: the lead job's state, then per lot a Research, Images and Inventory cell with its job state and how many proposals are stale or provisional. The Overview's Pipeline card shows Examine · Whole batch, then each lot's Research ∥ Images → Inventory. At phone width the cells wrap and the arrows are hidden.
+- **Labels.** Job cards mark a stale candidate with its reason (for example "you corrected what it relied on") and a provisional one while a question is open.
+- **Examine view (`ExamineView`).** On the Examine step page:
+  - every active observation, grouped by photo, with its crop, readings, region and lot link, or "No lot";
+  - each formed lot with its AI-proposed or Edited chip, estimate and basis, observations, and the lead's candidates with their sources.
+  - Photos are numbered by their first observation, because the capture snapshot carries no photo labels.
+- **Legacy.** Reading and Identifying jobs still render as job cards on Examine, and the existing `/1` fixture tests pass unchanged.
+- **Tests (vitest):** `PipelineRows.test.tsx`, `ExamineView.test.tsx`, the pipeline case in `source.test.ts`, and stale/provisional labels in `ProcessingJobCard.test.tsx`.
+- **Docs.** `processing/ARCHITECTURE.md` (stable identity, selective rework, Inventory gate), `agents/ARCHITECTURE.md` (lead priority, lot-session evidence, instructions) and `frontend/ARCHITECTURE.md` (pipeline, labels, Examine view) describe the final behaviour.
+- **Answering a lot's quantity marks it edited (found in qualification).** An answer applies the same capture `lot` edit as the operator, and PR-B marks any operator change to a lot `operator_edited`. Later evidence the lead session reads for that lot therefore arrives as a suggested membership, not an active one. This follows PR-B's reviewed rule, "Lots and observations the operator edited only accept suggestions". The qualification answers one lot's question and adds a photo of another. Whether an answer should count as an edit that blocks grouping is left open.
+- **Browser qualification (12.5).**
+  - **Setup:** a local driver, not committed (as for PR-B), served the synthetic preview with the session worker. The batch was photo-only: a shelf photo noting three items ("1N4148 diodes ×100; 16 MHz crystal; LED 0603 red ×500") and a reel close-up ("LED 0603 red ×500"). A third photo ("Reel back") was added mid-run.
+  - **Result:** Playwright (Chromium, headless, 1920 px at 2x and 390 px) passed all 14 checks in its evidence file. They cover:
+    1. The batch starts with no lots.
+    2. Three AI-proposed lots appear live, and the reel in both photos is one lot with two crops.
+    3. The Examine view lists the shelf photo's three regions.
+    4. The LED estimate reads "Estimated 500 · label · same item in 2 photos", counted once.
+    5. Each lot's Research and Images both start, in parallel, from the stable identity (one check per lot).
+    6. A mid-run answer to the diodes lot's Research question, through the question form, makes the lead's "Estimated 100" stale ("an answer changed what it relied on").
+    7. The diodes identity stays current.
+    8. The added photo joins the LED lot (three crops).
+    9. The LED Research session resumes and reads the notices ("Reading new inbox items").
+    10. At 390 px, the LED pipeline row is shown.
+    11. At 390 px, the Overview fits without horizontal scroll.
+    12. At 390 px, the Examine page fits without horizontal scroll.
+- **Fixes found by the qualification.**
+  - A successor's claim checked its pinned identity on every turn. A resumed Research or Images session, woken by a revision, was therefore superseded once its identity went stale. The check now runs only before a session's first turn (`turn_count` 0), with a regression test in `stable-identity.test.ts`.
+  - The synthetic lead re-examined every photo when woken by an answer or a revision. Now only its first turn examines every photo; later turns examine evidence sent as notices.
+  - Pipeline and Examine-view pills no longer stretch to the full row width.
+
+## PR-C review round 1
+
+A fresh reviewer subagent reviewed `6ca5360` and found one critical, four important and six minor findings, plus two nitpicks.
+
+1. **Critical: on `native-agent/2`, the lead identity's queueing failed on a privilege error.** `createSessionAttempt` read Agent settings `FOR SHARE`, which `agent_writer` has no UPDATE privilege for.
+   - `queueJob` and `createAttempt` now pass `lockSettings: false` on this path, as the Examine trigger does.
+   - A PG test queues successors for a `native-agent/2` identity with saved settings.
+2. **Important: a gated Inventory could hold the slot queue against the Research and Images it waits for.** Per-lot sessions no longer count queued Inventory sessions ahead of them. A test resumes Research at a limit of 1 behind a gated Inventory.
+3. **Important: a republished identity lost an unstarted successor.** The successor got only a notice, then was superseded at claim for its stale pin. A successor that is still queued and has never run (`turn_count` 0) is now replaced, pinned to the new identity, with a test.
+4. **Important: an operator move left the destination lot stranded.** After an operator regroup, the lead session gets a revision notice for each identity made stale (`lotRegroupedNotices`). Agent regroups are not notified, since the lead itself made them.
+5. **Important: staleness did not cascade from a regroup or a removal.**
+   - Proposals relying on a stale identity through a `proposal` source are now stale for the same reason, and their sessions are told (`cascadeStale`).
+   - A removed observation now also notifies the lot's Research and Images sessions.
+   - Tests cover both.
+6. **Minor findings, all fixed:**
+   - A null-subject answer no longer marks every lot's proposals stale; it affects none.
+   - The regroup and removal queries are filtered to the lot's batch.
+   - A citation of a notice-delivered version must match that version's evidence ID and digest.
+   - Evidence notices are keyed by the lot's set version, so an observation that returns is noticed again.
+   - The Pipeline card is built only from session jobs, so legacy `/1` work stays on the step pages.
+   - Handover counts and the lazy-loading note are corrected.
+   - D6's lot locking stands: `propose` holds the batch lock and the subject heads (`lockCaptureSubjectHeads`), then locks the lot row.
+7. **Nitpicks, fixed.** Pipeline steps are `role="group"`, so their labels are announced. `SUCCESSOR_STAGES` lives in `supersede.ts` and is shared.
+
+## PR-C review round 2
+
+A fresh reviewer subagent reviewed `49ec7c0` and found one important and two minor findings, plus a nitpick. It confirmed the round 1 fixes.
+
+- **Tiers on `49ec7c0`:**
+  - `pnpm db:intake test` passed 237/237, and `pnpm db:intake test:process` passed 70/70.
+  - Contracts passed 76/76, the intake server 213/213, and the frontend 589/589.
+
+1. **Important: a gated Inventory still held back other lots' Inventory.** No claimant now counts a queued Inventory ahead of it. A test queues two lots' Inventory, gates the older one, and claims the younger at a limit of 1.
+2. **Minor: the cascade went one level deep.** It now repeats until no new proposal is stale, with a depth bound of 8 (`cascadeAll`).
+3. **Minor: docs drifted from round 1.** The replace rule for unstarted successors, the cascade, the operator-regroup notice, the removal notices and the Inventory queue exclusion are now in `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md`, design D9, `stable-identity.ts` and this handover.
+4. **Nitpick, fixed:** the `SUCCESSOR_STAGES` import and re-export are tidied.
+
+## PR-C review round 3
+
+A fresh reviewer subagent reviewed `b462069` and found it clean: no critical or important findings, two minor ones and a nitpick.
+
+- **Tiers on `b462069`:**
+  - `pnpm db:intake test` passed 238/238, and `pnpm db:intake test:process` passed 70/70.
+  - Contracts passed 76/76, the intake server 213/213, and the frontend 589/589.
+
+1. **Minor: an answer or correction cascaded only one level.** `fieldsSuperseded` now passes what it made stale to `cascadeAll`, so every downstream proposal is stale, as D7 says. No test builds a chain deeper than two levels, because the synthetic sessions do not form one.
+2. **Minor: the operator-regroup notice told lot sessions to publish an identity.** Only the lead session's lineage is now asked to publish the identity again. A Research or Images session is asked to revise what relied on the lot's observations.
+3. **Nitpick, fixed:** a comment explains that the cascade's depth bound of 8 is not expected to be reached.
+
+## PR-C review round 4 and the merge of `interactive-app` (#108–#111)
+
+- **Round 4.** A fresh reviewer subagent reviewed `5c363a5` and found it clean. Its two minor notes:
+  - The answer-cascade line in `processing/ARCHITECTURE.md` now says "at any depth".
+  - **Accepted limit:** a session pinned to a proposal that goes stale two or more levels down, and that has published nothing yet, gets no notice. Its proposal is stale, so Inventory still waits.
+- **Tiers on `5c363a5`:**
+  - `pnpm db:intake test` passed 238/238, and `pnpm db:intake test:process` passed 70/70.
+  - Contracts passed 76/76, the intake server 213/213, and the frontend 589/589.
+- **Merge.** #110 (redesign: agent sessions, observations and proposals) conflicted in seven files. Every conflict was resolved by keeping both sides:
+  - **Contract:** `latest_status` is kept beside proposal `currentness`.
+  - **Catalogue:** `assessCatalogue` now lives in contracts and is re-exported; `applicableCatalogueSpec` builds on it. The Part spec gained a `description`, so an applicable catalogue description is now copied into the spec, with a test.
+  - **Source and Parts:** `source.ts` keeps upstream's lead session and status lines beside the pipeline, and `ProcessingParts.tsx` keeps both components.
+  - **Read model:** `read.ts` computes both the status lines and the currentness.
+  - **Docs:** `frontend/ARCHITECTURE.md` combines both descriptions.
+- **Checks after the merge:** contracts passed 117/117, the intake server 227/227, and the frontend 660/660. Typecheck, lint, format and `contracts:check` are clean.
+- **Tiers on the merge `716ea1e`:** `pnpm db:intake test` passed 251/251, and `pnpm db:intake test:process` passed 70/70.
+
+## PR-C review round 5 (the merge)
+
+A fresh reviewer subagent reviewed `716ea1e` and confirmed every conflict resolution. It found one important finding, two minor ones and a nitpick in how #110 meets PR-C.
+
+1. **Important: Records treated stale catalogue proposals as current.** `projectRecords` judged currentness by job state only, so after a revision in the same job, a stale and a current catalogue tied, and the first one read won.
+   - A proposal is now current only while its job is not superseded and its own `currentness` is not stale.
+   - Field origins prefer current proposals, and so does the catalogue choice.
+   - A projection test puts a stale and a current catalogue in one job and checks the stale one raises no company decision.
+2. **Minor, accepted as a limit (design D7): a Records edit to a Part's spec is not an operator correction.** It changes a Part, not the lot proposals that rely on it, so it sends no revision notice and makes nothing stale. Only capture `lot` edits of the Part link or quantity fan out.
+3. **Minor: docs drifted after the merge.** `intake-server/ARCHITECTURE.md` now says that session runners publish catalogues, that `applicableCatalogueSpec` builds on `assessCatalogue`, and that Records prefers current proposals.
+4. **Nitpick, fixed:** the pipeline's lead uses `examineLead`, so the Overview's two lead lookups agree.
+

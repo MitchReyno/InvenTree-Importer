@@ -13358,6 +13358,17 @@ export interface components {
                         } | null;
                     };
                 };
+                currentness?: {
+                    /** @constant */
+                    state: "current";
+                } | {
+                    /** @constant */
+                    state: "provisional";
+                } | {
+                    /** @constant */
+                    state: "stale";
+                    reason: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
+                };
             }[];
             questions: {
                 id: string;
@@ -13734,6 +13745,17 @@ export interface components {
                                 })[];
                             } | null;
                         };
+                    };
+                    currentness?: {
+                        /** @constant */
+                        state: "current";
+                    } | {
+                        /** @constant */
+                        state: "provisional";
+                    } | {
+                        /** @constant */
+                        state: "stale";
+                        reason: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
                     };
                 }[];
                 questions: {
@@ -15455,6 +15477,8 @@ export interface components {
                     retired: boolean;
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
+                    /** Format: int64 */
+                    observation_set_version: string;
                     observation_ids: string[];
                     suggested_observation_ids: string[];
                 }[];
@@ -15762,6 +15786,8 @@ export interface components {
                 retired: boolean;
                 part_subject_id: string | null;
                 estimated_quantity: string | null;
+                /** Format: int64 */
+                observation_set_version: string;
                 observation_ids: string[];
                 suggested_observation_ids: string[];
             }[];

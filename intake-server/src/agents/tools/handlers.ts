@@ -13,6 +13,7 @@ import {
   type SessionToolResultDto,
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
+import { onLeadIdentity } from '../../processing/stable-identity.ts'
 import { appendEvent } from '../../db/authority.ts'
 import { captureBatches } from '../../capture/schema.ts'
 import {
@@ -88,11 +89,12 @@ async function leadDeliveredVersions(client: PoolClient, principal: SessionPrinc
 export const LEAD_PREVIEW_LONG_EDGE = 768
 
 /**
- * The lead session's evidence: its pinned batch media plus versions sent to it as evidence
- * notices. Previews come back downscaled; a region comes back as a crop of the full preview.
+ * A session's evidence as previews: its pinned media plus versions sent to it as evidence
+ * notices. The lead session always fetches this way; a lot session does for pages, region
+ * crops and versions it learned of from a notice. Previews come back downscaled; a region comes back as a crop of the full preview.
  * Every answer lists each page's full preview size, which regions are measured against.
  */
-async function leadFetchEvidence(
+async function previewFetchEvidence(
   context: SessionToolContext,
   token: string,
   run: string,
@@ -282,15 +284,23 @@ type LockedCapture = Awaited<ReturnType<typeof lockCaptureForInputSettlement>>
 async function withSession(
   context: SessionToolContext,
   token: string,
-  options: { capture: boolean },
+  options: { capture: boolean; leadWriter?: boolean },
   work: (
     client: PoolClient,
     principal: SessionPrincipal,
     capture: LockedCapture | undefined,
+    writer: boolean,
   ) => Promise<SessionToolOutput['result'] | SessionToolOutput>,
 ): Promise<SessionToolOutput> {
   try {
-    return await transaction(context.pool, async (client) => {
+    // The Examine lead session's results can queue its lots' successors, which only the
+    // agent_writer role may create; every other session writes as the runner.
+    let writer = false
+    if (options.leadWriter && context.writerPool) {
+      const found = await resolveSessionCapability(context.pool, token)
+      writer = found !== undefined && found !== null && found.subjectId === null
+    }
+    return await transaction(writer ? context.writerPool! : context.pool, async (client) => {
       const found =
         (await resolveSessionCapability(client, token)) ??
         refuse('capability_refused', 'This session capability is not valid.')
@@ -317,7 +327,7 @@ async function withSession(
       if (capture?.snapshot.archived) {
         refuse('session_not_running', 'This session can no longer publish results.')
       }
-      const output = await work(client, found, capture)
+      const output = await work(client, found, capture, writer)
       return 'result' in output ? output : { result: output }
     })
   } catch (error) {
@@ -455,8 +465,41 @@ async function requireDeliveredSources(
   })
   const fetched = context.deliveredMedia.get(principal.jobId) ?? new Set<string>()
 
-  const delivered = (source: ProcessingSourceDto) =>
-    inManifest(source) && (source.kind === 'note' || fetched.has(source.version_id))
+  const manifestVersions = new Set(
+    decodeMediaInputs(
+      Buffer.from(manifest.media.manifest, 'utf8'),
+      Buffer.from(manifest.media.sha256, 'hex'),
+    ).versions.map((item) => item.versionId),
+  )
+
+  // A version from an evidence notice is outside the manifest: fetching it delivered it, and a
+  // citation must still name its own evidence and digest.
+  const noticed = [...fetched].filter((id) => !manifestVersions.has(id))
+  const actual = new Map(
+    noticed.length
+      ? (
+          await client.query<{ id: string; evidence_id: string; sha256: string }>(
+            `SELECT id, evidence_id, encode(blob_digest,'hex') AS sha256 FROM public.media_version
+             WHERE batch_id=$1 AND id = ANY($2::uuid[])`,
+            [principal.batchId, noticed],
+          )
+        ).rows.map((row) => [row.id, row])
+      : [],
+  )
+
+  const delivered = (source: ProcessingSourceDto) => {
+    if (source.kind === 'note') {
+      return inManifest(source)
+    }
+    if (!fetched.has(source.version_id)) {
+      return false
+    }
+    if (manifestVersions.has(source.version_id)) {
+      return inManifest(source)
+    }
+    const version = actual.get(source.version_id)
+    return version?.evidence_id === source.evidence_id && version.sha256 === source.sha256
+  }
 
   for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
     if (!delivered(source)) {
@@ -484,9 +527,32 @@ async function requireDeliveredSources(
       if (!own && !manifest.pinned_proposal_ids.includes(source.proposal_id)) {
         refuse('source_not_delivered', 'A relied-on proposal was not delivered to this session.')
       }
+    } else if (source.kind === 'observation_set') {
+      // The lead session may rely on any lot of its batch; a lot session on its own lot only.
+      const lots = await client.query(
+        'SELECT 1 FROM public.capture_lot WHERE id=$1 AND batch_id=$2',
+        [source.lot_id, principal.batchId],
+      )
+      if (
+        !lots.rowCount ||
+        (principal.subjectId !== null && source.lot_id !== principal.subjectId)
+      ) {
+        refuse('source_not_delivered', 'A relied-on lot does not belong to this session.')
+      }
     } else {
-      // Evidence observations and lot membership arrive with the lead session.
-      refuse('source_not_delivered', 'Evidence observations are not available to this session.')
+      // An observation of the batch; a lot session sees only its lot's members.
+      const rows = await client.query(
+        principal.subjectId === null
+          ? 'SELECT 1 FROM public.capture_evidence_observation WHERE id=$1 AND batch_id=$2'
+          : `SELECT 1 FROM public.capture_lot_evidence_observation
+             WHERE evidence_observation_id=$1 AND batch_id=$2 AND lot_id=$3 AND status='active'`,
+        principal.subjectId === null
+          ? [source.evidence_observation_id, principal.batchId]
+          : [source.evidence_observation_id, principal.batchId, principal.subjectId],
+      )
+      if (!rows.rowCount) {
+        refuse('source_not_delivered', 'A relied-on observation was not delivered to this session.')
+      }
     }
   }
 }
@@ -714,48 +780,57 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     propose: (token: string, args: unknown) =>
-      withSession(context, token, { capture: true }, async (client, principal, capture) => {
-        const { proposal } = validated<{ proposal: ProcessingProposalV5Dto }>(
-          'SessionProposeArgs',
-          args,
-        )
-        // The lead session proposes for any live lot of its batch; a lot session for its own lot.
-        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
-        if (
-          principal.subjectId === null
-            ? !lots.includes(proposal.subject_id)
-            : proposal.subject_id !== principal.subjectId
-        ) {
-          refuse('validation_failed', 'A proposal must be for this session’s lot.')
-        }
-        await requireDeliveredSources(client, context, principal, proposal)
-        await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
-        const { messageId, streamId } = await retainSessionMessage(
-          client,
-          capture!,
-          principal,
-          'proposal',
-          proposal,
-        )
-        const value = sealed(proposal)
-        const id = randomUUID()
-        await executeDatabaseQuery(
-          queryDatabase(client).insert(processingProposals).values({
-            id,
-            attemptId: principal.attemptId,
-            messageId,
-            valueBytes: value.bytes,
-            valueDigest: value.digest,
-            reliesOn: proposal.relies_on,
-          }),
-        )
-        await appendSessionOutbox(client, principal.attemptId, {
-          kind: 'proposal',
-          payload: { proposal_id: id },
-        })
-        await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
-        return ok(client, principal, { id })
-      }),
+      withSession(
+        context,
+        token,
+        { capture: true, leadWriter: true },
+        async (client, principal, capture, writer) => {
+          const { proposal } = validated<{ proposal: ProcessingProposalV5Dto }>(
+            'SessionProposeArgs',
+            args,
+          )
+          // The lead session proposes for any live lot of its batch; a lot session for its own lot.
+          const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+          if (
+            principal.subjectId === null
+              ? !lots.includes(proposal.subject_id)
+              : proposal.subject_id !== principal.subjectId
+          ) {
+            refuse('validation_failed', 'A proposal must be for this session’s lot.')
+          }
+          await requireDeliveredSources(client, context, principal, proposal)
+          await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
+          const { messageId, streamId } = await retainSessionMessage(
+            client,
+            capture!,
+            principal,
+            'proposal',
+            proposal,
+          )
+          const value = sealed(proposal)
+          const id = randomUUID()
+          await executeDatabaseQuery(
+            queryDatabase(client).insert(processingProposals).values({
+              id,
+              attemptId: principal.attemptId,
+              messageId,
+              valueBytes: value.bytes,
+              valueDigest: value.digest,
+              reliesOn: proposal.relies_on,
+            }),
+          )
+          await appendSessionOutbox(client, principal.attemptId, {
+            kind: 'proposal',
+            payload: { proposal_id: id },
+          })
+          // A stable identity from the lead session starts the lot's Research and Images.
+          if (writer && principal.subjectId === null) {
+            await onLeadIdentity(client, context.config, capture!.snapshot, proposal, id)
+          }
+          await appendEvent(client, streamId, 'processing_changed', { batch_id: principal.batchId })
+          return ok(client, principal, { id })
+        },
+      ),
 
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
@@ -824,8 +899,24 @@ export function sessionTools(context: SessionToolContext) {
     fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> => {
       const run = capabilityDigest(token).toString('hex')
       const found = await resolveSessionCapability(context.pool, token)
-      if (found && (found.stage as string) === 'examine') {
-        return leadFetchEvidence(context, token, run, args)
+      const request = (args ?? {}) as { version_id?: unknown; region?: unknown; page?: unknown }
+
+      const inManifest = (versionId: unknown) =>
+        found !== null &&
+        found !== undefined &&
+        decodeMediaInputs(
+          Buffer.from(found.manifest.media.manifest, 'utf8'),
+          Buffer.from(found.manifest.media.sha256, 'hex'),
+        ).versions.some((item) => item.versionId === versionId)
+
+      if (
+        found &&
+        ((found.stage as string) === 'examine' ||
+          request.region !== undefined ||
+          request.page !== undefined ||
+          (typeof request.version_id === 'string' && !inManifest(request.version_id)))
+      ) {
+        return previewFetchEvidence(context, token, run, args)
       }
       let reserved: { version: MediaInputVersion; jobId: string; batchId: string } | undefined
       // Authorize and reserve under the session locks; the bytes are read after the transaction,

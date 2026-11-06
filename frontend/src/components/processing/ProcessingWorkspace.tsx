@@ -29,6 +29,7 @@ import { SessionPanel } from './SessionPanel'
 import { QuestionAnswer } from './QuestionAnswer'
 import { ProcessingOverview } from './ProcessingOverview'
 import { StepPage } from './StepPage'
+import { ExamineView } from './ExamineView'
 import { InstructionField } from './InstructionField'
 import { Card, CardTitle, STEP_LABEL } from './ProcessingParts'
 import { Modal } from '../operator/Modal'
@@ -484,6 +485,12 @@ export function ProcessingWorkspace({
               {view === 'images' || jobs.length > 0 ? (
                 <>
                   {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
+                  {view === 'examine' && (
+                    <ExamineView
+                      batch={batch}
+                      lead={jobs.find((job) => job.stage === 'examine' && job.subject_id === null)}
+                    />
+                  )}
                   {jobCards}
                 </>
               ) : undefined}

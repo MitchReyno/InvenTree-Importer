@@ -1147,6 +1147,25 @@ export function captureRepository(pool: Pool, config: Binding) {
       return command('capture_edit', id, key, input, async (c) => {
         const locked = await lockCaptureForEdit(c, config, id, input.expected_revision)
         await locked.apply(input)
+        // An operator correction of a lot's identity or quantity reaches every relying session.
+        if (input.change.kind === 'lot') {
+          const fields = [
+            ...(input.change.part_subject_id !== undefined ? (['identity'] as const) : []),
+            ...(input.change.quantity !== undefined ? (['quantity'] as const) : []),
+          ]
+          if (fields.length) {
+            // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+            const { fieldsSuperseded } = await import('../processing/currentness.ts')
+            await fieldsSuperseded(c, {
+              batchId: id,
+              subjectId: input.change.id,
+              fields,
+              reason: 'operator_correction',
+              message: `The operator corrected this lot's ${fields.join(' and ')}.`,
+              key: `correction:${key}`,
+            })
+          }
+        }
         await locked.publish()
         return locked.readPublished()
       })

@@ -76,6 +76,7 @@ const source: ProcessingSource = {
   ],
   lead: null,
   jobsOn: () => [],
+  pipeline: { lead: null, lots: [] },
 }
 
 describe('StepPage', () => {

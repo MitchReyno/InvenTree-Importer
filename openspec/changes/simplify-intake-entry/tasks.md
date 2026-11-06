@@ -308,12 +308,12 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process`.
 - **Risks and decisions:** none beyond the design's notes on token cost.
 
-- [ ] 10.1 Baseline the dependency and stage tests.
-- [ ] 10.2 RED: stable-identity queueing under `agent_writer`; concurrent `regroup` and `propose` (only one wins under the lot lock); a regrouped lot supersedes its queued successors and the next identity creates fresh deliverable attempts; parallelism; Inventory gate; `require_processing_dependency_order` untouched; legacy invariance.
-- [ ] 10.3 GREEN: stage order, stable-identity triggers and claim-time re-check.
-- [ ] 10.4 Research and Examine publish `/5` catalogue values with sources. Tests: an observed manufacturer company with MPN applies cleanly through `validatePartSpec` ("Existing manufacturer"); a parameter carries both `template` and `category_mapping`; new categories, templates, companies, unmapped parameters and prices stay unsupported and never reach a Part spec ("New sub-category proposed").
-- [ ] 10.5 Verify the exact-predecessor suites for `/1`.
-- [ ] 10.6 Record the results.
+- [x] 10.1 Baseline the dependency and stage tests.
+- [x] 10.2 RED: stable-identity queueing under `agent_writer`; concurrent `regroup` and `propose` (only one wins under the lot lock); a regrouped lot supersedes its queued successors and the next identity creates fresh deliverable attempts; parallelism; Inventory gate; `require_processing_dependency_order` untouched; legacy invariance.
+- [x] 10.3 GREEN: stage order, stable-identity triggers and claim-time re-check.
+- [x] 10.4 Research and Examine publish `/5` catalogue values with sources. Tests: an observed manufacturer company with MPN applies cleanly through `validatePartSpec` ("Existing manufacturer"); a parameter carries both `template` and `category_mapping`; new categories, templates, companies, unmapped parameters and prices stay unsupported and never reach a Part spec ("New sub-category proposed").
+- [x] 10.5 Verify the exact-predecessor suites for `/1`.
+- [x] 10.6 Record the results.
 
 ## 11. Proposal currentness, selective rework and new evidence pickup
 
@@ -334,11 +334,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process`.
 - **Risks and decisions:** the projection must stay bounded per batch. Reuse the existing bounded closure queries.
 
-- [ ] 11.1 Baseline the currentness/answer suites.
-- [ ] 11.2 RED: selective-currentness, fan-out, evidence-removal and resume-on-evidence regressions.
-- [ ] 11.3 GREEN: projection, fan-out and evidence hooks.
-- [ ] 11.4 Verify `/1` answer closure and supersession behavior is unchanged.
-- [ ] 11.5 Record the results.
+- [x] 11.1 Baseline the currentness/answer suites.
+- [x] 11.2 RED: selective-currentness, fan-out, evidence-removal and resume-on-evidence regressions.
+- [x] 11.3 GREEN: projection, fan-out and evidence hooks.
+- [x] 11.4 Verify `/1` answer closure and supersession behavior is unchanged.
+- [x] 11.5 Record the results.
 
 ## 12. Pipeline UI, documentation and browser qualification
 
@@ -360,11 +360,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test`, frontend typecheck/lint/build, `pnpm lint:markdown`, `pnpm workflow-sync` if skills changed (none planned). Headless browser qualification of the full synthetic flow (photo-only batch with a three-item photo and a two-photo item → live lots with correct observations and no double counting → mid-run answer → parallel Research/Images → added photo examined by the lead session and picked up by the lot's sessions) at desktop and 390 px widths.
 - **Risks and decisions:** none.
 
-- [ ] 12.1 Baseline the Processing component tests.
-- [ ] 12.2 RED: pipeline row, Examine view, label and legacy-view tests.
-- [ ] 12.3 GREEN: UI.
-- [ ] 12.4 Update the architecture docs and the complete handover; check that every doc claim matches the code.
-- [ ] 12.5 Run the full browser qualification and record screenshots/evidence and limits.
+- [x] 12.1 Baseline the Processing component tests.
+- [x] 12.2 RED: pipeline row, Examine view, label and legacy-view tests.
+- [x] 12.3 GREEN: UI.
+- [x] 12.4 Update the architecture docs and the complete handover; check that every doc claim matches the code.
+- [x] 12.5 Run the full browser qualification and record screenshots/evidence and limits.
 
 ## 13. Authorized live provider qualification
 
@@ -386,7 +386,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage). For PR-B onward, "selected CI green" covers the jobs CI still runs, and the local `pnpm db:intake test` and `pnpm db:intake test:process` results recorded in the handover stand in for the skipped job.
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`. See the handover.
-- [ ] D.2 PR-B: same gates.
+- [x] D.2 PR-B: same gates. Review clear at `0948449` (rounds 9–10 covered the two `interactive-app` merges); CI green; merged as `776c302` (#107). See the handover.
 - [ ] D.3 PR-C: same gates; BI-006 is updated to Done only after acceptance and merge are evidenced.
 - [ ] D.4 PR-D: held until live authorization; same gates once run.
 

@@ -176,6 +176,21 @@ test('invalid outbox items return typed errors and publish nothing', async () =>
       )
       assert.equal((await counts(fixture, a.attempt, a.job)).proposals, '0')
       assert.equal((await call(session, 'propose', proposal([noteSource]))).ok, true)
+      // Agent asks without an assumption: refused, so it cannot block silently.
+      const question = {
+        kind: 'quantity',
+        subject_id: capture.packetA.id,
+        prompt: 'How many are in the packet?',
+        reason: 'The label only says approximately 20.',
+      }
+      assert.equal(
+        (await call(session, 'ask', { ...question, fields: ['quantity'] })).error,
+        'validation_failed',
+      )
+      assert.equal(
+        (await call(session, 'ask', { ...question, assumption: 'Using 20 until counted.' })).error,
+        'validation_failed',
+      )
       const asked = await call(session, 'ask', {
         kind: 'quantity',
         subject_id: capture.packetA.id,

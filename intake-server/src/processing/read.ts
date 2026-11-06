@@ -283,6 +283,7 @@ export async function processingSnapshot(
         ).map((row) => [row.attemptId, row.state])
       : [],
   )
+  const currentness = await proposalCurrentness(client, capture.id)
   const statuses = await latestStatuses(client, [...sessionStates.keys()])
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
@@ -290,7 +291,10 @@ export async function processingSnapshot(
     const latestStatus = statuses.get(job.attemptId)
     const currency = await inputCurrency(client, config, job, capture, jobMedia(media, job))
     const state = currentJobState(job, currency)
-    const proposals = await proposalsForJob(client, config, job, batchLots)
+    const proposals = (await proposalsForJob(client, config, job, batchLots)).map((proposal) => {
+      const state = currentness.get(proposal.id)
+      return state ? { ...proposal, currentness: state } : proposal
+    })
     const questions = await questionsForJob(client, job, state, batchSubjects)
     jobs.push({
       id: job.id,
@@ -547,4 +551,40 @@ function configuredRunnerStatus(
   return config.profileId === 'native-agent/1' || config.profileId === 'native-agent/2'
     ? 'native_unverified'
     : 'fixture_only'
+}
+
+type Currentness = NonNullable<ProcessingJobDto['proposals'][number]['currentness']>
+
+/**
+ * Each session proposal's currentness, in one bounded query per batch: stale when a relied-on
+ * source changed, provisional while an open question shares one of its fields and subject.
+ */
+async function proposalCurrentness(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ id: string; stale: string | null; provisional: boolean }>(
+    `SELECT p.id, s.reason AS stale,
+       EXISTS (
+         SELECT 1 FROM public.processing_question q JOIN public.processing_job qj ON qj.id=q.job_id
+         WHERE q.batch_id=$1 AND q.state='open' AND q.attempt_id=qj.current_attempt_id
+           AND (convert_from(q.spec_bytes,'UTF8')::jsonb->'fields')
+               ?| ARRAY(SELECT jsonb_array_elements_text(p.relies_on->'fields'))
+           AND COALESCE((convert_from(q.spec_bytes,'UTF8')::jsonb->>'subject_id')::uuid, qj.subject_id)
+               = COALESCE(j.subject_id, (convert_from(p.value_bytes,'UTF8')::jsonb->>'subject_id')::uuid)
+       ) AS provisional
+     FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id
+     LEFT JOIN public.processing_proposal_stale s ON s.proposal_id=p.id
+     WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL`,
+    [batchId],
+  )
+  return new Map<string, Currentness>(
+    rows.rows.map((row) => [
+      row.id,
+      row.stale
+        ? ({ state: 'stale', reason: row.stale } as Currentness)
+        : row.provisional
+          ? { state: 'provisional' }
+          : { state: 'current' },
+    ]),
+  )
 }

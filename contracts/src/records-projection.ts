@@ -124,7 +124,12 @@ function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
       const subject = proposal.value.subject_id
       bySubject.set(subject, [
         ...(bySubject.get(subject) ?? []),
-        { proposal, step: stepOf(job.stage), current: job.state !== 'superseded' },
+        {
+          proposal,
+          step: stepOf(job.stage),
+          // A proposal is current while its job is and it has not itself gone stale.
+          current: job.state !== 'superseded' && proposal.currentness?.state !== 'stale',
+        },
       ])
     }
   }
@@ -135,7 +140,10 @@ function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
  * A field shows the step of a proposal it still matches. Retained proposals carry no reliable
  * order, so any match counts rather than only the last one read.
  */
-function originsFor(spec: InventoryPartSpecDto, proposals: readonly Proposed[]) {
+function originsFor(spec: InventoryPartSpecDto, all: readonly Proposed[]) {
+  // A stale or superseded proposal is credited only when no current one exists.
+  const current = all.filter((entry) => entry.current)
+  const proposals = current.length ? current : all
   const each = proposals.map((entry) => originsFromOne(spec, entry))
 
   const first = (pick: (origins: ReturnType<typeof originsFromOne>) => Origin) =>
@@ -519,7 +527,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   }
 
   // Catalogue proposals: values the executor cannot create are shown, never written into a spec.
-  // One catalogue per Part: from a current job before a superseded one, about the Part itself
+  // One catalogue per Part: from a current proposal before a stale or superseded one (job state
+  // and the proposal's own currentness), about the Part itself
   // before one of its lots. Retained proposals carry no order, so ties take the first read.
   const catalogueOf = (subjects: string[]) => {
     const entries = subjects.flatMap((subject, rank) =>
