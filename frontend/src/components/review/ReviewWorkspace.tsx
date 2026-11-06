@@ -53,6 +53,8 @@ interface Props {
   toggle: (id: string) => void
   review: () => void
   reviewLots: (ids: string[]) => void
+  /** Replaces the shared selection; the Table may select more than the Workspace cap. */
+  setSelection: (ids: string[]) => void
   prepare: () => void
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
@@ -96,10 +98,14 @@ function initialLocation(batch: CaptureSnapshotDto): ReviewLocation {
 function selectionProblem(
   selected: string[],
   workspace: ManualWorkspaceDto,
-  operatorReview?: OperatorReviewDto,
+  operatorReview: OperatorReviewDto | undefined,
+  maxSelected: number,
 ) {
   if (!selected.length) {
     return null
+  }
+  if (selected.length > maxSelected) {
+    return `Select at most ${maxSelected} lots to review or prepare together.`
   }
   if (operatorReview) {
     const lots = operatorReview.lots.filter((lot) => selected.includes(lot.lot_id))
@@ -167,6 +173,7 @@ export function ReviewWorkspace({
   toggle,
   review,
   reviewLots,
+  setSelection,
   prepare,
   edit,
   reload,
@@ -277,7 +284,7 @@ export function ReviewWorkspace({
           !reviewUnavailable &&
           !busy &&
           !stale &&
-          !selectionProblem([focused], workspace, operatorReview)
+          !selectionProblem([focused], workspace, operatorReview, maxSelected)
         ) {
           reviewLots([focused])
         }
@@ -295,7 +302,7 @@ export function ReviewWorkspace({
   const lot = batch.lots.find((value) => value.id === focused)
   const part = batch.parts.find((value) => value.id === lot?.part_subject_id)
   const operatorLot = operatorReview?.lots.find((value) => value.lot_id === lot?.id)
-  const problem = selectionProblem(selected, workspace, operatorReview)
+  const problem = selectionProblem(selected, workspace, operatorReview, maxSelected)
   const reviewed = scopeReviewed(selected, workspace, operatorReview)
   return (
     <>
@@ -448,6 +455,8 @@ export function ReviewWorkspace({
           activeLotIds={activeLotIds}
           disabled={busy || stale || reviewUnavailable || drafts.hasOtherSources('workspace')}
           maxReviewLots={maxSelected}
+          selected={selected}
+          setSelection={setSelection}
           inspect={inspect}
           reviewLots={reviewLots}
           reload={reload}

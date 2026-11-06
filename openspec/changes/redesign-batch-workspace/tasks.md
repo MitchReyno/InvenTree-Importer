@@ -197,7 +197,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - [x] 8.1 Rebuild the Workspace's three panes, loading the evidence pane on selection (no Inspect step).
 - [x] 8.2 Add problem fix actions that route to their owners.
-- [ ] 8.3 Restyle the Table with shared selection and filters.
+- [x] 8.3 Restyle the Table with shared selection and filters.
 - [ ] 8.4 Build the Map from lot–evidence links, with flags and the existing split, merge and move commands.
 
 ## 9. Record edits backend

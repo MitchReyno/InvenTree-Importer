@@ -20,6 +20,9 @@ interface Props {
   activeLotIds: string[]
   disabled: boolean
   maxReviewLots: number
+  /** The selection shared with the Workspace view. */
+  selected: string[]
+  setSelection: (ids: string[]) => void
   inspect: (lotId: string) => void
   reviewLots: (lotIds: string[]) => void
   reload: () => Promise<void>
@@ -37,7 +40,7 @@ function reviewBlocker(review: OperatorReviewDto, lotIds: string[], max: number)
   return null
 }
 
-/** Table selection is separate from the evidence view's approval scope. */
+/** The Table shares its selection and filter with the Workspace view. */
 export function TableWorkspace({
   batch,
   review,
@@ -47,13 +50,15 @@ export function TableWorkspace({
   activeLotIds,
   disabled,
   maxReviewLots,
+  selected: shared,
+  setSelection,
   inspect,
   reviewLots,
   reload,
   onDirtyChange,
 }: Props) {
   const drafts = useDirtySources(onDirtyChange)
-  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
+  const selection: ReadonlySet<string> = new Set(shared)
   const [dialog, setDialog] = useState<'merge' | 'move' | null>(null)
   const selected = activeLotIds.filter((id) => selection.has(id))
   const approvedSelected = review.lots.some((lot) => lot.approved && selection.has(lot.lot_id))
@@ -66,7 +71,7 @@ export function TableWorkspace({
     } else {
       next.add(lotId)
     }
-    setSelection(next)
+    setSelection([...next])
   }
 
   function toggleAll(ids: string[]) {
@@ -79,7 +84,7 @@ export function TableWorkspace({
         next.add(id)
       }
     }
-    setSelection(next)
+    setSelection([...next])
   }
 
   return (

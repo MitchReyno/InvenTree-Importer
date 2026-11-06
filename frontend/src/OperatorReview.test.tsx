@@ -1048,3 +1048,24 @@ test('each problem offers its fix, on the lot or on the screen that owns it', as
   await user.click(within(problems).getByRole('button', { name: 'Set the quantity' }))
   expect(await screen.findByLabelText('Exact pieces')).toBeVisible()
 })
+
+test('switching between Workspace and Table keeps the same selection and filter', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Packet B' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Bag half' }))
+  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  const table = await screen.findByRole('region', { name: 'Lot table' })
+
+  expect(within(table).getByRole('checkbox', { name: 'Select Packet B' })).toBeChecked()
+  expect(within(table).getByRole('checkbox', { name: 'Select Bag half' })).toBeChecked()
+  expect(within(table).getByRole('checkbox', { name: 'Select Packet A' })).not.toBeChecked()
+
+  await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
+  await user.click(screen.getByRole('button', { name: /^Changed/ }))
+  await user.click(screen.getByRole('tab', { name: 'Evidence' }))
+
+  expect(screen.getByRole('checkbox', { name: 'Select Bag half' })).toBeChecked()
+  expect(location.hash).toContain('filter=changed')
+  expect(screen.queryByRole('checkbox', { name: 'Select Packet B' })).not.toBeInTheDocument()
+})
