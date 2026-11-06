@@ -43,11 +43,33 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
   if (!members.length && !suggested.length) {
     return null
   }
+  const active = members.filter((observation) => observation.status === 'active')
+
+  // Suggested revisions of this lot's observations the operator has edited.
+  const revisions = observations.filter(
+    (observation) =>
+      observation.status === 'suggested' &&
+      members.some((member) => member.id === observation.supersedes_observation_id),
+  )
+
+  const describe = (observation: Observation) =>
+    observation.readings.markings.join(' · ') || 'unread item'
 
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (
-      <Crop src={observationCrop(batch.id, observation.id)} alt="" />
+      <Crop
+        src={observationCrop(batch.id, observation.id)}
+        alt={`Region: ${describe(observation)}`}
+      />
     ) : null
+
+  const decide = (observation: Observation, decision: 'accept' | 'dismiss', lotId?: string) =>
+    void edit?.({
+      kind: 'observation_suggestion',
+      observation_id: observation.id,
+      ...(lotId ? { lot_id: lotId } : {}),
+      decision,
+    })
 
   return (
     <section aria-label="Observations">
@@ -67,7 +89,7 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
         </Small>
       )}
       <List>
-        {members.map((observation) => (
+        {active.map((observation) => (
           <li key={observation.id}>
             {crop(observation)}
             <Reading observation={observation} />
@@ -85,29 +107,46 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
                 <Reading observation={observation} />
                 <Button
                   type="button"
+                  aria-label={`Add ${describe(observation)} to ${lot.label}`}
                   disabled={disabled || !edit}
-                  onClick={() =>
-                    void edit?.({
-                      kind: 'observation_suggestion',
-                      observation_id: observation.id,
-                      lot_id: lot.id,
-                      decision: 'accept',
-                    })
-                  }
+                  onClick={() => decide(observation, 'accept', lot.id)}
                 >
                   Add to this lot
                 </Button>
                 <Button
                   type="button"
+                  aria-label={`Dismiss ${describe(observation)} for ${lot.label}`}
                   disabled={disabled || !edit}
-                  onClick={() =>
-                    void edit?.({
-                      kind: 'observation_suggestion',
-                      observation_id: observation.id,
-                      lot_id: lot.id,
-                      decision: 'dismiss',
-                    })
-                  }
+                  onClick={() => decide(observation, 'dismiss', lot.id)}
+                >
+                  Dismiss
+                </Button>
+              </li>
+            ))}
+          </List>
+        </Field>
+      )}
+      {revisions.length > 0 && (
+        <Field>
+          <strong>Suggested revisions of your observations</strong>
+          <List>
+            {revisions.map((observation) => (
+              <li key={observation.id} aria-label="Suggested revision">
+                {crop(observation)}
+                <Reading observation={observation} />
+                <Button
+                  type="button"
+                  aria-label={`Use the suggested revision: ${describe(observation)}`}
+                  disabled={disabled || !edit}
+                  onClick={() => decide(observation, 'accept')}
+                >
+                  Use this revision
+                </Button>
+                <Button
+                  type="button"
+                  aria-label={`Dismiss the suggested revision: ${describe(observation)}`}
+                  disabled={disabled || !edit}
+                  onClick={() => decide(observation, 'dismiss')}
                 >
                   Dismiss
                 </Button>

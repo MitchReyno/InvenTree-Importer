@@ -49,6 +49,11 @@ export async function syntheticLeadTurn(
   const memory: Memory = await readFile(path, 'utf8')
     .then((text) => JSON.parse(text) as Memory)
     .catch(() => ({ revision: manifest.capture_revision, lots: {} }))
+  // The batch as it is now: other writers may have moved it on since the last turn.
+  const view = await call('read_batch', {})
+  memory.revision = String(
+    (view.batch as { revision?: string } | undefined)?.revision ?? memory.revision,
+  )
   const media = decodeMediaInputs(
     Buffer.from(manifest.media.manifest, 'utf8'),
     Buffer.from(manifest.media.sha256, 'hex'),

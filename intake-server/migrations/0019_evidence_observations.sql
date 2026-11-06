@@ -109,14 +109,17 @@ BEGIN
 END;
 $$;
 
+-- Inherited membership counts; superusers, which pg_has_role treats as members of every role,
+-- are never agent principals.
+CREATE FUNCTION is_agent_writer() RETURNS boolean LANGUAGE sql STABLE AS $$
+  SELECT pg_has_role(current_user, 'intake_agent_writer_marker', 'MEMBER')
+    AND NOT (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname=current_user)
+$$;
+
 -- Agent principals never touch edited rows except through suggestions, and never set counted values.
 CREATE FUNCTION capture_agent_write_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  -- Direct membership only: pg_has_role is true for superusers, which are not agent principals.
-  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
-      JOIN pg_catalog.pg_roles marker ON marker.oid=m.roleid
-      JOIN pg_catalog.pg_roles member ON member.oid=m.member
-      WHERE marker.rolname='intake_agent_writer_marker' AND member.rolname=current_user) THEN
+  IF NOT public.is_agent_writer() THEN
     RETURN COALESCE(NEW,OLD);
   END IF;
   IF TG_TABLE_NAME='capture_lot' THEN
@@ -132,8 +135,11 @@ BEGIN
       RAISE EXCEPTION 'agent_write_refused' USING ERRCODE='42501';
     END IF;
   ELSIF TG_TABLE_NAME='capture_lot_evidence_observation' THEN
-    IF EXISTS (SELECT 1 FROM public.capture_lot l WHERE l.id=COALESCE(NEW.lot_id,OLD.lot_id)
-        AND (l.operator_edited OR l.origin<>'agent'))
+    IF (EXISTS (SELECT 1 FROM public.capture_lot l WHERE l.id=COALESCE(NEW.lot_id,OLD.lot_id)
+          AND (l.operator_edited OR l.origin<>'agent'))
+        OR EXISTS (SELECT 1 FROM public.capture_evidence_observation o
+          WHERE o.id=COALESCE(NEW.evidence_observation_id,OLD.evidence_observation_id)
+            AND (o.operator_edited OR o.origin<>'agent')))
       AND (TG_OP<>'INSERT' OR NEW.status<>'suggested') THEN
       RAISE EXCEPTION 'agent_write_refused' USING ERRCODE='42501';
     END IF;
@@ -147,3 +153,41 @@ CREATE TRIGGER capture_evidence_observation_agent_write BEFORE INSERT OR UPDATE 
   FOR EACH ROW EXECUTE FUNCTION capture_agent_write_guard();
 CREATE TRIGGER capture_lot_membership_agent_write BEFORE INSERT OR UPDATE OR DELETE ON capture_lot_evidence_observation
   FOR EACH ROW EXECUTE FUNCTION capture_agent_write_guard();
+
+-- Agent principals rename only the subjects they created and the operator has not edited, record
+-- capture revisions attributed to a session under the batch's own actor, and queue only processing.
+CREATE FUNCTION capture_agent_subject_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF public.is_agent_writer() AND NEW.label IS DISTINCT FROM OLD.label AND (
+      OLD.agent_session_id IS NULL OR
+      EXISTS (SELECT 1 FROM public.capture_lot l WHERE l.id=OLD.id AND (l.operator_edited OR l.origin<>'agent'))) THEN
+    RAISE EXCEPTION 'agent_write_refused' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER capture_subject_agent_write BEFORE UPDATE ON capture_subject
+  FOR EACH ROW EXECUTE FUNCTION capture_agent_subject_guard();
+
+CREATE FUNCTION capture_agent_revision_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF public.is_agent_writer() AND (NEW.agent_session_id IS NULL OR NEW.actor_id IS DISTINCT FROM
+      (SELECT b.actor_id FROM public.capture_batch b WHERE b.id=NEW.batch_id)) THEN
+    RAISE EXCEPTION 'agent_write_refused' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER capture_revision_agent_write BEFORE INSERT ON capture_revision
+  FOR EACH ROW EXECUTE FUNCTION capture_agent_revision_guard();
+
+CREATE FUNCTION agent_command_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF public.is_agent_writer() AND NEW.kind<>'process' THEN
+    RAISE EXCEPTION 'agent_write_refused' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER command_agent_write BEFORE INSERT ON command
+  FOR EACH ROW EXECUTE FUNCTION agent_command_guard();

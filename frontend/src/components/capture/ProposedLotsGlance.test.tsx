@@ -77,3 +77,24 @@ describe('ProposedLotsGlance with lead-session lots', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Grouping the reel photos')
   })
 })
+
+it('shows no stray count for an AI lot without crops or suggestions', () => {
+  render(
+    <ProposedLotsGlance
+      batchId="b"
+      lots={[
+        {
+          id: 'l5',
+          label: 'Document line lot',
+          state: 'to_review',
+          href: '#b/review/lots/l5',
+          origin: 'agent',
+          edited: false,
+          crops: [],
+          suggestions: 0,
+        },
+      ]}
+    />,
+  )
+  expect(screen.getByRole('listitem', { name: 'Document line lot' })).not.toHaveTextContent(/^.*0$/)
+})

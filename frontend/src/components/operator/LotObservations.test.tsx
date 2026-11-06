@@ -68,20 +68,24 @@ it('shows the lot’s observations as crops and resolves suggestions as operator
     '/api/v1/batches/b/media/observations/o1/crop',
   )
   const suggestion = screen.getByRole('listitem', { name: 'Suggested observation' })
-  await userEvent.click(within(suggestion).getByRole('button', { name: 'Add to this lot' }))
+  await userEvent.click(
+    within(suggestion).getByRole('button', { name: 'Add Reel back to LED 0603 red' }),
+  )
   expect(edit).toHaveBeenCalledWith({
     kind: 'observation_suggestion',
     observation_id: 'o2',
     lot_id: 'l1',
     decision: 'accept',
   })
-  await userEvent.click(within(suggestion).getByRole('button', { name: 'Dismiss' }))
+  await userEvent.click(
+    within(suggestion).getByRole('button', { name: 'Dismiss Reel back for LED 0603 red' }),
+  )
   expect(edit).toHaveBeenLastCalledWith(expect.objectContaining({ decision: 'dismiss' }))
 })
 
 it('fences suggestion decisions while a draft is open', () => {
   render(<LotObservations batch={batch} lot={lot} edit={vi.fn()} disabled />)
-  expect(screen.getByRole('button', { name: 'Add to this lot' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /^Add Reel back/ })).toBeDisabled()
 })
 
 it('shows nothing for a lot with no observations', () => {
@@ -89,4 +93,33 @@ it('shows nothing for a lot with no observations', () => {
     <LotObservations batch={{ ...batch, evidence_observations: [] }} lot={lot} disabled={false} />,
   )
   expect(container).toBeEmptyDOMElement()
+})
+
+it('offers the lead session’s revision of an edited observation to accept or dismiss', async () => {
+  const edit = vi.fn().mockResolvedValue(true)
+  const edited = { ...observation('o1', 'LED 0603 red', 'l1'), operator_edited: true }
+  const revision = {
+    ...observation('o3', 'LED 0603 red, lot 7', null),
+    status: 'suggested',
+    supersedes_observation_id: 'o1',
+  }
+  render(
+    <LotObservations
+      batch={
+        { ...batch, evidence_observations: [edited, revision] } as unknown as CaptureSnapshotDto
+      }
+      lot={lot}
+      edit={edit}
+      disabled={false}
+    />,
+  )
+  const item = screen.getByRole('listitem', { name: 'Suggested revision' })
+  await userEvent.click(
+    within(item).getByRole('button', { name: 'Use the suggested revision: LED 0603 red, lot 7' }),
+  )
+  expect(edit).toHaveBeenCalledWith({
+    kind: 'observation_suggestion',
+    observation_id: 'o3',
+    decision: 'accept',
+  })
 })

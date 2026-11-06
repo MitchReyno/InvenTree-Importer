@@ -62,6 +62,7 @@ async function main() {
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
   let launched = false
   const shutdown = new AbortController()
+  const examineSkipped = new Map<string, string>()
   let ownerLost = false
   try {
     if (!(await compatibleSchema(db.pool))) {
@@ -145,7 +146,7 @@ async function main() {
     while (!shutdown.signal.aborted) {
       if (writer) {
         // Lead jobs and evidence notices first, so this pass dispatches and wakes them.
-        await triggerExamine(writer.pool, config)
+        await triggerExamine(writer.pool, config, { skipped: examineSkipped })
       }
       await dispatchProcessingCommands(db.pool, scheduler, config)
       await wakePendingSessions(db.pool, config, scheduler)

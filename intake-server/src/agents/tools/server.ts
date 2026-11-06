@@ -14,6 +14,11 @@ import { sessionTools, type SessionToolOutput } from './handlers.ts'
 const DEFAULT_STATUS_INTERVAL_MS = 2000
 
 const TOOLS = {
+  read_batch: {
+    schema: 'SessionReadBatchArgs',
+    description:
+      'Examine lead session only. Read the batch revision to pass as base_revision, with its lots, Parts and observations, including operator edits and suggestions.',
+  },
   record_observation: {
     schema: 'RecordObservationArgs',
     description:
@@ -57,7 +62,7 @@ const TOOLS = {
   },
 } as const satisfies Record<string, { schema: keyof typeof schemas; description: string }>
 
-const LEAD_ONLY = new Set(['record_observation', 'propose_lot', 'regroup'])
+const LEAD_ONLY = new Set(['read_batch', 'record_observation', 'propose_lot', 'regroup'])
 
 /**
  * Agents see the contract's own JSON Schema. Validation stays with the handler, so an invalid
@@ -143,8 +148,19 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
         async (args: unknown) => {
           try {
             return toolResult(await tools[name as keyof typeof TOOLS](token, args))
-          } catch {
+          } catch (error) {
             // The call's transaction rolled back; answer instead of leaving the agent waiting.
+            // Only the tool name and a safe code are logged; arguments may hold evidence text.
+            process.stderr.write(
+              JSON.stringify({
+                event: 'session_tool_failed',
+                tool: name,
+                code:
+                  error instanceof Error && /^[a-z_]{1,64}$/.test(error.message)
+                    ? error.message
+                    : 'unexpected',
+              }) + '\n',
+            )
             return toolResult({
               result: {
                 ok: false,

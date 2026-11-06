@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import type {
   CaptureEditDto,
   EvidenceRegionDto,
+  LeadBatchViewDto,
   LotFormingConflictDto,
   ProposeLotArgsDto,
   RecordObservationArgsDto,
@@ -29,10 +30,33 @@ export interface LeadWriter {
 }
 
 export type LotFormingResult =
-  | { ok: true; revision: string; id: string; suggested: boolean }
+  | { ok: true; revision: string; id: string; suggested: boolean; partSubjectId?: string }
   | { ok: false; error: 'stale'; revision: string; conflicts: LotFormingConflictDto[] }
 
 const MAX_LOTS_AND_PARTS = 100
+/** The snapshot's own limits: observations per batch (suggestions included) and per lot. */
+const MAX_BATCH_OBSERVATIONS = 1000
+const MAX_LOT_OBSERVATIONS = 100
+
+async function requireObservationRoom(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ count: string }>(
+    'SELECT count(*)::text AS count FROM public.capture_evidence_observation WHERE batch_id=$1',
+    [batchId],
+  )
+  if (Number(rows.rows[0].count) >= MAX_BATCH_OBSERVATIONS) {
+    fail('capture_capacity', 409)
+  }
+}
+
+async function requireLotRoom(client: PoolClient, lotId: string) {
+  const rows = await client.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM public.capture_lot_evidence_observation WHERE lot_id=$1 AND status='active'",
+    [lotId],
+  )
+  if (Number(rows.rows[0].count) > MAX_LOT_OBSERVATIONS) {
+    fail('capture_capacity', 409)
+  }
+}
 
 /** Pixels must fit the page's preview; a line range only needs a real page and ordered lines. */
 export async function requireEvidenceRegion(
@@ -182,7 +206,8 @@ async function lockLots(client: PoolClient, batchId: string, ids: readonly strin
   )
 }
 
-const editedLot = (lot: LockedLot) => lot.operatorEdited || lot.origin !== 'agent'
+// A retired lot was split, merged or retired by the operator; it is theirs as well.
+const editedLot = (lot: LockedLot) => lot.operatorEdited || lot.origin !== 'agent' || lot.retired
 
 const editedObservation = (row: LockedObservation) => row.operatorEdited || row.origin !== 'agent'
 
@@ -336,6 +361,10 @@ export async function recordObservation(
   const db = queryDatabase(client)
   let id: string = randomUUID()
   let suggested = false
+  const revising = args.observation_id !== undefined
+  if (!revising) {
+    await requireObservationRoom(client, writer.batchId)
+  }
   if (args.observation_id) {
     const rows = await lockObservations(client, writer.batchId, [args.observation_id])
     const conflicts = conflictsFor(base, [args.observation_id], rows, [], new Map())
@@ -348,6 +377,7 @@ export async function recordObservation(
     }
     if (editedObservation(row)) {
       // The operator's observation stays as it is; the revision waits for their decision.
+      await requireObservationRoom(client, writer.batchId)
       suggested = true
       await executeDatabaseQuery(
         db.insert(captureEvidenceObservations).values({
@@ -460,6 +490,16 @@ export async function proposeLot(
   const subjects = locked.subjects.map((s) => ({ id: s.id, kind: s.kind }))
   let lotId = args.lot_id
   let suggested = false
+  let createdPartId: string | undefined
+
+  const partFor = async (part: NonNullable<ProposeLotArgsDto['part']>) => {
+    const id = await proposedPart(client, writer, part, subjects)
+    if ('label' in part) {
+      createdPartId = id
+    }
+    return id
+  }
+
   if (lotId) {
     const target = lots.get(lotId)!
     if (editedLot(target)) {
@@ -476,9 +516,7 @@ export async function proposeLot(
       const revision = await locked.finish({ tool: 'propose_lot', ...args }, writer.sessionId)
       return { ok: true, revision, id: lotId, suggested: true }
     }
-    const partSubjectId = args.part
-      ? await proposedPart(client, writer, args.part, subjects)
-      : undefined
+    const partSubjectId = args.part ? await partFor(args.part) : undefined
     await executeDatabaseQuery(
       db
         .update(captureLots)
@@ -503,10 +541,12 @@ export async function proposeLot(
     if (!args.label) {
       fail('lot_label_required', 400)
     }
-    if (subjects.length >= MAX_LOTS_AND_PARTS) {
+    // A new draft Part counts towards the same limit as the lot.
+    const needed = 1 + (args.part && 'label' in args.part ? 1 : 0)
+    if (subjects.length + needed > MAX_LOTS_AND_PARTS) {
       fail('capture_capacity', 409)
     }
-    const partSubjectId = args.part ? await proposedPart(client, writer, args.part, subjects) : null
+    const partSubjectId = args.part ? await partFor(args.part) : null
     lotId = randomUUID()
     await executeDatabaseQuery(
       db.insert(captureSubjects).values({
@@ -551,11 +591,12 @@ export async function proposeLot(
       )
     }
   }
+  await requireLotRoom(client, lotId)
   const revision = await locked.finish(
     { tool: 'propose_lot', ...args, id: lotId },
     writer.sessionId,
   )
-  return { ok: true, revision, id: lotId, suggested }
+  return { ok: true, revision, id: lotId, suggested, partSubjectId: createdPartId }
 }
 
 /** `regroup`: moves observations between AI lots; edited rows only receive suggestions. */
@@ -605,6 +646,9 @@ export async function regroup(
         writer.sessionId,
       )
     }
+  }
+  for (const target of targets) {
+    await requireLotRoom(client, target)
   }
   const revision = await locked.finish({ tool: 'regroup', ...args }, writer.sessionId)
   return { ok: true, revision, id: targets[0], suggested }
@@ -881,5 +925,90 @@ export async function moveObservationsByOperator(
         .where(eq(captureEvidenceObservations.id, observationId)),
     )
     await moveByOperator(client, batchId, observationId, from, to, revision)
+  }
+}
+
+/** The lead session's view of its batch: what `read_batch` returns and its messages carry. */
+export async function leadBatchView(
+  client: PoolClient,
+  batchId: string,
+): Promise<LeadBatchViewDto> {
+  const batch = await client.query<{ revision: string }>(
+    'SELECT revision::text AS revision FROM public.capture_batch WHERE id=$1',
+    [batchId],
+  )
+  const subjects = await client.query<{
+    id: string
+    kind: 'lot' | 'part'
+    label: string
+    origin: 'agent' | 'operator' | null
+    operator_edited: boolean | null
+    part_subject_id: string | null
+    estimated_quantity: string | null
+    retired: boolean
+  }>(
+    `SELECT s.id,s.kind,s.label,l.origin,l.operator_edited,l.part_subject_id,l.estimated_quantity,
+       EXISTS (SELECT 1 FROM public.capture_lot_retirement r WHERE r.lot_id=s.id) AS retired
+     FROM public.capture_subject s LEFT JOIN public.capture_lot l ON l.id=s.id
+     WHERE s.batch_id=$1 ORDER BY s.id`,
+    [batchId],
+  )
+  const observations = await client.query<{
+    id: string
+    evidence_version_id: string
+    page: number
+    region: EvidenceRegionDto
+    readings: { markings: string[] }
+    visible_count: number | null
+    status: 'active' | 'suggested'
+    supersedes_observation_id: string | null
+    operator_edited: boolean
+  }>(
+    `SELECT id,evidence_version_id,page,region,readings,visible_count,status,supersedes_observation_id,operator_edited
+     FROM public.capture_evidence_observation WHERE batch_id=$1 ORDER BY created_at,id`,
+    [batchId],
+  )
+  const members = await client.query<{ lot_id: string; observation_id: string; status: string }>(
+    `SELECT lot_id,evidence_observation_id AS observation_id,status
+     FROM public.capture_lot_evidence_observation WHERE batch_id=$1 ORDER BY lot_id,evidence_observation_id`,
+    [batchId],
+  )
+  const activeLot = new Map(
+    members.rows.filter((m) => m.status === 'active').map((m) => [m.observation_id, m.lot_id]),
+  )
+  return {
+    revision: batch.rows[0].revision,
+    lots: subjects.rows
+      .filter((row) => row.kind === 'lot')
+      .map((row) => ({
+        id: row.id,
+        label: row.label,
+        origin: row.origin ?? 'operator',
+        operator_edited: row.operator_edited === true,
+        retired: row.retired,
+        part_subject_id: row.part_subject_id,
+        estimated_quantity: row.estimated_quantity,
+        observation_ids: members.rows
+          .filter((m) => m.lot_id === row.id && m.status === 'active')
+          .map((m) => m.observation_id),
+        suggested_observation_ids: members.rows
+          .filter((m) => m.lot_id === row.id && m.status === 'suggested')
+          .map((m) => m.observation_id),
+      })),
+    parts: subjects.rows
+      .filter((row) => row.kind === 'part')
+      .map((row) => ({ id: row.id, label: row.label })),
+    observations: observations.rows.map((row) => ({
+      id: row.id,
+      evidence_version_id: row.evidence_version_id,
+      page: row.page,
+      region: row.region,
+      markings: row.readings.markings,
+      visible_count: row.visible_count,
+      status: row.status,
+      supersedes_observation_id: row.supersedes_observation_id,
+      lot_id: activeLot.get(row.id) ?? null,
+      operator_edited: row.operator_edited,
+    })),
   }
 }

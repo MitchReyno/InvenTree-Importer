@@ -844,6 +844,16 @@ export async function lockCaptureForAgentWrite(
           .set({ revision: BigInt(nextRevision), updatedAt: sql`now()` })
           .where(eq(captureBatches.id, batchId)),
       )
+      // The same projection and size check as operator edits: a write that would make the
+      // batch unreadable is refused and rolls back.
+      try {
+        await snapshot(client, config, batchId)
+      } catch (error) {
+        if (error instanceof CaptureError) {
+          throw error
+        }
+        fail('capture_capacity', 409)
+      }
       const bytes = Buffer.from(canonicalRecord(payload))
       await executeDatabaseQuery(
         queryDatabase(client)
@@ -994,6 +1004,8 @@ export async function lockCaptureForOperatorCommand(
           .set({ revision: sql`${captureSubjects.revision}+1` })
           .where(and(eq(captureSubjects.id, subjectId), eq(captureSubjects.batchId, batchId))),
       )
+      // Every operator command that changes a lot also keeps the lead session to suggestions.
+      await markLotEdited(client, subjectId, BigInt(nextRevision))
     },
 
     async commit(command) {

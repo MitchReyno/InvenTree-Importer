@@ -483,3 +483,31 @@ Tests (7.2): `tests/pg/evidence-observations.test.ts` (8 tests, run as the real 
 - **Known limit:** each adopted live revision remounts the Review workspace (its key includes the revision), so an inspected lot's local view state resets when the lead session writes. Drafts are protected because adoption waits while any draft is dirty.
 - **Tests:** `ProposedLotsGlance`, `proposed-lots`, `lead-status`, `LotObservations` and an `OperatorReview` integration test. The integration test covers a dirty draft holding off a live lot until discard, after which the lot appears with its chip and Review stays editable.
 
+## PR-B review round 1
+
+A fresh read-only reviewer subagent reviewed `4080ea9..30200dc` and found 5 important and 7 minor findings. It confirmed that the lock order, trigger single-flight, `canonicalRecord` byte identity, legacy operator lot bytes, tool and crop-route authorization, and the guard tests are sound. Fixes:
+
+1. **Operator commands left AI lots unmarked.**
+   - `touchSubject` (used by lot, bulk and `move_lots` commands) now marks the lot edited.
+   - `recordLineage` marks every split, merged or retired predecessor.
+   - Retired lots count as edited, so observations left on them are only suggested elsewhere.
+2. **Agent writes had no capacity limit.**
+   - Agent writes are capped at 1000 observations per batch (suggestions included) and 100 active observations per lot.
+   - A new lot and its new Part count together against the subject limit.
+   - `finish()` re-projects and validates the snapshot, including its byte limit, before publishing. Overflow surfaces to the agent as `capacity_reached`.
+3. **A trigger failure stopped the session supervisor.** A failing batch (for example over 64 originals) is now logged with a safe code and skipped until its evidence signature changes. Other batches carry on, and the worker keeps the skip map across sweeps.
+4. **A real lead session could not see the batch.**
+   - The new lead-only `read_batch` tool returns the revision, lots, Parts and observations (with edits and suggestions), and the instructions and opening message point to it.
+   - Lot-forming results now return `suggested` and a created `part_subject_id`.
+   - Stale conflicts now carry the observation's current lot and edit state, and `operator_edited` as a reason. The synthetic lead reads the batch at the start of each turn.
+5. **Estimates could pass as counts.** An AI lot whose quantity is still inherited raises `quantity_required` even when the batch default is set.
+6. **Database guards had gaps.** Agent principals may rename only subjects they created and the operator has not edited, must attribute capture revisions to their session under the batch actor, and may queue only `process` commands. Membership changes are also refused for edited observations.
+7. **The marker role check was too narrow.** It now uses `pg_has_role` (inherited membership) and excludes superusers.
+8. **Crop cache.** Staging names are unique, a trailing slash on `INTAKE_BLOB_ROOT` no longer moves the cache inside the store, and there is no shared temp fallback (no cache directory means no crop image).
+9. **Tool failures were silent.** Unexpected failures are logged with the tool name and a safe code, and a regression test covers `tool_failed`.
+10. **Undelivered evidence was accepted.** `record_observation` now accepts only evidence delivered to the lead session.
+11. **Frontend.** The glance no longer renders a stray `0`. Review offers accept and dismiss for suggested revisions of edited observations. Suggestion and revision buttons and crops have distinguishing labels. The lead status line also refreshes every 15 seconds.
+12. **Docs and fixtures.** Task 8.3 and the architecture guard description now match the code. The browser fixture's session worker gets `INTAKE_AGENT_WRITER_DATABASE_URL`. The dev launcher does not start a session worker at all yet, so there is nothing more to wire there.
+
+The full PostgreSQL tier at `30200dc` passed 207 of 207. The process tier passed 66 of 70; its one failure ("owned probe must become observable") was a Docker timing failure while other PG work ran in parallel, with its 3 dependent skips, and is rechecked in the final run.
+

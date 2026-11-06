@@ -21,6 +21,7 @@ import {
   lockCaptureForInputSettlement,
 } from '../../capture/repository.ts'
 import {
+  leadBatchView,
   proposeLot,
   recordObservation,
   regroup,
@@ -44,8 +45,6 @@ import { sha256 } from '../../db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { agentSessionOutbox, agentSessions } from '../schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
-import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import sharp from 'sharp'
 import { regionCropCache } from '../../media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
@@ -66,6 +65,23 @@ export interface SessionToolContext {
   deliveredMedia: Map<string, Set<string>>
   /** Private directory for region crops, outside the blob store. */
   cropCacheDir?: string
+}
+
+/** The lead session's evidence: originals pinned in its manifest plus versions sent as notices. */
+async function leadDeliveredVersions(client: PoolClient, principal: SessionPrincipal) {
+  const pinned = decodeMediaInputs(
+    Buffer.from(principal.manifest.media.manifest, 'utf8'),
+    Buffer.from(principal.manifest.media.sha256, 'hex'),
+  ).versions.filter((item) => item.kind === 'original')
+  const notices = await client.query<{ evidence_id: string; version_id: string }>(
+    `SELECT payload->>'evidence_id' AS evidence_id, payload->>'version_id' AS version_id
+     FROM public.agent_session_inbox WHERE session_lineage_id=$1 AND kind='evidence'`,
+    [principal.lineageId],
+  )
+  return [
+    ...pinned.map((item) => ({ evidence_id: item.evidenceId, version_id: item.versionId })),
+    ...notices.rows,
+  ]
 }
 
 /** Lead-session previews are downscaled to this long edge before they reach the agent. */
@@ -116,19 +132,7 @@ async function leadFetchEvidence(
           source_height: number
         }
       }>('SessionFetchEvidenceArgs', args)
-      const pinned = decodeMediaInputs(
-        Buffer.from(principal.manifest.media.manifest, 'utf8'),
-        Buffer.from(principal.manifest.media.sha256, 'hex'),
-      ).versions.filter((item) => item.kind === 'original')
-      const notices = await client.query<{ evidence_id: string; version_id: string }>(
-        `SELECT payload->>'evidence_id' AS evidence_id, payload->>'version_id' AS version_id
-       FROM public.agent_session_inbox WHERE session_lineage_id=$1 AND kind='evidence'`,
-        [principal.lineageId],
-      )
-      const delivered = [
-        ...pinned.map((item) => ({ evidence_id: item.evidenceId, version_id: item.versionId })),
-        ...notices.rows,
-      ]
+      const delivered = await leadDeliveredVersions(client, principal)
       const version = delivered.find(
         (item) =>
           item.evidence_id === request.evidence_id &&
@@ -189,7 +193,8 @@ async function leadFetchEvidence(
       })
     },
   )
-  if (!plan || !authorized.result.ok || !context.store) {
+  // Without a store or a private crop cache the agent gets page sizes but no image.
+  if (!plan || !authorized.result.ok || !context.store || (plan.region && !context.cropCacheDir)) {
     return authorized
   }
   const { preview, region } = plan
@@ -197,7 +202,7 @@ async function leadFetchEvidence(
   const source = () => context.store!.read(preview.digest)
 
   const bytes = region
-    ? await regionCropCache(context.cropCacheDir ?? join(tmpdir(), 'intake-region-crops')).crop(
+    ? await regionCropCache(context.cropCacheDir!).crop(
         { versionId: plan.versionId, page: preview.page },
         { kind: 'pixels', ...region },
         source,
@@ -379,6 +384,9 @@ async function withLeadSession(
         result = await work(client, found)
       } catch (error) {
         if (error instanceof CaptureError) {
+          if (error.code === 'capture_capacity') {
+            refuse('capacity_reached', 'This batch has reached its limit of lots or observations.')
+          }
           refuse('validation_failed', `The capture change was refused: ${error.code}.`)
         }
         throw error
@@ -397,7 +405,14 @@ async function withLeadSession(
         }
       }
       return {
-        result: { ok: true, pending_inbox: pending, revision: result.revision, id: result.id },
+        result: {
+          ok: true,
+          pending_inbox: pending,
+          revision: result.revision,
+          id: result.id,
+          suggested: result.suggested,
+          ...(result.partSubjectId ? { part_subject_id: result.partSubjectId } : {}),
+        },
       }
     })
   } catch (error) {
@@ -592,19 +607,30 @@ export function sessionTools(context: SessionToolContext) {
   }
 
   return {
+    read_batch: (token: string, args: unknown) =>
+      withSession(context, token, { capture: false }, async (client, principal) => {
+        validated('SessionReadBatchArgs', args)
+        if ((principal.stage as string) !== 'examine') {
+          refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
+        }
+        return ok(client, principal, { batch: await leadBatchView(client, principal.batchId) })
+      }),
+
     record_observation: (token: string, args: unknown) =>
-      withLeadSession(context, token, async (client, principal) =>
-        outboxed(
+      withLeadSession(context, token, async (client, principal) => {
+        const input = validated<RecordObservationArgsDto>('RecordObservationArgs', args)
+        // Only evidence this session was given; an observation also marks it as examined.
+        const delivered = await leadDeliveredVersions(client, principal)
+        if (!delivered.some((item) => item.version_id === input.evidence_version_id)) {
+          refuse('source_not_delivered', 'That evidence was not delivered to this session.')
+        }
+        return outboxed(
           client,
           principal,
-          await recordObservation(
-            client,
-            writer(principal),
-            validated<RecordObservationArgsDto>('RecordObservationArgs', args),
-          ),
+          await recordObservation(client, writer(principal), input),
           (id) => ({ kind: 'observation', payload: { evidence_observation_id: id } }),
-        ),
-      ),
+        )
+      }),
 
     propose_lot: (token: string, args: unknown) =>
       withLeadSession(context, token, async (client, principal) =>

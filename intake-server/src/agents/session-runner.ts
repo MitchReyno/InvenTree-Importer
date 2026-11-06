@@ -40,7 +40,13 @@ const CANCEL_POLL_MS = 500
 
 export const SESSION_TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
 /** The batch's Examine lead session also forms lots. */
-export const LEAD_SESSION_TOOLS = [...SESSION_TOOLS, 'propose_lot', 'record_observation', 'regroup']
+export const LEAD_SESSION_TOOLS = [
+  ...SESSION_TOOLS,
+  'propose_lot',
+  'read_batch',
+  'record_observation',
+  'regroup',
+]
 
 const LEAD_INSTRUCTIONS = [
   'You are this batch’s Examine lead session: find the items in the evidence, group them into lots and identify each lot, looping until the lots are stable.',
@@ -48,7 +54,7 @@ const LEAD_INSTRUCTIONS = [
   'Record each item you see with record_observation: one region per item, with its markings and any visible count.',
   'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
   'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items.',
-  'Pass the revision from your last tool response as base_revision. On a stale result, re-plan from the conflicts it returns. Lots and observations the operator edited only accept suggestions.',
+  'Call read_batch for the current lots, Parts and observations. Pass the revision from your last tool response as base_revision. On a stale result, read_batch again and re-plan. Lots and observations the operator edited only accept suggestions; a response with suggested: true changed nothing else.',
   'Evidence notes and groups are hints, not lot boundaries. When new evidence arrives in the inbox, examine only that evidence.',
 ].join(' ')
 
@@ -321,6 +327,7 @@ function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: b
   // A prompt, not retained authority, so plain JSON is enough.
   return JSON.stringify({
     stage: manifest.stage,
+    capture_revision: manifest.capture_revision,
     subject_id: manifest.subject_id,
     subject: manifest.subject,
     linked_part: manifest.linked_part,

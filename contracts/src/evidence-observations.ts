@@ -94,6 +94,42 @@ export const RegroupArgs = object({
   }),
 })
 
+/** What the lead session sees of its batch: the revision to pass as base_revision, and its rows. */
+export const LeadBatchView = object({
+  revision: Revision,
+  lots: Type.Array(
+    object({
+      id: Id,
+      label,
+      origin: Type.Union([Type.Literal('agent'), Type.Literal('operator')]),
+      operator_edited: Type.Boolean(),
+      retired: Type.Boolean(),
+      part_subject_id: Type.Union([Id, Type.Null()]),
+      estimated_quantity: Type.Union([Quantity, Type.Null()]),
+      observation_ids: Type.Array(Id, { maxItems: 100 }),
+      suggested_observation_ids: Type.Array(Id, { maxItems: 1000 }),
+    }),
+    { maxItems: 101 },
+  ),
+  parts: Type.Array(object({ id: Id, label }), { maxItems: 101 }),
+  observations: Type.Array(
+    object({
+      id: Id,
+      evidence_version_id: Id,
+      page: Type.Integer({ minimum: 1, maximum: 10000 }),
+      region: EvidenceRegion,
+      markings: Type.Array(label, { maxItems: 32 }),
+      visible_count: Type.Union([Type.Integer({ minimum: 0, maximum: 1000000 }), Type.Null()]),
+      status: EvidenceObservationStatus,
+      supersedes_observation_id: Type.Union([Id, Type.Null()]),
+      lot_id: Type.Union([Id, Type.Null()]),
+      operator_edited: Type.Boolean(),
+    }),
+    { maxItems: 1000 },
+  ),
+})
+export const SessionReadBatchArgs = object({})
+
 /** The current state of a row that made a lot-forming call stale or turned it into a suggestion. */
 export const LotFormingConflict = object({
   kind: Type.Union([Type.Literal('observation'), Type.Literal('lot')]),
@@ -105,6 +141,9 @@ export const LotFormingConflict = object({
     Type.Literal('missing'),
   ]),
   revision: Type.Union([Revision, Type.Null()]),
+  /** For an observation: the lot it is an active member of now. */
+  lot_id: Type.Optional(Type.Union([Id, Type.Null()])),
+  operator_edited: Type.Optional(Type.Boolean()),
 })
 
 export const evidenceObservationSchemas = {
@@ -115,6 +154,8 @@ export const evidenceObservationSchemas = {
   ProposeLotArgs,
   RegroupArgs,
   LotFormingConflict,
+  LeadBatchView,
+  SessionReadBatchArgs,
 }
 
 export type EvidenceRegionDto = Static<typeof EvidenceRegion>
@@ -124,3 +165,4 @@ export type RecordObservationArgsDto = Static<typeof RecordObservationArgs>
 export type ProposeLotArgsDto = Static<typeof ProposeLotArgs>
 export type RegroupArgsDto = Static<typeof RegroupArgs>
 export type LotFormingConflictDto = Static<typeof LotFormingConflict>
+export type LeadBatchViewDto = Static<typeof LeadBatchView>

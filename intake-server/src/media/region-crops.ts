@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import sharp from 'sharp'
@@ -38,7 +38,8 @@ export function regionCropCache(directory: string) {
         .png()
         .toBuffer()
       await mkdir(directory, { recursive: true, mode: 0o700 })
-      const staging = `${path}.${process.pid}.tmp`
+      // A unique staging name, so concurrent crops of one region cannot rename each other's file.
+      const staging = `${path}.${randomUUID()}.tmp`
       await writeFile(staging, bytes, { mode: 0o600 })
       await rename(staging, path)
       return bytes

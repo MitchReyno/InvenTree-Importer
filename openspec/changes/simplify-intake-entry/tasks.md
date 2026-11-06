@@ -265,7 +265,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 
 - [x] 8.1 Baseline the media readiness and processing trigger tests.
 - [x] 8.2 RED: single-flight, debounce restart, resume, eligibility, new-evidence-only examination and quantity-basis regressions.
-- [x] 8.3 GREEN: lead job, debounce workflow, preview staging, instructions and evidence notices.
+- [x] 8.3 GREEN: lead job, quiet-period trigger (a session worker sweep; design D8), preview staging, instructions and evidence notices.
 - [ ] 8.4 Verify that media decoding and the existing processing queue are unaffected.
 - [ ] 8.5 Record the results.
 

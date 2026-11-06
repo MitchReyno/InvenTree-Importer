@@ -14647,6 +14647,53 @@ export interface components {
             }[];
             evidence_label?: string;
             evidence_note?: string;
+            suggested?: boolean;
+            part_subject_id?: string;
+            batch?: {
+                /** Format: int64 */
+                revision: string;
+                lots: {
+                    id: string;
+                    label: string;
+                    origin: "agent" | "operator";
+                    operator_edited: boolean;
+                    retired: boolean;
+                    part_subject_id: string | null;
+                    estimated_quantity: string | null;
+                    observation_ids: string[];
+                    suggested_observation_ids: string[];
+                }[];
+                parts: {
+                    id: string;
+                    label: string;
+                }[];
+                observations: {
+                    id: string;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    markings: string[];
+                    visible_count: number | null;
+                    status: "active" | "suggested";
+                    supersedes_observation_id: string | null;
+                    lot_id: string | null;
+                    operator_edited: boolean;
+                }[];
+            };
         } | {
             /** @constant */
             ok: false;
@@ -14660,6 +14707,8 @@ export interface components {
                 id: string;
                 reason: "changed" | "operator_edited" | "retired" | "missing";
                 revision: string | null;
+                lot_id?: string | null;
+                operator_edited?: boolean;
             }[];
         };
         SessionOutboxItem: {
@@ -14904,7 +14953,55 @@ export interface components {
             id: string;
             reason: "changed" | "operator_edited" | "retired" | "missing";
             revision: string | null;
+            lot_id?: string | null;
+            operator_edited?: boolean;
         };
+        LeadBatchView: {
+            /** Format: int64 */
+            revision: string;
+            lots: {
+                id: string;
+                label: string;
+                origin: "agent" | "operator";
+                operator_edited: boolean;
+                retired: boolean;
+                part_subject_id: string | null;
+                estimated_quantity: string | null;
+                observation_ids: string[];
+                suggested_observation_ids: string[];
+            }[];
+            parts: {
+                id: string;
+                label: string;
+            }[];
+            observations: {
+                id: string;
+                evidence_version_id: string;
+                page: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                markings: string[];
+                visible_count: number | null;
+                status: "active" | "suggested";
+                supersedes_observation_id: string | null;
+                lot_id: string | null;
+                operator_edited: boolean;
+            }[];
+        };
+        SessionReadBatchArgs: Record<string, never>;
     };
     responses: never;
     parameters: never;
@@ -15094,3 +15191,5 @@ export type RecordObservationArgs = components['schemas']['RecordObservationArgs
 export type ProposeLotArgs = components['schemas']['ProposeLotArgs']
 export type RegroupArgs = components['schemas']['RegroupArgs']
 export type LotFormingConflict = components['schemas']['LotFormingConflict']
+export type LeadBatchView = components['schemas']['LeadBatchView']
+export type SessionReadBatchArgs = components['schemas']['SessionReadBatchArgs']

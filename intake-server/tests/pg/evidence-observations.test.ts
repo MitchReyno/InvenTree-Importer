@@ -465,6 +465,18 @@ test('lot-forming tools are for the lead session only, and their writes reach it
     const lead = await leadSession(fixture, capture)
     const lot = await lotSession(fixture, capture, capture.packetA)
     const photo = await seedPhoto(fixture, capture.batch.id, { width: 768, height: 512 })
+    const undelivered = await seedPhoto(
+      fixture,
+      capture.batch.id,
+      { width: 768, height: 512 },
+      'Not sent',
+    )
+    // The photo reaches the lead as new evidence; the second one never does.
+    await fixture.db.pool.query(
+      `INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key)
+       VALUES(gen_random_uuid(),$1,1,'evidence',$2,$3)`,
+      [lead.job, { evidence_id: photo.evidence, version_id: photo.version }, photo.version],
+    )
     const issue = (attemptId: string) =>
       transaction(fixture.runner.pool, (client) => issueSessionCapability(client, attemptId))
     const args = {
@@ -506,6 +518,17 @@ test('lot-forming tools are for the lead session only, and their writes reach it
         })
       ).structuredContent as { ok: boolean; error?: string }
       assert.deepEqual([outside.ok, outside.error], [false, 'validation_failed'])
+      const notSent = (
+        await leadClient.callTool({
+          name: 'record_observation',
+          arguments: {
+            ...args,
+            base_revision: recorded.revision,
+            evidence_version_id: undelivered.version,
+          },
+        })
+      ).structuredContent as { ok: boolean; error?: string }
+      assert.deepEqual([notSent.ok, notSent.error], [false, 'source_not_delivered'])
       const outbox = await fixture.db.pool.query<{
         kind: string
         payload: { evidence_observation_id: string }
@@ -654,5 +677,208 @@ test('the observation migration upgrades a database already at the session migra
     await migrate(db.pool)
   } finally {
     await db.dispose()
+  }
+})
+
+test('operator moves, bulk edits and splits mark lots edited, so the lead session only suggests', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write, read }) => {
+    const { operatorRepository } = await import('../../src/operator-review/repository.ts')
+    const { grantManual } = await import('../../src/review/grants.ts')
+    await grantManual(fixture.db.pool, fixture.api.name, 'api')
+    const operator = operatorRepository(fixture.api.pool, fixture.config)
+    const observe = async (x: number, marking: string) => {
+      const base = (await read()).revision
+      const result = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: base,
+          evidence_version_id: photo.version,
+          region: region(x, 50),
+          readings: readings(marking),
+        }),
+      )
+      assert.ok(result.ok)
+      return result.id
+    }
+    const form = async (label: string, ids: string[]) => {
+      const base = (await read()).revision
+      const result = await write((client) =>
+        proposeLot(client, writer, { base_revision: base, label, observation_ids: ids }),
+      )
+      assert.ok(result.ok)
+      return result.id
+    }
+    const moved = await form('Moved', [await observe(0, 'A')])
+    const bulk = await form('Bulk', [await observe(100, 'B')])
+    const split = await form('Split', [await observe(200, 'C')])
+    await operator.restructure(batchId, randomUUID(), {
+      expected_revision: (await read()).revision,
+      preview: false,
+      change: {
+        kind: 'move_lots',
+        lot_ids: [moved],
+        destination: { kind: 'new', label: 'Operator Part' },
+      },
+    } as never)
+    await operator.bulkEdit(batchId, randomUUID(), {
+      expected_revision: (await read()).revision,
+      lot_ids: [bulk],
+      change: { quantity: { mode: 'set', value: '9' } },
+    } as never)
+    await operator.restructure(batchId, randomUUID(), {
+      expected_revision: (await read()).revision,
+      preview: false,
+      change: {
+        kind: 'split_lot',
+        lot_id: split,
+        children: [
+          { label: 'Split 1', quantity: '1' },
+          { label: 'Split 2', quantity: '1' },
+        ],
+      },
+    } as never)
+    const snapshot = await read()
+    for (const id of [moved, bulk, split]) {
+      assert.equal(snapshot.lots.find((lot) => lot.id === id)!.operator_edited, true, id)
+    }
+    // A Part change aimed at the moved lot changes nothing, and an observation left on the split
+    // parent can only be suggested elsewhere.
+    const again = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: snapshot.revision,
+        lot_id: moved,
+        observation_ids: snapshot.lots.find((lot) => lot.id === moved)!.evidence_observation_ids!,
+        part: { label: 'Agent Part' },
+      }),
+    )
+    assert.ok(again.ok && again.suggested)
+    const movedPart = snapshot.lots.find((lot) => lot.id === moved)!.part_subject_id
+    assert.equal((await read()).lots.find((lot) => lot.id === moved)!.part_subject_id, movedPart)
+    const leftover = snapshot.lots.find((lot) => lot.id === split)!.evidence_observation_ids![0]
+    const relinked = await write((client) =>
+      regroup(client, writer, {
+        base_revision: snapshot.revision,
+        moves: [{ observation_id: leftover, to_lot_id: bulk }],
+      }),
+    )
+    assert.ok(relinked.ok && relinked.suggested)
+    assert.deepEqual(
+      (await read()).lots.find((lot) => lot.id === split)!.evidence_observation_ids,
+      [leftover],
+    )
+  })
+})
+
+test('agent writes stop at the batch observation limit with a capacity refusal', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write }) => {
+    // Fill to the limit directly; the next agent observation is refused and nothing changes.
+    await fixture.db.pool.query(
+      `INSERT INTO capture_evidence_observation(id,batch_id,evidence_version_id,region,readings,origin,agent_session_id,revision)
+       SELECT gen_random_uuid(),$1,$2,'{"kind":"lines","from_line":1,"to_line":1}','{"markings":[]}','agent',$3,1
+       FROM generate_series(1,1000)`,
+      [batchId, photo.version, writer.sessionId],
+    )
+    // That many already overflows the snapshot, so read the revision from the table.
+    const revision = async () =>
+      (
+        await fixture.db.pool.query<{ revision: string }>(
+          'SELECT revision::text AS revision FROM capture_batch WHERE id=$1',
+          [batchId],
+        )
+      ).rows[0].revision
+    const before = await revision()
+    await assert.rejects(
+      write((client) =>
+        recordObservation(client, writer, {
+          base_revision: before,
+          evidence_version_id: photo.version,
+          region: region(0),
+          readings: readings('One too many'),
+        }),
+      ),
+      /capture_capacity/,
+    )
+    assert.equal(await revision(), before)
+  })
+})
+
+test('an agent write that would overflow the snapshot is refused and changes nothing', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write, read }) => {
+    // Long readings fill the snapshot well before the observation count limit.
+    const text = 'x'.repeat(2000)
+    await fixture.db.pool.query(
+      `INSERT INTO capture_evidence_observation(id,batch_id,evidence_version_id,region,readings,origin,agent_session_id,revision)
+       SELECT gen_random_uuid(),$1,$2,'{"kind":"lines","from_line":1,"to_line":1}',jsonb_build_object('markings','[]'::jsonb,'text',$4::text),'agent',$3,1
+       FROM generate_series(1,80)`,
+      [batchId, photo.version, writer.sessionId, text],
+    )
+    const before = await read()
+    assert.ok(before.revision)
+    let refused = false
+    for (let n = 0; n < 40 && !refused; n += 1) {
+      const base = (await read()).revision
+      try {
+        await write((client) =>
+          recordObservation(client, writer, {
+            base_revision: base,
+            evidence_version_id: photo.version,
+            region: region(0),
+            readings: { markings: ['y'], text },
+          }),
+        )
+      } catch (error) {
+        assert.match(String(error), /capture_capacity/)
+        refused = true
+      }
+    }
+    assert.ok(refused)
+    // The batch is still readable after the refusal.
+    assert.ok((await read()).revision)
+  })
+})
+
+test('an unexpected tool failure answers with tool_failed instead of leaving the call hanging', async () => {
+  const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client')
+  const { startSessionToolServer } = await import('../../src/agents/tools/server.ts')
+  const { issueSessionCapability } = await import('../../src/agents/tools/capability.ts')
+  const { database } = await import('../../src/db/database.ts')
+  const fixture = await processingFixture()
+  // A writer pool that is already closed makes every lot-forming call throw.
+  const broken = database(fixture.writer.url)
+  await broken.close()
+  const server = await startSessionToolServer({
+    pool: fixture.runner.pool,
+    writerPool: broken.pool,
+    config: fixture.config,
+    statusIntervalMs: 60_000,
+  })
+  try {
+    const capture = await fixture.seedCapture()
+    const lead = await leadSession(fixture, capture)
+    const token = await transaction(fixture.runner.pool, (client) =>
+      issueSessionCapability(client, lead.attempt),
+    )
+    const client = new Client({ name: 'tool-failed-test', version: '1' })
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(server.url), {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+      }),
+    )
+    try {
+      const result = (
+        await client.callTool({
+          name: 'regroup',
+          arguments: {
+            base_revision: capture.batch.revision,
+            moves: [{ observation_id: randomUUID(), to_lot_id: randomUUID() }],
+          },
+        })
+      ).structuredContent as { ok: boolean; error?: string }
+      assert.deepEqual([result.ok, result.error], [false, 'tool_failed'])
+    } finally {
+      await client.close()
+    }
+  } finally {
+    await server.close()
+    await fixture.dispose()
   }
 })

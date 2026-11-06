@@ -49,7 +49,7 @@ export function ProposedLotsGlance({
                   <Pill tone={STATE[lot.state].tone}>{STATE[lot.state].word}</Pill>
                 </Pills>
               </Row>
-              {(lot.crops?.length || lot.suggestions) && (
+              {Boolean(lot.crops?.length || lot.suggestions) && (
                 <Detail>
                   {lot.crops?.slice(0, 4).map((src, index) => (
                     <Crop key={src} src={src} alt={`Observation ${index + 1} of ${lot.label}`} />

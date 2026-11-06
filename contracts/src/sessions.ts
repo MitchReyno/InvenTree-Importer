@@ -7,7 +7,7 @@ import {
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
 } from './processing.ts'
-import { LotFormingConflict } from './evidence-observations.ts'
+import { LeadBatchView, LotFormingConflict } from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -138,6 +138,12 @@ export const SessionToolResult = Type.Union([
     /** fetch_evidence for the lead session: the evidence's label and the operator's note. */
     evidence_label: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
     evidence_note: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
+    /** Lot-forming tools: true when the write became a suggestion for the operator. */
+    suggested: Type.Optional(Type.Boolean()),
+    /** propose_lot: the draft Part it created for `part: { label }`. */
+    part_subject_id: Type.Optional(Id),
+    /** read_batch: the lead session's view of its batch. */
+    batch: Type.Optional(LeadBatchView),
   }),
   object({
     ok: Type.Literal(false),

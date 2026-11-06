@@ -10,7 +10,11 @@ import type {
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { fail, type OperatorCommandScope } from './repository.ts'
-import { activeObservationIds, moveObservationsByOperator } from './evidence-observations.ts'
+import {
+  activeObservationIds,
+  markLotEdited,
+  moveObservationsByOperator,
+} from './evidence-observations.ts'
 import {
   captureInstructions,
   captureIssueDispositions,
@@ -88,6 +92,8 @@ async function recordLineage(
     }
   }
   for (const predecessor of predecessors) {
+    // A split, merged or retired lot is the operator's; observations left on it stay put.
+    await markLotEdited(client, predecessor, revision)
     await executeDatabaseQuery(
       queryDatabase(client).insert(captureLotRetirements).values({
         batchId: scope.batchId,

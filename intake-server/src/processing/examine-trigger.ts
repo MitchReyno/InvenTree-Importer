@@ -4,7 +4,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import { appendEvent } from '../db/authority.ts'
 import { captureBatches } from '../capture/schema.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { CaptureError, captureInTransaction } from '../capture/repository.ts'
 import { lockBatchMediaInputs } from '../media/locked-inputs.ts'
 import { readAgentSettings } from '../agents/settings.ts'
 import { appendSessionInbox } from '../agents/tools/inbox.ts'
@@ -20,6 +20,8 @@ interface Candidate {
   batch_id: string
   stream_id: string
   lead_job_id: string | null
+  /** Changes whenever evidence becomes ready, so a skipped batch is retried after new evidence. */
+  signature: string
 }
 
 /**
@@ -29,7 +31,11 @@ interface Candidate {
 async function candidates(pool: Pool, config: ProcessingConfig, quietMs: number) {
   const rows = await pool.query<Candidate>(
     `SELECT b.id AS batch_id, b.stream_id,
-       (SELECT j.id FROM public.processing_job j WHERE j.batch_id=b.id AND j.stage='examine') AS lead_job_id
+       (SELECT j.id FROM public.processing_job j WHERE j.batch_id=b.id AND j.stage='examine') AS lead_job_id,
+       (SELECT count(*)::text || ':' || coalesce(max(r.created_at)::text,'') FROM public.media_version v
+         JOIN public.media_decode_command c ON c.version_id=v.id AND c.derivation_id IS NULL
+         JOIN public.media_decode_result r ON r.command_id=c.id
+         WHERE v.batch_id=b.id) AS signature
      FROM public.capture_batch b
      WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
        AND EXISTS (SELECT 1 FROM public.media_version v
@@ -87,15 +93,26 @@ async function uncoveredVersions(
 export async function triggerExamine(
   pool: Pool,
   config: ProcessingConfig,
-  { quietMs = EXAMINE_QUIET_PERIOD_MS }: { quietMs?: number } = {},
+  {
+    quietMs = EXAMINE_QUIET_PERIOD_MS,
+    skipped = new Map<string, string>(),
+  }: {
+    quietMs?: number
+    /** Batches that failed, by evidence signature; the worker keeps one map across sweeps. */
+    skipped?: Map<string, string>
+  } = {},
 ) {
   const profileId = config.profileId
   if (!profileId || !isSessionProfile(profileId)) {
-    return { created: [] as string[], notified: [] as string[] }
+    return { created: [] as string[], notified: [] as string[], failed: [] as string[] }
   }
   const created: string[] = []
   const notified: string[] = []
+  const failed: string[] = []
   for (const candidate of await candidates(pool, config, quietMs)) {
+    if (skipped.get(candidate.batch_id) === candidate.signature) {
+      continue
+    }
     await transaction(pool, async (client) => {
       const capture = await captureInTransaction(client, config, candidate.batch_id, true)
       if (capture.snapshot.archived) {
@@ -177,10 +194,19 @@ export async function triggerExamine(
       })
     }).catch((error: unknown) => {
       // A concurrent sweep created the lead job first; the next sweep sees it.
-      if ((error as { code?: string }).code !== '23505') {
-        throw error
+      if ((error as { code?: string }).code === '23505') {
+        return
       }
+      // One batch never stops the others: it is skipped until its evidence changes.
+      skipped.set(candidate.batch_id, candidate.signature)
+      failed.push(candidate.batch_id)
+      // Only known codes are logged; anything else could carry data.
+      const code = error instanceof CaptureError ? error.code : 'examine_trigger_failed'
+      process.stderr.write(
+        JSON.stringify({ event: 'examine_trigger_skipped', batch_id: candidate.batch_id, code }) +
+          '\n',
+      )
     })
   }
-  return { created, notified }
+  return { created, notified, failed }
 }

@@ -136,7 +136,7 @@ async function main() {
           db.pool,
           config,
           mediaStore,
-          `${process.env.INTAKE_BLOB_ROOT}-region-crops`,
+          `${process.env.INTAKE_BLOB_ROOT!.replace(/\/+$/, '')}-region-crops`,
         )
       }
       const manualConfig = {

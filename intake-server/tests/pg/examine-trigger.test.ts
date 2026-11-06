@@ -64,10 +64,11 @@ test('new evidence notifies the existing lead session once, and only for the new
     const [lead] = await leadJobs(fixture, batchId)
     const back = await seedPhoto(fixture, batchId, { width: 768, height: 512 }, 'Tape back')
     const first = await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 })
-    assert.deepEqual(first, { created: [], notified: [back.version] })
+    assert.deepEqual(first, { created: [], notified: [back.version], failed: [] })
     assert.deepEqual(await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0 }), {
       created: [],
       notified: [],
+      failed: [],
     })
     const inbox = await fixture.db.pool.query<{
       kind: string
@@ -119,6 +120,34 @@ test('a photo becoming ready restarts the quiet period', async () => {
     assert.equal((await leadJobs(fixture, batchId)).length, 0)
     await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 4_000 })
     assert.equal((await leadJobs(fixture, batchId)).length, 1)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a batch too large to pin is skipped until its evidence changes, without stopping other batches', async () => {
+  const fixture = await processingFixture({ profileId: 'synthetic-session/1' })
+  try {
+    const large = await fixture.seedCapture()
+    for (let n = 0; n < 65; n += 1) {
+      await seedPhoto(fixture, large.batch.id, { width: 64, height: 64 }, `Photo ${n}`)
+    }
+    const small = await fixture.seedCapture()
+    await seedPhoto(fixture, small.batch.id, { width: 768, height: 512 })
+    const skipped = new Map<string, string>()
+    const first = await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })
+    assert.deepEqual(first.failed, [large.batch.id])
+    assert.equal((await leadJobs(fixture, small.batch.id)).length, 1)
+    // Skipped while nothing changed; retried once new evidence arrives.
+    assert.deepEqual(
+      (await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })).failed,
+      [],
+    )
+    await seedPhoto(fixture, large.batch.id, { width: 64, height: 64 }, 'One more')
+    assert.deepEqual(
+      (await triggerExamine(fixture.writer.pool, fixture.config, { quietMs: 0, skipped })).failed,
+      [large.batch.id],
+    )
   } finally {
     await fixture.dispose()
   }
