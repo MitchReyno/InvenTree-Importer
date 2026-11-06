@@ -68,7 +68,9 @@ export function RecordDetail({ batch, record, save, disabled, reportFor }: Props
           </Small>
         )
       )}
-      {record.decision && <Small>{record.decision.detail}</Small>}
+      {record.decision && record.decision.code !== 'part_choice_required' && (
+        <Small>{record.decision.detail}</Small>
+      )}
       {record.fields.length > 0 && (
         <Fields>
           <tbody>

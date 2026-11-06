@@ -1,14 +1,13 @@
+import type { CaptureSnapshotDto } from './capture.ts'
+import { resolveLotLocation, type LotLocationGroups } from './capture-location.ts'
+import type { InventoryPartSpecDto } from './effects.ts'
+import type { ProcessingSnapshotDto } from './processing.ts'
 import {
   RECORD_TYPES,
-  resolveLotLocation,
   type BatchRecordDto,
   type BatchRecordsDto,
-  type CaptureSnapshotDto,
-  type InventoryPartSpecDto,
-  type LotLocationGroups,
-  type ProcessingSnapshotDto,
   type RecordOriginDto,
-} from '@invimport/contracts'
+} from './records.ts'
 
 type Proposal = ProcessingSnapshotDto['jobs'][number]['proposals'][number]
 type Step = Extract<RecordOriginDto, { kind: 'step' }>['step']

@@ -1,5 +1,5 @@
 import type { Pool } from 'pg'
-import { lotLocationGroups, type BatchRecordsDto } from '@invimport/contracts'
+import { lotLocationGroups, projectRecords, type BatchRecordsDto } from '@invimport/contracts'
 import { transaction } from '../db/database.ts'
 import { captureRepository, type CaptureBinding } from '../capture/repository.ts'
 import { mediaSnapshot } from '../media/read.ts'
@@ -7,7 +7,6 @@ import type { ProcessingConfig } from '../processing/attempts.ts'
 import type { LockCapture } from '../processing/capture.ts'
 import { ProcessingError } from '../processing/model.ts'
 import { processingRepository } from '../processing/repository.ts'
-import { projectRecords } from './projection.ts'
 
 /**
  * Reads capture state, Processing (for each field's proposing step) and media (for group
