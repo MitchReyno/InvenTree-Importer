@@ -6,11 +6,11 @@ interface Props {
   busy: boolean
   recover: () => void
   unstarted?: boolean
-  /** Where a refused value is shown in Review. */
-  reviewHref?: string
+  /** Where a refused value is set, and that place's name. */
+  fix?: { place: 'Review' | 'Capture'; href: string }
 }
 
-export function EffectOutcome({ effect, busy, recover, unstarted = false, reviewHref }: Props) {
+export function EffectOutcome({ effect, busy, recover, unstarted = false, fix }: Props) {
   const planned =
     unstarted &&
     effect.certainty === 'none' &&
@@ -56,9 +56,9 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, review
           : {effect.label}
         </Button>
       )}
-      {reviewHref && (
-        <Link href={reviewHref}>
-          {reviewHref.includes('/capture') ? 'See in Capture' : 'See in Review'}: {effect.label}
+      {fix && (
+        <Link href={fix.href}>
+          See in {fix.place}: {effect.label}
         </Link>
       )}
     </Field>

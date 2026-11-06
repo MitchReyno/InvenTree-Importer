@@ -331,7 +331,7 @@ describe('Added', () => {
     ).toHaveAttribute('href', `#${batch.id}/capture`)
     expect(
       within(round).getByRole('link', { name: 'See in Review: Attach selected file to Part' }),
-    ).toBeVisible()
+    ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
   })
 
   it('lists pending changes, lots not included and the activity log', () => {

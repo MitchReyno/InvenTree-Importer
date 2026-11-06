@@ -109,7 +109,7 @@ function partStatus(
   refusedPart: boolean,
 ) {
   if (refusedPart) {
-    return 'InvenTree refused this Part, so it was not created. It is never created again.'
+    return 'InvenTree refused this Part, so it was not created.'
   }
   if (output.usable) {
     return (
@@ -137,20 +137,30 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
   const cancellable = ['queued', 'running', 'stopping'].includes(run.state)
   const unstarted = run.state === 'queued' && run.dispatch_state === 'not_requested'
 
-  const reviewHref = (effect: NonNullable<ManualRunDto['supported_effects']>[number]) =>
+  /** Where a refused value is set: its Part record or lot in Review, or a draft in Capture. */
+  const fixPlace = (effect: NonNullable<ManualRunDto['supported_effects']>[number]) =>
     !effect.rejected
       ? undefined
       : effect.kind === 'create_stock'
-        ? batchHref(run.batch_id, { tab: 'review', view: 'lots', lotId: effect.part_subject_id })
-        : PART_VALUES.has(effect.kind) || effect.kind === 'part_attachment'
-          ? batchHref(run.batch_id, {
+        ? {
+            place: 'Review' as const,
+            href: batchHref(run.batch_id, {
               tab: 'review',
-              view: 'records',
-              recordType: 'part',
-              recordId: effect.part_subject_id,
-            })
-          : // A new location or supplier is a draft in Capture's batch settings.
-            batchHref(run.batch_id, { tab: 'capture' })
+              view: 'lots',
+              lotId: effect.part_subject_id,
+            }),
+          }
+        : PART_VALUES.has(effect.kind) || effect.kind === 'part_attachment'
+          ? {
+              place: 'Review' as const,
+              href: batchHref(run.batch_id, {
+                tab: 'review',
+                view: 'records',
+                recordType: 'part',
+                recordId: effect.part_subject_id,
+              }),
+            }
+          : { place: 'Capture' as const, href: batchHref(run.batch_id, { tab: 'capture' }) }
 
   return (
     <Panel id={`run-${run.run_id}`} aria-label={`Round ${run.round_number}`}>
@@ -205,7 +215,7 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
           effect={effect}
           busy={busy}
           unstarted={unstarted}
-          reviewHref={reviewHref(effect)}
+          fix={fixPlace(effect)}
           recover={() =>
             command(run, 'recover', {
               kind: effect.recovery_action === 'verify_effect' ? 'assessment' : 'effect',
@@ -228,7 +238,7 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
                 added
               </>
             ) : refusedStock(run, operation.operation_key) ? (
-              'InvenTree refused this stock item, so it was not created. It is never created again.'
+              'InvenTree refused this stock item, so it was not created.'
             ) : operation.certainty === 'unknown' ? (
               `${operation.lot_label} is being checked by its import reference. It is never created again.`
             ) : (

@@ -174,7 +174,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
     - Plans in `bench-effects-plan/1` and `/2` give Category › Part, with the Part's parameters, manufacturer part, supplier part, stock items and attachments under it; new locations and companies are listed with what they set.
     - Plans in `bench-stock-plan/1` and `bench-media-plan/1` give each existing Part with its stock items (located by location) and their attachments.
     - An unknown plan version returns `nodes: null`, and the UI offers By type only, from the preview.
-  - Added reports a value InvenTree refused as invalid from the run read's `rejected` flag and links it to Review. The executor still records a refused create as unknown, so its round holds the batch's source and a corrected value cannot be sent until a refused create can be settled. That settling is follow-up executor work, outside this change.
+  - Added reports a value InvenTree refused as invalid from the run read's `rejected` flag and links it to where it is set (its Part record or lot in Review, or a new location's or supplier's draft in Capture). The executor still records a refused create as unknown, so its round holds the batch's source and a corrected value cannot be sent until a refused create can be settled. That settling is follow-up executor work, outside this change.
   - The tree and the By type view come from the same stored plan, so they cannot disagree.
 - **Rejected.**
   - Adding the tree to the preparation response, which would break replay of stored results.
