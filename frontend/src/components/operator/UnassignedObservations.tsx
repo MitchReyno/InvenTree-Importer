@@ -3,6 +3,7 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { observationCrop } from '../../media/types'
 import { Button, Field, Small, Subheading } from '../ui/primitives'
 import { ObservationMove } from './ObservationMove'
+import { observationNames } from './observation-names'
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 
@@ -27,7 +28,9 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
     return null
   }
 
-  const describe = (o: Observation) => o.readings.markings.join(' · ') || 'unread item'
+  const names = observationNames(observations)
+
+  const describe = (o: Observation) => names.get(o.id) ?? 'unread item'
 
   const decide = (change: Extract<CaptureEditDto['change'], { kind: 'observation_suggestion' }>) =>
     void edit?.(change)

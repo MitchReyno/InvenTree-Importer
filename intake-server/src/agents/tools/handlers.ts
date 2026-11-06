@@ -201,37 +201,21 @@ async function leadFetchEvidence(
 
   const source = () => context.store!.read(preview.digest)
 
-  let bytes: Buffer
-  try {
-    bytes = region
-      ? await regionCropCache(context.cropCacheDir!).crop(
-          { versionId: plan.versionId, page: preview.page },
-          { kind: 'pixels', ...region },
-          source,
-        )
-      : await sharp(await source(), { limitInputPixels: false })
-          .resize({
-            width: LEAD_PREVIEW_LONG_EDGE,
-            height: LEAD_PREVIEW_LONG_EDGE,
-            fit: 'inside',
-            withoutEnlargement: true,
-          })
-          .png()
-          .toBuffer()
-  } catch (error) {
-    // The page was re-rendered at another size: a typed refusal, so the agent re-reads sizes.
-    if (error instanceof CaptureError && error.code === 'region_preview_mismatch') {
-      return {
-        result: {
-          ok: false,
-          error: 'validation_failed',
-          message: 'The page preview changed size; fetch it again for its current size.',
-          pending_inbox: authorized.result.pending_inbox,
-        },
-      }
-    }
-    throw error
-  }
+  const bytes = region
+    ? await regionCropCache(context.cropCacheDir!).crop(
+        { versionId: plan.versionId, page: preview.page },
+        { kind: 'pixels', ...region },
+        source,
+      )
+    : await sharp(await source(), { limitInputPixels: false })
+        .resize({
+          width: LEAD_PREVIEW_LONG_EDGE,
+          height: LEAD_PREVIEW_LONG_EDGE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .png()
+        .toBuffer()
   // The image budget counts what reaches the agent, reserved for this provider run.
   const used = context.imageBudget.get(run) ?? 0
   if (bytes.length > SESSION_IMAGE_BUDGET_BYTES - used) {

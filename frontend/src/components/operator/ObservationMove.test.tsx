@@ -48,14 +48,14 @@ it('moves an observation to another live lot or out of any lot', async () => {
 it('a split sends each observation with the new lot chosen for it', () => {
   const values = {
     children: [
-      { label: 'A1', quantity: '1' },
-      { label: 'A2', quantity: '2' },
+      { key: 'k1', label: 'A1', quantity: '1' },
+      { key: 'k2', label: 'A2', quantity: '2' },
     ],
     observations: [
-      { id: 'o1', child: '0' },
-      { id: 'o2', child: '1' },
+      { id: 'o1', child: 'k1' },
+      { id: 'o2', child: 'k2' },
       // A new lot that was removed falls back to the first one.
-      { id: 'o3', child: '5' },
+      { id: 'o3', child: 'gone' },
     ],
     label: '',
     quantity: '',

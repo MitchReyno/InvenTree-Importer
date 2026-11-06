@@ -20,6 +20,7 @@ import {
 } from '../ui/primitives'
 import { ImpactSummary } from './ImpactSummary'
 import { Modal } from './Modal'
+import { observationNames } from './observation-names'
 
 export type RestructureKind = 'split' | 'merge' | 'move'
 
@@ -27,8 +28,9 @@ const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 const MAX_SPLIT_CHILDREN = 10
 
 interface Values {
-  children: { label: string; quantity: string }[]
-  /** Split only: which new lot (by index) each of the lot's observations goes to. */
+  /** `key` is stable across removals, so an observation's choice follows its new lot. */
+  children: { key: string; label: string; quantity: string }[]
+  /** Split only: which new lot (by key) each of the lot's observations goes to. */
   observations: { id: string; child: string }[]
   label: string
   quantity: string
@@ -58,12 +60,6 @@ const TITLES: Record<RestructureKind, string> = {
   move: 'Move lots to a Part proposal',
 }
 
-/** What an observation shows, to tell several apart in the split dialog. */
-function observationName(batch: CaptureSnapshotDto, id: string) {
-  const observation = batch.evidence_observations?.find((item) => item.id === id)
-  return `Observation: ${observation?.readings.markings.join(' · ') || 'unread item'}`
-}
-
 function lotLabels(batch: CaptureSnapshotDto, ids: string[]) {
   return ids.map((id) => batch.lots.find((lot) => lot.id === id)?.label ?? id)
 }
@@ -73,11 +69,14 @@ function defaults(batch: CaptureSnapshotDto, lotIds: string[]): Values {
   const label = first?.label ?? 'Lot'
   return {
     children: [
-      { label: `${label} · 1`, quantity: '' },
-      { label: `${label} · 2`, quantity: '' },
+      { key: 'child-1', label: `${label} · 1`, quantity: '' },
+      { key: 'child-2', label: `${label} · 2`, quantity: '' },
     ],
     // Every observation goes somewhere, so a split never strands one on the retired lot.
-    observations: (first?.evidence_observation_ids ?? []).map((id) => ({ id, child: '0' })),
+    observations: (first?.evidence_observation_ids ?? []).map((id) => ({
+      id,
+      child: 'child-1',
+    })),
     label: lotLabels(batch, lotIds).join(' + ').slice(0, 256),
     quantity: '',
     partId: first?.part_subject_id ?? '',
@@ -98,8 +97,8 @@ export function restructureChange(kind: RestructureKind, lotIds: string[], value
         // A removed new lot's observations fall back to the first one.
         const ids = values.observations
           .filter((item) => {
-            const target = Number(item.child)
-            return (target < values.children.length ? target : 0) === index
+            const target = values.children.findIndex((entry) => entry.key === item.child)
+            return Math.max(target, 0) === index
           })
           .map((item) => item.id)
         return {
@@ -159,6 +158,8 @@ export function RestructureDialog({
   } = useForm<Values>({ defaultValues: defaults(batch, lotIds) })
   const children = useFieldArray({ control, name: 'children' })
   const splitObservations = kind === 'split' ? defaults(batch, lotIds).observations : []
+  const names = observationNames(batch.evidence_observations ?? [])
+  const childLabels = watch('children')
   const [preview, setPreview] = useState<{
     change: RestructureDto['change']
     impact: OperatorImpactDto
@@ -292,26 +293,31 @@ export function RestructureDialog({
               <Button
                 type="button"
                 disabled={children.fields.length >= MAX_SPLIT_CHILDREN}
-                onClick={() => children.append({ label: '', quantity: '' })}
+                onClick={() =>
+                  children.append({ key: crypto.randomUUID(), label: '', quantity: '' })
+                }
               >
                 Add another new lot
               </Button>
               {splitObservations.length > 0 && (
-                <fieldset>
+                <Fieldset>
                   <legend>Where each observation goes</legend>
                   {splitObservations.map((observation, index) => (
                     <Label key={observation.id}>
-                      {observationName(batch, observation.id)}
-                      <select {...register(`observations.${index}.child`)}>
+                      Observation: {names.get(observation.id) ?? 'unread item'}
+                      <Select {...register(`observations.${index}.child`)}>
                         {children.fields.map((child, childIndex) => (
-                          <option key={child.id} value={String(childIndex)}>
+                          <option key={child.id} value={child.key}>
                             New lot {childIndex + 1}
+                            {childLabels[childIndex]?.label
+                              ? `: ${childLabels[childIndex].label}`
+                              : ''}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </Label>
                   ))}
-                </fieldset>
+                </Fieldset>
               )}
               <Small>
                 Each new lot keeps the Part proposal and location choice, with its own exact

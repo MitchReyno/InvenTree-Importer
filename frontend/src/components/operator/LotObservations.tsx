@@ -4,6 +4,7 @@ import { observationCrop } from '../../media/types'
 import { Button, Field, Small, Subheading } from '../ui/primitives'
 import { StatusChip } from './StatusChip'
 import { ObservationMove } from './ObservationMove'
+import { observationNames } from './observation-names'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
@@ -53,8 +54,9 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
       members.some((member) => member.id === observation.supersedes_observation_id),
   )
 
-  const describe = (observation: Observation) =>
-    observation.readings.markings.join(' · ') || 'unread item'
+  const names = observationNames(observations)
+
+  const describe = (observation: Observation) => names.get(observation.id) ?? 'unread item'
 
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (

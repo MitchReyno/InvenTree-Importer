@@ -24,7 +24,7 @@ interface Candidate {
   batch_id: string
   stream_id: string
   lead_job_id: string | null
-  /** Changes whenever evidence becomes ready, so a skipped batch is retried after new evidence. */
+  /** Changes when evidence becomes ready or the batch or its media change, so a skipped batch retries. */
   signature: string
 }
 

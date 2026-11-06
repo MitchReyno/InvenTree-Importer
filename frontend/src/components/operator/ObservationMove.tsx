@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { Button } from '../ui/primitives'
+import { Button, Label, Select } from '../ui/primitives'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -21,9 +21,13 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
   }
   return (
     <span>
-      <label>
+      <Label>
         Move {name} to
-        <select value={target} onChange={(event) => setTarget(event.target.value)}>
+        <Select
+          value={target}
+          disabled={disabled || !edit}
+          onChange={(event) => setTarget(event.target.value)}
+        >
           <option value="">Choose a lot…</option>
           {targets.map((lot) => (
             <option key={lot.id} value={lot.id}>
@@ -31,8 +35,8 @@ export function ObservationMove({ batch, observationId, lotId, name, edit, disab
             </option>
           ))}
           {lotId !== null && <option value="none">No lot</option>}
-        </select>
-      </label>{' '}
+        </Select>
+      </Label>{' '}
       <Button
         type="button"
         disabled={disabled || !edit || !target}

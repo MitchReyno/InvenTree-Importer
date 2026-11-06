@@ -567,6 +567,26 @@ A fresh reviewer subagent reviewed `4080ea9..80dbf9b` and found one important an
 5. **Nitpicks.**
    - Fixed:
      - `frontend/ARCHITECTURE.md` now covers the unassigned list and split assignment.
-     - A crop whose region no longer fits its preview reaches the lead session as `validation_failed`, not `tool_failed`.
+     - A crop whose region no longer fits its preview reached the lead session as `validation_failed`. Round 5 removed this branch as unreachable.
    - Accepted: the guards check that `agent_session_id` is present, not that it belongs to the batch. Application code always passes the writing session.
+
+## PR-B review round 5
+
+A fresh reviewer subagent reviewed `4080ea9..528b79d`. It found one important and two minor findings, plus two nitpicks, and confirmed the round 4 fixes.
+
+1. **Important: removing a new lot in the split dialog could send observations to the wrong lot.**
+   - Each observation's choice was the new lot's index, which shifted when a lot was removed.
+   - Each new lot now carries a stable `key`, and observations store that key. A choice pointing at a removed lot falls back to the first new lot.
+   - Options name each lot's current label.
+   - A rendered test (`RestructureDialog.test.tsx`) removes a lot, then submits, and checks each observation goes where the screen showed.
+2. **Minor: the crop-size refusal was untested and unreachable.**
+   - Authorization already refuses a region whose source size differs from the preview row.
+   - The branch could only fire if a stored PNG disagreed with its own row, and then only after the success outbox entry was written. It is removed.
+   - Such corruption now reaches the session as `tool_failed`, logged as `session_tool_failed`.
+3. **Minor: the Move to… select stayed enabled behind the draft fence, and names could repeat.**
+   - The select is now disabled with its button.
+   - `operator/observation-names.ts` numbers observations that read the same, for example "Reel (2)". The lot list, the unassigned list and the split dialog all use it, so accessible names are distinct.
+4. **Nitpicks: fixed.** The trigger's `signature` comment names the batch and media revisions. The move control and the split fieldset use the shared `Select`, `Fieldset` and `Label` primitives.
+
+Checks on the fix: frontend 502/502, typecheck, lint and build clean.
 
