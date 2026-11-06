@@ -34,4 +34,18 @@ function apiTargetEnv(target, state, key) {
   }
 }
 
-module.exports = { prepareDevelopment, apiTargetEnv }
+/** Children share the supervisor's resolved state directory and never re-read an env file. */
+function serviceEnvironment(baseEnv, settings, stateDirectory) {
+  return { ...baseEnv, INTAKE_DEV_STATE: stateDirectory(settings), INTAKE_ENV_FILE: '' }
+}
+
+/** Under the supervisor lock, the local instance must still be the one the root was chosen for. */
+async function confirmLocalInventree(settings, target, prepared, readLocalInventree) {
+  if (target.kind !== 'local-inventree') return
+  const current = await readLocalInventree(settings)
+  if (current.instanceId !== prepared.scope.instanceId || current.readToken !== prepared.key) {
+    throw new Error('local_inventree_changed_during_startup')
+  }
+}
+
+module.exports = { prepareDevelopment, apiTargetEnv, serviceEnvironment, confirmLocalInventree }

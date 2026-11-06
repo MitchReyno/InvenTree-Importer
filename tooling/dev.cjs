@@ -18,7 +18,12 @@ const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const { prepareDevelopment, apiTargetEnv } = require('./dev/stack.cjs')
+const {
+  prepareDevelopment,
+  apiTargetEnv,
+  serviceEnvironment,
+  confirmLocalInventree,
+} = require('./dev/stack.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -154,16 +159,13 @@ async function main() {
     throw new Error('invalid_development_port')
   }
   await freePort(port)
-  const { serverIdentity } = await import(
+  const { serverIdentity, stateDirectory } = await import(
     pathToFileURL(join(intake, 'src/dev/pg-identity.ts')).href
   )
   const { readLocalInventree } = await import(
     pathToFileURL(join(intake, 'src/dev/local-inventree.ts')).href
   )
-  const serviceEnv = {
-    ...baseEnv,
-    ...(settings.INTAKE_DEV_STATE ? { INTAKE_DEV_STATE: settings.INTAKE_DEV_STATE } : {}),
-  }
+  const serviceEnv = serviceEnvironment(baseEnv, settings, stateDirectory)
   // The database server comes first: the state root is scoped to its identity.
   const preparing = new AbortController()
   const abortPreparing = () => preparing.abort()
@@ -202,6 +204,12 @@ async function main() {
   // The local read key exists only once `inventree:dev up` has run.
   const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
   const release = await privateState(root)
+  try {
+    await confirmLocalInventree(settings, target, prepared, readLocalInventree)
+  } catch (error) {
+    await release()
+    throw error
+  }
   const env = { ...serviceEnv, INTAKE_APP_STATE: root }
   const setupEnv = {
     ...env,

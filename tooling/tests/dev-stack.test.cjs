@@ -108,3 +108,38 @@ test('the API child gets the local origin, reference and state key without readi
     INTAKE_DEPLOYMENT_ID: 'dep',
   })
 })
+
+const { serviceEnvironment, confirmLocalInventree } = require('../dev/stack.cjs')
+
+test('children get the supervisor’s resolved state directory and never re-read an env file', () => {
+  const env = serviceEnvironment({ PATH: '/bin' }, {}, () => '/resolved/state')
+  assert.deepEqual(env, { PATH: '/bin', INTAKE_DEV_STATE: '/resolved/state', INTAKE_ENV_FILE: '' })
+})
+
+test('a local instance reset between up and the supervisor lock is refused', async () => {
+  const target = {
+    kind: 'local-inventree',
+    origin: 'http://127.0.0.1:4320',
+    credentialRef: 'local_inventree_dev',
+  }
+  const prepared = {
+    scope: { serverId: 'd'.repeat(32), instanceId: '1'.repeat(32) },
+    key: 'inv-read-20261106',
+  }
+  await confirmLocalInventree({}, target, prepared, async () => ({
+    instanceId: '1'.repeat(32),
+    readToken: 'inv-read-20261106',
+  }))
+  for (const changed of [
+    { instanceId: '2'.repeat(32), readToken: 'inv-read-20261106' },
+    { instanceId: '1'.repeat(32), readToken: 'inv-other-20261106' },
+  ]) {
+    await assert.rejects(
+      confirmLocalInventree({}, target, prepared, async () => changed),
+      /local_inventree_changed_during_startup/,
+    )
+  }
+  await confirmLocalInventree({}, { kind: 'fake' }, prepared, async () => {
+    throw new Error('not read for other profiles')
+  })
+})

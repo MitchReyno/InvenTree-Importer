@@ -136,3 +136,8 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
   - the test harness reports an existing InvenTree database by default, so the upgrade test again proves the upgrade timeout; a new test asserts the 120 s timeout for a later run. The mutations dropping `upgrading` and always passing `fresh: true` now each fail a test;
   - a new `after-rename` race stage tests the contended-lock branch: the moved lock is kept and the newest lock is left alone;
   - the docs say neither reset can see namespaces at other explicit `INTAKE_APP_STATE` paths.
+- **Round 5** (fresh reviewer, `c744a47`) found no Critical or Important issues, and two Minor ones. It confirmed the round-4 changes. Fixed:
+  - `pnpm dev` passes its resolved `INTAKE_DEV_STATE`, and `INTAKE_ENV_FILE=''`, to every child, so no child can re-read a different env file and use another state directory;
+  - under its lock, the supervisor re-reads the local instance and refuses with `local_inventree_changed_during_startup` if a reset changed the instance ID or read token after `up`.
+
+  A live `local-inventree` start with both changes read seeded part 2 (`SEED328 microcontroller`) with 201.
