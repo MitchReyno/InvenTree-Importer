@@ -14,13 +14,15 @@ export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
 export function useDraft<T>(saved: T, report: (dirty: boolean) => void) {
   const [value, setValue] = useState(saved)
   const savedText = JSON.stringify(saved)
-  const previous = useRef({ text: savedText, value: saved })
+  const previous = useRef({ text: savedText })
   const dirty = JSON.stringify(value) !== savedText
   useEffect(() => {
-    if (previous.current.text !== savedText) {
-      // Only a draft still matching the old saved value moves with it.
-      setValue((current) => (JSON.stringify(current) === previous.current.text ? saved : current))
-      previous.current = { text: savedText, value: saved }
+    const old = previous.current.text
+    if (old !== savedText) {
+      // Only a draft still matching the old saved value moves with it. The updater may run on a
+      // later render, so it compares with the captured old text, not the ref.
+      setValue((current) => (JSON.stringify(current) === old ? saved : current))
+      previous.current = { text: savedText }
     }
   }, [savedText, saved])
   useEffect(() => {

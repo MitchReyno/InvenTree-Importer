@@ -453,3 +453,11 @@ Fresh read-only Claude reviewer at `36a738c`: 3 Important, 6 Minor, 2 Nitpick, a
 - **Nitpick:** a record edit validates each Part against the observations it already read, instead of a snapshot per Part.
 - **Accepted:** other server-only refusals (for example tag rules) still use the batch's generic "Save not confirmed" path; "Load current values, keep this draft" now recovers from it.
 
+### PR-E review round 2
+
+Fresh read-only Claude reviewer at `fef57d0`: 1 Important, 1 Minor, 1 Nitpick, all fixed. It confirmed that loading current values keeps Records drafts (nothing remounts Records or the detail).
+
+- **Normalised saves stayed unsaved (Important):** Tags and Description send a normalised value (tags split, trimmed and de-duplicated; description on one trimmed line), but the field kept the raw text, so it stayed dirty after the save was accepted. The field now sends the normalised form and keeps it once accepted. A test with saves that move the revision checks both fields and that another record then opens; it failed first.
+- **Follow-saved read the ref late (Minor):** `useDraft`'s updater compared with a ref it reassigns, which React can read on a later render. It now compares with the old saved text captured first. A test loads current values that rename the Part and expects the clean Name to follow while the Tags draft stays; it passed before and after, since the deferred case did not reproduce in the test.
+- **Nitpick:** record ids are encoded in the hash and decoded when parsed, so a tag such as "1/4W Bin" reopens.
+

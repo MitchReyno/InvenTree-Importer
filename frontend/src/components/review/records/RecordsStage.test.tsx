@@ -565,7 +565,14 @@ describe('RecordsStage', () => {
 })
 
 /** Saves move the revision as the server does; the first save can be refused as a 412. */
-function LiveStage({ conflictFirst = false }: { conflictFirst?: boolean }) {
+function LiveStage({
+  conflictFirst = false,
+  renamedElsewhere,
+}: {
+  conflictFirst?: boolean
+  /** A name another client saves, which loading current values brings in. */
+  renamedElsewhere?: string
+}) {
   const [current, setCurrent] = useState(batch)
   const [refused, setRefused] = useState(conflictFirst)
 
@@ -600,7 +607,25 @@ function LiveStage({ conflictFirst = false }: { conflictFirst?: boolean }) {
       onDirtyChange={vi.fn()}
       reload={async () => {
         setRefused(false)
-        setCurrent((value) => ({ ...value, revision: String(Number(value.revision) + 1) }))
+        setCurrent((value) => {
+          const next = { ...value, revision: String(Number(value.revision) + 1) }
+          if (!renamedElsewhere) {
+            return next
+          }
+          const { specs } = applyRecordChange(value, {
+            kind: 'record',
+            target: { kind: 'part', part_subject_id: partA },
+            operation: { op: 'set_name', value: renamedElsewhere },
+          })
+          return {
+            ...next,
+            parts: value.parts.map((item) =>
+              item.id === partA
+                ? { ...item, choice: { mode: 'create', spec: specs.get(partA)! } }
+                : item,
+            ),
+          } as CaptureSnapshotDto
+        })
       }}
     />
   )
@@ -641,6 +666,45 @@ describe('RecordsStage with saves that move the revision', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled())
     expect(screen.getByLabelText('SKU')).toHaveValue('S-48')
+  })
+
+  it('shows tags and a description as saved once a normalised save is accepted', async () => {
+    const user = userEvent.setup()
+    render(<LiveStage />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const tags = screen.getByLabelText('Tags')
+    await user.clear(tags)
+    await user.type(tags, 'THT,Bin 4, THT')
+    await user.click(screen.getByRole('button', { name: 'Save tags' }))
+    await waitFor(() => expect(screen.getByLabelText('Tags')).toHaveValue('THT, Bin 4'))
+    expect(screen.getByRole('button', { name: 'Save tags' })).toBeDisabled()
+
+    const description = screen.getByLabelText('Description')
+    await user.clear(description)
+    await user.type(description, '  Axial,   1/4 W  ')
+    await user.click(screen.getByRole('button', { name: 'Save description' }))
+    await waitFor(() => expect(screen.getByLabelText('Description')).toHaveValue('Axial, 1/4 W'))
+    expect(screen.getByRole('button', { name: 'Save description' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: /^Companies/ }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('brings another client’s change into a clean field when current values load', async () => {
+    const user = userEvent.setup()
+    render(<LiveStage conflictFirst renamedElsewhere="Resistor, carbon" />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const tags = screen.getByLabelText('Tags')
+    await user.clear(tags)
+    await user.type(tags, 'THT')
+    await user.click(screen.getByRole('button', { name: 'Save tags' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Load current values, keep this draft' }),
+    )
+
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Resistor, carbon'))
+    expect(screen.getByRole('button', { name: 'Save name' })).toBeDisabled()
+    expect(screen.getByLabelText('Tags')).toHaveValue('THT')
   })
 
   it('ignores an unknown record type in the route', async () => {

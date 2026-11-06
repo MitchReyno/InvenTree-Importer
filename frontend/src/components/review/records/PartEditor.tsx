@@ -40,14 +40,12 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: P
         maxLength={250}
         disabled={disabled}
         report={reportFor('description')}
+        normalize={(value) => value.replace(/\s+/g, ' ').trim()}
         onSave={(value, send) =>
           send({
             kind: 'record',
             target,
-            operation: {
-              op: 'set_description',
-              value: value.replace(/\s+/g, ' ').trim() || null,
-            },
+            operation: { op: 'set_description', value: value || null },
           })
         }
         save={save}
@@ -60,22 +58,9 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: P
         maxLength={3300}
         disabled={disabled}
         report={reportFor('tags')}
+        normalize={(value) => tagList(value).join(', ')}
         onSave={(value, send) =>
-          send({
-            kind: 'record',
-            target,
-            operation: {
-              op: 'set_tags',
-              tags: [
-                ...new Set(
-                  value
-                    .split(',')
-                    .map((tag) => tag.trim())
-                    .filter(Boolean),
-                ),
-              ],
-            },
-          })
+          send({ kind: 'record', target, operation: { op: 'set_tags', tags: tagList(value) } })
         }
         save={save}
       />
@@ -142,6 +127,15 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: P
   )
 }
 
+const tagList = (value: string) => [
+  ...new Set(
+    value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+  ),
+]
+
 function TextField({
   batch,
   label,
@@ -151,6 +145,7 @@ function TextField({
   required = false,
   disabled,
   report,
+  normalize = (value) => value,
   onSave,
   save,
 }: {
@@ -162,6 +157,8 @@ function TextField({
   required?: boolean
   disabled: boolean
   report: (dirty: boolean) => void
+  /** The form the server stores; it is sent, and kept as the draft once accepted. */
+  normalize?: (value: string) => string
   onSave: (value: string, send: ReturnType<typeof useRecordSave>['send']) => Promise<boolean>
   save: Save
 }) {
@@ -185,7 +182,12 @@ function TextField({
         busy={busy}
         problem={problem}
         retry={retry}
-        onSave={() => void onSave(value, send)}
+        onSave={async () => {
+          const normalized = normalize(value)
+          if (await onSave(normalized, send)) {
+            setValue(normalized)
+          }
+        }}
       />
     </>
   )
