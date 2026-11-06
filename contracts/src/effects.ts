@@ -18,8 +18,12 @@ export const mappedReference = <
 ) =>
   object({ observation_id: Id, target_context_id: Id, model: Type.Literal(model), pk: PositivePk })
 
+/** InvenTree's Part description limit; an unset description is absent, never empty. */
+export const PartDescription = Type.String({ minLength: 1, maxLength: 250, pattern: '[^\\s]' })
+
 export const InventoryPartSpec = object({
   name: text,
+  description: Type.Optional(PartDescription),
   category: mappedReference('category'),
   parameters: Type.Array(
     object({

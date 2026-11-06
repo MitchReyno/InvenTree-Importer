@@ -211,7 +211,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Verification:** `pnpm contracts:check`; intake and PostgreSQL integration tests for each operation, CAS 412, multi-Part fan-out, `changed_after_review`, re-validation failures, and unsupported items never entering a spec.
 - **Risks:** fan-out scope. The response lists the affected Parts and lots, which the UI shows.
 
-- [ ] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
+- [x] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
 - [ ] 9.2 Write failing integration tests (RED) for each operation and failure path:
   - [ ] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
   - [ ] 9.2.2 Role-mismatched company map refused.

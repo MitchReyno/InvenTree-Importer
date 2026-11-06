@@ -643,6 +643,8 @@ async function applyLockedCaptureEdit(
       }
       await note(c, b, change.subject_id, change.text)
       break
+    case 'record':
+      fail('record_edit_unsupported')
   }
   b.revision = nextRevision
   await executeDatabaseQuery(

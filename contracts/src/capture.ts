@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
 import { InventoryModel, InventoryPartSpec, InventoryMapping, mappedReference } from './effects.ts'
+import { RecordChange } from './records.ts'
 import {
   CaptureAssignedLocation,
   CaptureAssignedLocationChange,
@@ -102,6 +103,7 @@ export const CaptureEdit = object({
     CaptureGroupLocationChange,
     object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]), text: note }),
     CaptureBatchSettingsChange,
+    RecordChange,
   ]),
 })
 export const CaptureObserve = object({
