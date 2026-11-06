@@ -595,8 +595,8 @@ Checks on the fix: frontend 502/502, typecheck, lint and build clean.
 Results at the reviewed head `04c69ae`, plus the job card label fix below.
 
 - **Database tier:** `pnpm db:intake test` passed 216/216.
-- **Process tier:** `pnpm db:intake test:process` passed 70/70.
-  - The tier run passed 66, with the 4 sandbox tests skipped because the probe image was missing. Run on their own with the rebuilt probe image (`tests/process/media-resources.test.ts`), the 4 passed.
+- **Process tier:** `pnpm db:intake test:process` passed 66/66, with the 4 sandbox tests skipped because the probe image was missing.
+  - Those 4 passed in a separate run of `tests/process/media-resources.test.ts` with the rebuilt probe image.
   - Media decoding and the existing processing queue are unaffected.
 - **Earlier sandbox failures were environmental.** "Owned probe must become observable" happened because the locally built probe image had been pruned: `build-media-probe.cjs` leaves it untagged.
   - Every probe failed at once with `decoder_interrupted`. The trunk baseline run failed the same way.
