@@ -377,3 +377,32 @@ test('a stock item that takes the batch quantity shows it', () => {
   const stock = result.records.find((record) => record.type === 'stock_item')!
   assert.equal(stock.fields.find((field) => field.name === 'quantity')?.value, '10')
 })
+
+test('a Part’s field also shows the step when a proposal about one of its lots matches', () => {
+  const lotProposal = {
+    ...processing.jobs[0],
+    subject_id: id(101),
+    stage: 'identifying',
+    proposals: [
+      proposal(730, {
+        schema_version: 'bench-intake-proposal/4',
+        subject_id: id(103),
+        summary: 'Lot 3 looks like an SMD part in bin 4.',
+        sources: [{ kind: 'note', note_id: id(800), text_sha256: 'a'.repeat(64) }],
+        tags: ['SMD', 'Bin 4'],
+      }),
+    ],
+  }
+  const result = projectRecords({
+    capture,
+    processing: { ...processing, jobs: [lotProposal] } as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  // Lot 3 belongs to Part B, whose tags are exactly the proposed ones.
+  const partB = of(result.records, 'part')[1]
+  assert.deepEqual(partB.fields.find((field) => field.name === 'tags')?.origin, {
+    kind: 'step',
+    step: 'examine',
+    proposal_id: id(730),
+  })
+})

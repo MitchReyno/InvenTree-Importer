@@ -172,7 +172,7 @@ function TextField({
         <Input
           value={value}
           maxLength={maxLength}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setValue(event.target.value)}
         />
       </Label>

@@ -36,7 +36,7 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
         {role === 'manufacturer' ? 'Manufacturer' : 'Supplier'}
         <Select
           value={draft.company}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ ...draft, company: event.target.value })}
         >
           <option value="">Choose an observed {role}…</option>
@@ -52,7 +52,7 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
         <Input
           value={draft.code}
           maxLength={256}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ ...draft, code: event.target.value })}
         />
       </Label>

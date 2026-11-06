@@ -249,7 +249,11 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   for (const part of capture.parts) {
     if (part.choice.mode === 'create') {
       const spec = part.choice.spec
-      const origin = originsFor(spec, proposals.get(part.id) ?? [])
+      // A lot's proposal can set its Part's values (suggested tags), so those count too.
+      const origin = originsFor(
+        spec,
+        [part.id, ...lotsOf([part.id])].flatMap((subject) => proposals.get(subject) ?? []),
+      )
       record({
         key: `part:${part.id}`,
         type: 'part',

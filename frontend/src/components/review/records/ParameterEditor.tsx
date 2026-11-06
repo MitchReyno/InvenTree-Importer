@@ -36,7 +36,7 @@ export function ParameterEditor({ batch, partId, parameter, save, disabled, repo
         <Input
           value={value}
           maxLength={256}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setValue(event.target.value)}
         />
       </Label>
