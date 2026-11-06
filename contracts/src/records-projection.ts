@@ -19,7 +19,12 @@ type Reference = { observation_id: string; target_context_id: string; model: str
 type Choice = { choice: string; name?: string; reason?: string; reference?: Reference }
 type Catalogue = {
   category: Choice | null
-  parameters: { name: string; value: string; template: Reference | null }[]
+  parameters: {
+    name: string
+    value: string
+    template: Reference | null
+    category_mapping: Reference | null
+  }[]
   manufacturer: { company: Choice; mpn: string } | null
   supplier: {
     company: Choice
@@ -482,11 +487,15 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       })
     }
     for (const parameter of catalogue.parameters) {
-      if (parameter.template === null) {
+      // A template the category has no mapping for cannot enter the spec either.
+      if (parameter.template === null || parameter.category_mapping === null) {
         unsupported.push({
           field: 'parameter',
           value: clip(`${parameter.name}: ${parameter.value}`),
-          why: 'Creating a parameter template is not supported yet.',
+          why:
+            parameter.template === null
+              ? 'Creating a parameter template is not supported yet.'
+              : "Mapping this parameter template to the Part's category is not supported yet.",
           reason: null,
         })
       }

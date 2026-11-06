@@ -723,5 +723,12 @@ Fresh read-only Claude reviewer at `7000b35`: 2 Minor, 1 Nitpick, all fixed. It 
 
 - **Ask on an archived batch (Minor):** the server refuses messages for an archived batch, so Ask now offers nothing there, as Tell Examine already did. A test covers it.
 - **Lot lines from ended sessions (Minor):** `subjectStatuses` now picks a lot's newest line among live sessions only (not finished, cancelled, cancelling, failed or unresumable), so a later finished line no longer hides a running one in Capture, and Lot details show no agent line for a lot no session works on. A test covers both.
-- **Batch discard (Nitpick):** `Batch`'s "Discard local edits" clears every unsent Ask message itself, wherever the batch is shown; Records' own clear on the same signal stays as a second guard. A test types an Ask draft, signals the batch discard, and finds it gone.
+- **Batch discard (Nitpick):** `Batch`'s "Discard local edits" clears every unsent Ask message itself, wherever the batch is shown; Records' own clear on the same signal stays as a second guard. A Records test types an Ask draft, signals the batch discard to Records, and finds it gone; `Batch`'s own clear (for when Records is not open) is not covered by a test.
+
+### PR-G review round 5
+
+Fresh read-only Claude reviewer at `41daef9`: 1 Minor, 2 Nitpicks, all fixed. It confirmed round 4's fixes.
+
+- **A parameter with no category mapping was dropped (Minor):** a proposed parameter whose template exists but has no mapping to the Part's category cannot enter a spec, and BI-006's spec lists it as unsupported, never dropped. It is now listed as not supported yet ("Mapping this parameter template to the Part's category is not supported yet."), beside a parameter without a template. The projection test covers both.
+- **Nitpicks:** the round-4 note on the batch discard says which path its test covers; the frontend architecture says Ask and Tell Examine are withheld on an archived batch.
 

@@ -688,6 +688,13 @@ test('values the executor cannot create are listed on the Part as not supported 
       category: proposedNew('Thin-film resistors', 'The packet says thin film'),
       parameters: [
         { name: 'Tolerance', value: '1%', template: null, category_mapping: null, sources: [] },
+        {
+          name: 'Resistance',
+          value: '10 kΩ',
+          template: ref(903, 'parameter_template'),
+          category_mapping: null,
+          sources: [],
+        },
       ],
       supplier: {
         company: { choice: 'existing', reference: ref(909, 'company'), sources: [] },
@@ -711,6 +718,12 @@ test('values the executor cannot create are listed on the Part as not supported 
       field: 'parameter',
       value: 'Tolerance: 1%',
       why: 'Creating a parameter template is not supported yet.',
+      reason: null,
+    },
+    {
+      field: 'parameter',
+      value: 'Resistance: 10 kΩ',
+      why: "Mapping this parameter template to the Part's category is not supported yet.",
       reason: null,
     },
     {
