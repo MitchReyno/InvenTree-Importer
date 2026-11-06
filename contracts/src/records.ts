@@ -124,8 +124,10 @@ export const BatchRecords = object({
   counts: Type.Array(object({ type: RecordType, new: count, existing: count, decide: count }), {
     maxItems: RECORD_TYPES.length,
   }),
-  // 100 subjects, each Part with up to 32 parameters and 32 tags, plus shared records.
-  records: Type.Array(BatchRecord, { maxItems: 10000 }),
+  // At most 100 subjects. A Part yields 35 records of its own (itself, its manufacturer and
+  // supplier parts, 32 parameters) and up to 67 shared ones (32 templates, 32 tags, a category,
+  // two companies): 102 × 100 = 10,200. A lot yields a stock item and at most one location.
+  records: Type.Array(BatchRecord, { maxItems: 12000 }),
 })
 
 export const recordSchemas = {

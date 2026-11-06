@@ -14055,7 +14055,7 @@
             }
           },
           "records": {
-            "maxItems": 10000,
+            "maxItems": 12000,
             "type": "array",
             "items": {
               "additionalProperties": false,

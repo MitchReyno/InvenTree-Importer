@@ -467,6 +467,13 @@ Fresh read-only Claude reviewer at `3046bce`: 3 Minor, 1 Nitpick, all fixed test
 
 - **A failed read after a save dropped every draft (Minor):** a new revision's records read starts without data, so a failure unmounted the detail. Records keeps the last good read, shows it as out of date with editing paused, and "Load current values" loads the batch and reads records again. A test fails the read after an accepted save, keeps an unsaved description, and reads again.
 - **"Latest proposal" was not the latest (Minor):** retained proposals come back ordered by stage name and random id. A field now shows the step of any proposal about the Part that it still matches. A test with an unmatched proposal read last keeps the matched step.
-- **The records cap could be exceeded by a valid batch (Minor):** raised from 2000 to 10000; a test projects 60 full Parts (32 parameters and 32 tags each) and 40 lots and validates the result.
+- **The records cap could be exceeded by a valid batch (Minor):** raised from 2000 (to 10000 here, then to the derived bound in round 4).
 - **Nitpick:** the test counts above are updated.
+
+### PR-E review round 4
+
+Fresh read-only Claude reviewer at `8321c3b`: 1 Important, 1 Minor, both fixed test-first. It confirmed the round-3 fixes.
+
+- **The shared Part editor dropped a description (Important):** `captureEditorChange` rebuilds a new Part's whole spec, and the editor has no description field, so saving a label or location there deleted a description set in Records. It now keeps the Part's existing description. A unit test (`capture/editor-model.test.ts`) changes only the label and expects the description kept; it failed first. Other spec writers (shared tags, processing suggestions) already spread the spec.
+- **The records cap was still below the worst case (Minor):** a Part yields at most 102 records (35 of its own, 67 shared when nothing is shared with another Part), so 100 Parts give 10,200. The cap is 12,000, with the arithmetic beside it; a test projects exactly that worst case and validates it.
 

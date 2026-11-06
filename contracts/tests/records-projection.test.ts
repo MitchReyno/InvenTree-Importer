@@ -334,25 +334,32 @@ test('a field shows the step of any proposal it still matches, whatever their or
 
 test('a batch at the subject limit with every Part full stays within the contract', () => {
   const parameter = specA.parameters[0]
-  const full = {
-    ...specA,
-    parameters: Array.from({ length: 32 }, (_, n) => ({
-      ...parameter,
-      template: { ...parameter.template, pk: String(1000 + n) },
-    })),
-    tags: Array.from({ length: 32 }, (_, n) => `Tag ${n}`),
-  }
-  const parts = Array.from({ length: 60 }, (_, n) => ({
+  // Every Part has its own category, companies, templates and tags, so nothing is shared.
+  const parts = Array.from({ length: 100 }, (_, n) => ({
     id: id(3000 + n),
     label: `P${n}`,
     revision: '1',
-    choice: { mode: 'create', spec: { ...full, name: `Part ${n}` } },
+    choice: {
+      mode: 'create',
+      spec: {
+        ...specA,
+        name: `Part ${n}`,
+        category: { ...specA.category, pk: String(500 + n) },
+        manufacturer: { company: { ...ref(909, 'company'), pk: String(2000 + n) }, mpn: 'M' },
+        supplier: { company: { ...ref(909, 'company'), pk: String(3000 + n) }, sku: 'S' },
+        parameters: Array.from({ length: 32 }, (_, k) => ({
+          ...parameter,
+          template: { ...parameter.template, pk: String(10000 + n * 32 + k) },
+        })),
+        tags: Array.from({ length: 32 }, (_, k) => `Tag ${n}-${k}`),
+      },
+    },
   }))
-  const lots = parts.slice(0, 40).map((part, n) => lot(60 + n, part.id, inBin))
   const result = projectRecords({
-    capture: { ...capture, parts, lots } as unknown as CaptureSnapshotDto,
+    capture: { ...capture, parts, lots: [] } as unknown as CaptureSnapshotDto,
     processing: undefined,
     lotGroups: null,
   })
+  assert.equal(result.records.length, 10200)
   validate('BatchRecords', result)
 })
