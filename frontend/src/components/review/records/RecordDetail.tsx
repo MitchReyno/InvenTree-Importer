@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref } from '../../../navigation/batch-route'
+import { AskControl } from './AskControl'
 import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '../../../records/model'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
 import { Pill, type PillTone } from '../../ui/Pill'
@@ -47,10 +48,12 @@ type Props = {
   save: Save
   disabled: boolean
   reportFor: (source: string) => (dirty: boolean) => void
+  /** Present with agent sessions: sends a message to the step's session working on this record. */
+  ask?: (step: string) => ((text: string) => Promise<void>) | undefined
 }
 
 /** One record: its values with who set them, what an edit reaches, and its editor. */
-export function RecordDetail({ batch, record, save, disabled, reportFor }: Props) {
+export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: Props) {
   const target = record.target
   const spec = target && 'part_subject_id' in target ? specOf(batch, target.part_subject_id) : null
   const report = reportFor(record.key)
@@ -106,6 +109,19 @@ export function RecordDetail({ batch, record, save, disabled, reportFor }: Props
                         ? `Estimated by ${STEP_LABELS[field.origin.step]}`
                         : 'Set by you'}
                   </Small>
+                  {field.origin.kind === 'step' &&
+                    (() => {
+                      const send = ask?.(field.origin.step)
+                      const step = STEP_LABELS[field.origin.step]
+                      return send ? (
+                        <AskControl
+                          step={step}
+                          value={field.value}
+                          prefill={`Please check the ${(FIELD_LABELS[field.name] ?? field.name).toLowerCase()} of ${record.label}.`}
+                          send={send}
+                        />
+                      ) : null
+                    })()}
                 </td>
               </tr>
             ))}

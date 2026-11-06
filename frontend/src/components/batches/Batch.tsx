@@ -445,6 +445,7 @@ export function Batch({
         discarded={discarded}
         initialType={batchRoute.recordType}
         initialRecord={batchRoute.recordId}
+        processing={processing}
       />
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'map') {

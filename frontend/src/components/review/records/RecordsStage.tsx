@@ -7,7 +7,10 @@ import {
   type RecordTypeDto,
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps } from '../../../capture/types'
-import { batchHref, parseBatchRoute } from '../../../navigation/batch-route'
+import { batchHref, parseBatchRoute, processingStepFor } from '../../../navigation/batch-route'
+import { serverQueryKey, useServerScope } from '../../../queries/scope'
+import type { ProcessingClient } from '../../../processing/types'
+import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
 import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
@@ -30,6 +33,8 @@ type Props = {
   reload?: () => Promise<boolean>
   /** Bumped when the batch discards local edits; record drafts are dropped too. */
   discarded?: number
+  /** Present with agent sessions: Ask messages the proposing step's session. */
+  processing?: ProcessingClient
   /** From the route: the type and record to open first. */
   initialType?: string
   initialRecord?: string
@@ -46,6 +51,7 @@ export function RecordsStage({
   discarded = 0,
   initialType,
   initialRecord,
+  processing,
 }: Props) {
   const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
   const query = useBatchRecords(client, batch.id, batch.revision)
@@ -69,6 +75,33 @@ export function RecordsStage({
     lastGood.current = query.data
   }
   const records = query.data ?? lastGood.current
+
+  const scope = useServerScope()
+  const sessions = useQuery({
+    queryKey: serverQueryKey(scope, 'processing', batch.id),
+    queryFn: () => processing!.read(batch.id),
+    enabled: Boolean(processing?.chat),
+  })
+
+  // The session of that step working on the record's Part or one of its lots.
+  const askFor = (record: BatchRecordDto) => (step: string) => {
+    const chat = processing?.chat
+    const owners = new Set([...record.part_ids, ...record.lot_ids])
+    const job = sessions.data?.jobs.find(
+      (item) =>
+        item.session_state &&
+        item.subject_id !== null &&
+        owners.has(item.subject_id) &&
+        processingStepFor(item.stage) === step,
+    )
+    if (!chat || !job) {
+      return undefined
+    }
+    return async (text: string) => {
+      const key = crypto.randomUUID()
+      await chat.call(processing, batch.id, job.id, { idempotency_key: key, text }, key)
+    }
+  }
 
   // A link to a record, such as a Needs you item, opens it unless a draft is open (the navigation
   // guard keeps the route then). The stage replaces history itself, so it follows the hash directly.
@@ -224,6 +257,7 @@ export function RecordsStage({
                 save={edit}
                 disabled={disabled}
                 reportFor={drafts.forSource}
+                ask={askFor(selected)}
               />
             ) : (
               <Small>Choose a record to see its values and who set them.</Small>

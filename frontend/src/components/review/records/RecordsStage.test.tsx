@@ -11,6 +11,7 @@ import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '../../../test/render'
 import { RecordsStage } from './RecordsStage'
+import type { ProcessingClient } from '../../../processing/types'
 import { CompanyDecision } from './CompanyDecision'
 
 const context = '0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03'
@@ -644,6 +645,55 @@ describe('RecordsStage', () => {
     )
     expect(detail).toHaveTextContent('Accept or replace the estimated quantity')
     expect(within(detail).getByRole('link', { name: 'Open this lot' })).toBeInTheDocument()
+  })
+
+  it('asks the proposing step’s session about a field, and shows it was asked', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+          { id: 'other-job', stage: 'research', subject_id: id(99), session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    await user.click(await within(category).findByRole('button', { name: 'Ask Research' }))
+    const message = within(detail).getByLabelText('Message to Research')
+    expect(message).toHaveValue('Please check the category of Carbon film resistor.')
+    await user.click(within(detail).getByRole('button', { name: 'Send to Research' }))
+
+    expect(chat).toHaveBeenCalledWith(
+      batch.id,
+      'research-job',
+      {
+        idempotency_key: expect.any(String),
+        text: 'Please check the category of Carbon film resistor.',
+      },
+      expect.any(String),
+    )
+    expect(await within(category).findByText('Asked Research')).toBeVisible()
+    // A field set by the operator has no step to ask.
+    expect(
+      within(within(detail).getByRole('row', { name: 'Name as saved' })).queryByRole('button', {
+        name: /^Ask/,
+      }),
+    ).not.toBeInTheDocument()
   })
 
   it('drops record drafts when the batch discards local edits', async () => {
