@@ -50,6 +50,7 @@ export function RecordsStage({
   const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
   const query = useBatchRecords(client, batch.id, batch.revision)
   const drafts = useDirtySources(onDirtyChange)
+  const { isDirty } = drafts
   const [chosenType, setChosenType] = useState<RecordTypeDto | null>(routeType)
   const [chosenKey, setChosenKey] = useState<string | null>(
     routeType && initialRecord ? `${routeType}:${initialRecord}` : null,
@@ -75,7 +76,7 @@ export function RecordsStage({
     function follow() {
       const parsed = parseBatchRoute(location.hash.slice(1))
       const route = parsed.kind === 'route' && parsed.batchId === batch.id ? parsed.route : null
-      if (route?.tab !== 'review' || route.view !== 'records' || drafts.isDirty()) {
+      if (route?.tab !== 'review' || route.view !== 'records' || isDirty()) {
         return
       }
       const nextType = RECORD_TYPES.find((value) => value === route.recordType) ?? null
@@ -86,7 +87,7 @@ export function RecordsStage({
 
     addEventListener('hashchange', follow)
     return () => removeEventListener('hashchange', follow)
-  }, [batch.id, drafts])
+  }, [batch.id, isDirty])
 
   if (!client) {
     return <Banner tone="plain">Records are not available in this setup.</Banner>

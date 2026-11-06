@@ -569,3 +569,12 @@ A fresh reviewer of `152fb43` found 2 Minor and 1 Nitpick, all fixed. It confirm
 - **Doc drift (Minor):** `frontend/ARCHITECTURE.md` "Review Records" names the "Estimated by Examine" origin.
 - **Nitpick:** the missing-Part bullet above.
 
+### PR-E delivery
+
+CI on #108 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend and PostgreSQL lanes did not apply. Squash-merged as #108 (`ab80c3b`) under Mitch's standing authorisation, at the reviewed head `ad15957`. The demo (103 s) was recorded at `fef57d0` from `records.html` and attached; it shows the type rail, a company map with its scope, a template map, Part edits and a Part decision. Later fixes (record decisions in attention, the AI estimate) are not filmed.
+
+Nitpicks left from the last reviews, handled in PR-F's first commit: the `hashchange` listener depends on the stable `isDirty` rather than the per-render `drafts` object, and design D6 names the "Estimated by Examine" origin.
+
+## PR-F plan: Changes (Tasks 11 and 13)
+
+Branch `feat/redesign-batch-workspace-changes` from `ab80c3b`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
