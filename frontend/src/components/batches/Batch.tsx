@@ -136,6 +136,7 @@ export function Batch({
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [reset, setReset] = useState(0)
+  const [discarded, setDiscarded] = useState(0)
   const editPending = useRef(false)
   const editIntent = useRef<{ request: CaptureEditDto; key: string } | null>(null)
 
@@ -313,9 +314,10 @@ export function Batch({
     }
   }
 
+  /** Loads the saved batch; true when it was read. */
   async function reloadSavedValues() {
     if (editPending.current) {
-      return
+      return false
     }
     void queryClient.invalidateQueries({ queryKey: operatorKey })
     try {
@@ -328,8 +330,21 @@ export function Batch({
       setReset((revision) => revision + 1)
       setCurrent(null)
       setError('')
+      return true
     } catch {
       setError('Saved values still unavailable. Local inputs remain unchanged.')
+      return false
+    }
+  }
+
+  const reloadForStage = async () => {
+    await reloadSavedValues()
+  }
+
+  /** Loads saved values and drops record drafts, which a plain reload keeps for a retry. */
+  async function discardLocalEdits() {
+    if (await reloadSavedValues()) {
+      setDiscarded((count) => count + 1)
     }
   }
 
@@ -399,7 +414,7 @@ export function Batch({
         media={media}
         step={batchRoute.step}
         questionId={batchRoute.questionId}
-        reload={reloadSavedValues}
+        reload={reloadForStage}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         attention={attentionQuery.data}
@@ -428,6 +443,7 @@ export function Batch({
         observe={observe}
         onDirtyChange={reportDirty}
         reload={reloadSavedValues}
+        discarded={discarded}
         initialType={batchRoute.recordType}
         initialRecord={batchRoute.recordId}
       />
@@ -443,7 +459,7 @@ export function Batch({
         predecessors={predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)}
         restructureUnavailable={operatorUnavailable}
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
-        reload={reloadSavedValues}
+        reload={reloadForStage}
         onDirtyChange={reportDirty}
       />
     )
@@ -468,7 +484,7 @@ export function Batch({
         observe={observe}
         navigate={navigate}
         rememberedPreparationId={shownPreparation.current}
-        reload={reloadSavedValues}
+        reload={reloadForStage}
         operatorReview={currentOperatorReview}
         operator={operator}
         media={media}
@@ -483,7 +499,7 @@ export function Batch({
         batch={activeBatch}
         operatorReview={operatorReview}
         operator={operator}
-        reload={reloadSavedValues}
+        reload={reloadForStage}
         media={media}
         busy={
           readOrCommandBusy ||
@@ -523,7 +539,7 @@ export function Batch({
           </Paragraph>
           <Button
             disabled={busy || captureQuery.isFetching}
-            onClick={() => void reloadSavedValues()}
+            onClick={() => void discardLocalEdits()}
           >
             Discard local edits and load saved values
           </Button>
@@ -559,7 +575,7 @@ export function Batch({
           <Button
             disabled={readOrCommandBusy}
             onClick={() => {
-              void reloadSavedValues()
+              void discardLocalEdits()
             }}
           >
             Discard local edits and load saved values

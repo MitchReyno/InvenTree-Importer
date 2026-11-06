@@ -241,6 +241,33 @@ test('stock items and locations follow active lots; a lot with no location needs
   assert.equal(of(result.records, 'location')[1].decision?.code, 'location_required')
 })
 
+test('a lot taking a new default location draft is placed under that draft, not a decision', () => {
+  const draftId = id(950)
+  const withDraft = {
+    ...capture,
+    settings_intent: { default_location_draft: draftId },
+    reference_drafts: [
+      {
+        draft_id: draftId,
+        kind: 'location',
+        value: { name: 'Shelf B', description: '', parent: null },
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: withDraft, processing: undefined, lotGroups: null })
+  assert.deepEqual(
+    of(result.records, 'location').map((record) => [record.label, record.state, record.lot_ids]),
+    [
+      ['Bin 43', 'exists', [id(101), id(103), id(104), id(105)]],
+      ['Shelf B', 'new', [id(102)]],
+    ],
+  )
+  assert.deepEqual(
+    result.counts.find((item) => item.type === 'location'),
+    { type: 'location', new: 1, existing: 1, decide: 0 },
+  )
+})
+
 test('each type counts new, existing and to-decide records', () => {
   const result = projectRecords({ capture, processing: undefined, lotGroups: null })
   assert.deepEqual(

@@ -36,7 +36,7 @@ export function useDraft<T>(saved: T, report: (dirty: boolean) => void) {
 }
 
 /** Loads the current batch without touching record drafts, so a refused save can be retried. */
-export const ReloadContext = createContext<(() => Promise<void>) | undefined>(undefined)
+export const ReloadContext = createContext<(() => Promise<boolean>) | undefined>(undefined)
 
 /** One record save at a time: the batch sends one edit, so every Save waits for it. */
 export const SavingContext = createContext<{
@@ -87,8 +87,9 @@ export function useRecordSave(batch: CaptureSnapshotDto, save: Save, onSaved?: (
   const retry =
     unsaved && reload
       ? async () => {
-          await reload()
-          setUnsaved(false)
+          if (await reload()) {
+            setUnsaved(false)
+          }
         }
       : undefined
 

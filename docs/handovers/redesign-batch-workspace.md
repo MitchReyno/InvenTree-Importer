@@ -513,3 +513,13 @@ Fresh read-only Claude reviewer at `dcd63c4`: 1 Minor, 1 Nitpick, both fixed tes
 - **A second save was dropped silently (Minor):** the batch sends one edit at a time, so a save clicked in another section while one was in flight returned unsaved with no reason. A shared `SavingContext` now disables every record Save (and Remove) while any record save is in flight. A test holds one save open and expects the other section's Save disabled until it ends.
 - **The out-of-date banner flashed after each save (Nitpick):** until the new revision's read arrives, the previous read stands in; that is now shown as refreshing (editing paused, no warning), and the banner stays for a failed read or a settled mismatch. A test with a slow read checks there is no warning; it fails with the old condition.
 
+### PR-E review round 10
+
+Fresh read-only Claude reviewer at `f733137`: 2 Minor, 2 Nitpick. Both Minor findings and the first Nitpick are fixed test-first; the second Nitpick is recorded. It confirmed the round-9 fixes.
+
+- **A lot taking a new default location read as a decision (Minor):** with Default location set to a new-location draft, the default stays `unset`, so `projectRecords` filed the lot under "No location – Needs a decision", although review counts it placed and approval creates the location. A lot whose location resolves from the batch while that draft is chosen is now listed under a new record named after the draft. A projection test covers it; with the old code it read "No location", `choose`.
+- **The batch's "Discard local edits" kept record drafts (Minor):** `reloadSavedValues` remounts the other stages through `reset`, but Records keeps drafts across a reload so a refused save can be retried. The batch-level discard buttons now call `discardLocalEdits`, which reloads and, once the saved batch is read, bumps a `discarded` counter that `RecordsStage` adds to the detail's key and that clears the "Save or discard" block. A test fails without the key change.
+- **Nitpick, fixed:** `reloadSavedValues` returns whether it read the batch, and "Load current values, keep this draft" stays offered when it did not.
+- **Nitpick, recorded:** leaving Records mid-save and coming back remounts the stage before the batch's edit settles, so a Save clicked in that window returns unsaved with the generic message; "Load current values, keep this draft" recovers.
+- **Gap:** the batch's new-supplier draft is not listed under Companies yet.
+

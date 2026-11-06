@@ -377,6 +377,15 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     locations.set(key, current)
   }
 
+  // The batch default may be a new location draft while the default stays unset, as approval reads it.
+  const draftId = capture.settings_intent?.default_location_draft
+  const locationDraft =
+    capture.defaults.location.mode === 'unset'
+      ? capture.reference_drafts?.find(
+          (record) => record.draft_id === draftId && record.kind === 'location',
+        )
+      : undefined
+
   for (const lot of activeLots) {
     const resolved = resolveLotLocation(capture, lot, lotGroups)
     if (resolved.status === 'conflict') {
@@ -407,6 +416,16 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           state: 'exists',
           decision: null,
         },
+        lot.id,
+      )
+    } else if (
+      locationDraft?.kind === 'location' &&
+      resolved.source === 'batch' &&
+      resolved.location.mode === 'unset'
+    ) {
+      place(
+        `location:draft:${locationDraft.draft_id}`,
+        { label: clip(locationDraft.value.name), state: 'new', decision: null },
         lot.id,
       )
     } else if (resolved.location.mode !== 'clear') {

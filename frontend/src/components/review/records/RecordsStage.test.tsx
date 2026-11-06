@@ -528,6 +528,28 @@ describe('RecordsStage', () => {
     expect(screen.queryByRole('region', { name: 'Yageo' })).not.toBeInTheDocument()
   })
 
+  it('drops record drafts when the batch discards local edits', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const props = {
+      batch,
+      client: { read: vi.fn(async () => records) },
+      edit: vi.fn(async () => true),
+      observe: vi.fn(async () => null),
+      onDirtyChange,
+    }
+    const { rerender } = render(<RecordsStage {...props} discarded={0} />)
+    await open(user, /^Companies/, 'Yageo')
+    await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
+    await user.click(screen.getByRole('button', { name: /^Parts/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Save or discard this record’s changes')
+
+    rerender(<RecordsStage {...props} discarded={1} />)
+    expect(screen.getByLabelText('Use another supplier')).toHaveValue('')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('offers only templates a Part can use, and saves a description on one trimmed line', async () => {
     const user = userEvent.setup()
     const { edit } = stage()
@@ -669,6 +691,7 @@ function LiveStage({
             ),
           } as CaptureSnapshotDto
         })
+        return true
       }}
     />
   )

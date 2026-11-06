@@ -27,7 +27,9 @@ type Props = {
   observe: CaptureWorkspaceProps['observe']
   onDirtyChange: (dirty: boolean) => void
   /** Loads the current batch; record drafts stay, so a refused save can be retried. */
-  reload?: () => Promise<void>
+  reload?: () => Promise<boolean>
+  /** Bumped when the batch discards local edits; record drafts are dropped too. */
+  discarded?: number
   /** From the route: the type and record to open first. */
   initialType?: string
   initialRecord?: string
@@ -41,6 +43,7 @@ export function RecordsStage({
   observe,
   onDirtyChange,
   reload,
+  discarded = 0,
   initialType,
   initialRecord,
 }: Props) {
@@ -54,6 +57,11 @@ export function RecordsStage({
   const [blocked, setBlocked] = useState(false)
   const [discards, setDiscards] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [seenDiscard, setSeenDiscard] = useState(discarded)
+  if (seenDiscard !== discarded) {
+    setSeenDiscard(discarded)
+    setBlocked(false)
+  }
   // A failed read after a save keeps the last good records, so the open drafts stay mounted.
   const lastGood = useRef(query.data)
   if (query.data) {
@@ -190,7 +198,7 @@ export function RecordsStage({
             )}
             {selected ? (
               <RecordDetail
-                key={`${selected.key}:${discards}`}
+                key={`${selected.key}:${discards}:${discarded}`}
                 batch={batch}
                 record={selected}
                 save={edit}
