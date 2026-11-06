@@ -289,4 +289,9 @@ Fresh read-only Claude reviewer at `12b04f5`: 1 Minor, 1 Nitpick, both fixed. Th
 
 - **Drawer left open across a step change (Minor):** a drawer link from Overview to the same question's step page changed `view` but not `questionId`, so the drawer stayed open. It now closes on any change of question or view. A test rerenders from Overview to Examine with the same question.
 - **Test gap (Nitpick):** the held-answer test now resolves the reload and checks the instruction field unlocks.
+- **Checks at `8d725fd`:** frontend typecheck, lint and build pass. The full frontend suite had 517 tests; under a machine load average near 58 (a demo render in parallel), a few App, OperatorSurfaces and media tests timed out at 5 s. Rerun on their own, those files pass (35/35 and 36/36).
+
+### PR-C review round 5
+
+Fresh read-only Claude reviewer at `8d725fd`: clean. Its only note was the missing Checks line above. Later commits on the branch change only this handover.
 
