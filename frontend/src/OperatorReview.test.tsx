@@ -12,7 +12,9 @@ import {
   type ManualWorkspaceDto,
   type OperatorImpactDto,
   type OperatorReviewDto,
+  type ProcessingSnapshotDto,
 } from '@invimport/contracts'
+import type { ProcessingClient } from './processing/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { render } from './test/render'
 import { Batch } from './components/batches/Batch'
@@ -252,6 +254,7 @@ function renderReview(
     operator?: OperatorReviewClient
     edit?: () => Promise<void>
     review?: OperatorReviewDto
+    processing?: ProcessingClient
   } = {},
 ) {
   const manual = manualClient()
@@ -269,6 +272,7 @@ function renderReview(
       reload={reload}
       operatorReview={overrides.review ?? operatorReview}
       operator={operator}
+      processing={overrides.processing}
       onDirtyChange={onDirtyChange}
     />,
   )
@@ -1121,4 +1125,38 @@ test('a blocked return to the list is not remembered as the operator’s choice'
   history.replaceState(history.state, '', `#${batchId}/review/lots`)
   renderReview()
   await waitFor(() => expect(location.hash).toBe(`#${batchId}/review/lots/${b}`))
+})
+
+test('Needs answer lists only lots with an open question, in the Workspace and the Table', async () => {
+  const user = userEvent.setup()
+  const snapshot = {
+    batch_id: batchId,
+    jobs: [
+      {
+        id: 'job',
+        stage: 'identifying',
+        subject_id: a,
+        proposals: [],
+        questions: [{ id: 'q', state: 'open', spec: { subject_id: a } }],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+  renderReview({ processing: { read: vi.fn(async () => snapshot) } as unknown as ProcessingClient })
+  const chip = await screen.findByRole('button', { name: /^Needs answer 1/ })
+  await user.click(chip)
+  const queue = screen.getByRole('region', { name: 'Physical lot review queue' })
+
+  expect(within(queue).getByRole('button', { name: 'Show Packet A' })).toBeInTheDocument()
+  expect(within(queue).queryByRole('button', { name: 'Show Packet B' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: 'Select Packet B' })).not.toBeInTheDocument()
+})
+
+test('Needs answer says when open questions are unknown rather than counting none', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await user.click(await screen.findByRole('button', { name: /^Needs answer …/ }))
+
+  expect(screen.getByText(/Open questions have not been read/)).toBeInTheDocument()
 })

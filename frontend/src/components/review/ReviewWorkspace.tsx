@@ -15,7 +15,7 @@ import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
   openWarnings,
-  openQuestionLotIds,
+  openQuestionsByLot,
   parseReviewLocation,
   reviewHash,
   retiredLotIds,
@@ -34,7 +34,6 @@ import { TableWorkspace } from '../operator/TableWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
-import { processingStepFor } from '../../navigation/batch-route'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -155,20 +154,6 @@ function writeHash(hash: string, chosen = listChosen()) {
   history.replaceState(chosen ? { [LIST_CHOSEN]: true } : null, '', hash)
 }
 
-/** The lot's first open Processing question, which its problems can offer to answer. */
-function openQuestionFor(processing: ProcessingSnapshotDto | undefined, lotId: string) {
-  for (const job of processing?.jobs ?? []) {
-    const question = job.questions.find(
-      (item) => item.state === 'open' && item.spec.subject_id === lotId,
-    )
-    if (question) {
-      return { id: question.id, step: processingStepFor(job.stage) }
-    }
-  }
-
-  return null
-}
-
 export function ReviewWorkspace({
   batch,
   workspace,
@@ -216,8 +201,8 @@ export function ReviewWorkspace({
   const previousFocus = useRef(route.lotId)
   const retired = retiredLotIds(operatorReview, batch)
   const activeLotIds = batch.lots.filter((lot) => !retired.has(lot.id)).map((lot) => lot.id)
-  const questionLotIds = openQuestionLotIds(processing)
-  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter, questionLotIds)
+  const openQuestions = openQuestionsByLot(processing, batch)
+  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter, openQuestions)
   const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null
 
   // Review opens on the first queued lot, so its evidence shows without a separate step.
@@ -465,9 +450,15 @@ export function ReviewWorkspace({
         <ReviewFilters
           review={operatorReview}
           filter={route.filter}
-          questionLotIds={questionLotIds}
+          questionLotIds={openQuestions}
+          questionsKnown={processing !== undefined}
           choose={(filter: ReviewFilter) => navigate({ filter })}
         />
+      )}
+      {route.filter === 'needs_answer' && processing === undefined && (
+        <Small role="status">
+          Open questions have not been read from Processing, so this list may be incomplete.
+        </Small>
       )}
       {operatorReview && operator && route.view === 'table' ? (
         <TableWorkspace
@@ -551,7 +542,7 @@ export function ReviewWorkspace({
                 reload={reload}
                 inspect={inspect}
                 markReviewed={() => reviewLots([lot.id])}
-                openQuestion={openQuestionFor(processing, lot.id)}
+                openQuestion={openQuestions.get(lot.id) ?? null}
                 editPart={openEditor}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}

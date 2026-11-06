@@ -13,6 +13,7 @@ import {
   GROUP_ORDER,
   matchesFilter,
   queueGroup,
+  type LotIds,
   type QueueGroup,
   type ReviewFilter,
 } from '../../operator/review-model'
@@ -55,7 +56,7 @@ export function visibleQueueLotIds(
   batch: CaptureSnapshotDto,
   operatorReview: OperatorReviewDto | undefined,
   filter: ReviewFilter,
-  questionLotIds?: ReadonlySet<string>,
+  questionLotIds?: LotIds,
 ): string[] {
   if (!operatorReview) {
     return batch.lots.filter((lot) => !lot.retired).map((lot) => lot.id)

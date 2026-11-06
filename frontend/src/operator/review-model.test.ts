@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { OperatorLotDto, OperatorReviewDto, ProcessingSnapshotDto } from '@invimport/contracts'
-import { approvedLotIds, matchesFilter, openQuestionLotIds } from './review-model'
+import type {
+  CaptureSnapshotDto,
+  OperatorLotDto,
+  OperatorReviewDto,
+  ProcessingSnapshotDto,
+} from '@invimport/contracts'
+import { approvedLotIds, matchesFilter, openQuestionsByLot } from './review-model'
 
 const review = (lots: [string, boolean][]) =>
   ({
@@ -32,27 +37,38 @@ describe('the Needs answer filter', () => {
   const processing = {
     jobs: [
       {
+        stage: 'identifying',
         questions: [
-          { state: 'open', spec: { subject_id: 'a' } },
-          { state: 'answered', spec: { subject_id: 'b' } },
-          { state: 'open', spec: { subject_id: null } },
+          { id: 'q-a', state: 'open', spec: { subject_id: 'a' } },
+          { id: 'q-b', state: 'answered', spec: { subject_id: 'b' } },
+          { id: 'q-part', state: 'open', spec: { subject_id: 'p' } },
+          { id: 'q-none', state: 'open', spec: { subject_id: null } },
         ],
       },
     ],
   } as unknown as ProcessingSnapshotDto
+  const batch = {
+    lots: [
+      { id: 'a', part_subject_id: null },
+      { id: 'b', part_subject_id: null },
+      { id: 'c', part_subject_id: 'p' },
+      { id: 'd', part_subject_id: 'p' },
+    ],
+  } as unknown as CaptureSnapshotDto
 
   const lot = (lot_id: string) => ({ lot_id }) as OperatorLotDto
 
-  it('shows lots with an open Processing question', () => {
-    const ids = openQuestionLotIds(processing)
+  it('shows lots with an open question of their own or on their Part', () => {
+    const questions = openQuestionsByLot(processing, batch)
 
-    expect([...ids]).toEqual(['a'])
-    expect(matchesFilter(lot('a'), 'needs_answer', ids)).toBe(true)
-    expect(matchesFilter(lot('b'), 'needs_answer', ids)).toBe(false)
+    expect([...questions.keys()]).toEqual(['a', 'c', 'd'])
+    expect(questions.get('c')).toEqual({ id: 'q-part', step: 'examine' })
+    expect(matchesFilter(lot('a'), 'needs_answer', questions)).toBe(true)
+    expect(matchesFilter(lot('b'), 'needs_answer', questions)).toBe(false)
   })
 
   it('shows nothing before Processing is read', () => {
     expect(matchesFilter(lot('a'), 'needs_answer')).toBe(false)
-    expect(openQuestionLotIds(undefined).size).toBe(0)
+    expect(openQuestionsByLot(undefined, batch).size).toBe(0)
   })
 })

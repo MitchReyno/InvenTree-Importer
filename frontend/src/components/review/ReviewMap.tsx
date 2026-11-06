@@ -82,7 +82,9 @@ export function ReviewMap({
                 <strong>{file.label}</strong>
                 {file.unused && (
                   <Pill tone="warn">
-                    {lineagePending ? 'No lot yet · checking history' : 'Used by no lot'}
+                    {lineagePending && fromRetired.has(file.id)
+                      ? 'No lot yet · checking history'
+                      : 'Used by no lot'}
                   </Pill>
                 )}
               </Head>

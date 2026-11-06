@@ -10,7 +10,7 @@ import {
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { display } from '../capture/display'
-import { batchHref } from '../navigation/batch-route'
+import { batchHref, processingStepFor, type ProcessingStep } from '../navigation/batch-route'
 
 export const REVIEW_FILTERS = [
   'all',
@@ -84,27 +84,46 @@ export function dismissedWarnings(lot: OperatorLotDto): OperatorIssueDto[] {
   return lot.issues.filter((issue) => issue.severity === 'warning' && issue.disposition)
 }
 
-const NO_QUESTIONS: ReadonlySet<string> = new Set()
+/** Lot ids with an open question; a lot-keyed map of questions also fits. */
+export type LotIds = Pick<ReadonlySet<string>, 'has'>
 
-/** Lots with an open Processing question, which the "Needs answer" filter shows. */
-export function openQuestionLotIds(
+const NO_QUESTIONS: LotIds = new Set()
+
+export type OpenQuestion = { id: string; step: ProcessingStep }
+
+/**
+ * Each active lot's first open Processing question: its own, else its Part's, since a job can be
+ * about a Part that several lots share.
+ */
+export function openQuestionsByLot(
   processing: ProcessingSnapshotDto | undefined,
-): ReadonlySet<string> {
-  const ids = new Set<string>()
+  batch: Pick<CaptureSnapshotDto, 'lots'>,
+): ReadonlyMap<string, OpenQuestion> {
+  const bySubject = new Map<string, OpenQuestion>()
   for (const job of processing?.jobs ?? []) {
     for (const question of job.questions) {
-      if (question.state === 'open' && question.spec.subject_id) {
-        ids.add(question.spec.subject_id)
+      const subject = question.spec.subject_id
+      if (question.state === 'open' && subject && !bySubject.has(subject)) {
+        bySubject.set(subject, { id: question.id, step: processingStepFor(job.stage) })
       }
     }
   }
-  return ids
+  const byLot = new Map<string, OpenQuestion>()
+  for (const lot of batch.lots) {
+    const question =
+      bySubject.get(lot.id) ??
+      (lot.part_subject_id ? bySubject.get(lot.part_subject_id) : undefined)
+    if (question) {
+      byLot.set(lot.id, question)
+    }
+  }
+  return byLot
 }
 
 export function matchesFilter(
   lot: OperatorLotDto,
   filter: ReviewFilter,
-  questionLotIds: ReadonlySet<string> = NO_QUESTIONS,
+  questionLotIds: LotIds = NO_QUESTIONS,
 ): boolean {
   switch (filter) {
     case 'all':

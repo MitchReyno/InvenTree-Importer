@@ -393,7 +393,16 @@ Fresh read-only Claude reviewer at `d9538a3`: 1 Important, 2 Minor, 1 Nitpick, a
 
 Fresh read-only Claude reviewer at `7d24e81`: 2 Minor, 3 Nitpick, all fixed except the "excluded" filter, recorded as a gap. It confirmed the round-3 lineage matches the server's edges and walk.
 
-- **Missing filters (Minor):** "Needs answer" now lists lots with an open Processing question (`openQuestionLotIds`, the same rule as "Answer the open question"), with a count. "Excluded" waits for the Exclude command (Task 9/10), recorded with Exclude above.
+- **Missing filters (Minor):** "Needs answer" now lists lots with an open Processing question, with a count (extended to Part questions in round 5). "Excluded" waits for the Exclude command (Task 9/10), recorded with Exclude above.
 - **Stale lineage looked final (Minor):** while the latest review is unread and the batch has retired lots, the Map's "Used by no lot" and "No evidence" read "… · checking history", and "New lot from this" is disabled for files linked to a retired lot. Linking stays available.
 - **Nitpicks:** the 8.4 line above mentions earlier lots; "No supporting evidence" also offers "Link evidence on the Map"; the Map's link list now offers lots the file supports only through a Part or an earlier lot, so a direct link can be added.
+
+### PR-D review round 5
+
+Fresh read-only Claude reviewer at `02e0374`: 3 Minor, 2 Nitpick, all fixed. It confirmed the round-4 fixes.
+
+- **Questions on a Part (Minor):** a Processing job can be about a Part, so its question applies to every lot using that Part. `openQuestionsByLot` (in `operator/review-model.ts`, replacing `openQuestionFor` and `openQuestionLotIds`) gives each lot its own first open question, else its Part's. It drives both "Needs answer" and "Answer the open question". Unit-tested.
+- **Unknown questions looked like none (Minor):** before Processing is read, or without a Processing client, the "Needs answer" count reads "…" and the filtered list says the open questions have not been read.
+- **Wiring test (Minor):** an integration test gives one lot an open question, then expects only that lot under "Needs answer" with a count of 1, in the Workspace and the Table. It fails if the queue is not given the questions.
+- **Nitpicks:** "No lot yet · checking history" now shows only on files linked to a retired lot, with "Used by no lot" on others; the lot-side "No evidence yet · checking history" is tested.
 

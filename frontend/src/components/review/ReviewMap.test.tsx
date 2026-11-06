@@ -178,6 +178,13 @@ describe('ReviewMap', () => {
     expect(old).not.toHaveTextContent('Used by no lot')
     expect(within(old).getByRole('button', { name: 'New lot from this: Old photo' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'New lot from this: Stray photo' })).toBeEnabled()
+    expect(screen.getByRole('listitem', { name: /Stray photo/ })).toHaveTextContent(
+      'Used by no lot',
+    )
+    // Packet A and B have no files here, but may inherit some once lineage is read.
+    expect(screen.getByRole('listitem', { name: /Packet A/ })).toHaveTextContent(
+      'No evidence yet · checking history',
+    )
   })
 
   it('offers a direct link to a lot the file supports only through its Part', () => {
