@@ -119,3 +119,10 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
   - leftover `handoff-*` directories are swept before init.
 
   After the fixes, `pnpm test:dev` passed 42/42 and the intake-server suite 207/207. A live `dev-services identity` and `up` (0 created, 22 existing) also passed.
+- **Round 2** (fresh reviewer, `57f9c3c`) found one Important, four Minor and one Nitpick issue. All were fixed:
+  - the stale-lock takeover retries when the lock vanishes instead of renaming, and restores a newer lock with `link()` so it never overwrites. A test hook injects a competing lock before and after the read;
+  - `up` checks the data volume's label even when state exists;
+  - a re-created server under existing state gets a new `server_id`, with the secrets kept;
+  - an image upgrade stops the old server and worker before init migrates;
+  - the held-lock test uses a live holder with a nonce. Dropping the liveness check now fails it;
+  - the database reset ignores supervisor locks of dead processes and names live ones.

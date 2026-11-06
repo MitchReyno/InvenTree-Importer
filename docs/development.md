@@ -53,7 +53,7 @@ Seeding first runs `invimport parameters --write` and `categories --write` with 
 
 Secrets are generated per machine and kept in the private state directory (`INTAKE_DEV_STATE`, default `~/.local/state/bench-intake`). `inventree-dev.json` holds the instance's secrets and tokens. `inventree.env` and `inventree-init.env` are the Compose env files; only the one-shot init container receives the admin password and tokens. Nothing secret is committed or passed on a command line.
 
-One checkout drives the InvenTree services, because they mount that checkout's scripts. `up` refuses with `inventree_dev_owned_by_other_checkout` while another checkout's containers exist; run `pnpm inventree:dev down` there first. A reset gives the instance a new ID, so the next `local-inventree` app starts in a fresh namespace. `reset --yes --database-server` also wipes the shared database server and every intake dev database. It refuses while a supervisor lock is held under `~/.local/state/bench-intake` or when `INTAKE_APP_STATE` is set; app namespaces at other explicit paths cannot be checked.
+One checkout drives the InvenTree services, because they mount that checkout's scripts. `up` refuses with `inventree_dev_owned_by_other_checkout` while another checkout's containers exist; run `pnpm inventree:dev down` there first. A reset gives the instance a new ID, so the next `local-inventree` app starts in a fresh namespace. `reset --yes --database-server` also wipes the shared database server and every intake dev database. It refuses, naming the namespace, while a live supervisor lock is held under `~/.local/state/bench-intake`, and when `INTAKE_APP_STATE` is set; app namespaces at other explicit paths cannot be checked.
 
 ### Shared database server
 

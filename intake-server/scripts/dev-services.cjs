@@ -111,6 +111,11 @@ async function main() {
     throw new Error('owned_service_missing_run_start')
   }
 
+  if (state && !volume && !existing) {
+    // Re-created server: a new identity gives apps fresh namespaces; the secrets initialise it.
+    state = { ...state, server_id: randomBytes(16).toString('hex') }
+    await writePrivate(resolve(directory, SERVER_STATE_FILE), JSON.stringify(state))
+  }
   if (!state) {
     state = {
       version: 1,

@@ -254,13 +254,13 @@ test('the shared database may belong to another checkout', async () => {
 test('a held lock refuses up, seed and reset', async () => {
   const h = await harness()
   try {
-    await writeFile(join(h.stateDir, 'inventree-dev.lock'), JSON.stringify({ pid: process.pid }), {
-      mode: 0o600,
-    })
+    const held = JSON.stringify({ pid: process.pid, nonce: 'live-holder' })
+    await writeFile(join(h.stateDir, 'inventree-dev.lock'), held, { mode: 0o600 })
     await assert.rejects(lib.up(h.ctx), /inventree_dev_lock_held/)
     await assert.rejects(lib.seedCommand(h.ctx), /inventree_dev_lock_held/)
     await assert.rejects(lib.reset(h.ctx, { yes: true }), /inventree_dev_lock_held/)
     assert.equal(h.calls.length, 0)
+    assert.equal(await readFile(join(h.stateDir, 'inventree-dev.lock'), 'utf8'), held)
   } finally {
     await rm(h.root, { recursive: true })
   }
@@ -396,6 +396,16 @@ test('a state written by an older image upgrades with the first-run init timeout
     await writeFile(join(h.stateDir, 'inventree-dev.json'), JSON.stringify(older), { mode: 0o600 })
     await lib.up(h.ctx)
     const init = h.seen.find(({ args }) => lib.composeSubcommand(args) === 'up-init')
+    const stopOld = h.seen.findIndex(
+      ({ args }) =>
+        args.includes('rm') &&
+        args.includes('inventree-server') &&
+        args.includes('inventree-worker'),
+    )
+    assert(
+      stopOld > -1 && stopOld < h.seen.indexOf(init),
+      'the old server stops before init migrates',
+    )
     assert.equal(init.options.timeoutMs, 600_000)
     const state = JSON.parse(await readFile(join(h.stateDir, 'inventree-dev.json'), 'utf8'))
     assert.equal(state.image, lib.IMAGE)
@@ -433,6 +443,75 @@ test('a token handoff left by an interrupted run is swept', async () => {
     await writeFile(join(leftover, 'tokens.json'), JSON.stringify(tokens), { mode: 0o600 })
     await lib.up(h.ctx)
     assert(!(await readdir(h.stateDir)).some((name) => name.startsWith('handoff-')))
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('a lock that changes during takeover is never removed', async () => {
+  for (const stage of ['before-read', 'after-read']) {
+    const h = await harness()
+    try {
+      const lock = join(h.stateDir, 'inventree-dev.lock')
+      await writeFile(lock, JSON.stringify({ pid: 2147483646, nonce: 'dead' }), { mode: 0o600 })
+      const fresh = JSON.stringify({ pid: process.pid, nonce: `fresh-${stage}` })
+      h.ctx.lockRace = async (at) => {
+        if (at === stage) {
+          await rm(lock, { force: true })
+          await writeFile(lock, fresh, { mode: 0o600 })
+        }
+      }
+      await assert.rejects(lib.up(h.ctx), /inventree_dev_lock_held/, stage)
+      assert.equal(await readFile(lock, 'utf8'), fresh, stage)
+      assert.equal(h.calls.length, 0, stage)
+    } finally {
+      await rm(h.root, { recursive: true })
+    }
+  }
+})
+
+test('up refuses an unlabelled data volume even when state exists', async () => {
+  const h = await harness({
+    volumes: [
+      { Name: 'bench-inventree-dev-db', Labels: 'bench-intake.owner=inventree-dev' },
+      { Name: 'bench-inventree-dev-data', Labels: '' },
+    ],
+  })
+  try {
+    await writeFile(join(h.stateDir, 'inventree-dev.json'), JSON.stringify(validState), {
+      mode: 0o600,
+    })
+    await assert.rejects(lib.up(h.ctx), /service_not_owned/)
+    assert(!h.calls.some((call) => call[0] === 'compose'))
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('the database reset ignores supervisor locks of dead processes and names live ones', async () => {
+  const h = await harness({
+    volumes: [{ Name: 'bench-inventree-dev-db', Labels: 'bench-intake.owner=inventree-dev' }],
+  })
+  try {
+    const base = join(h.ctx.home, '.local/state/bench-intake')
+    await mkdir(join(base, 'app'), { recursive: true })
+    await writeFile(
+      join(base, 'app/supervisor.lock'),
+      JSON.stringify({ pid: 2147483646, nonce: 'x' }),
+    )
+    await mkdir(join(base, 'app-live'), { recursive: true })
+    await writeFile(
+      join(base, 'app-live/supervisor.lock'),
+      JSON.stringify({ pid: process.pid, nonce: 'y' }),
+    )
+    await assert.rejects(
+      lib.reset(h.ctx, { yes: true, databaseServer: true, restart: false }),
+      /reset_refused_supervisor_running/,
+    )
+    assert(h.log.some((line) => line.includes('app-live')))
+    assert(!h.log.some((line) => line.endsWith('/app')))
+    await rm(join(base, 'app-live'), { recursive: true })
+    await lib.reset(h.ctx, { yes: true, databaseServer: true, restart: false })
   } finally {
     await rm(h.root, { recursive: true })
   }

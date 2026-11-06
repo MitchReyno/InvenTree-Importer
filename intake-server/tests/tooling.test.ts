@@ -162,6 +162,8 @@ test('a second checkout starts the existing owned server without recreating it',
       readFileSync(resolve(h.directory, 'inventree-db.env'), 'utf8'),
       `POSTGRES_PASSWORD=${serverState.admin}\n`,
     )
+    const kept = JSON.parse(readFileSync(resolve(h.directory, 'inventree-db.json'), 'utf8'))
+    assert.equal(kept.server_id, serverState.server_id, 'an existing server keeps its identity')
   } finally {
     rmSync(h.root, { recursive: true })
   }
@@ -260,6 +262,23 @@ test('identity reads the server ID without Docker and never creates state', () =
     assert.equal(found.status, 0, found.stderr)
     assert.equal(found.stdout.trim(), serverState.server_id)
     assert.equal(h.recorded().length, 0)
+  } finally {
+    rmSync(h.root, { recursive: true })
+  }
+})
+
+test('a server re-created under existing state gets a new identity and keeps its secrets', () => {
+  const h = harness()
+  try {
+    writeFileSync(resolve(h.directory, 'inventree-db.json'), JSON.stringify(serverState), {
+      mode: 0o600,
+    })
+    h.invoke({ containers: [legacy], volumes: [] })
+    const renewed = JSON.parse(readFileSync(resolve(h.directory, 'inventree-db.json'), 'utf8'))
+    assert.match(renewed.server_id, /^[a-f0-9]{32}$/)
+    assert.notEqual(renewed.server_id, serverState.server_id)
+    assert.deepEqual({ ...renewed, server_id: serverState.server_id }, serverState)
+    assert.equal(statSync(resolve(h.directory, 'inventree-db.json')).mode & 0o777, 0o600)
   } finally {
     rmSync(h.root, { recursive: true })
   }

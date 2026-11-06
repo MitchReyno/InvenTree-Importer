@@ -337,9 +337,12 @@ async function withLock(ctx, action) {
       } catch (error) {
         if (error.code !== 'EEXIST' || attempt > 0) throw refuse('inventree_dev_lock_held')
       }
+      await ctx.lockRace?.('before-read')
       // An unreadable or half-written lock is treated as held; only a dead holder is replaced.
       const holder = await lockHolder(path)
-      if (holder === null || (holder && alive(holder.pid))) throw refuse('inventree_dev_lock_held')
+      if (holder === undefined) continue // released meanwhile: just retry
+      if (holder === null || alive(holder.pid)) throw refuse('inventree_dev_lock_held')
+      await ctx.lockRace?.('after-read')
       const aside = `${path}.stale-${nonce}`
       try {
         await rename(path, aside)
@@ -347,10 +350,10 @@ async function withLock(ctx, action) {
         if (error.code !== 'ENOENT') throw error
         continue
       }
-      const moved = await lockHolder(aside)
-      if (holder && moved?.nonce !== holder.nonce) {
-        // Another run replaced the stale lock first; put it back and stand down.
-        await rename(aside, path).catch(() => {})
+      if ((await lockHolder(aside))?.nonce !== holder.nonce) {
+        // A newer lock replaced the stale one; restore it without overwriting any later one.
+        await link(aside, path).catch(() => {})
+        await rm(aside, { force: true })
         throw refuse('inventree_dev_lock_held')
       }
       await rm(aside, { force: true })
@@ -368,9 +371,14 @@ async function withLock(ctx, action) {
 async function upUnlocked(ctx, options = {}) {
   await ctx.startServices()
   await assertCheckout(ctx)
+  await ownedVolume(ctx, DATA_VOLUME)
   const state = await ensureState(ctx)
   await writeEnvFiles(ctx, state)
   await ensureDatabase(ctx, state)
+  if (state.image !== IMAGE) {
+    // The old image must not keep serving while init migrates the schema for the new one.
+    await docker(ctx, composeArgs(ctx, 'rm', '-fsv', 'inventree-server', 'inventree-worker'))
+  }
   await runInit(ctx, state)
   // The init run passed the tokens it reused or issued; keep init's env in step for next time.
   await writeEnvFiles(ctx, state)
@@ -414,7 +422,7 @@ async function down(ctx) {
   ctx.log('InvenTree stopped; the shared inventree-db keeps running for intake.')
 }
 
-/** Default namespace roots that may hold a running supervisor's lock. */
+/** Namespaces whose supervisor.lock names a live process (or cannot be read). */
 async function supervisorLocks(ctx) {
   const roots = new Set([ctx.stateDir, join(ctx.home, '.local/state/bench-intake')])
   const held = []
@@ -426,10 +434,18 @@ async function supervisorLocks(ctx) {
       continue
     }
     for (const entry of entries.filter((item) => item.isDirectory())) {
+      const lock = join(root, entry.name, 'supervisor.lock')
+      let text
       try {
-        await lstat(join(root, entry.name, 'supervisor.lock'))
-        held.push(join(root, entry.name))
+        text = await readFile(lock, 'utf8')
+      } catch {
+        continue
+      }
+      let pid
+      try {
+        pid = JSON.parse(text).pid
       } catch {}
+      if (!Number.isInteger(pid) || alive(pid)) held.push(join(root, entry.name))
     }
   }
   return held
@@ -440,7 +456,13 @@ async function reset(ctx, options = {}) {
   return withLock(ctx, async () => {
     if (options.databaseServer) {
       if (ctx.env.INTAKE_APP_STATE) throw refuse('reset_refused_explicit_app_state')
-      if ((await supervisorLocks(ctx)).length) throw refuse('reset_refused_supervisor_running')
+      const held = await supervisorLocks(ctx)
+      if (held.length) {
+        ctx.log(
+          `A development app may be using the database server:\n${held.map((path) => `  ${path}`).join('\n')}`,
+        )
+        throw refuse('reset_refused_supervisor_running')
+      }
     }
     const hasData = await ownedVolume(ctx, DATA_VOLUME)
     const hasDatabase = await ownedVolume(ctx, DB_VOLUME)
