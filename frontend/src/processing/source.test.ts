@@ -275,3 +275,26 @@ it('links a question to Review only when it is about an active lot', () => {
     ['Shared Part', null],
   ])
 })
+
+describe('subjectStatuses', () => {
+  const status = (n: number, stage: string, state: string, text: string, at: string) =>
+    job(n, stage, 'running', { session_state: state, latest_status: { text, at } } as Partial<Job>)
+
+  it('takes a lot’s newest line among live sessions only', () => {
+    const statuses = subjectStatuses(
+      snapshot([
+        status(1, 'images', 'running', 'Choosing a photo', '2026-11-06T10:00:00.000Z'),
+        status(2, 'research', 'finished', 'Done checking', '2026-11-06T10:05:00.000Z'),
+      ]),
+    )
+    expect(statuses.get(lot)?.text).toBe('Choosing a photo')
+    expect(
+      subjectStatuses(
+        snapshot([
+          status(1, 'images', 'cancelled', 'Stopped', '2026-11-06T10:00:00.000Z'),
+          status(2, 'research', 'finished', 'Done checking', '2026-11-06T10:05:00.000Z'),
+        ]),
+      ).has(lot),
+    ).toBe(false)
+  })
+})

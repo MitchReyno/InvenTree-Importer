@@ -841,6 +841,41 @@ describe('RecordsStage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('offers no Ask on an archived batch, and the batch discard drops an Ask draft', async () => {
+    const user = userEvent.setup()
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(async () => ({ id: 'inbox' })),
+    } as unknown as ProcessingClient
+    const props = {
+      batch,
+      client: { read: vi.fn(async () => records) },
+      edit: vi.fn(async () => true),
+      observe: vi.fn(async () => null),
+      onDirtyChange: vi.fn(),
+      processing,
+    }
+    const view = render(<RecordsStage {...props} discarded={0} />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+
+    const category = () => within(screen.getByRole('row', { name: 'Category as saved' }))
+
+    await user.click(await category().findByRole('button', { name: 'Ask Research' }))
+    await user.type(screen.getByLabelText('Message to Research'), ' Soon, please.')
+
+    view.rerender(<RecordsStage {...props} discarded={1} />)
+    expect(screen.queryByLabelText('Message to Research')).not.toBeInTheDocument()
+    expect(category().getByRole('button', { name: 'Ask Research' })).toBeVisible()
+
+    view.rerender(<RecordsStage {...props} discarded={1} batch={{ ...batch, archived: true }} />)
+    expect(category().queryByRole('button', { name: 'Ask Research' })).not.toBeInTheDocument()
+  })
+
   it('offers no Ask for a session that has been cancelled', async () => {
     const user = userEvent.setup()
     const processing = {

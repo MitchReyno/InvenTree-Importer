@@ -84,11 +84,17 @@ export function examineLead(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
   )
 }
 
-/** Each subject's newest status line across its session jobs. */
+/** Each subject's newest status line across its live session jobs: finished or ended ones are history. */
 export function subjectStatuses(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
   const newest = new Map<string, Job>()
   for (const job of snapshot.jobs) {
-    if (job.subject_id === null || !job.session_state || !job.latest_status) {
+    if (
+      job.subject_id === null ||
+      !job.session_state ||
+      job.session_state === 'finished' ||
+      ENDED_SESSIONS.has(job.session_state) ||
+      !job.latest_status
+    ) {
       continue
     }
     const known = newest.get(job.subject_id)

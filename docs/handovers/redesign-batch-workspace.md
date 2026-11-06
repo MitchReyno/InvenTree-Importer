@@ -717,3 +717,11 @@ Fresh read-only Claude reviewer at `e13327e`: 1 Important, 3 Minor, 2 Nitpicks, 
 - **Docs (Minor):** `frontend/ARCHITECTURE.md` says where unsent messages are kept and that discards drop Ask drafts, and the Map's lineage note sits with the split and merge lineage it explains.
 - **Nitpicks:** the catalogue comment says any current job counts; a region's label skips an empty first marking.
 
+### PR-G review round 4
+
+Fresh read-only Claude reviewer at `7000b35`: 2 Minor, 1 Nitpick, all fixed. It confirmed round 3's fixes, including the ordering of the discard clears against the remount.
+
+- **Ask on an archived batch (Minor):** the server refuses messages for an archived batch, so Ask now offers nothing there, as Tell Examine already did. A test covers it.
+- **Lot lines from ended sessions (Minor):** `subjectStatuses` now picks a lot's newest line among live sessions only (not finished, cancelled, cancelling, failed or unresumable), so a later finished line no longer hides a running one in Capture, and Lot details show no agent line for a lot no session works on. A test covers both.
+- **Batch discard (Nitpick):** `Batch`'s "Discard local edits" clears every unsent Ask message itself, wherever the batch is shown; Records' own clear on the same signal stays as a second guard. A test types an Ask draft, signals the batch discard, and finds it gone.
+

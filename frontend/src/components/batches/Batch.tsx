@@ -23,6 +23,7 @@ import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
 import type { ManualClient, ManualStage } from '../../manual/types'
 import type { ProcessingClient } from '../../processing/types'
+import { clearPending } from '../../processing/pending-messages'
 import { ProcessingStage } from '../processing/ProcessingStage'
 import { ManualWorkspace } from '../review/ManualWorkspace'
 import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/batch-route'
@@ -343,6 +344,8 @@ export function Batch({
   /** Loads saved values and drops record drafts, which a plain reload keeps for a retry. */
   async function discardLocalEdits() {
     if (await reloadSavedValues()) {
+      // Unsent Ask messages are record drafts, wherever the batch is shown.
+      clearPending(`${id}:ask:`)
       setDiscarded((count) => count + 1)
     }
   }

@@ -92,7 +92,8 @@ export function RecordsStage({
 
   // The session of that step working on the record's Part or one of its lots.
   const askFor = (record: BatchRecordDto) => (step: string) => {
-    const chat = processing?.chat
+    // An archived batch takes no messages.
+    const chat = batch.archived ? undefined : processing?.chat
     // The Part's own session first, then a lot's; never one that will not read it.
     const owners = [...record.part_ids, ...record.lot_ids]
     const job = owners

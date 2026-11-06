@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ENDED_SESSIONS, examineLead, subjectStatuses, WORK_STEPS } from './source'
+import { examineLead, subjectStatuses, WORK_STEPS } from './source'
 import type { ProcessingClient } from './types'
 
 export const SESSION_STATUS_REFRESH_MS = 15_000
@@ -47,12 +47,11 @@ export function useSessionStatuses(
         setStatuses({
           lead: lead?.latest_status?.text,
           lots: new Map(
-            // A finished or ended session's last line is history, not what is happening now.
-            [...subjectStatuses(snapshot)]
-              .filter(
-                ([, status]) => status.state !== 'finished' && !ENDED_SESSIONS.has(status.state),
-              )
-              .map(([lotId, status]) => [lotId, `${label(status.step)} · ${status.text}`]),
+            // Only live sessions' lines: a finished or ended session's last line is history.
+            [...subjectStatuses(snapshot)].map(([lotId, status]) => [
+              lotId,
+              `${label(status.step)} · ${status.text}`,
+            ]),
           ),
         })
       })
