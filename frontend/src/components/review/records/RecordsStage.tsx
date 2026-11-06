@@ -7,7 +7,13 @@ import {
   type RecordTypeDto,
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps } from '../../../capture/types'
-import { batchHref, parseBatchRoute } from '../../../navigation/batch-route'
+import { batchHref, parseBatchRoute, processingStepFor } from '../../../navigation/batch-route'
+import { serverQueryKey, useServerScope } from '../../../queries/scope'
+import { useRetainedPollInterval } from '../../operations/LiveUpdates'
+import { ENDED_SESSIONS } from '../../../processing/source'
+import { clearPending } from '../../../processing/pending-messages'
+import type { ProcessingClient } from '../../../processing/types'
+import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
 import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
@@ -30,6 +36,8 @@ type Props = {
   reload?: () => Promise<boolean>
   /** Bumped when the batch discards local edits; record drafts are dropped too. */
   discarded?: number
+  /** Present with agent sessions: Ask messages the proposing step's session. */
+  processing?: ProcessingClient
   /** From the route: the type and record to open first. */
   initialType?: string
   initialRecord?: string
@@ -46,6 +54,7 @@ export function RecordsStage({
   discarded = 0,
   initialType,
   initialRecord,
+  processing,
 }: Props) {
   const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
   const query = useBatchRecords(client, batch.id, batch.revision)
@@ -62,6 +71,8 @@ export function RecordsStage({
   if (seenDiscard !== discarded) {
     setSeenDiscard(discarded)
     setBlocked(false)
+    // Unsent Ask messages are record drafts too; the remount must not restore them.
+    clearPending(`${batch.id}:ask:`)
   }
   // A failed read after a save keeps the last good records, so the open drafts stay mounted.
   const lastGood = useRef(query.data)
@@ -69,6 +80,40 @@ export function RecordsStage({
     lastGood.current = query.data
   }
   const records = query.data ?? lastGood.current
+
+  const scope = useServerScope()
+  const pollInterval = useRetainedPollInterval()
+  const sessions = useQuery({
+    queryKey: serverQueryKey(scope, 'processing', batch.id),
+    queryFn: () => processing!.read(batch.id),
+    enabled: Boolean(processing?.chat),
+    refetchInterval: pollInterval,
+  })
+
+  // The session of that step working on the record's Part or one of its lots.
+  const askFor = (record: BatchRecordDto) => (step: string) => {
+    // An archived batch takes no messages.
+    const chat = batch.archived ? undefined : processing?.chat
+    // The Part's own session first, then a lot's; never one that will not read it.
+    const owners = [...record.part_ids, ...record.lot_ids]
+    const job = owners
+      .flatMap((owner) =>
+        (sessions.data?.jobs ?? []).filter(
+          (item) =>
+            item.subject_id === owner &&
+            item.session_state &&
+            !ENDED_SESSIONS.has(item.session_state) &&
+            processingStepFor(item.stage) === step,
+        ),
+      )
+      .at(0)
+    if (!chat || !job) {
+      return undefined
+    }
+    return async (text: string, key: string) => {
+      await chat.call(processing, batch.id, job.id, { idempotency_key: key, text }, key)
+    }
+  }
 
   // A link to a record, such as a Needs you item, opens it unless a draft is open (the navigation
   // guard keeps the route then). The stage replaces history itself, so it follows the hash directly.
@@ -204,6 +249,9 @@ export function RecordsStage({
                       size="sm"
                       variant="ghost"
                       onClick={() => {
+                        if (selected) {
+                          clearPending(`${batch.id}:ask:${selected.key}:`)
+                        }
                         setDiscards((value) => value + 1)
                         setBlocked(false)
                       }}
@@ -224,6 +272,7 @@ export function RecordsStage({
                 save={edit}
                 disabled={disabled}
                 reportFor={drafts.forSource}
+                ask={askFor(selected)}
               />
             ) : (
               <Small>Choose a record to see its values and who set them.</Small>

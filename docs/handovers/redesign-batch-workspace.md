@@ -639,3 +639,110 @@ Fresh read-only Claude reviewer at `d9f33f6`: 1 Minor, 3 Nitpicks, all fixed. It
 - **Docs said every refused value links to Review (Minor):** the spec, design D7, task 11.3, the frontend architecture and the 11.3 entry now say a Part value, Part attachment or stock item links to Review and a new location or supplier to Capture.
 - **Nitpicks:** a refused Part or stock item no longer adds "It is never created again" beside "cannot be sent yet"; the link's place comes with its address instead of being read from the URL; the test checks where the refused attachment link points.
 
+### PR-F delivery
+
+CI on #109 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend and PostgreSQL lanes did not apply. Squash-merged as #109 (`c15e9ce`) under Mitch's standing authorisation, at the reviewed head `cabe29c`. The demo (93 s) was recorded at `2dd8784` from `changes.html` and attached; later review fixes are not filmed. BI-008 is marked Done; task 14 follows as PR-G.
+
+Nitpicks left from round 6, handled in PR-G's first commit: Ready to add and the Review selection share one `MAX_SELECTED_LOTS` (in `manual/types.ts`, matching `ManualScope`), and the changes-commit Tree requirement names the Part's records under the Part, as design D7 does.
+
+## PR-G plan: BI-006 agent data (Task 14)
+
+Branch `feat/redesign-batch-workspace-agent-data` from `c15e9ce`. BI-006's contracts (sessions from #97; evidence observations, lead-session lots and `bench-intake-proposal/5` from #107) are on `interactive-app`; its PR-C (per-lot Research and Images) is not, and no branch for it is open. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
+## PR-G results
+
+- **Starting point:** much of task 14 arrived with BI-006's own PRs. The Processing overview and step pages already list sessions and open the session drawer (`SessionPanel`: timeline and chat), the Agents page already counts slots from `occupies_lane` and leaves waiting sessions out, and Review's evidence pane already shows each lot's observation crops. PR-G adds what those lacked and records what BI-006 has not yet published.
+- **14.1–14.3 Adapter and status lines:** `ProcessingJob` gains an optional `latest_status` (the latest session's newest status line), read with the Agents list's `latestStatuses` and present only once a session has posted one. `retainedJobsSource` now gives each session its active lot and status line, the batch's Examine lead session (`lead`, chosen by the shared `examineLead`: the batch-level Examine job running as a session) and, through `subjectStatuses`, each lot's newest line across its sessions. The adapter is the same one: it switches on per job when `session_state` is present, so the fixture profile shows no sessions. Session rows show the status line under their name. Tests: adapter tests written first and failing (status lines, lead session, a lot's newest line, no lead without a session); the session-row test shows a status line and none for a session without one; the PostgreSQL Examine trigger test checks the processing read carries the newest status line of the lead session and none before it posts.
+- **14.4 Agents page and Capture glance:** the Agents page already met the scenario; a test now pins it (three running and two waiting with a limit of three: "3 of 3 slots in use", "2 waiting for you", and both waiting sessions labelled as holding no slot). It passed at once, as expected. Capture's glance shows each lot's newest agent line ("Research · Checking the datasheet") under the lot. `processing/session-status.ts` (`useSessionStatuses`, replacing `useLeadStatus`) reads the processing snapshot once per capture revision and every 15 s, giving the lead session's line and each lot's newest line; it no longer reads the lead session's timeline, and reads nothing where sessions are not supported. Both the hook and `retainedJobsSource` use `subjectStatuses` for "a lot's newest line". Tests were written first and failed: the hook (lead and lot lines, revision re-read, no timeline read, no read without sessions) and the glance line.
+- **14.5 Review:** Lot details show the lot's agent line (`AgentLine`: "Research · <latest line>", the session's state and "Open in Processing"), from the same `subjectStatuses` over the processing snapshot Review already reads; a lot no session works on shows none. The evidence pane's region crops were already built by BI-006 (`LotObservations`). Review › Map lists each file's observed regions (active observations on the file's versions) with the lot each supports, labelled by their first marking or text, otherwise "Region N"; a file that supports a lot only through a region counts as used, and its lots appear on the lot side. File-level links, and their unlink controls, stay as they were. Tell Examine (`TellExamine`) appears on the Map only when the batch has an Examine lead session; it sends the instruction as chat to that session's inbox (`processing.chat`, idempotency key per send), says it was sent, and keeps the text when it is not. It does not use the batch instructions command, which stores instructions and sends nothing to a session. Tests were written first and failed: the agent line, the region-level map model, Tell Examine (sent to the lead session, kept on failure, absent without a session); the Map component test renders regions beside file links.
+- **Spec alignment:** task 14 named seven acceptance scenarios that did not exist. The delta specs gain "Lot details with the agent line", "Evidence pane with region crops", "Map at region level with its instruction field" (review-workspace) and "Session drawer" (processing-workspace), and the acceptance line names the existing "Read-only lots glance" and "Overview with running agents", and "Ask about a proposed value" (reworded after review round 1).
+- **Deviation:** task 14's scope names a second `ProcessingSource` adapter; the existing adapter switches on per job instead, when `session_state` is present, so one adapter serves both profiles.
+- **14.6 Ask:** a field whose origin is a step offers "Ask <Step>" when a session of that step is working on the record's Part or one of its lots (from the processing snapshot `RecordsStage` reads when the client has `chat`). It opens a short message, prefilled ("Please check the category of <record>."), sent to that session's inbox; the field then shows "Asked <Step>". Without sessions, or for a field set by the operator, no Ask appears, so the existing "no Ask" test still holds. Direct edits are unaffected. The test was written first and failed.
+- **Deviation:** the inbox message carries text only, with no field or subject, so "Asked <Step>" lasts until the field's value changes on this page rather than until the session replies; the reply is in the session drawer in Processing.
+- **14.7 Catalogue proposals:** `projectRecords` reads each Part's `bench-intake-proposal/5` catalogue (from proposals about the Part or its lots) without writing anything into a spec.
+  - A proposed-new manufacturer or supplier becomes a company record per Part (`company:proposed:<role>:<part>`, after review round 1) that needs a decision (`company_proposed_new`), carrying `proposed` (role, name, the agent's reason, the proposed part number or SKU, and a likely match). A role the Part already has is the operator's choice and is not asked about again.
+  - The likely match is an observed company in that role found by an explicit rule, in order: the same name, its initials (GCT and Global Connector Technology), or one name containing the other; otherwise none.
+  - A proposed-new category, a parameter with no template or no category mapping and a supplier price are listed on the Part record as `unsupported`, each with why it is not supported yet and the agent's reason. Since review round 6 the list comes from `assessCatalogue` itself, so it covers every reason the server's assessment gives.
+  - Records shows the company decision with `CompanyDecision` (its card is now labelled "Proposed new <role>: <name>", so it does not share the record's region name): "Use <likely>" or another observed company in the role sets the manufacturer or supplier part on the record's Part, with its proposed number (one record per Part since review round 1), through the existing record edits; without a proposed number it says to set the role on each Part. A Part lists its values not supported yet; since review round 1 a new category shows at the category field and only values with no field of their own go under "Not supported yet".
+  - Tests were written first and failed: the GCT decision with its likely match by initials, no likely match without a rule, no question for a role already set, and the unsupported list; the component tests map the proposed company to its likely match and to another, and list the unsupported values.
+- **Gap:** no session runner publishes a catalogue block yet (BI-006 PR-C, its task 10.4), so the GCT and new-category scenarios are proved with seeded `/5` proposals in unit tests and the browser fixture, not with the synthetic worker. Proposals carry no likely-match field (BI-006 D13), so the projection's rule above stands in for it.
+- **14.8 Browser check:** headless Chromium (Playwright) against the Vite dev server, owned fixtures only: no API, provider, session worker or InvenTree.
+  - **Fixtures:**
+    - `batch-capture.html?agents` adds observations, an Examine lead session and a Research session on the ATmega328P lot, each with a status line.
+    - `records.html` now has a capacitor whose Research proposal names a new manufacturer "GCT" (the observed "Global Connector Technology" is its likely match by initials), a new category, a parameter with no template and a supplier price, with Research sessions so Ask appears.
+    - `processing.html` sessions carry status lines.
+  - **Views:** nine, each captured full-page in light and dark at 1440, 860 and 390 px and at 200% zoom: 72 screenshots.
+    - The Processing overview with status lines, and the Agents page.
+    - The Capture glance with each lot's line and the lead line.
+    - The region-level Map with Tell Examine, and the Map without sessions (no instruction field).
+    - Lot details with the agent line.
+    - The GCT decision.
+    - A Part's not-supported list, and Ask on a Part field.
+  - **Results:** every view showed its expected text (and the Map without sessions no "Tell Examine"), with no horizontal overflow, no console or page errors and the requested theme applied.
+  - **Fixes found this way:** region rows inherited the file rows' padding and divider (the row style is now scoped to direct children), and a proposed company repeated its decision's detail above the decision card.
+  - **Limits:** region crops in the evidence pane were not re-checked here, since the fixture cannot serve the crop route, so the fixture's observations sit on lots the screenshots do not open; BI-006's own qualification checked them against its server.
+
+### PR-G review round 1
+
+Fresh read-only Claude reviewer at `3160ae7`: 3 Important, 6 Minor, 4 Nitpicks, all fixed or recorded. It confirmed `latest_status` is keyed and bounded like the Agents list, touches no hashed or replayed bytes, and that the processing query keys match the other readers.
+
+- **A proposed company used by several Parts could not be applied (Important):** each send reused the render's batch revision, so the second was refused, and merged records gave every Part the first Part's number. A proposed company is now one record per Part and role (`company:proposed:<role>:<part>`), so each choice is one edit with that Part's own number. A test has two Parts propose "GCT" with different numbers.
+- **A decision nothing could resolve (Important):** a Part already matched to an InvenTree Part, or still unset, has no spec to set a company on; it is no longer asked about. A test covers both.
+- **Names (Minor):** words are split by any script's letters and digits, so "村田製作所" keeps its identity and "東芝" matches nothing rather than every unlabelled company; containment needs whole consecutive words, so "ADI" no longer matches "Radiall" while "Murata" still matches "Murata Manufacturing".
+- **Which proposal wins (Minor):** a Part's catalogue comes from a current job before a superseded one, and from the Part before one of its lots; ties take the first read, as before. A test has a superseded proposed-new company lose to a current one.
+- **Chat retries (Minor):** Tell Examine and Ask keep the idempotency key with the unsent text until it is confirmed or edited, so retrying an unconfirmed send cannot queue it twice, and say it may already be queued. Tell Examine is not offered for a cancelled Examine session (Processing offers a fresh one), and words its confirmation by the session's state, as the session drawer does (`chatConfirmation`). Both queries now poll like the other processing reads, so the controls appear when a session starts.
+- **Spec drift (Minor):** a proposed-new category is now explained at the Part's category field, beside the category editor; other values not supported yet keep their list. Ask needs a field a step proposed, and a value missing altogether has no field, so the scenario is reworded to "Ask about a proposed value" (spec and acceptance).
+- **Lead selection (Minor):** `examineLead` is the one rule for the lead session, used by the adapter, the status hook and Tell Examine; the unused `lotStatus` is gone.
+- **Nitpicks:** the status-line schema is shared (`statusLine` in `processing.ts`, imported by `sessions.ts`); the agent line is a plain paragraph rather than a labelled live region; the Map's arrow is hidden from screen readers and reads "supports".
+- **Deviation:** Ask cannot ask about a value missing altogether, since Records lists no field for it; the operator can message the session from its drawer in Processing.
+
+### PR-G review round 2
+
+Fresh read-only Claude reviewer at `45341d0`: 5 Minor, 4 Nitpicks, all fixed. It confirmed round 1's fixes, and that `STATUS_LINE_MAX_CHARACTERS` exported by both modules is one binding.
+
+- **Ask reached sessions that will not read it (Minor):** Ask now skips cancelled, cancelling, failed and unresumable sessions (`ENDED_SESSIONS`), and asks the Part's own session before a lot's. A test has a cancelled session offer no Ask.
+- **Identical proposed-company rows (Minor):** each is labelled "<name> for <Part>", so the list, its accessible names and Needs you tell them apart.
+- **Drafts and keys lost on leaving the page (Minor):** Tell Examine and Ask keep their unsent text and its idempotency key in `processing/pending-messages.ts` (keyed by batch, and by record and field for Ask), as the session drawer does, and report unsent text to the navigation guard (the Map through its own `useDirtySources`, so the restructure dialog and Tell Examine do not clear each other). A test sends, fails, leaves the Map and returns: the text is back, still reported, and the retry reuses the key.
+- **Two confirmation wordings (Minor):** the session drawer now uses `chatConfirmation` too, with its fallback "Queued. The session resumes to answer."
+- **Docs (Minor):** the frontend architecture and this handover describe one record per Part and the category note at its field.
+- **Nitpicks:** the Capture glance leaves out a finished or ended session's last line (a test covers it); once a current job has proposed for a Part, a superseded job's catalogue no longer counts (a test covers it); Ask returns focus to "Asked <Step>" after sending and to the Ask button after cancelling; `ProposedCompanyEditor` handles its one Part directly.
+
+### PR-G review round 3
+
+Fresh read-only Claude reviewer at `e13327e`: 1 Important, 3 Minor, 2 Nitpicks, all fixed. It confirmed round 2's fixes, including the pending-store key scoping and stable guard callbacks.
+
+- **Discard kept an Ask draft (Important):** the pending store restored the message after "Discard changes" remounted the record, so it reported dirty again and blocked the next switch; the batch's discard left it too. Discarding a record now clears that record's Ask messages (`clearPending`) before the remount, and the batch's discard clears every Ask message. A test types an Ask message, discards, and finds it gone and the guard clean; it fails without the clear.
+- **Opening Ask lost focus (Minor):** focus moves into the message box when Ask opens (the same test checks it).
+- **Tell Examine could leave the guard dirty (Minor):** it reported a draft even when its form was hidden (a cancelled session, no session, an archived batch) and never reported clean on leaving. It now reports unsent text only while the form is shown, and clean when it unmounts. A test covers leaving and a kept draft with no session to show it.
+- **Docs (Minor):** `frontend/ARCHITECTURE.md` says where unsent messages are kept and that discards drop Ask drafts, and the Map's lineage note sits with the split and merge lineage it explains.
+- **Nitpicks:** the catalogue comment says any current job counts; a region's label skips an empty first marking.
+
+### PR-G review round 4
+
+Fresh read-only Claude reviewer at `7000b35`: 2 Minor, 1 Nitpick, all fixed. It confirmed round 3's fixes, including the ordering of the discard clears against the remount.
+
+- **Ask on an archived batch (Minor):** the server refuses messages for an archived batch, so Ask now offers nothing there, as Tell Examine already did. A test covers it.
+- **Lot lines from ended sessions (Minor):** `subjectStatuses` now picks a lot's newest line among live sessions only (not finished, cancelled, cancelling, failed or unresumable), so a later finished line no longer hides a running one in Capture, and Lot details show no agent line for a lot no session works on. A test covers both.
+- **Batch discard (Nitpick):** `Batch`'s "Discard local edits" clears every unsent Ask message itself, wherever the batch is shown; Records' own clear on the same signal stays as a second guard. A Records test types an Ask draft, signals the batch discard to Records, and finds it gone; `Batch`'s own clear (for when Records is not open) is not covered by a test.
+
+### PR-G review round 5
+
+Fresh read-only Claude reviewer at `41daef9`: 1 Minor, 2 Nitpicks, all fixed. It confirmed round 4's fixes.
+
+- **A parameter with no category mapping was dropped (Minor):** a proposed parameter whose template exists but has no mapping to the Part's category cannot enter a spec, and BI-006's spec lists it as unsupported, never dropped. It is now listed as not supported yet ("Mapping this parameter template to the Part's category is not supported yet."), beside a parameter without a template. The projection test covers both.
+- **Nitpicks:** the round-4 note on the batch discard says which path its test covers; the frontend architecture says Ask and Tell Examine are withheld on an archived batch.
+
+### PR-G review round 6
+
+Fresh read-only Claude reviewer at `1a65a68`: 2 Minor, 2 Nitpicks, all fixed. It confirmed round 5's fix and that `latest_status` is keyed by attempt.
+
+- **A proposed company outside a decision vanished (Minor):** a proposed-new manufacturer or supplier on a Part matched in InvenTree, still unset, or already having that role appeared nowhere. It is now listed on the Part as not supported yet, with its name, proposed number and the agent's reason; only a Part being created with no company in that role gets the decision record.
+- **Other assessment reasons were dropped (Minor):** the projection had its own copy of four of BI-006's reasons. `assessCatalogue` moved from `intake-server/src/processing/catalogue.ts` into contracts (the server file re-exports it, so its tests are unchanged), and the projection builds the list from its result, with one explanation per reason: a parameter waiting for an existing category or not applying to it, a stale reference, a company not set up for the role, a supplier with no SKU and a description that does not fit join the earlier cases. The projection fixture now carries its target context, which the shared rule checks; a new test covers the added reasons and a new manufacturer on a matched Part.
+- **Nitpicks:** the 14.7 results bullet names the category-mapping case; the not-supported lists key their rows by position, so identical values do not collide.
+
+### PR-G review round 7
+
+Fresh read-only Claude reviewer at `e99d14f`: clean, with 2 Nitpicks, both fixed. It confirmed the move kept `assessCatalogue` identical apart from imports, that every reason maps to one row, and that the most rows possible (37) stay within the 40-item cap.
+
+- **Nitpicks:** comments and both architecture docs no longer say the server calls `assessCatalogue` (only the projection does; the server file re-exports it for its tests), and the frontend architecture says a category or description note shows at its own field when the Part lists it.
+

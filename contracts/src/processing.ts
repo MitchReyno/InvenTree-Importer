@@ -476,6 +476,13 @@ export const ProcessingQuestion = object({
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
 })
+export const STATUS_LINE_MAX_CHARACTERS = 120
+/** One status line: no line breaks, at most 120 characters. */
+export const statusLine = Type.String({
+  minLength: 1,
+  maxLength: STATUS_LINE_MAX_CHARACTERS,
+  pattern: '^[^\\r\\n\\u2028\\u2029]*$',
+})
 export const ProcessingJob = object({
   id: Id,
   /** Null only for the batch-level Examine lead job. */
@@ -491,6 +498,8 @@ export const ProcessingJob = object({
   blocked_code: Type.Optional(ProcessingBlocker),
   /** Present for session profiles: the state of the job's latest session. */
   session_state: Type.Optional(SessionState),
+  /** The latest session's newest status line, when it has posted one. */
+  latest_status: Type.Optional(object({ text: statusLine, at: Type.String({ maxLength: 40 }) })),
   proposals: Type.Array(object({ id: Id, message_id: Id, value: ProcessingProposal }), {
     maxItems: 100,
   }),

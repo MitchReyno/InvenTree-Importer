@@ -49,6 +49,7 @@ export function ProposedLotsGlance({
                   <Pill tone={STATE[lot.state].tone}>{STATE[lot.state].word}</Pill>
                 </Pills>
               </Row>
+              {lot.status && <Small>{lot.status}</Small>}
               {Boolean(lot.crops?.length || lot.suggestions) && (
                 <Detail>
                   {lot.crops?.slice(0, 4).map((src, index) => (

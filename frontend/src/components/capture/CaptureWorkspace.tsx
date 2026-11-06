@@ -6,7 +6,7 @@ import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { EvidencePanel } from './EvidencePanel'
 import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '../../processing/proposed-lots'
-import { useLeadStatus } from '../../processing/lead-status'
+import { useSessionStatuses } from '../../processing/session-status'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -28,7 +28,7 @@ export function CaptureWorkspace({
   settings,
   processing,
 }: CaptureWorkspaceProps) {
-  const leadStatus = useLeadStatus(processing, batch.id, batch.revision)
+  const statuses = useSessionStatuses(processing, batch.id, batch.revision)
   const dirtyFlags = useRef<Record<DirtySource, boolean>>({
     settings: false,
     media: false,
@@ -108,8 +108,11 @@ export function CaptureWorkspace({
         <SettingsColumn>
           <ProposedLotsGlance
             batchId={batch.id}
-            lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS)}
-            leadStatus={leadStatus}
+            lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
+              ...lot,
+              status: statuses.lots.get(lot.id),
+            }))}
+            leadStatus={statuses.lead}
           />
           {refresh === 'failed' && (
             <Notice role="alert">

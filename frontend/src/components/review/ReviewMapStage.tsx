@@ -7,6 +7,9 @@ import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RestructureDialog } from '../operator/RestructureDialog'
 import { ErrorNotice } from '../ui/primitives'
 import { ReviewMap } from './ReviewMap'
+import { TellExamine } from './TellExamine'
+import { useDirtySources } from '../../operator/useDirtySources'
+import type { ProcessingClient } from '../../processing/types'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -20,6 +23,8 @@ type Props = {
   restructureUnavailable?: boolean
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
+  /** Present with agent sessions: the Map's instruction goes to the Examine lead session. */
+  processing?: ProcessingClient
 }
 
 type PendingLot = { evidenceId: string; label: string; knownLotIds: string[] }
@@ -36,7 +41,9 @@ export function ReviewMapStage({
   restructureUnavailable = false,
   reload,
   onDirtyChange,
+  processing,
 }: Props) {
+  const drafts = useDirtySources(onDirtyChange)
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const key = serverQueryKey(scope, 'media', batch.id)
@@ -140,6 +147,13 @@ export function ReviewMapStage({
           }
         />
       )}
+      {!batch.archived && (
+        <TellExamine
+          batchId={batch.id}
+          processing={processing}
+          onDirtyChange={drafts.forSource('tell-examine')}
+        />
+      )}
       {restructure && operator && (
         <RestructureDialog
           kind={restructure.kind}
@@ -152,7 +166,7 @@ export function ReviewMapStage({
           disabled={batch.archived}
           reload={reload}
           onClose={() => setRestructure(null)}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={drafts.forSource('restructure')}
         />
       )}
     </>

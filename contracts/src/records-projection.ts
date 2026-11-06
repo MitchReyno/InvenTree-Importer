@@ -5,7 +5,8 @@ import {
   type LotLocationGroups,
 } from './capture-location.ts'
 import type { InventoryPartSpecDto } from './effects.ts'
-import type { ProcessingSnapshotDto } from './processing.ts'
+import type { CatalogueProposalDto, ProcessingSnapshotDto } from './processing.ts'
+import { assessCatalogue, type CatalogueUnsupportedReason } from './catalogue-assessment.ts'
 import {
   RECORD_TYPES,
   type BatchRecordDto,
@@ -14,6 +15,84 @@ import {
 } from './records.ts'
 
 type Proposal = ProcessingSnapshotDto['jobs'][number]['proposals'][number]
+type Unsupported = NonNullable<BatchRecordDto['unsupported']>[number]
+type Reference = { observation_id: string; target_context_id: string; model: string; pk: string }
+type Choice = { choice: string; name?: string; reason?: string; reference?: Reference }
+type Catalogue = {
+  category: Choice | null
+  parameters: {
+    name: string
+    value: string
+    template: Reference | null
+    category_mapping: Reference | null
+  }[]
+  manufacturer: { company: Choice; mpn: string } | null
+  supplier: {
+    company: Choice
+    sku: string | null
+    price: { amount: string; currency: string } | null
+  } | null
+  description?: { text: string } | null
+}
+type Role = 'manufacturer' | 'supplier'
+
+/** Lower-case words of any script, so non-Latin names keep their identity. */
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+
+/** True when `inner` appears in `outer` as whole consecutive words. */
+const containsWords = (outer: string[], inner: string[]) =>
+  inner.length > 0 &&
+  outer.some((_, start) => inner.every((word, offset) => outer[start + offset] === word))
+
+/**
+ * An observed company a proposed name probably means, by an explicit rule: the same name, its
+ * initials, or one name containing the other. Nothing else counts as likely.
+ */
+type CompanyReference = Omit<Reference, 'model'> & { model: 'company' }
+
+function likelyMatch(
+  name: string,
+  candidates: { reference: CompanyReference; label: string }[],
+): { reference: CompanyReference; label: string; why: string } | null {
+  const wanted = words(name)
+  if (wanted.length === 0) {
+    return null
+  }
+  const rules: [string, (label: string) => boolean][] = [
+    ['It has the same name', (label) => words(label).join(' ') === wanted.join(' ')],
+    [
+      `Its initials are ${name}`,
+      (label) =>
+        /^[A-Za-z]{2,}$/.test(name) &&
+        words(label)
+          .map((word) => word[0])
+          .join('') === name.toLowerCase(),
+    ],
+    [
+      'Its name contains the other',
+      (label) => {
+        const other = words(label)
+        return (
+          wanted.join(' ').length >= 3 &&
+          other.join(' ').length >= 3 &&
+          (containsWords(other, wanted) || containsWords(wanted, other))
+        )
+      },
+    ],
+  ]
+  for (const [why, matches] of rules) {
+    const found = candidates.find((candidate) => matches(candidate.label))
+    if (found) {
+      return { ...found, why }
+    }
+  }
+  return null
+}
+
 type Step = Extract<RecordOriginDto, { kind: 'step' }>['step']
 type Origin = RecordOriginDto
 type Field = BatchRecordDto['fields'][number]
@@ -35,7 +114,7 @@ function stepOf(stage: string): Step {
   return stage === 'research' || stage === 'images' || stage === 'inventory' ? stage : 'examine'
 }
 
-type Proposed = { proposal: Proposal; step: Step }
+type Proposed = { proposal: Proposal; step: Step; current: boolean }
 
 /** Every retained proposal about each subject, with the step that made it. */
 function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
@@ -45,7 +124,7 @@ function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
       const subject = proposal.value.subject_id
       bySubject.set(subject, [
         ...(bySubject.get(subject) ?? []),
-        { proposal, step: stepOf(job.stage) },
+        { proposal, step: stepOf(job.stage), current: job.state !== 'superseded' },
       ])
     }
   }
@@ -144,6 +223,84 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
       ),
     sku: () => when(spec.supplier !== null && catalogue?.supplier?.sku === spec.supplier.sku),
   }
+}
+
+const WHY: Record<CatalogueUnsupportedReason, string> = {
+  new_category: 'Creating a category is not supported yet; choose an existing category.',
+  new_parameter_template: 'Creating a parameter template is not supported yet.',
+  parameter_mapping_missing:
+    "Mapping this parameter template to the Part's category is not supported yet.",
+  parameter_category_incompatible: "This parameter template does not apply to the Part's category.",
+  category_not_applicable: 'This parameter waits for an existing category.',
+  new_manufacturer: 'Creating a manufacturer is not supported yet.',
+  new_supplier: 'Creating a supplier is not supported yet.',
+  supplier_sku_missing: 'A supplier part needs a SKU.',
+  supplier_price_unsupported: 'Supplier prices are not supported yet.',
+  company_role_incompatible: 'This company is not set up for that role in InvenTree.',
+  description_unsupported: 'A description must be one line of at most 250 characters.',
+  mapping_observation_invalid:
+    'This no longer matches what was read from InvenTree; read it again.',
+}
+
+/** One unsupported catalogue value as Records shows it, with its reason. */
+function unsupportedValue(
+  catalogue: Catalogue,
+  path: string,
+  reason: CatalogueUnsupportedReason,
+  label: (observationId: string, fallback: string) => string,
+): Unsupported | null {
+  const choiceText = (choice: Choice, fallback: string) =>
+    choice.choice === 'proposed_new'
+      ? (choice.name ?? fallback)
+      : choice.reference
+        ? label(choice.reference.observation_id, fallback)
+        : fallback
+
+  const because = (choice: Choice | undefined) =>
+    choice?.choice === 'proposed_new' ? choice.reason?.slice(0, 512) || null : null
+
+  const why = WHY[reason]
+  if (path === 'category' && catalogue.category) {
+    return {
+      field: 'category',
+      value: clip(choiceText(catalogue.category, 'Category')),
+      why,
+      reason: because(catalogue.category),
+    }
+  }
+  if (path.startsWith('parameters.')) {
+    const parameter = catalogue.parameters[Number(path.slice('parameters.'.length))]
+    return parameter
+      ? {
+          field: 'parameter',
+          value: clip(`${parameter.name}: ${parameter.value}`),
+          why,
+          reason: null,
+        }
+      : null
+  }
+  if (path === 'supplier.price' && catalogue.supplier?.price) {
+    const { amount, currency } = catalogue.supplier.price
+    return { field: 'supplier', value: clip(`${amount} ${currency}`), why, reason: null }
+  }
+  if (path === 'manufacturer' || path === 'supplier') {
+    const entry = catalogue[path]
+    if (!entry) {
+      return null
+    }
+    const number = 'mpn' in entry ? entry.mpn : entry.sku
+    const name = choiceText(entry.company, path === 'manufacturer' ? 'Manufacturer' : 'Supplier')
+    return {
+      field: path,
+      value: clip(number ? `${name} · ${number}` : name),
+      why,
+      reason: because(entry.company),
+    }
+  }
+  if (path === 'description' && catalogue.description) {
+    return { field: 'description', value: clip(catalogue.description.text), why, reason: null }
+  }
+  return null
 }
 
 /** Every record the batch touches, from capture state. Proposed-new values arrive with task 14. */
@@ -356,6 +513,113 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         decision: {
           code: 'part_choice_required',
           detail: 'Choose an existing Part or start a new one.',
+        },
+      })
+    }
+  }
+
+  // Catalogue proposals: values the executor cannot create are shown, never written into a spec.
+  // One catalogue per Part: from a current job before a superseded one, about the Part itself
+  // before one of its lots. Retained proposals carry no order, so ties take the first read.
+  const catalogueOf = (subjects: string[]) => {
+    const entries = subjects.flatMap((subject, rank) =>
+      (proposals.get(subject) ?? []).map((entry) => ({ entry, rank })),
+    )
+    // Once any current job has proposed about the Part or its lots, a superseded job's catalogue
+    // no longer counts, whatever step proposed.
+    const current = entries.filter(({ entry }) => entry.current)
+    return (current.length ? current : entries)
+      .sort((left, right) => left.rank - right.rank)
+      .map(({ entry }) => (entry.proposal.value as { catalogue?: Catalogue }).catalogue)
+      .find((catalogue): catalogue is Catalogue => Boolean(catalogue))
+  }
+
+  const observedCompanies = (role: Role) =>
+    capture.observations.flatMap((item) =>
+      item.model === 'company' &&
+      (item.mapping as { manufacturer?: boolean; supplier?: boolean } | undefined)?.[role]
+        ? [
+            {
+              reference: {
+                observation_id: item.id,
+                target_context_id: item.target_context_id,
+                model: 'company' as const,
+                pk: item.pk,
+              },
+              label: item.label,
+            },
+          ]
+        : [],
+    )
+
+  for (const part of capture.parts) {
+    const catalogue = catalogueOf([part.id, ...lotsOf([part.id])])
+    if (!catalogue) {
+      continue
+    }
+    const spec = part.choice.mode === 'create' ? part.choice.spec : null
+
+    // A proposed-new company becomes its own decision record only on a Part being created that
+    // has no company in that role; anywhere else it is listed as not supported.
+    const decides = (role: Role) => {
+      const entry = catalogue[role]
+      return Boolean(
+        spec && entry?.company.choice === 'proposed_new' && entry.company.name && !spec[role],
+      )
+    }
+
+    const unsupported: Unsupported[] = []
+    // BI-006's shared catalogue rule, so every value that cannot enter a spec is shown.
+    for (const item of assessCatalogue(
+      catalogue as unknown as CatalogueProposalDto,
+      capture.target_context_id,
+      capture.observations,
+    )) {
+      if (item.status !== 'unsupported') {
+        continue
+      }
+      const shown = unsupportedValue(catalogue, item.path, item.reason, label)
+      if (
+        !shown ||
+        ((item.reason === 'new_manufacturer' || item.reason === 'new_supplier') &&
+          decides(item.reason === 'new_manufacturer' ? 'manufacturer' : 'supplier'))
+      ) {
+        continue
+      }
+      unsupported.push(shown)
+    }
+    const partRecord = records.find((item) => item.key === `part:${part.id}`)
+    if (partRecord && unsupported.length) {
+      partRecord.unsupported = unsupported.slice(0, 40)
+    }
+    if (!spec) {
+      continue
+    }
+    for (const role of ['manufacturer', 'supplier'] as const) {
+      const entry = catalogue[role]
+      if (!entry || !decides(role) || !entry.company.name) {
+        continue
+      }
+      const name = clip(entry.company.name)
+      // One record per Part, so each choice is one edit with that Part's own number.
+      record({
+        key: `company:proposed:${role}:${part.id}`,
+        type: 'company',
+        // Several Parts can propose the same name, so the label says whose it is.
+        label: clip(`${name} for ${spec.name}`),
+        state: 'choose',
+        target: null,
+        part_ids: [part.id],
+        decision: {
+          code: 'company_proposed_new',
+          detail: `Creating a ${role} is not supported yet. Use an existing company or pick another.`,
+        },
+        proposed: {
+          role,
+          name,
+          reason: entry.company.reason?.slice(0, 512) || null,
+          number: ('mpn' in entry ? entry.mpn : entry.sku)?.slice(0, 256) || null,
+          likely: likelyMatch(name, observedCompanies(role)),
         },
       })
     }

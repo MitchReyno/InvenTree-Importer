@@ -290,18 +290,18 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Outcome:** Processing, the Agents page, the Capture lots glance, Review › Map and Records show live sessions, region-level observations and BI-006's proposed-new and unsupported catalogue values.
 - **Scope:** `frontend/src/processing/` (a second `ProcessingSource` adapter); the Processing overview session list and session drawer; the Agents page; the Capture Proposed lots glance's status line; the Review evidence pane's region crops and Lot details' agent line; the Map's region links and instruction field; the Records Ask control; and the records projection's reading of BI-006's structured catalogue proposals (`bench-intake-proposal/5`) in `contracts/src/` and `intake-server/src/` (the `/api/v1/batches/:id/records` read from task 9).
 - **Prerequisites:** tasks 6, 7, 8, 9, 10 and 12, and BI-006's contracts merged. It is not a prerequisite of any other task, and BI-008 can be marked Done without it; until then the screens keep their honest "not available" states.
-- **Acceptance:** capture-batch-settings: Read-only lots glance, with sessions; processing-workspace: Overview with running agents and the session drawer; agents-overview: Waiting sessions do not count as running; review-workspace: Evidence pane with region crops, Lot details with the agent line, and the Map at region level with its instruction field; review-records Steering routed to the proposing step, for the Ask scenario; review-records New company with a likely match and New category proposed, end to end.
+- **Acceptance:** capture-batch-settings: Read-only lots glance (its agent status line); processing-workspace: Overview with running agents, and Session drawer; agents-overview: Waiting sessions do not count as running; review-workspace: Lot details with the agent line, Evidence pane with region crops, and Map at region level with its instruction field; review-records: Ask about a proposed value (steering routed to the proposing step), New company with a likely match, and New category proposed, end to end.
 - **TDD approach:** write failing adapter tests against BI-006's `synthetic-session/1` fixture data, and failing records-projection tests with `bench-intake-proposal/5` fixtures, first (RED), then implement (GREEN).
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks, and a browser check of each screen with the synthetic session profile.
 
-- [ ] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
-- [ ] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
-- [ ] 14.3 Turn on the Processing overview session list and the session drawer.
-- [ ] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
-- [ ] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
-- [ ] 14.6 Turn on Ask on Records.
-- [ ] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
-- [ ] 14.8 Record the browser check of every screen above in the handover.
+- [x] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
+- [x] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
+- [x] 14.3 Turn on the Processing overview session list and the session drawer.
+- [x] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
+- [x] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
+- [x] 14.6 Turn on Ask on Records.
+- [x] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
+- [x] 14.8 Record the browser check of every screen above in the handover.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -310,7 +310,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] D.3 PR-C: same gates. Review clear at `8d725fd` after five rounds; merged as #102 (`d38e6ad`) with every CI job green and a demo video attached.
 - [x] D.4 PR-D: same gates. Review clear at `7330b65` after eight rounds; merged as #104 (`1672e00`) with every CI job that ran green and a demo video attached.
 - [x] D.5 PR-E: same gates. Review clear at `18b2381` after fourteen rounds, then the merge of #107 and its two fixes reviewed clear at `ad15957`; merged as #108 (`ab80c3b`) with every CI job that ran green and a demo video attached.
-- [ ] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7.
+- [x] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7. Review clear at `cabe29c` after six rounds; merged as #109 (`c15e9ce`) with every CI job that ran green and a demo video attached. BI-008 is Done; task 14 follows as PR-G.
 - [ ] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

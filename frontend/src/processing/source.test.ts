@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
-import { retainedJobsSource } from './source'
+import { retainedJobsSource, subjectStatuses } from './source'
 
 const digest = 'a'.repeat(64)
 
@@ -99,8 +99,69 @@ describe('retainedJobsSource', () => {
     )
 
     expect(source.sessions).toEqual([
-      { jobId: id(1), step: 'research', subject: 'Packet A', state: 'waiting_input' },
+      {
+        jobId: id(1),
+        step: 'research',
+        subject: 'Packet A',
+        lotId: lot,
+        state: 'waiting_input',
+        status: null,
+      },
     ])
+  })
+
+  it('carries each session’s latest status, the lead session, and each lot’s newest line', () => {
+    const status = (text: string, at: string) => ({ latest_status: { text, at } }) as Partial<Job>
+
+    const source = retainedJobsSource(
+      snapshot([
+        job(1, 'examine', 'running', {
+          subject_id: null,
+          session_state: 'running',
+          ...status('Finding items in the photos', '2026-11-06T10:00:00.000Z'),
+        } as Partial<Job>),
+        job(2, 'research', 'running', {
+          session_state: 'running',
+          ...status('Checking the datasheet', '2026-11-06T10:02:00.000Z'),
+        } as Partial<Job>),
+        job(3, 'images', 'running', {
+          session_state: 'waiting_input',
+          ...status('Choosing the best photo', '2026-11-06T10:01:00.000Z'),
+        } as Partial<Job>),
+      ]),
+      subjects,
+      lots,
+    )
+
+    expect(source.lead).toMatchObject({ jobId: id(1), subject: 'Whole batch', lotId: null })
+    expect(source.sessions.map((session) => session.status)).toEqual([
+      'Finding items in the photos',
+      'Checking the datasheet',
+      'Choosing the best photo',
+    ])
+    const statuses = subjectStatuses(
+      snapshot([
+        job(2, 'research', 'running', {
+          session_state: 'running',
+          ...status('Checking the datasheet', '2026-11-06T10:02:00.000Z'),
+        } as Partial<Job>),
+        job(3, 'images', 'running', {
+          session_state: 'waiting_input',
+          ...status('Choosing the best photo', '2026-11-06T10:01:00.000Z'),
+        } as Partial<Job>),
+      ]),
+    )
+    expect(statuses.get(lot)).toEqual({
+      step: 'research',
+      text: 'Checking the datasheet',
+      state: 'running',
+    })
+    expect(statuses.get(id(77))).toBeUndefined()
+  })
+
+  it('has no lead session when Examine runs without one', () => {
+    const source = retainedJobsSource(snapshot([job(1, 'reading', 'running')]), subjects, lots)
+    expect(source.lead).toBeNull()
   })
 
   it('lists open questions with their step and assumption, and counts them per step', () => {
@@ -213,4 +274,27 @@ it('links a question to Review only when it is about an active lot', () => {
     ['Packet A', lot],
     ['Shared Part', null],
   ])
+})
+
+describe('subjectStatuses', () => {
+  const status = (n: number, stage: string, state: string, text: string, at: string) =>
+    job(n, stage, 'running', { session_state: state, latest_status: { text, at } } as Partial<Job>)
+
+  it('takes a lot’s newest line among live sessions only', () => {
+    const statuses = subjectStatuses(
+      snapshot([
+        status(1, 'images', 'running', 'Choosing a photo', '2026-11-06T10:00:00.000Z'),
+        status(2, 'research', 'finished', 'Done checking', '2026-11-06T10:05:00.000Z'),
+      ]),
+    )
+    expect(statuses.get(lot)?.text).toBe('Choosing a photo')
+    expect(
+      subjectStatuses(
+        snapshot([
+          status(1, 'images', 'cancelled', 'Stopped', '2026-11-06T10:00:00.000Z'),
+          status(2, 'research', 'finished', 'Done checking', '2026-11-06T10:05:00.000Z'),
+        ]),
+      ).has(lot),
+    ).toBe(false)
+  })
 })

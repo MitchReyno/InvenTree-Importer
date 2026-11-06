@@ -30,6 +30,19 @@ describe('ProposedLotsGlance', () => {
     )
   })
 
+  it('shows each lot’s latest agent status line under it', () => {
+    render(
+      <ProposedLotsGlance
+        batchId="b"
+        lots={[{ ...lots[0], status: 'Research · Checking the datasheet' }, lots[1]]}
+      />,
+    )
+    expect(screen.getByRole('listitem', { name: lots[0].label })).toHaveTextContent(
+      'Research · Checking the datasheet',
+    )
+    expect(screen.getByRole('listitem', { name: 'ATmega328P' })).not.toHaveTextContent('·')
+  })
+
   it('says when no lots are proposed yet', () => {
     render(<ProposedLotsGlance batchId="b" lots={[]} />)
 

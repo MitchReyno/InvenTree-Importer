@@ -18,6 +18,7 @@ import {
   STATE_LABELS,
   summary,
 } from '../../changes/model'
+import { MAX_SELECTED_LOTS } from '../../manual/types'
 import { batchHref } from '../../navigation/batch-route'
 import { reviewHash } from '../../operator/review-model'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
@@ -41,8 +42,6 @@ import {
   Summary,
 } from '../ui/primitives'
 import { PreparationTreeView, STATE_TONE } from './PreparationTreeView'
-
-export const MAX_PREPARED_LOTS = 10
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -97,7 +96,7 @@ export function ReadyToAdd({
     ...new Set([...(current ? preview.selected_lot_ids : []), ...readyLotIds(workspace)]),
   ]
   // A ticked lot that is no longer ready drops out, so it is never sent or counted.
-  const ticked = (chosen ?? preview?.selected_lot_ids ?? ready.slice(0, MAX_PREPARED_LOTS)).filter(
+  const ticked = (chosen ?? preview?.selected_lot_ids ?? ready.slice(0, MAX_SELECTED_LOTS)).filter(
     (lot) => ready.includes(lot),
   )
   const untickedAll = ticked.length === 0
@@ -150,14 +149,14 @@ export function ReadyToAdd({
         ) : (
           <>
             <Small>
-              Up to {MAX_PREPARED_LOTS} lots at a time. Changing the lots prepares them again.
+              Up to {MAX_SELECTED_LOTS} lots at a time. Changing the lots prepares them again.
             </Small>
             {ready.map((id) => (
               <CheckboxLabel key={id}>
                 <input
                   type="checkbox"
                   checked={ticked.includes(id)}
-                  disabled={busy || (!ticked.includes(id) && ticked.length >= MAX_PREPARED_LOTS)}
+                  disabled={busy || (!ticked.includes(id) && ticked.length >= MAX_SELECTED_LOTS)}
                   onChange={() => toggle(id)}
                 />
                 {lotLabel(id)}

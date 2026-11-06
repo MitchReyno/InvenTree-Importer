@@ -100,6 +100,26 @@ export const RecordField = object({
   value: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
   origin: RecordOrigin,
 })
+const reasonText = Type.String({ minLength: 1, maxLength: 512 })
+/** A proposed new company: the executor cannot create it, so the operator maps it to one observed. */
+export const RecordProposedCompany = object({
+  role: CompanyRole,
+  name: text,
+  reason: Type.Union([reasonText, Type.Null()]),
+  /** The proposed part number or SKU, applied with the company the operator chooses. */
+  number: Type.Union([text, Type.Null()]),
+  likely: Type.Union([
+    object({ reference: mappedReference('company'), label: text, why: reasonText }),
+    Type.Null(),
+  ]),
+})
+/** A proposed value the executor cannot apply, kept with why and the agent's reason. */
+export const RecordUnsupported = object({
+  field: Type.String({ minLength: 1, maxLength: 64 }),
+  value: text,
+  why: reasonText,
+  reason: Type.Union([reasonText, Type.Null()]),
+})
 export const BatchRecord = object({
   /** Stable within the projection, e.g. `company:supplier:12`. */
   key: Type.String({ minLength: 1, maxLength: 256 }),
@@ -121,10 +141,13 @@ export const BatchRecord = object({
         'location_draft_parent_invalid',
         'quantity_required',
         'location_groups_unavailable',
+        'company_proposed_new',
       ]),
       detail: Type.String({ minLength: 1, maxLength: 512 }),
     }),
   ]),
+  proposed: Type.Optional(RecordProposedCompany),
+  unsupported: Type.Optional(Type.Array(RecordUnsupported, { maxItems: 40 })),
 })
 /** Every record a batch touches, read from capture state; it never changes a stored row. */
 export const BatchRecords = object({

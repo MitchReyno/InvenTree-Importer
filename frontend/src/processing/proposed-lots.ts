@@ -17,6 +17,8 @@ export type ProposedLot = {
   crops?: string[]
   /** Observations the lead session suggested for this lot, awaiting the operator. */
   suggestions?: number
+  /** The lot's latest agent status line, as "Step · line". */
+  status?: string
 }
 
 function lotState(review: OperatorReviewDto | undefined, lotId: string): ProposedLotState {

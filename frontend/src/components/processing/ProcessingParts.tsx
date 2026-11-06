@@ -4,6 +4,7 @@ import type { SourceQuestion, SourceSession, StepProgress } from '../../processi
 import { color, radius, space, type } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Pill, type PillTone } from '../ui/Pill'
+import { Small } from '../ui/primitives'
 
 export const STEP_LABEL: Record<string, string> = {
   examine: 'Examine',
@@ -58,9 +59,12 @@ export function SessionRows({
     <Rows>
       {sessions.map((session) => (
         <li key={session.jobId}>
-          <span>
-            {STEP_LABEL[session.step]} · {session.subject}
-          </span>
+          <SessionLabel>
+            <span>
+              {STEP_LABEL[session.step]} · {session.subject}
+            </span>
+            {session.status && <Small>{session.status}</Small>}
+          </SessionLabel>
           <Pill tone={SESSION_STATE[session.state].tone}>{SESSION_STATE[session.state].word}</Pill>
           <Button
             size="sm"
@@ -161,4 +165,10 @@ const Rows = styled.ul`
     color: ${color.fg};
     font-weight: 600;
   }
+`
+
+const SessionLabel = styled.span`
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 `

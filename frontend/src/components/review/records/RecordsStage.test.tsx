@@ -11,6 +11,7 @@ import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '../../../test/render'
 import { RecordsStage } from './RecordsStage'
+import type { ProcessingClient } from '../../../processing/types'
 import { CompanyDecision } from './CompanyDecision'
 
 const context = '0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03'
@@ -646,6 +647,261 @@ describe('RecordsStage', () => {
     expect(within(detail).getByRole('link', { name: 'Open this lot' })).toBeInTheDocument()
   })
 
+  it('asks the proposing step’s session about a field, and shows it was asked', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+          { id: 'other-job', stage: 'research', subject_id: id(99), session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    await user.click(await within(category).findByRole('button', { name: 'Ask Research' }))
+    const message = within(detail).getByLabelText('Message to Research')
+    expect(message).toHaveValue('Please check the category of Carbon film resistor.')
+    await user.click(within(detail).getByRole('button', { name: 'Send to Research' }))
+
+    expect(chat).toHaveBeenCalledWith(
+      batch.id,
+      'research-job',
+      {
+        idempotency_key: expect.any(String),
+        text: 'Please check the category of Carbon film resistor.',
+      },
+      expect.any(String),
+    )
+    expect(await within(category).findByText('Asked Research')).toBeVisible()
+    // A field set by the operator has no step to ask.
+    expect(
+      within(within(detail).getByRole('row', { name: 'Name as saved' })).queryByRole('button', {
+        name: /^Ask/,
+      }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('maps a proposed new manufacturer to its likely match or another, on every Part using it', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    const proposedCompany = entry({
+      key: 'company:proposed:manufacturer:vsy',
+      type: 'company',
+      label: 'VSY',
+      state: 'choose',
+      part_ids: [partA],
+      lot_ids: [id(101), id(102)],
+      decision: {
+        code: 'company_proposed_new',
+        detail:
+          'Creating a manufacturer is not supported yet. Use an existing company or pick another.',
+      },
+      proposed: {
+        role: 'manufacturer',
+        name: 'VSY',
+        reason: 'The reel label reads VSY',
+        number: 'R-10',
+        likely: {
+          reference: ref(910, 'company'),
+          label: 'Vishay',
+          why: 'Its name contains the other',
+        },
+      },
+    })
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{
+          read: vi.fn(async () => ({ ...records, records: [...records.records, proposedCompany] })),
+        }}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Companies/, 'VSY')
+    const detail = screen.getByRole('region', { name: 'VSY' })
+    expect(detail).toHaveTextContent('Proposed because: The reel label reads VSY')
+    expect(detail).toHaveTextContent('Creating a new manufacturer is not supported yet.')
+    expect(detail).toHaveTextContent(
+      'Sets the manufacturer of Carbon film resistor to the chosen company, with part number R-10.',
+    )
+    await user.click(within(detail).getByRole('button', { name: 'Use Vishay' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'record',
+      target: { kind: 'manufacturer_part', part_subject_id: partA },
+      operation: { op: 'set_mpn', company: ref(910, 'company'), mpn: 'R-10' },
+    })
+
+    await user.selectOptions(within(detail).getByLabelText('Use another manufacturer'), 'Yageo')
+    await user.click(within(detail).getByRole('button', { name: 'Use this manufacturer' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'record',
+      target: { kind: 'manufacturer_part', part_subject_id: partA },
+      operation: { op: 'set_mpn', company: ref(909, 'company'), mpn: 'R-10' },
+    })
+  })
+
+  it('lists values the executor cannot create on the Part, with the agent’s reason', async () => {
+    const user = userEvent.setup()
+    const withNotes = {
+      ...records,
+      records: records.records.map((item) =>
+        item.key === `part:${partA}`
+          ? {
+              ...item,
+              unsupported: [
+                {
+                  field: 'category',
+                  value: 'Thin-film resistors',
+                  why: 'Creating a category is not supported yet; choose an existing category.',
+                  reason: 'The packet says thin film',
+                },
+              ],
+            }
+          : item,
+      ),
+    }
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => withNotes) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    expect(category).toHaveTextContent(
+      'Proposed Thin-film resistors: Creating a category is not supported yet; choose an existing category. Proposed because: The packet says thin film',
+    )
+    // The category editor offers the existing categories.
+    expect(within(detail).getByLabelText('Move to category')).toBeInTheDocument()
+    expect(
+      within(detail).queryByRole('region', { name: 'Not supported yet' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('discarding a record also discards its unsent Ask message', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(async () => ({ id: 'inbox' })),
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={onDirtyChange}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    await user.click(
+      await within(within(detail).getByRole('row', { name: 'Category as saved' })).findByRole(
+        'button',
+        { name: 'Ask Research' },
+      ),
+    )
+    expect(within(detail).getByLabelText('Message to Research')).toHaveFocus()
+    await user.type(within(detail).getByLabelText('Message to Research'), ' Please hurry.')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+    await user.click(screen.getByRole('button', { name: /^Companies/ }))
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }))
+    expect(screen.queryByLabelText('Message to Research')).not.toBeInTheDocument()
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    await user.click(screen.getByRole('button', { name: /^Companies/ }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('offers no Ask on an archived batch, and the batch discard drops an Ask draft', async () => {
+    const user = userEvent.setup()
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(async () => ({ id: 'inbox' })),
+    } as unknown as ProcessingClient
+    const props = {
+      batch,
+      client: { read: vi.fn(async () => records) },
+      edit: vi.fn(async () => true),
+      observe: vi.fn(async () => null),
+      onDirtyChange: vi.fn(),
+      processing,
+    }
+    const view = render(<RecordsStage {...props} discarded={0} />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+
+    const category = () => within(screen.getByRole('row', { name: 'Category as saved' }))
+
+    await user.click(await category().findByRole('button', { name: 'Ask Research' }))
+    await user.type(screen.getByLabelText('Message to Research'), ' Soon, please.')
+
+    view.rerender(<RecordsStage {...props} discarded={1} />)
+    expect(screen.queryByLabelText('Message to Research')).not.toBeInTheDocument()
+    expect(category().getByRole('button', { name: 'Ask Research' })).toBeVisible()
+
+    view.rerender(<RecordsStage {...props} discarded={1} batch={{ ...batch, archived: true }} />)
+    expect(category().queryByRole('button', { name: 'Ask Research' })).not.toBeInTheDocument()
+  })
+
+  it('offers no Ask for a session that has been cancelled', async () => {
+    const user = userEvent.setup()
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'cancelled' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(),
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    await waitFor(() => expect(processing.read).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /^Ask/ })).not.toBeInTheDocument()
+  })
+
   it('drops record drafts when the batch discards local edits', async () => {
     const user = userEvent.setup()
     const onDirtyChange = vi.fn()
@@ -982,7 +1238,7 @@ describe('CompanyDecision', () => {
         onUseLikely={useExisting}
       />,
     )
-    const decision = screen.getByRole('region', { name: 'GCT' })
+    const decision = screen.getByRole('region', { name: 'Proposed new manufacturer: GCT' })
     expect(decision).toHaveTextContent('Needs a decision')
     expect(decision).toHaveTextContent('GCT is its trading name.')
     expect(decision).toHaveTextContent('Creating a new manufacturer is not supported yet.')
