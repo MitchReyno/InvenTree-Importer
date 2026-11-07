@@ -121,6 +121,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 13:** Each confirmed move's toast has its own id, so a second identical move starts a fresh toast with its own countdown and Undo.
 - **2026-11-08, PR-J review round 14:** When the phone layout ends while the settings fold has focus, focus moves to the "Batch settings" heading instead of dropping to the page.
 - **2026-11-08, PR-J merge of `interactive-app` (#140–#144):** The preview-rendition work changed the same image call sites from URLs to sized image attributes (`media/images`). Each takes both: the glance's thumbnail spreads the lot's first sized crop, now sized for its 44 × 34 box rather than the earlier 40px, Examine's crops and the crop dialog take the new helpers, and the evidence tile keeps its states with the sized preview. The PR's screenshots are unchanged by the merge.
+- **2026-11-08, task 18.5 (PR-J), DS6:** With Mitch's approval, the design system's PhaseRow card is removed (README and preview), its brand book's running pulse now names "the running step's segment", and its index records the change (version 15).
 
 ## Open items
 
@@ -132,5 +133,4 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **Unmet spec behaviour:** three behaviours were left for task 14, which did not deliver them: Review's inline answer for a lot's open question (review-workspace), Needs you ordered oldest first, and step-page corrections ("Correct a reading") (processing-workspace). The inline answer and corrections are planned in task 21, and oldest first in task 22.
 - **Review URL:** Review reads its view from the URL at mount, so a hash change on an open Review page does not switch view.
 - **Browser coverage:** Safari, Firefox and real GPUs (WebGL ran on SwiftShader) were not checked, and no check used a live provider session or a real InvenTree: only the owned fixtures and the owned fake.
-- **Design-system card (DS6):** removing the PhaseRow card from the design-system artifact was refused as an external write in this session, so task 18.5 stays unchecked until it is published: delete `project/components/PhaseRow/` (README and preview), change the brand book's "a soft pulse on the running phase" to "on the running step's segment", and set the index's `lastChange`.
 - **Remaining tasks:** task 15.10 and PR-H's delivery gate (D.8), then tasks 16–23 (PR-I to PR-N). Syncing and archiving the change wait for Mitch's authorisation.
