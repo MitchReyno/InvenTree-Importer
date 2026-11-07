@@ -1,6 +1,6 @@
 # Bench Intake — proposed architecture after the Stage 1 spikes
 
-Status: proposed design, reconciled on 2026-11-01. This is not an implemented application architecture or permission to start production integration. The [delivery plan](plan.md) records the outstanding gates. The current application boundaries remain in [repository architecture](../../../../../ARCHITECTURE.md).
+Status: proposed design, reconciled on 2026-11-01. This is not an implemented application architecture or permission to start production integration. The [delivery plan](plan.md) records the outstanding gates. The current application boundaries remain in [repository architecture](../../../../../../ARCHITECTURE.md).
 
 ## Product and authority boundaries
 

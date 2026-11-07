@@ -8,7 +8,7 @@ Status: **proposed, not implemented**. Prepared on 2026-11-01. At Mitch's reques
 
 ## Read the design
 
-Read the summary here, then the chapters below. Diagrams and wireframes show proposed responsibilities and behavior, not running services. The current application remains the [browser-local scaffold and Python importer](../../../../../ARCHITECTURE.md).
+Read the summary here, then the chapters below. Diagrams and wireframes show proposed responsibilities and behavior, not running services. The current application remains the [browser-local scaffold and Python importer](../../../../../../ARCHITECTURE.md).
 
 | Chapter | Questions answered |
 | --- | --- |
