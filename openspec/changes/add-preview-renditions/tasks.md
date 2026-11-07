@@ -39,7 +39,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
 - [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
-- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
+- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
 - [ ] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
 - [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
@@ -112,6 +112,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - an abandoned claim recovered after expiry, and a stale owner refused at publication;
   - a page whose third attempt was interrupted never claimed again, still serving its full preview;
   - a retained page whose bytes don't match its recorded digest, skipped;
+  - a tagged `BlobCorruptError` added to `media/blob-store.ts` in place of the plain `blob_corrupt` error;
   - against the real blob store: a corrupt blob (`blob_corrupt`) recorded `skipped_mismatch`, and a transient read or I/O failure recorded interrupted with backoff, then upgraded once reads recover;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
@@ -134,7 +135,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source offering it; identical output for the same page before and after backfill (fallback bytes are checked through the HTTP route, not the helper); observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output; a narrow 1800 × 200 region in a 64 px cover thumbnail at 3× density selecting the `view` crop and surface tests: `BatchThumbnail` requesting `size=thumb` as a plain `src`; attributes reaching the real `<img>` in `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`.
+- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source offering it; identical output for the same page before and after backfill (fallback bytes are checked through the HTTP route, not the helper); observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output; a narrow 3600 × 400 region in a 64 px cover thumbnail at 3× density selecting the `view` crop and surface tests: `BatchThumbnail` requesting `size=thumb` as a plain `src`; attributes reaching the real `<img>` in `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`.
 - [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
 - [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 

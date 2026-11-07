@@ -200,7 +200,7 @@ Ready versions decoded before renditions existed SHALL gain renditions rendered 
 
 ### Requirement: Media previews fit their surface
 
-The frontend SHALL request the smallest suitable rendition for each image surface, offering the available sizes so the browser can choose for its pixel density, and SHALL request full resolution only where the operator inspects detail beyond the largest rendition or opens the image on its own. Image elements SHALL declare their intrinsic size so layout does not shift while they load. When a size is unavailable, the surface SHALL show the next size up or the full page.
+The frontend SHALL offer each image surface the sizes suited to its display and pixel density, request full resolution only to inspect detail beyond the largest rendition or to open the image on its own, and fall back to the next size up or the full page. Images SHALL declare their intrinsic size, except one clipped to a fixed box, such as the batch-list thumbnail, which requests `thumb` directly.
 
 #### Scenario: Thumbnail surfaces
 
@@ -210,7 +210,7 @@ The frontend SHALL request the smallest suitable rendition for each image surfac
 
 #### Scenario: Narrow region on a high-density screen
 
-- **GIVEN** an observation of an 1800 × 200 region shown in a 64 px square thumbnail at a device pixel ratio of 3
+- **GIVEN** an observation of a 3600 × 400 region shown in a 64 px square thumbnail at a device pixel ratio of 3
 - **WHEN** the thumbnail renders
 - **THEN** it loads the `view` crop, because the cover-fitted image needs about 1728 pixels of width, and not the full-resolution crop.
 
