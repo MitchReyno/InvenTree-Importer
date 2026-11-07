@@ -72,7 +72,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 ## Open items
 
 - **Refused values (D7):** a corrected value cannot be re-sent until the executor can settle a refused create.
-- **Exclude:** no command excludes a lot, so Exclude stays disabled and the "Excluded" filter is absent.
+- **Exclude:** no command excludes a lot, so Exclude stays disabled and the "Excluded" filter is absent. Planned in task 22.4.
 - **Records gaps:** the batch's new-supplier draft is not listed under Companies. Creating companies, categories and templates is shown as not supported yet. Leaving Records mid-save and returning can make a Save return unsaved with the generic message; "Load current values, keep this draft" recovers. Other refusals only the server knows about, such as tag rules, also return the batch's generic "Save not confirmed", with the same recovery.
 - **Catalogue proposals:** at PR-G no session runner published a catalogue block (BI-006 task 10.4), so the GCT and new-category scenarios were proved with seeded `/5` proposals in unit tests and the browser fixture. Task 10.4 has since landed in [#112](https://github.com/MitchReyno/InvenTree-Importer/pull/112); the end-to-end proof with the session worker is now possible but not done.
 - **Region crops:** the PR-G browser check did not re-check region crops in the evidence pane, because the fixture cannot serve the crop route; BI-006's own qualification checked them.

@@ -119,3 +119,13 @@ On the Map, the operator SHALL be able to mark an observation as the same physic
 - **WHEN** the operator marks the second as the same item as the first
 - **THEN** the lot's quantity counts the bag once, both photos stay linked to the lot, and removing the mark restores the earlier count.
 
+### Requirement: Exclude a lot
+
+The operator SHALL be able to exclude a lot from the batch with a reason, and include it again. An excluded lot SHALL show the Excluded state and its reason in Lots and the Table, SHALL appear under the Excluded filter, SHALL NOT be offered in Ready to add, and SHALL be listed under Not included in Changes with its reason. Excluding SHALL keep the lot's evidence and values unchanged.
+
+#### Scenario: Exclude and include again
+
+- **GIVEN** a lot of salvaged resistors the operator does not want in InvenTree
+- **WHEN** the operator excludes it with the reason "Salvage, not stocked"
+- **THEN** it shows Excluded with that reason, is not offered in Ready to add and is listed under Not included; including it again restores its earlier state, values and evidence.
+

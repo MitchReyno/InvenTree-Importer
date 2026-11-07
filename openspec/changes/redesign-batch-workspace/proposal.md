@@ -122,7 +122,7 @@ Sources:
     - Each component has one name, the design system's, in the app and the design system alike; screen copies of library components are retired (design D12).
     - Structural gaps against the canvas are closed: the Map draws its links between evidence and lots, sub-tabs carry their counts, and the activity and connection popovers, Examine, Records and Changes gain the canvas's missing parts.
     - Behaviour on existing commands is added: Examine corrections, region editing and moves on the Map, Review's inline answer, and opening a session from Agents (task 21).
-    - Data the specs require is added: existing values in Records, a source kind and agreement for values, and question times (task 22); then the remaining canvas detail on new fields and commands (task 23).
+    - Data the specs require is added: existing values in Records, a source kind and agreement for values, question times and the Exclude command (task 22); then the remaining canvas detail on new fields and commands (task 23).
 
 **Non-goals**
 
