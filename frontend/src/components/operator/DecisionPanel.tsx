@@ -19,6 +19,8 @@ import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
 import { KeyValue } from '../ui/KeyValue'
 import { ProvenancePill } from './ProvenancePill'
+import { partFacts, type PartFacts } from '../../operator/part-facts'
+import type { KeyValueRow } from '../ui/KeyValue'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
@@ -217,6 +219,7 @@ export function DecisionPanel({
             state: 'plain',
             source: <ProvenancePill provenance={part ? partProvenance(part.choice) : 'unset'} />,
           },
+          ...partFactRows(partFacts(batch, part), part),
           {
             label: 'Quantity',
             value: display(lot.quantity, batch, 'quantity'),
@@ -417,6 +420,20 @@ export function DecisionPanel({
         />
       )}
     </>
+  )
+}
+
+/** The new Part's maker and markings; supplier prices stay out (review-records). */
+function partFactRows(facts: PartFacts, part: Part | undefined): KeyValueRow[] {
+  const source = part ? <ProvenancePill provenance={partProvenance(part.choice)} /> : undefined
+  const rows: [string, string | undefined, boolean][] = [
+    ['Manufacturer', facts.manufacturer, false],
+    ['MPN', facts.mpn, true],
+    ['Package', facts.package, false],
+    ['Date code', facts.dateCode, true],
+  ]
+  return rows.flatMap(([label, value, mono]) =>
+    value ? [{ label, value, mono, state: 'plain' as const, source }] : [],
   )
 }
 

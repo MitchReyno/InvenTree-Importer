@@ -1140,6 +1140,57 @@ test('the lot detail ends in its action footer and holds the lot edits', async (
   )
 })
 
+test('lot details show the new Part maker, MPN, package and date code', async () => {
+  const ref = (id: string, model: string) => ({
+    observation_id: id,
+    target_context_id: context,
+    model,
+    pk: 1,
+  })
+
+  renderReview({
+    batch: {
+      ...batch,
+      observations: [
+        ...batch.observations,
+        { ...batch.observations[0], id: 'yageo', label: 'Yageo' },
+        { ...batch.observations[0], id: 'pkg', label: 'Package' },
+      ],
+      parts: [
+        {
+          ...batch.parts[0],
+          choice: {
+            mode: 'create',
+            spec: {
+              name: '10k resistor',
+              category: ref('cat', 'category'),
+              parameters: [
+                {
+                  template: ref('pkg', 'parameter_template'),
+                  category_mapping: ref('cm', 'category_parameter'),
+                  value: '0603',
+                },
+              ],
+              manufacturer: { company: ref('yageo', 'company'), mpn: 'RC0603FR-0710KL' },
+              supplier: null,
+              tags: [],
+            },
+          },
+        },
+      ],
+    } as unknown as typeof batch,
+  })
+  const details = await screen.findByRole('region', { name: 'Decision' })
+
+  const value = (label: string) =>
+    within(details).getByText(label, { selector: 'dt' }).nextElementSibling
+
+  expect(value('Manufacturer')).toHaveTextContent('Yageo')
+  expect(value('MPN')).toHaveTextContent('RC0603FR-0710KL')
+  expect(value('Package')).toHaveTextContent('0603')
+  expect(within(details).queryByText('Date code', { selector: 'dt' })).toBeNull()
+})
+
 test('lot details show the records the lot becomes', async () => {
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })
