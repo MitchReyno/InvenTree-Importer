@@ -17,6 +17,9 @@ import {
   type DecodedPage,
   type DecodedRendition,
   type RenderedPage,
+  type RenditionInput,
+  type RenditionResult,
+  checkedRenditionInput,
 } from './decoder-protocol.ts'
 
 sharp.cache(false)
@@ -165,6 +168,30 @@ export async function rendered(
     output.push({ ...page, renditions: sized })
   }
   return output
+}
+
+/**
+ * Renditions of a retained page PNG for the backfill. Only bytes that are a single PNG of exactly
+ * the recorded dimensions are rendered; anything else is `malformed`, a positive mismatch.
+ */
+export async function renderRetained(input: RenditionInput): Promise<RenditionResult> {
+  checkedRenditionInput(input)
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  const metadata = input.bytes.subarray(0, 8).equals(signature)
+    ? await sharp(input.bytes, { limitInputPixels: MEDIA_LIMITS.pixels })
+        .metadata()
+        .catch(() => null)
+    : null
+  if (
+    metadata?.format !== 'png' ||
+    (metadata.pages ?? 1) !== 1 ||
+    metadata.width !== input.width ||
+    metadata.height !== input.height
+  ) {
+    return { state: 'malformed', toolchain: MEDIA_TOOLCHAIN, renditions: [] }
+  }
+  const page = { page: 1, width: input.width, height: input.height, bytes: input.bytes }
+  return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions: await renditions(page) }
 }
 
 /** Called only inside the bounded decoder image; never from an HTTP route. */

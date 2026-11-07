@@ -100,7 +100,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("Backfill renders from the retained page, per preview, with claimed attempts").
 - **Verification:** PostgreSQL tier, plus a run against a copy of retained development data. Never run it against the live namespace without a backup.
 
-- [ ] 5.1 RED: add PostgreSQL tests for:
+- [x] 5.1 RED: add PostgreSQL tests for:
   - an upgrade with an unchanged `preview_id`, bytes, version count, decode state and command count;
   - deferral to pending commands;
   - a dimension mismatch;
@@ -116,10 +116,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - against the real blob store: a corrupt blob (`blob_corrupt`) recorded `skipped_mismatch`, and a transient read or I/O failure recorded interrupted with backoff, then upgraded once reads recover;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
-- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
+- [x] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
 - [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
-- [ ] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
-- [ ] 5.5 Add scheduling tests:
+- [x] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
+- [x] 5.5 Add scheduling tests:
   - repeated polling within the backoff never re-claims an interrupted preview, which becomes eligible once `retry_after` passes;
   - claim, recovery and publication all succeed under the restricted worker role;
   - an upload that arrives during a page backfill is decoded right after that one page;

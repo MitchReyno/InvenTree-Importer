@@ -265,6 +265,29 @@ const MediaOutputHeader = Type.Union([
   }),
 ])
 
+/** A renditions-only result; `malformed` means the bytes are not the recorded PNG. */
+const MediaRenditionOutputHeader = Type.Union([
+  object({
+    state: Type.Literal('ready'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    renditions: Type.Array(MediaOutputRendition, { maxItems: MEDIA_RENDITION_SIZE_NAMES.length }),
+  }),
+  object({
+    state: Type.Literal('malformed'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    renditions: Type.Array(MediaOutputRendition, { maxItems: 0 }),
+  }),
+])
+export type MediaRenditionOutputHeaderDto = Static<typeof MediaRenditionOutputHeader>
+
+export function assertMediaRenditionOutputHeader(
+  value: unknown,
+): asserts value is MediaRenditionOutputHeaderDto {
+  if (!Value.Check(MediaRenditionOutputHeader, value)) {
+    throw new Error('invalid_decoder_output')
+  }
+}
+
 export type MediaOutputPageDto = Static<typeof MediaOutputPage>
 export type MediaOutputRenditionDto = Static<typeof MediaOutputRendition>
 export type MediaOutputHeaderDto = Static<typeof MediaOutputHeader>
@@ -377,11 +400,20 @@ export {
   requireMediaRecipeBounds,
 } from './media-geometry.ts'
 
-const MediaDecoderInputHeader = object({
-  version: Type.Literal('media-decode/1'),
-  digest: Digest,
-  recipe: Type.Union([MediaRecipe, Type.Null()]),
-})
+const MediaDecoderInputHeader = Type.Union([
+  object({
+    version: Type.Literal('media-decode/1'),
+    digest: Digest,
+    recipe: Type.Union([MediaRecipe, Type.Null()]),
+  }),
+  /** One retained page PNG, rendered into its renditions only. */
+  object({
+    version: Type.Literal('media-renditions/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+  }),
+])
 type MediaDecoderInputHeaderDto = Static<typeof MediaDecoderInputHeader>
 
 export function assertMediaDecoderInputHeader(

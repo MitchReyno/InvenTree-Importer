@@ -89,6 +89,15 @@ decode and transaction as the page, sized by the shared `renditionDimensions()` 
 source. Rendition blobs are positive GC references, and every role that reads `media_preview`
 also reads them.
 
+Pages decoded before renditions existed are upgraded by `media/backfill.ts` when the worker is
+idle (`mediaWorkerStep` runs a waiting decode first). It renders from the retained page PNG
+through a `media-renditions/1` decoder input, never from the original. Attempts live in
+`media_rendition_backfill`: one live claim per preview, an advisory lock and an eligibility
+recheck before each claim, owner-checked publication, abandoned-claim recovery, backoff and a
+three-attempt cap. A typed `BlobCorruptError` or a decoder `malformed` result is a permanent
+skip; any other failure is retried. Selection is scoped to the worker's actor, target and
+context.
+
 Media queries use typed Drizzle declarations through the original transaction client.
 The media-owned search-path fence precedes initial capture authorization and reads;
 foundation transaction behavior is unchanged. The decoder claim uses Drizzle's explicit command-only `FOR UPDATE OF`/`SKIP LOCKED`; GC positive references
