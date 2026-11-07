@@ -2,7 +2,8 @@ import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { Button, Paragraph, Small, Subheading } from '../ui/primitives'
+import { Paragraph, Small, Subheading } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { mediaResource } from '../../media/types'
 
 interface Props {

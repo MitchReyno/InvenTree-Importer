@@ -9,7 +9,8 @@ import { referenceLabel } from '../../capture/settings-model'
 import { useIntentTicket } from '../../capture/useIntentTicket'
 import type { useCatalogue } from '../../catalogue/useCatalogue'
 import { SearchableReferencePicker } from '../ui/SearchableReferencePicker'
-import { Button, Field, Input, Label, Small, Subheading } from '../ui/primitives'
+import { Field, Input, Label, Small, Subheading } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type LocationDraft = Extract<CaptureReferenceDraftDto, { kind: 'location' }>
 type Catalogue = ReturnType<typeof useCatalogue>

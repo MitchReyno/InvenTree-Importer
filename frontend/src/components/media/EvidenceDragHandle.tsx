@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/react'
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { Button } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type Props = { evidenceId: string; label: string; disabled: boolean; children?: ReactNode }
 

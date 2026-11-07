@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '../../theme/generated/tokens'
-import { Button } from './primitives'
+import { Button } from './Button'
 
 export type AutosaveState =
   | 'saved'
@@ -100,7 +100,7 @@ const Problem = styled.div<{ 'data-state': 'conflict' | 'unconfirmed' }>`
   background: ${(props) => (props['data-state'] === 'conflict' ? color.badWeak : color.warnWeak)};
   color: ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
   font-size: ${typeVar.small.size};
-  ${Button} {
+  button {
     justify-self: start;
     color: ${color.fg};
   }

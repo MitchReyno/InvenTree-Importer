@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { Button, Notice, PageTitle, Panel, Paragraph } from '../ui/primitives'
+import { Notice, PageTitle, Panel, Paragraph } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { AgentSettingsForm } from './AgentSettingsForm'
 
 interface Props {

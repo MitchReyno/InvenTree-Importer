@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { Button, Label, Select } from '../ui/primitives'
+import { Label, Select } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 interface Props {
   batch: CaptureSnapshotDto

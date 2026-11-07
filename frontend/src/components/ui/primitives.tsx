@@ -1,44 +1,7 @@
 import styled, { css } from 'styled-components'
-import {
-  color,
-  duration,
-  easing,
-  opacity,
-  radius,
-  size,
-  space,
-  type,
-  typeVar,
-} from '../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
-export const Button = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${space[3]};
-  cursor: pointer;
-  min-height: ${size.control};
-  padding: 7px ${space[6]};
-  color: ${color.fg};
-  background: ${color.surface};
-  border: 1px solid ${color.lineStrong};
-  border-radius: ${radius.btn};
-  font-weight: ${typeVar.buttonLg.weight};
-  line-height: 1.2;
-  touch-action: manipulation;
-  transition: background-color ${duration.fast} ${easing.linear};
-  &:hover:not(:disabled) {
-    background: ${color.surface2};
-  }
-  &:disabled {
-    cursor: not-allowed;
-    opacity: ${opacity.disabled};
-  }
-  ${media.compact} {
-    min-height: ${size.touch};
-  }
-`
 export const Link = styled.a`
   color: ${color.accent};
   touch-action: manipulation;

@@ -1,5 +1,6 @@
 import { Field } from '../ui/primitives'
-import { Button, Input, Label, Select, Small } from '../ui/primitives'
+import { Input, Label, Select, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { useState } from 'react'
 import type { CaptureObservationDto } from '@invimport/contracts'
 import type { Snapshot, CaptureWorkspaceProps, Reference } from '../../capture/types'

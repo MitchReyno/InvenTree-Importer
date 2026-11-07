@@ -4,7 +4,8 @@ import { color } from '../../theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { AutoValueField } from '../ui/AutoValueField'
 import { OptionalNotesField } from '../ui/OptionalNotesField'
-import { Button, Small } from '../ui/primitives'
+import { Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type Props = {
   order: CaptureSettingsIntentDto['order']

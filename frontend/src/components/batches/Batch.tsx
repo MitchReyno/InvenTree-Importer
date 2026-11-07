@@ -1,5 +1,6 @@
 import { ErrorNotice } from '../ui/primitives'
-import { Button, Paragraph, Summary } from '../ui/primitives'
+import { Paragraph, Summary } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'

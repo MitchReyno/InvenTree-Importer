@@ -1,7 +1,8 @@
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { observationCrop } from '../../media/types'
-import { Button, Field, Small, Subheading } from '../ui/primitives'
+import { Field, Small, Subheading } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { ObservationMove } from './ObservationMove'
 import { observationNames } from './observation-names'
 

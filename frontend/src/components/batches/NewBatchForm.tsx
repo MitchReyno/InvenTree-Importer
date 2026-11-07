@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { Button, Form, Input, Label, Paragraph, TextArea } from '../ui/primitives'
+import { Form, Input, Label, Paragraph, TextArea } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type NewBatchValues = BatchCreate
 type NewBatchFormProps = {
@@ -64,7 +65,9 @@ export function NewBatchForm({ create, onDirtyChange, onDiscard }: NewBatchFormP
           {...register('note', { onChange: reportDirty })}
         />
       </Label>
-      <Button disabled={formState.isSubmitting}>Create retained batch</Button>
+      <Button type="submit" disabled={formState.isSubmitting}>
+        Create retained batch
+      </Button>
       {formState.isDirty && (
         <Button type="button" disabled={formState.isSubmitting} onClick={discardDraft}>
           Discard new batch input

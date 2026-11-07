@@ -7,7 +7,6 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import {
-  Button,
   ErrorNotice,
   Fieldset,
   Form,
@@ -18,6 +17,7 @@ import {
   Select,
   Small,
 } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/

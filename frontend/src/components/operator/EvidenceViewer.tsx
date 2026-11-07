@@ -14,7 +14,8 @@ import {
   type MediaIdentityLabels,
 } from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
-import { Button, Label, Select, Small } from '../ui/primitives'
+import { Label, Select, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { batchHref } from '../../navigation/batch-route'
 
 interface Props {

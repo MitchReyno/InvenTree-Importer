@@ -3,6 +3,7 @@ import {
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type MouseEvent,
+  type Ref,
   type ReactNode,
 } from 'react'
 import styled, { css } from 'styled-components'
@@ -34,6 +35,7 @@ type CommonProps = {
 type AsButton = CommonProps &
   ButtonHTMLAttributes<HTMLButtonElement> & {
     as?: 'button'
+    ref?: Ref<HTMLButtonElement>
     busy?: boolean
     /** Shown beside a disabled button and linked as its description. */
     disabledReason?: string

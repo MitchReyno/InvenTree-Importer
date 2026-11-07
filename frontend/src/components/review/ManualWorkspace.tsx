@@ -20,7 +20,8 @@ import {
   type RunRecoverySelection,
 } from '../../manual/types'
 import { useDirtySources } from '../../operator/useDirtySources'
-import { Button, ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
+import { ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { ReadyToAdd } from '../changes/ReadyToAdd'

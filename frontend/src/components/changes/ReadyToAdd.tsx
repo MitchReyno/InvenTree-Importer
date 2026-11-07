@@ -24,13 +24,12 @@ import { reviewHash } from '../../operator/review-model'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { space } from '../../theme/generated/tokens'
 import { Banner } from '../ui/Banner'
-import { Button as Action } from '../ui/Button'
+import { Button } from '../ui/Button'
 import { ChangeSummary } from '../ui/ChangeSummary'
 import { Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { StickyFooter } from '../ui/StickyFooter'
 import {
-  Button,
   CheckboxLabel,
   Heading,
   Label,
@@ -299,9 +298,9 @@ export function ReadyToAdd({
           )
         }
         primary={
-          <Action variant="primary" size="lg" disabled={!approvable} onClick={approve}>
+          <Button variant="primary" size="lg" disabled={!approvable} onClick={approve}>
             Approve {lots} {lots === 1 ? 'lot' : 'lots'} and add to InvenTree
-          </Action>
+          </Button>
         }
       />
     </Layout>

@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
-import { Button, CheckboxLabel, Label, Small, TextArea } from './primitives'
+import { CheckboxLabel, Label, Small, TextArea } from './primitives'
+import { Button } from './Button'
 import { space } from '../../theme/generated/tokens'
 
 type Props = {

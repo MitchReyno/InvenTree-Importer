@@ -6,7 +6,8 @@ import type {
   OperatorLotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import { Button, Heading, Panel, Small } from '../ui/primitives'
+import { Heading, Panel, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { display } from '../../capture/display'
 import {
   GROUP_LABELS,
