@@ -11,6 +11,7 @@ import { BulkBar } from '../BulkBar'
 import { Button } from '../Button'
 import { ChangeSummary } from '../ChangeSummary'
 import { DataTable } from '../DataTable'
+import { Dialog } from '../Dialog'
 import { DisabledFeature } from '../DisabledFeature'
 import { EvidenceGroup } from '../EvidenceGroup'
 import { EvidenceGrid, EvidenceTile } from '../EvidenceTile'
@@ -20,6 +21,7 @@ import { Kbd } from '../Kbd'
 import { NeedsYou } from '../NeedsYou'
 import { OptionRow } from '../OptionRow'
 import { PhaseRow } from '../PhaseRow'
+import { Popover } from '../Popover'
 import { Count, Pill, type PillTone } from '../Pill'
 import { ProblemList } from '../ProblemCard'
 import { ProgressSegments, Skeleton, Spinner } from '../Progress'
@@ -44,6 +46,7 @@ export function ComponentGallery() {
   const [view, setView] = useState('workspace')
   const [filter, setFilter] = useState('all')
   const [phaseOpen, setPhaseOpen] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [answer, setAnswer] = useState<string | undefined>()
   const [auto, setAuto] = useState<AutoValue>({ mode: 'auto' })
   const [tags, setTags] = useState<SharedTags>({ manual: ['bench bag', 'SMD'], auto: true })
@@ -87,6 +90,17 @@ export function ComponentGallery() {
             <span>
               Press <Kbd>J</Kbd> for next
             </span>
+          </Row>
+          <Row>
+            <Popover label="Needs you" align="start" trigger={<Button>2 need you</Button>}>
+              <p>Is the loose bag 1N4148 diodes?</p>
+            </Popover>
+            <Button onClick={() => setDialogOpen(true)}>Merge lots…</Button>
+            {dialogOpen && (
+              <Dialog title="Merge 2 lots" onClose={() => setDialogOpen(false)}>
+                <p>10 kΩ resistor packets A and B become one lot of 880. Their evidence stays linked.</p>
+              </Dialog>
+            )}
           </Row>
         </Section>
 

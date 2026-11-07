@@ -1,5 +1,5 @@
 import { css, keyframes } from 'styled-components'
-import { duration, easing } from '../../theme/generated/tokens'
+import { duration, easing, offset } from '../../theme/generated/tokens'
 import { media } from './media'
 
 const pulseFrames = keyframes`
@@ -15,6 +15,16 @@ const sweepFrames = keyframes`
   to { background-position: -200% 0; }
 `
 
+const riseIn = keyframes`
+  from { opacity: 0; transform: translateY(${offset.enter}); }
+  to { opacity: 1; transform: translateY(0); }
+`
+
+const fallOut = keyframes`
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(${offset.enter}); }
+`
+
 /** The design system's looping animations, each with its own duration and easing. */
 export const motion = {
   /** The running step's pulse, between 0.6 and 1 opacity. */
@@ -27,6 +37,20 @@ export const motion = {
   /** The skeleton shimmer while a preview prepares. */
   sweep: css`
     animation: ${sweepFrames} ${duration.sweep} ${easing.linear} infinite;
+  `,
+  /** A popover or menu opening and closing, keyed on Radix's data-state. */
+  popover: css`
+    &[data-state='open'] {
+      animation: ${riseIn} ${duration.enter} ${easing.enter};
+    }
+    &[data-state='closed'] {
+      animation: ${fallOut} ${duration.exit} ${easing.exit};
+    }
+    ${media.reducedMotion} {
+      &[data-state] {
+        animation: none;
+      }
+    }
   `,
 } as const
 
