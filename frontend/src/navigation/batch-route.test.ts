@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { batchHref, batchRouteHash, parseBatchRoute } from './batch-route'
+import { batchHref, batchRouteHash, pageWidthFor, parseBatchRoute } from './batch-route'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
 const lot = 'a0000000-0000-4000-8000-00000000000a'
@@ -102,4 +102,19 @@ it('encodes a record id so it reads back the same', () => {
   const route = { tab: 'review', view: 'records', recordType: 'tag', recordId: '1/4W Bin' } as const
   const hash = batchHref('10000000-0000-4000-8000-000000000001', route).slice(1)
   expect(parseBatchRoute(hash)).toMatchObject({ kind: 'route', route })
+})
+
+describe('each page takes its design width', () => {
+  it.each([
+    ['', 'content'],
+    [`${b}/capture`, 'content'],
+    [`${b}/processing/research`, 'content'],
+    [`${b}/changes/ready`, 'content'],
+    [`${b}/review/lots`, 'review'],
+    [`${b}/review/map`, 'review'],
+    [`${b}/review/records/part`, 'review'],
+    [`${b}/review`, 'review'],
+  ])('%s → %s', (route, width) => {
+    expect(pageWidthFor(route)).toBe(width)
+  })
 })

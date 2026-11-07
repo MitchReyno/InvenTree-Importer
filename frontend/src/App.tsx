@@ -25,7 +25,9 @@ import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
-import { color, space, typeVar } from './theme/generated/tokens'
+import { color, typeVar } from './theme/generated/tokens'
+import { AppShell, Main, PageContent } from './components/AppLayout'
+import { pageWidthFor } from './navigation/batch-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
@@ -204,37 +206,27 @@ export default function App() {
               )
             }
           />
-          {bootstrapUnavailable && bootstrap && (
-            <Notice role="alert">
-              Application connection unavailable. Showing the last development context; retained
-              views report their own freshness. Unsaved input is preserved.
-            </Notice>
-          )}
-          {navigationBlocked && (
-            <Notice role="alert">
-              Your unsaved input is preserved. Save this form or discard its unsaved input before
-              navigating, then choose the destination again.
-            </Notice>
-          )}
-          <Main>{content}</Main>
-          {manual && <Diagnostics />}
+          <PageContent $width={pageWidthFor(route ?? '')}>
+            {bootstrapUnavailable && bootstrap && (
+              <Notice role="alert">
+                Application connection unavailable. Showing the last development context; retained
+                views report their own freshness. Unsaved input is preserved.
+              </Notice>
+            )}
+            {navigationBlocked && (
+              <Notice role="alert">
+                Your unsaved input is preserved. Save this form or discard its unsaved input before
+                navigating, then choose the destination again.
+              </Notice>
+            )}
+            <Main>{content}</Main>
+            {manual && <Diagnostics />}
+          </PageContent>
         </LiveUpdates>
       </ServerStateProvider>
     </AppShell>
   )
 }
-
-const AppShell = styled.div`
-  max-width: 1600px;
-  padding: 0 ${space[12]};
-  margin: auto;
-  @media (max-width: 700px) {
-    padding: 0 ${space[6]};
-  }
-`
-const Main = styled.main`
-  margin: 0 auto ${space[8]} auto;
-`
 
 const SetupStatus = styled.span`
   font-size: ${typeVar.small.size};

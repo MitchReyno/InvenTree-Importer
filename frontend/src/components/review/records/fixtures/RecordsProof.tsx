@@ -12,6 +12,7 @@ import { GlobalStyle } from '../../../GlobalStyle'
 import { Masthead } from '../../../masthead/Masthead'
 import { ServerStateProvider } from '../../../query/ServerStateProvider'
 import { Batch } from '../../../batches/Batch'
+import { AppShell, Main, PageContent } from '../../../AppLayout'
 
 /**
  * Owned browser fixture: an in-memory capture client applies record edits with the shared
@@ -330,8 +331,10 @@ export function RecordsProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
-      <main style={{ maxWidth: 1600, padding: '18px 16px 40px', margin: 'auto' }}>
+      <AppShell>
+<Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
+      <PageContent $width="review">
+<Main>
         <Batch
           id={batchId}
           route={route}
@@ -342,7 +345,9 @@ export function RecordsProof() {
           processing={processingClient as never}
           onDirtyChange={() => {}}
         />
-      </main>
+      </Main>
+</PageContent>
+</AppShell>
     </ServerStateProvider>
   )
 }
