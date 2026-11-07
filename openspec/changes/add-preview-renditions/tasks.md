@@ -24,7 +24,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-A | New decodes produce, store and serve sized renditions; the snapshot lists them | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together, and older clients keep working because the fields are additive | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check`; independent exact-head review; selected CI green |
-| PR-B | Observation crops at each size, and retained versions upgraded in the background | Tasks 4–5 in full | Both close the remaining server gaps before the UI relies on sizes; they share the worker and HTTP test setup | After PR-A (task 5 needs the table) | `interactive-app`; `feat/add-preview-renditions-backfill`; `feat(add-preview-renditions): sized observation crops and rendition backfill` | PostgreSQL and HTTP tiers; backfill run against a copy of retained dev data; independent exact-head review; selected CI green |
+| PR-B | Observation crops at each size, and retained versions upgraded in the background | Tasks 4–5 in full | Both close the remaining server gaps before the UI relies on sizes; they share the worker and HTTP test setup | After PR-A (task 5 needs the table) | `interactive-app`; `feat/add-preview-renditions-backfill`; `feat(add-preview-renditions): sized observation crops and rendition backfill` | PostgreSQL, HTTP and decoder process tiers; backfill run against a copy of retained dev data; independent exact-head review; selected CI green |
 | PR-C | Each frontend surface loads a suitable size, with the viewer switching to full on zoom | Task 6 in full | One UI pass over the media surfaces with a single helper; reviewed with a demo recording | After PR-A and PR-B | `interactive-app`; `feat/add-preview-renditions-frontend`; `feat(add-preview-renditions): use sized previews in the app` | Frontend typecheck, lint, tests and build; byte-transfer comparison and demo video on the PR; independent exact-head review; selected CI green |
 
 ## 1. Decoder renditions
@@ -39,7 +39,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
 - [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
-- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit, an injected encoder failure (`interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
+- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
 - [ ] 1.3 GREEN: encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
 - [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
@@ -91,7 +91,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Outcome:** the media worker upgrades retained ready versions in the background, after pending work. Eligibility comes from the sizes each page's dimensions call for, and attempts are tracked in their own table. It never changes existing previews, versions, commands or decode results, skips a dimension mismatch, and retries an interrupted attempt only on a later run, within a three-attempt cap.
 - **Scope:**
   - a migration adding `media_rendition_backfill`, with its partial unique claim index and worker grants;
-  - the `media-renditions/1` decoder input in `decoder-protocol.ts`, `decode.ts` and `decoder-runner.ts`;
+  - the `media-renditions/1` decoder input, with its 64 MiB input bound and rendition-only response framing, through every layer of the container boundary: the input and output contracts in `contracts/src/media.ts`, plus `decoder-protocol.ts`, `decoder-main.ts`, `decode.ts`, `decoder-output.ts` and `decoder-runner.ts`;
   - in `media/worker.ts`: eligibility, claiming, abandoned-claim recovery and owner-checked rendition-only publication;
   - snapshot reads, which must not change;
   - adding the backfill table to the rollback procedure.
@@ -110,6 +110,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - two concurrent workers never claiming one preview;
   - an abandoned claim recovered after expiry, and a stale owner refused at publication;
   - a retained page whose bytes don't match its recorded digest, skipped;
+  - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
 - [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
 - [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
@@ -119,13 +120,13 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - **PR delivery:** PR-C.
 - **Outcome:** each image surface uses its usage profile (thumbnail, card, viewer, full) through one helper. Images declare their size and load lazily where offscreen, the viewer switches to full past the `view` resolution, the crop dialog keeps full-resolution coordinates, and missing sizes fall back.
-- **Scope:** `frontend/src/media/types.ts`; the image interfaces of `EvidenceTile` and `RotatedCropSelection`, which change from a URL to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
+- **Scope:** `frontend/src/media/types.ts`; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
 - **Prerequisites:** tasks 3 and 4.
 - **Acceptance:** Media previews fit their surface (all scenarios).
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests (`srcSet`/`sizes` per usage, the full page never in `srcSet`, fallback with no renditions) and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`; thumbnail and card sizes requested; the viewer switching both attributes to full on zoom at 3× density; crop selection coordinates unchanged over `view`.
+- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source and a page not yet backfilled offering it and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer switching both attributes to full on zoom at 3× density; crop selection coordinates unchanged over `view`.
 - [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
 - [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 

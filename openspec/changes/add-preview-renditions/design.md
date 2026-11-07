@@ -33,7 +33,7 @@ Constraints:
 The result header gains, per page, `renditions: [{ size, width, height, byte_size, digest }]`, and the rendition bytes follow the page bytes in a fixed order.
 
 - **Header bound.** The 8192-byte result-header bound in `decoder-output.ts` and `decoder-runner.ts` is too small: 30 pages with three renditions each need roughly 16.5 KB. One shared constant raises it to 64 KiB in the parser and runner. Task 1 tests a 30-page result through the real framing.
-- **Limits versus failures.** Rendition bytes count toward `totalOutputBytes`. Exceeding that budget, or an identified per-output limit, ends `limit_exceeded` with nothing published. An unexpected encoder or library failure propagates as today, so the worker records `interrupted`, never `limit_exceeded`.
+- **Limits versus failures.** Rendition bytes count toward `totalOutputBytes`. Only a positively identified limit ends `limit_exceeded` with nothing published: the output-byte budget, a per-output limit, or the pixel limits. Anything else is recorded `interrupted`, as today, with nothing published. That covers an unexpected encoder or library failure, the inner `timeout` or outer watchdog expiring, and the container being killed for memory.
 
 - **Rejected: resizing in the API on request.** It would put image CPU and a cache into the web process, the way the agent path does today.
 - **Rejected: a second, separate rendition command.** It would double container start-up and split one decode's outputs across two commits.
@@ -86,9 +86,11 @@ Ordinary decode commands can't carry the backfill. `media_original_decode_once` 
 
 Re-decoding the original wouldn't be safe either. After a decoder or toolchain change it can produce different pixels at the same dimensions, attaching renditions that don't match the retained page that crops, regions and agents still use. So the backfill renders from the retained full-page PNG itself, inside the bounded decoder:
 
-- The decoder protocol gains a `media-renditions/1` input carrying one retained page PNG and its recorded width, height and digest.
+- The decoder protocol gains a `media-renditions/1` input carrying one retained page PNG and its recorded width, height and digest. The entry point (`decoder-main.ts`) and the input-header contract accept it alongside `media-decode/1`.
+- Its input bound is the preview bound, `MEDIA_PREVIEW_MAX_BYTES` (64 MiB), because retained page PNGs routinely exceed the 20 MiB upload bound; for example, a 50 MP photo's page is about 25 MiB. `media-decode/1` keeps the 20 MiB source bound.
 - The decoder accepts only a PNG whose digest and dimensions match, and returns only its renditions.
 - Renditions therefore always derive from exactly the bytes that are retained.
+- The response is rendition-only: a header with `state` and `renditions: [{ size, width, height, byte_size, digest }]`, then their bytes. It carries no page bytes, and `decoder-output.ts` and the runner parse this framing as well as the existing one.
 
 Attempts are tracked per preview in a `media_rendition_backfill` table, with these columns:
 
@@ -119,7 +121,7 @@ Usage profiles:
 
 | Usage | Surfaces | `sizes` / sizes offered |
 | --- | --- | --- |
-| `thumbnail` | `BatchThumbnail`, `NeedsYou`, `ExamineView`, `LotObservations`, `UnassignedObservations`, proposed-lot thumbnails | thumb, then card for 3× density |
+| `thumbnail` | `BatchThumbnail`, `NeedsYou`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, then card for 3× density |
 | `card` | `MediaEvidenceCard`, `EvidenceFileTile`, `QuestionCard` close-ups, crop output check | thumb and card, with `sizes` from the card width |
 | `viewer` | `EvidenceViewer`, `MediaCropDialog` selection | thumb, card and view; the viewer replaces `src` and `srcSet` with the full page once zoom × displayed width exceeds the view width |
 | `full` | `ProcessingImages` open link | full page (the original download link keeps using the version route) |
@@ -136,7 +138,8 @@ Several surfaces don't receive page data today, so their interfaces change too:
 
 - `BatchThumbnail` gets only `{ preview_id, label }` from the inbox workflow read model, so that contract gains the page's dimensions and renditions;
 - `EvidenceFileTile` passes a single URL to `EvidenceTile`;
-- `RotatedCropSelection` takes a single `source` string.
+- `RotatedCropSelection` takes a single `source` string;
+- `proposed-lots.ts` produces `crops?: string[]` for the images in `ProposedLotsGlance`.
 
 These take an image-attributes object (`src`, `srcSet`, `sizes`, `width`, `height`) instead of a URL.
 
@@ -172,7 +175,7 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 
   Check the rollback procedure: after clearing rendition rows, the collector keeps every remaining referenced blob.
 - **HTTP tests.** Check size selection and fallback, with fallbacks marked `no-cache` and a same-URL request after backfill returning WebP, 400 on an unknown size, 404 across batches, the caching headers, and observation-crop sizes, aspect ratio, ETag and 304, plus a region change returning new bytes.
-- **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage, with the full page never offered in `srcSet`, and its fallback with no renditions. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, an 800 × 600 page offering its full page in cards and the viewer, the viewer promoting to full just above, and not just below, the density-adjusted threshold at 1× and 3×, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
+- **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage. A large page with its renditions present never offers the full page in `srcSet`; a small source and a page not yet backfilled do offer it. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, an 800 × 600 page offering its full page in cards and the viewer, the viewer promoting to full just above, and not just below, the density-adjusted threshold at 1× and 3×, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
 - **Manual check.** On `pnpm dev --tailscale` from a phone, record transferred bytes for the batch list, Capture and the viewer before and after, and attach them to the PR.
 
 ## Migration, rollout and recovery

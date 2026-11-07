@@ -82,7 +82,7 @@ Every ready page of an original or derived version SHALL have aspect-preserving 
 
 - **GIVEN** a 50-megapixel photo decoded with the existing time, memory and output limits
 - **WHEN** its renditions are produced
-- **THEN** the decode still completes within those limits, and a decode that would exceed them ends `limit_exceeded` with no partial previews or renditions committed.
+- **THEN** the decode completes within those limits. A decode that exceeds the output-byte or pixel limits ends `limit_exceeded`, and one stopped by the time limit or the container's memory bound ends `interrupted`. Either way, no partial previews or renditions are committed.
 
 ### Requirement: Media full-resolution crop source
 
@@ -155,6 +155,12 @@ Ready versions decoded before renditions existed SHALL gain renditions rendered 
 - **GIVEN** a retained page preview whose bytes no longer match its recorded digest or dimensions
 - **WHEN** its backfill runs
 - **THEN** no renditions are recorded for it, its existing preview is unchanged, and it is not selected again.
+
+#### Scenario: Large retained page
+
+- **GIVEN** a retained page preview of about 25 MiB from a 50-megapixel photo
+- **WHEN** its backfill runs
+- **THEN** its renditions are produced, even though the page is larger than the upload size limit.
 
 #### Scenario: Concurrent workers
 
