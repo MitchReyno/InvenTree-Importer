@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type {
   CatalogueRecordDto,
   CaptureReferenceDraftDto,
@@ -125,7 +127,7 @@ export function SupplierField({
   const draftDisabled = disabled || value.absent
 
   return (
-    <Field>
+    <FieldStack>
       <CheckboxLabel>
         <input
           type="checkbox"
@@ -235,6 +237,12 @@ export function SupplierField({
           </Small>
         </Field>
       )}
-    </Field>
+    </FieldStack>
   )
 }
+
+const FieldStack = styled.div`
+  display: grid;
+  gap: ${space[4]};
+  min-width: 0;
+`

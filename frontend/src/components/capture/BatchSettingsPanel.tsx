@@ -26,7 +26,6 @@ import {
   Label,
   Link,
   Panel,
-  Paragraph,
   Small,
   TextArea,
 } from '../ui/primitives'
@@ -35,6 +34,8 @@ import { DefaultLocationField } from './DefaultLocationField'
 import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
 import { batchHref } from '../../navigation/batch-route'
+import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
 
 type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
   batch: Snapshot
@@ -387,18 +388,29 @@ export function BatchSettingsPanel({
 
   return (
     <Settings role="region" aria-labelledby="batch-settings-title" data-area="settings">
-      <Heading id="batch-settings-title">Batch settings</Heading>
-      {!ports && <Paragraph role="status">Settings editing is unavailable in this view.</Paragraph>}
+      <Head>
+        <Heading id="batch-settings-title">Batch settings</Heading>
+        <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
+      </Head>
+      {!ports && (
+        <div role="status">
+          <Banner tone="plain">Settings editing is unavailable in this view.</Banner>
+        </div>
+      )}
       {ports && !connected && (
-        <Paragraph role="status">
-          Application connection unavailable. Settings are read-only until it returns; unsaved edits
-          stay on this page.
-        </Paragraph>
+        <div role="status">
+          <Banner tone="warn">
+            Application connection unavailable. Settings are read-only until it returns; unsaved
+            edits stay on this page.
+          </Banner>
+        </div>
       )}
       {paused && (
-        <Paragraph role="status">
-          Finish or discard the evidence change to continue editing settings.
-        </Paragraph>
+        <div role="status">
+          <Banner tone="info">
+            Finish or discard the evidence change to continue editing settings.
+          </Banner>
+        </div>
       )}
       {state.blocked === 'conflict' && (
         <AutosaveStatus
@@ -409,9 +421,9 @@ export function BatchSettingsPanel({
         />
       )}
       {state.blocked === 'conflict' && (
-        <KeepButton type="button" onClick={() => void keepEdits()}>
+        <Button onClick={() => void keepEdits()}>
           Keep my edits and save them over the newer version
-        </KeepButton>
+        </Button>
       )}
       {state.blocked === 'unconfirmed' && (
         <AutosaveStatus
@@ -423,9 +435,7 @@ export function BatchSettingsPanel({
         />
       )}
       {ports && !connected && (state.dirty || tagPending) && queue.canDiscardLocally() && (
-        <KeepButton type="button" onClick={discardUnsent}>
-          Discard unsent settings edits
-        </KeepButton>
+        <Button onClick={discardUnsent}>Discard unsent settings edits</Button>
       )}
       <Form
         onSubmit={(event) => event.preventDefault()}
@@ -532,7 +542,6 @@ export function BatchSettingsPanel({
               />
             )}
           />
-          <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
           {state.lanes.instructions && (
             <Instructions>
               <Label>
@@ -578,6 +587,17 @@ export function BatchSettingsPanel({
   )
 }
 
+const Head = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${space[4]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
+`
 const Settings = styled(Panel)`
   min-width: 0;
   margin-bottom: 0;
@@ -597,14 +617,4 @@ const Instructions = styled.div`
   gap: ${space[4]};
   padding-top: ${space[6]};
   border-top: 1px solid ${color.line};
-`
-const KeepButton = styled.button`
-  min-height: ${size.touch};
-  margin: ${space[4]} 0 ${space[6]};
-  padding: 9px ${space[7]};
-  color: ${color.accent};
-  background: ${color.accentWeak};
-  border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  cursor: pointer;
 `
