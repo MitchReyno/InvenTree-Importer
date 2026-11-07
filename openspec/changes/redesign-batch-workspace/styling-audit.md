@@ -2,7 +2,7 @@
 
 Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). Two read-only passes:
 
-- **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value exists in the property's own family; a role-only match is NEAR), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
+- **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value and a fitting role exists in the property's own family; a value equal to a token of the wrong role, or sharing only a role, is NEAR), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in `docs/handovers/redesign-batch-workspace.md` are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
 
 Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-0-5`, `space-5` and `space-6`, are EXACT under v2.
@@ -41,7 +41,7 @@ Notes on the counts:
 
 - One row per literal per declaration, so `padding: 7px 9px` is two rows. `0`, `100%`, `auto`, `fr`, `transparent`, `currentColor` and 1px border widths are not counted.
 - `type` EXACT means the **size, weight or line-height alone** matches a `type.*` style. A single matching property swaps through that property's own type variable (design D11). Moving to the full style when the line-height or weight differs is a NEAR, visible change.
-- `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps, `outline-offset: 2px`) and 20/24px, which tokens v2 covers with `space-0-5`, `space-5` and `space-6`.
+- `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps) and 20/24px, which tokens v2 covers with `space-0-5`, `space-5` and `space-6`; `outline-offset: 2px` is a focus ring, judged against `ring-offset`.
 - `sizing` (min-height 44/32px, icon boxes, grid column widths) had no token group under v1. Tokens v2's `size` family covers control and touch heights, icon sizes, rings, offsets and content widths; grid track widths stay literals.
 
 | Area | EXACT | NEAR | NONE | Files |
