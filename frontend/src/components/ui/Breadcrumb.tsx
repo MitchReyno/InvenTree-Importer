@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import styled from 'styled-components'
 import { color, space } from '../../theme/generated/tokens'
+import { linkTouchArea } from './primitives'
 
 export type BreadcrumbItem = { label: string; href?: string }
 
@@ -41,6 +42,7 @@ const Trail = styled.nav`
 const Crumb = styled.a`
   flex: none;
   color: ${color.accent};
+  ${linkTouchArea}
 `
 
 const Separator = styled.span`

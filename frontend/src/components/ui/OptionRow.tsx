@@ -1,5 +1,6 @@
 import styled from 'styled-components'
-import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { media } from './media'
 
 export type Option = { id: string; title: string; detail: string }
 
@@ -57,6 +58,9 @@ const Choice = styled.label`
   &:has(input:checked) {
     border-color: ${color.accent};
     background: ${color.accentWeak};
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
   }
 `
 

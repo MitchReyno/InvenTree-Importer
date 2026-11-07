@@ -132,6 +132,8 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   }
   ${media.compact} {
     min-height: ${size.touch};
+    min-width: ${size.touch};
+    justify-content: center;
   }
 `
 

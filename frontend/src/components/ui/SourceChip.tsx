@@ -1,6 +1,6 @@
 import styled, { css } from 'styled-components'
-import { color, radius, size, space } from '../../theme/generated/tokens'
-import { media } from './media'
+import { color, radius, space } from '../../theme/generated/tokens'
+import { linkTouchArea } from './primitives'
 import { hoverTransition } from './motion'
 
 export type SourceTone = 'default' | 'likely' | 'conflict' | 'user'
@@ -57,18 +57,7 @@ const Chip = styled.button<{ $tone: SourceTone }>`
   white-space: nowrap;
   cursor: pointer;
   ${({ $tone }) => tones[$tone]}
-  ${media.compact} {
-    position: relative;
-    &::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 50%;
-      height: ${size.touch};
-      transform: translateY(-50%);
-    }
-  }
+  ${linkTouchArea}
   ${hoverTransition}
   &:hover,
   &:focus-visible {

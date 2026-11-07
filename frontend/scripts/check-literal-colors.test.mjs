@@ -90,6 +90,7 @@ describe('literal value check', () => {
       '    ${gap} 16px;',
       '  box-shadow: 0 1px 2px red, inset 0 0 0 2px blue;',
       '  translate: 0 -8px;',
+      '  box-shadow: red 0 0 0 2px;',
       '`',
     ].join('\n')
 
@@ -100,6 +101,7 @@ describe('literal value check', () => {
       '7 | margin | 16px | space-8',
       '9 | box-shadow | 2px | ring-width ring-offset',
       '10 | translate | 8px | offset-toast',
+      '11 | box-shadow | 2px | ring-width ring-offset',
     ])
   })
 

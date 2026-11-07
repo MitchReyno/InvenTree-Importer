@@ -64,6 +64,7 @@ const Section = styled.section`
       display: inline-flex;
       align-items: center;
       min-height: ${size.touch};
+      min-width: ${size.touch};
     }
   }
 `

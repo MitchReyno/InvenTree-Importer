@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, font, space, typeVar } from '../../theme/generated/tokens'
+import { color, font, size, space, typeVar } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
 import { media } from './media'
 
@@ -105,6 +105,9 @@ const Editable = styled.div`
   & > button:first-child {
     flex: 0 1 auto;
     width: auto;
+    ${media.compact} {
+      min-width: ${size.touch};
+    }
   }
 `
 

@@ -209,6 +209,7 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   }
   ${media.compact} {
     min-height: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
+    min-width: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
   }
   ${({ $variant }) => $variant === 'link' && linkTouchArea}
 `

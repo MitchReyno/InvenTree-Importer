@@ -227,10 +227,11 @@ function literalsFor(family, property, value) {
     return [...value.matchAll(EASING)].map((match) => match[1])
   }
   if (property === 'box-shadow') {
-    // Only rings, outer or inset: no offset or blur, so each layer's fourth length is its spread.
+    // Only rings, outer or inset, colour first or last: no offset or blur, so the spread is the
+    // fourth length.
     return value
       .split(/,(?![^(]*\))/)
-      .map((layer) => layer.trim().match(/^(?:inset )?0(?:px)? 0(?:px)? 0(?:px)? (\d+px)/))
+      .map((layer) => layer.match(/(?:^|\s)0(?:px)?\s+0(?:px)?\s+0(?:px)?\s+(\d+px)(?!\S)/))
       .filter(Boolean)
       .map((ring) => ring[1])
   }
