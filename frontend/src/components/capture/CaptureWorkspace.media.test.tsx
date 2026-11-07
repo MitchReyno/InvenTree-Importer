@@ -3,7 +3,7 @@ import { createServerQueryClient } from '../../queries/client'
 import { serverQueryKey } from '../../queries/scope'
 import { ServerStateProvider } from '../query/ServerStateProvider'
 import { render, fixtureScope } from '../../test/render'
-import { act, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -387,4 +387,19 @@ test('discarding an unconfirmed group location reloads through the owner and kee
   expect(await screen.findByText(/Saved values could not be reloaded/)).toBeVisible()
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(field).toHaveValue('clear')
+})
+
+test('batch notes sit in the evidence card', async () => {
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  const evidence = await screen.findByRole('region', { name: 'Evidence' })
+  expect(within(evidence).getByRole('textbox', { name: 'Notes for the whole batch' })).toBeVisible()
 })

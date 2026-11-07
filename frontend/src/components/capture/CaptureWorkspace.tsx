@@ -30,6 +30,8 @@ export function CaptureWorkspace({
   settings,
   processing,
 }: CaptureWorkspaceProps) {
+  // The evidence card hosts the batch notes field, which Batch settings still owns and saves.
+  const [notesTarget, setNotesTarget] = useState<HTMLElement | null>(null)
   const statuses = useSessionStatuses(processing, batch.id, batch.revision)
   const dirtyFlags = useRef<Record<DirtySource, boolean>>({
     settings: false,
@@ -106,6 +108,7 @@ export function CaptureWorkspace({
           edit={edit}
           onMediaDirtyChange={reportMedia}
           onNoteDirtyChange={reportNote}
+          notesSlot={setNotesTarget}
         />
         <SettingsColumn>
           <ProposedLotsGlance
@@ -133,6 +136,7 @@ export function CaptureWorkspace({
             onDirty={reportSettings}
             observe={observe}
             reload={reload}
+            notesTarget={notesTarget}
           />
           <NextStep>
             <Button

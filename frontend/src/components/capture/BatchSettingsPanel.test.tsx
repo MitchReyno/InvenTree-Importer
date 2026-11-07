@@ -356,20 +356,20 @@ test('a clean panel follows newer saved values but a dirty one keeps its draft',
   expect(screen.getByLabelText('Batch title')).toHaveValue('Renamed elsewhere mine')
 })
 
-test('batch notes autosave, Hide keeps them and Remove sends a tombstone', async () => {
-  const { user, panel } = setup()
-  await user.click(within(panel).getByRole('checkbox', { name: 'Add batch notes' }))
-  await user.type(within(panel).getByRole('textbox', { name: 'Batch notes' }), 'Two bags')
+test('batch notes are always shown, autosave, and clearing them sends a tombstone', async () => {
+  const { user } = setup()
+  // Batch settings owns the field; Capture draws it in the evidence card.
+  const notes = screen.getByRole('textbox', { name: 'Notes for the whole batch' })
+  expect(notes).toHaveAccessibleDescription(
+    'Plain language is fine. Agents read these notes while they work.',
+  )
+  await user.type(notes, 'Two bags')
   await idle()
   expect(saves[0].change.notes).toEqual({ batch: 'Two bags', order: null })
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
-  await user.click(within(panel).getByRole('checkbox', { name: 'Add batch notes' }))
+  await user.clear(notes)
   await idle()
-  expect(saves).toHaveLength(1)
-  await user.click(within(panel).getByRole('checkbox', { name: 'Add batch notes' }))
-  await user.click(within(panel).getByRole('button', { name: 'Remove batch notes' }))
-  await settle()
   expect(saves[1].change.notes).toEqual({ batch: null, order: null })
 })
 
@@ -490,7 +490,9 @@ test('lot overrides stay visible and link to the pinned Review subject', () => {
   for (const link of links) {
     expect(link).toHaveAttribute('href', `#${batch.id}/review/lots/${lotId}`)
   }
-  expect(screen.getByText(/Location: Lot override/)).toBeInTheDocument()
+  expect(screen.getByText(/1 lot overrides this:/)).toHaveTextContent(
+    '1 lot overrides this: Packet A.',
+  )
 })
 
 const savedInstruction = {

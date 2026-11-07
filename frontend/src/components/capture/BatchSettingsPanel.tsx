@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
+import { color, space } from '../../theme/generated/tokens'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,
@@ -16,7 +16,7 @@ import type { QueueState } from '../../capture/save-queue'
 import { useSaveQueue } from '../../capture/useSaveQueue'
 import { useCatalogue } from '../../catalogue/useCatalogue'
 import { AutosaveStatus, type AutosaveState } from '../ui/AutosaveStatus'
-import { NotesField } from '../ui/TextField'
+import { TextField } from '../ui/TextField'
 import { SharedTagsInput } from '../ui/SharedTagsInput'
 import {
   Fieldset,
@@ -29,7 +29,6 @@ import {
   Small,
   TextArea,
 } from '../ui/primitives'
-import { CaptureContextSummary } from './CaptureContextSummary'
 import { DefaultLocationField } from './DefaultLocationField'
 import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
@@ -42,6 +41,8 @@ type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'
   ports?: SettingsPorts
   /** An evidence change is pending; settings wait so the two commands cannot race. */
   paused?: boolean
+  /** Where the batch notes field is drawn; Capture puts it in the evidence card. */
+  notesTarget?: HTMLElement | null
   onDirty: (dirty: boolean) => void
 }
 
@@ -72,6 +73,7 @@ export function BatchSettingsPanel({
   batch,
   ports,
   paused = false,
+  notesTarget,
   operatorReview,
   observe,
   reload,
@@ -476,22 +478,29 @@ export function BatchSettingsPanel({
           <Controller
             name="batchNote"
             control={control}
-            render={({ field }) => (
-              <NotesField
-                toggleLabel="Add batch notes"
-                label="Batch notes"
-                value={field.value}
-                disabled={!editable}
-                onChange={(value) => {
-                  field.onChange(value)
-                  if (value === null) {
-                    schedule()
-                  } else {
-                    scheduleText()
-                  }
-                }}
-              />
-            )}
+            render={({ field }) => {
+              const notes = (
+                <TextField
+                  as="textarea"
+                  label="Notes for the whole batch"
+                  help="Plain language is fine. Agents read these notes while they work."
+                  value={field.value ?? ''}
+                  maxLength={8192}
+                  disabled={!editable}
+                  onChange={(event) => {
+                    // An empty field removes the notes rather than saving blank text.
+                    const value = event.target.value || null
+                    field.onChange(value)
+                    if (value === null) {
+                      schedule()
+                    } else {
+                      scheduleText()
+                    }
+                  }}
+                />
+              )
+              return notesTarget ? createPortal(notes, notesTarget) : notes
+            }}
           />
           <DefaultLocationField
             batch={batch}
@@ -506,6 +515,7 @@ export function BatchSettingsPanel({
               textEdit.current = true
             }}
           />
+          <LocationOverrides batch={batch} />
           <SupplierField
             batch={batch}
             value={values.intent.supplier}
@@ -568,22 +578,31 @@ export function BatchSettingsPanel({
           )}
         </Fieldset>
       </Form>
-      <details>
-        <summary>Saved lot inheritance and overrides · {batch.lots.length} physical lots</summary>
-        {batch.lots.map((lot) => (
-          <div key={lot.id}>
-            <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
-              {lot.label}
-            </Link>
-            <CaptureContextSummary batch={batch} subjectId={lot.id} />
-            <Small>
-              Location:{' '}
-              {lot.location.mode === 'inherit' ? 'Inherited from Default location' : 'Lot override'}
-            </Small>
-          </div>
-        ))}
-      </details>
     </Settings>
+  )
+}
+
+/** One line naming the lots whose location differs from the default; Review holds the detail. */
+function LocationOverrides({ batch }: { batch: Snapshot }) {
+  const overrides = batch.lots.filter((lot) => !lot.retired && lot.location.mode !== 'inherit')
+  if (!overrides.length) {
+    return null
+  }
+  const lead =
+    overrides.length === 1 ? '1 lot overrides this: ' : `${overrides.length} lots override this: `
+  return (
+    <Small>
+      {lead}
+      {overrides.map((lot, index) => (
+        <span key={lot.id}>
+          {index > 0 && (index === overrides.length - 1 ? ' and ' : ', ')}
+          <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
+            {lot.label}
+          </Link>
+        </span>
+      ))}
+      .
+    </Small>
   )
 }
 
@@ -601,16 +620,6 @@ const Head = styled.div`
 const Settings = styled(Panel)`
   min-width: 0;
   margin-bottom: 0;
-  details {
-    margin-top: ${space[6]};
-    overflow-wrap: anywhere;
-  }
-  summary {
-    cursor: pointer;
-    ${media.compact} {
-      min-height: ${size.touch};
-    }
-  }
 `
 const Instructions = styled.div`
   display: grid;

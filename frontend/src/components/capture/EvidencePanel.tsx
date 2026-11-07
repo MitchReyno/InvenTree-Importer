@@ -21,6 +21,8 @@ type Props = {
   frozen: boolean
   onMediaDirtyChange: (dirty: boolean) => void
   onNoteDirtyChange: (dirty: boolean) => void
+  /** Receives the element where Batch settings draws the batch notes field. */
+  notesSlot?: (element: HTMLElement | null) => void
 }
 
 /** Evidence actions, groups and batch notes; it no longer depends on a selected subject. */
@@ -34,6 +36,7 @@ export function EvidencePanel({
   edit,
   onMediaDirtyChange,
   onNoteDirtyChange,
+  notesSlot,
 }: Props) {
   const [writing, setWriting] = useState(false)
   // Notes and media each advance the revision; one owner's save must not remount the other's draft.
@@ -94,6 +97,7 @@ export function EvidencePanel({
           onClose={() => setWriting(false)}
         />
       )}
+      {notesSlot && <div ref={notesSlot} />}
       {latestNote && <HumanNote note={latestNote} batch={batch} />}
       {notes.length > 1 && (
         <details>
