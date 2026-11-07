@@ -2,7 +2,7 @@
 
 Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). Two read-only passes:
 
-- **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value, or with that role and value, exists; a role-only match is treated as NEAR when the work is done), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
+- **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value exists in the property's own family; a role-only match is NEAR), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in `docs/handovers/redesign-batch-workspace.md` are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
 
 Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-0-5`, `space-5` and `space-6`, are EXACT under v2.
@@ -40,7 +40,7 @@ Literal colours are already gone from the UI: `frontend/scripts/check-literal-co
 Notes on the counts:
 
 - One row per literal per declaration, so `padding: 7px 9px` is two rows. `0`, `100%`, `auto`, `fr`, `transparent`, `currentColor` and 1px border widths are not counted.
-- `type` EXACT means the **size, weight or line-height alone** matches a `type.*` style. Most of these should become the full mix-in (e.g. `font-size: 12.5px` → `${type.small}`), which can also change line-height; check each.
+- `type` EXACT means the **size, weight or line-height alone** matches a `type.*` style. A single matching property swaps through that property's own type variable (design D11). Moving to the full style when the line-height or weight differs is a NEAR, visible change.
 - `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps, `outline-offset: 2px`) and 20/24px; see proposed `space-0-5`, `space-5`, `space-6`.
 - `sizing` (min-height 44/32px, icon boxes, grid column widths) has no token group at all; it is listed for completeness. Only touch-target and control heights warrant tokens.
 
@@ -115,7 +115,7 @@ These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, Restructure
 `media.ts` names `compact 759.98` and `stacked 859.98`. Raw queries use 430 (`EvidenceActions`), 480 (`ProcessingParts`), 600 (`RestructureDialog`, `ImpactSummary`), 700 (×8: `App`, `ReviewWorkspace` ×4, `ReviewFilters` ×2, `EvidenceViewer`; `primitives.tsx:152` also has a 700px `max-width`, a width rather than a query), 760 (`MediaCropDialog` ×2, inclusive), 860 (`CaptureWorkspace`, `RecordsStage`, inclusive) and 1000 (`ReviewWorkspace`).
 
 **Recommend:**
-- Change 760 and 860 to `media.compact` and `media.stacked`; these are EXACT apart from the inclusive edge.
+- Change 760 and 860 to `media.compact` and `media.stacked`; these are EXACT apart from the inclusive edge, which moves by a fraction of a pixel (an inclusive 760px becomes below 759.98px). The screenshot diff cannot see that, so the swap steps record it.
 - Fold 700 into `media.compact`. This moves 60px and is the most visible change (Review stacks earlier), so check it on screenshots.
 - Fold 600 into compact, or add `media.narrow 600`.
 - Add `media.phone 480` for 430 and 480.
@@ -162,7 +162,7 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 - `10.5px` (2 rows) → `type.label` 11px.
 - `font-weight: 700` (Banner, QuestionCard, ProblemCard, PhaseRow, HeaderStatus) → 650, the heading weight.
 - `550` (AutoValueField ×2, CaptureWorkspace) → 500 or 600.
-- Unitless line-heights (1, 1.15, 1.2, 1.3, 1.4, 1.45, 1.5, 1.6) → each sits with a font size that has a `type.*` px line-height. Use the mix-in, and keep `line-height: 1` only for glyph boxes.
+- Unitless line-heights (1, 1.15, 1.2, 1.3, 1.4, 1.45, 1.5, 1.6) → each sits with a font size that has a `type.*` px line-height. Moving them to the style's line-height is a NEAR, visible change; keep `line-height: 1` only for glyph boxes.
 
 ### C16. Disabled and dimmed opacity
 - 0.5: Button, primitives Button
@@ -192,7 +192,7 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 
 | # | Where | Design | Implemented | Sev | Fix |
 |---|---|---|---|---|---|
-| G1 | App shell width, `App.tsx:226-233`; every fixture `main` uses `maxWidth:1600` | Content width 1240px; 1500px for Review and Records; 1100px for Agents and 1000px for Batches on the canvas; gutter `max(16px,2vw)` | 1600px everywhere; 24px padding, 12px below 700px | High | Make width a per-route token (1240/1500) and use `space-4` gutters |
+| G1 | App shell width, `App.tsx:226-233`; every fixture `main` uses `maxWidth:1600` | Content width 1240px; 1500px for Review and Records; 1100px for Agents and 1000px for Batches on the canvas; gutter `max(16px,2vw)` | 1600px everywhere; 24px padding, 12px below 700px | High | Make width a per-route token (1240/1500), with `space-6` side padding at desktop and at least `space-4` at phone width |
 | G2 | Breakpoints, 8 `max-width: 700px` media queries in 4 files (`App.tsx:230`, `ReviewFilters.tsx:85`, …) | 760 compact, 860 stacked, 1180 for Review's evidence pane (tokens v2 `bp-wide`) | Legacy 700px queries next to `media.compact` | Medium | Replace with `media.compact` / `media.stacked` |
 | G3 | Pill default glyphs, `ui/Pill.tsx:9-17` | Canvas: Running/Sorting `⟳`, New `+`/`✦`, Queued `…`, Edited `✎`, Exists `✓` (ok tone) | `info:'+'`, `acc:'•'`, `neutral:'–'`, `outline:'–'`; callers rarely pass a glyph. So "Running" shows `+` and "Exists" shows `–` | High | Pass state glyphs from the state maps (Running `⟳` or spinner, Queued `…`, Exists `✓`); keep tone defaults only as a fallback |
 | G4 | Record-state tones are inconsistent: `changes/PreparationTreeView.tsx:9-13` is `new:'acc', update:'info', exists:'neutral'`; `review/records/RecordDetail.tsx:19-25` is `new:'info', update:'acc', exists:'neutral'` | New = `info`, Update = `accent`, Exists = `ok` (RecordChain spec; canvas pills) | New and Update are swapped in Changes; Exists is neutral grey in both | High | One shared `RECORD_STATE` map (tone and glyph) used by Changes, Records and RecordChain |
