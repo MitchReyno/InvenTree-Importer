@@ -1,5 +1,6 @@
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type { EditMedia } from '../../media/types'
 import type { CaptureSnapshotDto, MediaEvidenceDto } from '@invimport/contracts'
 import { Small } from '../ui/primitives'
@@ -51,6 +52,9 @@ const Relations = styled.div`
     align-items: center;
     gap: ${space[4]};
     flex-wrap: wrap;
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
 
   input,

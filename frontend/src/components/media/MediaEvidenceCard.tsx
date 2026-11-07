@@ -2,7 +2,7 @@ import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { Paragraph, Small, Subheading } from '../ui/primitives'
+import { Link, Paragraph, Small, Subheading, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { mediaResource } from '../../media/types'
 
@@ -39,11 +39,11 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
               )}
             </figure>
           ))}
-          <a href={mediaResource(batchId, 'versions', version.id)} download>
+          <Link href={mediaResource(batchId, 'versions', version.id)} download>
             Download retained {version.kind}
-          </a>
+          </Link>
           <details>
-            <summary>Retained byte identity</summary>
+            <Summary>Retained byte identity</Summary>
             <Paragraph>
               {version.byte_size} bytes · SHA-256 {version.digest}
             </Paragraph>

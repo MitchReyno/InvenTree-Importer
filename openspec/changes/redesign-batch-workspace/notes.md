@@ -116,6 +116,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 8:** Examine's source chip says "Read from the document" for a reading from document lines and "Read from the photo" only for a photo region.
 - **2026-11-08, PR-J review round 9:** Examine's media read polls at the retained interval too, so file names and groups changed elsewhere reach it without live updates.
 - **2026-11-08, PR-J review round 10:** The crop editor's number fields and aspect select take a 44px height below `bp-compact`. Processing › Images' notices and the media text editor's error are banners, so no Capture, media or Processing screen keeps the old notice.
+- **2026-11-08, PR-J review round 11:** A sweep of Capture, media and Processing for bare links, summaries and labels gave the evidence viewer's support checkboxes a 44px height below `bp-compact`, and its download link, byte-identity and note-provenance disclosures and Images' preview links the shared `Link` and `Summary` with their hit areas.
 
 ## Open items
 

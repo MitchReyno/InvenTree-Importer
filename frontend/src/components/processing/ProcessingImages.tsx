@@ -71,13 +71,13 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
                     {version.state} · {version.pages.length} pages
                   </Small>
                   {version.state === 'ready' && version.pages[0] && (
-                    <a
+                    <Link
                       href={mediaResource(batchId, 'previews', version.pages[0].preview_id)}
                       target="_blank"
                       rel="noreferrer"
                     >
                       Open exact {version.kind === 'original' ? 'original' : 'crop'} preview
-                    </a>
+                    </Link>
                   )}
                 </div>
               ))}
