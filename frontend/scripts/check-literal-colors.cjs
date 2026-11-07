@@ -197,7 +197,7 @@ function templateText(source) {
 }
 
 // Removes calc() groups that adjust a token, such as calc(var(--space-6) - 1px).
-function withoutTokenCalc(value) {
+function withoutTokenCalc(value, tokenNames) {
   let result = value
   for (
     let start = result.indexOf('calc(');
@@ -211,7 +211,10 @@ function withoutTokenCalc(value) {
       if (result[end] === ')' && --depth === 0) break
     }
     const group = result.slice(start, end + 1)
-    if (group.includes('§') || group.includes('var(')) {
+    const readsToken =
+      group.includes('§') ||
+      [...group.matchAll(/var\(--([a-z0-9-]+)/g)].some((match) => tokenNames.has(match[1]))
+    if (readsToken) {
       result = result.slice(0, start) + ' '.repeat(group.length) + result.slice(end + 1)
     }
   }
@@ -319,6 +322,7 @@ let defaultFamilies = null
 function literalValues(source, families) {
   const tokens =
     families ?? (defaultFamilies ??= tokenFamilies(JSON.parse(readFileSync(TOKENS_PATH, 'utf8'))))
+  const tokenNames = new Set(Object.values(tokens).flatMap((family) => family.map((t) => t.name)))
   const lines = source.split('\n')
   const text = templateText(source)
   const allowed = (index) =>
@@ -346,7 +350,7 @@ function literalValues(source, families) {
       if (property.startsWith('grid-template')) continue
       const span = Array.from({ length: last - first + 1 }, (_, offset) => first + offset)
       if (span.some(allowed)) continue
-      const plain = withoutTokenCalc(value)
+      const plain = withoutTokenCalc(value, tokenNames)
       for (const [pattern, family] of PROPERTY_FAMILIES) {
         if (!pattern.test(property)) continue
         for (const literal of literalsFor(family, property, plain)) {

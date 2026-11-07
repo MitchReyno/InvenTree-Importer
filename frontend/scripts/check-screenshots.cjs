@@ -301,10 +301,27 @@ function connect(url) {
       waiter.resolve(message.result)
     }
   })
+  // A closed or failed socket rejects every pending command, and none waits longer than 60s.
+  function failAll(reason) {
+    for (const waiter of pending.values()) waiter.reject(new Error(`${waiter.method}: ${reason}`))
+    pending.clear()
+  }
+  socket.addEventListener('close', () => failAll('Chrome disconnected'))
+  socket.addEventListener('error', () => failAll('Chrome connection failed'))
   function send(method, params = {}) {
     const id = nextId++
     socket.send(JSON.stringify({ id, method, params }))
-    return new Promise((resolve, reject) => pending.set(id, { resolve, reject, method }))
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pending.delete(id)
+        reject(new Error(`${method}: no reply within 60s`))
+      }, 60000)
+      const settle = (done) => (value) => {
+        clearTimeout(timer)
+        done(value)
+      }
+      pending.set(id, { resolve: settle(resolve), reject: settle(reject), method })
+    })
   }
   return new Promise((resolve, reject) => {
     socket.addEventListener('open', () => resolve({ send, close: () => socket.close() }))

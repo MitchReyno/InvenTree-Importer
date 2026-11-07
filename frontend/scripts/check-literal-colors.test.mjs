@@ -83,10 +83,12 @@ describe('literal value check', () => {
       'const A = styled.div`',
       '  padding: calc(${space[8]} - 1px);',
       '  margin: calc(16px + ${(props) => props.$extra}px);',
+      '  gap: calc(var(--space-8) - 1px);',
+      '  padding: calc(var(--custom-gap) + 16px);',
       '`',
     ].join('\n')
 
-    expect(values(source)).toEqual(['3 | margin | 16px | space-8'])
+    expect(values(source)).toEqual(['3 | margin | 16px | space-8', '5 | padding | 16px | space-8'])
   })
 
   it('reads the font shorthand by part and a media query that spans lines', () => {
