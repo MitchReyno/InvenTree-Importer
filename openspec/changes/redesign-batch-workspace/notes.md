@@ -115,6 +115,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 7:** The glance's spinner shows only while the lead session runs; a stopped session's last line stays as text. A running step with nothing ready draws a thin sliver rather than an empty bar. An operator lot with only document-line observations now gets its observation count. The drawer's question links use the shared `Link`, with its 44px hit area below `bp-compact`.
 - **2026-11-08, PR-J review round 8:** Examine's source chip says "Read from the document" for a reading from document lines and "Read from the photo" only for a photo region.
 - **2026-11-08, PR-J review round 9:** Examine's media read polls at the retained interval too, so file names and groups changed elsewhere reach it without live updates.
+- **2026-11-08, PR-J review round 10:** The crop editor's number fields and aspect select take a 44px height below `bp-compact`. Processing › Images' notices and the media text editor's error are banners, so no Capture, media or Processing screen keeps the old notice.
 
 ## Open items
 

@@ -7,7 +7,8 @@ import { mediaDisplayLabels } from '../../media/identity-labels'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { EvidenceViewer } from '../operator/EvidenceViewer'
-import { Heading, Link, Notice, Panel, Paragraph, Small } from '../ui/primitives'
+import { Heading, Link, Panel, Paragraph, Small } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { batchHref } from '../../navigation/batch-route'
 
 export function ProcessingImages({ batchId, client }: { batchId: string; client?: MediaClient }) {
@@ -22,7 +23,7 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
   const unavailable = query.isError || query.fetchStatus === 'paused'
   const labels = query.data ? mediaDisplayLabels(query.data.evidence) : undefined
   if (!client) {
-    return <Notice>Retained media is not configured for this application.</Notice>
+    return <Banner tone="plain">Retained media is not configured for this application.</Banner>
   }
   return (
     <section aria-label="Retained image outputs">
@@ -35,9 +36,12 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
         Add evidence or prepare another crop in Capture
       </Link>
       {unavailable && (
-        <Notice role="alert">
-          Current media status is unavailable. Any displayed outputs are the last retained snapshot.
-        </Notice>
+        <div role="alert">
+          <Banner tone="bad">
+            Current media status is unavailable. Any displayed outputs are the last retained
+            snapshot.
+          </Banner>
+        </div>
       )}
       {!query.data && !unavailable && (
         <Paragraph role="status">Loading retained image outputs…</Paragraph>

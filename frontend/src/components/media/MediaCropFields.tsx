@@ -1,6 +1,7 @@
 import { Controller, type Control, type UseFormSetValue } from 'react-hook-form'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import { cropAspect, type CropAspect, type CropForm } from '../../media/crop-model'
 
 interface Props {
@@ -102,5 +103,8 @@ const Fields = styled.div`
     width: 100%;
     box-sizing: border-box;
     padding: ${space[4]};
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
 `
