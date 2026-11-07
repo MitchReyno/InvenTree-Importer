@@ -370,3 +370,87 @@ test('names are numbered across the snapshot it is given, and Details pairs each
     /Packing slip \(2\) · original: Packing slip · evidence 10000000/,
   )
 })
+
+test('the viewer loads the view size, then the full page once zoom and density need it', async () => {
+  const photo: MediaVersionDto = {
+    ...original,
+    id: '70000000-0000-4000-8000-000000000007',
+    media_type: 'image/jpeg',
+    pages: [
+      { page: 1, width: 4032, height: 3024, preview_id: '80000000-0000-4000-8000-000000000008' },
+    ],
+  }
+  const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+  const ratio = window.devicePixelRatio
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    get: () => 900,
+  })
+  const full = '/api/v1/batches/batch/media/previews/80000000-0000-4000-8000-000000000008'
+  try {
+    const user = userEvent.setup()
+    window.devicePixelRatio = 1
+    const view = render(
+      <EvidenceViewer batchId="batch" evidence={[{ ...evidence, versions: [photo] }]} />,
+    )
+    // 900 px at 1× needs no more than the 2048 px view size.
+    expect(screen.getByRole('img')).toHaveAttribute('src', `${full}?size=view`)
+    expect(screen.getByRole('img').getAttribute('srcset')).not.toContain(`${full} `)
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }))
+    // At 250% the image needs 2250 pixels, more than the view size holds.
+    expect(screen.getByRole('img')).toHaveAttribute('src', full)
+    expect(screen.getByRole('img')).not.toHaveAttribute('srcset')
+    view.unmount()
+
+    // On a 3× screen, 900 CSS pixels already need 2700 pixels at 100%.
+    window.devicePixelRatio = 3
+    render(<EvidenceViewer batchId="batch" evidence={[{ ...evidence, versions: [photo] }]} />)
+    // Measured before the image mounts, so its very first source is already the full page.
+    expect(screen.getByRole('img')).toHaveAttribute('src', full)
+  } finally {
+    window.devicePixelRatio = ratio
+    if (width) {
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', width)
+    }
+  }
+})
+
+test('the viewer re-decides when it moves to a denser display without resizing', async () => {
+  const photo: MediaVersionDto = {
+    ...original,
+    id: '90000000-0000-4000-8000-000000000009',
+    media_type: 'image/jpeg',
+    pages: [
+      { page: 1, width: 4032, height: 3024, preview_id: 'a0000000-0000-4000-8000-00000000000a' },
+    ],
+  }
+  const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+  const ratio = window.devicePixelRatio
+  const listeners: (() => void)[] = []
+  const media = window.matchMedia
+  window.matchMedia = (() => ({
+    addEventListener: (_: string, listener: () => void) => listeners.push(listener),
+    removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    get: () => 900,
+  })
+  const full = '/api/v1/batches/batch/media/previews/a0000000-0000-4000-8000-00000000000a'
+  try {
+    window.devicePixelRatio = 1
+    render(<EvidenceViewer batchId="batch" evidence={[{ ...evidence, versions: [photo] }]} />)
+    expect(screen.getByRole('img')).toHaveAttribute('src', `${full}?size=view`)
+    window.devicePixelRatio = 3
+    act(() => listeners.forEach((listener) => listener()))
+    expect(screen.getByRole('img')).toHaveAttribute('src', full)
+  } finally {
+    window.matchMedia = media
+    window.devicePixelRatio = ratio
+    if (width) {
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', width)
+    }
+  }
+})

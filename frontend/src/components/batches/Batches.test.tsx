@@ -43,7 +43,7 @@ test('shows retained thumbnail/counts and submits server search once rather than
   const continued = await screen.findByRole('region', { name: 'Bench bag' })
   expect(within(continued).getByRole('img', { name: 'Packet original' })).toHaveAttribute(
     'src',
-    `/api/v1/batches/${saved.id}/media/previews/${saved.workflow.thumbnail.preview_id}`,
+    `/api/v1/batches/${saved.id}/media/previews/${saved.workflow.thumbnail.preview_id}?size=thumb`,
   )
   expect(within(continued).getByText('3 need you')).toBeVisible()
   expect(within(continued).getByText('Processing')).toBeVisible()

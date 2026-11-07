@@ -5,6 +5,7 @@ import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { Paragraph, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { mediaResource } from '../../media/types'
+import { previewImage } from '../../media/images'
 
 interface Props {
   labels: MediaIdentityLabels
@@ -26,7 +27,15 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
           {version.pages.map((page) => (
             <figure key={page.page}>
               <Preview
-                src={mediaResource(batchId, 'previews', page.preview_id)}
+                // Contained within 280 px of height, so a wide page shows no wider than this.
+                {...previewImage(
+                  batchId,
+                  page,
+                  'card',
+                  `min(100vw, ${Math.ceil((280 * page.width) / page.height)}px)`,
+                )}
+                loading="lazy"
+                decoding="async"
                 alt={`${evidence.label}, ${version.kind}, page ${page.page}`}
               />
               <figcaption>
@@ -84,6 +93,8 @@ const Version = styled.div`
 const Preview = styled.img`
   display: block;
   width: 100%;
+  /* Auto keeps the box to the image's ratio; the attributes only reserve space while loading. */
+  height: auto;
   max-height: 280px;
   object-fit: contain;
   background: ${color.photoStage};

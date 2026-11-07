@@ -1,6 +1,6 @@
 # Implementation notes
 
-PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140). PR-B (tasks 4–5) is on `feat/add-preview-renditions-backfill`; PR-C remains.
+PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140) and PR-B (tasks 4–5) in [#143](https://github.com/MitchReyno/InvenTree-Importer/pull/143). PR-C (task 6) is on `feat/add-preview-renditions-frontend`.
 
 ## Changes to the plan
 
@@ -22,6 +22,7 @@ PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Impo
 - **2026-11-08T00:22+11:00, task 5 (PR-B):** The worker loop's single pass became `mediaWorkerStep()`, so "a waiting decode runs before a backfill" is tested directly rather than only through `media-main`. The backfill tests reproduce media decoded before renditions existed by clearing the rendition rows as the owner, with the immutability trigger disabled for that statement only.
 - **2026-11-08T00:22+11:00, task 5 (PR-B):** "One worker pauses between selection and insertion" is covered two ways: concurrent workers racing for one page, and a worker paused mid-attempt whose claim another worker recovers. The paused worker then publishes nothing. The per-preview advisory lock with an eligibility recheck is what makes a stale candidate list harmless.
 - **2026-11-08T00:39+11:00, PR-B review:** The worker keeps its 500 ms pause after every decode, because an interrupted decode still reports as handled; only a backfill that made progress runs straight on (`pauseAfter()`). Backfill failures are contained in `mediaWorkerStep()`, while a thrown decode still stops the media worker as it did before.
+- **2026-11-08T01:18+11:00, task 6 (PR-C):** `EvidenceTile` accepts either a URL or image attributes, so the component gallery's string fixtures keep working. `ProcessingImages`' open link already pointed at the full page and is unchanged. The viewer measures its stage with a `ResizeObserver`, falling back to `clientWidth`, and drops `loading="lazy"` for the image being inspected.
 
 ## Open items
 
