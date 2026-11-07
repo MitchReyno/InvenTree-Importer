@@ -53,9 +53,11 @@ function attributes(
   if (!renditionDimensions(dimensions.width, dimensions.height, largest)) {
     candidates.push({ url: url('full'), width: dimensions.width })
   }
+  // A very narrow source can round several sizes to one width; keep the most detailed of each.
+  const unique = [...new Map(candidates.map((item) => [item.width, item])).values()]
   return {
-    src: candidates[candidates.length - 1].url,
-    srcSet: candidates.map((item) => `${item.url} ${item.width}w`).join(', '),
+    src: unique[unique.length - 1].url,
+    srcSet: unique.map((item) => `${item.url} ${item.width}w`).join(', '),
     sizes,
     width: dimensions.width,
     height: dimensions.height,

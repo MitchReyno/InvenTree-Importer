@@ -407,7 +407,8 @@ test('the viewer loads the view size, then the full page once zoom and density n
     // On a 3× screen, 900 CSS pixels already need 2700 pixels at 100%.
     window.devicePixelRatio = 3
     render(<EvidenceViewer batchId="batch" evidence={[{ ...evidence, versions: [photo] }]} />)
-    await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', full))
+    // Measured before the image mounts, so its very first source is already the full page.
+    expect(screen.getByRole('img')).toHaveAttribute('src', full)
   } finally {
     window.devicePixelRatio = ratio
     if (width) {

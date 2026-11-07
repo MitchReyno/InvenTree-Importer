@@ -77,6 +77,22 @@ describe('observationImage', () => {
   })
 })
 
+describe('narrow sources', () => {
+  it('never repeats a width descriptor, keeping the most detailed candidate', () => {
+    const image = observationImage(
+      'b',
+      {
+        id: 'o',
+        evidence_version_id: 'v',
+        page: 1,
+        region: { kind: 'pixels', x: 0, y: 0, width: 1, height: 1800 },
+      },
+      'thumbnail',
+    )
+    expect(image.srcSet).toBe('/api/v1/batches/b/media/observations/o/crop?rev=v-1-0-0-1-1800 1w')
+  })
+})
+
 describe('needsFullResolution', () => {
   it('promotes once zoom × width × density exceeds the view width, and never below it', () => {
     const large = { width: 4032, height: 3024 }
