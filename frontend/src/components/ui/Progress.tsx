@@ -1,6 +1,7 @@
-import styled, { keyframes } from 'styled-components'
+import styled from 'styled-components'
 import { color, radius } from '../../theme/generated/tokens'
 import { media } from './media'
+import { motion, stillWhenReduced } from './motion'
 
 export type StepState = 'done' | 'running' | 'waiting'
 
@@ -61,19 +62,6 @@ export const VisuallyHidden = styled.span`
   border: 0;
 `
 
-const pulse = keyframes`
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-`
-
-const rotate = keyframes`
-  to { transform: rotate(360deg); }
-`
-
-const sweep = keyframes`
-  to { background-position: -200% 0; }
-`
-
 const Segments = styled.span<{ $size: 'sm' | 'lg' }>`
   display: flex;
   gap: 2px;
@@ -98,7 +86,7 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
     background: ${color.ok};
   }
   &[data-state='running'] i {
-    animation: ${pulse} 1600ms ease-in-out infinite alternate;
+    ${motion.pulse}
   }
   &[data-state='waiting'] {
     opacity: 0.45;
@@ -116,10 +104,8 @@ const SpinnerRing = styled.span`
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: ${rotate} 800ms linear infinite;
-  ${media.reducedMotion} {
-    animation: none;
-  }
+  ${motion.spin}
+  ${stillWhenReduced}
 `
 
 const SkeletonBlock = styled.span`
@@ -127,8 +113,6 @@ const SkeletonBlock = styled.span`
   border-radius: ${radius.thumb};
   background: linear-gradient(90deg, ${color.surface2}, ${color.line}, ${color.surface2});
   background-size: 200% 100%;
-  animation: ${sweep} 1300ms linear infinite;
-  ${media.reducedMotion} {
-    animation: none;
-  }
+  ${motion.sweep}
+  ${stillWhenReduced}
 `

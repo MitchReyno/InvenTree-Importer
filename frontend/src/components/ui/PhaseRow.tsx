@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
-import styled, { css, keyframes } from 'styled-components'
+import styled, { css } from 'styled-components'
 import { color, space, type } from '../../theme/generated/tokens'
-import { media } from './media'
+import { motion, stillWhenReduced } from './motion'
 import type { StepState } from './Progress'
 import { VisuallyHidden } from './Progress'
 
@@ -54,11 +54,6 @@ export function PhaseRow({
   )
 }
 
-const pulse = keyframes`
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-`
-
 const Header = styled.button`
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto 14px;
@@ -86,7 +81,7 @@ const discs = {
     background: ${color.accentWeak};
     color: ${color.accent};
     border-color: ${color.accent};
-    animation: ${pulse} 1600ms ease-in-out infinite alternate;
+    ${motion.pulse}
   `,
   waiting: css`
     background: transparent;
@@ -105,9 +100,7 @@ const Disc = styled.span<{ $state: StepState }>`
   font-size: 12px;
   font-weight: 700;
   ${({ $state }) => discs[$state]}
-  ${media.reducedMotion} {
-    animation: none;
-  }
+  ${stillWhenReduced}
 `
 
 const Title = styled.span`
