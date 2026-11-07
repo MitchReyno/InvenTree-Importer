@@ -2,23 +2,20 @@ import { Input } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
-import { hoverTransition } from '../ui/motion'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
-import { BatchThumbnail } from './BatchThumbnail'
-import { AddedBar, BatchCounts, BatchState } from './batchState'
-import { Pill } from '../ui/Pill'
-import type { InboxWorkflowDto, CaptureListQueryDto } from '@invimport/contracts'
-import type { CaptureList } from '../../../../contracts/generated/api.d.ts'
+import { BatchRow } from './BatchRow'
+import type { InboxBatch } from './batchState'
+import { Card, CardTitle } from './Card'
+import { ContinueCard } from './ContinueCard'
+import type { CaptureListQueryDto } from '@invimport/contracts'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
-import { color, pageWidth, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, pageWidth, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { batchHref } from '../../navigation/batch-route'
 
-type InboxBatch = CaptureList['batches'][number] & { workflow?: InboxWorkflowDto }
 interface BatchesClient extends Omit<Client, 'list'> {
   list: (query?: CaptureListQueryDto) => Promise<{ batches: InboxBatch[]; truncated: boolean }>
 }
@@ -28,28 +25,6 @@ interface Props {
 }
 
 const INBOX_PAGE_SIZE = 10
-
-function resumeAction(batch: InboxBatch) {
-  if (batch.workflow?.open_questions) {
-    return {
-      href: batchHref(batch.id, { tab: 'processing', step: 'overview' }),
-      label: `Open ${batch.workflow.open_questions} questions`,
-    }
-  }
-  if (batch.workflow?.lots) {
-    const { lots, needs_review } = batch.workflow
-    // Lots still to check come first, so Review opens filtered to them.
-    return {
-      href: batchHref(
-        batch.id,
-        { tab: 'review', view: 'lots' },
-        needs_review > 0 ? '?filter=needs_review' : '',
-      ),
-      label: `Review ${lots} ${lots === 1 ? 'lot' : 'lots'}`,
-    }
-  }
-  return { href: batchHref(batch.id, { tab: 'capture' }), label: 'Continue Capture' }
-}
 
 export function Batches({ client, onDirtyChange }: Props) {
   const scope = useServerScope()
@@ -92,7 +67,6 @@ export function Batches({ client, onDirtyChange }: Props) {
 
   const continued =
     !submitted && offset === 0 ? batches?.batches.find((batch) => !batch.archived) : undefined
-  const resume = continued ? resumeAction(continued) : null
   const visible = batches?.batches.filter((batch) => batch.id !== continued?.id) ?? []
   const emptyMessage = submitted
     ? 'No retained batches match this title.'
@@ -132,55 +106,7 @@ export function Batches({ client, onDirtyChange }: Props) {
           />
         </Card>
       )}
-      {continued && (
-        <ContinueCard aria-labelledby="continue-title">
-          <ContinueImage>
-            <BatchThumbnail batchId={continued.id} thumbnail={continued.workflow?.thumbnail} />
-          </ContinueImage>
-          <ContinueBody>
-            <Eyebrow>Continue</Eyebrow>
-            <CardTitle id="continue-title">{continued.title}</CardTitle>
-            {continued.workflow ? (
-              <>
-                <Row>
-                  {continued.workflow.open_questions > 0 && (
-                    <Pill status="needs-answer">{continued.workflow.open_questions} need you</Pill>
-                  )}
-                  {continued.workflow.active_jobs > 0 && (
-                    <Pill status="processing">Agents working</Pill>
-                  )}
-                  <Meta>Last saved {new Date(continued.updated_at).toLocaleString()}</Meta>
-                </Row>
-                <BatchCounts workflow={continued.workflow} />
-              </>
-            ) : (
-              <Meta>Last saved {new Date(continued.updated_at).toLocaleString()}</Meta>
-            )}
-            <Actions>
-              {resume && (
-                <Button as="a" href={resume.href} variant="primary">
-                  {resume.label}
-                </Button>
-              )}
-              {continued.workflow &&
-                continued.workflow.ready > 0 &&
-                resume?.label.startsWith('Open') && (
-                  <Button
-                    as="a"
-                    href={batchHref(
-                      continued.id,
-                      { tab: 'review', view: 'lots' },
-                      '?filter=reviewed',
-                    )}
-                  >
-                    Review {continued.workflow.ready} ready{' '}
-                    {continued.workflow.ready === 1 ? 'lot' : 'lots'}
-                  </Button>
-                )}
-            </Actions>
-          </ContinueBody>
-        </ContinueCard>
-      )}
+      {continued && <ContinueCard batch={continued} />}
       <ListCard aria-labelledby="retained-batches">
         <ListHead>
           <ListLabel id="retained-batches">All batches · {visible.length}</ListLabel>
@@ -238,27 +164,7 @@ export function Batches({ client, onDirtyChange }: Props) {
           <BatchList>
             {visible.map((b) => (
               <li key={b.id}>
-                <BatchRow
-                  href={batchHref(b.id, { tab: 'capture' })}
-                  aria-label={b.title}
-                  aria-describedby={`${b.id}-meta ${b.id}-state`}
-                >
-                  <BatchThumbnail batchId={b.id} thumbnail={b.workflow?.thumbnail} />
-                  <RowText>
-                    <strong aria-hidden="true">{b.title}</strong>
-                    <Meta id={`${b.id}-meta`}>
-                      {b.archived ? 'Archived · ' : ''}
-                      {b.workflow
-                        ? `${b.workflow.lots} ${b.workflow.lots === 1 ? 'lot' : 'lots'} · `
-                        : ''}
-                      {new Date(b.updated_at).toLocaleString()}
-                    </Meta>
-                  </RowText>
-                  <RowState id={`${b.id}-state`}>
-                    <BatchState workflow={b.workflow} />
-                    <AddedBar workflow={b.workflow} />
-                  </RowState>
-                </BatchRow>
+                <BatchRow batch={b} />
               </li>
             ))}
           </BatchList>
@@ -282,10 +188,6 @@ export function Batches({ client, onDirtyChange }: Props) {
             </Button>
           </Pagination>
         )}
-        <Footnote>
-          Search covers every retained batch title. Counts are saved observations; open a batch to
-          check current choices.
-        </Footnote>
       </ListCard>
     </Inbox>
   )
@@ -316,74 +218,9 @@ const Lead = styled.p`
   color: ${color.muted};
 `
 
-const Card = styled.section`
-  padding: ${space[7]} ${space[8]};
-  border: 1px solid ${color.line};
-  border-radius: ${radius.card};
-  background: ${color.surface};
-  min-width: 0;
-`
-
-const CardTitle = styled.h2`
-  margin: 0;
-  ${type.h2}
-  overflow-wrap: anywhere;
-`
-
-const ContinueCard = styled(Card)`
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  overflow: hidden;
-  padding: 0;
-  ${media.compact} {
-    grid-template-columns: 96px minmax(0, 1fr);
-  }
-`
-
-/** The batch's first photo, flush to the card's edge. */
-const ContinueImage = styled.div`
-  --thumbnail-width: 100%;
-  --thumbnail-height: 100%;
-  min-height: 180px;
-  > div {
-    border: 0;
-    border-radius: 0;
-  }
-  ${media.compact} {
-    min-height: 0;
-  }
-`
-
-const ContinueBody = styled.div`
-  display: grid;
-  align-content: center;
-  gap: ${space[5]};
-  min-width: 0;
-  padding: ${space[8]} ${space[9]};
-`
-
-const Eyebrow = styled.span`
-  ${type.label}
-  color: ${color.muted};
-`
-
-const Row = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[4]};
-`
-
 const Meta = styled.span`
   font-size: ${typeVar.small.size};
   color: ${color.muted};
-`
-
-const Actions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[4]};
 `
 
 const ListCard = styled(Card)`
@@ -443,45 +280,6 @@ const BatchList = styled.ul`
   }
 `
 
-/** The whole row opens the batch; its title names the link and the rest describes it. */
-const BatchRow = styled.a`
-  --thumbnail-width: 72px;
-  --thumbnail-height: 54px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: ${space[7]};
-  padding: ${space[6]} ${space[7]};
-  color: inherit;
-  text-decoration: none;
-  ${hoverTransition}
-  &:hover {
-    background: ${color.surface2};
-  }
-  strong {
-    overflow-wrap: anywhere;
-  }
-  ${media.compact} {
-    grid-template-columns: auto minmax(0, 1fr);
-    > :last-child {
-      grid-column: 2;
-      justify-items: start;
-    }
-  }
-`
-
-const RowText = styled.span`
-  display: grid;
-  gap: ${space[1]};
-  min-width: 0;
-`
-
-const RowState = styled.span`
-  display: grid;
-  justify-items: end;
-  gap: ${space[3]};
-`
-
 const Pagination = styled.nav`
   display: flex;
   align-items: center;
@@ -494,13 +292,5 @@ const Pagination = styled.nav`
 const Note = styled.p`
   margin: 0;
   padding: ${space[6]} ${space[7]};
-  color: ${color.muted};
-`
-
-const Footnote = styled.p`
-  margin: 0;
-  padding: ${space[6]} ${space[7]};
-  border-top: 1px solid ${color.line};
-  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

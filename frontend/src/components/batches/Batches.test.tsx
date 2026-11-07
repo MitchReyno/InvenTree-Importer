@@ -119,3 +119,19 @@ test('each batch row is one link named by its title and described by its state',
   expect(screen.getByText(/All batches · 1/)).toBeVisible()
   void user
 })
+
+test('times read relatively, keep the exact time, and the list has no footnote', async () => {
+  const api = client()
+  const older = { ...saved, id: '10000000-0000-4000-8000-000000000009', title: 'Rockby order' }
+  api.list.mockImplementation(async () => ({ batches: [saved, older], truncated: false }))
+  render(<Batches client={api} onDirtyChange={vi.fn()} />)
+  const card = await screen.findByRole('region', { name: 'Bench bag' })
+
+  expect(within(card).getByText(/Last activity/)).toContainElement(
+    card.querySelector(`time[datetime="${saved.updated_at}"]`) as HTMLElement,
+  )
+  const row = screen.getByRole('link', { name: 'Rockby order' })
+  expect(row.querySelector('time')).toHaveAttribute('datetime', older.updated_at)
+  expect(row.querySelector('time')?.textContent).toMatch(/ago$|^just now$/)
+  expect(screen.queryByText(/Search covers every retained batch title/)).not.toBeInTheDocument()
+})

@@ -1,7 +1,11 @@
 import type { InboxWorkflowDto } from '@invimport/contracts'
+import type { CaptureList } from '../../../../contracts/generated/api.d.ts'
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { Pill } from '../ui/Pill'
+
+/** A batch as the Batches list reads it, with its saved workflow counts when present. */
+export type InboxBatch = CaptureList['batches'][number] & { workflow?: InboxWorkflowDto }
 
 /** A batch's one-word state, from its saved workflow counts. */
 export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {

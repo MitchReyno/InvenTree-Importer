@@ -267,7 +267,7 @@ const captureClient = {
         title: batch.title,
         revision: batch.revision,
         archived: false,
-        updated_at: batch.updated_at,
+        updated_at: ago(42),
         source_id: batch.source_id,
         workflow: {
           lots: 5,
@@ -285,7 +285,7 @@ const captureClient = {
         title: 'Rockby order 55120',
         revision: '12',
         archived: false,
-        updated_at: '2026-10-28T09:00:00Z',
+        updated_at: ago(10 * 24 * 60),
         source_id: batch.source_id,
         workflow: {
           lots: 6,
@@ -303,7 +303,7 @@ const captureClient = {
         title: 'Drawer cleanup — loose ICs',
         revision: '2',
         archived: false,
-        updated_at: '2026-11-04T09:00:00Z',
+        updated_at: ago(3 * 24 * 60),
         source_id: batch.source_id,
       },
     ],
@@ -430,13 +430,18 @@ const processingClient = {
   chat: async () => ({ id: 'f0000000-0000-4000-8000-000000000001' }),
 }
 
+/** List times are relative, so they are set from now to keep the screenshots stable. */
+function ago(minutes: number) {
+  return new Date(Date.now() - minutes * 60_000).toISOString()
+}
+
 export function BatchCaptureProof() {
   const route = useHashRoute()
 
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-<Masthead
+      <Masthead
         breadcrumb={
           route ? [{ label: 'Batches', href: '#' }, { label: batch.title }] : [{ label: 'Batches' }]
         }
