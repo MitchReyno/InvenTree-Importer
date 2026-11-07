@@ -54,11 +54,11 @@ Remove manual lot entry and question-blocked processing from Capture and Process
 
 #### BI-008 — Batch workspace redesign
 
-Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions.
+Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions. A styling uplift then moves the remaining styling onto the design system's tokens and shared components and closes the visual gaps against the canvas.
 
 - Change: `redesign-batch-workspace`
-- Status: Done — PR-A to PR-G merged in #96, #100, #102, #104, #108, #109 and #110, including task 14 (BI-006 sessions, observations and proposals) in PR-G; re-sending a value InvenTree refused waits on executor follow-up work (design D7).
-- Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in seven PRs.
+- Status: In progress — PR-A to PR-G merged in #96, #100, #102, #104, #108, #109 and #110, including task 14 (BI-006 sessions, observations and proposals) in PR-G. The styling uplift (tasks 15–20, design D11) follows as PR-H to PR-K; re-sending a value InvenTree refused waits on executor follow-up work (design D7).
+- Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in eleven PRs (PR-A to PR-K).
 - Prerequisites: None to start. Agent-backed panels (sessions, live lots, region-level Map) arrive with BI-006 and fall back to retained jobs until then.
 - OpenSpec: [redesign-batch-workspace](../openspec/changes/redesign-batch-workspace/)
 

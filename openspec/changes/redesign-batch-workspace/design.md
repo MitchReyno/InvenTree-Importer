@@ -30,7 +30,8 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
   - four tabs and a second tab row;
   - Review across Lots, Map and Records, with record edits;
   - Changes as Ready to add and Added;
-  - the Processing structure and the Agents page.
+  - the Processing structure and the Agents page;
+  - every screen styled from the design system's tokens and components, matching the canvas (D11).
 - **Constraints.**
   - No change to approval, preparation or results authority or identities.
   - No new effect kinds, and no real InvenTree profile.
@@ -210,6 +211,24 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
   - Use the existing Radix popover for the need-you panel and the disclosures.
 - **Rejected.** Adding a component library, because the design system is already specified.
 
+### D11. Styling uplift on design-system tokens v2
+
+- **Context.** D1's sweep moved every colour onto tokens and left other styling alone. The [audit](styling-audit.md) found 748 untokenised values in `frontend/src` (classified against tokens v1: 343 exact, 99 near, 306 with no token; tokens v2 covers most of the motion, z-index, breakpoint, opacity and size values among the 306) and 83 visual gaps against the canvas (27 High). Most High gaps come from screens still rendering local controls where a `components/ui/` component exists.
+- **Decision.**
+  - The design system's tokens move to version 2, which adds `space-0-5`, `space-5`, `space-6`, `radius-round` and the `duration`, `easing`, `zIndex`, `breakpoint`, `opacity` and `size` families. `frontend/src/theme/tokens.json` copies it, as D1 says, and the generator emits every family as CSS custom properties and typed constants. Media queries cannot read custom properties, so `ui/media.ts` takes the breakpoints from the generated constants.
+  - Equality is judged only against the tokens meant for the CSS property: margin, padding, gap and inset against `space-*`; `border-radius` against `radius-*`; width, height, `min-width`, `min-height` and `max-height` against `size-*` and `icon-*`; `max-width` against `width-*`; `outline-width`, `outline-offset` and ring `box-shadow` spreads against `ring-*`; translate distances against `offset-*`; type properties against the type variables; durations, easings, `z-index`, opacity and media-query widths against their own families. A value equal to a token in that family whose role fits is swapped for it. A value that equals a token whose role does not fit (a 6px card radius equals `radius-input`) is left for the visible step, which moves it to its role's token (`radius-card`). Where its role has no token (a 32px image that equals `size-control`), it stays a literal with an annotated allow comment saying why. A value a step away from a token, or one that only shares a token's role (such as a 6px card radius against `radius-card`), moves to the token as a deliberate, visible change; when it equals another token of the wrong role, the lint flags it and it stays in the baseline until then. The generator emits each type style's size, line-height, weight and letter-spacing as its own variable as well as the whole style, so a property that matches alone swaps exactly; the whole style replaces a rule only when every property matches. A value with no token stays a literal, and grid track widths (`grid-template-*`, which the lint does not check) stay literals even where one equals a size token. Other literals that stay: 1px and 3px nudges that line up with borders, and one-off sizes, as well as the masthead scene palette and photo masks.
+  - Each area's work lands as two kinds of commit. Token swaps come first and must leave every fixture screenshot pixel-identical. Visible changes follow (near values, moving onto shared components and the visual-gap fixes), with before-and-after screenshots.
+  - A screenshot-diff check over every owned fixture page, in light and dark at 1440 and 390 px, proves the token-swap commits.
+  - The literal-colour lint (D1) extends to raw spacing, radius, shadow, type, z-index, duration, easing, breakpoint, opacity and size values in components that equal a token. It allows values with no token, `calc()` adjustments of a token (such as a border-compensated `calc(var(--space-3) - 1px)`), the scene palette and photo masks. It starts from a recorded baseline of today's token-equal values, which each task may only shrink, and becomes strict once the baseline is empty.
+  - Screens use the shared components: one `Button`, `Pill` for every status (with the design's glyph and colour per state), `FilterChips`, `SegmentedControl`, `DataTable` with `BulkBar`, `Banner` in place of `primitives.Notice`, and new `Dialog` and `Popover` surfaces for the two dialogs and three popovers.
+  - Tasks follow the app's areas so each PR is reviewable alone: the foundation and component library first (task 15), then the shell, masthead, Batches and Agents (16), Capture (17), Processing (18), Review Lots and Map (19), and Records and Changes (20), which ends by making the lint strict.
+- **Why.** Exact swaps change nothing a person can see, so the screenshot diff, not a reviewer, proves them. Keeping them out of the visible commits lets review focus on the changes that alter the look. The baseline lint stops new literals arriving while the work is in progress.
+- **Rejected.**
+  - One commit per screen mixing swaps and visual changes: a reviewer could not tell which lines change the look.
+  - Folding the toast's motion into the popover's, and keeping Review's 1000px breakpoint: both would change the design rather than follow it. The tokens keep the PR-A handoff's motion and the brand book's 1180px.
+  - Tokenising the masthead scene's three.js palette: it is not CSS, and only the scene uses it.
+- **Trade-off.** Each area's files are touched twice, once for swaps and once for visible changes, in the same PR.
+
 ## State, authority and failure behavior
 
 ```text
@@ -244,6 +263,7 @@ browser ──CaptureEdit{record}──▶ capture repository (CAS on batch revi
 | Tree | Keyboard tests following the WAI-ARIA tree pattern, and a property test that the tree and By type views have equal node counts per state. |
 | Screens | Component tests for each new screen with fixture data. Headless-browser screenshots of each canvas screen in both themes at 1440 px, 860 px and 390 px, plus 200% zoom, against the owned fake. Results go in the handover. |
 | Masthead | A browser check that, in both themes, no part pixel overlaps the text boxes (sampled frames) and the reduced-motion still frame shows. |
+| Styling uplift | Generator contract tests for every token family. The extended literal-value lint, against its shrinking baseline and finally strict. The screenshot diff, which must show no change for a token-swap commit. Before-and-after screenshots of every changed screen in both themes at 1440 and 390 px, plus 860 px and 200% zoom where layouts change. |
 | Excluded | Live provider sessions and real InvenTree. These are synthetic or fixture only, and the handover says so. |
 
 ## Migration, rollout and recovery
@@ -267,4 +287,6 @@ browser ──CaptureEdit{record}──▶ capture repository (CAS on batch revi
 - **Scope.** Mitigated by the bundle order and by keeping agent-backed data behind the `ProcessingSource` adapter.
 - **Record fan-out.** Editing a shared reference key could change more Parts than expected. Every control states its scope from the server response, and the edit is one revision, so it can be inspected and corrected.
 - **`simplify-intake-entry` implementation.** Its revision merged in #95, but none of it is built yet. Region-level Map links, live sessions and proposed-new catalogue values arrive with its implementation.
+- **Styling scope.** Some visual gaps are layout rework rather than restyling: the batch header band, the two-column Processing overview, the docked session drawer, Review's lot rows and the two-column Ready to add. They are in scope (tasks 16, 18, 19 and 20) and are the largest items in their PRs.
+- **Visible change.** Near values and the 700px to 760px and 1000px to 1180px breakpoint moves change where layouts stack. Each is listed in its PR and shown in before-and-after screenshots.
 - **Open decisions.** None.

@@ -15,7 +15,8 @@
   - Build record edits on `CaptureEdit` and `InventoryPartSpec`.
 - **Change name.** `redesign-batch-workspace`, delivering [BI-008](../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign).
 - **Branches and subjects.** Branches are `feat/redesign-batch-workspace-<bundle>`, targeting `interactive-app`. Subjects are `type(redesign-batch-workspace): …`.
-- **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`, merged in #95). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). BI-006 supplies only data and contracts (its design D11). This change's `ProcessingSource` gains the session and observation adapter whenever those contracts exist: in task 14: one conditional PR (PR-G) after PR-C, PR-D and PR-E, which doesn't block any task, PR or BI-008.
+- **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`, merged in #95). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). BI-006 supplies only data and contracts (its design D11). This change's `ProcessingSource` gains the session and observation adapter whenever those contracts exist: in task 14: one conditional PR (PR-G) after PR-C, PR-D and PR-E, which blocked none of tasks 1–13. The styling uplift (tasks 15–20) follows it.
+- **Styling uplift.** Tasks 15–20 move the remaining styling onto the design system's tokens (version 2) and shared components, and close the visual gaps against the canvas (design D11). Their evidence is [styling-audit.md](styling-audit.md): clusters `C1`–`C18` and visual gaps by area `V1`–`V8`. Where the audit's recommendation differs from tokens v2, tokens v2 wins. Each area task's first step swaps only that area's exact values, leaving the screenshot diff unchanged. Its later steps take the visible changes: near values and the visible cluster changes (C1, C3, C4, C8, C9, C10, C15–C17), shared components and the area's gaps, each with before-and-after screenshots. Every area task also gives its controls a 44px hit area below `bp-compact` (G15).
 
 ## Completion and commit ordering
 
@@ -43,8 +44,14 @@ Keep a parent unchecked while any of its required subtasks are open. Review, pub
 | 12 Agents page | UI | 2, 7 | agents-overview: layout and the No session support yet scenario |
 | 13 Documentation and browser qualification | Docs/evidence | 6–12 | All specs in their pre-BI-006 forms: browser evidence |
 | 14 BI-006 sessions, observations and proposals (conditional) | Behavior/UI | 6, 7, 8, 9, 10, 12, and BI-006's contracts on `interactive-app` | capture-batch-settings: Read-only lots glance (with sessions); processing-workspace: Overview with running agents and the session drawer; agents-overview: Waiting sessions do not count as running; review-workspace region crops, agent line, and Map at region level with its instruction field; review-records: Ask scenario, New company with a likely match, New category proposed |
+| 15 Token foundation and component library | Enabling/UI | 1–14 | ui-design-system: Token-driven layout and type, and Motion and layers follow the design system (all scenarios, at component level); Screens use the shared components (at component level); Layout follows the design's widths and breakpoints (Phone width, for the library's controls) |
+| 16 App shell, masthead, Batches and Agents | UI | 15 | ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead) |
+| 17 Capture | UI | 15 | ui-design-system: Phone width (the Capture actions); Screens use the shared components on Capture |
+| 18 Processing | UI | 15 | ui-design-system: One status vocabulary (the running step); processing-workspace: Overview with running agents and Session drawer, as laid out in the canvas |
+| 19 Review Lots and Map | UI | 15 | ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints) |
+| 20 Records and Changes, then strict lint | UI/enabling | 15–19 | ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict |
 
-Tasks 4 and 9 are backend work and can run in parallel with the UI tasks.
+Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 16–19 can run in any order after task 15.
 
 ## PR delivery map
 
@@ -57,8 +64,12 @@ Tasks 4 and 9 are backend work and can run in parallel with the UI tasks.
 | PR-E | Record edits on capture authority, records projection, and the Records UI | 9–10 | Backend and UI for one capability, reviewable together; the server half has its own integration tests. | PR-B (UI); task 9 may start earlier | `interactive-app` ← `feat/redesign-batch-workspace-records`; `feat(redesign-batch-workspace): review and edit records` | Contracts, intake and PostgreSQL tests; frontend checks; browser check; review; CI |
 | PR-F | Preparation tree, Changes Ready to add (By type and Tree) and Added; removal of the old Approve and Results screens | 11, 13 | Commits the batch on the existing authority, and ends the migration by removing the old screens. Documentation and qualification close the change. | PR-D, PR-E | `interactive-app` ← `feat/redesign-batch-workspace-changes`; `feat(redesign-batch-workspace): changes ready to add and added` | All checks; full browser qualification recorded in the handover; review; CI |
 | PR-G | Task 14: the `ProcessingSource` adapter for BI-006's sessions and observations, live sessions on Processing and Agents, Tell Examine and region-level Map links, Ask, and BI-006's catalogue proposals in the records projection | 14 | One conditional PR after the screens it switches on exist, so nothing ships before its adapter or screen | PR-C, PR-D, PR-E, and BI-006's contracts on `interactive-app` | `interactive-app` ← `feat/redesign-batch-workspace-agent-data`; `feat(redesign-batch-workspace): wire agent sessions, observations and proposals` | `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks; synthetic-session browser check; review; CI |
+| PR-H | Tokens v2 in the app, the screenshot-diff check and the literal-value lint baseline; the component library on tokens, one Button, Dialog and Popover surfaces, and the library's visual gaps | 15 | The foundation the area PRs build on, and their safety net | PR-G. Merges before PR-I, PR-J and PR-K. | `interactive-app` ← `feat/redesign-batch-workspace-styling-foundation`; `feat(redesign-batch-workspace): token foundation and component library` | Frontend checks; contrast script; screenshot diff unchanged for the token-swap commit; before-and-after screenshots; demo video; review; CI |
+| PR-I | App shell widths and global CSS, masthead and header popovers, the batch header band, Batches, Agents and settings | 16 | The frame every screen sits in | PR-H | `interactive-app` ← `feat/redesign-batch-workspace-styling-shell`; `feat(redesign-batch-workspace): restyle app shell, masthead, batches and agents` | As PR-H |
+| PR-J | Capture and Processing, each as its own task and commits | 17, 18 | Two mid-sized areas that share no files, reviewed together to keep the PR count down | PR-H | `interactive-app` ← `feat/redesign-batch-workspace-styling-capture-processing`; `feat(redesign-batch-workspace): restyle capture and processing` | As PR-H |
+| PR-K | Review Lots and Map, then Records and Changes, ending with the strict lint | 19, 20 | The rest of Review and Changes; the lint can only become strict once every area is clean | PR-H, PR-I, PR-J | `interactive-app` ← `feat/redesign-batch-workspace-styling-review-changes`; `feat(redesign-batch-workspace): restyle review, records and changes` | As PR-H, plus the strict lint and a final screenshot pass over every screen |
 
-PR-C and PR-D can be reviewed in parallel after PR-B.
+PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be reviewed in parallel after PR-H.
 
 ## 1. Tokens, themes and fonts
 
@@ -289,7 +300,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-G, as one PR, once PR-C, PR-D and PR-E have merged and BI-006's contracts are on `interactive-app`. It never ships early inside another bundle, so no part can land before the adapter it needs or before its screen exists.
 - **Outcome:** Processing, the Agents page, the Capture lots glance, Review › Map and Records show live sessions, region-level observations and BI-006's proposed-new and unsupported catalogue values.
 - **Scope:** `frontend/src/processing/` (a second `ProcessingSource` adapter); the Processing overview session list and session drawer; the Agents page; the Capture Proposed lots glance's status line; the Review evidence pane's region crops and Lot details' agent line; the Map's region links and instruction field; the Records Ask control; and the records projection's reading of BI-006's structured catalogue proposals (`bench-intake-proposal/5`) in `contracts/src/` and `intake-server/src/` (the `/api/v1/batches/:id/records` read from task 9).
-- **Prerequisites:** tasks 6, 7, 8, 9, 10 and 12, and BI-006's contracts merged. It is not a prerequisite of any other task, and BI-008 can be marked Done without it; until then the screens keep their honest "not available" states.
+- **Prerequisites:** tasks 6, 7, 8, 9, 10 and 12, and BI-006's contracts merged. It was not a prerequisite of tasks 1–13; until it landed the screens kept their honest "not available" states. Task 15 follows it.
 - **Acceptance:** capture-batch-settings: Read-only lots glance (its agent status line); processing-workspace: Overview with running agents, and Session drawer; agents-overview: Waiting sessions do not count as running; review-workspace: Lot details with the agent line, Evidence pane with region crops, and Map at region level with its instruction field; review-records: Ask about a proposed value (steering routed to the proposing step), New company with a likely match, and New category proposed, end to end.
 - **TDD approach:** write failing adapter tests against BI-006's `synthetic-session/1` fixture data, and failing records-projection tests with `bench-intake-proposal/5` fixtures, first (RED), then implement (GREEN).
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks, and a browser check of each screen with the synthetic session profile.
@@ -303,6 +314,110 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
 - [x] 14.8 Record the browser check of every screen above in the handover.
 
+## 15. Token foundation and component library
+
+- **PR delivery:** PR-H.
+- **Outcome:** the app's tokens match design system v2, every token family is generated, and a screenshot diff and a literal-value lint guard the later tasks. The component library uses tokens throughout, has one Button and shared Dialog and Popover surfaces, and matches the design in its states, glyphs and motion.
+- **Scope:** `frontend/src/theme/` and its generator, `frontend/scripts/` checks, `components/ui/` (including `media.ts`, `primitives.tsx` and a motion module). Gaps G15 for `components/ui/` (Button `link` and `sm`, interactive chips and links). Audit clusters C1, C2, C3 (library cards), C5–C7, C8 (`media.ts`), C9, C10, C15, C16 and C18, and gaps V1.
+- **Prerequisites:** tasks 1–14.
+- **Acceptance:** ui-design-system: Token-driven layout and type (Literal value refused, for the library); Layout follows the design's widths and breakpoints (Phone width, for the library's controls); Motion and layers follow the design system (Reduced motion; Toast above an open menu); Screens use the shared components, at component level.
+- **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them. The generator's contract test and the lint's tests fail first on the new families.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 15.1 Add the screenshot-diff check over every owned fixture page in light and dark at 1440 and 390 px, with a `pnpm` command and its use documented in `frontend/README.md`, and capture its baseline before any other change in this task, so 15.2 and 15.3 are diffed against it.
+- [ ] 15.2 Copy the design system's tokens v2 into `frontend/src/theme/tokens.json`; write failing generator contract tests for the `duration`, `easing`, `zIndex`, `breakpoint`, `opacity` and `size` families and the new spacing and radius steps (RED), then generate them as CSS custom properties and typed constants (GREEN), with each type style's size, line-height, weight and letter-spacing also emitted as its own variable.
+- [ ] 15.3 Make `ui/media.ts` use the generated breakpoints and add a shared motion module (keyframes, durations, easings, reduced-motion guard) in place of the library's duplicated `pulse` keyframes (Progress, PhaseRow); 16.3 removes the header popovers' copies.
+- [ ] 15.4 Extend the literal-colour lint to spacing, radius, shadow, type, z-index, duration, easing, breakpoint, opacity and size values in components that equal a token, judging equality only against the tokens meant for each property (design D11, including `min-height` and `min-width` against `size-*`), leaving a value whose equal token has the wrong role for the visible step, allowing values with no token, grid track widths (`grid-template-*`), values with an annotated allow comment because their role has no token, `calc()` adjustments of a token, the scene palette and photo masks (design D11), and counting a type property as token-equal when it matches that property's variable, reporting the file, line and token to use, with a recorded baseline that a change may only shrink.
+- [ ] 15.5 Swap exact values for tokens in `components/ui/` and `primitives.tsx`, with the screenshot diff unchanged.
+- [ ] 15.6 Make `primitives.Button` the shared `ui/Button`, and add `Dialog` and `Popover` surfaces (radius, padding, shadow, layer and motion from tokens).
+- [ ] 15.7 Close the library's V1 gaps: G3 (each status's glyph and colour), G7 and G11 (a shared hover-transition mixin, applied to the library's hover rules; G7's Batches, HeaderStatus and MastheadMenu sites go to 16.6 and EvidenceActions to 17.5), G8 (table row hover), G10 (toast exit), the toast's layer from `z-index: 50` to `z-toast`, G15 for the library's own controls (Button `link` and `sm`, interactive chips and links) and the `Banner` component's part of G12; and move the library's near values and visible cluster changes onto tokens (C2, C3, C9, C10, C15, C16, and C18's control heights and icon sizes), with before-and-after screenshots. The other V1 gaps belong to the area task that owns their files: G1 and G9 to task 16, G2 to tasks 16 and 19, G4 to task 20, G5 and G16 (Processing) to task 18, G6 to tasks 17 and 19, G12's screens to tasks 17, 18 and 20, G13, G14 and G17 to task 19, G15's screen-local controls to every area task, and G16 (Records) to task 20.
+- [ ] 15.8 Record the screenshots, the shrunk baseline and the results in the PR description, and any departure from this plan in `notes.md`.
+
+## 16. App shell, masthead, Batches and Agents
+
+- **PR delivery:** PR-I.
+- **Outcome:** pages sit at the design's content widths, the masthead stays one row at phone width, the batch header is the design's full-width band with tab counts, and Batches, Agents and settings match the canvas.
+- **Scope:** `App.tsx` and global CSS, `components/masthead/` and the header popovers (`NeedYouPanel`, `MastheadMenu`, `HeaderDisclosure`), `BatchHeader`, `components/batches/`, `components/agents/` (including `AgentSettings*`) and `components/operations/`. Clusters C1, C3, C4, C8 (the app shell's 700px), C9, C10 and C15–C17, and gaps V2, V3 and V6, plus G1, G2 (the app shell), G7 (Batches, HeaderStatus and MastheadMenu), G9 and G15 for these screens.
+- **Prerequisites:** task 15.
+- **Acceptance:** ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead).
+- **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 16.1 Swap exact values for tokens in these areas, with the screenshot diff unchanged.
+- [ ] 16.2 Set the content widths (G1) (`width-content`, `width-review`) and page padding (`space-6` at desktop, at least `space-4` at phone width), move the app shell's 700px query to `bp-compact` (G2), and move the global focus ring and body type onto tokens.
+- [ ] 16.3 Move the three header popovers onto `Popover` (closing G9) and drop their copied keyframes (C6), keep the masthead to one row at phone width (M2), and give these screens' controls a 44px hit area below `bp-compact` (G15).
+- [ ] 16.4 Make the batch header a full-width band (M5, M8) with the tabs on the title row, the second tab row as its own band, tab counts with sub-tab counts and badges (M9), and the Processing step icons.
+- [ ] 16.5 Close the V3 and V6 gaps (B1–B7, A1–A4) on Batches, Agents and Agent settings (`components/agents/AgentSettings*`).
+- [ ] 16.6 Apply the hover-transition mixin to G7's Batches, HeaderStatus and MastheadMenu rows, move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
+- [ ] 16.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+
+## 17. Capture
+
+- **PR delivery:** PR-J.
+- **Outcome:** Capture matches the canvas: outlined capture-action tiles with a glyph and a subline, groups with an inline name and small actions, the move handle on the tile, and the Proposed lots glance as thumbnail rows with a footer band.
+- **Scope:** `components/capture/` and `components/media/`, including `MediaCropDialog` onto `Dialog`. Gaps V4 (K1–K10), G6, G7 (`EvidenceActions`), G12 and G15 for Capture, and the Capture rows of clusters C1, C3, C4, C8 (430px, and the inclusive 760px and 860px edges), C9, C10 and C15–C17.
+- **Prerequisites:** task 15.
+- **Acceptance:** ui-design-system: Phone width (the Capture actions); Screens use the shared components on Capture.
+- **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 17.1 Swap exact values for tokens in Capture and media, with the screenshot diff unchanged, recording in the PR description each inclusive 760px or 860px query that moves to just below its token's edge.
+- [ ] 17.2 Restyle the capture actions as the design's tiles (K1), and give every Capture control a 44px hit area below `bp-compact` (G15).
+- [ ] 17.3 Restyle evidence groups and tiles (K3–K5): inline group name, small and ghost actions, the move handle on the tile.
+- [ ] 17.4 Restyle the Proposed lots glance (K6; its chips onto `Pill`, G6), and move `MediaCropDialog` onto `Dialog`.
+- [ ] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
+- [ ] 17.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+
+## 18. Processing
+
+- **PR delivery:** PR-J.
+- **Outcome:** the Processing overview is the canvas's two-column layout with a step progress bar, Needs-you items as cards and activity as a timeline; the session drawer docks on the right with its timeline and chat; running states use the accent colour.
+- **Scope:** `components/processing/`, the session drawer and `ui/PhaseRow.tsx` (P10, P11). Gaps V5, G5, G12 and G16 for Processing and the drawer, and G15, plus the Processing rows of clusters C1, C3, C4, C8 (480px, an exact swap with its edge recorded), C9, C10 and C15–C17.
+- **Prerequisites:** task 15.
+- **Acceptance:** ui-design-system: One status vocabulary (the running step); processing-workspace: Overview with running agents and Session drawer, as laid out in the canvas.
+- **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged, recording in the PR description the inclusive 480px query that moves to just below `bp-phone`.
+- [ ] 18.2 Lay out the overview in two columns (P1, P2, P4, P5) with the step progress bar, Needs-you cards and the activity timeline.
+- [ ] 18.3 Dock the session drawer on the right (P9) with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
+- [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7, P8, P10 and P11 (P10 and P11 in `ui/PhaseRow.tsx`).
+- [ ] 18.5 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+
+## 19. Review Lots and Map
+
+- **PR delivery:** PR-K.
+- **Outcome:** Review uses the shared components and the design's breakpoints: lot rows with thumbnails and a current-row border, the view switch as `SegmentedControl`, filters as `FilterChips` that wrap at phone width, the table as `DataTable` with the dark `BulkBar` above it, and styled Map controls with Tell Examine inside its card.
+- **Scope:** `components/review/` (Lots and Map) and `components/operator/`, including `Modal` onto `Dialog` and `StatusChip` onto `Pill`. Gaps V7 (Lots and Map), G2, G6, G13, G14, G15 and G17 for Review, clusters C8 (700px to `bp-compact`, 1000px to `bp-wide`), C1, C3, C4, C9, C10, C11 (`ReviewTable`, `CompareMatches`), C12, C13 and C15–C17.
+- **Prerequisites:** task 15.
+- **Acceptance:** ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints).
+- **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 19.1 Swap exact values for tokens in Review Lots, Map and the operator components, with the screenshot diff unchanged, recording in the PR description the inclusive 600px queries (`RestructureDialog`, `ImpactSummary`) that move to just below `bp-narrow`.
+- [ ] 19.2 Move Review's breakpoints onto `bp-compact` and `bp-wide` (G2), with screenshots at 700–800 and 1000–1200 px.
+- [ ] 19.3 Move `StatusChip` (G6), the filters, the view switch and the tables (R1, R2, R11, R12) onto `Pill`, `FilterChips`, `SegmentedControl` and `DataTable` with `BulkBar`, and `Modal` onto `Dialog`.
+- [ ] 19.4 Restyle the lot rows (R4), the observation cards and their small buttons (R14), the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
+- [ ] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
+- [ ] 19.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+
+## 20. Records and Changes, then strict lint
+
+- **PR delivery:** PR-K.
+- **Outcome:** Records and Changes match the canvas, with one status vocabulary between them; nothing uses `primitives.Notice` or the legacy primitives any more; and the literal-value lint is strict.
+- **Scope:** `components/review/records/`, `components/changes/`, the remaining `primitives.Notice` users and leftover legacy primitives. Gaps V7 (Records) and V8, G4, G12 (Added), G15 and G16 (Records), and clusters C1, C3, C4, C8 (`RecordsStage`'s inclusive 860px edge), C9, C10, C11 (`RecordDetail`'s table onto `DataTable`), C14 and C15–C17.
+- **Prerequisites:** tasks 15–19.
+- **Acceptance:** ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict.
+- **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`. Also a final screenshot pass over every screen.
+
+- [ ] 20.1 Swap exact values for tokens in Records and Changes, with the screenshot diff unchanged, recording in the PR description each inclusive 860px query that moves to just below `bp-stacked`.
+- [ ] 20.2 Restyle the Records type rail (R15), `RecordDetail`'s table onto `DataTable`, its empty state (G16), and the Ready to add layout and lot rows (X1, X2); give New, Update and Exists the same colours on both screens (G4); and give these screens' controls a 44px hit area below `bp-compact` (G15).
+- [ ] 20.3 Move the remaining `primitives.Notice` users, including Added's (G12), onto `Banner` and remove the unused legacy primitives.
+- [ ] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
+- [ ] 20.5 Empty the literal-value baseline and make the lint strict.
+- [ ] 20.6 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
+
 ## Delivery evidence and lifecycle follow-up
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
@@ -312,5 +427,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] D.5 PR-E: same gates. Review clear at `18b2381` after fourteen rounds, then the merge of #107 and its two fixes reviewed clear at `ad15957`; merged as #108 (`ab80c3b`) with every CI job that ran green and a demo video attached.
 - [x] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7. Review clear at `cabe29c` after six rounds; merged as #109 (`c15e9ce`) with every CI job that ran green and a demo video attached. BI-008 is Done; task 14 follows as PR-G.
 - [x] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`. Review clear at `e99d14f` after seven rounds, with its wording follow-up `2139767` reviewed clear; merged as #110 (`3ed53f2`) with every CI job that ran green and a demo video attached.
+- [ ] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit.
+- [ ] D.9 PR-I (task 16): same gates, after PR-H.
+- [ ] D.10 PR-J (tasks 17 and 18): same gates, after PR-H.
+- [ ] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J. BI-008 returns to Done once PR-K merges.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

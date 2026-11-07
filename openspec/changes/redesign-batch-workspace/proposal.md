@@ -114,6 +114,10 @@ Sources:
    - Added: run outcomes, InvenTree links, recovery and the activity log.
    - It reuses the existing preparation, frozen plan, approval and results authority.
 8. **App-level pages.** A redesigned Batches home and the Agents page.
+9. **Styling uplift (tasks 15–20).**
+   - The first pass moved colour onto tokens and left other existing styling as it was. Every remaining spacing, radius, type, shadow, motion, layer, breakpoint, opacity and size value moves onto the design system's tokens (version 2) where an equivalent exists.
+   - Screens move onto the shared design-system components where one exists, instead of local copies.
+   - The styling gaps between the screens and the canvas, found by the audit in [styling-audit.md](styling-audit.md), are closed: spacing, margins, shadows, glyph icons, animations, widths and phone layouts.
 
 **Non-goals**
 
@@ -155,7 +159,7 @@ Sources:
 
 ### New capabilities
 
-- **`ui-design-system`:** tokens and themes, theme control, typography, the component vocabulary, content rules (provenance on demand, limits stated once), and the masthead and electronics current in both themes.
+- **`ui-design-system`:** tokens and themes, theme control, typography, the component vocabulary, content rules (provenance on demand, limits stated once), the masthead and electronics current in both themes, and (tasks 15–20) token-driven layout and type, motion and layers, shared components on every screen, and the design's widths and breakpoints.
 - **`batch-navigation`:** four tabs, the second tab row with counts and attention badges, the "need you" panel, and legacy route redirects.
 - **`processing-workspace`:** Overview, step pages, the session drawer, and how retained non-session jobs are presented.
 - **`review-workspace`:** Lots (Workspace and Table), the evidence pane, problem routing, and the Map.
