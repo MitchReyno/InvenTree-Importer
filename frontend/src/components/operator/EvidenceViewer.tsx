@@ -77,6 +77,19 @@ export function EvidenceViewer({
   const stage = useRef<HTMLDivElement>(null)
   // Measured before paint; the image waits for it so its first request is already the right size.
   const [stageWidth, setStageWidth] = useState<number | null>(null)
+  // Moving between displays changes density without resizing, so it re-renders on its own.
+  const [density, setDensity] = useState(() => globalThis.devicePixelRatio ?? 1)
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') {
+      return
+    }
+    const query = matchMedia(`(resolution: ${density}dppx)`)
+
+    const changed = () => setDensity(globalThis.devicePixelRatio ?? 1)
+
+    query.addEventListener('change', changed)
+    return () => query.removeEventListener('change', changed)
+  }, [density])
   useLayoutEffect(() => {
     const element = stage.current
     if (!element) {
@@ -215,7 +228,7 @@ export function EvidenceViewer({
                 key={`${page.preview_id}:${loadAttempt}`}
                 $zoom={zoom}
                 decoding="async"
-                {...(needsFullResolution(page, stageWidth, zoom, globalThis.devicePixelRatio ?? 1)
+                {...(needsFullResolution(page, stageWidth, zoom, density)
                   ? fullPreview(batchId, page)
                   : previewImage(
                       batchId,
