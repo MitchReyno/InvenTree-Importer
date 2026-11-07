@@ -6,7 +6,7 @@ import { CaptureWorkspace } from '../../capture/CaptureWorkspace'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
 import type { MediaClient } from '../../../media/types'
 import { EvidenceViewer } from '../../operator/EvidenceViewer'
-import { AppShell, Main, PageContent } from '../../AppLayout'
+import { Main, PageContent } from '../../AppLayout'
 
 const actor = '30000000-0000-4000-8000-000000000003'
 const batch: CaptureSnapshotDto = {
@@ -143,7 +143,6 @@ export function GroupedCaptureProof() {
       }}
     >
       <GlobalStyle />
-      <AppShell>
 <PageContent $width="content">
 <Main>
         <h1>Grouped Capture qualification</h1>
@@ -180,7 +179,6 @@ export function GroupedCaptureProof() {
         )}
       </Main>
 </PageContent>
-</AppShell>
     </ServerStateProvider>
   )
 }

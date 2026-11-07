@@ -26,7 +26,7 @@ import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
 import { color, typeVar } from './theme/generated/tokens'
-import { AppShell, Main, PageContent } from './components/AppLayout'
+import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
@@ -120,6 +120,7 @@ export default function App() {
   const currentBatch =
     route === 'agents' || route === 'settings' ? undefined : route?.split('/')[0] || undefined
   let content: ReactNode
+  let batchPage = false
   if (bootstrapUnavailable && !bootstrap) {
     content = (
       <div role="alert">
@@ -160,6 +161,8 @@ export default function App() {
       />
     )
   } else if (route && manual) {
+    // A batch page draws its full-width header band, then centres its own content.
+    batchPage = true
     content = (
       <Batch
         key={route.split('/')[0]}
@@ -179,8 +182,9 @@ export default function App() {
   } else {
     content = <Batches client={client} onDirtyChange={onDirtyChange} />
   }
+  const width = pageWidthFor(route ?? '')
   return (
-    <AppShell>
+    <>
       <GlobalStyle />
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
         <LiveUpdates
@@ -206,25 +210,33 @@ export default function App() {
               )
             }
           />
-          <PageContent $width={pageWidthFor(route ?? '')}>
-            {bootstrapUnavailable && bootstrap && (
-              <Notice role="alert">
-                Application connection unavailable. Showing the last development context; retained
-                views report their own freshness. Unsaved input is preserved.
-              </Notice>
+          <Main>
+            {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
+              <PageContent $width={width}>
+                {bootstrapUnavailable && bootstrap && (
+                  <Notice role="alert">
+                    Application connection unavailable. Showing the last development context;
+                    retained views report their own freshness. Unsaved input is preserved.
+                  </Notice>
+                )}
+                {navigationBlocked && (
+                  <Notice role="alert">
+                    Your unsaved input is preserved. Save this form or discard its unsaved input
+                    before navigating, then choose the destination again.
+                  </Notice>
+                )}
+              </PageContent>
             )}
-            {navigationBlocked && (
-              <Notice role="alert">
-                Your unsaved input is preserved. Save this form or discard its unsaved input before
-                navigating, then choose the destination again.
-              </Notice>
+            {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+            {manual && (
+              <PageContent $width={width}>
+                <Diagnostics />
+              </PageContent>
             )}
-            <Main>{content}</Main>
-            {manual && <Diagnostics />}
-          </PageContent>
+          </Main>
         </LiveUpdates>
       </ServerStateProvider>
-    </AppShell>
+    </>
   )
 }
 

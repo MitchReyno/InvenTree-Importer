@@ -30,6 +30,7 @@ import { ManualWorkspace } from '../review/ManualWorkspace'
 import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/batch-route'
 import { useBatchAttention, type AttentionClient } from '../../attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
+import { PageContent } from '../AppLayout'
 import { RecordsStage } from '../review/records/RecordsStage'
 import type { RecordsClient } from '../../records/useBatchRecords'
 import { ReviewMapStage } from '../review/ReviewMapStage'
@@ -537,58 +538,61 @@ export function Batch({
           onArchive={() => void edit({ kind: 'batch', archived: !batch.archived })}
         />
       )}
-      {operatorUnavailable && acceptedOperatorReview && !visibleError && (
-        <ErrorNotice role="status">
-          <Paragraph>
-            Current operator review is unavailable or changed. Local input is retained until exact
-            retry or explicit discard.
-          </Paragraph>
-          <Button
-            disabled={busy || captureQuery.isFetching}
-            onClick={() => void discardLocalEdits()}
-          >
-            Discard local edits and load saved values
-          </Button>
-        </ErrorNotice>
-      )}
-      {visibleError && (
-        <ErrorNotice role="alert">
-          <Paragraph>{visibleError}</Paragraph>
-          {current && (
-            <>
-              <Paragraph>
-                <strong>Current saved title:</strong> {current.title} · revision {current.revision}
-              </Paragraph>
-              <details>
-                <Summary>Current saved revision {current.revision} · exact fields</Summary>
-                <SnapshotFields>
-                  {JSON.stringify(
-                    {
-                      title: current.title,
-                      defaults: current.defaults,
-                      context: current.context,
-                      notes: current.notes,
-                      lots: current.lots,
-                      parts: current.parts,
-                    },
-                    null,
-                    2,
-                  )}
-                </SnapshotFields>
-              </details>
-            </>
-          )}
-          <Button
-            disabled={readOrCommandBusy}
-            onClick={() => {
-              void discardLocalEdits()
-            }}
-          >
-            Discard local edits and load saved values
-          </Button>
-        </ErrorNotice>
-      )}
-      {content}
+      <PageContent $width={batchRoute?.tab === 'review' ? 'review' : 'content'}>
+        {operatorUnavailable && acceptedOperatorReview && !visibleError && (
+          <ErrorNotice role="status">
+            <Paragraph>
+              Current operator review is unavailable or changed. Local input is retained until exact
+              retry or explicit discard.
+            </Paragraph>
+            <Button
+              disabled={busy || captureQuery.isFetching}
+              onClick={() => void discardLocalEdits()}
+            >
+              Discard local edits and load saved values
+            </Button>
+          </ErrorNotice>
+        )}
+        {visibleError && (
+          <ErrorNotice role="alert">
+            <Paragraph>{visibleError}</Paragraph>
+            {current && (
+              <>
+                <Paragraph>
+                  <strong>Current saved title:</strong> {current.title} · revision{' '}
+                  {current.revision}
+                </Paragraph>
+                <details>
+                  <Summary>Current saved revision {current.revision} · exact fields</Summary>
+                  <SnapshotFields>
+                    {JSON.stringify(
+                      {
+                        title: current.title,
+                        defaults: current.defaults,
+                        context: current.context,
+                        notes: current.notes,
+                        lots: current.lots,
+                        parts: current.parts,
+                      },
+                      null,
+                      2,
+                    )}
+                  </SnapshotFields>
+                </details>
+              </>
+            )}
+            <Button
+              disabled={readOrCommandBusy}
+              onClick={() => {
+                void discardLocalEdits()
+              }}
+            >
+              Discard local edits and load saved values
+            </Button>
+          </ErrorNotice>
+        )}
+        {content}
+      </PageContent>
     </>
   )
 }

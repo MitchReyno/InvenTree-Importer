@@ -11,7 +11,7 @@ import { Masthead } from '../../masthead/Masthead'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
 import { AgentSessions } from '../../agents/AgentSessions'
 import { ProcessingWorkspace } from '../ProcessingWorkspace'
-import { AppShell, Main, PageContent } from '../../AppLayout'
+import { Main, PageContent } from '../../AppLayout'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
@@ -245,7 +245,6 @@ export function ProcessingProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <AppShell>
 <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: batch.title }]} />
       <PageContent $width="content">
 <Main>
@@ -280,7 +279,6 @@ export function ProcessingProof() {
         )}
       </Main>
 </PageContent>
-</AppShell>
     </ServerStateProvider>
   )
 }

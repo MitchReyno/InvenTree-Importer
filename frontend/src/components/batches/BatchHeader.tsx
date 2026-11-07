@@ -6,7 +6,7 @@ import {
   type BatchTab,
   type ProcessingStep,
 } from '../../navigation/batch-route'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, pageWidth, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
 import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
@@ -176,55 +176,79 @@ export function BatchHeader({
 }: BatchHeaderProps) {
   const current: BatchTab = route.tab
   const row = secondRow(batch.id, route, attention)
+  const width = route.tab === 'review' ? 'review' : 'content'
 
   return (
     <Band>
-      <TitleRow>
-        <div>
-          <Title>{batch.title}</Title>
+      <Inner $width={width}>
+        <Lead>
+          <TitleLine>
+            <Title>{batch.title}</Title>
+            {attention && <NeedYouPanel attention={attention} />}
+            {!attention && attentionUnavailable && (
+              <Pill tone="neutral">Needs you unavailable</Pill>
+            )}
+            <Button variant="ghost" size="sm" disabled={busy} onClick={onArchive}>
+              {batch.archived ? 'Resume archived batch' : 'Archive batch'}
+            </Button>
+          </TitleLine>
           <Meta>
             {activeLotCount} {plural(activeLotCount, 'lot', 'lots')}
             {retiredLotCount > 0 && ` (${retiredLotCount} retired)`} · {batch.parts.length}{' '}
             {plural(batch.parts.length, 'Part proposal', 'Part proposals')}
             {batch.archived && ' · Archived'}
           </Meta>
-        </div>
-        <Actions>
-          {attention && <NeedYouPanel attention={attention} />}
-          {!attention && attentionUnavailable && <Pill tone="neutral">Needs you unavailable</Pill>}
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onArchive}>
-            {batch.archived ? 'Resume archived batch' : 'Archive batch'}
-          </Button>
-        </Actions>
-      </TitleRow>
-      <Tabs label="Batch" items={primaryTabs(batch.id, attention)} current={current} />
-      {row && <SubTabs label={row.label} items={row.items} current={row.current} />}
+        </Lead>
+        <TabSlot>
+          <Tabs label="Batch" items={primaryTabs(batch.id, attention)} current={current} />
+        </TabSlot>
+      </Inner>
+      {row && (
+        <SubBand>
+          <SubInner $width={width}>
+            <TabSlot>
+              <SubTabs label={row.label} items={row.items} current={row.current} />
+            </TabSlot>
+          </SubInner>
+        </SubBand>
+      )}
     </Band>
   )
 }
 
+/** A full-width band under the masthead; its rows line up with the page's content width. */
 const Band = styled.header`
-  display: grid;
-  gap: ${space[4]};
-  margin-bottom: ${space[9]};
-  padding: ${space[7]} ${space[8]} 0;
-  border: 1px solid ${color.line};
-  border-radius: ${radius.card};
   background: ${color.surface};
+  border-bottom: 1px solid ${color.line};
+`
+
+const Inner = styled.div<{ $width: 'content' | 'review' }>`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: ${space[4]} ${space[8]};
+  max-width: ${({ $width }) => pageWidth[$width]};
+  margin: 0 auto;
+  padding: ${space[7]} ${space[12]} 0;
   ${media.compact} {
-    padding: ${space[6]} ${space[6]} 0;
+    padding: ${space[6]} ${space[8]} 0;
   }
 `
 
-const TitleRow = styled.div`
+const Lead = styled.div`
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  gap: ${space[3]};
+  min-width: 0;
+  padding-bottom: ${space[5]};
+`
+
+const TitleLine = styled.div`
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: ${space[6]};
-  > div:first-child {
-    min-width: 0;
-  }
+  align-items: center;
+  gap: ${space[4]};
 `
 
 const Title = styled.h1`
@@ -234,14 +258,29 @@ const Title = styled.h1`
 `
 
 const Meta = styled.p`
-  margin: ${space[2]} 0 0;
+  margin: 0;
   font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
-const Actions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[4]};
+/** The band draws the rules, so the tab rows drop their own. */
+const TabSlot = styled.div`
+  min-width: 0;
+  max-width: 100%;
+  > nav {
+    border-bottom: 0;
+  }
+`
+
+const SubBand = styled.div`
+  border-top: 1px solid ${color.line};
+`
+
+const SubInner = styled.div<{ $width: 'content' | 'review' }>`
+  max-width: ${({ $width }) => pageWidth[$width]};
+  margin: 0 auto;
+  padding: 0 ${space[12]};
+  ${media.compact} {
+    padding: 0 ${space[8]};
+  }
 `

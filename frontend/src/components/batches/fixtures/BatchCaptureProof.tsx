@@ -11,7 +11,7 @@ import { ServerStateProvider } from '../../query/ServerStateProvider'
 import type { MediaClient } from '../../../media/types'
 import { Batch } from '../Batch'
 import { Batches } from '../Batches'
-import { AppShell, Main, PageContent } from '../../AppLayout'
+import { Main, PageContent } from '../../AppLayout'
 
 const noSteps = {
   examine: { questions: 0, failed: 0 },
@@ -436,14 +436,12 @@ export function BatchCaptureProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <AppShell>
 <Masthead
         breadcrumb={
           route ? [{ label: 'Batches', href: '#' }, { label: batch.title }] : [{ label: 'Batches' }]
         }
       />
-      <PageContent $width="content">
-<Main>
+      <Main>
         {route ? (
           <Batch
             key={route.split('/')[0]}
@@ -458,11 +456,11 @@ export function BatchCaptureProof() {
             onDirtyChange={() => {}}
           />
         ) : (
-          <Batches client={captureClient as never} onDirtyChange={() => {}} />
+          <PageContent $width="content">
+            <Batches client={captureClient as never} onDirtyChange={() => {}} />
+          </PageContent>
         )}
       </Main>
-</PageContent>
-</AppShell>
     </ServerStateProvider>
   )
 }

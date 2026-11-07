@@ -12,7 +12,7 @@ import { Masthead } from '../../masthead/Masthead'
 import { HeaderStatus } from '../../masthead/HeaderStatus'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
 import { Batch } from '../../batches/Batch'
-import { AppShell, Main, PageContent } from '../../AppLayout'
+import { Main } from '../../AppLayout'
 
 /**
  * Owned browser fixture for Changes: an in-memory manual client prepares exactly the ticked lots,
@@ -506,13 +506,11 @@ export function ChangesProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <AppShell>
 <Masthead
         breadcrumb={[{ label: 'Batches', href: '#' }, { label: capture.title }]}
         status={<HeaderStatus client={header as never} batchId={batchId} />}
       />
-      <PageContent $width="content">
-<Main>
+      <Main>
         <Batch
           id={batchId}
           route={route}
@@ -522,8 +520,6 @@ export function ChangesProof() {
           onDirtyChange={() => {}}
         />
       </Main>
-</PageContent>
-</AppShell>
     </ServerStateProvider>
   )
 }
