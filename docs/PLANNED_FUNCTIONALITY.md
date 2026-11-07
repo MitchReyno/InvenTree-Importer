@@ -122,6 +122,16 @@ Developers have no real InvenTree to run Bench Intake or the importer against lo
 - Prerequisites: Docker with Compose 2.24 or later, and the pinned `inventree/inventree` stable image, which is present locally. No BI item dependencies.
 - OpenSpec: [local-inventree-dev](../openspec/changes/archive/2026-11-07-local-inventree-dev/)
 
+#### BI-012 — Improve Markdown readability
+
+Repository Markdown is uneven. Some documents are long unbroken paragraphs, heading depth differs between similar documents, and an earlier pass (#44) only made the intake guidance and safety contracts easier to read. Improve readability and structure across the remaining repository Markdown, including architecture notes, OpenSpec artifacts and contributor docs, without changing the meaning of requirements or implementation records. Keep generated files, preserved evidence and historical permalinks stable. This is a documentation pass, not a product behavior change.
+
+- Change: `improve-markdown-readability`
+- Status: Proposed
+- Size: L — a repository-wide documentation pass across several areas, not one file.
+- Prerequisites: None. The earlier intake readability pass (#44) is already merged and is not a blocker. No BI item has to land first.
+- OpenSpec: [improve-markdown-readability](../openspec/changes/improve-markdown-readability/)
+
 ### Unassessed
 
 #### BI-001 — Capture tab uplift
