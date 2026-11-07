@@ -1,8 +1,3 @@
-import {
-  SessionFailureDetails,
-  FAILED_SESSION_STATES,
-  type FailureLoader,
-} from './SessionFailureDetails'
 import { useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
@@ -17,6 +12,12 @@ import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { FilterChips } from '../ui/FilterChips'
 import { Pill } from '../ui/Pill'
+import { DataTable, TableWrap } from '../ui/DataTable'
+import {
+  FAILED_SESSION_STATES,
+  SessionFailureDetails,
+  type FailureLoader,
+} from './SessionFailureDetails'
 
 type Session = AgentSessionListDto['sessions'][number]
 type Filter = 'all' | 'running' | 'waiting' | 'queued' | 'finished'
@@ -75,10 +76,14 @@ function stateWord(session: Session) {
   return { word: session.state.replaceAll('_', ' '), tone: 'neutral' as const }
 }
 
-/** When the session entered its current state. */
+/** When the session entered its current state, as a short 24-hour time. */
 function since(session: Session) {
   const at = session.finished_at ?? session.started_at ?? session.queued_at
-  return new Date(at).toLocaleString()
+  return new Date(at).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
 }
 
 /** Every agent session in scope, grouped by batch, with capacity and what waits for the operator. */
@@ -113,9 +118,25 @@ export function AgentSessions({ client, batches }: Props) {
   const shown = sessions.filter((session) => matches(session, filter))
   const limit = settings.data?.session_concurrency
 
+  const inUse = sessions.filter((session) => session.occupies_lane).length
+  const queued = sessions.filter((session) => session.state === 'queued').length
+
   return (
     <Page>
-      <Title>Agents</Title>
+      <Head>
+        <div>
+          <Title>Agents</Title>
+          <Muted>
+            Every agent session across your batches. Open a batch's Processing to see its steps and
+            chat with it.
+          </Muted>
+        </div>
+        {query.data && supported && (
+          <Button as="a" href="#settings">
+            Agent settings
+          </Button>
+        )}
+      </Head>
       {unavailable && (
         <div role="alert">
           <Banner tone="bad" action={<Button onClick={() => void query.refetch()}>Retry</Button>}>
@@ -133,25 +154,40 @@ export function AgentSessions({ client, batches }: Props) {
       {query.data && supported && (
         <>
           <Summary aria-label="Summary">
-            <div>
-              <strong>
+            <Block>
+              <Label>Running now</Label>
+              {limit !== undefined && (
+                <Slots aria-hidden="true">
+                  {Array.from({ length: limit }, (_, index) => (
+                    <span key={index} data-used={index < inUse} />
+                  ))}
+                </Slots>
+              )}
+              <Muted>
                 {limit === undefined
-                  ? `${sessions.filter((session) => session.occupies_lane).length} slots in use`
-                  : `${sessions.filter((session) => session.occupies_lane).length} of ${limit} slots in use`}
-              </strong>
-              <Muted>Waiting sessions hold no slot.</Muted>
-            </div>
-            <div>
-              <strong>{sessions.filter(isWaiting).length} waiting for you</strong>
-            </div>
-            <div>
-              <strong>
+                  ? `${inUse} slots in use`
+                  : `${inUse} of ${limit} slots in use`}
+                {queued > 0 && ` · ${queued} queued`}
+              </Muted>
+            </Block>
+            <Block>
+              <Label>Model</Label>
+              <span>
                 {settings.data?.selection
                   ? `${settings.data.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.selection.model}`
                   : 'No model chosen'}
-              </strong>
-              <Muted>Model for new sessions</Muted>
-            </div>
+              </span>
+            </Block>
+            <Block>
+              <Label>Waiting for you</Label>
+              <span>{sessions.filter(isWaiting).length} waiting for you</span>
+              <Muted>Waiting sessions hold no slot.</Muted>
+            </Block>
+            <Push>
+              <Button size="sm" disabledReason="Pausing every agent comes in a later release.">
+                Pause all agents
+              </Button>
+            </Push>
           </Summary>
           <FilterChips
             label="Session filters"
@@ -169,6 +205,57 @@ export function AgentSessions({ client, batches }: Props) {
             .map((batchId) => {
               const named = nameOf(batchId)
               const title = named?.title ?? 'Batch'
+              const rows = shown
+                .filter((session) => session.batch_id === batchId)
+                .map((session) => {
+                  const subject =
+                    session.subject_id === null
+                      ? 'Whole batch'
+                      : (named?.subjects.get(session.subject_id) ?? 'Unknown subject')
+                  const step = STEP_LABEL[processingStepFor(session.stage)] ?? 'Processing'
+                  const state = stateWord(session)
+                  const notes = [
+                    session.latest_status?.text,
+                    !session.latest_on_job && 'an earlier attempt',
+                    isWaiting(session) && 'holds no slot',
+                    session.occupies_lane &&
+                      FINISHED.has(session.state) &&
+                      'still holds its slot until the command is confirmed stopped',
+                  ].filter(Boolean)
+                  return {
+                    id: session.attempt_id,
+                    label: `${step} · ${subject}`,
+                    cells: {
+                      step: { value: step },
+                      lot: { value: subject },
+                      status: {
+                        value: notes.join(' · '),
+                        // A failed session's retained diagnostics open beside its status line.
+                        ...(session.failure ||
+                        FAILED_SESSION_STATES.has(session.session_state ?? session.state)
+                          ? {
+                              content: (
+                                <>
+                                  {notes.join(' · ')}
+                                  <SessionFailureDetails
+                                    key={`${session.attempt_id}:${session.failure?.id ?? 'legacy'}`}
+                                    attemptId={session.attempt_id}
+                                    failure={session.failure}
+                                    load={client.failure}
+                                  />
+                                </>
+                              ),
+                            }
+                          : {}),
+                      },
+                      state: {
+                        value: state.word,
+                        content: <Pill tone={state.tone}>{state.word}</Pill>,
+                      },
+                      since: { value: since(session) },
+                    },
+                  }
+                })
               return (
                 <Group key={batchId} aria-label={title}>
                   <GroupHead>
@@ -177,63 +264,24 @@ export function AgentSessions({ client, batches }: Props) {
                       Open Processing
                     </a>
                   </GroupHead>
-                  <Rows>
-                    {shown
-                      .filter((session) => session.batch_id === batchId)
-                      .map((session) => {
-                        const subject =
-                          session.subject_id === null
-                            ? 'Whole batch'
-                            : (named?.subjects.get(session.subject_id) ?? 'Unknown subject')
-                        const label = `${STEP_LABEL[processingStepFor(session.stage)] ?? 'Processing'} · ${subject}`
-                        const state = stateWord(session)
-                        return (
-                          <li key={session.attempt_id} aria-label={`${label} session`}>
-                            <div>
-                              <strong>{label}</strong>
-                              {session.latest_status && <span>{session.latest_status.text}</span>}
-                              <Muted>
-                                Since {since(session)}
-                                {!session.latest_on_job && ' · an earlier attempt'}
-                                {isWaiting(session) && ' · holds no slot'}
-                              </Muted>
-                            </div>
-                            <Pill tone={state.tone}>{state.word}</Pill>
-                            {(session.failure ||
-                              FAILED_SESSION_STATES.has(
-                                session.session_state ?? session.state,
-                              )) && (
-                              <SessionFailureDetails
-                                key={`${session.attempt_id}:${session.failure?.id ?? 'legacy'}`}
-                                attemptId={session.attempt_id}
-                                failure={session.failure}
-                                load={client.failure}
-                              />
-                            )}
-                            {session.occupies_lane && FINISHED.has(session.state) && (
-                              <Muted>
-                                Still holds its slot until the command is confirmed stopped.
-                              </Muted>
-                            )}
-                          </li>
-                        )
-                      })}
-                  </Rows>
+                  <DataTable caption={`${title} sessions`} columns={COLUMNS} rows={rows} />
                 </Group>
               )
             })}
-          <Paging>
-            <Button variant="ghost" disabled={!before} onClick={() => setBefore(undefined)}>
-              Newest sessions
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={!query.data.next_before || unavailable}
-              onClick={() => setBefore(query.data?.next_before ?? undefined)}
-            >
-              Older sessions
-            </Button>
-          </Paging>
+          {(before || query.data.next_before) && (
+            <Paging aria-label="Session pages">
+              <Button size="sm" disabled={!before} onClick={() => setBefore(undefined)}>
+                Newest sessions
+              </Button>
+              <Button
+                size="sm"
+                disabled={!query.data.next_before || unavailable}
+                onClick={() => setBefore(query.data?.next_before ?? undefined)}
+              >
+                Older sessions
+              </Button>
+            </Paging>
+          )}
           <Muted>Filters and counts cover this page of history.</Muted>
         </>
       )}
@@ -241,9 +289,29 @@ export function AgentSessions({ client, batches }: Props) {
   )
 }
 
+const COLUMNS = [
+  { id: 'step', header: 'Step' },
+  { id: 'lot', header: 'Lot' },
+  { id: 'status', header: 'Latest status' },
+  { id: 'state', header: 'State' },
+  { id: 'since', header: 'Since', mono: true },
+]
+
 const Page = styled.div`
   display: grid;
-  gap: ${space[6]};
+  gap: ${space[8]};
+`
+
+const Head = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: ${space[4]} ${space[8]};
+  > div {
+    display: grid;
+    gap: ${space[2]};
+  }
 `
 
 const Title = styled.h1`
@@ -256,27 +324,55 @@ const Muted = styled.span`
   color: ${color.muted};
 `
 
+/** One card: what runs now, the model, what waits for the operator, and Pause. */
 const Summary = styled.section`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: ${space[4]};
-  > div {
-    display: grid;
-    gap: ${space[2]};
-    padding: ${space[6]};
-    border: 1px solid ${color.line};
-    border-radius: ${radius.card};
-    background: ${color.surface};
-  }
-`
-
-const Group = styled.section`
-  display: grid;
-  gap: ${space[4]};
-  padding: ${space[7]} ${space[8]};
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[6]} ${space[9]};
+  padding: ${space[6]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+`
+
+const Block = styled.div`
+  display: grid;
+  gap: ${space[1]};
+`
+
+const Label = styled.span`
+  ${type.label}
+  color: ${color.muted};
+`
+
+const Slots = styled.span`
+  display: flex;
+  gap: ${space[1]};
+  span {
+    width: 28px;
+    height: 8px;
+    border-radius: ${radius.sm};
+    background: ${color.surface2};
+  }
+  span[data-used='true'] {
+    background: ${color.accent};
+  }
+`
+
+const Push = styled.div`
+  margin-left: auto;
+`
+
+const Group = styled.section`
+  overflow: hidden;
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+  ${TableWrap} {
+    border: 0;
+    border-radius: 0;
+  }
 `
 
 const GroupHead = styled.div`
@@ -285,37 +381,15 @@ const GroupHead = styled.div`
   align-items: baseline;
   justify-content: space-between;
   gap: ${space[4]};
+  padding: ${space[5]} ${space[7]};
+  border-bottom: 1px solid ${color.line};
   h2 {
     margin: 0;
-    ${type.h2}
+    ${type.h3}
   }
   a {
     color: ${color.accent};
     ${linkTouchArea}
-  }
-`
-
-const Rows = styled.ul`
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  > li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: ${space[4]};
-    padding: ${space[4]} 0;
-    border-top: 1px solid ${color.line};
-    overflow-wrap: anywhere;
-  }
-  > li:first-child {
-    border-top: 0;
-  }
-  > li > div {
-    display: grid;
-    flex: 1;
-    min-width: 0;
   }
 `
 
