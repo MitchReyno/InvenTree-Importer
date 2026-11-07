@@ -117,7 +117,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
 - [x] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
-- [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
+- [x] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
 - [x] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
 - [x] 5.5 Add scheduling tests:
   - repeated polling within the backoff never re-claims an interrupted preview, which becomes eligible once `retry_after` passes;
