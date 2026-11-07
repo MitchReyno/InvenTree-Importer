@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { checkOverlap, loadWorkspace, parseDelta } from '../openspec/overlap.mjs'
+import { checkOverlap, cliRoot, loadWorkspace, parseDelta } from '../openspec/overlap.mjs'
 
 const script = resolve(dirname(fileURLToPath(import.meta.url)), '../openspec/overlap.mjs')
 
@@ -81,7 +81,7 @@ test('a modification must keep the current scenarios', (t) => {
       requirement('Rule', 'Text SHALL change.'),
     ),
   })
-  assert.ok(check(root, 'base').errors.some((e) => e.includes('drops current scenario(s): kept')))
+  assert.ok(check(root, 'base').errors.some((e) => e.includes('drops current scenario(s): Kept')))
 })
 
 test('a new capability with unique requirements is clean', (t) => {
@@ -263,6 +263,64 @@ test('a change with problems still blocks another change on the names it mention
     ),
   })
   assert.ok(check(root, 'base').errors.some((e) => e.includes('"A" is also changed by broken')))
+})
+
+test('scenario checks match the CLI: counts, closing hashes and fenced examples', (t) => {
+  const fence = '```'
+  const scenario = (name) => `#### Scenario: ${name}\n\n- **GIVEN** x\n`
+  const current = `Text SHALL hold.\n\n${scenario('One')}\n${scenario('One')}\n${fence}\n${scenario('Example')}${fence}`
+  const modifying = (body) =>
+    workspace(t, {
+      'openspec/specs/shared/spec.md': `## Requirements\n\n${requirement('Rule', current)}`,
+      'openspec/changes/base/specs/shared/spec.md': section('MODIFIED', requirement('Rule', body)),
+    })
+  const fewer = modifying(`Text SHALL change.\n\n${scenario('One')}`)
+  const tidy = modifying(`Text SHALL change.\n\n${scenario('One ###')}\n${scenario('One')}`)
+  assert.ok(check(fewer, 'base').errors.some((e) => e.includes('drops current scenario(s): One')))
+  assert.deepEqual(check(tidy, 'base').errors, [])
+})
+
+test('nested capability paths are discovered and checked', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/area/cap/spec.md': spec('Rule'),
+    'openspec/changes/base/specs/area/cap/spec.md': section(
+      'MODIFIED',
+      requirement('Rule', 'Mine SHALL be.'),
+    ),
+    'openspec/changes/later/specs/area/cap/spec.md': section(
+      'MODIFIED',
+      requirement('Rule', 'Theirs SHALL be.'),
+    ),
+  })
+  assert.ok(
+    check(root, 'base').errors.some((e) => e === 'area/cap: "Rule" is also changed by later'),
+  )
+})
+
+test('a delta with no parsed operations is rejected', (t) => {
+  const root = workspace(t, {
+    'openspec/changes/base/specs/fresh/spec.md': '## ADDED Requirements\n\nOnly prose here.\n',
+  })
+  assert.ok(
+    check(root, 'base').errors.some((e) =>
+      e.includes('no ADDED, MODIFIED, REMOVED or RENAMED operations'),
+    ),
+  )
+})
+
+test('the CLI is found from an override, a Windows-style shim, or reported as missing', (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'openspec-cli-'))
+  t.after(() => rmSync(home, { recursive: true, force: true }))
+  const pkg = join(home, 'bin/node_modules/@fission-ai/openspec')
+  mkdirSync(join(pkg, 'dist/core/parsers'), { recursive: true })
+  writeFileSync(join(pkg, 'dist/core/parsers/requirement-blocks.js'), '')
+  writeFileSync(join(home, 'bin/openspec.cmd'), '@echo off\n')
+  assert.equal(cliRoot({ OPENSPEC_CLI_DIR: pkg }), pkg)
+  assert.equal(cliRoot({ PATH: join(home, 'bin') }), pkg)
+  assert.throws(
+    () => cliRoot({ PATH: join(home, 'empty') }),
+    /@fission-ai\/openspec@1\.16\.0.*OPENSPEC_CLI_DIR/,
+  )
 })
 
 test('archived changes are not treated as pending', (t) => {

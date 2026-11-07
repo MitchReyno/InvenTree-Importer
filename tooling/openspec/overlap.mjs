@@ -8,31 +8,64 @@ import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-/** The installed CLI's package root: OPENSPEC_CLI_DIR, else `openspec` on PATH. */
+const QUALIFIED = '1.16.0'
+const PARSER = 'dist/core/parsers/requirement-blocks.js'
+const EXPORTS = [
+  'parseDeltaSpec',
+  'extractRequirementsSection',
+  'normalizeRequirementName',
+  'foldRequirementName',
+  'diffScenarioNames',
+]
+const unavailable = (detail) =>
+  new Error(
+    `OpenSpec CLI parser unavailable (${detail}). Install @fission-ai/openspec@${QUALIFIED}, ` +
+      'or set OPENSPEC_CLI_DIR to its package directory.',
+  )
+
+/**
+ * The installed CLI's package root: OPENSPEC_CLI_DIR, else found from an
+ * `openspec` executable or npm shim on PATH (symlinked, or a Windows shim next
+ * to `node_modules`).
+ */
 export function cliRoot(env = process.env) {
   if (env.OPENSPEC_CLI_DIR) return resolve(env.OPENSPEC_CLI_DIR)
   for (const dir of (env.PATH ?? '').split(delimiter)) {
-    const bin = join(dir, 'openspec')
-    if (existsSync(bin)) return dirname(dirname(realpathSync(bin)))
+    for (const bin of ['openspec', 'openspec.cmd', 'openspec.ps1'].map((name) => join(dir, name))) {
+      if (!existsSync(bin)) continue
+      const candidates = [
+        dirname(dirname(realpathSync(bin))),
+        join(dir, 'node_modules/@fission-ai/openspec'),
+        join(dir, '../lib/node_modules/@fission-ai/openspec'),
+      ]
+      const found = candidates.find((candidate) => existsSync(join(candidate, PARSER)))
+      if (found) return found
+    }
   }
-  throw new Error('OpenSpec CLI not found: install it or set OPENSPEC_CLI_DIR')
+  throw unavailable('no openspec installation found on PATH')
 }
 
-const root = cliRoot()
-const parser = await import(
-  pathToFileURL(join(root, 'dist/core/parsers/requirement-blocks.js')).href
-)
-export const cliVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+async function loadParser() {
+  const root = cliRoot()
+  if (!existsSync(join(root, PARSER))) throw unavailable(`${PARSER} missing under ${root}`)
+  const module = await import(pathToFileURL(join(root, PARSER)).href)
+  const missing = EXPORTS.filter((name) => typeof module[name] !== 'function')
+  if (missing.length) throw unavailable(`missing exports ${missing.join(', ')}`)
+  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+  return { module, version }
+}
+
+const { module: parser, version } = await loadParser()
+export const cliVersion = version
 const {
   parseDeltaSpec,
   extractRequirementsSection,
   normalizeRequirementName,
   foldRequirementName,
+  diffScenarioNames,
 } = parser
 // The CLI's normalizeBlockRaw: only line endings and outer whitespace.
 const normalizeBlock = (raw) => raw.replace(/\r\n?/g, '\n').trim()
-const scenarioNames = (raw) =>
-  [...raw.matchAll(/^####\s+Scenario:\s*(.+?)\s*$/gim)].map((m) => m[1].toLowerCase())
 
 /** Main spec requirements, keyed by the CLI's normalized name. */
 export function parseRequirements(text) {
@@ -86,6 +119,9 @@ export function parseDelta(text) {
   for (const { side, name } of plan.unpairedRenames) {
     problems.push(`unpaired RENAMED ${side} "${name}"`)
   }
+  const operations =
+    delta.ADDED.length + delta.MODIFIED.length + delta.REMOVED.length + delta.RENAMED.length
+  if (operations === 0) problems.push('no ADDED, MODIFIED, REMOVED or RENAMED operations parsed')
   for (const n of modified) {
     if (removed.has(n)) problems.push(`"${n}" is both MODIFIED and REMOVED`)
     if (added.has(n)) problems.push(`"${n}" is both MODIFIED and ADDED`)
@@ -102,11 +138,17 @@ export function parseDelta(text) {
   return delta
 }
 
-function capabilityDirs(dir) {
+/** Capability IDs (paths relative to dir, nested included) that hold a spec.md. */
+function capabilityDirs(dir, prefix = '') {
   if (!existsSync(dir)) return []
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && existsSync(join(dir, entry.name, 'spec.md')))
-    .map((entry) => entry.name)
+  const found = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const id = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (existsSync(join(dir, entry.name, 'spec.md'))) found.push(id)
+    found.push(...capabilityDirs(join(dir, entry.name), id))
+  }
+  return found
 }
 
 export function loadWorkspace(workspaceRoot) {
@@ -194,7 +236,7 @@ export function classifyDelta(cap, delta, existing) {
       result.errors.push(`${cap}: MODIFIED "${name}" is not in the main spec`)
       continue
     }
-    const missing = scenarioNames(current).filter((s) => !scenarioNames(raw).includes(s))
+    const { missing } = diffScenarioNames({ raw: current }, { raw })
     if (missing.length) {
       result.errors.push(
         `${cap}: MODIFIED "${name}" drops current scenario(s): ${missing.join(', ')}`,
