@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
 import { media } from '../ui/media'
 import { hoverTransition } from '../ui/motion'
 import { Popover } from '../ui/Popover'
@@ -14,6 +13,7 @@ interface HeaderDisclosureProps {
   onOpenChange: (open: boolean) => void
   /** Accent pill while work is running. */
   active?: boolean
+  describedBy?: string
   children: ReactNode
 }
 
@@ -24,6 +24,7 @@ export function HeaderDisclosure({
   open,
   onOpenChange,
   active = false,
+  describedBy,
   children,
 }: HeaderDisclosureProps) {
   return (
@@ -33,18 +34,18 @@ export function HeaderDisclosure({
       open={open}
       onOpenChange={onOpenChange}
       trigger={
-        <Trigger type="button" aria-label={label} data-active={active}>
+        <Trigger
+          type="button"
+          aria-label={label}
+          aria-describedby={describedBy}
+          data-active={active}
+        >
           {trigger}
         </Trigger>
       }
     >
       <Body>
-        <TitleRow>
-          <Title>{title}</Title>
-          <Button aria-label={`Close ${title}`} onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </TitleRow>
+        <Title>{title}</Title>
         {children}
       </Body>
     </Popover>
@@ -76,6 +77,7 @@ const Trigger = styled.button`
   ${media.compact} {
     min-width: ${size.touch};
     min-height: ${size.touch};
+    padding-inline: ${space[2]};
   }
 `
 
@@ -83,14 +85,7 @@ const Body = styled.div`
   padding: ${space[5]};
 `
 
-const TitleRow = styled.div`
-  display: flex;
-  gap: ${space[6]};
-  align-items: center;
-  justify-content: space-between;
-`
-
 const Title = styled.h2`
-  margin: 0;
+  margin: 0 0 ${space[4]};
   ${type.h2}
 `

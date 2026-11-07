@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import styled from 'styled-components'
-import type { ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
+import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { createServerQueryClient } from '../../../queries/client'
 import { serverQueryKey } from '../../../queries/scope'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
@@ -23,6 +23,39 @@ const identity = {
 }
 const batchId = '10000000-0000-4000-8000-000000000001'
 const attempt = '20000000-0000-4000-8000-000000000002'
+const noWork = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const attention: BatchAttentionDto = {
+  batch_id: batchId,
+  revision: '4',
+  processing: {
+    questions: 3,
+    failed: 0,
+    running: 2,
+    steps: {
+      examine: { ...noWork, jobs: 12, ready: 12 },
+      research: { ...noWork, questions: 3, jobs: 12, ready: 7, running: 2 },
+      images: noWork,
+      inventory: noWork,
+    },
+  },
+  review: { to_check: 0, changed_after_review: 0, to_decide: 0 },
+  changes: { ready: 0, failed: 0, uncertain: 0 },
+  items: [],
+  items_truncated: false,
+}
+
+/** The batch screen's reads, which the header shares for the batch name and question count. */
+function batchReads() {
+  const cache = createServerQueryClient()
+  cache.setQueryData(serverQueryKey(scope, 'capture', batchId), {
+    id: batchId,
+    title: 'Mouser 3381-22 + bench bag',
+    revision: '4',
+  })
+  cache.setQueryData(serverQueryKey(scope, 'attention', batchId, '4'), attention)
+  return cache
+}
+
 type Scenario =
   | 'connected'
   | 'unavailable'
@@ -35,7 +68,7 @@ type Scenario =
   | 'transport-stale'
 
 export function HeaderStatusProof() {
-  const [cache] = useState(createServerQueryClient)
+  const [cache] = useState(batchReads)
   const scenario = useRef<Scenario>('cancelled')
   const [selected, setSelected] = useState<Scenario>('cancelled')
   const [tab, setTab] = useState('Capture')
@@ -88,7 +121,12 @@ export function HeaderStatusProof() {
           input_current: true,
           occupies_lane: true,
           blocked_code: null,
-          steps: [{ stage: 'research', state: 'running' }],
+          steps: [
+            { stage: 'examine', state: 'ready' },
+            { stage: 'research', state: 'running' },
+            { stage: 'images', state: 'queued' },
+            { stage: 'inventory', state: 'queued' },
+          ],
           steps_complete: false,
         })
         value.work.push({

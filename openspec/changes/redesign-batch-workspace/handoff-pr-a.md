@@ -93,7 +93,7 @@ Token changes in PR-A relative to the design system's `tokens.json`, made in bot
 | `button-lg` | 15/18/500 | Large buttons |
 | `mono` / `mono-strong` | 12.5/18/400 and 500 | MPNs, IPNs, SKUs, date codes, quantities in lists, keys |
 
-Tone colours and sub-element styles that a row below doesn't restate (Banner, ProblemCard and Count tones, PhaseRow discs, ProgressSegments colours, DataTable cells, StatusTimeline markers and rail, SessionChat bubbles) follow the design system's `components/bundle.css` exactly; the component tests assert them. `Count` adds a `bad` tone (`bad-weak` with `bad` text), which the bundle lacks. A running segment with no `fraction` fills 50%.
+Tone colours and sub-element styles that a row below doesn't restate (Banner, ProblemCard and Count tones, PhaseRow discs, ProgressSegments colours, DataTable cells, StatusTimeline markers and rail, SessionChat bubbles) follow the design system's `components/bundle.css` exactly; the component tests assert them. `Count` adds a `bad` tone (`bad-weak` with `bad` text), which the bundle lacks. A running segment with no `fraction` fills 50%. `ProgressSegments` adds a `failed` state, filled in `bad`, which the bundle lacks, so the header keeps a failed step apart from one waiting.
 
 The design system's component CSS also uses a few fixed lengths below the space scale, such as 7px button padding, 9px chip padding, 11.5px meta text and 10.5px tags. They are component constants: keep them exactly, and don't add new ones. The literal-colour check covers colours only.
 
@@ -127,7 +127,7 @@ Each component lives in `frontend/src/components/ui/`, uses only tokens, and is 
 | `Banner` | `tone: 'info' \| 'warn' \| 'bad' \| 'ok' \| 'plain'`, `icon`, slot, `action?` | padding `space-2-5` `space-3-5`, gap `space-2-5`, `radius-card`, icon column 20px | At most one per page, at the top of the content column |
 | `ProblemCard` | `severity: 'blocking' \| 'warning'`, `title`, `summary`, `issues: {title, text, actions}[]` | header padding `space-2` `space-3`; issues on `surface` with a top `line` border | Blocking cards render first |
 | `Toast` | `message`, `action?: {label, onClick}`, `durationMs = 5000` | padding 9px `space-3-5`, `radius-card`, `fg` background with `bg` text, `shadow` | Bottom centre, 16px above the safe area. Never covers a sticky footer's primary button |
-| `ProgressSegments` | `steps: {label, state: 'done' \| 'running' \| 'waiting', fraction?}[]`, `size: 'sm' \| 'lg'` | sm: 14×6px segments, 2px gap, radius 2. lg: flexible width, 8px tall | Text alternative lists every step and state |
+| `ProgressSegments` | `steps: {label, state: 'done' \| 'running' \| 'failed' \| 'waiting', fraction?}[]`, `size: 'sm' \| 'lg'` | sm: 14×6px segments, 2px gap, radius 2. lg: flexible width, 8px tall | Text alternative lists every step and state |
 | `Spinner` | `size = 12` | 2px ring, right edge transparent | Decorative; the label carries the meaning |
 | `Skeleton` | `width`, `height` | `radius-thumb`, gradient `surface-2` → `line` → `surface-2` | Preparing previews only |
 

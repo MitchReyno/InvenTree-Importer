@@ -1,8 +1,10 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useQuery } from '@tanstack/react-query'
 import { afterEach, expect, test, vi } from 'vitest'
-import type { ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
+import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { render, fixtureScope } from '../../test/render'
+import { serverQueryKey } from '../../queries/scope'
 import { ServerStateProvider } from '../query/ServerStateProvider'
 import { HeaderStatus } from './HeaderStatus'
 import { UpdateHealthContext } from '../operations/LiveUpdates'
@@ -157,7 +159,8 @@ test('current batch work, retained steps and logically cancelled occupied agents
       <HeaderStatus client={api} batchId={batchId} />
     </>,
   )
-  await screen.findByText(/Processing in progress/)
+  // The cancelled session still holds a slot, and the session list is partial.
+  await screen.findByText('1+ agents working')
   await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
   const panel = screen.getByRole('dialog', { name: 'Workflow details' })
   expect(panel).toHaveTextContent('Current batch')
@@ -469,4 +472,146 @@ test('the connection panel also offers Open InvenTree, for phone width where the
   const link = within(panel).getByRole('link', { name: 'Open InvenTree', hidden: true })
   expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
   expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+})
+
+const stepCounts = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+
+/** Stands in for the batch screen, which fills the capture and attention reads the header shares. */
+function BatchReads({ attention }: { attention: BatchAttentionDto }) {
+  useQuery({
+    queryKey: serverQueryKey(fixtureScope, 'capture', batchId),
+    queryFn: async () => ({ id: batchId, title: 'Mouser 3381-22 + bench bag', revision: '4' }),
+  })
+  useQuery({
+    queryKey: serverQueryKey(fixtureScope, 'attention', batchId, '4'),
+    queryFn: async () => attention,
+  })
+  return null
+}
+
+function processingWork(): HeaderWorkDto {
+  const session = {
+    batch_id: batchId,
+    stage: 'research' as const,
+    state: 'running' as const,
+    selection: null,
+    actual_model: null,
+    progress: 'responding' as const,
+    session_state: 'running' as const,
+    latest_status: null,
+  }
+  return {
+    ...work(),
+    work: [
+      {
+        kind: 'processing',
+        id,
+        batch_id: batchId,
+        attempt_id: id,
+        stage: 'research',
+        state: 'running',
+        input_current: true,
+        occupies_lane: true,
+        blocked_code: null,
+        steps: [
+          { stage: 'examine', state: 'ready' },
+          { stage: 'research', state: 'running' },
+          { stage: 'images', state: 'failed' },
+          { stage: 'inventory', state: 'queued' },
+        ],
+        steps_complete: true,
+      },
+    ],
+    active_sessions: [
+      { ...session, attempt_id: id, job_id: id, occupies_lane: true },
+      {
+        ...session,
+        attempt_id: 'f0000000-0000-4000-8000-00000000000f',
+        job_id: 'f0000000-0000-4000-8000-00000000000f',
+        occupies_lane: true,
+      },
+      {
+        ...session,
+        attempt_id: 'e0000000-0000-4000-8000-00000000000e',
+        job_id: 'e0000000-0000-4000-8000-00000000000e',
+        occupies_lane: false,
+        session_state: 'waiting_input' as const,
+      },
+    ],
+    lane_occupied: true,
+  }
+}
+
+const attention: BatchAttentionDto = {
+  batch_id: batchId,
+  revision: '4',
+  processing: {
+    questions: 3,
+    failed: 1,
+    running: 2,
+    steps: {
+      examine: { ...stepCounts, jobs: 4, ready: 4 },
+      research: { ...stepCounts, jobs: 10, ready: 6, running: 2 },
+      images: { ...stepCounts, failed: 1, jobs: 2 },
+      inventory: stepCounts,
+    },
+  },
+  review: { to_check: 0, changed_after_review: 0, to_decide: 0 },
+  changes: { ready: 0, failed: 0, uncertain: 0 },
+  items: [],
+  items_truncated: false,
+}
+
+test('the activity label counts the agents holding a slot and names the batch with its questions', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue(processingWork())
+  render(
+    <>
+      <BatchReads attention={attention} />
+      <HeaderStatus client={api} batchId={batchId} />
+    </>,
+  )
+
+  expect(await screen.findByText('2 agents working')).toBeInTheDocument()
+  const trigger = screen.getByRole('button', { name: 'Workflow activity' })
+  await waitFor(() =>
+    expect(trigger).toHaveAccessibleDescription(
+      '2 agents working Mouser 3381-22 + bench bag 3 questions need you',
+    ),
+  )
+  const steps = within(trigger).getAllByRole('listitem', { hidden: true })
+  expect(steps.map((step) => step.textContent)).toEqual([
+    'examine: done',
+    'research: running',
+    'images: failed',
+    'inventory: waiting',
+  ])
+})
+
+test('without the batch reads the label still names the work and leaves out the question count', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue(processingWork())
+  render(<HeaderStatus client={api} batchId={batchId} />)
+
+  expect(await screen.findByText('2 agents working')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Workflow activity' })).toHaveAccessibleDescription(
+    '2 agents working Current batch',
+  )
+})
+
+test('the workflow panel shows each job as step segments and keeps raw IDs out of its text', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue(processingWork())
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = screen.getByRole('dialog', { name: 'Workflow details' })
+
+  expect(within(panel).queryByRole('button', { name: /Close/ })).toBeNull()
+  expect(within(panel).queryByRole('list', { name: 'Retained steps' })).toBeNull()
+  const job = within(panel).getByRole('region', { name: 'Current batch · Processing' })
+  expect(within(job).getByText('research: running')).toBeInTheDocument()
+  const ids = within(job).getByText('IDs').closest('details')!
+  expect(ids).not.toHaveAttribute('open')
+  expect(ids).toHaveTextContent(`attempt ${id}`)
 })

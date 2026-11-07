@@ -22,6 +22,7 @@ import { useApplicationAvailable } from '../../capture/useApplicationAvailable'
 import type { MediaClient } from '../../media/types'
 import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
+import { typeVar } from '../../theme/generated/tokens'
 import type { ManualClient, ManualStage } from '../../manual/types'
 import type { ProcessingClient } from '../../processing/types'
 import { clearPending } from '../../processing/pending-messages'
@@ -600,5 +601,5 @@ export function Batch({
 const SnapshotFields = styled.pre`
   overflow: auto;
   max-height: 300px;
-  font-size: 12px;
+  font-size: ${typeVar.mono.size};
 `

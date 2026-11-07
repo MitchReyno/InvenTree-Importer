@@ -1,12 +1,17 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import type { HeaderWorkDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
-import { visuallyHidden } from '../ui/VisuallyHidden'
+import { VisuallyHidden, visuallyHidden } from '../ui/VisuallyHidden'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Loading'
+import { Pill } from '../ui/Pill'
+import { ProgressSegments } from '../ui/ProgressSegments'
 import type { HeaderClient } from '../../header/types'
 import { useHeaderObservations } from '../../header/useHeaderObservations'
+import { useCachedBatchReads } from '../../header/useCachedBatchReads'
+import { segmentSteps, stepTone } from '../../header/workSegments'
 import {
   observationFresh,
   preferredWork,
@@ -48,6 +53,17 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
   })
   const workActive =
     workFresh && !!preferred && preferred.steps.some((step) => stepTone(step.state) === 'running')
+  const cached = useCachedBatchReads(batchId)
+  const ownBatch = !!batchId && preferred?.batch_id === batchId
+  const working =
+    workFresh && workData && preferred ? agentsWorking(workData, preferred.batch_id) : ''
+  const headline = working || workText
+  const scopeName = ownBatch ? (cached.title ?? 'Current batch') : 'Application-wide'
+  const questions = ownBatch ? (cached.attention?.processing.questions ?? 0) : 0
+  const ids = useId()
+  const describedBy = [`${ids}-headline`, `${ids}-scope`, questions ? `${ids}-questions` : '']
+    .filter(Boolean)
+    .join(' ')
   const inventreeLink = navigation ? (
     <Button
       as="a"
@@ -69,34 +85,37 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
         label="Workflow activity"
         title="Workflow details"
         active={workActive}
+        describedBy={describedBy}
         trigger={
           <TriggerContent>
-            {workActive && <Spinner />}
+            {workActive && (
+              <SpinnerSlot data-questions={questions > 0}>
+                <Spinner />
+              </SpinnerSlot>
+            )}
             <ActivityLabels data-compact="visually-hidden">
-              <span role="status" aria-live="polite">
-                {workText}
+              <span id={`${ids}-headline`} role="status" aria-live="polite">
+                {headline}
               </span>
-              <Scope>
-                {batchId && preferred?.batch_id === batchId ? 'Current batch' : 'Application-wide'}
-              </Scope>
+              <Scope id={`${ids}-scope`}>{scopeName}</Scope>
             </ActivityLabels>
             {!(workFresh && preferred) && <ShortText aria-hidden="true" data-short={workShort} />}
             {workFresh && preferred && (
-              <Segments role="list" aria-label="Known retained steps">
-                {preferred.steps.map((step, index) => {
-                  const name = 'stage' in step ? step.stage : step.name
-
-                  return (
-                    <Segment
-                      role="listitem"
-                      aria-label={`${name}: ${step.state}`}
-                      key={index}
-                      title={`${name}: ${step.state}`}
-                      data-tone={stepTone(step.state)}
-                    />
-                  )
-                })}
-              </Segments>
+              <WideOnly>
+                <ProgressSegments
+                  steps={segmentSteps(preferred, ownBatch ? cached.attention : undefined)}
+                />
+              </WideOnly>
+            )}
+            {questions > 0 && (
+              <QuestionPill>
+                <Pill tone="warn">
+                  <span aria-hidden="true">{questions}</span>
+                  <VisuallyHidden id={`${ids}-questions`}>
+                    {questions} {questions === 1 ? 'question needs' : 'questions need'} you
+                  </VisuallyHidden>
+                </Pill>
+              </QuestionPill>
             )}
           </TriggerContent>
         }
@@ -106,6 +125,7 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
         <WorkflowDetails
           data={workData}
           batchId={batchId}
+          attention={cached.attention}
           unavailable={workUnavailable}
           fresh={workFresh}
         />
@@ -161,24 +181,17 @@ function compactWorkWord({ unavailable, loaded, fresh, hasWork }: WorkView) {
   return hasWork ? 'Active' : 'Idle'
 }
 
-type StepTone = 'done' | 'running' | 'failed' | 'other'
+/** Sessions holding a running slot; one waiting for an answer holds none. */
+function agentsWorking(data: HeaderWorkDto, batch: string) {
+  const count = data.active_sessions.filter(
+    (session) => session.batch_id === batch && session.occupies_lane,
+  ).length
+  if (!count) {
+    return ''
+  }
 
-const STEP_TONE: Record<string, StepTone> = {
-  ready: 'done',
-  confirmed: 'done',
-  finished: 'done',
-  queued: 'running',
-  running: 'running',
-  waiting_for_user: 'running',
-  waiting_for_login: 'running',
-  waiting_for_capacity: 'running',
-  failed: 'failed',
-  interrupted: 'failed',
-  cancelled: 'failed',
-}
-
-function stepTone(state: string): StepTone {
-  return STEP_TONE[state] ?? 'other'
+  const more = data.sessions_truncated ? '+' : ''
+  return `${count}${more} ${count === 1 && !more ? 'agent' : 'agents'} working`
 }
 
 // The masthead's end group lays these out in one row with its menu.
@@ -203,7 +216,7 @@ const ActivityLabels = styled.span`
   line-height: 1.15;
   color: ${color.fg};
   & > span:first-child {
-    font-size: 12px;
+    font-size: ${typeVar.pill.size};
     font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -219,7 +232,7 @@ const Scope = styled.small`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: ${typeVar.label.size};
   color: ${color.muted};
 `
 
@@ -266,25 +279,31 @@ const ShortText = styled.span`
   }
 `
 
-const segmentTone = {
-  done: color.ok,
-  running: color.accent,
-  failed: color.bad,
-  other: color.lineStrong,
-}
-
-const Segments = styled.span`
-  display: flex;
-  flex: none;
-  gap: ${space[1]};
+/** A count beside the segments, tighter than a status pill so it fits the phone touch target. */
+const QuestionPill = styled.span`
+  display: contents;
+  & > span {
+    gap: ${space[1]};
+    padding: 0 ${space[3]} 0 ${space[2]};
+  }
 `
 
-const Segment = styled.span<{ 'data-tone': StepTone }>`
-  display: block;
-  width: 14px;
-  height: 6px;
-  border-radius: 2px;
-  background: ${(props) => segmentTone[props['data-tone']]};
+/** At phone width the question count stands in for the spinner; the accent fill still marks running work. */
+const SpinnerSlot = styled.span`
+  display: contents;
+  ${media.compact} {
+    &[data-questions='true'] {
+      display: none;
+    }
+  }
+`
+
+/** The phone bar has room for one mark only; the panel lists the steps. */
+const WideOnly = styled.span`
+  display: contents;
+  ${media.compact} {
+    display: none;
+  }
 `
 
 const UnavailableLink = styled.span`

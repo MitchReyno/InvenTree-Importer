@@ -1,5 +1,4 @@
 {
-  "components/batches/Batch.tsx | font-size | 12px": 1,
   "components/capture/BatchSettingsPanel.tsx | border-radius | 6px": 1,
   "components/capture/BatchSettingsPanel.tsx | margin | 12px": 1,
   "components/capture/BatchSettingsPanel.tsx | margin | 8px": 1,
@@ -27,12 +26,6 @@
   "components/changes/AttachmentOutcome.tsx | gap | 10px": 1,
   "components/changes/AttachmentOutcome.tsx | padding | 16px": 1,
   "components/changes/PreparationTreeView.tsx | gap | 2px": 2,
-  "components/masthead/HeaderStatus.tsx | font-size | 11px": 1,
-  "components/masthead/HeaderStatus.tsx | font-size | 12px": 1,
-  "components/masthead/HeaderStatus.tsx | width | 14px": 1,
-  "components/masthead/Masthead.tsx | font-size | 11px": 1,
-  "components/masthead/Masthead.tsx | font-weight | 600": 1,
-  "components/masthead/MastheadMenu.tsx | font-size | 16px": 1,
   "components/media/EvidenceActions.tsx | font-weight | 650": 1,
   "components/media/EvidenceActions.tsx | gap | 8px": 1,
   "components/media/EvidenceActions.tsx | margin | 16px": 1,

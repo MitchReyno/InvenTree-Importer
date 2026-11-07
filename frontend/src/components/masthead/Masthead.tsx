@@ -153,8 +153,8 @@ const DevBadge = styled.span`
   border-radius: ${radius.pill};
   background: ${color.devBg};
   color: ${color.devFg};
-  font-size: 11px;
-  font-weight: 600;
+  font-size: ${typeVar.label.size};
+  font-weight: ${typeVar.label.weight};
   line-height: 1.4;
   white-space: nowrap;
 `

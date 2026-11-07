@@ -63,6 +63,7 @@ const Trigger = styled.button`
   border-radius: ${radius.pill};
   background: ${color.surface};
   color: ${color.fg};
+  /* literal-allowed: the ⋯ glyph reads as an icon at 16px; no icon token has that size */
   font-size: 16px;
   line-height: 1;
   cursor: pointer;

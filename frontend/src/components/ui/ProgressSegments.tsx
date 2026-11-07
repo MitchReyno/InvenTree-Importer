@@ -6,14 +6,16 @@ import { VisuallyHidden } from './VisuallyHidden'
 
 export type StepState = 'done' | 'running' | 'waiting'
 
-export type ProgressStep = { label: string; state: StepState; fraction?: number }
+export type SegmentState = StepState | 'failed'
+
+export type ProgressStep = { label: string; state: SegmentState; fraction?: number }
 
 type ProgressSegmentsProps = { steps: ProgressStep[]; size?: 'sm' | 'lg' }
 
 const RUNNING_WITHOUT_FRACTION = 0.5
 
 function fillWidth(step: ProgressStep) {
-  if (step.state === 'done') {
+  if (step.state === 'done' || step.state === 'failed') {
     return '100%'
   }
   if (step.state === 'waiting') {
@@ -66,6 +68,9 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   }
   &[data-state='done'] i {
     background: ${color.ok};
+  }
+  &[data-state='failed'] i {
+    background: ${color.bad};
   }
   &[data-state='running'] i {
     ${motion.pulse}

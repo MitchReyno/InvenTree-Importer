@@ -27,4 +27,13 @@ describe('ProgressSegments', () => {
 
     expect(container.querySelector('[data-state="running"] i')).toHaveStyle({ width: '50%' })
   })
+
+  it('fills a failed step in full so it reads apart from one still waiting', () => {
+    const { container } = render(
+      <ProgressSegments steps={[{ label: 'Images', state: 'failed' }]} />,
+    )
+
+    expect(container.querySelector('[data-state="failed"] i')).toHaveStyle({ width: '100%' })
+    expect(screen.getByText('Images: failed')).toBeInTheDocument()
+  })
 })

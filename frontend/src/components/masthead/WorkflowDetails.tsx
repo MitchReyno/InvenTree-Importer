@@ -1,17 +1,24 @@
-import type { HeaderWorkDto } from '@invimport/contracts'
+import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
 import { Link, Paragraph, Small, Subheading } from '../ui/primitives'
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import { batchHref } from '../../navigation/batch-route'
+import { segmentSteps } from '../../header/workSegments'
+import { ProgressSegments } from '../ui/ProgressSegments'
+import { media } from '../ui/media'
+
+const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
 
 interface Props {
   data?: HeaderWorkDto
   batchId?: string
+  /** The open batch's attention read, so its steps fill as the header's do. */
+  attention?: BatchAttentionDto
   unavailable: boolean
   fresh: boolean
 }
 
-export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
+export function WorkflowDetails({ data, batchId, attention, unavailable, fresh }: Props) {
   const current = data?.work.filter((item) => item.batch_id === batchId) ?? []
   const others = data?.work.filter((item) => item.batch_id !== batchId) ?? []
   return (
@@ -28,61 +35,65 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
       )}
       {data && !fresh && <Paragraph role="status">This workflow observation is stale.</Paragraph>}
       <Small>
-        Last work read: {data ? new Date(data.observed_at).toLocaleString() : 'Not yet observed'}
+        Last work read:{' '}
+        {data ? new Date(data.observed_at).toLocaleTimeString([], SHORT_TIME) : 'Not yet observed'}
       </Small>
       {data?.work_truncated && (
         <Paragraph>
           Work coverage is partial. Open the owning views for additional retained work.
         </Paragraph>
       )}
-      {[...current, ...others].map((item) => (
-        <Work key={`${item.kind}:${item.id}`}>
-          <Subheading>
-            {item.batch_id === batchId ? 'Current batch' : 'Other batch'} ·{' '}
-            {item.kind === 'processing' ? 'Processing' : 'Import'}
-          </Subheading>
-          <Paragraph>
-            {item.stage} · {item.state.replaceAll('_', ' ')}
-          </Paragraph>
-          <Small>
-            Batch {item.batch_id} ·{' '}
-            {item.kind === 'processing' ? `attempt ${item.attempt_id}` : `run ${item.id}`}
-          </Small>
-          {item.kind === 'processing' && (
+      {[...current, ...others].map((item) => {
+        const heading = `${item.batch_id === batchId ? 'Current batch' : 'Other batch'} · ${
+          item.kind === 'processing' ? 'Processing' : 'Import'
+        }`
+        const steps = segmentSteps(item, item.batch_id === batchId ? attention : undefined)
+        return (
+          <Work key={`${item.kind}:${item.id}`} aria-label={heading}>
+            <Subheading>{heading}</Subheading>
             <Paragraph>
-              {item.occupies_lane
-                ? 'Physical lane occupied'
-                : 'No physical occupancy reported for this attempt'}{' '}
-              ·{' '}
-              {item.input_current === null
-                ? 'Input currency unknown'
-                : item.input_current
-                  ? 'Retained input current'
-                  : 'Retained input stale'}
-              {item.blocked_code ? ` · ${item.blocked_code.replaceAll('_', ' ')}` : ''}
+              {item.stage} · {item.state.replaceAll('_', ' ')}
             </Paragraph>
-          )}
-          <ol aria-label="Retained steps">
-            {item.steps.map((step, index) => (
-              <li key={index}>
-                {'stage' in step ? step.stage : step.name} · {step.state.replaceAll('_', ' ')}
-              </li>
-            ))}
-          </ol>
-          {!item.steps_complete && (
-            <Small>Fine-grained step coverage is incomplete. No percentage is inferred.</Small>
-          )}
-          <Action
-            href={
-              item.kind === 'processing'
-                ? batchHref(item.batch_id, { tab: 'processing', step: 'overview' })
-                : batchHref(item.batch_id, { tab: 'changes', view: 'added', runId: item.id })
-            }
-          >
-            {item.kind === 'processing' ? 'Open processing' : 'Open original run'}
-          </Action>
-        </Work>
-      ))}
+            {item.kind === 'processing' && (
+              <Paragraph>
+                {item.occupies_lane
+                  ? 'Physical lane occupied'
+                  : 'No physical occupancy reported for this attempt'}{' '}
+                ·{' '}
+                {item.input_current === null
+                  ? 'Input currency unknown'
+                  : item.input_current
+                    ? 'Retained input current'
+                    : 'Retained input stale'}
+                {item.blocked_code ? ` · ${item.blocked_code.replaceAll('_', ' ')}` : ''}
+              </Paragraph>
+            )}
+            <ProgressSegments steps={steps} size="lg" />
+            <StepLabels aria-hidden="true">
+              {steps.map((step) => (
+                <span key={step.label}>{step.label}</span>
+              ))}
+            </StepLabels>
+            {!item.steps_complete && (
+              <Small>Fine-grained step coverage is incomplete. No percentage is inferred.</Small>
+            )}
+            <Action
+              href={
+                item.kind === 'processing'
+                  ? batchHref(item.batch_id, { tab: 'processing', step: 'overview' })
+                  : batchHref(item.batch_id, { tab: 'changes', view: 'added', runId: item.id })
+              }
+            >
+              {item.kind === 'processing' ? 'Open processing' : 'Open original run'}
+            </Action>
+            <Ids>
+              <summary>IDs</summary>
+              Batch {item.batch_id} ·{' '}
+              {item.kind === 'processing' ? `attempt ${item.attempt_id}` : `run ${item.id}`}
+            </Ids>
+          </Work>
+        )
+      })}
       {fresh && data && !data.work.length && !data.work_truncated && (
         <Paragraph>No retained work in this observation.</Paragraph>
       )}
@@ -115,7 +126,7 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
             <Paragraph>
               {session.latest_status.text}{' '}
               <Small as="time" dateTime={session.latest_status.at}>
-                {new Date(session.latest_status.at).toLocaleTimeString()}
+                {new Date(session.latest_status.at).toLocaleTimeString([], SHORT_TIME)}
               </Small>
             </Paragraph>
           )}
@@ -128,12 +139,13 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
                   ? 'Queued; physical lane not held by this session'
                   : 'No physical occupancy reported'}
           </Paragraph>
-          <Small>
-            Batch {session.batch_id} · attempt {session.attempt_id}
-          </Small>
           <Action href={batchHref(session.batch_id, { tab: 'processing', step: 'overview' })}>
             Open session work
           </Action>
+          <Ids>
+            <summary>IDs</summary>
+            Batch {session.batch_id} · attempt {session.attempt_id}
+          </Ids>
         </Work>
       ))}
       {fresh &&
@@ -155,8 +167,35 @@ const Work = styled.section`
   padding: ${space[5]} 0;
   border-bottom: 1px solid ${color.line};
   overflow-wrap: anywhere;
-  ol {
-    padding-left: ${space[10]};
+`
+
+const StepLabels = styled.span`
+  display: flex;
+  gap: ${space[1]};
+  & > span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  margin-top: ${space[1]};
+  font-size: ${typeVar.label.size};
+  color: ${color.muted};
+`
+
+const Ids = styled.details`
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+  summary {
+    cursor: pointer;
+  }
+  ${media.compact} {
+    summary {
+      display: flex;
+      align-items: center;
+      min-height: ${size.touch};
+    }
   }
 `
 const Action = styled(Link)`
