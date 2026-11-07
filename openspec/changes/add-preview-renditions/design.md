@@ -66,7 +66,7 @@ Rejected: extra `media_preview` rows per size, which would break every consumer 
 - Unknown sizes return 400.
 - Authorization stays as it is: the preview must belong to the authorized batch.
 
-JSON response schemas don't change. The generated API contract (`contracts/scripts/generate.cjs`) does: the preview route declares `image/webp` as well as `image/png`, both image routes declare their optional `size` (and, for crops, `rev`) query parameters, and both declare their ETag/304 behavior. The URL needs only `preview_id` and the size, and the client derives each size's dimensions from the page dimensions it already receives, so neither rendition IDs nor a listing are exposed.
+JSON response schemas don't change. The generated API contract (`contracts/scripts/generate.cjs`) does: the preview route declares `image/webp` as well as `image/png`, its optional `size` parameter and its ETag/304 behavior (task 3), and the observation-crop route declares its `size` and `rev` parameters, WebP output and ETag/304 behavior once task 4 implements them. The URL needs only `preview_id` and the size, and the client derives each size's dimensions from the page dimensions it already receives, so neither rendition IDs nor a listing are exposed.
 
 Rejected: a separate route per rendition ID. It would add identifiers for the frontend to carry, for no gain in authority or caching.
 
@@ -114,7 +114,7 @@ How attempts are claimed and published:
 - **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
 - **Priority.** The worker claims a backfill only when no decode command is waiting, and does one page per claim. The worker runs commands one at a time, so an upload arriving during a backfill waits for at most that one in-flight page, which the decoder's 25 s bound limits, and is decoded before any further backfill.
 - **Abandoned claims.** A `claimed` row older than the decoder's outer watchdog plus a grace period (for example 2 minutes) was left by a killed worker. The next worker marks it `interrupted` before claiming, and it becomes eligible again within the three-attempt cap.
-- **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. A mismatched or unreadable page PNG inserts nothing and marks the attempt `skipped_mismatch` (logged). Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
+- **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. Only a positively identified mismatch inserts nothing and marks the attempt `skipped_mismatch` (logged): a digest or dimension mismatch, or bytes the decoder rejects as an invalid PNG. A blob-store read or I/O failure, or any infrastructure failure, marks the attempt `interrupted` with its backoff instead, so a temporary outage never disables a page's backfill. Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
 - **Roles.** The worker role gets `SELECT`, `INSERT` and `UPDATE` on this table only: eligibility reads earlier attempts, claiming uses `RETURNING`, and publication re-reads and locks the attempt. Snapshot reads never touch it.
 
 Rejected: rendering from the page PNG in the API or a migration. That would decode image bytes outside the bounded container, and keeping every decode inside the container keeps the boundary simple to audit.
@@ -132,7 +132,7 @@ Usage profiles:
 
 | Usage | Surfaces | `sizes` / sizes offered |
 | --- | --- | --- |
-| `thumbnail` | `BatchThumbnail`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, then card for 3× density |
+| `thumbnail` | `BatchThumbnail`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, card and view; `sizes` is the cover-fitted width (below) |
 | `card` | `MediaEvidenceCard`, `EvidenceFileTile`, crop output check | thumb and card, with `sizes` from the card width |
 | `viewer` | `EvidenceViewer`, `MediaCropDialog` selection | thumb, card and view; the viewer replaces `src` and `srcSet` with the full page once zoom × displayed width exceeds the view width |
 | `full` | `ProcessingImages` open link | full page (the original download link keeps using the version route) |
@@ -144,6 +144,8 @@ No rendition listing is sent to the client. Which sizes a page has follows from 
 - An 800 × 600 page in a card offers `thumb` and the 800 px full page, not `thumb` alone, so it is never blurrier than today.
 - A 4032 px photo's card never offers the full page, so a high-density screen can't skip to it.
 - `src` is the largest candidate.
+
+Thumbnails are drawn with `object-fit: cover` in a fixed box, so the needed image width depends on the image's aspect ratio as well as the box: `sizes` is the box width × max(1, image aspect ÷ box aspect). For example, an 1800 × 200 region in a 64 px square needs 576 CSS px of image width, 1728 pixels at 3× density, so the browser picks the `view` crop rather than an over-enlarged `card`.
 
 The viewer starts with its usage candidates. It promotes to full when `zoom × rendered CSS width × devicePixelRatio` exceeds the `view` rendition's width, where the rendered width is measured at zoom 1. It then replaces both `src` and `srcSet` with the full page alone, and restores them when the product drops back below the width.
 
@@ -208,6 +210,6 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 
 ## Risks and open decisions
 
-- **Decoder time on the largest inputs.** Mitigated by measuring first. Reduce `effort`, or skip the `view` size for PDF pages, before touching limits.
+- **Decoder time on the largest inputs.** Mitigated by measuring first. Reduce `effort` before touching limits. The set of sizes stays a function of dimensions alone; any change to it would have to revise the spec, backfill eligibility and frontend inference together.
 - **Overlap with `redesign-batch-workspace` frontend restyling.** Keep edits to image elements, and rebase whichever lands second.
 - **Open decisions.** None material. Sizes, WebP quality 80 and automatic backfill are recorded assumptions in the proposal and can be changed at review.
