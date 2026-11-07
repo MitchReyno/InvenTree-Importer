@@ -619,11 +619,11 @@ const Toolbar = styled.div`
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
-  grid-template-columns: minmax(200px, 0.75fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
   gap: ${space[6]};
   align-items: start;
   ${media.wide} {
-    grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr);
+    grid-template-columns: minmax(260px, 0.8fr) minmax(260px, 1.2fr);
     [data-area='evidence'] {
       grid-column: 2;
     }

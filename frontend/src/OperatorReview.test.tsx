@@ -383,6 +383,18 @@ async function openTableAndSelect(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
 }
 
+test('each queue lot is one row that opens the lot, showing its thumbnail and state', async () => {
+  const user = userEvent.setup()
+  renderReview({ operator: operatorClient() })
+  const row = await screen.findByRole('button', { name: 'Show Packet A' })
+  expect(row).not.toHaveTextContent(/^Show/)
+  expect(row).toHaveTextContent('Packet A')
+  expect(row.querySelector('[data-thumb]')).not.toBeNull()
+  expect(row).toHaveAccessibleDescription(/Reviewed/)
+  await user.click(row)
+  expect(row).toHaveAttribute('aria-current', 'true')
+})
+
 test('the Table shows its selection bar above the rows only while lots are selected', async () => {
   const user = userEvent.setup()
   renderReview({ operator: operatorClient() })

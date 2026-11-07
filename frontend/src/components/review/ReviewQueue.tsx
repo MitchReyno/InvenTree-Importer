@@ -1,5 +1,8 @@
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
+import { lotCrops } from '../../processing/proposed-lots'
 import type {
   CaptureSnapshotDto,
   ManualWorkspaceDto,
@@ -7,7 +10,6 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
 import { display } from '../../capture/display'
 import {
   GROUP_LABELS,
@@ -128,9 +130,11 @@ export function ReviewQueue({
                 (value) => value.code === 'original_contribution_already_approved',
               )
             const atCapacity = !selected.includes(lot.id) && selected.length >= maxSelected
+            const current = focused === lot.id
+            const cover = lotCrops(batch, lot, { width: 48, height: 48 })[0]
             return (
-              <QueueRow key={lot.id} $focused={focused === lot.id}>
-                <CheckLabel>
+              <QueueRow key={lot.id} $current={current}>
+                <Check>
                   <input
                     type="checkbox"
                     aria-label={`Select ${lot.label}`}
@@ -138,27 +142,39 @@ export function ReviewQueue({
                     disabled={busy || batch.archived || Boolean(approved) || atCapacity}
                     onChange={() => toggle(lot.id)}
                   />
-                  <strong>{lot.label}</strong>
-                </CheckLabel>
-                {lot.origin === 'agent' && (
-                  <Pill tone={lot.operator_edited ? 'neutral' : 'acc'}>
-                    {lot.operator_edited ? 'Edited' : 'AI-proposed'}
-                  </Pill>
-                )}
-                <Small>{display(lot.quantity, batch, 'quantity')}</Small>
-                {operatorLot ? (
-                  <LotStatusChips lot={operatorLot} />
-                ) : (
-                  <Small>{legacyStatus(approved, status?.reviewed)}</Small>
-                )}
-                <Button
+                </Check>
+                <RowButton
+                  type="button"
                   disabled={busy}
                   aria-label={`Show ${lot.label}`}
-                  aria-current={focused === lot.id ? 'true' : undefined}
+                  aria-describedby={`${lot.id}-state`}
+                  aria-current={current ? 'true' : undefined}
                   onClick={() => inspect(lot.id)}
                 >
-                  Show
-                </Button>
+                  <Thumb data-thumb aria-hidden="true">
+                    {cover ? (
+                      <img {...cover} loading="lazy" decoding="async" alt="" />
+                    ) : (
+                      <span>▧</span>
+                    )}
+                  </Thumb>
+                  <RowBody>
+                    <RowTitle>{lot.label}</RowTitle>
+                    <Qty>{display(lot.quantity, batch, 'quantity')}</Qty>
+                    <RowState id={`${lot.id}-state`}>
+                      {lot.origin === 'agent' && (
+                        <Pill tone={lot.operator_edited ? 'neutral' : 'acc'}>
+                          {lot.operator_edited ? 'Edited' : 'AI-proposed'}
+                        </Pill>
+                      )}
+                      {operatorLot ? (
+                        <LotStatusChips lot={operatorLot} />
+                      ) : (
+                        <Small>{legacyStatus(approved, status?.reviewed)}</Small>
+                      )}
+                    </RowState>
+                  </RowBody>
+                </RowButton>
               </QueueRow>
             )
           })}
@@ -178,29 +194,90 @@ const GroupTitle = styled.h3`
   text-transform: uppercase;
   color: ${color.muted};
 `
-const QueueRow = styled.div<{ $focused: boolean }>`
-  display: grid;
-  gap: ${space[3]};
-  padding: ${space[6]};
-  margin-top: ${space[5]};
-  border: 1px solid ${(p) => (p.$focused ? color.accent : color.line)};
-  border-left-width: ${(p) => (p.$focused ? '4px' : '1px')};
-  border-radius: 5px;
-  background: ${(p) => (p.$focused ? color.accentWeak : color.surface2)};
-  button {
-    margin-top: 3px;
-    width: 100%;
-    text-align: left;
+/** The canvas's item row: the whole row opens the lot; the checkbox sits beside it. */
+const QueueRow = styled.div<{ $current: boolean }>`
+  display: flex;
+  align-items: stretch;
+  gap: ${space[2]};
+  margin-top: ${space[2]};
+  border: 1px solid ${(p) => (p.$current ? color.accent : 'transparent')};
+  border-radius: ${radius.btn};
+  background: ${(p) => (p.$current ? color.accentWeak : 'transparent')};
+  ${hoverTransition}
+  &:hover {
+    background: ${(p) => (p.$current ? color.accentWeak : color.surface2)};
   }
 `
-const CheckLabel = styled.label`
+const Check = styled.label`
   display: flex;
   align-items: center;
-  gap: ${space[5]};
-  min-height: ${size.touch};
-  input {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
+  padding-left: ${space[4]};
+  cursor: pointer;
+  ${media.compact} {
+    min-width: ${size.touch};
+    justify-content: center;
+    padding-left: 0;
   }
+`
+const RowButton = styled.button`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: ${space[5]};
+  flex: 1;
+  min-width: 0;
+  padding: 7px ${space[4]};
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:disabled {
+    cursor: default;
+  }
+`
+const Thumb = styled.span`
+  display: grid;
+  place-items: center;
+  /* literal-allowed: the canvas's square row thumbnail; no thumbnail size token */
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border: 1px solid ${color.line};
+  border-radius: ${radius.thumb};
+  background: ${color.photoStage};
+  color: ${color.photoFg};
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`
+const RowBody = styled.span`
+  display: grid;
+  gap: ${space[1]};
+  min-width: 0;
+`
+const RowTitle = styled.strong`
+  overflow: hidden;
+  font-size: ${typeVar.bodyStrong.size};
+  font-weight: ${typeVar.bodyStrong.weight};
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+const RowState = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[2]};
+  /* A long state wraps inside the narrow queue rather than overflowing it. */
+  [data-tone] {
+    max-width: 100%;
+    white-space: normal;
+  }
+`
+const Qty = styled.span`
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
 `
