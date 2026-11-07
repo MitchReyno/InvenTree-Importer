@@ -451,7 +451,7 @@ test('the fixture profile shows its jobs and questions by step, and claims no li
   expect(within(steps).getByText('1 waiting · 1 question')).toBeInTheDocument()
   expect(
     within(screen.getByRole('region', { name: 'Needs you' })).getByRole('link', {
-      name: 'How many are in Packet A?',
+      name: 'Answer: How many are in Packet A?',
     }),
   ).toHaveAttribute('href', `#${batchId}/processing/examine/${questionId}`)
   expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()

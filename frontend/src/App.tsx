@@ -175,6 +175,7 @@ export default function App() {
         catalogue={catalogue}
         attention={attention}
         records={records}
+        agents={agents ?? undefined}
         route={route}
         onDirtyChange={onDirtyChange}
       />

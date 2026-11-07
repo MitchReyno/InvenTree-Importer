@@ -9,12 +9,13 @@ import { linkTouchArea } from '../ui/primitives'
 import { Count, Pill } from '../ui/Pill'
 import { ProgressSegments, type ProgressStep } from '../ui/ProgressSegments'
 import { StatusTimeline, type TimelineEntry } from '../ui/StatusTimeline'
+import { NeedsYou } from '../ui/NeedsYou'
 import {
   Card,
   CardTitle,
   Muted,
   PipelineRows,
-  QuestionRows,
+  STEP_LABEL,
   SessionRows,
   plural,
   stepOutcome,
@@ -30,6 +31,12 @@ type Props = {
   activity: TimelineEntry[]
   /** Starting work by hand, folded into the progress card. */
   queue?: ReactNode
+  /** Files no lot uses, the count the Map's badge shows. */
+  unusedFiles?: number
+  /** When this batch's first agent session started, as a clock time. */
+  started?: string
+  /** How many sessions may run at once, from the agent settings. */
+  sessionLimit?: number
   onOpenSession: (jobId: string) => void
 }
 
@@ -59,6 +66,9 @@ export function ProcessingOverview({
   instructions,
   activity,
   queue,
+  unusedFiles,
+  started,
+  sessionLimit,
   onOpenSession,
 }: Props) {
   const runningSessions = source.sessions.filter((session) => session.state === 'running').length
@@ -70,9 +80,12 @@ export function ProcessingOverview({
     <Columns>
       <Main>
         <Card aria-label="Progress">
-          <CardTitle>
-            {working ? `${plural(working, 'agent')} working` : 'No agents working'}
-          </CardTitle>
+          <TitleRow>
+            <CardTitle>
+              {working ? `${plural(working, 'agent')} working` : 'No agents working'}
+            </CardTitle>
+            {started && <Muted>Started {started}</Muted>}
+          </TitleRow>
           <ProgressSegments size="lg" steps={source.steps.map(segment)} />
           <StepLabels aria-label="Steps">
             {source.steps.map((step) => (
@@ -96,7 +109,19 @@ export function ProcessingOverview({
           {source.questions.length === 0 ? (
             <Muted>No open questions.</Muted>
           ) : (
-            <QuestionRows batchId={batchId} questions={source.questions} />
+            <NeedsYou
+              items={source.questions.map((question) => ({
+                id: question.id,
+                step: STEP_LABEL[question.step],
+                title: question.prompt,
+                assumption: [question.subject, question.assumption].filter(Boolean).join(' · '),
+                href: batchHref(batchId, {
+                  tab: 'processing',
+                  step: question.step,
+                  questionId: question.id,
+                }),
+              }))}
+            />
           )}
         </Card>
 
@@ -123,7 +148,10 @@ export function ProcessingOverview({
             <TitleRow>
               <CardTitle>Agent sessions</CardTitle>
               <Count value={source.sessions.length} />
-              <Muted>{runningSessions} running</Muted>
+              <Muted>
+                {runningSessions} running
+                {sessionLimit !== undefined && ` · limit ${sessionLimit}`}
+              </Muted>
             </TitleRow>
             <SessionRows sessions={source.sessions} onOpen={onOpenSession} />
             <SmallLink href="#agents">All sessions, every batch</SmallLink>
@@ -150,6 +178,17 @@ export function ProcessingOverview({
             <span>{attention ? `${attention.changes.ready} ready to add` : 'Changes'}</span>
             <Go aria-hidden="true">Changes →</Go>
           </Elsewhere>
+          {Boolean(unusedFiles) && (
+            <Elsewhere href={batchHref(batchId, { tab: 'review', view: 'map' })}>
+              <Badge aria-hidden="true">
+                <Pill tone="warn" glyph="!">
+                  {unusedFiles}
+                </Pill>
+              </Badge>
+              <span>{plural(unusedFiles!, 'file')} not used by any lot</span>
+              <Go aria-hidden="true">Review map →</Go>
+            </Elsewhere>
+          )}
         </Card>
       </Aside>
     </Columns>

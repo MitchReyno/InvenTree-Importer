@@ -27,7 +27,7 @@ import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
 import { typeVar } from '../../theme/generated/tokens'
 import type { ManualClient, ManualStage } from '../../manual/types'
-import type { ProcessingClient } from '../../processing/types'
+import type { ProcessingClient, AgentsRead } from '../../processing/types'
 import { clearPending } from '../../processing/pending-messages'
 import { ProcessingStage } from '../processing/ProcessingStage'
 import { ManualWorkspace } from '../review/ManualWorkspace'
@@ -80,6 +80,7 @@ export function Batch({
   catalogue,
   attention,
   records,
+  agents,
   route,
   onDirtyChange,
 }: {
@@ -92,6 +93,7 @@ export function Batch({
   operator?: OperatorReviewClient
   attention?: AttentionClient
   records?: RecordsClient
+  agents?: AgentsRead
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
@@ -458,6 +460,8 @@ export function Batch({
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         attention={attentionCurrent}
+        agents={agents}
+        unusedFiles={evidence?.unused}
         instructions={{
           // Undefined until the review projection for this revision is read.
           text: currentOperatorReview

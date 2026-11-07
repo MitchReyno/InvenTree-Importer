@@ -11,7 +11,7 @@ import type {
   ProcessingSnapshotDto,
   ProcessingStartDto,
 } from '@invimport/contracts'
-import type { ProcessingClient, ProcessingView } from '../../processing/types'
+import type { AgentsRead, ProcessingClient, ProcessingView } from '../../processing/types'
 import { Heading, Panel, Small, Summary } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
@@ -29,7 +29,7 @@ import { Dialog } from '../ui/Dialog'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
-import type { BatchAttentionDto } from '@invimport/contracts'
+import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -54,6 +54,16 @@ function recentActivity(
   })
 }
 
+/** When this batch's first agent session started, as a clock time. */
+function firstStart(sessions: AgentSessionListDto['sessions'] | undefined, batchId: string) {
+  const starts = (sessions ?? [])
+    .filter((session) => session.batch_id === batchId && session.started_at)
+    .map((session) => session.started_at!)
+    .sort()
+  const at = starts[0] ? new Date(starts[0]) : undefined
+  return at && !Number.isNaN(at.getTime()) ? clock.format(at) : undefined
+}
+
 /** Whether a job belongs on a Processing step; Examine covers the Reading and Identifying stages. */
 function onStep(stage: string, view: ProcessingView) {
   return view === 'overview' || processingStepFor(stage) === view
@@ -71,6 +81,10 @@ interface Props {
   retiredLotIds?: ReadonlySet<string>
   /** Counts for the Overview's links to Review and Changes. */
   attention?: BatchAttentionDto
+  /** The agent-session read, for the batch's start time and the slot limit. */
+  agents?: AgentsRead
+  /** Files no lot uses, offered on the Overview as a way into the Map. */
+  unusedFiles?: number
   /** The batch instructions and how to save them; absent where this setup has none. */
   instructions?: {
     text: string | undefined
@@ -95,6 +109,8 @@ export function ProcessingWorkspace({
   onSaved,
   retiredLotIds = NO_RETIRED_LOTS,
   attention,
+  agents,
+  unusedFiles,
   instructions,
 }: Props) {
   const [sessionJobId, setSessionJobId] = useState<string | null>(null)
@@ -131,6 +147,18 @@ export function ProcessingWorkspace({
     refetchInterval: pollInterval,
   })
   const snapshot = snapshotQuery.data
+  // The Agents page's own reads, so both share one cache entry.
+  const agentSessions = useQuery({
+    queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
+    queryFn: () => agents!.sessions(),
+    enabled: agents !== undefined && view === 'overview',
+  })
+  const agentSettings = useQuery({
+    queryKey: serverQueryKey(scope, 'agent-settings'),
+    queryFn: () => agents!.settings(),
+    enabled: agents !== undefined && view === 'overview',
+  })
+  const started = firstStart(agentSessions.data?.sessions, batch.id)
   const offline = snapshotQuery.isError || snapshotQuery.fetchStatus === 'paused'
   const waitingForRead =
     !successfulRead.current ||
@@ -502,6 +530,9 @@ export function ProcessingWorkspace({
               }
               activity={activity}
               queue={queue}
+              unusedFiles={unusedFiles}
+              started={started}
+              sessionLimit={agentSettings.data?.session_concurrency}
             />
           ) : (
             <StepPage

@@ -90,20 +90,15 @@ describe('ProcessingOverview', () => {
     expect(screen.queryByText(/%/)).not.toBeInTheDocument()
   })
 
-  it('lists open questions with their step and assumption, each opening it', () => {
+  it('lists open questions as Needs you rows, each answering its question', () => {
     overview()
     const needs = screen.getByRole('region', { name: 'Needs you' })
 
-    expect(within(needs).getByRole('link', { name: /Is the last letter a P\?/ })).toHaveAttribute(
-      'href',
-      `#${b}/processing/examine/q1`,
-    )
-    expect(within(needs).getByText(/Assuming ATmega328P/)).toBeInTheDocument()
-    expect(within(needs).getByText(/Examine · Packet A/)).toBeInTheDocument()
-    expect(within(needs).getByRole('link', { name: 'Open in Review: Packet A' })).toHaveAttribute(
-      'href',
-      `#${b}/review/lots/l1`,
-    )
+    expect(
+      within(needs).getByRole('link', { name: 'Answer: Is the last letter a P?' }),
+    ).toHaveAttribute('href', `#${b}/processing/examine/q1`)
+    expect(within(needs).getByText('Examine')).toBeInTheDocument()
+    expect(within(needs).getByText('Packet A · Assuming ATmega328P')).toBeInTheDocument()
   })
 
   it('claims no agent sessions when the source has none', () => {
@@ -297,6 +292,15 @@ describe('InstructionField', () => {
     expect(screen.getByText(/not available in this setup/)).toBeInTheDocument()
   })
 
+  it('says the instruction is saved for the batch, not yet sent to running agents', () => {
+    render(<InstructionField text="" revision="4" instruct={undefined} onDirtyChange={vi.fn()} />)
+    expect(
+      screen.getByText(
+        'Saved for the batch. Running agents are not told of a change yet. Instructions do not approve inventory values.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('heads the progress card with who is working and draws the steps as one bar', () => {
     overview()
     const progress = screen.getByRole('region', { name: 'Progress' })
@@ -347,5 +351,34 @@ describe('InstructionField', () => {
     })
     const timeline = screen.getByRole('list', { name: 'Recent activity' })
     expect(within(timeline).getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('names unused files, when the session started and the slot limit', () => {
+    overview({
+      unusedFiles: 1,
+      started: '13:02',
+      sessionLimit: 3,
+      source: {
+        ...source,
+        sessions: [
+          {
+            jobId: 'j3',
+            step: 'images',
+            subject: 'C',
+            lotId: null,
+            state: 'running',
+            status: null,
+          },
+        ],
+      },
+    })
+    expect(screen.getByRole('link', { name: '1 file not used by any lot' })).toHaveAttribute(
+      'href',
+      `#${b}/review/map`,
+    )
+    expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent('Started 13:02')
+    expect(screen.getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
+      '1 running · limit 3',
+    )
   })
 })

@@ -116,7 +116,10 @@ export function InstructionField({
       ) : (
         <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}
-      <Small>Every agent on this batch reads them. They do not approve inventory values.</Small>
+      <Small>
+        Saved for the batch. Running agents are not told of a change yet. Instructions do not
+        approve inventory values.
+      </Small>
     </Field>
   )
 }

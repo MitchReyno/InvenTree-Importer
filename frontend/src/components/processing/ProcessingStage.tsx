@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
 import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
-import type { ProcessingClient } from '../../processing/types'
+import type { AgentsRead, ProcessingClient } from '../../processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
 
 interface Props {
@@ -16,6 +16,8 @@ interface Props {
   /** Retired lots keep their job history but cannot start new attempts. */
   retiredLotIds?: ReadonlySet<string>
   attention?: BatchAttentionDto
+  agents?: AgentsRead
+  unusedFiles?: number
   instructions?: {
     text: string | undefined
     unavailable?: boolean
@@ -33,6 +35,8 @@ export function ProcessingStage({
   onDirtyChange,
   retiredLotIds,
   attention,
+  agents,
+  unusedFiles,
   instructions,
 }: Props) {
   useEffect(() => () => onDirtyChange(false), [onDirtyChange])
@@ -53,6 +57,8 @@ export function ProcessingStage({
       onSaved={reload}
       retiredLotIds={retiredLotIds}
       attention={attention}
+      agents={agents}
+      unusedFiles={unusedFiles}
       instructions={instructions}
     />
   )
