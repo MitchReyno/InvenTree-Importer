@@ -115,6 +115,7 @@ function deferredRead() {
   return { promise, resolve }
 }
 
+// The job reads its marking, so its attempt detail is on the Examine step page.
 function mount(client: ProcessingClient, cache = createServerQueryClient()) {
   const dirty = vi.fn()
   const navigate = vi.fn()
@@ -123,7 +124,7 @@ function mount(client: ProcessingClient, cache = createServerQueryClient()) {
       <ProcessingWorkspace
         batch={batch}
         client={client}
-        view="overview"
+        view="examine"
         questionId={questionId}
         navigate={navigate}
         onDirtyChange={dirty}
@@ -334,7 +335,7 @@ test('archiving a verified workspace preserves the draft but refuses every mutat
       <ProcessingWorkspace
         batch={{ ...batch, archived: true }}
         client={client}
-        view="overview"
+        view="examine"
         questionId={questionId}
         navigate={mounted.navigate}
         onDirtyChange={mounted.dirty}

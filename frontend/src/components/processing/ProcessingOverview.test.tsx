@@ -69,6 +69,7 @@ function overview(overrides: Partial<Parameters<typeof ProcessingOverview>[0]> =
       attention={attention}
       instructions={<p>Instructions slot</p>}
       onOpenSession={vi.fn()}
+      activity={[]}
       {...overrides}
     />,
   )
@@ -108,7 +109,7 @@ describe('ProcessingOverview', () => {
   it('claims no agent sessions when the source has none', () => {
     overview()
 
-    expect(screen.queryByRole('region', { name: 'Sessions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Agent sessions' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()
   })
 
@@ -138,7 +139,7 @@ describe('ProcessingOverview', () => {
       },
       onOpenSession,
     })
-    const sessions = screen.getByRole('region', { name: 'Sessions' })
+    const sessions = screen.getByRole('region', { name: 'Agent sessions' })
 
     expect(within(sessions).getByText('Research · Packet B')).toBeInTheDocument()
     expect(within(sessions).getByText('Checking the datasheet')).toBeInTheDocument()
@@ -281,5 +282,57 @@ describe('InstructionField', () => {
 
     expect(screen.getByLabelText('Instructions for the whole batch')).toBeDisabled()
     expect(screen.getByText(/not available in this setup/)).toBeInTheDocument()
+  })
+
+  it('heads the progress card with who is working and draws the steps as one bar', () => {
+    overview()
+    const progress = screen.getByRole('region', { name: 'Progress' })
+    expect(within(progress).getByRole('heading', { name: '1 agent working' })).toBeVisible()
+    expect(within(progress).getByRole('list', { name: 'Steps' })).toBeVisible()
+    expect(within(progress).getByText('Examine: running')).toBeInTheDocument()
+    expect(within(progress).getByText('Research: failed')).toBeInTheDocument()
+  })
+
+  it('puts sessions and the rest of the batch in an aside', () => {
+    overview({
+      source: {
+        ...source,
+        sessions: [
+          {
+            jobId: 'j3',
+            step: 'images',
+            subject: 'Packet C',
+            lotId: null,
+            state: 'running',
+            status: null,
+          },
+        ],
+      },
+    })
+    const aside = screen.getByRole('complementary')
+    expect(within(aside).getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
+      '1 running',
+    )
+    expect(within(aside).getByRole('link', { name: '8 lots to check' })).toBeVisible()
+    expect(within(aside).getByRole('link', { name: 'All sessions, every batch' })).toHaveAttribute(
+      'href',
+      '#agents',
+    )
+  })
+
+  it('shows recent activity as a timeline, or says there is none yet', () => {
+    const { unmount } = overview()
+    expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveTextContent(
+      'No agent activity yet.',
+    )
+    unmount()
+    overview({
+      activity: [
+        { text: 'Research · Packet B: Checking the datasheet', time: '13:07' },
+        { text: 'Examine · Whole batch: Grouping the reels', time: '13:09', current: true },
+      ],
+    })
+    const timeline = screen.getByRole('list', { name: 'Recent activity' })
+    expect(within(timeline).getAllByRole('listitem')).toHaveLength(2)
   })
 })

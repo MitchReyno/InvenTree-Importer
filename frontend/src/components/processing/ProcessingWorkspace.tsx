@@ -23,12 +23,35 @@ import { ProcessingOverview } from './ProcessingOverview'
 import { StepPage } from './StepPage'
 import { ExamineView } from './ExamineView'
 import { InstructionField } from './InstructionField'
-import { Card, CardTitle, STEP_LABEL } from './ProcessingParts'
+import { STEP_LABEL } from './ProcessingParts'
 import { Modal } from '../operator/Modal'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
 import type { BatchAttentionDto } from '@invimport/contracts'
+
+const ACTIVITY_LIMIT = 6
+const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
+
+/** The batch's newest agent status lines, oldest first; the newest is current while it runs. */
+function recentActivity(
+  snapshot: ProcessingSnapshotDto | undefined,
+  subjectLabel: (id: string | null) => string,
+) {
+  const lines = (snapshot?.jobs ?? [])
+    .filter((job) => job.latest_status)
+    .sort((a, b) => a.latest_status!.at.localeCompare(b.latest_status!.at))
+    .slice(-ACTIVITY_LIMIT)
+
+  return lines.map((job, index) => {
+    const at = new Date(job.latest_status!.at)
+    return {
+      text: `${STEP_LABEL[processingStepFor(job.stage)] ?? 'Processing'} · ${subjectLabel(job.subject_id)}: ${job.latest_status!.text}`,
+      time: Number.isNaN(at.getTime()) ? job.latest_status!.at : clock.format(at),
+      current: index === lines.length - 1 && job.session_state === 'running',
+    }
+  })
+}
 
 /** Whether a job belongs on a Processing step; Examine covers the Reading and Identifying stages. */
 function onStep(stage: string, view: ProcessingView) {
@@ -280,6 +303,44 @@ export function ProcessingWorkspace({
   )
   const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
   const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
+  const activity = recentActivity(snapshot, subjectLabel)
+  const queue = snapshot && (
+    <details>
+      <Summary>Queue work for selected saved subjects</Summary>
+      <Selection
+        disabled={batch.archived}
+        aria-label="Select saved subjects for a new processing attempt"
+      >
+        {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
+          (subject) => (
+            <label key={subject.id}>
+              <input
+                type="checkbox"
+                checked={selected.includes(subject.id)}
+                onChange={() =>
+                  setSelected((previous) =>
+                    previous.includes(subject.id)
+                      ? previous.filter((id) => id !== subject.id)
+                      : [...previous, subject.id],
+                  )
+                }
+              />
+              {subject.label}
+            </label>
+          ),
+        )}
+      </Selection>
+      <Button
+        disabled={
+          runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
+        }
+        onClick={start}
+      >
+        Queue new processing attempts
+      </Button>
+      <Small>New attempts preserve saved human values and previous results.</Small>
+    </details>
+  )
   const jobCards = (
     <>
       {jobs.map((job) => (
@@ -354,51 +415,19 @@ export function ProcessingWorkspace({
         <Paragraph role="status">Reading retained processing state…</Paragraph>
       ) : (
         <>
-          <Panel>
-            <Heading>
-              {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
-              {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need answers
-              · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
-            </Heading>
-            <Small>
-              One research lane per account. A waiting question frees the lane for other lots.
-            </Small>
-            <details>
-              <Summary>Queue work for selected saved subjects</Summary>
-              <Selection
-                disabled={batch.archived}
-                aria-label="Select saved subjects for a new processing attempt"
-              >
-                {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
-                  (subject) => (
-                    <label key={subject.id}>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(subject.id)}
-                        onChange={() =>
-                          setSelected((previous) =>
-                            previous.includes(subject.id)
-                              ? previous.filter((id) => id !== subject.id)
-                              : [...previous, subject.id],
-                          )
-                        }
-                      />
-                      {subject.label}
-                    </label>
-                  ),
-                )}
-              </Selection>
-              <Button
-                disabled={
-                  runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
-                }
-                onClick={start}
-              >
-                Queue new processing attempts
-              </Button>
-              <Small>New attempts preserve saved human values and previous results.</Small>
-            </details>
-          </Panel>
+          {view !== 'overview' && (
+            <Panel>
+              <Heading>
+                {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
+                {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need
+                answers · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
+              </Heading>
+              <Small>
+                One research lane per account. A waiting question frees the lane for other lots.
+              </Small>
+              {queue}
+            </Panel>
+          )}
           {questionId && pinned?.question.id === questionId ? (
             <>
               <QuestionAnswer
@@ -454,18 +483,8 @@ export function ProcessingWorkspace({
                   onDirtyChange={drafts.forSource('instructions')}
                 />
               }
-              activity={
-                <Card aria-label="Activity">
-                  <CardTitle>Activity</CardTitle>
-                  {jobs.length === 0 ? (
-                    <Paragraph>
-                      No retained work yet. Select saved subjects to queue an attempt.
-                    </Paragraph>
-                  ) : (
-                    jobCards
-                  )}
-                </Card>
-              }
+              activity={activity}
+              queue={queue}
             />
           ) : (
             <StepPage
