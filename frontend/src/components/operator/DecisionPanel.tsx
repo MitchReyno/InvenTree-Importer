@@ -17,7 +17,8 @@ import { Button } from '../ui/Button'
 import { Kbd } from '../ui/Kbd'
 import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
-import { FactRow } from './FactRow'
+import { KeyValue } from '../ui/KeyValue'
+import { ProvenancePill } from './ProvenancePill'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
@@ -188,12 +189,11 @@ export function DecisionPanel({
 
   const restructureLocked = disabled || drafts.dirty || !operator || Boolean(operatorLot?.approved)
   const reviewBlock = reviewBlockReason(operatorLot)
+  const location = lotLocationFact(batch, lot, media)
   return (
     <>
       <Heading>{lot.label}</Heading>
-      <RecordChain
-        links={recordLinks(batch, lot, part, operatorLot, lotLocationFact(batch, lot, media))}
-      />
+      <RecordChain links={recordLinks(batch, lot, part, operatorLot, location)} />
       <AgentLine batchId={batch.id} status={agent} />
       {openQuestion && (
         <Paragraph>
@@ -209,49 +209,65 @@ export function DecisionPanel({
           </Link>
         </Paragraph>
       )}
-      <dl>
-        <FactRow
-          label={part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part'}
-          value={partValue(batch, part)}
-          provenance={part ? partProvenance(part.choice) : 'unset'}
-        >
-          <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
-          {sharing.length > 0 && (
-            <SharedLine aria-label="Lots sharing this Part proposal">
-              Shared with {sharing.length} other lot{sharing.length === 1 ? '' : 's'}:{' '}
-              {sharing.map((other, index) => (
-                <span key={other.id}>
-                  {index > 0 && ', '}
-                  <LinkButton type="button" onClick={() => inspect(other.id)}>
-                    {other.label}
-                  </LinkButton>
-                </span>
-              ))}
-            </SharedLine>
-          )}
-          {part && (
-            <SharedTagsChoice
-              batch={batch}
-              part={part}
+      <KeyValue
+        rows={[
+          {
+            label: part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part',
+            value: partValue(batch, part),
+            state: 'plain',
+            source: <ProvenancePill provenance={part ? partProvenance(part.choice) : 'unset'} />,
+          },
+          {
+            label: 'Quantity',
+            value: display(lot.quantity, batch, 'quantity'),
+            state: 'plain',
+            source: (
+              <ProvenancePill provenance={lotProvenance(lot.quantity, batch.defaults.quantity)} />
+            ),
+          },
+          {
+            label: 'Location',
+            value: location.value,
+            state: 'plain',
+            source: <ProvenancePill provenance={location.provenance} />,
+          },
+        ]}
+      />
+      <PartExtras aria-label="Shared Part proposal">
+        <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
+        {sharing.length > 0 && (
+          <SharedLine aria-label="Lots sharing this Part proposal">
+            Shared with {sharing.length} other lot{sharing.length === 1 ? '' : 's'}:{' '}
+            {sharing.map((other, index) => (
+              <span key={other.id}>
+                {index > 0 && ', '}
+                <LinkButton type="button" onClick={() => inspect(other.id)}>
+                  {other.label}
+                </LinkButton>
+              </span>
+            ))}
+          </SharedLine>
+        )}
+        {part && (
+          <SharedTagsChoice
+            batch={batch}
+            part={part}
+            disabled={disabled || drafts.dirty}
+            edit={edit}
+          />
+        )}
+        {part && part.choice.mode !== 'create' && (
+          <span>
+            <Button
+              size="sm"
               disabled={disabled || drafts.dirty}
-              edit={edit}
-            />
-          )}
-          {part && part.choice.mode !== 'create' && (
-            <span>
-              <Button disabled={disabled || drafts.dirty} onClick={() => setComparing(true)}>
-                Compare matches
-              </Button>
-            </span>
-          )}
-        </FactRow>
-        <FactRow
-          label="Quantity"
-          value={display(lot.quantity, batch, 'quantity')}
-          provenance={lotProvenance(lot.quantity, batch.defaults.quantity)}
-        />
-        <FactRow label="Location" {...lotLocationFact(batch, lot, media)} />
-      </dl>
+              onClick={() => setComparing(true)}
+            >
+              Compare matches
+            </Button>
+          </span>
+        )}
+      </PartExtras>
       {operatorLot ? (
         <IssuePanel
           batch={batch}
@@ -426,6 +442,14 @@ const ButtonKbd = styled(Kbd)`
   border-color: currentColor;
   background: transparent;
   color: inherit;
+`
+const PartExtras = styled.div`
+  display: grid;
+  justify-items: start;
+  gap: ${space[3]};
+  margin: ${space[4]} 0;
+  padding-bottom: ${space[5]};
+  border-bottom: 1px solid ${color.line};
 `
 const SharedLine = styled.p`
   margin: 0;

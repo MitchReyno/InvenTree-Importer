@@ -1162,14 +1162,14 @@ test('each problem offers its fix, on the lot or on the screen that owns it', as
       ),
     },
   })
-  const problems = await screen.findByRole('region', { name: 'Blocking problems' })
+  const problems = await screen.findByRole('region', { name: 'Blocking: 2 blocking problems' })
 
   expect(within(problems).getByRole('link', { name: 'Decide in Records' })).toHaveAttribute(
     'href',
     `#${batchId}/review/records`,
   )
   expect(
-    within(screen.getByRole('region', { name: 'Warnings' })).getByRole('link', {
+    within(screen.getByRole('region', { name: /^Warning: 1 warning/ })).getByRole('link', {
       name: 'Add evidence in Capture',
     }),
   ).toHaveAttribute('href', `#${batchId}/capture`)

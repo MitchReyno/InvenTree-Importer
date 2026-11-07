@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
-import { Link, Paragraph, Small } from '../ui/primitives'
+import { Link, Small } from '../ui/primitives'
+import { ProblemCard } from '../ui/ProblemCard'
 import { Button } from '../ui/Button'
 import { DismissWarning } from './DismissWarning'
 import type { ProblemAction } from '../../operator/problem-actions'
@@ -50,6 +51,7 @@ function Fixes({
         ) : (
           <Button
             key={action.label}
+            size="sm"
             disabled={disabled || (action.kind === 'edit_values' ? !onEditValues : !onEditPart)}
             onClick={action.kind === 'edit_values' ? onEditValues : onEditPart}
           >
@@ -99,62 +101,68 @@ export function IssuePanel({
   const [dismissing, setDismissing] = useState<string | null>(null)
   const blocking = issues.filter((issue) => issue.severity === 'blocking')
   const warnings = issues.filter((issue) => issue.severity === 'warning')
+
+  const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+
   return (
-    <>
+    <Cards>
       {blocking.length > 0 && (
-        <Box $tone="red" aria-label="Blocking problems">
-          <Paragraph>
-            <strong>
-              × {blocking.length} blocking problem{blocking.length === 1 ? '' : 's'}
-            </strong>{' '}
-            Must be fixed before this lot can be approved.
-          </Paragraph>
-          {blocking.map((issue, index) => (
-            <Item key={`${issue.code}:${index}`}>
-              <Paragraph>{issue.message}</Paragraph>
-              {fixes(issue)}
-              {issue.run_id && (
-                <Link
-                  href={batchHref(batch.id, { tab: 'changes', view: 'added', runId: issue.run_id })}
-                >
-                  Inspect original run
-                </Link>
-              )}
-            </Item>
-          ))}
-        </Box>
+        <ProblemCard
+          severity="blocking"
+          title={plural(blocking.length, 'blocking problem')}
+          summary="Must be fixed before this lot can be approved."
+          issues={blocking.map((issue) => ({
+            title: issue.message,
+            text: '',
+            actions: (
+              <>
+                {fixes(issue)}
+                {issue.run_id && (
+                  <Link
+                    href={batchHref(batch.id, {
+                      tab: 'changes',
+                      view: 'added',
+                      runId: issue.run_id,
+                    })}
+                  >
+                    Inspect original run
+                  </Link>
+                )}
+              </>
+            ),
+          }))}
+        />
       )}
       {warnings.length > 0 && (
-        <Box $tone="amber" aria-label="Warnings">
-          <Paragraph>
-            <strong>
-              ! {warnings.length} warning{warnings.length === 1 ? '' : 's'}
-            </strong>{' '}
-            Fix, or dismiss with a reason if it is fine as it is.
-          </Paragraph>
-          {warnings.map((issue) => (
-            <Item key={issueKey(issue)}>
-              <Paragraph>{issue.message}</Paragraph>
-              {subjectNote(batch, issue, partLotLabels) && (
-                <Small>{subjectNote(batch, issue, partLotLabels)}</Small>
-              )}
-              {fixes(issue)}
-              <WarningAction
-                batch={batch}
-                issue={issue}
-                client={client}
-                disabled={disabled}
-                open={dismissing === issueKey(issue)}
-                otherOpen={dismissing !== null && dismissing !== issueKey(issue)}
-                setOpen={(open) => setDismissing(open ? issueKey(issue) : null)}
-                reload={reload}
-                onDirtyChange={onDirtyChange}
-              />
-            </Item>
-          ))}
-        </Box>
+        <ProblemCard
+          severity="warning"
+          title={plural(warnings.length, 'warning')}
+          summary="Fix, or dismiss with a reason if it is fine as it is."
+          issues={warnings.map((issue) => ({
+            title: issue.message,
+            text: subjectNote(batch, issue, partLotLabels) ?? '',
+            actions: (
+              <>
+                {fixes(issue)}
+                <Dismissal>
+                  <WarningAction
+                    batch={batch}
+                    issue={issue}
+                    client={client}
+                    disabled={disabled}
+                    open={dismissing === issueKey(issue)}
+                    otherOpen={dismissing !== null && dismissing !== issueKey(issue)}
+                    setOpen={(open) => setDismissing(open ? issueKey(issue) : null)}
+                    reload={reload}
+                    onDirtyChange={onDirtyChange}
+                  />
+                </Dismissal>
+              </>
+            ),
+          }))}
+        />
       )}
-    </>
+    </Cards>
   )
 }
 
@@ -185,7 +193,7 @@ function WarningAction(props: WarningActionProps) {
   }
   if (!open) {
     return (
-      <Button disabled={disabled || otherOpen} onClick={() => setOpen(true)}>
+      <Button size="sm" disabled={disabled || otherOpen} onClick={() => setOpen(true)}>
         Dismiss…
       </Button>
     )
@@ -206,30 +214,19 @@ function WarningAction(props: WarningActionProps) {
   )
 }
 
-const TONES = {
-  red: { border: color.bad, background: color.badWeak },
-  amber: { border: color.warn, background: color.warnWeak },
-}
-
-const Box = styled.section<{ $tone: keyof typeof TONES }>`
-  padding: ${space[6]} ${space[7]};
-  margin: ${space[6]} 0;
-  border: 1px solid ${(p) => TONES[p.$tone].border};
-  background: ${(p) => TONES[p.$tone].background};
-  border-radius: 6px;
-`
-const Item = styled.div`
-  padding: ${space[4]} 0;
-  border-top: 1px solid ${color.line};
+const Cards = styled.div`
   display: grid;
-  gap: ${space[3]};
-  justify-items: start;
+  gap: ${space[5]};
+  margin: ${space[6]} 0;
+`
+
+const Dismissal = styled.div`
+  flex: 1 1 100%;
 `
 
 const FixRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[4]};
-  margin: ${space[2]} 0;
+  gap: ${space[3]};
 `

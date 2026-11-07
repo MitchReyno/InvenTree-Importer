@@ -8,8 +8,6 @@
   "components/operator/CompareMatches.tsx | border-radius | 6px": 1,
   "components/operator/CompareMatches.tsx | font-size | 12px": 1,
   "components/operator/EvidenceViewer.tsx | border-radius | 6px": 2,
-  "components/operator/FactRow.tsx | font-size | 12px": 1,
-  "components/operator/IssuePanel.tsx | border-radius | 6px": 1,
   "components/operator/LotObservations.tsx | border-radius | 4px": 1,
   "components/operator/RestructureDialog.tsx | border-radius | 6px": 2,
   "components/operator/RetiredLots.tsx | border-radius | 5px": 1,
