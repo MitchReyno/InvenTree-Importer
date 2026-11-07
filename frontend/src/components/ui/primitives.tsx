@@ -2,9 +2,26 @@ import styled, { css } from 'styled-components'
 import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
+/** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
+export const linkTouchArea = css`
+  ${media.compact} {
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, ${size.touch});
+      height: ${size.touch};
+      transform: translate(-50%, -50%);
+    }
+  }
+`
+
 export const Link = styled.a`
   color: ${color.accent};
   touch-action: manipulation;
+  ${linkTouchArea}
 `
 export const Panel = styled.section`
   padding: ${space[7]} ${space[8]};

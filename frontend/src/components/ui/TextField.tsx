@@ -36,10 +36,14 @@ export function TextField({ label, help, error, ...control }: TextFieldProps) {
   const id = control.id ?? generated
   const noteId = `${id}-note`
   const note = error ?? help
+  // A caller's own invalid state and descriptions are kept; the note is added to them.
+  const describedBy = [control['aria-describedby'], note ? noteId : undefined]
+    .filter(Boolean)
+    .join(' ')
   const shared = {
     id,
-    'aria-invalid': error ? true : undefined,
-    'aria-describedby': note ? noteId : undefined,
+    'aria-invalid': error ? true : control['aria-invalid'],
+    'aria-describedby': describedBy || undefined,
   } as const
   return (
     <Field>

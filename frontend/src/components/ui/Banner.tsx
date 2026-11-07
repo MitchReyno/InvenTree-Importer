@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, icon, radius, space, typeVar } from '../../theme/generated/tokens'
-import { linkTouchArea } from './Button'
+import { linkTouchArea } from './primitives'
 
 export type BannerTone = 'info' | 'warn' | 'bad' | 'ok' | 'plain'
 

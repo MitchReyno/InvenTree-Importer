@@ -11,22 +11,7 @@ import { color, opacity, radius, size, space, type, typeVar } from '../../theme/
 import { media } from './media'
 import { hoverTransition } from './motion'
 import { Spinner } from './Loading'
-
-/** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
-export const linkTouchArea = css`
-  ${media.compact} {
-    position: relative;
-    &::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: max(100%, ${size.touch});
-      height: ${size.touch};
-      transform: translate(-50%, -50%);
-    }
-  }
-`
+import { linkTouchArea } from './primitives'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'warn' | 'link'
 export type ButtonSize = 'sm' | 'md' | 'lg'

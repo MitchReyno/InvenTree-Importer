@@ -107,3 +107,22 @@ test('renders a select or a textarea with the same label and help', () => {
   )
   expect(screen.getByRole('textbox', { name: 'Notes for the whole batch' })).toBeInTheDocument()
 })
+
+test('a caller’s invalid state and description are kept, with the help added', () => {
+  render(
+    <>
+      <p id="server-error">The server refused this title.</p>
+      <TextField
+        label="Title"
+        help="Shown on the batch list."
+        aria-invalid={true}
+        aria-describedby="server-error"
+      />
+    </>,
+  )
+  const field = screen.getByRole('textbox', { name: 'Title' })
+  expect(field).toHaveAttribute('aria-invalid', 'true')
+  expect(field).toHaveAccessibleDescription(
+    'The server refused this title. Shown on the batch list.',
+  )
+})
