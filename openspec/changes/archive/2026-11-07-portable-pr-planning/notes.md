@@ -1,6 +1,6 @@
 # Implementation notes
 
-All three tasks were delivered in one PR, PR-A ([#69](https://github.com/MitchReyno/InvenTree-Importer/pull/69)), on `docs/portable-pr-planning`. The PR changed planning instructions only: no application code, dependencies or external resources.
+All three tasks were delivered in one PR, PR-A ([#69](https://github.com/MitchReyno/InvenTree-Importer/pull/69)), on `docs/portable-pr-planning`. The PR changed planning instructions only: no application code, dependencies or external resources. The change was archived on 2026-11-07.
 
 ## Changes to the plan
 
