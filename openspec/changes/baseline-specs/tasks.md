@@ -83,8 +83,8 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 - Scope and approach: rebase onto the latest `interactive-app`, rerun the overlap check in new-capabilities-only mode, then sync.
 - Verification: the overlap check is clean; `openspec validate --specs --strict`; the diff shows only new files under `openspec/specs/`.
 
-- [ ] 6.1 Rebase onto the latest trunk and rerun the overlap check.
-- [ ] 6.2 Sync the deltas and validate the main specs.
+- [x] 6.1 Rebase onto the latest trunk and rerun the overlap check.
+- [x] 6.2 Sync the deltas and validate the main specs.
 
 ## Delivery evidence and lifecycle follow-up
 
