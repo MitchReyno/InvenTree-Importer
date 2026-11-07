@@ -17,6 +17,8 @@
 - **Branches and subjects.** Branches are `feat/redesign-batch-workspace-<bundle>`, targeting `interactive-app`. Subjects are `type(redesign-batch-workspace): …`.
 - **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`, merged in #95). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). BI-006 supplies only data and contracts (its design D11). This change's `ProcessingSource` gains the session and observation adapter whenever those contracts exist: in task 14: one conditional PR (PR-G) after PR-C, PR-D and PR-E, which blocked none of tasks 1–13. The styling uplift (tasks 15–20) follows it.
 - **Styling uplift.** Tasks 15–20 move the remaining styling onto the design system's tokens (version 3) and shared components, and close the visual gaps against the canvas (design D11). Their evidence is [styling-audit.md](styling-audit.md): clusters `C1`–`C18` and visual gaps by area `V1`–`V8`. Where the audit's recommendation differs from tokens v3, tokens v3 wins. Each area task's first step swaps only that area's exact values, leaving the screenshot diff unchanged. Its later steps take the visible changes: near values and the visible cluster changes (C1, C3, C4, C8, C9, C10, C15–C17), shared components and the area's gaps, each with before-and-after screenshots. Every area task also gives its controls a 44px hit area below `bp-compact` (G15).
+- **Component alignment and structural gaps.** The audit's third pass ([Component and structural audit](styling-audit.md#component-and-structural-audit)) adds component names (one per design-system name, design D12) and structural gaps. Buildable gaps join their area tasks 15–20. Task 21 adds behaviour on existing commands (Examine corrections, region editing and moves on the Map, the inline answer, opening a session), task 22 the data the specs require (existing values in Records, source kind and agreement, question times), and task 23 the design detail that needs new data or commands.
+- **No dead code.** Every task in 15–23 deletes the code it makes unused in the same task (design D12): retired screen copies, legacy primitives, superseded styles, props, routes and fallbacks, and tests that only cover them. The unused-code check (15.5) must not grow, and each task's record step states what it removed.
 
 ## Completion and commit ordering
 
@@ -45,13 +47,16 @@ Keep a parent unchecked while any of its required subtasks are open. Review, pub
 | 13 Documentation and browser qualification | Docs/evidence | 6–12 | All specs in their pre-BI-006 forms: browser evidence |
 | 14 BI-006 sessions, observations and proposals (conditional) | Behavior/UI | 6, 7, 8, 9, 10, 12, and BI-006's contracts on `interactive-app` | capture-batch-settings: Read-only lots glance (with sessions); processing-workspace: Overview with running agents and the session drawer; agents-overview: Waiting sessions do not count as running; review-workspace region crops, agent line, and Map at region level with its instruction field; review-records: Ask scenario, New company with a likely match, New category proposed |
 | 15 Token foundation and component library | Enabling/UI | 1–14 | ui-design-system: Token-driven layout and type, and Motion and layers follow the design system (all scenarios, at component level); Screens use the shared components (at component level); Layout follows the design's widths and breakpoints (Phone width, for the library's controls) |
-| 16 App shell, masthead, Batches and Agents | UI | 15 | ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead) |
+| 16 App shell, masthead, Batches and Agents | UI | 15 | ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead); batch-navigation: Second tab row (each sub-view's count and badge) |
 | 17 Capture | UI | 15 | ui-design-system: Phone width (the Capture actions); Screens use the shared components on Capture |
 | 18 Processing | UI | 15 | ui-design-system: One status vocabulary (the running step); processing-workspace: Overview with running agents and Session drawer, as laid out in the canvas |
-| 19 Review Lots and Map | UI | 15 | ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints) |
-| 20 Records and Changes, then strict lint | UI/enabling | 15–19 | ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict |
+| 19 Review Lots and Map | UI | 15 | ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints); review-workspace: Map drawing and region edits (Links drawn between evidence and lots) |
+| 20 Records and Changes, then strict lint | UI/enabling | 15–19 | ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict; Components carry the design system's names, for the whole app |
+| 21 Corrections, region edits and the inline answer | Behavior/UI | 16, 18, 19 | processing-workspace: Correct a reading; review-workspace: Part not chosen (the inline answer), and Map drawing and region edits (Move a region to another lot, adjusting and adding regions) |
+| 22 Data the specs require | Behavior (contracts/server)/UI | 20, 21 | review-records: Records by type (existing against proposed values, a source chip per value); ui-design-system: Provenance on demand (uncertainty in words); processing-workspace: Processing overview (Needs you oldest first) |
+| 23 Design detail on new data | Behavior (contracts/server)/UI | 20 | No new spec requirement: the canvas detail listed in task 23, each with contract tests |
 
-Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 16–19 can run in any order after task 15.
+Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 16–19 can run in any order after task 15. Tasks 21 and 23 can run in either order after task 20; task 22 follows task 21.
 
 ## PR delivery map
 
@@ -68,8 +73,11 @@ Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 
 | PR-I | App shell widths and global CSS, masthead and header popovers, the batch header band, Batches, Agents and settings | 16 | The frame every screen sits in | PR-H | `interactive-app` ← `feat/redesign-batch-workspace-styling-shell`; `feat(redesign-batch-workspace): restyle app shell, masthead, batches and agents` | As PR-H |
 | PR-J | Capture and Processing, each as its own task and commits | 17, 18 | Two mid-sized areas that share no files, reviewed together to keep the PR count down | PR-H | `interactive-app` ← `feat/redesign-batch-workspace-styling-capture-processing`; `feat(redesign-batch-workspace): restyle capture and processing` | As PR-H |
 | PR-K | Review Lots and Map, then Records and Changes, ending with the strict lint | 19, 20 | The rest of Review and Changes; the lint can only become strict once every area is clean | PR-H, PR-I, PR-J | `interactive-app` ← `feat/redesign-batch-workspace-styling-review-changes`; `feat(redesign-batch-workspace): restyle review, records and changes` | As PR-H, plus the strict lint and a final screenshot pass over every screen |
+| PR-L | Examine corrections, region adjusting, adding and moving on the Map, Review's inline answer, and opening a session from Agents | 21 | New interaction on commands that already exist, reviewed apart from the restyling | PR-I, PR-J, PR-K | `interactive-app` ← `feat/redesign-batch-workspace-corrections`; `feat(redesign-batch-workspace): corrections, region edits and the inline answer` | `pnpm contracts:check`, `pnpm test:intake`, frontend checks; browser check; demo video; review; CI |
+| PR-M | Existing values in Records, source kind and agreement for values, question times | 22 | Contract and server changes the specs require, with their screens | PR-L | `interactive-app` ← `feat/redesign-batch-workspace-required-data`; `feat(redesign-batch-workspace): existing values, source agreement and question times` | `pnpm contracts:check`, `pnpm typecheck`, `pnpm test:intake`, frontend checks; browser check; demo video; review; CI |
+| PR-N | The batch list's stage and counts, the tree's unticked lots and field diffs, parameter markers, the reuse reason, run times, Pause all and "Same item as…" | 23 | The remaining canvas detail, each on a new field or command | PR-K | `interactive-app` ← `feat/redesign-batch-workspace-design-detail`; `feat(redesign-batch-workspace): design detail on new data` | As PR-M |
 
-PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be reviewed in parallel after PR-H.
+PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be reviewed in parallel after PR-H. PR-L and PR-N can be reviewed in parallel after PR-K.
 
 ## 1. Tokens, themes and fonts
 
@@ -328,10 +336,12 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 15.2 Copy the design system's tokens v3 into `frontend/src/theme/tokens.json`, renaming every existing `space[...]` use, and the generator tests' expected names, to the 2px scale in one mapped pass (design D11) with the screenshot diff unchanged; write failing generator contract tests for the `duration`, `easing`, `zIndex`, `breakpoint`, `opacity` and `size` families and the new spacing and radius steps (RED), then generate them as CSS custom properties and typed constants (GREEN), with each type style's size, line-height, weight and letter-spacing also emitted as its own variable.
 - [ ] 15.3 Make `ui/media.ts` use the generated breakpoints and add a shared motion module (keyframes, durations, easings, reduced-motion guard) in place of the library's duplicated `pulse` keyframes (Progress, PhaseRow); 16.3 removes the header popovers' copies.
 - [ ] 15.4 Extend the literal-colour lint to spacing, radius, shadow, type, z-index, duration, easing, breakpoint, opacity and size values in components that equal a token, judging equality only against the tokens meant for each property (design D11, including `min-height` and `min-width` against `size-*`), leaving a value whose equal token has the wrong role for the visible step, allowing values with no token, grid track widths (`grid-template-*`), values with an annotated allow comment because their role has no token, `calc()` adjustments of a token, the scene palette and photo masks (design D11), and counting a type property as token-equal when it matches that property's variable, reporting the file, line and token to use, with a recorded baseline that a change may only shrink.
-- [ ] 15.5 Swap exact values for tokens in `components/ui/` and `primitives.tsx`, with the screenshot diff unchanged.
-- [ ] 15.6 Make `primitives.Button` the shared `ui/Button`, and add `Dialog` and `Popover` surfaces (radius, padding, shadow, layer and motion from tokens).
-- [ ] 15.7 Close the library's V1 gaps: G3 (each status's glyph and colour), G7 and G11 (a shared hover-transition mixin, applied to the library's hover rules; G7's Batches, HeaderStatus and MastheadMenu sites go to 16.6 and EvidenceActions to 17.5), G8 (table row hover), G10 (toast exit), the toast's layer from `z-index: 50` to `z-toast`, G15 for the library's own controls (Button `link` and `sm`, interactive chips and links) and the `Banner` component's part of G12; and move the library's near values and visible cluster changes onto tokens (C2, C3, C9, C10, C15, C16, and C18's control heights and icon sizes), with before-and-after screenshots. The other V1 gaps belong to the area task that owns their files: G1 and G9 to task 16, G2 to tasks 16 and 19, G4 to task 20, G5 and G16 (Processing) to task 18, G6 to tasks 17 and 19, G12's screens to tasks 17, 18 and 20, G13, G14 and G17 to task 19, G15's screen-local controls to every area task, and G16 (Records) to task 20.
-- [ ] 15.8 Record the screenshots, the shrunk baseline and the results in the PR description, and any departure from this plan in `notes.md`.
+- [ ] 15.5 Add an unused-code check (unused files, exports and dependencies) over `frontend`, `contracts` and `intake-server`, run by `pnpm lint`, with a recorded baseline of today's findings that a change may only shrink (design D12), captured before the library changes that follow, its tests written first (RED), and its use documented in `frontend/README.md`.
+- [ ] 15.6 Swap exact values for tokens in `components/ui/` and `primitives.tsx`, with the screenshot diff unchanged.
+- [ ] 15.7 Make `primitives.Button` the shared `ui/Button`, and add `Dialog` and `Popover` surfaces (radius, padding, shadow, layer and motion from tokens).
+- [ ] 15.8 Close the library's V1 gaps: G3 (each status's glyph and colour), G7 and G11 (a shared hover-transition mixin, applied to the library's hover rules; G7's Batches, HeaderStatus and MastheadMenu sites go to 16.6 and EvidenceActions to 17.5), G8 (table row hover), G10 (toast exit), the toast's layer from `z-index: 50` to `z-toast`, G15 for the library's own controls (Button `link` and `sm`, interactive chips and links) and the `Banner` component's part of G12; and move the library's near values and visible cluster changes onto tokens (C2, C3, C9, C10, C15, C16, and C18's control heights and icon sizes), with before-and-after screenshots. The other V1 gaps belong to the area task that owns their files: G1 and G9 to task 16, G2 to tasks 16 and 19, G4 to task 20, G5 and G16 (Processing) to task 18, G6 to tasks 17 and 19, G12's screens to tasks 17, 18 and 20, G13, G14 and G17 to task 19, G15's screen-local controls to every area task, and G16 (Records) to task 20.
+- [ ] 15.9 Give the library the design system's names (design D12): split `ui/Progress.tsx` into `ui/ProgressSegments.tsx` and `ui/Loading.tsx` (`Spinner`, `Skeleton`), with `VisuallyHidden` as a utility; add `ui/TextField` (label, control, help or error) from the primitives' control styles, with `OptionalNotesField` as its notes variant; and close G20 (AutoValueField trigger), G21 (NeedsYou's title and Answer button), G22 (DisabledFeature's inline explanation) and G23 (AutosaveStatus's one-line conflict and unconfirmed states).
+- [ ] 15.10 Record the screenshots, the shrunk baselines and the results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 16. App shell, masthead, Batches and Agents
 
@@ -339,7 +349,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Outcome:** pages sit at the design's content widths, the masthead stays one row at phone width, the batch header is the design's full-width band with tab counts, and Batches, Agents and settings match the canvas.
 - **Scope:** `App.tsx` and global CSS, `components/masthead/` and the header popovers (`NeedYouPanel`, `MastheadMenu`, `HeaderDisclosure`), `BatchHeader`, `components/batches/`, `components/agents/` (including `AgentSettings*`) and `components/operations/`. Clusters C1, C3, C4, C8 (the app shell's 700px), C9, C10 and C15–C17, and gaps V2, V3 and V6, plus G1, G2 (the app shell), G7 (Batches, HeaderStatus and MastheadMenu), G9 and G15 for these screens.
 - **Prerequisites:** task 15.
-- **Acceptance:** ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead).
+- **Acceptance:** ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead); batch-navigation: Second tab row (each sub-view's count and badge); ui-design-system: Components carry the design system's names (masthead, Batches and Agents).
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
@@ -349,7 +359,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 16.4 Make the batch header a full-width band (M5, M8) with the tabs on the title row, the second tab row as its own band, tab counts with sub-tab counts and badges (M9), and the Processing step icons.
 - [ ] 16.5 Close the V3 and V6 gaps (B1–B7, A1–A4) on Batches, Agents and Agent settings (`components/agents/AgentSettings*`).
 - [ ] 16.6 Apply the hover-transition mixin to G7's Batches, HeaderStatus and MastheadMenu rows, move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
-- [ ] 16.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [ ] 16.7 Extract `ActivityIndicator` with `ActivityPopover` and `ConnectionStatus` from `HeaderStatus`, rename `NeedYouPanel` to `NeedsYouPanel`, and extract `BatchRow` and `ContinueCard` (design D12); close M12 (each Review and Changes sub-tab's own count and badge, with the Map's unused-evidence count added to the attention read or taken from the media snapshot), M13–M19, B9, A5 and A7. A2's "Pause all agents" stays disabled with its reason until task 23.6.
+- [ ] 16.8 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 17. Capture
 
@@ -366,7 +377,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 17.3 Restyle evidence groups and tiles (K3–K5): inline group name, small and ghost actions, the move handle on the tile.
 - [ ] 17.4 Restyle the Proposed lots glance (K6; its chips onto `Pill`, G6), and move `MediaCropDialog` onto `Dialog`.
 - [ ] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
-- [ ] 17.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [ ] 17.6 Rename `EvidenceActions` to `CaptureActions` and make `EvidenceGroupPanel` render `ui/EvidenceGroup` (design D12); close K11, K12, K13, K15 and K6's skeleton row and header pill, G24 for Capture's undoable actions and G26 (EvidenceTile's failure, caption and preparing states).
+- [ ] 17.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 18. Processing
 
@@ -382,7 +394,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 18.2 Lay out the overview in two columns (P1, P2, P4, P5) with the step progress bar, Needs-you cards and the activity timeline.
 - [ ] 18.3 Dock the session drawer on the right (P9) with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
 - [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7, P8, P10 and P11 (P10 and P11 in `ui/PhaseRow.tsx`).
-- [ ] 18.5 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [ ] 18.5 Make `QuestionAnswer` the form inside `ui/QuestionCard` with `OptionRow` answers (G19, G25), rename `processing/SessionChat` to `SessionChatPanel` rendering `ui/SessionChat`, make `SessionTimeline` render `ui/StatusTimeline` (design D12), and use `NeedsYou` on the overview (G21); close P12, P14, P15, P16 (without Pause all, task 23.6), P17 and G28, with Examine's source chips keyed by step and operator edits (G18).
+- [ ] 18.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 19. Review Lots and Map
 
@@ -390,7 +403,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Outcome:** Review uses the shared components and the design's breakpoints: lot rows with thumbnails and a current-row border, the view switch as `SegmentedControl`, filters as `FilterChips` that wrap at phone width, the table as `DataTable` with the dark `BulkBar` above it, and styled Map controls with Tell Examine inside its card.
 - **Scope:** `components/review/` (Lots and Map) and `components/operator/`, including `Modal` onto `Dialog` and `StatusChip` onto `Pill`. Gaps V7 (Lots and Map), G2, G6, G13, G14, G15 and G17 for Review, clusters C8 (700px to `bp-compact`, 1000px to `bp-wide`), C1, C3, C4, C9, C10, C11 (`ReviewTable`, `CompareMatches`), C12, C13 and C15–C17.
 - **Prerequisites:** task 15.
-- **Acceptance:** ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints).
+- **Acceptance:** ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints); review-workspace: Map drawing and region edits (Links drawn between evidence and lots).
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
@@ -399,7 +412,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 19.3 Move `StatusChip` (G6), the filters, the view switch and the tables (R1, R2, R11, R12) onto `Pill`, `FilterChips`, `SegmentedControl` and `DataTable` with `BulkBar`, and `Modal` onto `Dialog`.
 - [ ] 19.4 Restyle the lot rows (R4), the observation cards and their small buttons (R14), the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
 - [ ] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
-- [ ] 19.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [ ] 19.6 Draw the Map's connector diagram (R18, design D12) with each link also as text, and flag single-observation lots (R23); add the lot detail values (R19) and the Table's columns, State column, cell markers and legend (R20); retire `IssuePanel` and `FactRow` and extract `ItemRow` (design D12); add Lots' source chips keyed by step and operator edits (G18 with R8); and close G24 for Review's undoable actions, G25 (`CompareMatches`), G27, G29 and G30.
+- [ ] 19.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 20. Records and Changes, then strict lint
 
@@ -415,8 +429,60 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 20.2 Restyle the Records type rail (R15), `RecordDetail`'s table onto `DataTable`, its empty state (G16), and the Ready to add layout and lot rows (X1, X2); give New, Update and Exists the same colours on both screens (G4); and give these screens' controls a 44px hit area below `bp-compact` (G15).
 - [ ] 20.3 Move the remaining `primitives.Notice` users, including Added's (G12), onto `Banner` and remove the unused legacy primitives.
 - [ ] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
-- [ ] 20.5 Empty the literal-value baseline and make the lint strict.
-- [ ] 20.6 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
+- [ ] 20.5 Close R25, R26's per-category matrix, grouping and new-template aside, X7 and X9 (without activity times, task 23.5), with Records' source chips keyed by step and operator edits (G18).
+- [ ] 20.6 Empty the literal-value baseline and make the lint strict.
+- [ ] 20.7 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
+
+## 21. Corrections, region edits and the inline answer
+
+- **PR delivery:** PR-L.
+- **Outcome:** the operator can correct Examine's readings and regions, adjust, add and move regions on the Map, answer a lot's open question in Review, and open a session from Agents.
+- **Scope:** `components/processing/` (Examine), `components/review/` (Map, lot details), `components/agents/` and `navigation/`. Gaps P13, R21, R22 (without "Same item as…", task 23.7) and A6, and the notes' unmet behaviours: the inline answer and "Correct a reading". It uses the capture edit `kind: 'observation'` (create or adjust a region and its readings), `observation_move`, `add_lot` and the existing answer command.
+- **Prerequisites:** tasks 16, 18 and 19.
+- **Acceptance:** processing-workspace: Correct a reading; review-workspace: Part not chosen (the inline answer), and Map drawing and region edits (Move a region to another lot, adjusting and adding regions).
+- **TDD approach:** failing tests first (RED) for each edit the screens send and for the screens' state after the server's answer, then the change (GREEN).
+- **Verification:** `pnpm contracts:check`, `pnpm test:intake` and the frontend checks; a browser check of each correction against the owned fixtures; screenshots and a demo video in the PR description. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 21.1 On Examine, correct a photo's readings and regions ("Edit readings", "Adjust regions") through the capture edit `kind: 'observation'`, shown as "Your edit" and "Corrected by you"; mark the lots that used the reading for re-examination, adding that mark on the server if it has none; and send "Ask for a sharper photo" to the Examine lead session's chat.
+- [ ] 21.2 On the Map, show the selected photo's stage with its regions, and adjust a region by its corners or add one, through the same edit (R21).
+- [ ] 21.3 On the Map, move a region to another lot with `observation_move`, and create a lot from a region with `add_lot` and then the move (R22).
+- [ ] 21.4 Answer a lot's open question in Review ("Answer here"), queued to the asking session, with the problem updating when the answer is accepted.
+- [ ] 21.5 Open a session from Agents: a route parameter for the session opens its drawer on Processing (A6).
+- [ ] 21.6 Close the notes' unmet-behaviour item for the inline answer and "Correct a reading", and record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+
+## 22. Data the specs require
+
+- **PR delivery:** PR-M.
+- **Outcome:** Records shows existing against proposed values, values carry their source kind and agreement so uncertainty reads in words, and Needs you is oldest first.
+- **Scope:** `contracts/src/` (the records projection, observation readings, proposal values, questions), `intake-server/src/` (the projection, the target read, the session tools' schemas), and the screens that show them: Records, Lots, Examine and Processing. Gaps R24, the data half of G18 and R19, and the notes' unmet "Needs you oldest first".
+- **Prerequisites:** tasks 20 and 21.
+- **Acceptance:** review-records: Records by type (existing against proposed values, a source chip per value); ui-design-system: Provenance on demand (uncertainty in words); processing-workspace: Processing overview (Needs you oldest first).
+- **TDD approach:** failing contract tests first (RED) for each new field, including that older snapshots without it stay readable, then the server and screens (GREEN).
+- **Verification:** `pnpm contracts:check`, `pnpm typecheck`, `pnpm test:intake` and the frontend checks; a browser check; screenshots and a demo video in the PR description. Departures from this plan go in the change's `notes.md`.
+
+- [ ] 22.1 Read each mapped record's current values from the target into the records projection, and show existing against proposed values in Records (R24).
+- [ ] 22.2 Add a source kind (label, packing slip, handwriting, distributor page) and an agreement (read, likely, sources disagree) to observation readings and proposal values, through the session tools' schemas, and show them as source chips in words on Lots, Examine and Records (G18, R19).
+- [ ] 22.3 Retain when each question was asked, and order Needs you oldest first.
+- [ ] 22.4 Close the notes' unmet-behaviour item for Needs you oldest first, and record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+
+## 23. Design detail on new data
+
+- **PR delivery:** PR-N.
+- **Outcome:** the canvas detail that no current read or command backs is shown, each on a new additive field or command.
+- **Scope:** `contracts/src/`, `intake-server/src/` and the screens that show each item. Gaps B8, X8, R26's markers, R28, X9's activity times, P16's and A2's Pause all, and R22's "Same item as…".
+- **Prerequisites:** task 20.
+- **Acceptance:** no new spec requirement; each item has contract tests and a browser check.
+- **TDD approach:** failing contract tests first (RED) for each new field or command, including that older snapshots stay readable, then the server and screens (GREEN).
+- **Verification:** as task 22.
+
+- [ ] 23.1 Add each batch's current stage line, evidence counts and possible-duplicate count to the batch list read, and show them on Batches (B8).
+- [ ] 23.2 Keep unticked lots in the preparation tree with their reason, and give Update records field-level before and after values, shown in the Tree and By type (X8).
+- [ ] 23.3 Mark parameter templates a category requires and values whose sources conflict, and show the matrix's "required here" and conflict markers (R26).
+- [ ] 23.4 Retain the nearest existing Part a proposal did not reuse and why, and show the reuse banner (R28).
+- [ ] 23.5 Retain when each run happened, and show times in Added's activity log (X9).
+- [ ] 23.6 Add a command that pauses and resumes a batch's agent sessions, and turn on "Pause all" on Processing and Agents (P16, A2).
+- [ ] 23.7 Add a command that joins observations as one physical item, and turn on the Map's "Same item as…" (R22).
+- [ ] 23.8 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -430,6 +496,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit.
 - [ ] D.9 PR-I (task 16): same gates, after PR-H.
 - [ ] D.10 PR-J (tasks 17 and 18): same gates, after PR-H.
-- [ ] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J. BI-008 returns to Done once PR-K merges.
+- [ ] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J.
+- [ ] D.12 PR-L (task 21): same gates, after PR-K.
+- [ ] D.13 PR-M (task 22): same gates, after PR-L.
+- [ ] D.14 PR-N (task 23): same gates, after PR-K. BI-008 returns to Done once PR-L, PR-M and PR-N have merged.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

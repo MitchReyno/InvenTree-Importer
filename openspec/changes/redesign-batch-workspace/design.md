@@ -230,6 +230,25 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
   - Tokenising the masthead scene's three.js palette: it is not CSS, and only the scene uses it.
 - **Trade-off.** Each area's files are touched twice, once for swaps and once for visible changes, in the same PR.
 
+### D12. Component alignment and structural gaps
+
+- **Context.** D11's audit compared token values and screen styling. A third pass ([Component and structural audit](styling-audit.md#component-and-structural-audit)) compared each design-system component with its app counterpart, and each canvas screen with the app's structure. It found 14 component-name mismatches or competing copies, 12 library components that no screen uses, and gaps that are not styling: the Map draws no links (R18), regions cannot be corrected or moved (P13, R21, R22), and some designed values have no data behind them (R24, X8, B8).
+- **Decision.**
+  - **One name per component.** Every component has the design system's name, and its file is named after its main export. A screen copy of a library component is retired in favour of the library one, or becomes a container that renders it. The design system changes only where the app's name is the established one: the Changes tab and its Ready to add and Added sub-tabs replace its Approve and Results. Library renames land in task 15; screen extractions and retirements land in the task that owns the files.
+  - **Map links are drawn.** Review › Map draws curved connectors between observation (or file) cards and lot cards. A solid line means a region or file shows the lot, and a dotted line means a document line, or a link inherited through a shared Part or an earlier lot, supports it. The canvas shows dotted only for document lines; inherited links are support too, and the caption says so. The selected photo's links are drawn in `accent`. The drawing is decorative (`aria-hidden`), and each card keeps its links as text.
+  - **Buildable structural gaps go to their area tasks** (16–20), beside the styling they share files with.
+  - **Behaviour on existing commands is task 21.** The capture edit `kind: 'observation'` (create or adjust a region and its readings) and `observation_move` already exist, and no screen uses the first. Task 21 builds Examine corrections ("Correct a reading"), region editing and region-level moves on the Map, Review's inline answer, and opening a session from Agents. This closes the unmet spec behaviours listed in the notes, except Needs you oldest first.
+  - **Spec-required data is task 22.** Records' existing-against-proposed values (review-records), a source kind and agreement for values so uncertainty reads in words (ui-design-system, Provenance on demand), and question timestamps for Needs you oldest first (processing-workspace) need contract and server changes.
+  - **Design detail without data is task 23.** The batch list's stage line and counts, the tree's unticked lots and field diffs, parameter-required and conflict markers, the reuse reason, run timestamps, Pause all and "Same item as…" need new fields or commands that no spec requires. They come last, so the spec-required work is not held up by them.
+  - **No dead code is left behind.** A task that replaces code deletes what it replaced in the same task: screen copies of library components, legacy primitives, superseded styles, props, routes, fallbacks and the tests that only cover them. Nothing is kept as a compatibility path, because the app has essentially one user; data stays readable through additive contracts and migrations instead (BI-011's rule). Task 15 adds an unused-code check over the frontend, contracts and intake server, with a recorded baseline of today's unused files and exports that a change may only shrink, so no task can add to it; BI-011 empties the rest.
+  - Three canvas details are recorded as deliberate rather than planned (notes): editable order and purchase-date settings with automatic tags (K14), the by-step "Who proposed what" summary (R27), and unit prices (R19, R20).
+- **Why.** Matching names let a reader move between the design system, the canvas and the code without a lookup table. Separating behaviour and data from styling keeps the area PRs about the look, and puts the risky changes (new contracts, server writes) in PRs reviewed for that.
+- **Rejected.**
+  - Renaming the design system to the app's names: most app names are local or accidental (`NeedYouPanel`, a second `SessionChat`), while the design-system names are already used by the canvas, its READMEs and this plan.
+  - Folding tasks 21–23 into the area tasks: the area PRs would mix restyling with new server writes and contracts.
+  - Dropping the data-blocked design detail: every gap the audit found is to be planned, not left implicit.
+- **Trade-off.** BI-008 grows from eleven PRs to fourteen (PR-L, PR-M and PR-N).
+
 ## State, authority and failure behavior
 
 ```text
@@ -290,4 +309,5 @@ browser ──CaptureEdit{record}──▶ capture repository (CAS on batch revi
 - **`simplify-intake-entry` implementation.** Its revision merged in #95, but none of it is built yet. Region-level Map links, live sessions and proposed-new catalogue values arrive with its implementation.
 - **Styling scope.** Some visual gaps are layout rework rather than restyling: the batch header band, the two-column Processing overview, the docked session drawer, Review's lot rows and the two-column Ready to add. They are in scope (tasks 16, 18, 19 and 20) and are the largest items in their PRs.
 - **Visible change.** Near values and the 700px to 760px and 1000px to 1180px breakpoint moves change where layouts stack. Each is listed in its PR and shown in before-and-after screenshots.
+- **New contracts (tasks 22 and 23).** They add fields to retained reads and, for the source kind and agreement, to what sessions report. Each change is additive, so older snapshots stay readable, and each has its own contract tests.
 - **Open decisions.** None.

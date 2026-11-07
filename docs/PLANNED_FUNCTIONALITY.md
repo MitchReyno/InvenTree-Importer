@@ -54,11 +54,11 @@ Remove manual lot entry and question-blocked processing from Capture and Process
 
 #### BI-008 — Batch workspace redesign
 
-Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions. A styling uplift then moves the remaining styling onto the design system's tokens and shared components and closes the visual gaps against the canvas.
+Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions. A styling uplift then moves the remaining styling onto the design system's tokens and shared components, gives each component the design system's name, and closes the visual and structural gaps against the canvas, including the corrections, region edits and data the specs still require.
 
 - Change: `redesign-batch-workspace`
-- Status: In progress — PR-A to PR-G merged in #96, #100, #102, #104, #108, #109 and #110, including task 14 (BI-006 sessions, observations and proposals) in PR-G. The styling uplift (tasks 15–20, design D11) follows as PR-H to PR-K; re-sending a value InvenTree refused waits on executor follow-up work (design D7).
-- Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in eleven PRs (PR-A to PR-K).
+- Status: In progress — PR-A to PR-G merged in #96, #100, #102, #104, #108, #109 and #110, including task 14 (BI-006 sessions, observations and proposals) in PR-G. The styling uplift and component alignment (tasks 15–20, designs D11 and D12) follow as PR-H to PR-K, then corrections and region edits (task 21, PR-L), the data the specs require (task 22, PR-M) and the remaining canvas detail (task 23, PR-N); re-sending a value InvenTree refused waits on executor follow-up work (design D7).
+- Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in fourteen PRs (PR-A to PR-N).
 - Prerequisites: None to start. Agent-backed panels (sessions, live lots, region-level Map) arrive with BI-006 and fall back to retained jobs until then.
 - OpenSpec: [redesign-batch-workspace](../openspec/changes/redesign-batch-workspace/)
 

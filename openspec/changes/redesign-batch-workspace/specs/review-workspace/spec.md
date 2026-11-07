@@ -92,3 +92,19 @@ Links SHALL be drawn at region level when observations exist, and at file level 
 - **GIVEN** a profile without agent sessions or observations
 - **WHEN** the Map opens
 - **THEN** it shows file-level links and the direct edits, and no instruction field appears.
+
+### Requirement: Map drawing and region edits
+
+The Map SHALL draw its links as connectors between evidence and lot cards: solid where a region or file shows the lot, dotted where a document line or an inherited link supports it, and highlighted for the selected photo. Each link SHALL also be available as text. At region level, moving evidence and creating a lot from it SHALL act on a region, and the operator SHALL be able to adjust or add a region on the selected photo.
+
+#### Scenario: Links drawn between evidence and lots
+
+- **GIVEN** a photo with three regions supporting three lots, and a packing-slip line supporting one of them
+- **WHEN** the operator selects that photo on the Map
+- **THEN** a solid connector joins each region to its lot and a dotted one joins the slip line to its lot, the photo's three connectors and lot cards are highlighted, and a caption explains the line styles.
+
+#### Scenario: Move a region to another lot
+
+- **GIVEN** a region linked to the wrong lot
+- **WHEN** the operator moves that region to another lot
+- **THEN** only that region's link changes, the photo's other regions keep their lots, and both lots show the change.

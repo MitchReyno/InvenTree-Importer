@@ -1,9 +1,10 @@
 # Styling audit: tokens and visual gaps
 
-Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). Two read-only passes:
+Evidence for tasks 15–23. The first two passes were captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). The third pass, at `5e7c4d5`, is under [Component and structural audit](#component-and-structural-audit). Three read-only passes:
 
 - **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value and a fitting role exists in the property's own family; a value equal to a token of the wrong role, or sharing only a role, is NEAR), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in the change's [notes](notes.md) are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
+- **Component and structural audit:** every design-system component rendered beside its app counterpart (light and dark, 2×, measured), component names compared, and every canvas screen read against the app's source for missing elements, affordances, diagrams, counts and interactions. Its gaps continue the per-area IDs.
 
 **Token names** in this file use tokens v3's 2px spacing scale (`space-N` is N×2px), though the audit ran against v1's names.
 
@@ -266,7 +267,7 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 | P5 | Recent activity | `StatusTimeline` (10px markers, 2px rail, tabular 11.5px times) in a card | Per-attempt bordered cards with "Open this lot in Review" links **outside** each card | High | Timeline; move the attempt detail to the step pages |
 | P6 | Attempt actions | Inline action row (gap 8px) | "Open this question" and "Cancel this attempt" stacked vertically, each on its own line | Medium | `display:flex; gap: space-4; flex-wrap: wrap` |
 | P7 | Sessions list | Rows: step chip (neutral) + bold lot + right pill, then status line and time; "All sessions, every batch" link | Plain text rows, ghost sm "Open session" | Medium | Match the canvas rows |
-| P8 | Examine page | Header strip with spinner, title and SegmentedControl "By photo / By lot"; photo cards with a region stage and numbered observations; lead-session drawer docked right with timeline, QuestionCard and chat | Generic cards: Questions, Sessions, per-attempt cards | High (partly blocked by observation data; the layout is not) | Build the step-page pattern; at least the header strip and the docked drawer |
+| P8 | Examine page | Header strip with spinner, title and SegmentedControl "By photo / By lot"; photo cards with a region stage and numbered observations; lead-session drawer docked right with timeline, QuestionCard and chat | Generic cards: Questions, Sessions, per-attempt cards | High (task 14 delivered pixel regions with source dimensions, so the region overlays can be drawn now) | Build the step-page pattern; at least the header strip and the docked drawer |
 | P9 | Session drawer | Docked right panel (canvas) or side drawer; StatusTimeline; chat bubbles (85% max, accent-weak for own messages); composer with an inline Send | **Centred modal dialog**; empty "Steps" heading; bold "No status yet"; full-width disabled "Send" button under the textarea | High | Right-side drawer (`position:fixed; right:0; width:min(420px,100%)`) with `shadow`; `SessionChat` composer inline |
 | P10 | Running indicator in PhaseRow, `ui/PhaseRow.tsx:20` | Running disc shows a spinner (canvas `⟳`), 22px disc with 1.5px ring | `glyph:'•'` | Low | Use `Spinner` inside the running disc |
 | P11 | PhaseRow caret | 14px caret column (`▾` / `›`) | Renders as a small `•` / dot at the right | Low | Use a chevron glyph rotated on `aria-expanded` |
@@ -330,3 +331,142 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 
 Dark tokens apply consistently. No dark-only regressions were found beyond the light findings above. The light-only fixtures (`capture-settings`, `grouped-capture`, `evidence-drag`, `header-*`) needed `data-theme` set by the capture script because they don't call `themeController()`. That is a fixture gap, not an app one.
 
+
+## Component and structural audit
+
+Two read-only passes on `interactive-app` at `5e7c4d5` (2026-11-07), against design system version `1794021600-edd8` and the canvas sources:
+
+- **Components:** every design-system component's preview was rendered from its `tokens.css` and `components/bundle.css`, beside its app counterpart from the Vite fixtures, at 1440 px in light and dark at 2×, and their computed styles were measured. Component names were compared by export, file name and `aria-label`.
+- **Screens:** every canvas screen was read against the app's source for structural gaps: missing elements, affordances, diagrams, counts, legends, empty and warning states, grouping, ordering and interactions. Token and pixel values are out of scope here, since the passes above cover them.
+
+**Build status.** "Buildable" means the data or command exists on the branch. Task 14 delivered sessions, region observations, the lead session, Tell Examine and Ask. "Data-blocked" names the missing field or command; those gaps are planned in tasks 22 and 23. "Behaviour" marks a gap that needs new interaction on an existing command, planned in task 21.
+
+### Component names
+
+The design system's name wins, and the app changes, everywhere but one place: its Tabs and its StickyFooter and ChangeSummary groups say Approve and Results, while the app's specs, canvas and code say **Changes** (Ready to add, Added), so the design system changes. Every rename and extraction lands in the task that owns the files (design D12).
+
+| Design-system name | App today | Change | Task |
+| --- | --- | --- | --- |
+| ActivityIndicator, with `ActivityPopover` | The first disclosure in `masthead/HeaderStatus.tsx`, with `WorkflowDetails` | Extract `masthead/ActivityIndicator.tsx` and `ActivityPopover`; keep the `aria-label` "Workflow activity" | 16 |
+| ConnectionStatus | The second disclosure in `HeaderStatus.tsx`, with `ConnectionDetails` | Extract `masthead/ConnectionStatus.tsx`; `ConnectionDetails` stays its popover body; `HeaderStatus` becomes `MastheadStatus` or dissolves | 16 |
+| NeedsYou (panel) | `batches/NeedYouPanel.tsx` | Rename to `NeedsYouPanel` | 16 |
+| BatchRow, ContinueCard | `<li>` rows and a local styled `ContinueCard` in `batches/Batches.tsx` | Extract `batches/BatchRow.tsx` (with `BatchThumbnail` as its part) and `batches/ContinueCard.tsx` | 16 |
+| TextField | No component; `primitives.tsx` `Label`, `Input`, `Select`, `TextArea`; raw controls in `agents/AgentSettingsForm.tsx` | Add `ui/TextField.tsx` (label, control, help or error) from the primitives' control styles; `OptionalNotesField` becomes its notes variant | 15 |
+| ProgressSegments; Loading | `ui/Progress.tsx` exports `ProgressSegments`, `Spinner`, `Skeleton` and `VisuallyHidden` | Split into `ui/ProgressSegments.tsx` and `ui/Loading.tsx` (`Spinner`, `Skeleton`); `VisuallyHidden` moves to a utility | 15 |
+| Pill (with its count) | `ui/Pill.tsx` exports `Pill`, `Count` and `Badge` | Keep them in `Pill.tsx` as documented variants (the design system documents `bi-count` under Pill) | 15 |
+| CaptureActions | `media/EvidenceActions.tsx` | Rename to `capture/CaptureActions.tsx` | 17 |
+| EvidenceGroup | `media/EvidenceGroupPanel.tsx`, a screen copy | `EvidenceGroupPanel` renders `ui/EvidenceGroup` and is renamed `EvidenceGroupContainer`, or folds into it | 17 |
+| QuestionCard | `processing/QuestionAnswer.tsx`, a screen copy | `QuestionAnswer` becomes the form logic inside `ui/QuestionCard` | 18 |
+| SessionChat | `processing/SessionChat.tsx` shares the library's name but is a different component | Rename to `SessionChatPanel`, a container that renders `ui/SessionChat` | 18 |
+| StatusTimeline | `processing/SessionTimeline.tsx`, a second timeline | `SessionTimeline` renders `ui/StatusTimeline` | 18 |
+| ProblemCard | `operator/IssuePanel.tsx`, a screen copy | Retire `IssuePanel` (R9) | 19 |
+| KeyValue | `operator/FactRow.tsx`, a screen copy | Retire `FactRow` (R8) | 19 |
+| ItemRow | A local `QueueRow` in `review/ReviewQueue.tsx` | Extract `review/ItemRow.tsx` (R4); Records lists reuse it (R15, R16) | 19 |
+| Tabs, StickyFooter, ChangeSummary labels | The app says Changes | The design system changes (DS1) | Done in the design system |
+
+Duplicates already covered elsewhere keep their IDs: Button (C1), Pill and `StatusChip` (C12, G6), Banner and `primitives.Notice` (C14), FilterChips and `ReviewFilters`, SegmentedControl and the Review mode switch (C13), DataTable and the Review tables (C11). `HeaderDisclosure` folds into the shared `Popover`, and `Modal` and `MediaCropDialog` into `Dialog` (task 15.7). `BulkBar` stays part of DataTable, `InlineEdit` part of KeyValue, and `ProblemList` part of ProblemCard.
+
+### Design-system changes
+
+Made in the design system artifact with this plan, so both sides agree before task 15 starts:
+
+- **DS1:** Tabs, StickyFooter and ChangeSummary say Changes, with Ready to add and Added, not Approve and Results.
+- **DS2:** the bundle's `.bi button { font: inherit }` outranked `.bi-conn` and `.bi-act`, so the previews drew those pills at 14px instead of 12.5px. The pill rules now win.
+- **DS3:** Pill documents the count's `bad` tone and its 999+ cap; Banner documents its `plain` tone and action slot.
+- **DS4:** TextField documents the disabled control (dashed `line-strong` on `surface-2`).
+- **DS5:** new cards for Kbd, Loading (spinner and skeleton), Popover, Dialog and MastheadMenu; the Masthead card lists the overflow menu as its last slot.
+
+### New gaps by area
+
+Severity and status as in the sections above. Spec quotes name the delta spec in this change.
+
+#### Library (task 15 unless noted)
+
+| ID | Gap | Fix | Sev | Task |
+| --- | --- | --- | --- | --- |
+| G18 | `SourceChip` is used on no screen. Records shows "Proposed by Research" as text, Lots shows `FactRow` provenance, Examine shows none. review-records requires "a source chip per value". | Chips keyed by the proposing step and operator edits on Lots (with R8), Examine and Records; the evidence-kind and confidence half is data-blocked (task 22) | Medium | 18, 19, 20, 22 |
+| G19 | `QuestionCard` is used on no screen; `QuestionAnswer` uses a select for the answer basis, puts the assumption in body `fg` and has no close-ups or ghost actions | `QuestionAnswer` renders `QuestionCard` with `OptionRow` answers, close-ups, a small muted assumption and the ghost row (Add a photo, Decide later, Chat about this) | Medium | 18 |
+| G20 | AutoValueField's closed trigger is a stacked box (label caption above a bold mode word), not one row of bold label, accent mode pill and muted hint | Restyle the trigger | Medium | 15 |
+| G21 | NeedsYou's title is an underlined link and its right column is a step pill instead of the sm primary "Answer" | Title as plain bold text, the step as a neutral chip before it, `Button` sm primary "Answer" | Medium | 15, 18 (screen) |
+| G22 | DisabledFeature hides its explanation in a hover tooltip, and puts the eyebrow above the label | Print the explanation inline as a small line; order label, eyebrow, explanation | Medium | 15 |
+| G23 | AutosaveStatus's conflict and unconfirmed states are bordered boxes with stacked md buttons ("Discard my edits and load saved values") | One inline line with one sm "Reload" or "Retry" | Medium | 15 |
+| G24 | No screen raises a Toast, so undoable actions (Mark reviewed, Move evidence, Apply to N) give no confirmation with Undo | Raise the shared Toast after each undoable action | Medium | 17, 19 |
+| G25 | `OptionRow` is used on no screen; choices are selects and buttons | Use it for answers (G19) and match choices (`CompareMatches`) | Low | 18, 19 |
+| G26 | EvidenceTile truncates its failure sentence on the stage; its caption line-height is 20px (design about 17px); preparing shows a chip on a flat stage instead of the shimmer with "Preparing…" in the caption | One legible failure sentence with retry; caption type from the token; skeleton while preparing | Medium | 17 |
+| G27 | KeyValue marks an edited value with muted "· edited" text instead of the "You · Your edit" source chip; the gallery says "You · Entered" | Use the source chip and the design's words | Low | 19 |
+| G28 | PhaseRow puts a state word beside the title, and its waiting disc is empty where the design shows the step number | Drop the word; number the waiting disc | Low | 18 |
+| G29 | ProblemCard groups per problem with per-lot issues, where the design's header is the severity group and each problem is an issue row; it has no ghost secondary action | Follow the design's grouping and add the ghost action ("Dismiss…", "Show in Part") | Low | 19 |
+| G30 | DataTable's selection column is about 120px (design 40px); BulkBar has no field select and says "Clear selection" | Narrow the column; add the field select; say "Clear" | Low | 19 |
+
+#### Masthead and batch header (task 16)
+
+| ID | Gap | Fix | Sev |
+| --- | --- | --- | --- |
+| M12 | Review's and Changes' sub-tabs lack their own counts and badges: Map has none, Records only its to-decide badge, Lots only to-check, Added only its problem badge, and no tab gives a total. batch-navigation: "Each sub-view SHALL have its own count and attention badge". | Lots total and to-answer, Map "! N unused photo", Records total and to-decide, Ready to add "N lots", Added "N run" and its problem badge. The unused-evidence count joins `BatchAttention`, or comes from the media snapshot as the Map computes it. | High |
+| M13 | The Need-you panel has no header ("Needs you", count, close), no step chip (it shows the group word), no warn or bad tone pills and no footer | Follow `NeedsYouPanel`: headings name the kind and owning tab, the chip names the step (from the item's route) | Medium |
+| M14 | At phone width the batch header has no "← Batches" link, and its tab counts are not compact | Add the back link above the title at phone width; numeric-only counts | Medium |
+| M15 | The activity popover's jobs have no batch-title heading with a state pill and no one-line latest status; status lines sit in a separate "Agent sessions" section with provider and model text. The body carries diagnostics (scope paragraph, lane occupancy, input currency, "Fine-grained step coverage is incomplete…" per job, raw state words), an h2 "Workflow details" row, 44px links at desktop and a duplicate "Agent sessions" link. It is 700px tall for two jobs where the design is 206px. | `ActivityPopover`: one job per item (title, Pill, `ProgressSegments` with step labels, the latest session status line, one link); IDs, lanes, coverage caveats and provider details behind a Details disclosure | High |
+| M16 | The activity trigger draws its own segment copy: only steps with a retained state (so one segment in the fixture), no partial fill for the running step, waiting steps not dimmed. It has no "Research: 3 of 5" text and no "+N" badge, and idle reads "Application-wide" instead of "Nothing running". | Reuse `ProgressSegments` over the planned steps, fill from retained counts, add the step text and "+N", say "Nothing running" | Medium |
+| M17 | The trigger is 34px with 3/10 padding and a 6px gap (design 36px, 4/10/4/8, 8px), and the status group's gap is 8px (design 12px) | Size from the tokens | Low |
+| M18 | Connection details are three diagnostic sections with long timestamps and a caveat sentence, with no host or version line and no Open InvenTree link. The pill is 32px (design about 28px) and says "unavailable" (design "unreachable"). | Host, version, last check and the Open InvenTree link, with the test-target sentence once; diagnostics behind Details | Medium |
+| M19 | The breadcrumb has no leading `/` after the DevBadge, and its current crumb is `fg` (design muted) | Follow the design | Low |
+
+#### Batches and Agents (task 16 unless noted)
+
+| ID | Gap | Fix | Sev | Task |
+| --- | --- | --- | --- | --- |
+| B8 | Rows and the Continue card lack the batch's current stage line ("Sorting into lots · 5 found so far"), evidence counts ("4 photos · 1 receipt") and the "1 possible duplicate" stat. Data-blocked: `InboxWorkflow` carries none of them. | Extend the batch list read (task 23), then show them | Medium | 23 |
+| B9 | Times are long locale timestamps ("Last saved 11/6/2026, 8:00:00 PM") where the design uses relative times ("Last activity 42 min ago"); an explanatory footnote sits under the list | Relative times; drop the footnote | Low | 16 |
+| A5 | Agents' batch groups have no "? N need you" pill | Count waiting sessions per batch from the same list | Low | 16 |
+| A6 | Sessions cannot be opened from Agents, and no route deep-links a session drawer | A session route parameter that opens the drawer on Processing (behaviour) | Medium | 21 |
+| A7 | Agent settings uses raw inputs and selects with browser borders, 40px height and 14/600 labels | `TextField` and the shared select | Medium | 16 |
+
+#### Capture (task 17)
+
+| ID | Gap | Fix | Sev |
+| --- | --- | --- | --- |
+| K11 | Batch notes sit in Batch settings behind "Add batch notes"; the canvas shows "Notes for the whole batch" always, in the evidence card, with "Agents read these notes while they work" | Move the field; keep its autosave | Medium |
+| K12 | Group meta lacks the lot count ("2 files · 2 lots"), and tiles have no inline "＋ Note" or "Edit note" link | Add both; the per-file lot counts are already computed | Low |
+| K13 | Default location lists every lot's inheritance in a `<details>` instead of one line ("2 lots override this: …") | One help line naming the overrides | Low |
+| K15 | At phone width the canvas order is capture tiles, Proposed lots (three rows and "See all N lots"), groups, then Batch settings collapsed with a summary; the app stacks all evidence first and expands settings | Follow the canvas order; the collapse keeps drafts (capture-batch-settings) | Medium |
+| K6 (cont.) | The glance has no "Finding…" skeleton row while Examine runs and no status pill in its header | Add both | Low |
+
+#### Processing (task 18 unless noted)
+
+| ID | Gap | Fix | Sev | Task |
+| --- | --- | --- | --- | --- |
+| P12 | Examine titles photos "Photo N" and prints raw `region x,y · w×h` inline; file names, group meta ("Not in a group · 3 observations · feeds 3 lots"), page totals and "Open photo" are missing. ui-design-system: "Screens SHALL use bench language". | File names from `evidenceDisplayNames`, the meta and totals, coordinates behind Details | Medium | 18 |
+| P13 | Examine has no corrections: no "Edit readings", "Adjust regions" or "Ask for a sharper photo", no "Corrected by you" pill. processing-workspace, Correct a reading. The capture edit `kind: 'observation'` exists, and no frontend sends it. | Behaviour: correct readings and regions through that edit; ask for a sharper photo through the lead session's chat | High | 21 |
+| P14 | "Lots formed" has no Stable or Question pills, no reasoning line, no truncation, no count or "Open the map"; its AI-proposed pill is `info` where the Capture glance uses `acc` | Add them; one tone for AI-proposed (ui-design-system, One status vocabulary) | Medium | 18 |
+| P15 | "Elsewhere in this batch" has no unused-photo item linking to the Map | Add it from the same count as M12 | Low | 18 |
+| P16 | The progress card lacks "N agents working · Started HH:MM · N lots formed by HH:MM", the activity card its "Full log" link and the sessions card "N running · limit N". "Pause all" needs a pause command (task 23). | Add the lines and links now; Pause all in task 23 | Low | 18, 23 |
+| P17 | The page-end "2 lots to check" and "1 ready to add" glances are underlined links in bordered boxes | `Button` sm secondary, or links in a row | Low | 18 |
+
+#### Review Lots and Map (task 19 unless noted)
+
+| ID | Gap | Fix | Sev | Task |
+| --- | --- | --- | --- | --- |
+| R18 | **The Map draws no links.** review-workspace, Review map: "evidence on one side and lots on the other, with links between them … Links SHALL be drawn". The canvas is a three-column diagram: observations grouped under per-photo headings as 40px cards with numbered region badges and document-line badges (L1, L8), a 140px SVG gutter of curved connectors, and lot cards with "· N obs." (warn "! 1 obs." for one observation). Connectors are solid `line-strong` for a region or file that shows the lot, dotted for a document line that supports it, and `accent` for the selected photo's links, whose cards turn `accent-weak`. A caption explains the line styles; a title row ("How photos became lots") carries warn pills for unlinked observations and single-observation lots; an observation in no lot has a dashed warn card ("! not in a lot"); long lists end "N more lots below"; at phone width the diagram scrolls sideways. The app shows two lists with "Supports:" chips and "Region → lot" text. | Draw the diagram from `operator/review-map.ts`; dotted also for links inherited through a shared Part or an earlier lot (design D12); the SVG is decorative and each card keeps its links as text for assistive technology | High | 19 |
+| R19 | Lot details show only Part, Quantity and Location; the canvas adds Manufacturer, MPN, Package, Date code and Unit price with source chips | Manufacturer and MPN from the Part spec, Package and Date code from its parameters; unit price stays out (supplier prices are not supported, review-records); confidence words in task 22 | Medium | 19, 22 |
+| R20 | The Table lacks MPN, D/C and Supplier SKU columns, one State column with the full status vocabulary, per-cell ◆ override and your-edit underline markers, and their legend | Add them; Excluded waits for the Exclude command (notes) and unit price stays out | Medium | 19 |
+| R21 | The Map has no selected-photo stage for adjusting regions or adding one ("Drag a region's corner to adjust it", "Add a region") | Behaviour, through the capture edit `kind: 'observation'` | Medium | 21 |
+| R22 | The Map's direct edits are file-level only; regions are read-only text. The canvas offers "Move region to lot…", "New lot from region", "Same item as…", "Merge lots" and "Split a lot…". | Behaviour: move a region with `observation_move`; new lot from a region with `add_lot` then the move. "Same item as…" has no command (task 23). | High | 21, 23 |
+| R23 | The single-source flag counts files, not observations, and uses `info`: three regions of one photo are flagged, one region of a two-region photo is not | Count `lot.evidence_observation_ids` once observations exist; warn tone; "! 1 lot on a single observation" | Medium | 19 |
+
+#### Records and Changes (task 20 unless noted)
+
+| ID | Gap | Fix | Sev | Task |
+| --- | --- | --- | --- | --- |
+| R24 | Records show one value per field, not existing against proposed. review-records: "Each record SHALL show … existing against proposed values". Data-blocked: the records projection carries no target's current values. | Read the current values of each mapped record (task 22), then show both | High | 22 |
+| R25 | The Part record has no record breadcrumb or previous and next Part, and "Used by" gives a count, not each lot as a link with its review-state pill | Add them | Low | 20 |
+| R26 | Parameters are edited one at a time, not as a per-category Part × template matrix with missing, new, added and conflict markers, a legend and a "New parameter templates · N to decide" aside | The matrix, grouping and new-template aside now; the "required here" and source-conflict markers need template-required flags and per-value conflicts (task 23) | Medium | 20, 23 |
+| R28 | The Part record has no reuse banner ("≈ Not reusing RES-0031 …: different tolerance") and no category reasoning beyond a proposed-new category's reason | Data-blocked: no "nearest existing Part not reused" reason is retained (task 23) | Low | 23 |
+| X7 | The tree has no count pills ("＋ 15 new", "⟳ 1 update", "✓ 9 existing"), no "Expand all" or "Only changes", no node kind labels and no collapsed-category summaries | Add them; `PreparationNode.kind` and `state` exist | Medium | 20 |
+| X8 | Unticked lots vanish from the tree instead of showing dimmed with their reason, and Update rows have no field diff (`Dielectric · empty → X7R`). Data-blocked: the preparation tree carries only ticked lots and a `detail` string. | Extend the tree read (task 23) | Medium | 23 |
+| X9 | Added is one stack, not two columns: no "All" and "Needs attention N" filter, problems not first, no RecordChain links per lot, Not included lists names without reasons, and there is no "Ready to add N" card. Ready to add's Left out also lists lots, not reasons with counts. | Two columns; filter; problems first; RecordChain links; reasons grouped with counts and Review links. Activity times wait for run timestamps (task 23). | Medium | 20, 23 |
+
+### Recorded as deliberate, not planned
+
+- **K14:** the canvas has editable "Order or receipt number" and "Purchase date" fields and an "Also suggest tags automatically" toggle. The app keeps order and date inside the disabled purchase-order preview and has no auto-tag setting, as capture-batch-settings's current field behaviour asks over the mockup's controls (notes).
+- **R27:** the canvas summarises "Who proposed what" by step with one Ask composer. The app's per-field "Proposed by" and Ask follow review-records' steering requirement (notes).
+- **Unit prices** (R19, R20): supplier prices are not supported yet (review-records), so no price column or row is added.
