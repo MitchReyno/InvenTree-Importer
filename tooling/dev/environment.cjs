@@ -7,6 +7,8 @@ class DevelopmentEnvError extends Error {}
 const MAX_ENV_BYTES = 64 * 1024
 const SETTINGS = new Set([
   'INTAKE_DEV_PORT',
+  'INTAKE_DEV_TAILSCALE',
+  'INTAKE_DEV_TAILSCALE_PORT',
   'INTAKE_APP_STATE',
   'INTAKE_DEV_STATE',
   'INTAKE_DEV_ADMIN_URL',

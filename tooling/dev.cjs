@@ -20,6 +20,7 @@ const { developmentProfile, processingWorker } = require('./dev/profile.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
+const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -29,6 +30,8 @@ const baseEnv = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key]]),
 )
+// Survive source reloads: the browser keeps its connection through these.
+const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
 
 async function freePort(requested = 0) {
   const server = netServer()
@@ -135,7 +138,7 @@ async function privateState(root) {
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
-      'pnpm dev — retained local app on http://127.0.0.1:4330; Ctrl-C stops app processes and keeps data/PostgreSQL. See docs/development.md.\n',
+      'pnpm dev — retained local app on http://127.0.0.1:4330; Ctrl-C stops app processes and keeps data/PostgreSQL. --tailscale also serves it over HTTPS on your tailnet. See docs/development.md.\n',
     )
     return
   }
@@ -155,6 +158,9 @@ async function main() {
     throw new Error('invalid_development_port')
   }
   await freePort(port)
+  const tailscale = tailscaleOption(settings)
+  // Fail before any setup when the tailnet cannot be served.
+  const tailnet = tailscale && (await readTailnetIdentity('tailscale', tailscale.port, baseEnv))
   const { serverIdentity, stateDirectory } = await import(
     pathToFileURL(join(intake, 'src/dev/pg-identity.ts')).href
   )
@@ -228,9 +234,7 @@ async function main() {
     closing = true
     startup.abort()
     for (const item of children) {
-      if (item.child.exitCode === null && item.child.signalCode === null) {
-        item.child.kill('SIGTERM')
-      }
+      item.terminate()
     }
     resolveStop()
   }
@@ -406,6 +410,52 @@ async function main() {
         shutdown()
       }
     })
+    if (tailnet) {
+      const gatewayPort = await freePort()
+      const gateway = launch(
+        'tailnet',
+        process.execPath,
+        [join(repository, 'tooling/dev/tailnet.cjs')],
+        {
+          cwd: repository,
+          env: {
+            ...baseEnv,
+            INTAKE_DEV_PUBLIC_PORT: String(port),
+            INTAKE_DEV_TAILNET_GATEWAY_PORT: String(gatewayPort),
+            INTAKE_DEV_TAILNET_ORIGIN: tailnet.origin,
+            INTAKE_DEV_TAILNET_LOGIN: tailnet.login,
+          },
+        },
+        (text) => text.includes('DEV_TAILNET_READY'),
+      )
+      children.push(gateway)
+      await gateway.ready(10000, startup.signal)
+      // Foreground serve: tailscaled drops the config when this process exits.
+      const serve = launch(
+        'tailscale-serve',
+        'tailscale',
+        ['serve', `--https=${tailscale.port}`, `http://127.0.0.1:${gatewayPort}`],
+        // The CLI may be a wrapper script; the binary must get the signal to remove its config.
+        { cwd: repository, env: baseEnv, group: true },
+        (text) => {
+          if (text.includes('Serve is not enabled')) {
+            throw new Error('tailscale_serve_not_enabled')
+          }
+          return text.includes(`proxy http://127.0.0.1:${gatewayPort}`)
+        },
+      )
+      children.push(serve)
+      await serve.ready(30000, startup.signal)
+      for (const item of [gateway, serve]) {
+        void item.exited.then(() => {
+          if (!closing) {
+            process.stderr.write(`${item.name} stopped; stopping the app.\n`)
+            process.exitCode = 1
+            shutdown()
+          }
+        })
+      }
+    }
     await publishRunning(root, publicOrigin, children)
     closeWatch = await watchCode(
       sourceRoots,
@@ -425,8 +475,8 @@ async function main() {
               'Source code changed; draining and restarting application services.\n',
             )
             intentional = true
-            await stop(children.filter((item) => item.name !== 'ui'))
-            children = children.filter((item) => item.name === 'ui')
+            await stop(children.filter((item) => !FRONT_DOOR.has(item.name)))
+            children = children.filter((item) => FRONT_DOOR.has(item.name))
             if (!closing) {
               try {
                 await run(
@@ -452,8 +502,8 @@ async function main() {
                 await start()
               } catch {
                 intentional = true
-                await stop(children.filter((item) => item.name !== 'ui'))
-                children = children.filter((item) => item.name === 'ui')
+                await stop(children.filter((item) => !FRONT_DOOR.has(item.name)))
+                children = children.filter((item) => FRONT_DOOR.has(item.name))
                 starting = false
                 process.stderr.write(
                   'Application reload failed; fix source code to retry. Retained data is unchanged.\n',
@@ -471,7 +521,7 @@ async function main() {
       initialSources,
     )
     process.stdout.write(
-      `Development app ready: ${publicOrigin}\nData retained in the configured private development namespace. Processing: ${profile}. Target: ${target.kind}.\n`,
+      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace. Processing: ${profile}. Target: ${target.kind}.\n`,
     )
     await stopped
   } finally {

@@ -6,12 +6,27 @@ Install the pinned Node 24/pnpm versions and run `pnpm install --frozen-lockfile
 
 ```bash
 pnpm dev       # full local app, synthetic Processing by default
+pnpm dev --tailscale # also serve it over HTTPS on your tailnet
 pnpm dev:ui    # standalone Vite UI; no API proxy or provisioning
 pnpm dev:intake # standalone API with explicit server configuration
 pnpm codex:login # Codex subscription login for this app's private Codex home
 ```
 
 The full app forwards `/api` HTTP and WebSocket requests from Vite to its private API listener. Browser origin and CSRF checks remain authoritative. Standalone commands do not provision an app or start workers. `dev:intake` serves built frontend assets when present; use `pnpm build` for that standalone mode.
+
+## Tailnet access
+
+`pnpm dev --tailscale`, or `INTAKE_DEV_TAILSCALE=1` in the environment file, also serves the app at `https://<this machine's MagicDNS name>/` so a phone or another computer on your tailnet can use it. The ready message prints the address. The local `http://127.0.0.1:4330` address keeps working.
+
+The app needs HTTPS off-machine because browsers expose `crypto.randomUUID()` only in a secure context, so plain `http://` on the tailnet address would not work. The launcher runs a foreground `tailscale serve --https=443` in front of a loopback gateway. The gateway admits only requests whose Host and Origin are the MagicDNS origin and that Tailscale identifies as this node's owner (`Tailscale-User-Login`). It then presents them to Vite as the loopback origin, so the API's exact Host/Origin and CSRF checks are unchanged. Requests from other tailnet users, tagged devices or other origins get `403`. Stopping the command, or a failed startup, stops the serve process and Tailscale removes its configuration. `tailscale serve status --json` lists these foreground entries; plain `tailscale serve status` does not. If the launcher itself is killed hard, the Tailscale serve process can keep running and keep serving: stop it with `pkill -f 'Tailscale serve'` (macOS app) or `pkill -f 'tailscale serve'`, then check the JSON status is empty.
+
+Requirements:
+
+- Tailscale is running and logged in, and the `tailscale` CLI is on `PATH`. Otherwise startup stops with `tailscale_unavailable` or `tailscale_not_running` before any setup.
+- Serve and HTTPS certificates are enabled for the tailnet. The first time, startup stops with `tailscale_serve_not_enabled` after printing the admin link that enables them; open it once, then start again. The first request after enabling can take a few seconds while Tailscale issues the certificate.
+- Nothing else is configured on the serve port. `INTAKE_DEV_TAILSCALE_PORT` selects another HTTPS port (for example `8443`); the address then includes it.
+
+Source reloads keep the gateway and serve process running, like the UI.
 
 ## Environment files and InvenTree targets
 
@@ -32,7 +47,7 @@ Use the server origin, without an `/api/` suffix, credentials in the URL, query 
 
 Read-only mode supports connection status, existing-record lookups, local Capture/media and Processing. It creates no executor deployment and starts no fake inventory or apply worker, so inventory preparation/approval cannot authorize a remote write. Its external token is provided only to the API process and is not saved in retained state, sent to Vite/workers or returned in public responses. Native agents remain separately opt-in. Real-server compatibility, authentication and permission qualification are distinct from synthetic test evidence.
 
-The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_TARGET_PROFILE`, the three target settings above, the native executable overrides and provider API-key names documented below. Standalone `dev:intake` additionally accepts its explicit `INTAKE_ORIGIN`, `INTAKE_DATABASE_URL`, actor/target/context IDs, blob root, deployment ID, Processing channel secret and research URL lists. The full-stack launcher continues to own its local app database/identity settings. File-provided PATH, HOME, Node process flags, Vite variables and unknown keys are ignored; Vite dotenv discovery remains disabled. The standalone API child additionally receives only its required runtime settings and basic host environment, excluding setup-admin URLs, provider keys, native executable overrides and unrelated shell secrets.
+The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_DEV_TAILSCALE`, `INTAKE_DEV_TAILSCALE_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_TARGET_PROFILE`, the three target settings above, the native executable overrides and provider API-key names documented below. Standalone `dev:intake` additionally accepts its explicit `INTAKE_ORIGIN`, `INTAKE_DATABASE_URL`, actor/target/context IDs, blob root, deployment ID, Processing channel secret and research URL lists. The full-stack launcher continues to own its local app database/identity settings. File-provided PATH, HOME, Node process flags, Vite variables and unknown keys are ignored; Vite dotenv discovery remains disabled. The standalone API child additionally receives only its required runtime settings and basic host environment, excluding setup-admin URLs, provider keys, native executable overrides and unrelated shell secrets.
 
 ## Local development InvenTree
 

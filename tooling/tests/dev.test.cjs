@@ -149,3 +149,25 @@ test('a ready sibling exit aborts startup while a later service initializes', as
     await stop([first, second], 2000)
   }
 })
+
+test('group termination reaches the real process behind a wrapper script', async () => {
+  const script = "process.stdout.write('READY\\n'); setInterval(() => {}, 1000)"
+  // The trailing command stops sh from exec-ing node, as in the Tailscale CLI wrapper.
+  const wrapper = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}; exit $?`
+  const owned = launch('wrapped', '/bin/sh', ['-c', wrapper], { group: true }, (text) =>
+    text.includes('READY'),
+  )
+  await owned.ready(5000)
+  await stop([owned], 5000)
+  assert.notEqual((await owned.exited).signal ?? (await owned.exited).code, null)
+})
+
+test('group termination still reaches the real process after its wrapper has exited', async () => {
+  const script = "process.stdout.write('READY\\n'); setInterval(() => {}, 1000)"
+  const wrapper = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)} & exit 0`
+  const owned = launch('orphaning', '/bin/sh', ['-c', wrapper], { group: true }, () => true)
+  while (owned.child.exitCode === null) {
+    await delay(20)
+  }
+  await stop([owned], 5000)
+})
