@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
 import { observationCrop } from '../../media/types'
 import { batchHref } from '../../navigation/batch-route'
 import { color, radius, space } from '../../theme/generated/tokens'
 import { Pill } from '../ui/Pill'
+import { SegmentedControl } from '../ui/SegmentedControl'
 import { Card, CardTitle, Muted } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 
@@ -29,6 +31,7 @@ function readings(observation: Observation) {
  * belongs to, then each lot with its observations, candidates and quantity basis.
  */
 export function ExamineView({ batch, lead }: { batch: CaptureSnapshotDto; lead: Job | undefined }) {
+  const [lens, setLens] = useState<'photo' | 'lot'>('photo')
   const observations = (batch.evidence_observations ?? []).filter(
     (item) => item.status === 'active',
   )
@@ -52,41 +55,58 @@ export function ExamineView({ batch, lead }: { batch: CaptureSnapshotDto; lead: 
 
   return (
     <>
-      <Card aria-label="Regions by photo">
-        <CardTitle>Regions by photo</CardTitle>
-        {photos.map((version, index) => (
-          <section key={version} aria-label={`Photo ${index + 1}`}>
-            <Muted>Photo {index + 1}</Muted>
-            <List>
-              {observations
-                .filter((item) => item.evidence_version_id === version)
-                .map((observation) => {
-                  const lot = observation.lot_id ? lots.get(observation.lot_id) : undefined
-                  return (
-                    <li key={observation.id}>
-                      {crop(observation)}
-                      <span>
-                        {readings(observation)}
-                        <Muted> · {region(observation)}</Muted>
-                      </span>
-                      {lot ? (
-                        <a
-                          href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}
-                        >
-                          {lot.label}
-                        </a>
-                      ) : (
-                        <Pill tone="outline" glyph="">
-                          No lot
-                        </Pill>
-                      )}
-                    </li>
-                  )
-                })}
-            </List>
-          </section>
-        ))}
-      </Card>
+      <Lens>
+        <SegmentedControl
+          label="Examine lens"
+          options={[
+            { id: 'photo', label: 'By photo' },
+            { id: 'lot', label: 'By lot' },
+          ]}
+          value={lens}
+          onChange={(id) => setLens(id as 'photo' | 'lot')}
+        />
+      </Lens>
+      {lens === 'photo' && (
+        <Card aria-label="Regions by photo">
+          <CardTitle>Regions by photo</CardTitle>
+          {photos.map((version, index) => (
+            <section key={version} aria-label={`Photo ${index + 1}`}>
+              <Muted>Photo {index + 1}</Muted>
+              <List>
+                {observations
+                  .filter((item) => item.evidence_version_id === version)
+                  .map((observation) => {
+                    const lot = observation.lot_id ? lots.get(observation.lot_id) : undefined
+                    return (
+                      <li key={observation.id}>
+                        {crop(observation)}
+                        <span>
+                          {readings(observation)}
+                          <Muted> · {region(observation)}</Muted>
+                        </span>
+                        {lot ? (
+                          <a
+                            href={batchHref(batch.id, {
+                              tab: 'review',
+                              view: 'lots',
+                              lotId: lot.id,
+                            })}
+                          >
+                            {lot.label}
+                          </a>
+                        ) : (
+                          <Pill tone="outline" glyph="">
+                            No lot
+                          </Pill>
+                        )}
+                      </li>
+                    )
+                  })}
+              </List>
+            </section>
+          ))}
+        </Card>
+      )}
       <Card aria-label="Lots formed">
         <CardTitle>Lots formed</CardTitle>
         {formed.map((lot) => {
@@ -157,6 +177,11 @@ const List = styled.ul`
   a {
     color: ${color.accent};
   }
+`
+
+const Lens = styled.div`
+  display: flex;
+  justify-content: flex-end;
 `
 
 const Crop = styled.img`

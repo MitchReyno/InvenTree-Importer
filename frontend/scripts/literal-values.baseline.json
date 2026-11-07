@@ -86,8 +86,6 @@
   "components/operator/TableWorkspace.tsx | margin | 12px": 1,
   "components/operator/UnassignedObservations.tsx | border-radius | 4px": 1,
   "components/operator/UnassignedObservations.tsx | gap | 8px": 2,
-  "components/processing/ProcessingSources.tsx | font-size | 12px": 1,
-  "components/processing/QuestionAnswer.tsx | padding | 20px": 1,
   "components/review/records/RecordDetail.tsx | gap | 2px": 1,
   "components/review/records/RecordsStage.tsx | @media | 860px": 1,
   "components/review/records/RecordsStage.tsx | gap | 2px": 1,

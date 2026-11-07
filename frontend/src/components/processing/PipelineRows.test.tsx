@@ -25,5 +25,6 @@ it('shows Research and Images side by side, then Inventory, with stale results c
   const row = screen.getByLabelText('Pipeline for LED reel')
   expect(within(row).getByLabelText('Research: Running')).toHaveTextContent('1 stale result')
   expect(within(row).getByLabelText('Images: Ready')).toHaveTextContent('2 provisional')
-  expect(within(row).getByLabelText('Inventory: Not started')).toBeVisible()
+  expect(within(row).getByLabelText('Inventory: Not started')).toHaveTextContent('–Not started')
+  expect(row).not.toHaveTextContent('∥')
 })

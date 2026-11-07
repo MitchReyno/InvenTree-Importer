@@ -108,18 +108,27 @@ export function ProcessingJobCard({
           <Paragraph key={question.id}>
             {question.spec.prompt}
             {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
-            <br />
-            <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
-              Open this question
-            </Button>
           </Paragraph>
         ))}
       {session}
-      {cancellable && (
-        <Button disabled={disabled} onClick={cancel}>
-          Cancel this attempt
-        </Button>
-      )}
+      <Actions>
+        {job.questions
+          .filter((question) => question.state === 'open')
+          .map((question) => (
+            <Button
+              key={question.id}
+              disabled={disabled}
+              onClick={() => chooseQuestion(question.id)}
+            >
+              Open this question
+            </Button>
+          ))}
+        {cancellable && (
+          <Button disabled={disabled} onClick={cancel}>
+            Cancel this attempt
+          </Button>
+        )}
+      </Actions>
     </Panel>
   )
 }
@@ -133,7 +142,16 @@ const Row = styled.div`
 `
 
 const Status = styled.span`
-  font-size: 13px;
+  font-size: ${typeVar.small.size};
   font-weight: ${typeVar.bodyStrong.weight};
   color: ${color.muted};
+`
+
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[4]};
+  &:empty {
+    display: none;
+  }
 `

@@ -51,7 +51,8 @@ export function Pill(props: PillProps) {
   const { children } = props
   return (
     <PillBody $tone={tone} data-tone={tone}>
-      <i aria-hidden="true">{glyph}</i>
+      {/* An empty glyph means a plain chip, such as a step name, with no glyph slot. */}
+      {glyph !== '' && <i aria-hidden="true">{glyph}</i>}
       <span>{children}</span>
     </PillBody>
   )

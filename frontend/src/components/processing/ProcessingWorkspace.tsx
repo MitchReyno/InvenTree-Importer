@@ -1,7 +1,7 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
+import { size, space } from '../../theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -366,7 +366,10 @@ export function ProcessingWorkspace({
           {job.subject_id !== null &&
             batch.lots.some((lot) => lot.id === job.subject_id) &&
             !retiredLotIds.has(job.subject_id) && (
-              <ReviewLink
+              <Button
+                as="a"
+                variant="link"
+                size="sm"
                 href={batchHref(batch.id, {
                   tab: 'review',
                   view: 'lots',
@@ -374,7 +377,7 @@ export function ProcessingWorkspace({
                 })}
               >
                 Open this lot in Review
-              </ReviewLink>
+              </Button>
             )}
         </div>
       ))}
@@ -565,12 +568,6 @@ export function ProcessingWorkspace({
 }
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
-
-const ReviewLink = styled.a`
-  display: inline-block;
-  margin: ${space[2]} 0 ${space[4]};
-  color: ${color.accent};
-`
 
 const Workspace = styled.section`
   display: grid;

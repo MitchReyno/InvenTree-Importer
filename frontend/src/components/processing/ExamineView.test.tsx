@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event'
 import { render, screen, within } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
@@ -74,4 +75,16 @@ it('shows each photo’s regions with their lot, and each lot’s observations, 
   expect(within(lot).getByText('Estimated 500 · label · same item in 2 photos')).toBeVisible()
   expect(within(lot).getAllByRole('img')).toHaveLength(2)
   expect(within(lot).getByText(/Identity from the label/)).toBeVisible()
+})
+
+it('switches between the photos and the lots formed from them', async () => {
+  render(<ExamineView batch={batch} lead={lead} />)
+  const lens = screen.getByRole('group', { name: 'Examine lens' })
+  expect(within(lens).getByRole('button', { name: 'By photo' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await userEvent.click(within(lens).getByRole('button', { name: 'By lot' }))
+  expect(screen.queryByRole('region', { name: 'Regions by photo' })).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Lots formed' })).toBeVisible()
 })

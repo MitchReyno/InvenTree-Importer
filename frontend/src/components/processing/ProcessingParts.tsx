@@ -8,10 +8,10 @@ import type {
   SourceSession,
   StepProgress,
 } from '../../processing/source'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { hoverTransition } from '../ui/motion'
 import { Pill, type PillTone } from '../ui/Pill'
-import { linkTouchArea, Small } from '../ui/primitives'
+import { linkTouchArea } from '../ui/primitives'
 
 export const STEP_LABEL: Record<string, string> = {
   examine: 'Examine',
@@ -66,29 +66,31 @@ export function SessionRows({
   onOpen: (jobId: string) => void
 }) {
   return (
-    <Rows>
+    <SessionList>
       {sessions.map((session) => (
         <li key={session.jobId}>
-          <SessionLabel>
-            <span>
-              {STEP_LABEL[session.step]} · {session.subject}
-            </span>
-            {session.status && <Small>{session.status}</Small>}
-          </SessionLabel>
-          <Pill tone={SESSION_STATE[session.state].tone} glyph={SESSION_STATE[session.state].glyph}>
-            {SESSION_STATE[session.state].word}
-          </Pill>
-          <Button
-            size="sm"
-            variant="ghost"
+          <SessionRow
+            type="button"
             aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
             onClick={() => onOpen(session.jobId)}
           >
-            Open session
-          </Button>
+            <SessionLabel>
+              <Pill tone="neutral" glyph="">
+                {STEP_LABEL[session.step]}
+              </Pill>
+              <b>{session.subject}</b>
+            </SessionLabel>
+            <Pill
+              tone={SESSION_STATE[session.state].tone}
+              glyph={SESSION_STATE[session.state].glyph}
+            >
+              {SESSION_STATE[session.state].word}
+            </Pill>
+            {session.status && <SessionStatus>{session.status}</SessionStatus>}
+          </SessionRow>
         </li>
       ))}
-    </Rows>
+    </SessionList>
   )
 }
 
@@ -202,9 +204,7 @@ function PipelineStep({ label, cell }: { label: string; cell: PipelineCell }) {
       {state ? (
         <Pill tone={state.tone}>{state.word}</Pill>
       ) : (
-        <Pill tone="outline" glyph="">
-          Not started
-        </Pill>
+        <Pill tone="outline">Not started</Pill>
       )}
       {cell && cell.stale > 0 && <Pill tone="warn">{plural(cell.stale, 'stale result')}</Pill>}
       {cell && cell.provisional > 0 && <Pill tone="neutral">{cell.provisional} provisional</Pill>}
@@ -231,7 +231,7 @@ export function PipelineRows({ pipeline }: { pipeline: ProcessingSource['pipelin
           <strong>{lot.label}</strong>
           <Lanes>
             <PipelineStep label="Research" cell={lot.cells.research} />
-            <Parallel aria-hidden>∥</Parallel>
+            <Parallel aria-hidden>·</Parallel>
             <PipelineStep label="Images" cell={lot.cells.images} />
             <Parallel aria-hidden>→</Parallel>
             <PipelineStep label="Inventory" cell={lot.cells.inventory} />
@@ -272,7 +272,7 @@ const Step = styled.span`
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[2]};
-  font-size: 13px;
+  ${type.small}
   > span:first-child {
     color: ${color.muted};
   }
@@ -285,8 +285,53 @@ const Parallel = styled.span`
   }
 `
 
-const SessionLabel = styled.span`
+const SessionList = styled.ul`
   display: grid;
-  gap: ${space[1]};
+  margin: 0 calc(-1 * ${space[8]});
+  padding: 0;
+  list-style: none;
+  li {
+    border-top: 1px solid ${color.line};
+  }
+`
+
+// The whole row opens the session drawer, as on the canvas.
+const SessionRow = styled.button`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${space[2]} ${space[5]};
+  width: 100%;
+  padding: ${space[5]} ${space[8]};
+  border: 0;
+  background: none;
+  color: ${color.fg};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  ${hoverTransition}
+  &:hover {
+    background: ${color.surface2};
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
+`
+
+const SessionLabel = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
   min-width: 0;
+  b {
+    font-size: ${typeVar.small.size};
+    overflow-wrap: anywhere;
+  }
+`
+
+const SessionStatus = styled.span`
+  grid-column: 1 / -1;
+  ${type.small}
+  color: ${color.muted};
 `

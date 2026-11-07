@@ -141,7 +141,15 @@ describe('ProcessingOverview', () => {
     })
     const sessions = screen.getByRole('region', { name: 'Agent sessions' })
 
-    expect(within(sessions).getByText('Research · Packet B')).toBeInTheDocument()
+    const research = within(sessions).getByRole('button', {
+      name: 'Open session: Research · Packet B',
+    })
+    // A neutral step chip, then the lot in bold, as on the canvas; the row is one target.
+    expect(within(research).getByText('Research').closest('[data-tone]')).toHaveAttribute(
+      'data-tone',
+      'neutral',
+    )
+    expect(within(research).getByText('Packet B').tagName).toBe('B')
     expect(within(sessions).getByText('Checking the datasheet')).toBeInTheDocument()
     expect(within(sessions).getAllByRole('listitem')[1]).not.toHaveTextContent('Checking')
     expect(within(sessions).getByText('Waiting for you')).toBeInTheDocument()

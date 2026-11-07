@@ -257,7 +257,7 @@ export function QuestionAnswer({
 }
 
 const Card = styled.form`
-  padding: 20px;
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.warn};
   border-radius: ${radius.card};
   background: ${color.warnWeak};
