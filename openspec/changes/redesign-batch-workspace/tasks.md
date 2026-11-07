@@ -378,7 +378,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 17.4 Restyle the Proposed lots glance (K6; its chips onto `Pill`, G6), and move `MediaCropDialog` onto `Dialog`.
 - [x] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
 - [x] 17.6 Rename `EvidenceActions` to `CaptureActions` and make `EvidenceGroupPanel` render `ui/EvidenceGroup` (design D12); close K11, K12, K13, K15 and K6's skeleton row and header pill, G24 for Capture's undoable actions and G26 (EvidenceTile's failure, caption and preparing states).
-- [ ] 17.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 17.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 18. Processing
 
@@ -395,7 +395,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 18.3 Dock the session drawer on the right (P9) with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
 - [x] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7 and P8.
 - [ ] 18.5 Make `QuestionAnswer` the form inside `ui/QuestionCard` with `OptionRow` answers (G19, G25), rename `processing/SessionChat` to `SessionChatPanel` rendering `ui/SessionChat`, make `SessionTimeline` render `ui/StatusTimeline` (design D12), and use `NeedsYou` on the overview (G21); close P12, P14, P15, P16 (without Pause all, task 23.6, the lots-formed time, task 23.10, and instruction delivery, task 23.11, with help text saying the instruction is saved for the batch until then) and P17, with Examine's source chips keyed by step and operator edits (G18); and delete `ui/PhaseRow` with its tests, which no screen in the canvas uses, removing its design-system card at the same time (DS6, design D12).
-- [ ] 18.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 18.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 19. Review Lots and Map
 
