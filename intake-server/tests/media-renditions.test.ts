@@ -187,7 +187,11 @@ function fakeWebp(width: number, height: number) {
 
 function framed(
   pages: { width: number; height: number; sizes?: string[] }[],
-  tamper?: (header: { pages: { renditions: { width: number }[] }[] }) => void,
+  tamper?: (header: {
+    pages: { renditions: { width: number; byte_size: number; digest: string }[] }[]
+  }) => void,
+  /** Rewrites a rendition's bytes before its digest is taken, so later guards are reached. */
+  corrupt?: (bytes: Buffer) => Buffer,
 ) {
   const payload: Buffer[] = []
   const header = {
@@ -206,7 +210,8 @@ function framed(
         renditions: sizes.map((size) => {
           // An invalid size still needs bytes, so it falls back to the page's own dimensions.
           const target = renditionDimensions(spec.width, spec.height, size as 'thumb') ?? spec
-          const bytes = fakeWebp(target.width, target.height)
+          const original = fakeWebp(target.width, target.height)
+          const bytes = corrupt ? corrupt(original) : original
           payload.push(bytes)
           return {
             size,
@@ -268,4 +273,61 @@ test('conditional requests use weak comparison over the whole If-None-Match list
   assert.equal(matchesEntityTag(`"other", ${etag}`, etag), true)
   assert.equal(matchesEntityTag('*', etag), true)
   assert.equal(matchesEntityTag('"other"', etag), false)
+})
+
+test('each rendition integrity guard refuses its own corruption', () => {
+  const page = [{ width: 1000, height: 500, sizes: ['thumb', 'card'] }]
+  assert.equal(parseDecoderOutput(framed(page)).state, 'ready')
+  // Not a WebP container, with a digest matching the corrupt bytes.
+  assert.throws(
+    () =>
+      parseDecoderOutput(
+        framed(page, undefined, (bytes) => Buffer.concat([Buffer.from('JUNK'), bytes.subarray(4)])),
+      ),
+    /invalid_decoder_rendition/,
+  )
+  // A WebP whose encoded dimensions disagree with its header entry.
+  assert.throws(
+    () =>
+      parseDecoderOutput(
+        framed(page, undefined, (bytes) => {
+          const copy = Buffer.from(bytes)
+          copy.writeUIntLE(100, 24, 3)
+          return copy
+        }),
+      ),
+    /invalid_decoder_rendition/,
+  )
+  assert.throws(
+    () =>
+      parseDecoderOutput(
+        framed(page, undefined, (bytes) => {
+          const copy = Buffer.from(bytes)
+          copy.writeUIntLE(10, 27, 3)
+          return copy
+        }),
+      ),
+    /invalid_decoder_rendition/,
+  )
+  // Correct bytes under a false digest.
+  assert.throws(
+    () =>
+      parseDecoderOutput(
+        framed(page, (header) => {
+          header.pages[0].renditions[0].digest = 'b'.repeat(64)
+        }),
+      ),
+    /decoder_output_digest_mismatch/,
+  )
+  // A declared length that disagrees with the payload; the framing digest and trailing checks
+  // also catch this, so the length guard is defence in depth.
+  assert.throws(
+    () =>
+      parseDecoderOutput(
+        framed(page, (header) => {
+          header.pages[0].renditions[0].byte_size += 1
+        }),
+      ),
+    /invalid_decoder_rendition|decoder_output_trailing_bytes|decoder_output_digest_mismatch/,
+  )
 })
