@@ -156,4 +156,14 @@ Replace technical selection modes and explicit settings saves with concise reusa
 
 ## Maintenance
 
-No registered items.
+### Normal
+
+#### BI-011 — Remove unused legacy code
+
+Sweep the backend, frontend, contracts, scripts and skills for unused legacy code and remove it. Candidates include superseded components, compatibility shims, fallback adapters and dead configuration; old-link redirects that a current spec requires stay unless that spec changes. The app has essentially one user, so backwards compatibility is not a goal in itself. Keep a legacy path only where a database migration cannot preserve data records that continuing functionality needs; otherwise migrate the data and delete the old path.
+
+- Change: `remove-unused-legacy-code`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Unknown — not assessed. Running it after BI-008's styling uplift (PR-K), which retires the legacy UI primitives itself, would avoid overlapping that work.
+- OpenSpec: [remove-unused-legacy-code](../openspec/changes/remove-unused-legacy-code/)
