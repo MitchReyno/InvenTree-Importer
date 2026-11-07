@@ -126,7 +126,7 @@ Sources:
 
 **Non-goals**
 
-- **The agent backend:** sessions, tools, outbox and inbox, Examine, and the observation and region data model. These belong to `simplify-intake-entry` and its revision. Two additive exceptions are in scope: a source kind and agreement on readings and proposal values (task 22.2), and a command that joins observations as one item (task 23.7).
+- **The agent backend:** sessions, tools, outbox and inbox, Examine, and the observation and region data model. These belong to `simplify-intake-entry` and its revision. Four additive exceptions are in scope: a source kind and agreement on readings and proposal values (task 22.2), when each question was asked (task 22.3), pausing and resuming a batch's sessions (task 23.6), and a command that joins observations as one item (task 23.7).
 - **New InvenTree effect kinds:** creating categories or parameter templates, supplier price breaks, and updating existing Part fields. They are shown as "Not supported yet" with the nearest supported choice. One small extension is in scope: an optional Part description on created Parts (design D6), following the existing location and company description pattern.
 - **Disabled features:** purchase orders and automatic logos stay disabled.
 - **Masthead options B, C and D.**

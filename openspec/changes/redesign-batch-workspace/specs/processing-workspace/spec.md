@@ -50,3 +50,14 @@ Until session contracts from `simplify-intake-entry` are available, Processing S
 - **GIVEN** the synthetic fixture profile with reading and identifying jobs
 - **WHEN** Processing opens
 - **THEN** Overview lists those jobs and questions, and the Examine step page shows their outputs; no session drawer claims a live agent.
+
+### Requirement: Pause and resume agent work
+
+Processing and the Agents page SHALL offer Pause all for a batch's agent sessions, and Resume once paused. Pausing SHALL stop the batch's sessions from starting new work, and SHALL NOT cancel a session, discard a queued answer or message, or change any retained output. A paused session SHALL show as paused, and Resume SHALL continue each session from where it stopped. A failed pause or resume SHALL say so and leave the previous state shown.
+
+#### Scenario: Pause keeps queued answers
+
+- **GIVEN** a batch with two running sessions and an answer queued for one of them
+- **WHEN** the operator chooses Pause all and then Resume
+- **THEN** both sessions show as paused with no new work started, nothing is cancelled, and after Resume the queued answer is delivered and both sessions continue.
+

@@ -108,3 +108,14 @@ The Map SHALL draw its links as connectors between evidence and lot cards: solid
 - **GIVEN** a region linked to the wrong lot
 - **WHEN** the operator moves that region to another lot
 - **THEN** only that region's link changes, the photo's other regions keep their lots, and both lots show the change.
+
+### Requirement: Same physical item
+
+On the Map, the operator SHALL be able to mark an observation as the same physical item as another, such as one bag photographed twice. The two observations SHALL then count once towards their lot's quantity, both SHALL stay linked as evidence, and the mark SHALL be removable. Marking observations of different lots SHALL be refused with the reason.
+
+#### Scenario: One bag seen twice
+
+- **GIVEN** a lot whose quantity counts two observations that show the same bag of 200
+- **WHEN** the operator marks the second as the same item as the first
+- **THEN** the lot's quantity counts the bag once, both photos stay linked to the lot, and removing the mark restores the earlier count.
+
