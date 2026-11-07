@@ -1,0 +1,94 @@
+import { useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { ErrorNotice, Fieldset, Form, Input, Label, Small, TextArea } from '../ui/primitives'
+import { Button } from '../ui/Button'
+
+type Props = {
+  label: string
+  action: string
+  text: string
+  revision: string
+  maximum: number
+  multiline?: boolean
+  trim?: boolean
+  disabled: boolean
+  pending: boolean
+  onSave: (text: string, revision: string) => Promise<boolean>
+  onCancel: () => void
+  onDirtyChange: (dirty: boolean) => void
+}
+
+export function MediaTextEditor({
+  label,
+  action,
+  text,
+  revision,
+  maximum,
+  multiline,
+  trim,
+  disabled,
+  pending,
+  onSave,
+  onCancel,
+  onDirtyChange,
+}: Props) {
+  const loadedRevision = useRef(revision)
+  const { register, handleSubmit, formState } = useForm({ defaultValues: { text } })
+  const field = register('text', {
+    validate: (value) => {
+      if (trim && !value.trim()) {
+        return 'Enter a nonempty name.'
+      }
+      return [...value].length <= maximum || `At most ${maximum} characters.`
+    },
+  })
+
+  async function save(values: { text: string }) {
+    if (disabled || pending) {
+      return
+    }
+    const confirmed = await onSave(trim ? values.text.trim() : values.text, loadedRevision.current)
+    if (confirmed) {
+      onDirtyChange(false)
+      onCancel()
+    }
+  }
+
+  return (
+    <Form
+      aria-label={`${label} editor`}
+      onChange={() => onDirtyChange(true)}
+      onSubmit={handleSubmit(save)}
+    >
+      <Fieldset disabled={disabled || pending || formState.isSubmitting}>
+        <Label>
+          {label}
+          {multiline ? (
+            <TextArea {...field} maxLength={maximum * 2} />
+          ) : (
+            <Input {...field} required maxLength={maximum * 2} />
+          )}
+        </Label>
+        {formState.errors.text && (
+          <ErrorNotice role="alert">{formState.errors.text.message}</ErrorNotice>
+        )}
+        <Button type="submit" disabled={!formState.isDirty}>
+          {action}
+        </Button>
+      </Fieldset>
+      <Button
+        type="button"
+        disabled={pending || formState.isSubmitting}
+        onClick={() => {
+          onDirtyChange(false)
+          onCancel()
+        }}
+      >
+        Discard {label.toLowerCase()} edits
+      </Button>
+      {pending && (
+        <Small>Resolve the retained request below before changing or discarding this draft.</Small>
+      )}
+    </Form>
+  )
+}

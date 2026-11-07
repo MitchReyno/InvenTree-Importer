@@ -1,0 +1,14 @@
+{
+  "singleQuote": true,
+  "semi": false,
+  "printWidth": 100,
+  "embeddedLanguageFormatting": "off",
+  "overrides": [
+    {
+      "files": "frontend/src/**/*.{ts,tsx}",
+      "options": {
+        "embeddedLanguageFormatting": "auto"
+      }
+    }
+  ]
+}

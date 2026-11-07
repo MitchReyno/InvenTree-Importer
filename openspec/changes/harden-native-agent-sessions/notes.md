@@ -1,0 +1,33 @@
+# Implementation notes
+
+The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), confinement [PR-A](https://github.com/MitchReyno/InvenTree-Importer/pull/133) and correctable tool results [PR-B](https://github.com/MitchReyno/InvenTree-Importer/pull/134) are merged into interactive-app. PR-C delivers retained failure diagnostics; qualification (PR-D) remains. No live inference has run.
+
+## Changes to the plan
+
+- **2026-11-07T17:30+11:00, task 1:** The user approved version-pinned offline full-surface qualification, strict effective-configuration checks for each turn and runtime rejection, replacing per-request subscription tool inspection. Proposal, design, delta and task 2 now state the assurance limit. The continuation remains in this change.
+- **2026-11-07T18:28:13+11:00, task 4:** Wrong preview digests were already refused by proposal authorization. Preserve that behavior as characterization rather than claiming a new fix. The missing source reference is the defect addressed by this slice; the task wording now distinguishes the two.
+
+## Unexpected challenges
+
+- **2026-11-07T17:24+11:00, task 1:** The generated experimental app-server protocol exposes MCP status and configuration but no identified complete model-facing tool-list method. Capturing the outgoing request at a loopback model stub establishes offline behavior, not inspection of the actual subscription turn before inference. The subsequent user-approved assurance model resolves this design choice; it does not establish live qualification.
+- **2026-11-07T17:39+11:00, task 1:** The upgrade probe started a conversation with the planted catalogue, then disabled skill instructions before resume. The marker remained in the resumed model request. The user approved requiring a fresh provider conversation while preserving application history and pending input.
+- **2026-11-07T18:13:03+11:00, task 2:** Claude's ordinary system/init frame requires the initial user message, so it is insufficient as a pre-inference configuration gate. Its control initialize and mcp_status requests work before user input; admission now checks those responses and waits boundedly for connected MCP tools before sending text. Later init metadata remains defense in depth.
+- **2026-11-07T18:19:57+11:00, task 2 review:** Explicit replacement dropped a successor's pinned identity proposal IDs. Replacement now decodes the prior sealed input, retains its pins and refuses a stale identity; the new attempt still undergoes claim-time currentness checks.
+- **2026-11-07T19:11+11:00, task 5:** Integrating PR-A's admission errors exposed typed codes with no category (`agent_admission_timeout`, `agent_truncated_frame`, `agent_frame_capacity`), which would have shown as Unknown. They are now classified, and a unit test fails if any typed code under `src/agents` lacks a category.
+
+## Decisions made during implementation
+
+- **2026-11-07T17:24+11:00, task 1:** Prefer disabling code mode as the candidate: the installed Codex 0.166.0 called intake status directly on fresh and resumed offline turns with only intake and the four accepted exceptions exposed. Explicitly enabling code mode restored exec and wait. The direct-only namespace candidate retained exec and wait, so it cannot independently satisfy confinement.
+- **2026-11-07T17:39+11:00, task 1:** Adding skills.include_instructions=false alongside disabled code mode removed the planted skill marker on fresh and resumed clean conversations. A private HOME alone did not remove the ancestor-discovered marker, so the supported candidate uses both explicit controls rather than relocating authentication storage.
+- **2026-11-07T18:02:31+11:00, tasks 1–2:** Claude 2.1.319's non-bare request includes DeferredToolPlaceholder outside its init list; an explicit synthetic call returns no-such-tool and reveals no additional tool. Disabled slash commands plus the direct intake allowlist is the selected Claude candidate. All observations used loopback endpoints and fake credentials.
+- **2026-11-07T18:02:31+11:00, task 2:** Chose a private per-job admission marker bound to policy/provider/authentication/conversation. Explicit replacement is a revision-checked API command for both lead and lot sessions; it retains the existing lineage and inbox cursor and refuses a held physical slot. The API role cannot lock agent_session for update, so replacement uses the common lane/job/attempt locks; no new database privilege is added.
+- **2026-11-07T18:26:23+11:00, task 3:** Reuse the compiled Ajv validators and copy their issues immediately. Public paths contain only schema-owned field names and array indexes, with fixed rule descriptions and an aggregate 2 KiB limit. Existing validate callers retain invalid_contract behavior.
+- **2026-11-07T18:26:23+11:00, task 4:** Return the existing media-version source shape only with successful byte delivery. Preview/crop fetches obtain the original version digest from a batch/evidence-scoped read; preview and crop hashes do not become citation digests. Recheck the capability after preview generation before granting delivery.
+- **2026-11-07T18:43:41+11:00, task 5:** Chose an additive immutable `agent_session_failure` table keyed by attempt and turn rather than rewriting the mutable session row. A savepoint isolates diagnostic insertion from settlement, preserving the original failure and cleanup semantics if diagnostic storage fails. Summaries refer only to the current turn so an earlier diagnostic is never presented as current. The first diagnostic recorded for a turn is kept; a later worker-restart interruption of the same turn does not replace the original cause.
+- **2026-11-07T18:43:41+11:00, task 5:** Debug data is constructed from typed application codes and bounded metadata. Raw exception text, stderr and stacks are excluded before persistence; unknown values remain unavailable. CLI versions are captured from the existing version and initialize responses, without an extra provider request.
+- **2026-11-07T19:11+11:00, task 5:** Worker shutdown and worker-restart recovery record `agent_worker_interrupted`; `agent_cancelled` is reserved for the attempt leaving `running` through Processing. Both use the Interrupted category.
+- **2026-11-07T20:05+11:00, task 5 review:** `agent_request_refused` covers any failed Codex RPC, so it is Provider/network rather than Tool policy; explicit policy and tool refusals keep their own codes. An unconfirmed reap now publishes a session change when its diagnostic is stored, so an open panel shows it while the slot stays held.
+
+## Open items
+
+- Live provider qualification (task 6) needs explicit authorization. Keep native_unverified.

@@ -1,0 +1,67 @@
+import type { SupportedEffectResultDto } from '@invimport/contracts'
+import { Field, Link, Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
+
+interface Props {
+  effect: SupportedEffectResultDto
+  busy: boolean
+  recover: () => void
+  unstarted?: boolean
+  /** Where a refused value is set, and that place's name. */
+  fix?: { place: 'Review' | 'Capture'; href: string }
+}
+
+export function EffectOutcome({ effect, busy, recover, unstarted = false, fix }: Props) {
+  const planned =
+    unstarted &&
+    effect.certainty === 'none' &&
+    effect.remote_pks.length === 0 &&
+    effect.verification === null &&
+    effect.recovery_action !== 'verify_effect'
+  const record =
+    effect.kind === 'create_location'
+      ? 'location'
+      : effect.kind === 'create_company'
+        ? 'supplier'
+        : null
+  let status = 'No effect confirmed'
+  if (planned) {
+    status = 'Planned effect · not queued'
+  } else if (effect.certainty === 'confirmed') {
+    status = record
+      ? `Created new ${record} #${effect.remote_pks[0]}`
+      : 'Historical effect confirmed'
+  } else if (effect.rejected) {
+    status =
+      'InvenTree refused this value, so nothing was created. The round stays open, so a corrected value cannot be sent yet.'
+  } else if (effect.certainty === 'unknown') {
+    status = record
+      ? `The new ${record} may have been created; it is never created again for this draft`
+      : 'Effect is unknown; no create retry is allowed'
+  }
+  return (
+    <Field>
+      <strong>{effect.label}</strong>
+      <Paragraph>{status}</Paragraph>
+      {effect.remote_pks.length > 0 && (
+        <Small>Attributed IDs: {effect.remote_pks.join(', ')}</Small>
+      )}
+      {effect.verification && (
+        <Small>Latest inspection: {effect.verification.replaceAll('_', ' ')}</Small>
+      )}
+      {!planned && effect.recovery_action && (
+        <Button disabled={busy} onClick={recover}>
+          {effect.recovery_action === 'verify_effect'
+            ? 'Inspect known original effect'
+            : 'Resume selected original effect'}
+          : {effect.label}
+        </Button>
+      )}
+      {fix && (
+        <Link href={fix.href}>
+          See in {fix.place}: {effect.label}
+        </Link>
+      )}
+    </Field>
+  )
+}

@@ -1,6 +1,6 @@
 """Overlay a labelled pixel grid on a photo, to read coordinates off it by eye.
 
-    uv run -q --with pillow python grid.py SRC OUT [options]
+    uv run --project backend -q --with pillow python grid.py SRC OUT [options]
 
 Every label is in SOURCE pixels, whatever the preview's scale, so a number read
 off the preview goes straight into a crop command. Labels sit on solid chips so

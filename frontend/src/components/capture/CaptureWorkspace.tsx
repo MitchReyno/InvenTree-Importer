@@ -1,0 +1,171 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import styled from 'styled-components'
+import type { CaptureWorkspaceProps } from '../../capture/types'
+import { Notice } from '../ui/primitives'
+import { Button } from '../ui/Button'
+import { BatchSettingsPanel } from './BatchSettingsPanel'
+import { EvidencePanel } from './EvidencePanel'
+import { ProposedLotsGlance } from './ProposedLotsGlance'
+import { proposedLots } from '../../processing/proposed-lots'
+import { useSessionStatuses } from '../../processing/session-status'
+
+type DirtySource = 'settings' | 'media' | 'note'
+
+/**
+ * Capture is evidence on the left and Batch settings on the right, stacking on narrow screens.
+ * Physical lots and Part proposals are edited in Review; their retained records are unchanged.
+ */
+export function CaptureWorkspace({
+  batch,
+  busy,
+  media,
+  edit,
+  observe,
+  onStage,
+  onDirtyChange,
+  operatorReview,
+  operator,
+  reload,
+  settings,
+  processing,
+}: CaptureWorkspaceProps) {
+  const statuses = useSessionStatuses(processing, batch.id, batch.revision)
+  const dirtyFlags = useRef<Record<DirtySource, boolean>>({
+    settings: false,
+    media: false,
+    note: false,
+  })
+  const [sources, setSources] = useState<Record<DirtySource, boolean>>(dirtyFlags.current)
+
+  // Batch rebuilds its ports and callbacks on every render; reporting must not depend on them.
+  const latest = useRef({ onDirtyChange, settings })
+  latest.current = { onDirtyChange, settings }
+  const [refresh, setRefresh] = useState<'idle' | 'reading' | 'failed'>('idle')
+  // Only the newest refresh may release or fail the gate; an older read is ignored.
+  const refreshGeneration = useRef(0)
+  const refreshSettings = useCallback(() => {
+    const ports = latest.current.settings
+    if (!ports) {
+      return
+    }
+    const generation = ++refreshGeneration.current
+    setRefresh('reading')
+    ports.read().then(
+      (snapshot) => {
+        if (generation === refreshGeneration.current) {
+          latest.current.settings?.accept(snapshot)
+          setRefresh('idle')
+        }
+      },
+      () => {
+        if (generation === refreshGeneration.current) {
+          setRefresh('failed')
+        }
+      },
+    )
+  }, [])
+  const report = useCallback((source: DirtySource, value: boolean) => {
+    const { onDirtyChange, settings } = latest.current
+    const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
+    dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
+    const any = Object.values(dirtyFlags.current).some(Boolean)
+    setSources(dirtyFlags.current)
+    onDirtyChange?.(any)
+    // Evidence commands advance the batch revision; settings stay paused until it is adopted.
+    if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
+      refreshSettings()
+    }
+  }, [])
+  const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
+  const reportMedia = useCallback((value: boolean) => report('media', value), [report])
+  const reportNote = useCallback((value: boolean) => report('note', value), [report])
+
+  useEffect(() => {
+    latest.current.onDirtyChange?.(Object.values(dirtyFlags.current).some(Boolean))
+  }, [onDirtyChange])
+  useEffect(() => () => latest.current.onDirtyChange?.(false), [])
+
+  const frozen = busy || batch.archived
+
+  return (
+    <>
+      {batch.archived && (
+        <Notice role="status">
+          Archived, not deleted. History and original contributions are retained. Resume to edit.
+        </Notice>
+      )}
+      <CaptureGrid data-capture-grid>
+        <EvidencePanel
+          batch={batch}
+          frozen={frozen || sources.settings}
+          media={media}
+          operator={operator}
+          review={operatorReview}
+          reload={reload}
+          edit={edit}
+          onMediaDirtyChange={reportMedia}
+          onNoteDirtyChange={reportNote}
+        />
+        <SettingsColumn>
+          <ProposedLotsGlance
+            batchId={batch.id}
+            lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
+              ...lot,
+              status: statuses.lots.get(lot.id),
+            }))}
+            leadStatus={statuses.lead}
+          />
+          {refresh === 'failed' && (
+            <Notice role="alert">
+              Saved settings could not be refreshed after the evidence change, so settings stay
+              paused.{' '}
+              <Button type="button" onClick={refreshSettings}>
+                Refresh saved settings
+              </Button>
+            </Notice>
+          )}
+          <BatchSettingsPanel
+            batch={batch}
+            ports={settings}
+            paused={sources.media || sources.note || refresh !== 'idle'}
+            operatorReview={operatorReview}
+            onDirty={reportSettings}
+            observe={observe}
+            reload={reload}
+          />
+          {onStage && (
+            <ReviewEntry type="button" onClick={() => onStage('review')}>
+              Go to review →
+            </ReviewEntry>
+          )}
+        </SettingsColumn>
+      </CaptureGrid>
+    </>
+  )
+}
+
+// The glance hides lots the snapshot marks retired; Capture has no separate retired set.
+const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
+
+const CaptureGrid = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+  grid-template-areas: 'context settings';
+  gap: 16px;
+  align-items: start;
+  @media (max-width: 860px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'context' 'settings';
+  }
+`
+const SettingsColumn = styled.div`
+  grid-area: settings;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+`
+const ReviewEntry = styled(Button)`
+  justify-self: stretch;
+  text-align: left;
+  font-weight: 550;
+`

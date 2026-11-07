@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "source": {
+    "kind": "manual",
+    "reference": "SPIKE-TWO-LOTS-001"
+  },
+  "defaults": {
+    "supplier": "DEMO Supplier",
+    "location": "DEMO Shelf"
+  },
+  "parts": [
+    {
+      "id": "resistor-100r",
+      "category": "Demo Resistors",
+      "parameters": {
+        "Resistance": "100",
+        "Tolerance": "5"
+      }
+    }
+  ],
+  "lines": [
+    {
+      "id": "lot-a",
+      "part": "resistor-100r",
+      "quantity": "10",
+      "batch": "SPIKE-A",
+      "stock_images": [
+        "evidence/packet-a.png"
+      ]
+    },
+    {
+      "id": "lot-b",
+      "part": "resistor-100r",
+      "quantity": "20",
+      "batch": "SPIKE-B",
+      "stock_images": [
+        "evidence/packet-b.png"
+      ]
+    }
+  ]
+}

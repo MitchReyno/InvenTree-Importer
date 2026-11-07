@@ -1,7 +1,7 @@
 """Interpretation montage: how the source photos were read into an import file,
 and how the import relates to what is already on the server.
 
-    uv run -q --with pillow python interpretation_montage.py IMPORT.json OUT_DIR \\
+    uv run --project backend -q --with pillow python interpretation_montage.py IMPORT.json OUT_DIR \\
         [--plan PLAN.json] [--sources SOURCES.json] [--width N]
 
 Writes one PDF, OUT_DIR/<import stem>.pdf, with A4-proportioned pages. Each

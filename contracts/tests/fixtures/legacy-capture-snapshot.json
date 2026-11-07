@@ -1,0 +1,82 @@
+{
+  "id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e01",
+  "source_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e02",
+  "title": "Legacy context batch",
+  "revision": "9007199254740995",
+  "archived": false,
+  "updated_at": "2026-11-03T04:05:06.789Z",
+  "context": [
+    {
+      "id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e10",
+      "subject_id": null,
+      "version": "9007199254740994",
+      "value": {
+        "supplier": {
+          "mode": "set",
+          "value": {
+            "observation_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e20",
+            "target_context_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03",
+            "model": "company",
+            "pk": "9007199254740993"
+          }
+        },
+        "purchase_date": { "mode": "set", "value": "2026-02-28" },
+        "tags": { "mode": "set", "value": ["incoming", "Bench A"] }
+      },
+      "actor_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e04",
+      "created_at": "2026-11-03T04:05:06.000Z"
+    },
+    {
+      "id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e11",
+      "subject_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e30",
+      "version": "9007199254740995",
+      "value": {
+        "supplier": { "mode": "inherit" },
+        "purchase_date": { "mode": "clear" },
+        "tags": { "mode": "unknown" }
+      },
+      "actor_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e04",
+      "created_at": "2026-11-03T04:05:06.500Z"
+    }
+  ],
+  "actor_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e04",
+  "target_context_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03",
+  "defaults": {
+    "quantity": { "mode": "set", "value": "9999999999999.999999" },
+    "location": { "mode": "unknown" }
+  },
+  "parts": [],
+  "lots": [
+    {
+      "id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e30",
+      "label": "Opened packet",
+      "revision": "2",
+      "contribution_key": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e31",
+      "part_subject_id": null,
+      "quantity": { "mode": "set", "value": "0.000001" },
+      "location": { "mode": "inherit" }
+    }
+  ],
+  "notes": [
+    {
+      "id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e40",
+      "subject_id": null,
+      "text": "Appended legacy batch note",
+      "actor_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e04",
+      "created_at": "2026-11-03T04:05:06.000Z",
+      "producer": "human"
+    }
+  ],
+  "observations": [
+    {
+      "id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e20",
+      "model": "company",
+      "mapping": { "kind": "company", "manufacturer": false, "supplier": true },
+      "pk": "9007199254740993",
+      "target_context_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03",
+      "label": "Mouser Electronics",
+      "observed_at": "2026-11-03T04:05:05.000Z"
+    }
+  ],
+  "cursor": { "stream_id": "0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e05", "sequence": "9007199254740997" }
+}

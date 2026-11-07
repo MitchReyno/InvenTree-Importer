@@ -1,0 +1,72 @@
+name: Lint
+
+on:
+  workflow_call:
+    inputs:
+      backend:
+        type: boolean
+        required: true
+      frontend:
+        type: boolean
+        required: true
+      intake:
+        type: boolean
+        required: true
+      markdown:
+        type: boolean
+        required: true
+
+jobs:
+  backend:
+    name: Backend
+    if: ${{ inputs.backend }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python project
+        run: uv sync --project backend --locked
+      - name: Lint Python and shared skill scripts
+        run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills ../.github/scripts ../tooling/inventree-dev/scripts
+
+  frontend:
+    name: TypeScript
+    if: ${{ inputs.frontend || inputs.intake }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Check shared readability rules
+        run: pnpm lint:readability
+      - name: Test readability checks
+        run: pnpm test:readability
+      - name: Check for unused code
+        run: pnpm lint:unused
+      - name: Test the unused-code check
+        run: pnpm test:unused
+      - name: Lint frontend
+        if: ${{ inputs.frontend }}
+        run: pnpm --filter @invimport/frontend lint
+
+  markdown:
+    name: Markdown
+    if: ${{ inputs.markdown }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Lint Markdown
+        run: pnpm lint:markdown

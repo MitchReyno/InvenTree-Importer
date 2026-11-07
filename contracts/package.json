@@ -1,0 +1,31 @@
+{
+  "name": "@invimport/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./json": "./src/json.ts",
+    "./client": "./generated/client.ts",
+    "./media": "./src/media.ts",
+    "./research": "./src/research.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "generate": "node scripts/generate.cjs",
+    "check:generated": "node scripts/generate.cjs --check"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.52",
+    "ajv": "8.20.0",
+    "jsonc-parser": "3.3.1",
+    "openapi-fetch": "0.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "@invimport/openapi-generator": "workspace:*"
+  }
+}

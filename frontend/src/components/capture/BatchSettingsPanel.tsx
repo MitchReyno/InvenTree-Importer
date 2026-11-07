@@ -1,0 +1,603 @@
+import { useEffect, useRef, useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import styled from 'styled-components'
+import { color, space } from '../../theme/generated/tokens'
+import type {
+  CaptureBatchSettingsChangeDto,
+  CaptureDefaultLocationSettingDto,
+  CaptureReferenceDraftDto,
+  MediaReceiptDto,
+  OperatorReviewDto,
+} from '@invimport/contracts'
+import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '../../capture/types'
+import { settingsChange, settingsValues, type SettingsValues } from '../../capture/settings-model'
+import type { QueueState } from '../../capture/save-queue'
+import { useSaveQueue } from '../../capture/useSaveQueue'
+import { useCatalogue } from '../../catalogue/useCatalogue'
+import { AutosaveStatus, type AutosaveState } from '../ui/AutosaveStatus'
+import { NotesField } from '../ui/TextField'
+import { SharedTagsInput } from '../ui/SharedTagsInput'
+import {
+  Fieldset,
+  Form,
+  Heading,
+  Input,
+  Label,
+  Link,
+  Panel,
+  Paragraph,
+  Small,
+  TextArea,
+} from '../ui/primitives'
+import { CaptureContextSummary } from './CaptureContextSummary'
+import { DefaultLocationField } from './DefaultLocationField'
+import { PurchaseOrderPreview } from './PurchaseOrderPreview'
+import { SupplierField, type LogoUpload } from './SupplierField'
+import { batchHref } from '../../navigation/batch-route'
+
+type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
+  batch: Snapshot
+  ports?: SettingsPorts
+  /** An evidence change is pending; settings wait so the two commands cannot race. */
+  paused?: boolean
+  onDirty: (dirty: boolean) => void
+}
+
+type LogoPayload = { upload_id: string; draft_id: string }
+type LogoResult = { receipt: MediaReceiptDto; draftId: string }
+
+const MAX_INSTRUCTION_CHARACTERS = 8192
+const RECONCILE_RETRY_MS = 2000
+
+const latestInstructions = (review: OperatorReviewDto | undefined) =>
+  review?.instructions.find((item) => item.group_id === null)
+
+const newer = (candidate: string, current: string) => BigInt(candidate) > BigInt(current)
+
+function laneState(state: QueueState, lane: string): AutosaveState {
+  const status = state.lanes[lane] ?? 'saved'
+  if (!state.connected && status !== 'saved') {
+    return 'disconnected'
+  }
+  return status
+}
+
+/**
+ * Batch settings autosave. Valid edits are sent through one per-batch serialized queue after an
+ * idle debounce or blur; Custom instructions use their own command in the same queue.
+ */
+export function BatchSettingsPanel({
+  batch,
+  ports,
+  paused = false,
+  operatorReview,
+  observe,
+  reload,
+  onDirty,
+}: Props) {
+  const initial = useRef(settingsValues(batch))
+  const [queue, state] = useSaveQueue(batch.revision)
+  const { control, register, getValues, setValue, reset, watch } = useForm<SettingsValues>({
+    defaultValues: initial.current,
+  })
+  const instructionRecord = latestInstructions(operatorReview)
+  const [instructions, setInstructions] = useState(instructionRecord?.text ?? '')
+  const [logo, setLogo] = useState<LogoUpload>({ state: 'idle' })
+  const composing = useRef(false)
+  const [composingText, setComposingText] = useState(false)
+  const [tagPending, setTagPending] = useState(false)
+  // Remounting the tag input clears text typed but not yet added.
+  const [tagInput, setTagInput] = useState(0)
+  const textEdit = useRef(false)
+  const instructionsTouched = useRef(false)
+  const files = useRef(new Map<string, File>())
+  const connected = ports?.connected ?? false
+  // The mounting read is current; only a later reconnection must reconcile before writes.
+  const reconciled = useRef(connected)
+  const reading = useRef(false)
+  const connectedNow = useRef(connected)
+  const [readAttempt, setReadAttempt] = useState(0)
+  const mounted = useRef(true)
+  const editable = ports !== undefined && connected && !batch.archived && !paused
+  const locations = useCatalogue(ports?.catalogue, batch.id, 'location', editable)
+  const suppliers = useCatalogue(ports?.catalogue, batch.id, 'supplier', editable)
+  const values = watch()
+
+  useEffect(() => {
+    if (!ports) {
+      return
+    }
+    queue.register<CaptureBatchSettingsChangeDto | null, Snapshot>(
+      'settings',
+      {
+        send: (change, revision, key) => ports.save(change!, revision, key),
+        revisionOf: (snapshot) => snapshot.revision,
+        onAcknowledged: (snapshot) => ports.accept(snapshot),
+      },
+      settingsChange(initial.current),
+    )
+    const instruct = ports.instruct
+    if (instruct && operatorReview) {
+      queue.register<string, OperatorReviewDto>(
+        'instructions',
+        {
+          send: (text, revision, key) => instruct(text, revision, key),
+          revisionOf: (review) => review.revision,
+          onAcknowledged: (review) => void adoptRead(review.revision),
+        },
+        instructionRecord?.text ?? '',
+      )
+    }
+    const upload = ports.uploadLogo
+    if (upload) {
+      queue.register<LogoPayload | null, LogoResult>(
+        'logo',
+        {
+          send: async (payload, revision, key) => ({
+            receipt: await upload(
+              files.current.get(payload!.upload_id)!,
+              'Supplier logo',
+              revision,
+              key,
+            ),
+            draftId: payload!.draft_id,
+          }),
+          // Every retained command advances the batch revision by exactly one.
+          revisionOf: (_result, revision) => (BigInt(revision) + 1n).toString(),
+          onAcknowledged: (result) => attachLogo(result),
+        },
+        null,
+      )
+    }
+  })
+
+  useEffect(() => {
+    onDirty(state.dirty || composingText || tagPending)
+  }, [composingText, onDirty, state.dirty, tagPending])
+
+  useEffect(() => {
+    if (state.blocked === 'unconfirmed' && state.lanes.logo === 'pending') {
+      setLogo({
+        state: 'failed',
+        message: 'Logo upload not confirmed. Retry the same upload or reload saved values.',
+      })
+    } else if (state.lanes.logo === 'rejected') {
+      setLogo({
+        state: 'failed',
+        message: 'The logo was refused. Choose a PNG or JPEG image within the size limit.',
+      })
+      queue.discard('logo')
+    }
+  }, [queue, state.blocked, state.lanes.logo])
+
+  // Instructions can arrive after Capture. A new saved version becomes the lane's acknowledged
+  // baseline; the textbox follows it until the operator types, otherwise the draft is compared again.
+  const instructionVersion = instructionRecord?.version
+  useEffect(() => {
+    if (!operatorReview) {
+      return
+    }
+    const text = latestInstructions(operatorReview)?.text ?? ''
+    // A clean lane (no draft, nothing unacknowledged) follows the newer saved text without sending;
+    // an outstanding draft or a composition in progress keeps the operator's text.
+    const clean = queue.adoptSaved('instructions', text)
+    if ((clean || !instructionsTouched.current) && !composing.current) {
+      instructionsTouched.current = false
+      setInstructions(text)
+    }
+    // Only a new saved version (or the projection's first arrival) is adopted.
+  }, [instructionVersion, operatorReview === undefined])
+
+  // A clean editor follows newer saved values; a dirty one keeps its draft for explicit handling.
+  useEffect(() => {
+    // Composed text has not reached the queue yet, so composition also keeps the draft.
+    if (!state.dirty && !composingText && newer(batch.revision, state.revision)) {
+      const next = settingsValues(batch)
+      // Unavailable instructions are not confirmed empty: keep their baseline until a projection arrives.
+      queue.reset(batch.revision, {
+        settings: settingsChange(next),
+        ...(operatorReview && { instructions: latestInstructions(operatorReview)?.text ?? '' }),
+      })
+      reset(next)
+      if (operatorReview) {
+        instructionsTouched.current = false
+        setInstructions(latestInstructions(operatorReview)?.text ?? '')
+      }
+    }
+  }, [batch, composingText, operatorReview, queue, reset, state.dirty, state.revision])
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    connectedNow.current = connected
+    if (!ports) {
+      return
+    }
+    if (!connected) {
+      reconciled.current = false
+      queue.setConnected(false)
+      return
+    }
+    if (reconciled.current) {
+      queue.setConnected(true)
+      return
+    }
+    if (reading.current) {
+      return
+    }
+    // Reconnection reads current state before admitting writes; it never replays blindly.
+    reading.current = true
+    ports.read().then(
+      (snapshot) => {
+        reading.current = false
+        if (!mounted.current) {
+          return
+        }
+        if (connectedNow.current) {
+          reconciled.current = true
+          ports.accept(snapshot)
+          queue.setConnected(true)
+        }
+      },
+      () => {
+        reading.current = false
+        if (mounted.current) {
+          setTimeout(() => {
+            if (mounted.current) {
+              setReadAttempt((value) => value + 1)
+            }
+          }, RECONCILE_RETRY_MS)
+        }
+      },
+    )
+  }, [connected, ports, queue, readAttempt])
+
+  async function adoptRead(revision: string) {
+    try {
+      const snapshot = await ports!.read()
+      if (!newer(revision, snapshot.revision)) {
+        ports!.accept(snapshot)
+      }
+    } catch {
+      // The queue already holds the acknowledged revision; the next read reconciles the view.
+    }
+  }
+
+  function schedule() {
+    const immediate = !textEdit.current
+    textEdit.current = false
+    onDirty(true)
+    if (composing.current) {
+      return
+    }
+    const change = settingsChange(getValues())
+    if (change) {
+      queue.update('settings', change, { immediate })
+    } else {
+      queue.invalid('settings')
+    }
+  }
+
+  function scheduleText() {
+    textEdit.current = true
+    schedule()
+  }
+
+  function updateInstructions(text: string) {
+    instructionsTouched.current = true
+    setInstructions(text)
+    onDirty(true)
+    if (composing.current) {
+      return
+    }
+    if ([...text].length > MAX_INSTRUCTION_CHARACTERS) {
+      queue.invalid('instructions')
+    } else {
+      queue.update('instructions', text)
+    }
+  }
+
+  function setLocation(
+    value: CaptureDefaultLocationSettingDto,
+    drafts: CaptureReferenceDraftDto[],
+  ) {
+    setValue('defaultLocation', value)
+    setValue('drafts', drafts)
+    schedule()
+  }
+
+  function uploadLogo(file: File, draftId: string) {
+    const upload_id = crypto.randomUUID()
+    files.current.set(upload_id, file)
+    setLogo({ state: 'uploading' })
+    onDirty(true)
+    queue.update('logo', { upload_id, draft_id: draftId }, { immediate: true })
+  }
+
+  function attachLogo({ receipt, draftId }: LogoResult) {
+    setLogo({ state: 'idle' })
+    const drafts = getValues('drafts').map((draft) =>
+      draft.draft_id === draftId && draft.kind === 'company'
+        ? {
+            ...draft,
+            value: {
+              ...draft.value,
+              logo: { evidence_id: receipt.evidence_id, version_id: receipt.version.id },
+            },
+          }
+        : draft,
+    )
+    setValue('drafts', drafts)
+    schedule()
+  }
+
+  async function keepEdits() {
+    try {
+      const snapshot = await ports!.read()
+      ports!.accept(snapshot)
+      queue.rebase(snapshot.revision)
+    } catch {
+      // Remain blocked; the alert stays visible with its recovery actions.
+    }
+  }
+
+  /**
+   * Navigation hears new pending tag text synchronously. Clearing waits for the dirty effect, so
+   * an unmounting input can never report the panel dirty after its owner reported clean.
+   */
+  function reportTagPending(pending: boolean) {
+    setTagPending(pending)
+    if (pending) {
+      onDirty(true)
+    }
+  }
+
+  function discardUnsent() {
+    if (!queue.discardDrafts()) {
+      return
+    }
+    setTagInput((value) => value + 1)
+    reset(settingsValues(batch))
+    instructionsTouched.current = false
+    // The queue's acknowledged text can be newer than the last projection read.
+    setInstructions(
+      queue.savedValue<string>('instructions') ?? latestInstructions(operatorReview)?.text ?? '',
+    )
+    setLogo({ state: 'idle' })
+  }
+
+  function flushAll() {
+    if (composing.current) {
+      return
+    }
+    queue.flush('settings')
+    if (state.lanes.instructions) {
+      queue.flush('instructions')
+    }
+  }
+
+  const titleInvalid = !values.title.trim()
+  const settingsStatus = laneState(state, 'settings')
+
+  return (
+    <Settings role="region" aria-labelledby="batch-settings-title" data-area="settings">
+      <Heading id="batch-settings-title">Batch settings</Heading>
+      {!ports && <Paragraph role="status">Settings editing is unavailable in this view.</Paragraph>}
+      {ports && !connected && (
+        <Paragraph role="status">
+          Application connection unavailable. Settings are read-only until it returns; unsaved edits
+          stay on this page.
+        </Paragraph>
+      )}
+      {paused && (
+        <Paragraph role="status">
+          Finish or discard the evidence change to continue editing settings.
+        </Paragraph>
+      )}
+      {state.blocked === 'conflict' && (
+        <AutosaveStatus
+          label="Batch settings"
+          state="conflict"
+          revision={state.revision}
+          onReload={reload}
+        />
+      )}
+      {state.blocked === 'conflict' && (
+        <KeepButton type="button" onClick={() => void keepEdits()}>
+          Keep my edits and save them over the newer version
+        </KeepButton>
+      )}
+      {state.blocked === 'unconfirmed' && (
+        <AutosaveStatus
+          label="Batch settings"
+          state="unconfirmed"
+          revision={state.revision}
+          onRetry={state.connected ? () => queue.retry() : undefined}
+          onReload={reload}
+        />
+      )}
+      {ports && !connected && (state.dirty || tagPending) && queue.canDiscardLocally() && (
+        <KeepButton type="button" onClick={discardUnsent}>
+          Discard unsent settings edits
+        </KeepButton>
+      )}
+      <Form
+        onSubmit={(event) => event.preventDefault()}
+        onBlur={flushAll}
+        onCompositionStart={() => {
+          composing.current = true
+          setComposingText(true)
+          queue.suspend()
+        }}
+        onCompositionEnd={(event) => {
+          composing.current = false
+          setComposingText(false)
+          const target = event.target as HTMLElement
+          if (target instanceof HTMLTextAreaElement && target.dataset.lane === 'instructions') {
+            updateInstructions(target.value)
+          } else {
+            scheduleText()
+          }
+          queue.resume()
+        }}
+      >
+        <Fieldset disabled={!editable}>
+          <Label>
+            Batch title
+            <Input
+              required
+              maxLength={256}
+              aria-invalid={titleInvalid || undefined}
+              aria-describedby={titleInvalid ? 'batch-title-error' : undefined}
+              {...register('title', { onChange: scheduleText })}
+            />
+          </Label>
+          {titleInvalid && (
+            <Small id="batch-title-error" role="alert">
+              Enter a batch title. The previous title stays saved until then.
+            </Small>
+          )}
+          <Controller
+            name="batchNote"
+            control={control}
+            render={({ field }) => (
+              <NotesField
+                toggleLabel="Add batch notes"
+                label="Batch notes"
+                value={field.value}
+                disabled={!editable}
+                onChange={(value) => {
+                  field.onChange(value)
+                  if (value === null) {
+                    schedule()
+                  } else {
+                    scheduleText()
+                  }
+                }}
+              />
+            )}
+          />
+          <DefaultLocationField
+            batch={batch}
+            value={values.defaultLocation}
+            drafts={values.drafts}
+            currentDrafts={() => getValues('drafts')}
+            catalogue={locations}
+            observe={observe}
+            disabled={!editable}
+            onChange={setLocation}
+            onTextEdit={() => {
+              textEdit.current = true
+            }}
+          />
+          <SupplierField
+            batch={batch}
+            value={values.intent.supplier}
+            drafts={values.drafts}
+            currentDrafts={() => getValues('drafts')}
+            catalogue={suppliers}
+            observe={observe}
+            disabled={!editable}
+            logo={logo}
+            onUploadLogo={ports?.uploadLogo ? uploadLogo : undefined}
+            onChange={(supplier, drafts) => {
+              setValue('intent.supplier', supplier)
+              setValue('drafts', drafts)
+              schedule()
+            }}
+            onTextEdit={() => {
+              textEdit.current = true
+            }}
+          />
+          <PurchaseOrderPreview order={values.intent.order} orderNote={values.orderNote} />
+          <Controller
+            name="intent.shared_tags"
+            control={control}
+            render={({ field }) => (
+              <SharedTagsInput
+                key={tagInput}
+                value={field.value}
+                disabled={!editable}
+                onPendingChange={reportTagPending}
+                onChange={(value) => {
+                  field.onChange(value)
+                  schedule()
+                }}
+              />
+            )}
+          />
+          <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
+          {state.lanes.instructions && (
+            <Instructions>
+              <Label>
+                Custom instructions
+                <TextArea
+                  data-lane="instructions"
+                  value={instructions}
+                  maxLength={MAX_INSTRUCTION_CHARACTERS * 2}
+                  onChange={(event) => updateInstructions(event.target.value)}
+                />
+              </Label>
+              <Small data-version={instructionRecord?.version}>
+                {instructionRecord
+                  ? `Saved ${new Date(instructionRecord.created_at).toLocaleString()}`
+                  : 'No custom instructions saved yet.'}{' '}
+                Versioned human context for research; instructions do not approve inventory values.
+              </Small>
+              <AutosaveStatus
+                label="Custom instructions"
+                state={laneState(state, 'instructions')}
+                revision={state.revision}
+              />
+            </Instructions>
+          )}
+        </Fieldset>
+      </Form>
+      <details>
+        <summary>Saved lot inheritance and overrides · {batch.lots.length} physical lots</summary>
+        {batch.lots.map((lot) => (
+          <div key={lot.id}>
+            <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
+              {lot.label}
+            </Link>
+            <CaptureContextSummary batch={batch} subjectId={lot.id} />
+            <Small>
+              Location:{' '}
+              {lot.location.mode === 'inherit' ? 'Inherited from Default location' : 'Lot override'}
+            </Small>
+          </div>
+        ))}
+      </details>
+    </Settings>
+  )
+}
+
+const Settings = styled(Panel)`
+  min-width: 0;
+  margin-bottom: 0;
+  details {
+    margin-top: ${space[6]};
+    overflow-wrap: anywhere;
+  }
+`
+const Instructions = styled.div`
+  display: grid;
+  gap: ${space[4]};
+  padding-top: ${space[6]};
+  border-top: 1px solid ${color.line};
+`
+const KeepButton = styled.button`
+  min-height: 44px;
+  margin: 8px 0 12px;
+  padding: 9px 14px;
+  color: ${color.accent};
+  background: ${color.accentWeak};
+  border: 1px solid ${color.lineStrong};
+  border-radius: 6px;
+  cursor: pointer;
+`

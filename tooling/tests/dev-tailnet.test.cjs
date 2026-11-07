@@ -1,0 +1,290 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const { createServer, request } = require('node:http')
+const { connect } = require('node:net')
+const { setTimeout: delay } = require('node:timers/promises')
+const { tailscaleOption, tailnetIdentity, translate, createGateway } = require('../dev/tailnet.cjs')
+
+const publicOrigin = 'https://bench.example-tailnet.ts.net'
+const login = 'owner@example.com'
+const status = {
+  BackendState: 'Running',
+  Self: { DNSName: 'bench.example-tailnet.ts.net.', Online: true, UserID: 7 },
+  User: { 7: { LoginName: login } },
+}
+
+test('tailnet serving is opt-in by flag or setting and validates its port', () => {
+  assert.equal(tailscaleOption({}, ['node', 'dev.cjs']), null)
+  assert.equal(tailscaleOption({ INTAKE_DEV_TAILSCALE: '0' }, []), null)
+  assert.deepEqual(tailscaleOption({}, ['--tailscale']), { port: 443 })
+  assert.deepEqual(
+    tailscaleOption({ INTAKE_DEV_TAILSCALE: '1', INTAKE_DEV_TAILSCALE_PORT: '8443' }, []),
+    { port: 8443 },
+  )
+  assert.throws(
+    () => tailscaleOption({ INTAKE_DEV_TAILSCALE: 'yes' }, []),
+    /invalid_tailscale_setting/,
+  )
+  assert.throws(
+    () => tailscaleOption({ INTAKE_DEV_TAILSCALE_PORT: '0' }, ['--tailscale']),
+    /invalid_tailscale_port/,
+  )
+})
+
+test('identity is the MagicDNS HTTPS origin and node owner, and requires a running node', () => {
+  assert.deepEqual(tailnetIdentity(status), { origin: publicOrigin, login })
+  assert.equal(tailnetIdentity(status, 8443).origin, `${publicOrigin}:8443`)
+  assert.throws(
+    () => tailnetIdentity({ ...status, BackendState: 'Stopped' }),
+    /tailscale_not_running/,
+  )
+  assert.throws(
+    () => tailnetIdentity({ ...status, Self: { ...status.Self, DNSName: '' } }),
+    /tailscale_not_running/,
+  )
+  assert.throws(() => tailnetIdentity({ ...status, User: {} }), /tailscale_owner_unknown/)
+})
+
+test('translation admits only the tailnet host, origin and owner, and presents the loopback origin', () => {
+  const options = { publicOrigin, loopbackOrigin: 'http://127.0.0.1:4330', login }
+  const admitted = {
+    host: 'bench.example-tailnet.ts.net',
+    origin: publicOrigin,
+    'tailscale-user-login': login,
+    'tailscale-user-name': 'Owner',
+    'x-intake-csrf': 'token',
+  }
+  assert.deepEqual(translate(admitted, options), {
+    host: '127.0.0.1:4330',
+    origin: 'http://127.0.0.1:4330',
+    'x-intake-csrf': 'token',
+  })
+  const { origin: _origin, ...navigation } = admitted
+  assert.equal(translate(navigation, options).origin, undefined)
+  for (const refused of [
+    { ...admitted, host: '127.0.0.1:4330' },
+    { ...admitted, host: '100.64.0.1' },
+    { ...admitted, origin: 'https://attacker.example' },
+    { ...admitted, origin: 'null' },
+    { ...admitted, 'tailscale-user-login': 'someone-else@example.com' },
+    { host: admitted.host, origin: publicOrigin },
+  ]) {
+    assert.equal(translate(refused, options), null)
+  }
+})
+
+async function listen(server) {
+  await new Promise((done) => server.listen(0, '127.0.0.1', done))
+  return server.address().port
+}
+
+function get(port, headers) {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, path: '/api/v1/bootstrap', headers }, (res) => {
+      let body = ''
+      res.on('data', (chunk) => (body += chunk))
+      res.on('end', () => resolve({ status: res.statusCode, body }))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+function upgrade(port, headers) {
+  return new Promise((resolve, reject) => {
+    const socket = connect(port, '127.0.0.1')
+    let text = ''
+    socket.on('data', (chunk) => {
+      text += chunk
+      if (text.includes('\r\n\r\n') && (text.includes('echo:ping') || !text.includes(' 101 '))) {
+        socket.destroy()
+        resolve(text)
+      }
+    })
+    socket.on('error', reject)
+    const lines = Object.entries({
+      connection: 'Upgrade',
+      upgrade: 'websocket',
+      ...headers,
+    }).map(([key, value]) => `${key}: ${value}`)
+    socket.write(`GET /api/v1/live HTTP/1.1\r\n${lines.join('\r\n')}\r\n\r\n`)
+    socket.once('data', () => socket.write('ping'))
+  })
+}
+
+test('gateway forwards admitted HTTP and upgrade requests to loopback with translated headers', async (t) => {
+  const seen = []
+  const upgraded = new Set()
+  const upstream = createServer((req, res) => {
+    seen.push(req.headers)
+    res.end('upstream')
+  })
+  upstream.on('upgrade', (req, socket) => {
+    seen.push(req.headers)
+    upgraded.add(socket)
+    socket.on('end', () => socket.end())
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n',
+    )
+    socket.on('data', (chunk) => socket.write(`echo:${chunk}`))
+  })
+  const upstreamPort = await listen(upstream)
+  const gateway = createGateway({
+    publicOrigin,
+    loopbackOrigin: `http://127.0.0.1:${upstreamPort}`,
+    login,
+  })
+  const port = await listen(gateway)
+  t.after(() => {
+    gateway.closeAllConnections()
+    gateway.close()
+    upstream.closeAllConnections()
+    upstream.close()
+    for (const socket of upgraded) {
+      socket.destroy()
+    }
+  })
+  const admitted = {
+    host: 'bench.example-tailnet.ts.net',
+    origin: publicOrigin,
+    'tailscale-user-login': login,
+  }
+
+  assert.deepEqual(await get(port, admitted), { status: 200, body: 'upstream' })
+  assert.equal(seen[0].host, `127.0.0.1:${upstreamPort}`)
+  assert.equal(seen[0].origin, `http://127.0.0.1:${upstreamPort}`)
+  assert.equal(seen[0]['tailscale-user-login'], undefined)
+
+  assert.equal((await get(port, { ...admitted, origin: 'https://attacker.example' })).status, 403)
+  assert.equal((await get(port, { ...admitted, host: `127.0.0.1:${port}` })).status, 403)
+  assert.equal(seen.length, 1)
+
+  const switched = await upgrade(port, admitted)
+  assert.match(switched, /^HTTP\/1\.1 101 /)
+  assert.match(switched, /echo:ping/)
+  assert.equal(seen[1].host, `127.0.0.1:${upstreamPort}`)
+  assert.equal(seen[1].origin, `http://127.0.0.1:${upstreamPort}`)
+
+  assert.match(
+    await upgrade(port, { ...admitted, 'tailscale-user-login': 'other' }),
+    /^HTTP\/1\.1 403 /,
+  )
+  assert.equal(seen.length, 2)
+})
+
+test('gateway propagates truncated responses and cancelled uploads', async (t) => {
+  let uploadClosed
+  const upload = new Promise((done) => (uploadClosed = done))
+  const upstream = createServer((req, res) => {
+    if (req.method === 'POST') {
+      req.on('close', () => uploadClosed(req.complete))
+      req.resume()
+      return
+    }
+    res.writeHead(200, { 'content-length': '100' })
+    res.write('partial')
+    setTimeout(() => res.socket.destroy(), 20)
+  })
+  const upstreamPort = await listen(upstream)
+  const gateway = createGateway({
+    publicOrigin,
+    loopbackOrigin: `http://127.0.0.1:${upstreamPort}`,
+    login,
+  })
+  const port = await listen(gateway)
+  t.after(() => {
+    gateway.closeAllConnections()
+    gateway.close()
+    upstream.closeAllConnections()
+    upstream.close()
+  })
+  const headers = { host: 'bench.example-tailnet.ts.net', 'tailscale-user-login': login }
+
+  const truncated = await new Promise((resolve) => {
+    const req = request({ host: '127.0.0.1', port, path: '/', headers }, (res) => {
+      res.on('error', () => resolve('failed'))
+      res.on('aborted', () => resolve('failed'))
+      res.on('end', () => resolve('completed'))
+      res.resume()
+    })
+    req.on('error', () => resolve('failed'))
+    req.end()
+  })
+  assert.equal(truncated, 'failed')
+
+  const req = request({
+    host: '127.0.0.1',
+    port,
+    method: 'POST',
+    path: '/upload',
+    headers: { ...headers, origin: publicOrigin, 'transfer-encoding': 'chunked' },
+  })
+  req.on('error', () => {})
+  req.write('first chunk')
+  setTimeout(() => req.destroy(), 50)
+  assert.equal(await upload, false)
+})
+
+function rawUpgrade(port) {
+  const socket = connect(port, '127.0.0.1')
+  socket.on('error', () => {})
+  socket.write(
+    'GET /hmr HTTP/1.1\r\nhost: bench.example-tailnet.ts.net\r\n' +
+      `tailscale-user-login: ${login}\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
+  )
+  return socket
+}
+
+test('pending upgrades end with their client, time out, and refusals are well framed', async (t) => {
+  const pending = []
+  const refusing = createServer((req, res) => {
+    res.writeHead(403)
+    res.write('refused')
+    res.end()
+  })
+  const stalled = createServer()
+  stalled.on('upgrade', (req, socket) => pending.push(socket))
+  const refusingPort = await listen(refusing)
+  const stalledPort = await listen(stalled)
+  const gateways = []
+  const gateway = async (upstreamPort, handshakeMs) => {
+    const server = createGateway({
+      publicOrigin,
+      loopbackOrigin: `http://127.0.0.1:${upstreamPort}`,
+      login,
+      handshakeMs,
+    })
+    gateways.push(server)
+    return listen(server)
+  }
+  t.after(() => {
+    for (const server of [...gateways, refusing, stalled]) {
+      server.closeAllConnections()
+      server.close()
+    }
+    for (const socket of pending) {
+      socket.destroy()
+    }
+  })
+  const closed = (socket) => new Promise((done) => socket.once('close', done))
+
+  const client = rawUpgrade(await gateway(stalledPort, 10000))
+  while (pending.length === 0) {
+    await delay(10)
+  }
+  // The upgraded upstream socket is half-open, so the gateway's close arrives as `end`.
+  const upstreamClosed = new Promise((done) => pending[0].once('end', done))
+  client.destroy()
+  // Well inside the 10 s handshake bound: the disconnect itself must end the upstream request.
+  assert.equal(await Promise.race([upstreamClosed.then(() => 'ended'), delay(2000)]), 'ended')
+
+  await closed(rawUpgrade(await gateway(stalledPort, 100)))
+
+  const refused = rawUpgrade(await gateway(refusingPort, 10000))
+  let text = ''
+  refused.on('data', (chunk) => (text += chunk))
+  await closed(refused)
+  assert.match(text, /^HTTP\/1\.1 403 /)
+  assert.match(text, /content-length: 0/)
+  assert.doesNotMatch(text, /transfer-encoding|refused/i)
+})

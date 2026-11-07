@@ -1,0 +1,930 @@
+# InvenTree-Importer
+
+Python CLI and reusable library for component data and inventory imports. For repository setup/navigation see the [root README](../README.md); this guide owns backend installation, configuration, CLI/library usage and operational limits. Read the [backend architecture](ARCHITECTURE.md), [shared code guidelines](../CODE_GUIDELINES.md) and [backend guidelines](CODE_GUIDELINES.md) before changing the importer.
+
+**Command cwd:** examples below run from the repository root unless explicitly stated otherwise. `uv run --project backend` selects Python without changing cwd; explicit `.local_imports/...`, script and output paths keep root-relative meaning. From a shell already in `backend/`, use `uv run` and adjust explicit input/output paths yourself. Backticked `backend/...`, `docs/...` and `.claude/...` paths below are repository-relative; Markdown links navigate from this document.
+
+A utility for getting component data out of DigiKey and into [InvenTree](https://inventree.org/), without hand-typing part numbers, pack quantities and datasheet links into forms.
+
+## Overview
+
+Populating an InvenTree instance from scratch means gathering the same handful of facts for every part — the manufacturer part number, packaging, minimum order quantity, a datasheet URL — and those facts already exist in DigiKey's API. This tool fetches them, normalises them, and loads the parts of them that InvenTree's CSV importer cannot handle on its own. It also takes stock from anywhere else — a receipt, a hand-written list, a drawer with no paperwork — through a file format built to be generated as easily by an LLM as by a person.
+
+Its commands include:
+
+| Command          | What it does                                                                                                            |
+|------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `product`        | Look up DigiKey SKUs and report packaging, pack quantity, MOQ, description, datasheet and canonical product link        |
+| `orders`         | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
+| `import-orders`  | Pick DigiKey orders from a checklist and book them into InvenTree as purchase orders                                    |
+| `parameters`     | Create and update InvenTree parameter templates from `backend/config/parameters.yaml`                                          |
+| `categories`     | Create and update InvenTree part categories from `backend/config/categories.yaml`, and learn DigiKey path aliases              |
+| `supplier-parts` | Create InvenTree parts, manufacturer parts and supplier parts from DigiKey SKUs                                         |
+| `discover`       | Triage supplier parameters a category is receiving but not importing                                                   |
+| `import-stock`   | Import stock from a JSON/YAML/CSV file, for parts DigiKey cannot describe                                              |
+| `datasheets`     | Attach a copy of each part's linked datasheet, so it is kept on the server rather than only linked                     |
+
+Two design points worth knowing up front:
+
+* **A DigiKey part number identifies a *variation*, not a product.** Cut tape, reel, tube and digi-reel are separate SKUs of the same part with different packaging and pack quantities. `product` resolves the SKU you asked for against `ProductVariations`, so the packaging reported is the one you would actually receive — not a property of the product in general.
+* **Half of real stock has no manufacturer part number.** Measured across a 359-row inventory: 52% have no MPN, 29% no order, 13% no supplier at all. `import-stock` therefore treats all three as optional and invents none of them — a part with an unknown manufacturer gets no ManufacturerPart rather than a placeholder one.
+* **Every command is also a library.** The CLI modules are thin adapters over importable functions that return data and print nothing, so you can compose new tooling from them. See [Using it as a library](#using-it-as-a-library).
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the implemented import flow and its limitations, and the [durable import execution spec](../openspec/specs/durable-import-execution/spec.md) for the required observable and resumable behavior.
+
+## Getting started
+
+### Requirements
+
+* Python 3.12
+* [uv](https://docs.astral.sh/uv/) for dependency management
+* A DigiKey developer account with API access
+* An InvenTree instance running API version 530 or later
+
+### Install
+
+```bash
+git clone <this-repo>
+cd InvenTree-Importer
+uv sync --project backend
+```
+
+`uv sync --project backend` creates `backend/.venv`, installs dependencies from `backend/uv.lock`, and installs the project itself so the `invimport` command is available. There is no venv to activate — prefix commands with `uv run --project backend`.
+
+#### Optional: install the CLI as a tool
+
+To type `invimport` on its own, in any shell, install it as a uv tool:
+
+```bash
+uv tool install --editable ./backend
+```
+
+`--editable` points the tool at this checkout, so edits to the code take effect straight away, and root `.env` and `backend/config/` are still read from this checkout wherever you run it. Relative paths you pass — an import file under `.local_imports/` — are relative to the folder you run from, so run imports from the repo root.
+
+* If the shell cannot find `invimport` afterwards, `uv tool update-shell` adds uv's tool directory to your `PATH`; open a new terminal.
+* After a change to the dependencies in `backend/pyproject.toml`, reinstall with `uv tool install --editable ./backend --reinstall`.
+* Remove it with `uv tool uninstall inventree-importer`.
+
+The tool only provides `invimport`. Tests and lint still go through `pnpm test` and `pnpm lint:backend`.
+
+### Credentials
+
+Copy the example file, then fill in the missing values in `.env`:
+
+```bash
+cp .env.example .env
+```
+
+```ini
+# DigiKey — https://developer.digikey.com/
+DIGIKEY_CLIENT_ID=...
+DIGIKEY_CLIENT_SECRET=...
+DIGIKEY_ACCOUNT_ID=...        # required by the orders command only
+
+# InvenTree
+INVENTREE_URL=http://localhost
+INVENTREE_TOKEN=...           # preferred
+# or, if you have not generated a token:
+INVENTREE_USER=...
+INVENTREE_PASSWORD=...
+```
+
+Optional locale settings, which default to US:
+
+```ini
+DIGIKEY_LOCALE_SITE=US
+DIGIKEY_LOCALE_CURRENCY=USD
+DIGIKEY_LOCALE_LANGUAGE=en
+```
+
+`.env` is gitignored and should stay that way. Real environment variables take precedence over the file, so you can override one for a single run:
+
+```bash
+DIGIKEY_LOCALE_CURRENCY=AUD uv run --project backend invimport product 296-1234-1-ND --pricing
+```
+
+### Two things that will bite you first
+
+* **The DigiKey app needs a separate subscription per API product.** Access to Product Information does *not* grant OrderStatus. A `403` on your first `orders` run almost certainly means the missing subscription, not bad credentials.
+* **`DIGIKEY_ACCOUNT_ID` is mandatory for orders.** Under two-legged OAuth there is no signed-in user, so DigiKey has to be told whose orders to return. It is on the "My Account" page of the developer portal.
+
+### Check it works
+
+```bash
+uv run --project backend invimport --help
+uv run --project backend pytest backend/tests
+```
+
+## Usage
+
+Run any command with `--help` for its full options. The examples use `uv run --project backend invimport`; if you installed the tool (see [Optional: install the CLI as a tool](#optional-install-the-cli-as-a-tool)), leave out the `uv run --project backend`.
+
+### product
+
+Look up one or more DigiKey SKUs.
+
+```bash
+uv run --project backend invimport product 296-1234-1-ND
+uv run --project backend invimport product 296-1234-1-ND 311-1.00KHRCT-ND --pricing
+uv run --project backend invimport product 296-1234-1-ND --json results.json
+
+# read SKUs from stdin, one per line
+printf '296-1234-1-ND\n311-1.00KHRCT-ND\n' | uv run --project backend invimport product -
+```
+
+| Flag              | Effect                                                  |
+|-------------------|---------------------------------------------------------|
+| `--pricing`       | Also report the unit price at the lowest break quantity |
+| `--json PATH`     | Write results as JSON                                   |
+| `--raw`           | Dump the raw API payload for each SKU                   |
+| `--refresh`       | Ignore the cache and refetch                            |
+| `--cache-dir DIR` | Override the cache location                             |
+| `--sandbox`       | Use DigiKey's sandbox (returns fabricated data)         |
+
+If a SKU matches no `ProductVariation`, it is reported with a warning and `packaging`/`pack_quantity` left empty rather than guessed at.
+
+### orders
+
+Fetch order history, or one specific sales order.
+
+```bash
+uv run --project backend invimport orders                                    # last 30 days
+uv run --project backend invimport orders --start-date 2026-01-01 --end-date 2026-06-30
+uv run --project backend invimport orders --shared                           # whole account, not just you
+uv run --project backend invimport orders --order 87654321                   # one sales order
+uv run --project backend invimport orders --json orders.json --refresh
+```
+
+| Flag                          | Effect                                                          |
+|-------------------------------|-----------------------------------------------------------------|
+| `--start-date` / `--end-date` | `YYYY-MM-DD` window (defaults to the last 30 days)              |
+| `--shared`                    | Include all orders on the account, not just your own            |
+| `--order ID`                  | Fetch a single sales order; repeatable, skips the history sweep |
+| `--refresh`                   | Ignore the cache and refetch                                    |
+
+**Use `--refresh` when the answer has to be current.** Order data is live — statuses, shipments and tracking numbers change after an order is placed, and a cached history page will not show orders placed since it was written.
+
+### import-orders
+
+Fetch orders, choose which ones you want from a checklist, and book each one into InvenTree as a purchase order.
+
+```bash
+uv run --project backend invimport import-orders                             # dry run, last 30 days
+uv run --project backend invimport import-orders --start-date 2026-01-01 --write
+uv run --project backend invimport import-orders --order 87654321 --write    # one sales order
+uv run --project backend invimport import-orders --all --supplier 1 --write  # no prompts
+```
+
+It takes the same date and scope flags as `orders`, plus:
+
+| Flag                  | Effect                                                              |
+|-----------------------|----------------------------------------------------------------------|
+| `--write`             | Apply changes. Without it you get a dry run                          |
+| `--all`               | Import everything found, skipping the checklist                      |
+| `--supplier NAME\|PK` | Use this supplier and skip the supplier prompt                       |
+| `--partial`           | Import an order even when some lines have no matching supplier part  |
+| `--location NAME\|PK` | Stock location to receive into (default: the only / first top-level) |
+| `--no-products`       | Skip the product lookup for the selected orders                      |
+| `--plain`             | Use the numbered checklist instead of the interactive one            |
+
+The checklist starts with everything selected. Move with the arrow keys (or `j`/`k`), toggle with `SPACE`, `a` for all, `n` for none, and `ENTER` to submit. `q` or `ESC` cancels.
+
+```
+? Orders found (3):
+  ❯ ◉  12345678      2026-07-01      41.50 AUD  1 line  [Shipped]
+    ◉  12345679      2026-07-14      12.05 AUD  1 line  [Shipped]
+    ○  12345680      2026-08-02       8.20 AUD  1 line  [Shipped]
+  SPACE toggle   a all   n none   ENTER import   q cancel
+```
+
+Long lists scroll to fit the terminal. Choosing from a long vocabulary (parameters, choice spellings, category paths) is a type-to-filter search rather than a scrolling menu. If the terminal cannot support that — piped output, a `dumb` terminal — it falls back automatically to a numbered list where you type numbers or ranges (`1 3-5`) to toggle. `--plain` forces that version, as does setting `INVIMPORT_PLAIN_PROMPT=1`.
+
+**Product details are fetched once you submit.** Every SKU across the selected orders is looked up against the Product Information API, which is what lets an unmatched SKU be reported as a real part rather than a bare number:
+
+```
+  ! skipped DigiKey 12345680 / sales order 87654323: no line item matched a supplier part
+      - NOT-STOCKED: no supplier part with this SKU
+          NE555P  IC OSC SINGLE TIMER
+```
+
+Running it after the selection means only the orders you are actually importing cost API calls. Results land in the same product cache `invimport product` uses, so a second run over the same orders is free. `--no-products` skips the step.
+
+Progress is printed as it happens — each product lookup, each part record (manufacturer, part, manufacturer part, supplier part), and each purchase-order line item — rather than buffering until the run finishes.
+
+**The supplier.** Orders are booked against a company named `DigiKey` flagged as a supplier. The usual spellings (`Digi-Key`, `DigiKey Electronics` and so on) are recognised, so an instance set up by hand does not end up with a second near-duplicate company. If there is no match you are offered the choice of creating one or picking an existing supplier under a different name:
+
+```
+No supplier named 'DigiKey' in InvenTree.
+
+DigiKey orders need a supplier to book against:
+  1) create a new supplier named 'DigiKey'
+  2) use existing: Digi-Key AU Pty (pk=7)
+  3) use existing: Tayda (pk=2)
+  q) cancel
+```
+
+**Missing parts are asked about, not just reported.** An InvenTree purchase order line points at a `SupplierPart`, which in turn needs an internal `Part`, so a DigiKey line can only be booked if its SKU is already a supplier part under the chosen supplier. When a selected order has SKUs that are not, the run stops **before booking anything** and asks:
+
+```
+  3 SKU(s) in these orders are not supplier parts yet:
+    296-1411-1-ND   NE555P  IC OSC SINGLE TIMER
+    13-MFR-25FTE52-1RCT-ND   MFR-25FTE52-1R  RES 1 OHM 1% 1/4W AXIAL
+
+  These lines cannot be booked without a supplier part.
+  > create 3 part(s), then import the orders
+    import only the line items that already match
+    import nothing that has an unmatched line
+```
+
+Creating runs the same path as `invimport supplier-parts`, reusing the product data already fetched for the selection — so it costs no extra API calls.
+
+`--create-parts` and `--partial` answer that question up front, which is how a non-interactive run says what it wants. Without a terminal and without either, unmatched lines are reported with the flags that would have fixed it, and their orders are skipped whole rather than creating a purchase order quietly missing half of what was bought.
+
+**Re-running is safe.** Each purchase order records its DigiKey sales order id in `supplier_reference`, and an order already imported is recognised rather than booked twice. Missing stock is still filled in: each line is received as a stock item if that order does not already have one. One purchase order is created per *sales* order, so a DigiKey order split across two shipments produces two — that is where the line items live.
+
+Orders are issued and received as they are imported. Stock lands in `--location` if you name one, otherwise the only stock location on the server (or the first top-level one, if there are several). Without a location the purchase order is still created and stock is skipped.
+
+### parameters
+
+Create and update the InvenTree parameter templates defined in `backend/config/parameters.yaml`. Templates are the vocabulary parts are described with: a category names the parameters its parts carry, and each of those has to exist as a template with the right units before any value can be stored.
+
+```bash
+# dry run: reports what it would do, changes nothing
+uv run --project backend invimport parameters
+
+# apply
+uv run --project backend invimport parameters --write
+```
+
+**Dry run is the default.** Nothing is written without `--write`, and nothing is ever deleted — a template on the server the config does not mention is reported and left alone, since parts may be using it. Re-running is safe.
+
+The config is a mapping of template name to its properties:
+
+```yaml
+Resistance:
+  units: ohm                     # pint unit; InvenTree derives data_numeric
+  description: Nominal resistance value
+  aliases: [Resistance, Resistance (Ohms)]   # names suppliers use
+  parse: quantity                # how to read a supplier value
+
+Composition:
+  choices: [Metal Film, Carbon Film, Thick Film]
+
+Mounting:
+  choices: [Through Hole, Surface Mount]
+  values:                        # canonical value -> supplier spellings
+    Through Hole: [Thru Hole, Axial, Radial]
+```
+
+`units` matters twice over. InvenTree computes `data_numeric` by parsing the stored value against the template's unit, which is what makes a parameter sortable and filterable. The stored string is the number plus any SI prefix that is not the base unit — the template already carries V, Ω, F, °C:
+
+| Magnitude | Unit | Stored as |
+|---|---|---|
+| 100000 | `ohm` | `100 k` |
+| 0.25 | `W` | `250 m` |
+| 2.2e-7 | `F` | `220 n` |
+| 16 | `V` | `16` |
+| -55 | `°C` | `-55` |
+
+InvenTree concatenates that with the template unit (`100 k` + `ohm` → `100kohm`) so prefixes still sort. Every formatted value is round-trip checked before it is stored — a form that cannot be parsed back falls through to a plainer one rather than being written wrongly.
+
+**Custom units are created first.** A template names its unit, and InvenTree rejects one it cannot resolve, so anything pint does not already know has to exist before the template that uses it. Declare those in `backend/config/units.yaml`:
+
+```yaml
+ppm_per_delta_degC:
+  definition: ppm / delta_degC     # a pint expression, evaluated by InvenTree
+  symbol: ppm/°C                   # display only, 10 characters maximum
+```
+
+The command does units then templates in one pass, so the ordering is not something you have to remember. Common units — `ohm`, `V`, `W`, `F`, `°C`, `%` — need no entry. A template declaring a unit the server cannot resolve is reported by name rather than failing as a bare HTTP 400.
+
+`aliases`, `parse` and `values` are not sent to InvenTree. They tell the part import how to recognise a parameter in supplier data and how to read its value.
+
+Parameter *values* are not set by this command. They come from supplier data as parts are imported. `from_supplier()` in `invimport.inventree.values` is how a DigiKey parameters dict becomes the stored strings — `100 kOhms` is `100 k`, `±1%` is `1`, `-55°C ~ 155°C` splits into two temperatures. `-` means absent and is not written.
+
+### categories
+
+Create and update the InvenTree part category tree defined in `backend/config/categories.yaml`. Templates are ensured first, because a category names the parameters its parts carry.
+
+```bash
+# dry run: reports what it would do, changes nothing on the server
+uv run --project backend invimport categories
+
+# apply
+uv run --project backend invimport categories --write
+
+# map unmapped DigiKey paths from the product cache (writes the YAML)
+uv run --project backend invimport categories --learn
+```
+
+**Dry run is the default** for the server. Nothing is created or renamed without `--write`, and nothing is deleted. `--learn` writes aliases back into the YAML so the same DigiKey path is never asked about twice. The menu starts at the top-level categories, marks which are structural and how many subcategories they have, and drills down with the arrow keys (or numbered choices over a pipe). Create is offered at the current level; a slash in the name nests children. An unmapped path is never guessed — a part in the wrong category is worse than a part not imported.
+
+### supplier-parts
+
+Create the InvenTree records a DigiKey SKU needs: a `Part` (matched by MPN or by the category's parameter signature), a manufacturer `Company` if needed, a `ManufacturerPart`, and a `SupplierPart` with the variation's packaging, pack quantity, and the DigiKey product page as its link. Product photos (`PhotoUrl`) are downloaded into `.cache/.digikey/images/` and set as the part image when the part has none.
+
+```bash
+# dry run
+uv run --project backend invimport supplier-parts 296-1411-1-ND
+
+# apply
+uv run --project backend invimport supplier-parts 296-1411-1-ND --write
+
+# every SKU on recent orders
+uv run --project backend invimport supplier-parts --from-orders --start-date 2026-01-01 --write
+
+# from a file
+uv run --project backend invimport supplier-parts - < skus.txt --write
+```
+
+**Dry run is the default.** Re-running is a no-op: a SKU that is already a supplier part is reported and left alone. Existing parts are matched, never renamed. `--update-parameters` fills missing parameter values (and overwrites drifted ones) on a Part / ManufacturerPart / SupplierPart that already exist.
+
+An unmapped DigiKey category skips the SKU. An unknown manufacturer does the same, unless you are at a terminal (fuzzy matches are offered and remembered for the run) or you pass `--create-manufacturers`. Unmapped supplier parameter names, and choice values that are not in a parameter's allowed set, are asked about the same way: map as an alias, or create a new parameter / choice.
+
+`identity: spec` categories generate a name from the category's `name:` template and a meaningless IPN (`R-000001`). `identity: mpn` categories use the manufacturer part number as the name (`IC-000001`).
+
+**Where parameter values land.** All three records carry parameters, but not the same ones:
+
+| Record | Carries |
+|---|---|
+| `Part` | the category's `key_parameters` only |
+| `ManufacturerPart` | every parameter the category maps |
+| `SupplierPart` | every parameter the category maps |
+
+Only the key parameters identify a part, so only those belong on it. Everything else — packaging, temperature range, tolerance grade — may legitimately differ between manufacturers of the same specification, and pinning one manufacturer's figures to the shared part would make them look authoritative. Under `identity: mpn` there is one part per MPN, so there is no variation to keep out and the part carries the lot.
+
+This is why parameter templates are created with a **blank `model_type`**: InvenTree reads that as "all models", which is what lets one `Package` template carry a value on a part, a manufacturer part and a supplier part at once.
+
+### discover
+
+A new category starts with no parameters, and DigiKey sends far more than are worth keeping — 264 distinct parameter names across the products in a modest cache. This reports what each category is receiving and not importing, then asks what to do with each one.
+
+```bash
+# report only
+uv run --project backend invimport discover
+
+# decide, and record the answers
+uv run --project backend invimport discover --write
+
+# one category at a time
+uv run --project backend invimport discover --write --category Resistors
+```
+
+| Flag              | Effect                                                        |
+|-------------------|----------------------------------------------------------------|
+| `--write`         | Ask about each parameter and record the answers                |
+| `--category NAME` | Only this category, by full path or leaf name                  |
+| `--limit N`       | Stop after N parameters                                        |
+| `--sku SKU`       | Fetch these SKUs instead of reading the product cache          |
+
+Products come from the DigiKey product cache by default, so a report costs no API calls.
+
+Each parameter offers four answers, chosen with the arrow keys:
+
+```
+Resistors
+  Composition  (on 38 products)
+  values: Metal Film, Carbon Film, Wirewound
+  looks like: 3 choices
+  > key parameter    identifies the part - changes how parts are matched
+    parameter        recorded on the part, not identifying
+    ignore           never import this one for this category
+    skip             leave undecided, ask again next time
+```
+
+Answers are written straight to `backend/config/parameters.yaml` and `backend/config/categories.yaml`, so nothing is asked twice — including `ignore`, which is recorded per category and inherited by subcategories. Units, parse mode and choices are **suggested** from the observed values (`300 V` → `units: V`, `±1%` → `parse: percent`), never applied on their own: filing a key parameter changes what makes two parts the same part.
+
+A value like `-55°C ~ 155°C` is flagged as a range, which needs two parameters (a min and a max). Filing it records the low end; add the high one by hand.
+
+### import-stock
+
+Everything DigiKey cannot tell us about: parts from Rockby, Tayda, Jaycar and eBay sellers, parts out of a drawer with no paperwork, and parts transcribed from a photographed receipt or a hand-written list.
+
+```bash
+# check the file against the config - no API calls, nothing written
+uv run --project backend invimport import-stock .local_imports/drawer-a/drawer-a.json --validate
+
+# dry run: ask the server what would happen
+uv run --project backend invimport import-stock .local_imports/drawer-a/drawer-a.json
+
+# create the records
+uv run --project backend invimport import-stock .local_imports/drawer-a/drawer-a.json --write
+```
+
+Each import lives in **its own folder** under `.local_imports/` (gitignored), named for the import and holding the file and everything it was made from:
+
+```
+.local_imports/
+    macservice-2026-10-12/
+        macservice-2026-10-12.json          the import file
+        macservice-2026-10-12.sources.json  which photo each line was read from
+        photos/                             crops; originals under photos/source/
+        snapshots/                          source pages (source-snapshots skill)
+        datasheets/                         PDFs the lines attach
+.temp/                                      scratch: previews, montages, scripts
+```
+
+Paths in the file are relative to its folder. Anything that is not part of an import's record - working crops, review montages, throwaway scripts, intermediate output - goes in `.temp/` at the repo root, also gitignored, so it never ends up in an import's archive (below).
+
+| Flag                 | Effect                                                     |
+|----------------------|------------------------------------------------------------|
+| `--write`            | Create the records (default is a dry run)                  |
+| `--validate`         | Check only, reporting as JSON with `did_you_mean` hints    |
+| `--schema`           | Print the input format as JSON Schema                      |
+| `--vocabulary`       | Print the category and parameter names this config defines |
+| `--location PATH`    | Where stock with no location of its own goes               |
+| `--on-partial MODE`  | `ask` (default), `new` or `skip` for a partial spec        |
+| `--min-confidence N` | Hold any line the file rates below this, 0-1               |
+| `--no-orders`        | Import the stock without creating purchase orders          |
+| `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part; also on when `INVIMPORT_MIRROR_DATASHEETS` is set (e.g. in `.env`) |
+| `--no-archive`       | Do not zip the import's folder onto its orders or suppliers |
+| `--no-provenance`    | Do not record provenance JSON on the records or in the folder |
+| `--plan FILE`        | Also write each line's relation to the server as JSON (new or existing part, location, stock already there), with existing parts' images in `FILE`'s folder - read by the interpretation montage |
+| `--yes`              | Do not prompt; report anything ambiguous instead           |
+
+#### The file
+
+JSON is canonical; YAML and CSV read into the same shape. Everything except `id`, `quantity` and `category` is optional, and that is the point — **half of real stock has no manufacturer part number**, a third has no order, and an eighth has no supplier at all.
+
+```json
+{
+  "version": 1,
+  "source": {"kind": "handwritten", "reference": "drawer-notes.jpg"},
+  "defaults": {"supplier": "Rockby Electronics", "currency": "AUD",
+               "location": "Workshop/Drawer A"},
+  "lines": [
+    {"id": "l01", "quantity": 40, "sku": "R-4K7",
+     "category": "Resistors/Through Hole Resistors",
+     "parameters": {"Resistance": "4k7", "Tolerance": "1%",
+                    "Power Rating": "0.25 W", "Composition": "Metal Film",
+                    "Package": "Axial", "Mounting": "Through Hole"}},
+
+    {"id": "l02", "quantity": 300, "category": "Diodes/Signal Diodes",
+     "type": "1N4007", "condition": "unopened", "approximate": true,
+     "supplier": "salash (eBay)", "sku": "1N4007", "tags": ["NOS", "new old stock"],
+     "packaging": "Ammo pack, sealed", "notes": "original packaging"}
+  ]
+}
+```
+
+`defaults` are merged into every line and a line always wins. `order` merges key by key, so a file-wide date with a per-line reference works.
+
+CSV is the same shape flattened, with dotted columns for the nested parts:
+
+```csv
+id,quantity,category,type,supplier,sku,order.reference,param.Package
+l02,300,Diodes/Signal Diodes,1N4007,Rockby Electronics,1N4007,R-99213,DO-41
+```
+
+A `spec` category needs *all* of its key parameters on one row, which makes for a wide CSV; a `type` category like this one needs only the designator.
+
+##### Version 2: each part described once
+
+Version 1 repeats a part's category, parameters, datasheet and notes on every line, so six lots of one part carry six copies. Version 2 (JSON or YAML) lifts them out: `parts` describe each part once, `manufacturer_parts` give each maker's number for it, and a line holds only the stock and names the `manufacturer_part` its lot is marked with (or the `part`, when no maker's number is printed). Lines naming the same part are one part; no `part_of` is needed. A part may carry a `name` - the part number alone, such as `CD4073BF`, never a description; without one it is named by its category's template where that builds a name from parameters, else by its bare type or MPN, which the validator warns about. A name only names a part the import creates. When it differs from the printed type or MPN (a commercial number for a lot marked with a drawing number), the printed number is kept in the part's keywords so later lots still find it.
+
+```json
+{
+  "version": 2,
+  "source": {"kind": "photo", "reference": "bench-lots.jpg"},
+  "defaults": {"supplier": "MacService Group", "currency": "AUD",
+               "tags": ["NOS", "new old stock"]},
+  "parts": [
+    {"id": "1n4007", "category": "Diodes/Signal Diodes", "type": "1N4007",
+     "name": "1N4007",
+     "notes": {"summary": ["1 A, 1000 V general-purpose rectifier"]}}],
+  "manufacturer_parts": [
+    {"id": "1n4007/mot", "part": "1n4007", "manufacturer": "Motorola",
+     "mpn": "1N4007", "notes": {"identification": ["Motorola logo on the body"]}}],
+  "lines": [
+    {"id": "l01", "manufacturer_part": "1n4007/mot", "quantity": 100,
+     "sku": "1N4007", "packaging": "Ammo pack, sealed",
+     "notes": {"stock": ["One ammo pack, count from the label"],
+               "markings": ["1N4007", "8427"]}},
+    {"id": "l02", "part": "1n4007", "quantity": 12, "sku": "1N4007",
+     "packaging": "Bag, opened"}]
+}
+```
+
+Notes go on the record they are true of, as named sections the importer renders as Markdown: a part's (`summary`, `specifications`, `cross_references`, `cautions`, `references`) are about the part whoever made it; a manufacturer part's (`summary`, `identification`, `references`) about that maker's number; a line's (`stock`, `markings`, `other`) about that quantity only, with `markings` copied verbatim into a code block. Each section is a list of short facts or a Markdown string. Part and manufacturer part notes are written only to a record with none, so a re-run fills in notes for parts imported before the file had any, and never overwrites notes already there. Every stock item gets a Source section (seller, import file) from the importer itself.
+
+A line may also carry `link` (a product or listing page), `datasheet` (a PDF URL, or a PDF next to the file) and `image` (a photo URL, or a path next to the file). They land on the part the same way DigiKey's do: the datasheet on the Part and ManufacturerPart, the product page on the SupplierPart, the first photo as the part image when it has none. A missing or unreadable image is skipped, not a reason to stop.
+
+`stock_images` (URLs or paths) are photos of that quantity rather than of the part - the packet a batch came in, its label - attached to the stock item the line creates, so two batches of one part can each carry their own. A re-run attaches any added since to the existing item, skipping names it already has.
+
+A `location` path that does not exist yet is created, parents included, on `--write`; the dry run marks the line `(new location)` first. Giving several lines the same new path files them together - one bag for several batches of one part - and creates it once.
+
+`attachments` lists files kept on the part - typically snapshots of the pages the part was identified from (see [Source snapshots](#source-snapshots)). Each is a path relative to the stock file, or `{"file": ..., "comment": ...}`; a bare path is commented `imported from <file>`. They are attached when the line is imported, and to an already-imported line's part on a re-run, skipping names the part already has.
+
+#### Datasheets kept on the server
+
+A datasheet URL is stored as a link, and links die - vintage datasheets especially live on mirrors and scanned data books that come and go. So a datasheet can also be a file *attached* to the Part and its ManufacturerPart, with the comment `Datasheet`:
+
+```json
+{"datasheet": "datasheets/82S137.pdf"}
+{"datasheet": "https://bitsavers.org/.../1981_Fairchild_MOS_Memory_Data_Book.pdf",
+ "datasheet_pages": "140-142"}
+```
+
+- A **local path** (relative to the stock file) is always attached.
+- A **URL** is linked as before, and with `--mirror-datasheets` also downloaded and attached. The download has to be a real PDF: a viewer page, a login wall or a search result is reported and skipped rather than attached as "the datasheet".
+- **`datasheet_pages`** (1-based, `140-142` or `3, 5-6`) cuts those pages out as the datasheet - one device's three pages rather than a 190-page data book - and attaches the whole document beside it, commented `Datasheet (full document)`, since the pages around a device (the family's timing diagrams, package outlines, ordering codes) are often needed too. If the pages cannot be cut out, the whole document is attached as the datasheet and the dry run says why.
+
+The dry run resolves every datasheet - downloading when mirroring - so a missing file or a non-PDF link is reported before anything is written. Downloads are cached under `.cache/datasheets/`. Re-running a file attaches a datasheet added since to lines already imported, and a file the part already holds by that name is not uploaded twice. InvenTree serves attachments only to logged-in users, so these are for people using the server, not for linking from elsewhere.
+
+For parts imported before any of this, see [`datasheets`](#datasheets).
+
+#### Company logos
+
+A file may give a logo for the manufacturers and suppliers its lines name, in a top-level `companies` section keyed by the name the lines use:
+
+```json
+"companies": {"Signetics": {"image": "logos/signetics.png"}}
+```
+
+`image` is a URL or a path relative to the stock file. It is for companies the import creates: logos are uploaded after the lines, and a company already on the server is left alone - with a logo or without (give those one with [`company-logos`](#company-logos)). A company no line names is refused, and a local file that is not there is a validation warning. The report lists each logo as `would set` or `set`, `on the server - left alone`, `not on the server` (a company whose lines were skipped, so it was never created) or `failed`.
+
+Run `uv run --project backend invimport import-stock --schema` for the full field reference.
+
+#### Re-running is safe
+
+Each stock item created carries a barcode naming the line that made it — `invimport:<file id>:<line id>`. InvenTree enforces barcode uniqueness itself, so a second run of the same file reports `already there` rather than doubling the quantity. That is a database constraint, not a check this tool performs: the import cannot double your stock even if the code above it is wrong.
+
+The file id comes from `source.reference` when the file names itself, so a regenerated file still matches; otherwise it is a hash of the contents. **Line ids must be stable.** Renumbering them makes previously imported lines look new, and they import a second time.
+
+#### The import archive
+
+`.local_imports/` is the only record of what was imported and why, and it is on one disk. So `--write` zips the import's folder - the file, its `.sources.json`, photos, snapshots, datasheets, everything in it except hidden files - and attaches the zip in InvenTree:
+
+- to **every purchase order** the import created or used (each gets the whole zip; the file is one record and its sources are not split by order);
+- for lines on **no order**, to their **supplier** company instead;
+- a line with **neither** gets nothing, and the report lists it - no order or supplier is invented to hold a file.
+
+The zip is named `import-<folder>-<digest>.zip`, the digest taken from the folder's contents (paths and bytes), and unpacks to `<folder>/...` - the layout it came from. A record already carrying that zip is left alone, so a re-run attaches nothing twice. If the folder has changed since, the digest changes and the new zip is attached **beside** the old one; earlier versions are never replaced or deleted, since each is what was on file when that run wrote. A re-run of stock imported before archiving existed attaches the zip to the order its stock is on.
+
+The dry run reports the zip's name, size and where it would go, and writes nothing. A file not in its own folder (named for the file or its `source.reference`) is not archived - zipping its neighbours would attach other imports' evidence - and the report says to move it.
+
+#### Provenance
+
+Every fact an import writes came from somewhere - a datasheet page, a photo of a tube label, a distributor's listing, an NSN record, something said in chat. A file can say where, per entry, with a `provenance` list. Each row is **one source**, and lists every fact it supports, so a datasheet behind ten parameters is one row:
+
+```json
+"provenance": [
+  {"id": "ds", "kind": "datasheet", "file": "datasheets/82s137.pdf",
+   "pages": "3-4", "facts": ["parameters.Organization", "parameters.Access Time",
+                             {"field": "description", "note": "page 1 summary"}]},
+  {"kind": "photo", "file": "photos/source/12-tube.png", "where": "tube label",
+   "quote": "N82S137F 8231", "facts": ["mpn", "batch"]},
+  {"kind": "inference", "because": "8231 is the date code: 1982, week 31",
+   "derived_from": ["ds"], "facts": [{"claim": "made in 1982"}]}
+]
+```
+
+- `kind` is one of `photo`, `datasheet`, `databook`, `web`, `record` (NSN, CAGE, an existing InvenTree record), `document` (invoice, packing slip), `standard` (MIL/JEDEC specs, decoding rules), `message` (chat, email, a hand-written list), `measurement`, `inference` (needs `because`; may name the rows it rests on in `derived_from`) or `other`.
+- A source is named by any of `file`, `url`, `snapshot`, `quote`, `title`; `pages`, `where`, `by`, `date`, `retrieved` and `note` say more.
+- A fact is a field of the entry the row is on - `mpn`, `parameters.Resistance`, `order.reference`, `notes.summary` - or `{"claim": "..."}` for one that is not a field. The reader refuses a field the entry does not have (a misspelt parameter is caught), and `--validate` warns about a cited field that is not set, or a local file that is missing.
+- Rows go on a version 2 part, manufacturer part or line, on a version 1 line, on a `companies` entry, or at the top level for sources that speak for every line (the invoice).
+
+On `--write`, invimport records what the run did - every record created, parameter added or changed, file attached, image set, notes written - and joins it with the rows:
+
+- **Each record the run created or changed** gets a JSON attachment, `provenance-<import>-<model>-<pk>-<digest>.json`, commented `Import provenance`: the import and archive it came from, the lines that touched it, every change with its time (and each file's sha256), the values the file gave it, the source rows with only the facts about *this* record (each with the value it supports), the photos each line was read from, and the records it is related to. A fact goes to the record that owns its field: parameters to the part, `mpn` to the manufacturer part, `sku` to the supplier part, `order.reference` to the purchase order, `batch` to the stock item, the price to the stock item and the order; `manufacturer` and `supplier` go to that company as well.
+- **The import** keeps `<import>.provenance.json` in its folder: every source row in the file, the photo map, and one entry per run that wrote something - its lines, records and every event. It is written before the folder is zipped, so the archive carries it.
+
+A re-run that changes nothing records nothing, and leaves the archive as it was. A dry run records nothing; `--no-provenance` turns it off.
+
+#### What it will not guess
+
+Two situations stop and ask, with the usual interactive prompt:
+
+- **An unknown category.** Existing near-matches are offered first, because writing `Resistors/SMD` when `Resistors/Surface Mount Resistors` exists is the common failure. Creating one writes to both `categories.yaml` and the server, or neither.
+- **A partial specification.** A `spec` category identifies its parts by their key parameters, so a line giving only some of them can neither be matched — a subset match may be a different part — nor safely created, which may duplicate one already there. The parts that agree with what *was* given are offered instead.
+
+Both refuse rather than guess because **InvenTree has no part merge**: undoing either mistake means moving stock and deleting a part by hand.
+
+Without a terminal, or with `--yes`, these are reported as `needs review` and the line is left alone. Nothing is created unattended.
+
+#### Identity, and what is optional
+
+A line finds its part by, in order: an explicit `ipn`, an `mpn`, a `type` designator (only where the category says `identity: type`), then the key parameters of a `spec` category.
+
+`type` is for designators that identify a part regardless of who made it — `1N4007`, `2N3904`, `XR-2206`. A 1N4007 from Diotec and one from an unmarked bag are the same part; the maker is a property of the stock.
+
+Where the manufacturer is unknown, **no ManufacturerPart is created** — there is no placeholder company. When you later learn who made it, adding a manufacturer part to the existing part costs nothing: the IPN, the parameters and the stock all stay put.
+
+#### Conditions
+
+`condition` may be `ok`, `unopened`, `attention`, `damaged` or `quarantined`. `unopened` maps to InvenTree's `ATTENTION` status, which **is** in its available-stock codes — so a sealed packet still counts toward what you have, carrying a flag that says "not verified" rather than "unusable". Pair it with `"approximate": true` when you are trusting a number printed on the bag.
+
+#### Order details, and the invoice scan
+
+A line's `order` object records the purchase it arrived on. Lines sharing a supplier and a `reference` share one purchase order, and a reference already on the server is reused, so re-importing never books a second one.
+
+```json
+"order": {
+  "reference": "INV-88213",
+  "date": "2026-03-14",
+  "target_date": "2026-03-28",
+  "description": "March restock",
+  "link": "https://rockby.example/invoice/88213",
+  "notes": "paid on collection",
+  "tags": ["surplus"],
+  "invoice": "scans/inv-88213.pdf"
+}
+```
+
+`reference` is the seller's own number and is the only required one — without it **no order is created at all**, which is deliberate: 29% of real rows never had one, and inventing a reference records a purchase that did not happen that way. The commercial detail stays on the line itself (`supplier`, `sku`, `unit_price`, `currency`), because it describes what *this line* cost, not the order as a whole.
+
+`date` is stored as the order's **`start_date`**, not its creation date. InvenTree's `creation_date` is read-only — it records when the row was written, which for an import is always today — so a purchase date sent there is silently discarded. `start_date` is writable and is the nearest thing the model has to "ordered on".
+
+`invoice` attaches a scan to the purchase order: a path relative to the stock file, or an absolute one. It uploads **once per order** however many lines share it, and an order already carrying a file of that name is left alone, so re-running an import does not stack up copies. A scan that is not there warns and the import continues — losing the stock over a missing PDF is the worse outcome.
+
+The order's `reference` in InvenTree is not yours to choose: the server validates it against the instance's `PURCHASEORDER_REFERENCE_PATTERN`, so the importer asks for the next one in the sequence and stores your number as `supplier_reference`.
+
+#### Tags, the batch code and packaging
+
+`tags` is a list of free-text labels, and `batch` is the lot the quantity came out of. Both are written to the **stock item**, not the part, and that is the whole point of them: the same component can arrive as new old stock from a surplus dealer in one delivery and as current production in the next. A part attribute would be claimed by every quantity you ever hold; a stock attribute can differ per lot, which is what provenance actually does.
+
+So **new old stock is tags plus a batch code**, not a part flag:
+
+```json
+{"id": "ic-03", "quantity": 5, "category": "Integrated Circuits/Memory",
+ "mpn": "X2864AP", "condition": "unopened",
+ "tags": ["NOS", "new old stock"], "batch": "8231",
+ "packaging": "Tube, sealed", "notes": "bought as surplus"}
+```
+
+The date code in `batch` is the evidence — `8231` says week 31 of 1982 far more usefully than any boolean, and it is what you will want if a chip later turns out to be counterfeit or remarked.
+
+`packaging` is what the quantity is held in — `Cut Tape`, `Tape & Reel`, `Tube`, `Tray`, `Bag`, `Loose` — and is also written to the stock item, up to InvenTree's 50 characters. For new old stock it is **required** and must give both the kind of packaging and its seal state: `Tube, sealed`, `Anti-static bag, opened`, `Tray, resealed`. The recognised states are `sealed`, `unsealed`, `resealed`, `opened`/`open`, `partially opened` and `damaged`. A sealed factory tube is evidence about the parts inside that an opened bag cannot offer, so validation refuses an NOS line that leaves either half out.
+
+A NATO Stock Number is recorded as a tag, `nsn:5961-00-123-4567`, when the label or invoice shows one. Any spacing is accepted (`NSN: 5961 00 123 4567`, `nsn:5961001234567`) and normalised to the hyphenated form so one number is always one searchable tag; anything that is not 13 digits is refused.
+
+Packaging belongs in `packaging`, not in `tags`: a file should not carry a `sealed tube`, `tube` or `sealed` tag beside `"packaging": "Tube, sealed"`. The importer writes tags exactly as given, so keeping them apart is up to whoever writes the file.
+
+All three may be set in `defaults` for the whole file, which is the normal case for a single delivery. `tags` **merge** rather than replace, so a file-wide `NOS` and a per-line `surplus` both survive; duplicates are dropped case-insensitively, so repeating a file-wide tag on a line is harmless. In CSV, where there is no way to write a list, `tags` is a comma-separated cell.
+
+What *does* belong on the part is obsolescence — "no longer manufactured" is true of the component for everyone, forever, and is a parameter rather than a tag.
+
+#### Generating one with an LLM
+
+`--vocabulary` emits the category paths, parameter names, units and choices **from this config**, so an agent handed a photo produces values that land in your schema instead of near it. Paired with `--validate`, whose errors carry `did_you_mean`, an agent can iterate to a clean file without touching InvenTree at all.
+
+A Claude skill wrapping that loop lives in `.claude/skills/inventree-stock-import/`. It delegates part research and image cropping to the `component-researcher` and `component-image-cropper` agents in `.claude/agents/`; `COMPONENT_RESEARCH.md` is a concise reference for research methods, useful sources and recurring traps, updated only when likely to help future sessions. Part-specific findings and source evidence stay with each import. The subagents use the `source-snapshots` and `component-photo-crops` skills.
+
+### Source snapshots
+
+Snapshots of the pages a part was identified from - an NSN listing, a distributor page - are made by a standalone script in the `source-snapshots` Claude skill, not by `invimport`:
+
+```bash
+uv run --project backend python .claude/skills/source-snapshots/scripts/snapshot.py URL -o .local_imports/<import>/snapshots/l03-nsn.html
+```
+
+It writes one self-contained HTML file (styles, images and fonts inlined, scripts removed) with a banner recording when and from where it was captured; `--render`, `--from-html` and `--pdf` cover JavaScript-built, bot-protected and print-to-PDF cases. See `.claude/skills/source-snapshots/SKILL.md`. List the file in a stock line's `attachments`.
+
+### datasheets
+
+Attach a copy of each part's linked datasheet, for parts already on the server.
+
+```bash
+# dry run: downloads (to the cache) and reports, uploads nothing
+uv run --project backend invimport datasheets
+
+# one category and everything under it
+uv run --project backend invimport datasheets --category "Integrated Circuits/Memory"
+
+# apply
+uv run --project backend invimport datasheets --write
+```
+
+For each part without a `Datasheet` attachment, the links on its manufacturer parts are tried first (they are only ever set from a datasheet), then the part's own link (which may be a product page). The first that downloads as a PDF is attached to the part and to every manufacturer part carrying the same link. Anything that is not a PDF, or will not download, is listed with the reason. Parts that already have one, or have no link at all, are counted but only listed with `--all`.
+
+Downloads run eight at a time, and a link several parts share is fetched once. Uploads and the report stay in part order, so the output reads the same whatever `--jobs` is. `import-stock --mirror-datasheets` likewise fetches a file's datasheets together before it works through the lines.
+
+| Flag              | Effect                                                    |
+|-------------------|-----------------------------------------------------------|
+| `--write`         | Upload the attachments (default is a dry run)             |
+| `--category PATH` | Only parts in this category and below                     |
+| `--all`           | Also list parts that already have one or have no link     |
+| `--refresh`       | Download again even when the datasheet is cached          |
+| `--jobs N`        | Downloads to run at once (default 8; `1` for one at a time) |
+
+A link ending `#page=N` points a viewer at one page of a larger document; the whole document is mirrored. To add an extract of just the device's pages, give the datasheet with `datasheet_pages` in a stock file and re-run that import with `--mirror-datasheets` - lines already imported still get their datasheet.
+
+### company-logos
+
+List the companies on the server that have no logo, or give them one from a logos file.
+
+```bash
+# who has none (and, for an agent, the same as JSON)
+uv run --project backend invimport company-logos
+uv run --project backend invimport company-logos --json missing.json
+
+# dry run: what the file would set
+uv run --project backend invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json
+
+# apply
+uv run --project backend invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json --write
+```
+
+The logos file is a stock file's `companies` section on its own, JSON or YAML, with paths relative to it. Names match as manufacturers and suppliers do everywhere else - normalised - and are never fuzzy-matched. A company that already has a logo is left alone; nothing is replaced or deleted. Each entry may carry `provenance` rows (see [Provenance](#provenance)); on `--write` they are attached to the company as JSON, with the image's digest and when it was set.
+
+| Flag           | Effect                                                  |
+|----------------|---------------------------------------------------------|
+| `--write`      | Upload the logos (default is a dry run)                 |
+| `--json PATH`  | Also write the list of companies with no logo as JSON   |
+| `--show NAME`  | What the server knows about one company, to identify it |
+
+The `company-logo-finder` agent (`.claude/agents/`) does the finding: the company's own logo from its site, Wikimedia Commons or its printed material, a transparent logo put on the colour it is normally shown on, as an opaque square PNG. The rules are in `.claude/skills/company-logos/SKILL.md`.
+
+### Global flags
+
+| Flag              | Effect                                              |
+|-------------------|-----------------------------------------------------|
+| `--env-file PATH` | Read credentials from somewhere other than `./.env` |
+| `-v`, `--verbose` | Include debug-level log output                      |
+
+## Using it as a library
+
+Every command's logic is importable. The library returns data, logs rather than prints, and raises rather than exiting — so it composes.
+
+DigiKey lookups preserve missing-resource handling for HTTP 404, but service, transport and invalid-response failures raise `DigiKeyError` rather than being reported as missing products or empty order history. Transient failures use bounded retries for GET requests and read-only keyword searches; arbitrary `Client.post()` calls are not replayed unless `retry_safe=True` is explicit.
+
+Import-plan record reads raise `InvenTreeError` on request failure rather than publishing empty-looking records. Optional image failures remain warnings. A failed plan does not roll back an import that already wrote records.
+
+```python
+from invimport import load_env, digikey_connect, fetch_orders, fetch_products, line_items
+
+load_env()
+client = digikey_connect(need_account=True)     # one token, reused across calls
+
+orders = fetch_orders(client, start_date="2026-01-01")
+skus = sorted({line["digikey_part"] for line in line_items(orders)})
+products = fetch_products(skus, client)
+
+for product in products:
+    print(product["SKU"], product["datasheet"])
+```
+
+That example — "find every part I have ordered this year and collect its datasheet" — is the motivating case for the split.
+
+The order import is importable too. It takes its answers as arguments, so nothing prompts and nothing prints; only the CLI does that.
+
+```python
+from invimport import fetch_orders, find_supplier, import_orders, inventree_connect
+
+api = inventree_connect()
+supplier = find_supplier(api)                   # None if there is not one yet
+
+result = import_orders(fetch_orders(start_date="2026-01-01"), api,
+                       supplier=supplier, write=True)
+print(result.counts())
+for order in result.orders:
+    for line in order.unmatched:
+        print(order.sales_order_id, line.sku, line.reason)
+```
+
+With `write=False` nothing is created and the same result describes what a real run would do.
+
+Log output is opt-in:
+
+```python
+import logging
+logging.getLogger("invimport").addHandler(logging.StreamHandler())
+```
+
+The public surface is re-exported from `invimport`: `fetch_products`, `fetch_product`, `fetch_orders`, `fetch_sales_orders`, `line_items`, `import_orders`, `find_supplier`, `list_suppliers`, `create_supplier`, `sync_templates`, `sync_config`, `sync_units`, `sync_categories`, `sync_tree`, `from_supplier`, `import_supplier_parts`, `match_path`, `match_name`, `load_config`, `read_stock_file`, `validate_stock`, `import_stock`, `digikey_connect`, `inventree_connect`, `load_env`, `load_env_file`, `Client`, `SyncResult`, `ImportResult`, `ImportOptions`, `ConfigError`, `DigiKeyError`, `InvenTreeError`, `StockFileError`.
+
+Importing stock from a file, end to end:
+
+```python
+from invimport import ImportOptions, import_stock, read_stock_file, validate_stock
+from invimport import load_config
+
+document = read_stock_file("stock.json")
+report = validate_stock(document, *load_config())
+if not report.ok:
+    raise SystemExit(report.text())
+
+result = import_stock(document, options=ImportOptions(write=True))
+print(result.counts())
+```
+
+`validate_stock` makes no API calls, so it is the cheap check to run first.
+
+Note that `fetch_orders` and `fetch_products` write to the cache like the CLI does, relative to the working directory. Pass `cache_dir=` if you need them somewhere else.
+
+## Caching
+
+DigiKey responses are cached to disk so re-runs do not burn API quota:
+
+```
+.cache/.digikey/products/     productdetails payloads
+.cache/.digikey/orders/       order history pages and sales orders
+.cache/.digikey/images/       product photos, keyed by PhotoUrl
+.cache/datasheets/            downloaded datasheet PDFs, and page extracts
+```
+
+One JSON file per request, named so a cache directory can be skimmed by eye. Order cache keys include the date window and `--shared` scope, so a different query can never be served a stale page from another one.
+
+To force a refetch, pass `--refresh` or delete the directory. The cache is relative to the working directory. Omitted cache defaults from `backend/` share the repository root cache; explicit relative paths and other working directories keep their existing meaning. See [repository layout](../docs/repository-layout.md).
+
+## Python project layout
+
+```text
+backend/
+    pyproject.toml, uv.lock    Python metadata/dependencies
+    .python-version           Python 3.12
+    src/invimport/            package and CLI; commands → workflows → integrations
+    config/                   importer category, parameter and unit policies
+    tests/                    matching package tests and fake SDK/HTTP fixtures
+    scripts/                  scanner, maintenance and evaluation entry points
+```
+
+The package remains a [src layout](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/): `backend/src/` is the container, `invimport` is the installed package. Keep reusable logic there; commands and scripts adapt invocation/presentation. Adding a command means a module in `commands/` exposing `NAME`, `HELP`, `add_arguments(parser)` and `run(args)`, registered in `commands/__init__.py`.
+
+The [backend architecture](ARCHITECTURE.md) maps implemented modules and contracts. [Repository layout and paths](../docs/repository-layout.md) owns the shared map, root tooling, skill/agent placement, data identity and installed-wheel limits.
+
+## Starting over
+
+`backend/scripts/wipe-inventory.py` deletes everything the importers load, and keeps everything that describes it.
+
+```bash
+uv run --project backend backend/scripts/wipe-inventory.py                # dry run: what would go
+uv run --project backend backend/scripts/wipe-inventory.py --write        # do it, backing up first
+```
+
+| Deleted                                     | Kept                          |
+|---------------------------------------------|-------------------------------|
+| stock items                                 | part categories               |
+| purchase orders, and their line items       | companies                     |
+| supplier parts                              | parameter templates           |
+| manufacturer parts                          | custom units                  |
+| parts                                       | stock locations               |
+
+The kept column is the configuration you built up; the deleted column is the data you loaded with it. So a wipe leaves you ready to import again rather than back at an empty instance.
+
+Three safeguards, because there is no undo through the API:
+
+* **Dry run by default.** `--write` is required to delete anything.
+* **A backup first**, via `docker exec … pg_dump`, into `backups/` (gitignored, since a dump contains your whole inventory). `--no-backup` skips it.
+* **It refuses to start** if any build order, BOM item or sales order exists. Those reference parts and are not deleted here, so the wipe would fail half-way through — worse than not running at all.
+
+Interactively it also asks you to type `delete`; `--yes` skips that, and without a terminal it refuses to run unattended unless you pass it.
+
+Assigned barcodes go with their stock item, so a wipe does not leave keys behind that would make the next `import-stock` report `already there` and create nothing.
+
+## Development
+
+Read the [shared code guidelines](../CODE_GUIDELINES.md) and [backend guidelines](CODE_GUIDELINES.md) before writing or reviewing code. They cover shared engineering rules and Python practices; [AGENTS.md](../AGENTS.md) contains the project-specific workflow and required checks.
+
+```bash
+pnpm test                     # everything but the scanner TUI tests
+pnpm test:scanner             # just the scanner TUI tests
+pnpm test:all                 # everything, TUI included
+uv run --project backend pytest backend/tests/digikey   # one package's suite
+uv run --project backend pytest backend/tests -k cache        # by name
+```
+
+`backend/tests/` mirrors the package, so the tests for `invimport.digikey.orders` are in `backend/tests/digikey/test_orders.py`. Fixtures are in `backend/tests/conftest.py`, and the fakes they wrap are in `backend/tests/support.py` — importable directly if you want a `FakeDigiKey` or an `InvenTreeStub` outside of a fixture. Nothing test-related ships in the built wheel.
+
+No test touches the network or your real cache: DigiKey requests are faked, and anything that writes a cache runs in a temporary directory.
+
+The InvenTree suite runs against a stub server that serves **only** routes present in `docs/InvenTree API.yaml` and 404s everything else, so a call to a route that no longer exists fails loudly rather than silently passing against a permissive mock.
+
+The interactive prompts are tested the same way as everything else. The `answers` fixture scripts what a user would type and forces the numbered fallback (`INVIMPORT_PLAIN_PROMPT`), so the supplier menu and the selection flow run end to end without a tty. InquirerPy itself is not driven in tests; the façade is checked by swapping in a fake when the terminal would allow it. The category folder browser is still a custom cursor widget, split into a state machine (`Menu`), a renderer (`menu_frame`) and a loop with injected I/O (`run_menu_cursor`). The terminal handling underneath is exercised against a real `pty`, including that raw mode is always restored.
+
+### Notes for maintainers
+
+* **`inventree` is pinned to `>=0.13.5,<0.14` deliberately.** InvenTree API 530 moved parameters to `/api/parameter/` and replaced the `part` field with `model_type` + `model_id`, but the client library still ships the pre-530 routes. `backend/src/invimport/inventree/api.py` overrides them. If a later release fixes this upstream, the override becomes the bug — hence the ceiling.
+* **`.env` interpolation is disabled.** python-dotenv expands `${VAR}` by default, and there is no way to escape it — every quoting style expands, and an unset name collapses to empty. In a file full of secrets that is silent corruption, surfacing later as a puzzling `401`.
+* **The project is intentionally not distributable as a wheel.** `.env` is located relative to the package and the cache relative to the working directory; both assume a repo checkout. Installing it elsewhere would need that path resolution reworked first.
+
+## Licence and third-party materials
+
+This project is licensed under the GNU General Public License v3.0 — see [LICENSE](../LICENSE). Third-party materials are listed in [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md).
+
+### Using the DigiKey API
+
+You need your own DigiKey developer account and API credentials. Access is granted under the [DigiKey API User Agreement](https://developer.digikey.com/api-user-agreement), which you accept when registering, and rights under it cannot be transferred (§20) — so credentials are never shared or bundled with this tool. That is why `.env` is yours to fill in and is gitignored.
+
+Three obligations the agreement places on you, which this project is built to respect:
+
+* **Attribute DigiKey as the source of its data** (§3.1.4, §5.1(c)). Where you publish or display anything retrieved through this tool, say where it came from. The `source` column in the parameter values CSV exists partly for this.
+* **Do not redistribute DigiKey data or documentation** (§3.2(iii), §3.2(iv), §4). The API specifications and the response cache are gitignored for this reason; see `docs/digikey-api/README.md`.
+* **Do not imply endorsement or affiliation** (§5.1(f)).
+
+Worth reading §5.1(e) — which restricts using the API to create or update your own database of information — against §1(iii), which permits an internal application automating your own purchasing. Whether a given deployment sits inside the permitted purpose is a question for DigiKey (<api.contact@digikey.com>), not for this README.
+
+### Trademarks
+
+DigiKey is a trademark of Digi-Key Corporation. InvenTree is a trademark of its respective owners. This project is an independent tool and is **not affiliated with, endorsed by, or sponsored by** either.
+
+### Durable stock imports (opt-in)
+
+Use `uv run --project backend invimport import-run prepare FILE --output PLAN.json`, review the resolved hierarchy, then `uv run --project backend invimport import-run execute PLAN.json --write`. Local `status`, explicit `resume`/`retry-operation`, JSON/events and blocking `abandon` are described in the [operator workflow](../docs/import-run.md). `import-stock` remains the legacy default with its existing flags and `--plan` schema while remaining parity/rollout gates are reviewed.
+
+
+For DigiKey, the explicit opt-in is `import-run prepare-digikey order.json --supplier PK --location PK --output approved-order.json`, followed by the same reviewed execute/recovery commands. It accepts one complete sales order exported with `orders --order ID --json order.json`; optional supplied product rows create missing models through shared policies. See the [DigiKey operator scope](../docs/import-run.md#digikey-order-opt-in) for partial/remaining choices, required target capabilities, media exclusions and recovery limits. Ordinary command defaults remain legacy; execution remains serial.
+
+### Try import execution with synthetic data
+
+Run `uv run --project backend invimport demo serve --workspace demo-partial --scenario partial`, then follow the [loopback demo guide](../docs/import-demo.md) in a second terminal. It uses the real CLI/SDK and a persistent fake HTTP server to show plan hierarchy, request progress, partial evidence outcomes and targeted recovery without any real inventory or vendor credentials.
