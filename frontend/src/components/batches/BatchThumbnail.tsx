@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius } from '../../theme/generated/tokens'
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import { mediaResource } from '../../media/types'
 
@@ -21,16 +21,14 @@ export function BatchThumbnail({
           loading="lazy"
           onError={() => setFailed(thumbnail.preview_id)}
         />
-      ) : (
-        <span>{thumbnail ? 'Preview unavailable' : 'Notes / known values'}</span>
-      )}
+      ) : null}
     </Frame>
   )
 }
 
 const Frame = styled.div`
-  width: var(--thumbnail-size, 84px);
-  height: var(--thumbnail-size, 84px);
+  width: var(--thumbnail-width, 84px);
+  height: var(--thumbnail-height, 84px);
   flex-shrink: 0;
   border: 1px solid ${color.line};
   border-radius: ${radius.thumb};
@@ -38,12 +36,6 @@ const Frame = styled.div`
   overflow: hidden;
   display: grid;
   place-items: center;
-  span {
-    padding: ${space[4]};
-    font-size: 12px;
-    text-align: center;
-    color: ${color.photoFg};
-  }
   img {
     width: 100%;
     height: 100%;

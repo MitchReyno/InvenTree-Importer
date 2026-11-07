@@ -1,14 +1,15 @@
-import { Input, linkTouchArea } from '../ui/primitives'
+import { Input } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
-import { BatchWorkflow } from './BatchWorkflow'
 import { BatchThumbnail } from './BatchThumbnail'
+import { AddedBar, BatchCounts, BatchState } from './batchState'
+import { Pill } from '../ui/Pill'
 import type { InboxWorkflowDto, CaptureListQueryDto } from '@invimport/contracts'
 import type { CaptureList } from '../../../../contracts/generated/api.d.ts'
-import { BatchStageLinks } from './BatchStageLinks'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
@@ -127,26 +128,56 @@ export function Batches({ client, onDirtyChange }: Props) {
       )}
       {continued && (
         <ContinueCard aria-labelledby="continue-title">
-          <BatchThumbnail batchId={continued.id} thumbnail={continued.workflow?.thumbnail} />
+          <ContinueImage>
+            <BatchThumbnail batchId={continued.id} thumbnail={continued.workflow?.thumbnail} />
+          </ContinueImage>
           <ContinueBody>
             <Eyebrow>Continue</Eyebrow>
             <CardTitle id="continue-title">{continued.title}</CardTitle>
-            <Meta>Last saved {new Date(continued.updated_at).toLocaleString()}</Meta>
-            <BatchWorkflow batchId={continued.id} workflow={continued.workflow} />
+            {continued.workflow ? (
+              <>
+                <Row>
+                  {continued.workflow.open_questions > 0 && (
+                    <Pill status="needs-answer">{continued.workflow.open_questions} need you</Pill>
+                  )}
+                  {continued.workflow.active_jobs > 0 && (
+                    <Pill status="processing">Agents working</Pill>
+                  )}
+                  <Meta>Last saved {new Date(continued.updated_at).toLocaleString()}</Meta>
+                </Row>
+                <BatchCounts workflow={continued.workflow} />
+              </>
+            ) : (
+              <Meta>Last saved {new Date(continued.updated_at).toLocaleString()}</Meta>
+            )}
             <Actions>
               {resume && (
                 <Button as="a" href={resume.href} variant="primary">
                   {resume.label}
                 </Button>
               )}
-              <BatchStageLinks batchId={continued.id} title={continued.title} />
+              {continued.workflow &&
+                continued.workflow.ready > 0 &&
+                resume?.label.startsWith('Open') && (
+                  <Button
+                    as="a"
+                    href={batchHref(
+                      continued.id,
+                      { tab: 'review', view: 'lots' },
+                      '?filter=reviewed',
+                    )}
+                  >
+                    Review {continued.workflow.ready} ready{' '}
+                    {continued.workflow.ready === 1 ? 'lot' : 'lots'}
+                  </Button>
+                )}
             </Actions>
           </ContinueBody>
         </ContinueCard>
       )}
-      <Card aria-labelledby="retained-batches">
+      <ListCard aria-labelledby="retained-batches">
         <ListHead>
-          <CardTitle id="retained-batches">All batches</CardTitle>
+          <ListLabel id="retained-batches">All batches · {visible.length}</ListLabel>
           <SearchForm
             role="search"
             onSubmit={(event) => {
@@ -201,18 +232,27 @@ export function Batches({ client, onDirtyChange }: Props) {
           <BatchList>
             {visible.map((b) => (
               <li key={b.id}>
-                <BatchThumbnail batchId={b.id} thumbnail={b.workflow?.thumbnail} />
-                <BatchIdentity>
-                  <a href={batchHref(b.id, { tab: 'capture' })}>
-                    <strong>{b.title}</strong>
-                  </a>
-                  <Meta>
-                    {b.archived ? 'Archived · ' : ''}
-                    {new Date(b.updated_at).toLocaleString()}
-                  </Meta>
-                  <BatchWorkflow batchId={b.id} workflow={b.workflow} />
-                </BatchIdentity>
-                <BatchStageLinks batchId={b.id} title={b.title} />
+                <BatchRow
+                  href={batchHref(b.id, { tab: 'capture' })}
+                  aria-label={b.title}
+                  aria-describedby={`${b.id}-meta ${b.id}-state`}
+                >
+                  <BatchThumbnail batchId={b.id} thumbnail={b.workflow?.thumbnail} />
+                  <RowText>
+                    <strong aria-hidden="true">{b.title}</strong>
+                    <Meta id={`${b.id}-meta`}>
+                      {b.archived ? 'Archived · ' : ''}
+                      {b.workflow
+                        ? `${b.workflow.lots} ${b.workflow.lots === 1 ? 'lot' : 'lots'} · `
+                        : ''}
+                      {new Date(b.updated_at).toLocaleString()}
+                    </Meta>
+                  </RowText>
+                  <RowState id={`${b.id}-state`}>
+                    <BatchState workflow={b.workflow} />
+                    <AddedBar workflow={b.workflow} />
+                  </RowState>
+                </BatchRow>
               </li>
             ))}
           </BatchList>
@@ -240,7 +280,7 @@ export function Batches({ client, onDirtyChange }: Props) {
           Search covers every retained batch title. Counts are saved observations; open a batch to
           check current choices.
         </Footnote>
-      </Card>
+      </ListCard>
     </Inbox>
   )
 }
@@ -285,27 +325,47 @@ const CardTitle = styled.h2`
 `
 
 const ContinueCard = styled(Card)`
-  --thumbnail-size: 200px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: ${space[9]};
-  align-items: center;
+  grid-template-columns: 200px minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
   ${media.compact} {
-    --thumbnail-size: 76px;
-    gap: ${space[6]};
-    align-items: start;
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+`
+
+/** The batch's first photo, flush to the card's edge. */
+const ContinueImage = styled.div`
+  --thumbnail-width: 100%;
+  --thumbnail-height: 100%;
+  min-height: 180px;
+  > div {
+    border: 0;
+    border-radius: 0;
+  }
+  ${media.compact} {
+    min-height: 0;
   }
 `
 
 const ContinueBody = styled.div`
   display: grid;
+  align-content: center;
   gap: ${space[5]};
   min-width: 0;
+  padding: ${space[8]} ${space[9]};
 `
 
 const Eyebrow = styled.span`
   ${type.label}
-  color: ${color.accent};
+  color: ${color.muted};
+`
+
+const Row = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
 `
 
 const Meta = styled.span`
@@ -320,15 +380,24 @@ const Actions = styled.div`
   gap: ${space[4]};
 `
 
+const ListCard = styled(Card)`
+  padding: 0;
+  overflow: hidden;
+`
+
 const ListHead = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[4]} ${space[6]};
-  margin-bottom: ${space[4]};
-  ${CardTitle} {
-    margin-right: auto;
-  }
+  padding: ${space[5]} ${space[7]};
+  border-bottom: 1px solid ${color.line};
+`
+
+const ListLabel = styled.h2`
+  margin: 0 auto 0 0;
+  ${type.label}
+  color: ${color.muted};
 `
 
 const SearchForm = styled.form`
@@ -363,38 +432,48 @@ const BatchList = styled.ul`
   margin: 0;
   padding: 0;
   list-style: none;
-  --thumbnail-size: 56px;
-  li {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: ${space[7]};
-    padding: ${space[6]} 0;
+  li + li {
     border-top: 1px solid ${color.line};
   }
+`
+
+/** The whole row opens the batch; its title names the link and the rest describes it. */
+const BatchRow = styled.a`
+  --thumbnail-width: 72px;
+  --thumbnail-height: 54px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${space[7]};
+  padding: ${space[6]} ${space[7]};
+  color: inherit;
+  text-decoration: none;
+  ${hoverTransition}
+  &:hover {
+    background: ${color.surface2};
+  }
+  strong {
+    overflow-wrap: anywhere;
+  }
   ${media.compact} {
-    li {
-      grid-template-columns: auto minmax(0, 1fr);
-    }
-    li > nav {
-      grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+    > :last-child {
+      grid-column: 2;
+      justify-items: start;
     }
   }
 `
 
-const BatchIdentity = styled.div`
+const RowText = styled.span`
   display: grid;
   gap: ${space[1]};
   min-width: 0;
-  > a {
-    color: ${color.fg};
-    text-decoration: none;
-    overflow-wrap: anywhere;
-    ${linkTouchArea}
-  }
-  > a:hover {
-    text-decoration: underline;
-  }
+`
+
+const RowState = styled.span`
+  display: grid;
+  justify-items: end;
+  gap: ${space[3]};
 `
 
 const Pagination = styled.nav`
@@ -402,17 +481,20 @@ const Pagination = styled.nav`
   align-items: center;
   justify-content: space-between;
   gap: ${space[4]};
-  padding-top: ${space[6]};
+  padding: ${space[6]} ${space[7]};
   border-top: 1px solid ${color.line};
 `
 
 const Note = styled.p`
-  margin: ${space[6]} 0;
+  margin: 0;
+  padding: ${space[6]} ${space[7]};
   color: ${color.muted};
 `
 
 const Footnote = styled.p`
-  margin: ${space[6]} 0 0;
+  margin: 0;
+  padding: ${space[6]} ${space[7]};
+  border-top: 1px solid ${color.line};
   font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

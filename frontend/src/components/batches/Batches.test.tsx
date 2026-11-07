@@ -45,14 +45,17 @@ test('shows retained thumbnail/counts and submits server search once rather than
     'src',
     `/api/v1/batches/${saved.id}/media/previews/${saved.workflow.thumbnail.preview_id}`,
   )
-  expect(within(continued).getByRole('link', { name: '1 ready for approval' })).toHaveAttribute(
+  expect(within(continued).getByText('3 need you')).toBeVisible()
+  expect(within(continued).getByText('Agents working')).toBeVisible()
+  expect(within(continued).getByLabelText('Batch counts')).toHaveTextContent(
+    '2 lots proposed1 ready3 questions',
+  )
+  expect(within(continued).getByRole('link', { name: 'Review 1 ready lot' })).toHaveAttribute(
     'href',
     `#${saved.id}/review/lots?filter=reviewed`,
   )
-  expect(within(continued).getByRole('link', { name: 'Processing' })).toHaveAttribute(
-    'href',
-    `#${saved.id}/processing/overview`,
-  )
+  // One primary and one secondary action; the stage links are gone.
+  expect(within(continued).queryByRole('link', { name: 'Processing' })).not.toBeInTheDocument()
   const search = screen.getByRole('searchbox', { name: 'Search retained batches' })
   await user.type(search, 'older receipt')
   expect(api.list).toHaveBeenCalledTimes(1)
@@ -89,4 +92,30 @@ test('failed search reports unavailable rather than claiming no matching retaine
   await user.click(screen.getByRole('button', { name: /^Search$/ }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Cannot load retained batches')
   expect(screen.queryByText('No retained batches match this title.')).not.toBeInTheDocument()
+})
+
+test('each batch row is one link named by its title and described by its state', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  api.list.mockImplementation(async () => ({
+    batches: [
+      saved,
+      {
+        ...saved,
+        id: '10000000-0000-4000-8000-000000000009',
+        title: 'Rockby order',
+        workflow: { ...saved.workflow, lots: 6, approved: 6, open_questions: 0, active_jobs: 0 },
+      },
+    ],
+    truncated: false,
+  }))
+  render(<Batches client={api} onDirtyChange={vi.fn()} />)
+  await screen.findByRole('region', { name: 'Bench bag' })
+
+  const row = screen.getByRole('link', { name: 'Rockby order' })
+  expect(row).toHaveAttribute('href', '#10000000-0000-4000-8000-000000000009/capture')
+  expect(row).toHaveAccessibleDescription(/Complete/)
+  expect(within(row).queryByText('Notes / known values')).not.toBeInTheDocument()
+  expect(screen.getByText(/All batches · 1/)).toBeVisible()
+  void user
 })

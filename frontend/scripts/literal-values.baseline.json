@@ -1,8 +1,5 @@
 {
   "components/batches/Batch.tsx | font-size | 12px": 1,
-  "components/batches/BatchStageLinks.tsx | font-weight | 500": 1,
-  "components/batches/BatchThumbnail.tsx | font-size | 12px": 1,
-  "components/batches/BatchWorkflow.tsx | font-weight | 500": 1,
   "components/capture/BatchSettingsPanel.tsx | border-radius | 6px": 1,
   "components/capture/BatchSettingsPanel.tsx | margin | 12px": 1,
   "components/capture/BatchSettingsPanel.tsx | margin | 8px": 1,
