@@ -78,6 +78,38 @@ function values(source) {
 }
 
 describe('literal value check', () => {
+  it('reads a value continued on the next line, at the line its property starts', () => {
+    const source = [
+      'const A = styled.div`',
+      '  padding:',
+      '    16px;',
+      '  box-shadow:',
+      '    0 0 0 2px red,',
+      '    inset 0 0 0 2px red;',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual([
+      '2 | padding | 16px | space-8',
+      '4 | box-shadow | 2px | ring-width ring-offset',
+    ])
+  })
+
+  it('reads a declaration after an unterminated one, an interpolation or another template', () => {
+    const source = [
+      'const A = styled.div`',
+      '  color: red',
+      '`',
+      'const B = styled.div`',
+      '  padding: 16px;',
+      '  ${hover}',
+      '  gap: 2px',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual(['5 | padding | 16px | space-8', '7 | gap | 2px | space-1'])
+  })
+
   it('compares a length only with the tokens meant for its property', () => {
     const source = [
       'const A = styled.div`',

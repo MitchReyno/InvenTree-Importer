@@ -26,13 +26,6 @@ const choices = [
 
 const TRIGGER_HINT = { auto: 'Propose from evidence', none: 'No value' } as const
 
-function display(value: AutoValue) {
-  if (value.mode === 'manual') {
-    return value.value.trim() || 'Manual, not entered'
-  }
-  return value.mode === 'auto' ? 'Auto' : 'None'
-}
-
 /**
  * Auto/None/Manual choice in a popover. Manual text lives in its own labelled input below the
  * radio choices, never inside an option, so focus and keyboard behaviour stay native.
@@ -76,13 +69,15 @@ export function AutoValueField({
           <Trigger
             type="button"
             disabled={disabled}
-            aria-label={`${label}: ${display(value)}`}
+            aria-labelledby={`${id}-name ${id}-mode ${id}-hint`}
             aria-describedby={error ? `${id}-error` : undefined}
             aria-invalid={error ? true : undefined}
           >
-            <TriggerLabel>{label}</TriggerLabel>
-            <Mode $mode={value.mode}>{choices.find((c) => c.mode === value.mode)?.label}</Mode>
-            <TriggerHint>
+            <TriggerLabel id={`${id}-name`}>{label}</TriggerLabel>
+            <Mode id={`${id}-mode`} $mode={value.mode}>
+              {choices.find((c) => c.mode === value.mode)?.label}
+            </Mode>
+            <TriggerHint id={`${id}-hint`}>
               {value.mode === 'manual'
                 ? value.value.trim() || 'Not entered'
                 : TRIGGER_HINT[value.mode]}

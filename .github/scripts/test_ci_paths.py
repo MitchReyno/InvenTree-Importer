@@ -121,6 +121,16 @@ class SelectionTests(unittest.TestCase):
         self.assert_checks(["tooling/unrelated.cjs"])
         self.assert_checks(["tooling/eslint/README.md"], "markdown")
 
+    def test_unused_code_tooling_selects_both_typescript_consumers(self):
+        for path in (
+            "knip.json",
+            "tooling/unused-code/check.mjs",
+            "tooling/unused-code/baseline.json",
+            "tooling/tests/unused-code.test.mjs",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "frontend", "intake")
+
     def test_openapi_generator_inputs_select_contract_consumers(self):
         for path in (
             "tooling/openapi-generator/index.cjs",

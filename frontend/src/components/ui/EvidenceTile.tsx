@@ -130,7 +130,7 @@ const Preview = styled.button`
     border: 2px solid ${color.photoFg};
     border-radius: ${radius.sm};
     box-shadow:
-      0 0 0 2px ${color.photoStage},
+      0 0 0 ${ring.width} ${color.photoStage},
       inset 0 0 0 2px ${color.photoStage};
     pointer-events: none;
   }

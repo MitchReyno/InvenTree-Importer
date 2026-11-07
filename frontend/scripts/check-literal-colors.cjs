@@ -140,7 +140,8 @@ function templateText(source) {
         index++
       } else if (char === '`') {
         stack.pop()
-        out += ' '
+        // A template boundary ends any declaration left without a semicolon.
+        out += ';'
       } else if (char === '$' && next === '{') {
         stack.push({ depth: 0 })
         out += '§ '
@@ -176,7 +177,7 @@ function templateText(source) {
       out += ' '
     } else if (char === '`') {
       stack.push('tpl')
-      out += ' '
+      out += ';'
     } else if (typeof top === 'object' && char === '{') {
       top.depth++
       out += ' '
@@ -240,12 +241,44 @@ function literalsFor(family, property, value) {
   return numbers.filter((literal) => !literal.startsWith('-') && parseFloat(literal) !== 0)
 }
 
+const DECLARATION_START = /^\s*[a-z-]+\s*:/
+
+// Declarations across the whole text, so a value continued on the next line is still read. A
+// declaration starts on a `property:` line and ends at the next one, an interpolation-only line
+// or a ';', '{' or '}'.
 function declarations(text) {
-  return text
-    .split(/[;{}]/)
-    .map((piece) => piece.match(/^\s*([a-z-]+)\s*:\s*(.+?)\s*$/))
-    .filter(Boolean)
-    .map((match) => ({ property: match[1], value: match[2] }))
+  const result = []
+  let current = null
+  const finish = () => {
+    if (current) {
+      const match = current.text.match(/^\s*([a-z-]+)\s*:\s*([\s\S]*?)\s*$/)
+      if (match && match[2]) {
+        result.push({ ...current, property: match[1], value: match[2].replace(/\s+/g, ' ') })
+      }
+    }
+    current = null
+  }
+  text.split('\n').forEach((line, index) => {
+    for (const [part, position] of line.split(/(?=[;{}])/).map((piece, n) => [piece, n])) {
+      const body = position === 0 ? part : part.slice(1)
+      if (position > 0) finish()
+      if (body.includes('@media')) {
+        finish()
+        continue
+      }
+      if (DECLARATION_START.test(body)) {
+        finish()
+        current = { first: index, last: index, text: body }
+      } else if (/^\s*§/.test(body)) {
+        finish()
+      } else if (current && body.trim()) {
+        current.last = index
+        current.text += ' ' + body
+      }
+    }
+  })
+  finish()
+  return result
 }
 
 let defaultFamilies = null
@@ -254,46 +287,46 @@ function literalValues(source, families) {
   const tokens =
     families ?? (defaultFamilies ??= tokenFamilies(JSON.parse(readFileSync(TOKENS_PATH, 'utf8'))))
   const lines = source.split('\n')
-  const css = templateText(source).split('\n')
+  const text = templateText(source)
+  const allowed = (index) =>
+    ALLOW.test(lines[index]) || (index > 0 && ALLOW_LINE.test(lines[index - 1]))
   const found = []
-  css.forEach((text, index) => {
-    if (ALLOW.test(lines[index]) || (index > 0 && ALLOW_LINE.test(lines[index - 1]))) {
-      return
+  text.split('\n').forEach((line, index) => {
+    const media = line.match(/@media[^{]*/)
+    if (!media || allowed(index)) return
+    for (const match of media[0].matchAll(/(?:min|max)-width:\s*(\d+(?:\.\d+)?px)/g)) {
+      const matches = tokens.breakpoint.filter((token) => sameValue(match[1], token.value))
+      if (matches.length > 0) {
+        found.push({
+          line: index + 1,
+          property: '@media',
+          literal: match[1],
+          tokens: matches.map((token) => token.name),
+        })
+      }
     }
-    const media = text.match(/@media[^{]*/)
-    if (media) {
-      for (const match of media[0].matchAll(/(?:min|max)-width:\s*(\d+(?:\.\d+)?px)/g)) {
-        const matches = tokens.breakpoint.filter((token) => sameValue(match[1], token.value))
+  })
+  for (const { first, last, property, value } of declarations(text)) {
+    if (property.startsWith('grid-template')) continue
+    const span = Array.from({ length: last - first + 1 }, (_, offset) => first + offset)
+    if (span.some(allowed)) continue
+    const plain = withoutTokenCalc(value)
+    for (const [pattern, family] of PROPERTY_FAMILIES) {
+      if (!pattern.test(property)) continue
+      for (const literal of literalsFor(family, property, plain)) {
+        const matches = tokens[family].filter((token) => sameValue(literal, token.value))
         if (matches.length > 0) {
           found.push({
-            line: index + 1,
-            property: '@media',
-            literal: match[1],
+            line: first + 1,
+            property,
+            literal,
             tokens: matches.map((token) => token.name),
           })
         }
       }
-      return
     }
-    for (const { property, value } of declarations(text)) {
-      if (property.startsWith('grid-template')) continue
-      const plain = withoutTokenCalc(value)
-      for (const [pattern, family] of PROPERTY_FAMILIES) {
-        if (!pattern.test(property)) continue
-        for (const literal of literalsFor(family, property, plain)) {
-          const matches = tokens[family].filter((token) => sameValue(literal, token.value))
-          if (matches.length > 0) {
-            found.push({
-              line: index + 1,
-              property,
-              literal,
-              tokens: matches.map((token) => token.name),
-            })
-          }
-        }
-      }
-    }
-  })
+  }
+  found.sort((a, b) => a.line - b.line)
   return found
 }
 
