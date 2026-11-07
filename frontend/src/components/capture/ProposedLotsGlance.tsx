@@ -21,8 +21,10 @@ function plural(count: number, word: string) {
 
 function meta(lot: ProposedLot) {
   const parts = []
-  if (lot.crops?.length) {
-    parts.push(plural(lot.crops.length, 'observation'))
+  // Crops cover pixel regions only; the count includes document lines too.
+  const observations = lot.observations ?? lot.crops?.length ?? 0
+  if (observations) {
+    parts.push(plural(observations, 'observation'))
   }
   if (lot.suggestions) {
     parts.push(plural(lot.suggestions, 'suggestion'))

@@ -15,6 +15,8 @@ export type ProposedLot = {
   edited?: boolean
   /** Crop URLs of the lot's pixel observations. */
   crops?: string[]
+  /** The lot's active observations of any kind, pixel regions and document lines alike. */
+  observations?: number
   /** Observations the lead session suggested for this lot, awaiting the operator. */
   suggestions?: number
   /** The lot's latest agent status line, as "Step · line". */
@@ -73,6 +75,9 @@ export function proposedLots(
         origin: lot.origin === 'agent' ? ('agent' as const) : ('operator' as const),
         edited: lot.operator_edited === true,
         crops,
+        observations: observations.filter(
+          (observation) => members.has(observation.id) && observation.status === 'active',
+        ).length,
         suggestions,
       }
     })

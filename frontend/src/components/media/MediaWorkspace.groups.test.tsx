@@ -350,7 +350,7 @@ test('exact retry closes an acknowledged new-group draft', async () => {
       onDirtyChange={vi.fn()}
     />,
   )
-  await user.click(await screen.findByRole('button', { name: 'New evidence group' }))
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
   await user.type(screen.getByRole('textbox', { name: 'New group name' }), 'Third packet')
   await user.click(screen.getByRole('button', { name: 'Create group' }))
   await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
@@ -517,7 +517,7 @@ test('heads the evidence with its file and group counts beside New group', async
   const heading = await screen.findByRole('heading', { name: 'Evidence' })
   expect(heading).toHaveAttribute('id', 'evidence')
   expect(await screen.findByText('2 files · 2 groups')).toBeVisible()
-  expect(screen.getByRole('button', { name: 'New evidence group' })).toHaveTextContent('New group')
+  expect(screen.getByRole('button', { name: 'New group' })).toBeVisible()
 })
 
 test('opens a file’s note from its tile', async () => {
@@ -595,7 +595,7 @@ test('Undo waits while another draft is open, so the draft is not lost', async (
   await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   const toast = await screen.findByText('Moved 1 file to Packet B')
-  await user.click(screen.getByRole('button', { name: 'New evidence group' }))
+  await user.click(screen.getByRole('button', { name: 'New group' }))
   await user.type(screen.getByRole('textbox', { name: 'New group name' }), 'Third')
   expect(within(toast.parentElement!).queryByRole('button', { name: 'Undo' })).toBeNull()
   expect(screen.getByRole('textbox', { name: 'New group name' })).toHaveValue('Third')

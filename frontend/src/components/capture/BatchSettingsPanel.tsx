@@ -395,6 +395,13 @@ export function BatchSettingsPanel({
   }
 
   const [open, setOpen] = useState(false)
+  const fields = useRef<HTMLFormElement>(null)
+  // Folding at the breakpoint must not hide the field being edited, so the fold opens instead.
+  useEffect(() => {
+    if (collapsible && fields.current?.contains(document.activeElement)) {
+      setOpen(true)
+    }
+  }, [collapsible])
   const summary = settingsSummary(batch, values)
   const titleInvalid = !values.title.trim()
   const settingsStatus = laneState(state, 'settings')
@@ -465,6 +472,7 @@ export function BatchSettingsPanel({
         <Button onClick={discardUnsent}>Discard unsent settings edits</Button>
       )}
       <Form
+        ref={fields}
         id="batch-settings-fields"
         hidden={collapsible && !open}
         onSubmit={(event) => event.preventDefault()}

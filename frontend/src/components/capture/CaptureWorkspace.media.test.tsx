@@ -439,3 +439,40 @@ test('at phone width the glance follows the capture tiles and settings collapse 
   expect(screen.getByLabelText('Batch title')).toBeVisible()
   delete (window as { matchMedia?: unknown }).matchMedia
 })
+
+test('settings stay open when the phone fold arrives while a field is being edited', () => {
+  let phone = false
+  const listeners = new Set<() => void>()
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        get matches() {
+          return phone && query.includes('max-width')
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  screen.getByLabelText('Batch title').focus()
+  act(() => {
+    phone = true
+    listeners.forEach((listener) => listener())
+  })
+  expect(screen.getByRole('button', { name: /^Batch settings/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  )
+  expect(screen.getByLabelText('Batch title')).toBeVisible()
+  delete (window as { matchMedia?: unknown }).matchMedia
+})

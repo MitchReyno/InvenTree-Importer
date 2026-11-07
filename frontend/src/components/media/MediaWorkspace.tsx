@@ -84,6 +84,12 @@ export function MediaWorkspace({
 
   // A confirmed move is undoable when its files all came from one group.
   const unconfirmedMove = useRef<typeof moved>(null)
+  // Once nothing is retained (confirmed, refused or discarded), the move is forgotten.
+  useEffect(() => {
+    if (!command.pending) {
+      unconfirmedMove.current = null
+    }
+  }, [command.pending])
 
   async function moveEvidence(ids: string[], groupId: string | null) {
     const origins = new Set(
@@ -100,8 +106,8 @@ export function MediaWorkspace({
     const result = await state.move(ids, groupId)
     if (result === 'saved') {
       setMoved(confirmation)
-    } else if (result === 'unconfirmed') {
-      // An exact retry can still confirm this move; its toast waits for that.
+    } else if (result === 'unconfirmed' && command.hasPendingIntent()) {
+      // Only a retained, uncertain move can still be confirmed by an exact retry.
       unconfirmedMove.current = confirmation
     }
     return result
@@ -111,14 +117,14 @@ export function MediaWorkspace({
     <>
       <Button
         disabled={command.busy || state.unavailable || disabled}
-        onClick={() =>
+        onClick={() => {
+          const move = unconfirmedMove.current
           void state.retry().then((saved) => {
-            if (saved && unconfirmedMove.current) {
-              setMoved(unconfirmedMove.current)
+            if (saved && move) {
+              setMoved(move)
             }
-            unconfirmedMove.current = saved ? null : unconfirmedMove.current
           })
-        }
+        }}
       >
         Retry exact media request
       </Button>
@@ -172,7 +178,6 @@ export function MediaWorkspace({
           <Button
             size="sm"
             icon="＋"
-            aria-label="New evidence group"
             disabled={blocked('new-group')}
             onClick={() => setNewGroup(true)}
           >
