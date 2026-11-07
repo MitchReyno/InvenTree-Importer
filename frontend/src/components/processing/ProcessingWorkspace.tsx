@@ -454,6 +454,7 @@ export function ProcessingWorkspace({
                 currentCaptureRevision={snapshot.capture_revision}
                 disabled={runnerDisabled || drafts.isDirty('instructions')}
                 readOnly={batch.archived || saving === 'instructions'}
+                captureHref={batchHref(batch.id, { tab: 'capture' })}
                 answer={answer}
                 onDirtyChange={drafts.forSource('answer')}
               />

@@ -162,7 +162,7 @@ test('pending submission freezes fields and confirmed save clears the guard with
     />,
   )
   await user.type(screen.getByLabelText('Quantity'), '9007199254740.123456')
-  await user.selectOptions(screen.getByLabelText('How was the quantity determined?'), 'estimated')
+  await user.click(screen.getByRole('radio', { name: /^Estimated/ }))
   await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
   await waitFor(() => expect(screen.getByLabelText('Quantity')).toBeDisabled())
   await user.type(screen.getByLabelText('Quantity'), '99')
@@ -194,7 +194,7 @@ test.each(['answered', 'missing', 'replaced'] as const)(
     }
     const view = render(<QuestionAnswer {...props} />)
     await user.type(screen.getByLabelText('Quantity'), '17.000001')
-    await user.selectOptions(screen.getByLabelText('How was the quantity determined?'), 'estimated')
+    await user.click(screen.getByRole('radio', { name: /^Estimated/ }))
     await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Answer not confirmed')
     const original = structuredClone(answer.mock.calls[0])
@@ -217,7 +217,7 @@ test.each(['answered', 'missing', 'replaced'] as const)(
     })
     expect(retry).toBeEnabled()
     expect(screen.getByLabelText('Quantity')).toBeDisabled()
-    expect(screen.getByLabelText('How was the quantity determined?')).toBeDisabled()
+    expect(screen.getByRole('radio', { name: /^Estimated/ })).toBeDisabled()
     expect(screen.getByLabelText('Quantity')).toHaveValue('17.000001')
     await user.click(retry)
     await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
@@ -254,9 +254,7 @@ test('unconfirmed fields stay frozen and a forced field change cannot replace th
 
   // The retained delivery must also survive programmatic values outside native disabled controls.
   fireEvent.change(quantity, { target: { value: '99' } })
-  fireEvent.change(screen.getByLabelText('How was the quantity determined?'), {
-    target: { value: 'estimated' },
-  })
+  fireEvent.click(screen.getByRole('radio', { name: /^Estimated/ }))
   await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
   expect(answer.mock.calls[1]).toEqual(original)
