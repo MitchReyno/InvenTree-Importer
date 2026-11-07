@@ -306,19 +306,22 @@ function declarations(text) {
 // The font shorthand's weight, size and line height, checked as their own properties.
 function longhands({ property, value }) {
   if (property !== 'font') return [{ property, value }]
-  // Each part may be a token (an interpolation or var()); only the literal parts are checked.
-  const part = String.raw`(?:\d+(?:\.\d+)?(?:px)?|[§¤]|var\([^)]*\))`
-  const match = value.match(
-    new RegExp(String.raw`(?:^|\s)(?:(${part})\s+)?(${part})(?:\s*\/\s*([^\s/]+))?(?:\s|$)`),
-  )
-  if (!match) return []
+  // The size is the part carrying '/line-height', or else the first px length; a unitless number
+  // before it is the weight. Keywords may sit anywhere before the size. Only literals are checked.
+  const parts = value.replace(/\s*\/\s*/g, '/').split(/\s+/)
+  let sizeAt = parts.findIndex((part) => part.includes('/'))
+  if (sizeAt < 0) sizeAt = parts.findIndex((part) => /^\d+(?:\.\d+)?px$/.test(part))
+  if (sizeAt < 0) return []
+  const [size, lineHeight] = parts[sizeAt].split('/')
+  const literal = /^\d+(?:\.\d+)?(?:px)?$/
   return [
-    ['font-weight', match[1]],
-    ['font-size', match[2]],
-    ['line-height', match[3]],
-  ]
-    .filter(([, part]) => part && /^\d+(?:\.\d+)?(?:px)?$/.test(part))
-    .map(([property, part]) => ({ property, value: part }))
+    ...parts
+      .slice(0, sizeAt)
+      .filter((part) => /^\d+$/.test(part))
+      .map((part) => ({ property: 'font-weight', value: part })),
+    { property: 'font-size', value: size },
+    { property: 'line-height', value: lineHeight },
+  ].filter(({ value: part }) => part && literal.test(part))
 }
 
 let defaultFamilies = null
