@@ -1,7 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import { space } from '../../theme/generated/tokens'
-import type { SessionStateDto } from '@invimport/contracts'
+import type { SessionStateDto, SessionTimelineDto } from '@invimport/contracts'
+import { SessionChat, type ChatMessage } from '../ui/SessionChat'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
@@ -9,6 +10,7 @@ interface Props {
   /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */
   storeKey: string
   state: SessionStateDto
+  messages?: ChatMessage[]
   /** Queues one message; the same key is reused only to retry that exact message. */
   send: (text: string, key: string) => Promise<unknown>
   freshDisabled?: boolean
@@ -71,9 +73,55 @@ export function chatConfirmation(state: SessionStateDto) {
   return confirmation[state] ?? 'Queued. The session resumes to answer.'
 }
 
-/** Chat queues in every session state; a cancelled session offers a fresh one instead. */
-export function SessionChat({ storeKey, state, send, startFresh, freshDisabled }: Props) {
-  const [draft, setDraft] = useState('')
+type Timeline = SessionTimelineDto
+
+/** The session's conversation, oldest first: the operator's messages and answers, the replies. */
+export function chatMessages(timeline: Timeline): ChatMessage[] {
+  return [
+    ...timeline.inbox
+      .filter((item) => item.kind === 'chat' || item.kind === 'answer')
+      .map((item) => ({
+        id: `in:${item.seq}`,
+        at: item.created_at,
+        who: 'You',
+        mine: true,
+        text:
+          item.kind === 'chat'
+            ? (item.payload as { text: string }).text
+            : `Answered: ${answerText(item.payload)}`,
+      })),
+    ...timeline.outbox
+      .filter((item) => item.kind === 'reply')
+      .map((item) => ({
+        id: `out:${item.seq}`,
+        at: item.created_at,
+        who: 'Agent',
+        mine: false,
+        text: (item.payload as { text: string }).text,
+      })),
+  ]
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map(({ id, who, mine, text }) => ({ id, who, mine, text }))
+}
+
+function answerText(payload: unknown) {
+  const value = (payload as { value: { kind: string; value?: string; text?: string } }).value
+  return value.kind === 'quantity' ? `${value.value}` : (value.text ?? '')
+}
+
+/**
+ * The drawer's chat: `ui/SessionChat` for the conversation and composer, with the send kept
+ * until it is confirmed. Chat queues in every session state; a cancelled session offers a
+ * fresh one instead.
+ */
+export function SessionChatPanel({
+  storeKey,
+  state,
+  messages = [],
+  send,
+  startFresh,
+  freshDisabled,
+}: Props) {
   const [message, setMessage] = useState('')
   const pending = useSyncExternalStore(subscribe, () => pendingSends.get(storeKey))
   if (state === 'cancelled') {
@@ -89,20 +137,17 @@ export function SessionChat({ storeKey, state, send, startFresh, freshDisabled }
 
   const confirmed = () => setMessage(chatConfirmation(state))
 
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!draft.trim() || pendingSends.has(storeKey)) {
+  const submit = (text: string) => {
+    if (pendingSends.has(storeKey)) {
       return
     }
-    const text = draft
-    setDraft('')
     setMessage('')
     void deliver(storeKey, { text, key: crypto.randomUUID() }, send).then((ok) => ok && confirmed())
   }
 
   const sending = pending?.status === 'sending'
   return (
-    <Form onSubmit={submit}>
+    <Panel>
       {['resume_unavailable', 'failed', 'interrupted', 'waiting_for_login'].includes(state) && (
         <Paragraph>
           This session needs a fresh conversation. History and queued messages will be kept.{' '}
@@ -132,33 +177,24 @@ export function SessionChat({ storeKey, state, send, startFresh, freshDisabled }
         </Unconfirmed>
       )}
       {sending && <Small role="status">Sending “{pending.text}”…</Small>}
-      <label>
-        Message this session
-        <textarea
-          value={draft}
-          maxLength={4096}
-          rows={2}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-      </label>
-      <Button type="submit" disabled={!draft.trim() || pending !== undefined}>
-        Send
-      </Button>
+      <SessionChat
+        messages={messages}
+        onSend={submit}
+        sendDisabled={pending !== undefined}
+        label="Message this session"
+        maxLength={4096}
+      />
       {pending?.status === 'unconfirmed' && (
         <Small>Retry or discard the unconfirmed message before sending another.</Small>
       )}
       {message && <Small role="status">{message}</Small>}
-    </Form>
+    </Panel>
   )
 }
 
-const Form = styled.form`
+const Panel = styled.div`
   display: grid;
   gap: ${space[3]};
-  label {
-    display: grid;
-    gap: ${space[2]};
-  }
 `
 
 const Unconfirmed = styled.div`

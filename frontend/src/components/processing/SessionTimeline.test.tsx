@@ -4,7 +4,7 @@ import { expect, test, vi } from 'vitest'
 import type { SessionTimelineDto } from '@invimport/contracts'
 import { render } from '../../test/render'
 import { SessionTimeline } from './SessionTimeline'
-import { SessionChat } from './SessionChat'
+import { chatMessages, SessionChatPanel as SessionChat } from './SessionChatPanel'
 
 const at = (second: number) => `2026-11-06T01:00:${String(second).padStart(2, '0')}.000Z`
 
@@ -67,12 +67,22 @@ test('status lines form an ordered timeline and the latest is the current activi
 })
 
 test('chat shows the operator message and the agent reply in order', () => {
-  render(<SessionTimeline timeline={timeline} />)
-  const chat = within(screen.getByRole('list', { name: 'Chat' })).getAllByRole('listitem')
-  expect(chat.map((item) => item.textContent)).toEqual([
-    'You: Check the back label.',
-    'Agent: Thanks, checking the back label.',
-  ])
+  render(
+    <SessionChat
+      storeKey="batch:chat"
+      state="running"
+      messages={chatMessages(timeline)}
+      send={vi.fn()}
+      startFresh={vi.fn()}
+    />,
+  )
+  const log = screen.getByRole('log', { name: 'Session messages' })
+  const messages = [...log.children]
+  expect(messages).toHaveLength(2)
+  expect(messages[0]).toHaveTextContent('You')
+  expect(messages[0]).toHaveTextContent('Check the back label.')
+  expect(messages[1]).toHaveTextContent('Agent')
+  expect(messages[1]).toHaveTextContent('Thanks, checking the back label.')
 })
 
 test('the composer queues a message for a finished session', async () => {

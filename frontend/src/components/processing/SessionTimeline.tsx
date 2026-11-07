@@ -1,7 +1,7 @@
-import styled from 'styled-components'
-import { space, typeVar } from '../../theme/generated/tokens'
 import type { SessionTimelineDto } from '@invimport/contracts'
-import { Heading, Small } from '../ui/primitives'
+import { StatusTimeline } from '../ui/StatusTimeline'
+import { Small } from '../ui/primitives'
+import { VisuallyHidden } from '../ui/VisuallyHidden'
 
 type Outbox = SessionTimelineDto['outbox'][number]
 
@@ -16,87 +16,39 @@ const stepText: Partial<Record<Outbox['kind'], string>> = {
 const time = (value: string) =>
   new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
-/** Steps from status lines and results, plus the chat. Only the current activity is announced. */
+/**
+ * The session's steps from its status lines and results, as a `StatusTimeline` with the newest
+ * status current. Only the current activity is announced; the chat is in `SessionChatPanel`.
+ */
 export function SessionTimeline({ timeline }: { timeline: SessionTimelineDto }) {
   const steps = timeline.outbox.filter((item) => item.kind !== 'reply')
-  const latest = [...timeline.outbox].reverse().find((item) => item.kind === 'status')
-  const chat = [
-    ...timeline.inbox
-      .filter((item) => item.kind === 'chat' || item.kind === 'answer')
-      .map((item) => ({
-        at: item.created_at,
-        text:
-          item.kind === 'chat'
-            ? `You: ${(item.payload as { text: string }).text}`
-            : `You answered: ${answerText(item.payload)}`,
-      })),
-    ...timeline.outbox
-      .filter((item) => item.kind === 'reply')
-      .map((item) => ({
-        at: item.created_at,
-        text: `Agent: ${(item.payload as { text: string }).text}`,
-      })),
-  ].sort((a, b) => a.at.localeCompare(b.at))
+  const latest = [...steps].reverse().find((item) => item.kind === 'status')
+
   return (
     <section aria-label="Agent session">
       {latest ? (
-        <Current role="status" aria-live="polite">
+        <VisuallyHidden role="status" aria-live="polite">
           Current activity: {(latest.payload as { text: string }).text}
-        </Current>
+        </VisuallyHidden>
       ) : (
         <Small role="status" aria-live="polite">
           No status yet. The agent’s steps appear here as it works.
         </Small>
       )}
       {timeline.truncated && <Small>Older entries are not shown.</Small>}
-      {steps.length > 0 && <Heading as="h4">Steps</Heading>}
       {steps.length > 0 && (
-        <Steps aria-label="Session steps">
-          {steps.map((item) => (
-            <li key={`${item.session_id}:${item.seq}`}>
-              <span>
-                {item.kind === 'status'
-                  ? (item.payload as { text: string }).text
-                  : (stepText[item.kind] ?? item.kind)}
-              </span>
-              <Small as="time" dateTime={item.created_at}>
-                {time(item.created_at)}
-              </Small>
-            </li>
-          ))}
-        </Steps>
-      )}
-      {chat.length > 0 && (
-        <>
-          <Heading as="h4">Chat</Heading>
-          <Steps aria-label="Chat">
-            {chat.map((item, index) => (
-              <li key={index}>{item.text}</li>
-            ))}
-          </Steps>
-        </>
+        <StatusTimeline
+          label="Session steps"
+          entries={steps.map((item) => ({
+            text:
+              item.kind === 'status'
+                ? (item.payload as { text: string }).text
+                : (stepText[item.kind] ?? item.kind),
+            time: time(item.created_at),
+            current: item === latest,
+          }))}
+        />
       )}
     </section>
   )
 }
-
-function answerText(payload: unknown) {
-  const value = (payload as { value: { kind: string; value?: string; text?: string } }).value
-  return value.kind === 'quantity' ? `${value.value}` : (value.text ?? '')
-}
-
-const Current = styled.p`
-  margin: ${space[4]} 0;
-  font-weight: ${typeVar.bodyStrong.weight};
-`
-
-const Steps = styled.ol`
-  margin: ${space[2]} 0 ${space[6]};
-  padding-left: ${space[10]};
-  li {
-    display: flex;
-    gap: ${space[6]};
-    justify-content: space-between;
-    padding: ${space[1]} 0;
-  }
-`

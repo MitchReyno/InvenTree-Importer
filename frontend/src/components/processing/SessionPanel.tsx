@@ -5,7 +5,7 @@ import type { ProcessingClient } from '../../processing/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { Small } from '../ui/primitives'
-import { SessionChat } from './SessionChat'
+import { chatMessages, SessionChatPanel } from './SessionChatPanel'
 import { SessionTimeline } from './SessionTimeline'
 
 interface Props {
@@ -45,9 +45,10 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
         />
       )}
       <SessionTimeline timeline={timeline.data} />
-      <SessionChat
+      <SessionChatPanel
         storeKey={`${batchId}:${job.id}`}
         state={timeline.data.session_state}
+        messages={chatMessages(timeline.data)}
         send={async (text, key) => {
           await client.chat(batchId, job.id, { idempotency_key: key, text }, key)
           await timeline.refetch()

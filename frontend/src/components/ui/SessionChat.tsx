@@ -10,16 +10,27 @@ type SessionChatProps = {
   onSend: (text: string) => void
   /** Only a cancelled session stops taking messages. */
   disabled?: boolean
+  /** Holds the draft but blocks sending, such as while an earlier message is unconfirmed. */
+  sendDisabled?: boolean
+  label?: string
+  maxLength?: number
 }
 
-export function SessionChat({ messages, onSend, disabled = false }: SessionChatProps) {
+export function SessionChat({
+  messages,
+  onSend,
+  disabled = false,
+  sendDisabled = false,
+  label = 'Message',
+  maxLength,
+}: SessionChatProps) {
   const inputId = useId()
   const [draft, setDraft] = useState('')
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const text = draft.trim()
-    if (!text) {
+    if (!text || sendDisabled) {
       return
     }
     onSend(text)
@@ -37,14 +48,20 @@ export function SessionChat({ messages, onSend, disabled = false }: SessionChatP
         ))}
       </Log>
       <Compose onSubmit={handleSubmit}>
-        <label htmlFor={inputId}>Message</label>
+        <label htmlFor={inputId}>{label}</label>
         <input
           id={inputId}
           value={draft}
+          maxLength={maxLength}
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <Button type="submit" variant="primary" size="sm" disabled={disabled}>
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          disabled={disabled || sendDisabled || !draft.trim()}
+        >
           Send
         </Button>
       </Compose>
