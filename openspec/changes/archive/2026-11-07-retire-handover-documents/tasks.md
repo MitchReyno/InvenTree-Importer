@@ -68,4 +68,4 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 
 - [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
 
-Follow-ups outside this change: migrate the `redesign-batch-workspace` handover when its session finishes (since done in that change's [notes](../redesign-batch-workspace/notes.md)), and plan `baseline-specs` to convert the requirement documents listed in the proposal.
+Follow-ups outside this change: the `redesign-batch-workspace` handover was migrated into that change's [notes](../../redesign-batch-workspace/notes.md), and `baseline-specs` was implemented and archived as `2026-11-07-baseline-specs`.
