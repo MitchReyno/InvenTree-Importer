@@ -11,7 +11,8 @@ import { commandScope, lockLane } from './scope.ts'
 import { fail } from './model.ts'
 import { isSessionProfile } from './session-policy.ts'
 import { createSessionAttempt } from './session-attempts.ts'
-import { successorsCurrent } from './stable-identity.ts'
+import { decodeSessionInput } from './session-input.ts'
+import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 import { supersedeJobAttempts } from './supersede.ts'
 
 const REPLACEABLE_STATES = new Set([
@@ -107,6 +108,18 @@ export async function replaceSession(
         ) {
           fail('inventory_waiting', 409)
         }
+        const inputs = await client.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
+          'SELECT manifest_bytes,manifest_digest FROM processing_input WHERE id=$1',
+          [prior.input_id],
+        )
+        const inputRow = inputs.rows[0] ?? fail('processing_input_missing', 409)
+        const pinned = decodeSessionInput(
+          inputRow.manifest_bytes,
+          inputRow.manifest_digest,
+        ).pinned_proposal_ids
+        if (!(await pinnedIdentityCurrent(client, pinned))) {
+          fail('identity_waiting', 409)
+        }
         await supersedeJobAttempts(client, jobId)
         const attempt = await createSessionAttempt(
           client,
@@ -117,6 +130,7 @@ export async function replaceSession(
           (BigInt(prior.number) + 1n).toString(),
           media,
           prior.input_id,
+          { pinnedProposalIds: pinned },
         )
         await client.query(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",

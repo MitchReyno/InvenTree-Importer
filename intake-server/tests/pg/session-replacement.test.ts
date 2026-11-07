@@ -102,3 +102,44 @@ for (const lead of [false, true]) {
     }
   })
 }
+
+test('replacement retains a successor identity pin and refuses stale identity work', async (t) => {
+  const { formedBatch } = await import('../support/lot-pipeline.ts')
+  const { runSessionTurn } = await import('../../src/agents/session-runner.ts')
+  const { fixture, deps, batchId, read, lot, successors, identities, pinned } = await formedBatch(t)
+  const formed = await lot('led 0603 red')
+  const [identity] = await identities(formed.id)
+  const prior = (await successors(formed.id)).find((row) => row.stage === 'research')!
+  await fixture.db.pool.query(
+    "UPDATE agent_session SET session_state='resume_unavailable' WHERE attempt_id=$1",
+    [prior.attempt_id],
+  )
+  const snapshot = await read()
+  const rows = await fixture.db.pool.query<{ revision: string }>(
+    'SELECT revision FROM processing_job WHERE id=$1',
+    [prior.job_id],
+  )
+  const input = {
+    expected_capture_revision: snapshot.revision,
+    expected_revision: rows.rows[0].revision,
+    attempt_id: prior.attempt_id,
+  }
+  await replaceSession(
+    fixture.api.pool,
+    fixture.config,
+    batchId,
+    prior.job_id,
+    'pinned-replacement',
+    input,
+  )
+  const replacement = (await successors(formed.id)).find((row) => row.stage === 'research')!
+  assert.deepEqual(pinned(replacement), [identity.id])
+  await fixture.db.pool.query(
+    "INSERT INTO processing_proposal_stale(proposal_id,reason) VALUES($1,'lot_regrouped')",
+    [identity.id],
+  )
+  assert.equal(
+    await runSessionTurn(deps, replacement.attempt_id, new AbortController().signal),
+    'cancelled',
+  )
+})
