@@ -63,7 +63,16 @@ describe('ProposedLotsGlance with lead-session lots', () => {
             href: '#b/review/lots/l3',
             origin: 'agent',
             edited: false,
-            crops: ['/crop/o1', '/crop/o2'],
+            crops: [
+              {
+                src: '/crop/o1',
+                srcSet: '/crop/o1?size=thumb 320w',
+                sizes: '40px',
+                width: 40,
+                height: 40,
+              },
+              { src: '/crop/o2', width: 40, height: 40 },
+            ],
             suggestions: 1,
           },
           {
@@ -83,6 +92,8 @@ describe('ProposedLotsGlance with lead-session lots', () => {
     const led = screen.getByRole('listitem', { name: 'LED 0603 red' })
     expect(within(led).getByText('AI-proposed')).toBeInTheDocument()
     expect(within(led).getAllByRole('img')).toHaveLength(2)
+    expect(within(led).getAllByRole('img')[0]).toHaveAttribute('srcset', '/crop/o1?size=thumb 320w')
+    expect(within(led).getAllByRole('img')[0]).toHaveAttribute('sizes', '40px')
     expect(within(led).getByText('1 suggestion')).toBeInTheDocument()
     const crystal = screen.getByRole('listitem', { name: '16 MHz crystal' })
     expect(within(crystal).getByText('Edited')).toBeInTheDocument()

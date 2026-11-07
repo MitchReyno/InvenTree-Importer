@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { observationCrop } from '../../media/types'
+import { coverSizes, observationImage } from '../../media/images'
 import { Field, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ObservationMove } from './ObservationMove'
@@ -50,7 +50,14 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
             <li key={observation.id}>
               {observation.region.kind === 'pixels' && (
                 <Crop
-                  src={observationCrop(batch.id, observation.id)}
+                  {...observationImage(
+                    batch.id,
+                    { ...observation, region: observation.region },
+                    'thumbnail',
+                    coverSizes({ width: 64, height: 64 }, observation.region),
+                  )}
+                  loading="lazy"
+                  decoding="async"
                   alt={`Region: ${describe(observation)}`}
                 />
               )}

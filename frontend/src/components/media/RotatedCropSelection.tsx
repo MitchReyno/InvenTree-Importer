@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import { cropAspect, type CropAspect, type CropFrame } from '../../media/crop-model'
+import type { ImageAttributes } from '../../media/images'
 
 interface Props {
-  source: string
+  /** The page image to select over; any size, since the selection maps through the source size. */
+  source: ImageAttributes
   sourceWidth: number
   sourceHeight: number
   frame: CropFrame
@@ -67,7 +69,7 @@ export function RotatedCropSelection({
 
   return (
     <SourceSurface ref={surface} $ratio={sourceWidth / sourceHeight}>
-      <SourceImage src={source} alt="Fixed orientation-normalized source" draggable={false} />
+      <SourceImage {...source} alt="Fixed orientation-normalized source" draggable={false} />
       <CropTarget
         ref={selection}
         aria-label="Rotating crop selection"
@@ -129,7 +131,8 @@ const SourceImage = styled.img`
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  /* Fill, not contain: a rendition's rounded aspect ratio must not letterbox the mapped area. */
+  object-fit: fill;
   pointer-events: none;
   user-select: none;
 `

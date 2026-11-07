@@ -5,6 +5,7 @@ import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { Paragraph, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { mediaResource } from '../../media/types'
+import { previewImage } from '../../media/images'
 
 interface Props {
   labels: MediaIdentityLabels
@@ -26,7 +27,9 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
           {version.pages.map((page) => (
             <figure key={page.page}>
               <Preview
-                src={mediaResource(batchId, 'previews', page.preview_id)}
+                {...previewImage(batchId, page, 'card')}
+                loading="lazy"
+                decoding="async"
                 alt={`${evidence.label}, ${version.kind}, page ${page.page}`}
               />
               <figcaption>

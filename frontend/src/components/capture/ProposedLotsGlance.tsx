@@ -52,8 +52,14 @@ export function ProposedLotsGlance({
               {lot.status && <Small>{lot.status}</Small>}
               {Boolean(lot.crops?.length || lot.suggestions) && (
                 <Detail>
-                  {lot.crops?.slice(0, 4).map((src, index) => (
-                    <Crop key={src} src={src} alt={`Observation ${index + 1} of ${lot.label}`} />
+                  {lot.crops?.slice(0, 4).map((image, index) => (
+                    <Crop
+                      key={image.src}
+                      {...image}
+                      loading="lazy"
+                      decoding="async"
+                      alt={`Observation ${index + 1} of ${lot.label}`}
+                    />
                   ))}
                   {lot.suggestions ? (
                     <Small>

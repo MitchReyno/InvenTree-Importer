@@ -65,7 +65,8 @@ it('shows the lot’s observations as crops and resolves suggestions as operator
   ).toBeInTheDocument()
   expect(container.querySelector('img')).toHaveAttribute(
     'src',
-    '/api/v1/batches/b/media/observations/o1/crop',
+    // A 10 × 10 region is no larger than any size, so it is served unscaled under its revision.
+    '/api/v1/batches/b/media/observations/o1/crop?rev=v-1-0-0-10-10',
   )
   const suggestion = screen.getByRole('listitem', { name: 'Suggested observation' })
   await userEvent.click(

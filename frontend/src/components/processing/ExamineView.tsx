@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
-import { observationCrop } from '../../media/types'
+import { coverSizes, observationImage } from '../../media/images'
 import { batchHref } from '../../navigation/batch-route'
 import { color, radius, space } from '../../theme/generated/tokens'
 import { Pill } from '../ui/Pill'
@@ -45,7 +45,14 @@ export function ExamineView({ batch, lead }: { batch: CaptureSnapshotDto; lead: 
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (
       <Crop
-        src={observationCrop(batch.id, observation.id)}
+        {...observationImage(
+          batch.id,
+          { ...observation, region: observation.region },
+          'thumbnail',
+          coverSizes({ width: 56, height: 56 }, observation.region),
+        )}
+        loading="lazy"
+        decoding="async"
         alt={`Region: ${readings(observation)}`}
       />
     ) : null

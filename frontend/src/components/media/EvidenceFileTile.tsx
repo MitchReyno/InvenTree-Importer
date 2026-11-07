@@ -1,5 +1,5 @@
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { mediaResource } from '../../media/types'
+import { previewImage } from '../../media/images'
 import { EvidenceTile, type PreviewState } from '../ui/EvidenceTile'
 
 type EvidenceFileTileProps = {
@@ -41,7 +41,9 @@ export function EvidenceFileTile(props: EvidenceFileTileProps) {
 
   return (
     <EvidenceTile
-      preview={page ? mediaResource(batchId, 'previews', page.preview_id) : undefined}
+      preview={
+        page ? previewImage(batchId, page, 'card', '(max-width: 700px) 50vw, 240px') : undefined
+      }
       name={name}
       support={props.support}
       note={evidence.note?.text}

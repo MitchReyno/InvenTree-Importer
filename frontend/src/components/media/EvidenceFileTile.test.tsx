@@ -53,6 +53,19 @@ describe('EvidenceFileTile', () => {
     expect(screen.getByText('2 lots')).toBeInTheDocument()
   })
 
+  it('loads a card-sized preview of a large photo, with its intrinsic size', () => {
+    tile([
+      version('o', {
+        pages: [{ page: 1, width: 4032, height: 3024, preview_id: 'preview-o' }],
+      }),
+    ])
+    const image = screen.getByRole('button', { name: 'Open Packet' }).querySelector('img')!
+    expect(image.getAttribute('srcset')).toContain('preview-o?size=card 960w')
+    expect(image.getAttribute('srcset')).not.toContain('preview-o 4032w')
+    expect([image.getAttribute('width'), image.getAttribute('height')]).toEqual(['4032', '3024'])
+    expect(image).toHaveAttribute('loading', 'lazy')
+  })
+
   it('says a preview is being prepared or could not be made, without decoder detail', () => {
     const { unmount } = tile([version('o', { state: 'queued', pages: [] })])
     expect(screen.getByText('Preparing…')).toBeInTheDocument()
