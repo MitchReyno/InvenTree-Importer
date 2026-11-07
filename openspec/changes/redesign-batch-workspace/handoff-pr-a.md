@@ -1,5 +1,7 @@
 # Handoff spec: PR-A foundation
 
+> **Spacing names:** this handoff predates tokens v3, which renamed the spacing scale to a 2px unit without changing values. Each name here maps to v3 by doubling its number, with a half step adding one: `space-1` 4px is now `space-2`, `space-1-5` 6px is `space-3`, `space-3` 12px is `space-6`, `space-4` 16px is `space-8` and `space-10` 40px is `space-20`.
+
 Implementation spec for PR-A of `redesign-batch-workspace` (tasks 1–3): tokens and themes, fonts, the component library and masthead option A. It turns the [Bench Intake Design System](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) into values and behaviour that can be checked in a PR. The [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf) shows the components in context.
 
 Precedence:

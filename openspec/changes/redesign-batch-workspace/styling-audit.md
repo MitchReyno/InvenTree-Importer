@@ -5,15 +5,17 @@ Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-
 - **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value and a fitting role exists in the property's own family; a value equal to a token of the wrong role, or sharing only a role, is NEAR), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in the change's [notes](notes.md) are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
 
-Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-0-5`, `space-5` and `space-6`, are EXACT under v2.
+**Token names** in this file use tokens v3's 2px spacing scale (`space-N` is N×2px), though the audit ran against v1's names.
 
-**The design system decides values.** Where a cluster's recommendation differs from tokens v2, tokens v2 wins:
+Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-1`, `space-10` and `space-12`, are EXACT under v2.
+
+**The design system decides values.** Where a cluster's recommendation differs from tokens v3, tokens v3 wins:
 
 - **Motion:** the tokens keep the PR-A handoff's values, including the toast's 150ms entrance with an 8px rise and the popover's 90ms `ease-in` close (`duration-*`, `ease-*`, `offset-*`). They do not fold the toast into 120ms (C7).
 - **Breakpoints:** Review drops its evidence pane under `bp-wide` (1180px), as the brand book says, not at the implemented 1000px (C8). The values are `bp-phone` 480, `bp-narrow` 600, `bp-compact` 760 and `bp-stacked` 860; 430 folds into `bp-phone` and 700 into `bp-compact`.
 - **Widths:** content is `width-content` (1240px) on every page except Review and Records, which use `width-review` (1500px). The canvas's narrower Agents (1100px) and Batches (1000px) boards (G1, A1) are not separate widths.
 - **Names:** the clusters' proposed names (`motion-*`, `motion.enter`, `z.popover`, `ring-halo`, `media.wide`, `space-control-y`) are superseded by the tokens' (`duration-*`, `duration-enter` and `ease-enter`, `z-popover`, `ring-width`, `bp-wide`); border-compensated control padding stays a `calc()` of a token, which the lint allows.
-- **Glyph boxes:** tokens v2 has no 18px or 22px size. The canvas's 22px PhaseRow disc (P10) and capture-tile glyph (K1) and the 18px boxes stay no-token literals rather than folding into `icon-md` (C18).
+- **Glyph boxes:** tokens v3 has no 18px or 22px size. The canvas's 22px PhaseRow disc (P10) and capture-tile glyph (K1) and the 18px boxes stay no-token literals rather than folding into `icon-md` (C18).
 - **Exact means equal value:** a value that only shares a token's role, such as a 6px card radius against `radius-card`, is NEAR, not EXACT (design D11). Type rows that match one property swap through that property's variable.
 - **Delivery:** where a cluster recommends its own PR (C11, C14), the plan's placement in tasks 19 and 20 (PR-K) applies.
 - **Not tokenised:** the 3px focus halo folds into the 2px ring (`ring-width`, `ring-offset`), and the masthead scene's three.js palette stays local to `electronics-current/`.
@@ -41,7 +43,7 @@ Notes on the counts:
 
 - One row per literal per declaration, so `padding: 7px 9px` is two rows. `0`, `100%`, `auto`, `fr`, `transparent`, `currentColor` and 1px border widths are not counted.
 - `type` EXACT means the **size, weight or line-height alone** matches a `type.*` style. A single matching property swaps through that property's own type variable (design D11). Moving to the full style when the line-height or weight differs is a NEAR, visible change.
-- `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps) and 20/24px, which tokens v2 covers with `space-0-5`, `space-5` and `space-6`; `outline-offset: 2px` is a focus ring, judged against `ring-offset`.
+- `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps) and 20/24px, which tokens v3 covers with `space-1`, `space-10` and `space-12`; `outline-offset: 2px` is a focus ring, judged against `ring-offset`.
 - `sizing` (min-height 44/32px, icon boxes, grid column widths) had no token group under v1. Tokens v2's `size` family covers control and touch heights, icon sizes, rings, offsets and content widths; grid track widths stay literals.
 
 | Area | EXACT | NEAR | NONE | Files |
@@ -63,26 +65,26 @@ Top files by count: `review/ReviewWorkspace.tsx` (32), `ui/primitives.tsx` (28),
 Each cluster is one role written several ways, with a recommended single value.
 
 ### C1. Two Button implementations (bypass)
-- `ui/primitives.tsx:5` `Button` (46 importing files) and `ui/Button.tsx:180` `Control` (15 files) are near copies: both use min-height 32px→44px compact, `padding: 7px space-3`, `radius.btn`, weight 500, `line-height: 1.2` and `80ms linear`. Only `ui/Button` has variants, sizes, busy and `disabledReason`.
+- `ui/primitives.tsx:5` `Button` (46 importing files) and `ui/Button.tsx:180` `Control` (15 files) are near copies: both use min-height 32px→44px compact, `padding: 7px space-6`, `radius.btn`, weight 500, `line-height: 1.2` and `80ms linear`. Only `ui/Button` has variants, sizes, busy and `disabledReason`.
 - Raw `styled.button` look-alikes outside `ui/`: `capture/BatchSettingsPanel.tsx:594 KeepButton` (`9px 14px`, radius 6px), `operator/DecisionPanel.tsx:396 LinkButton`, `operator/CompareMatches.tsx:235 InlineButton`, `operator/ReviewTable.tsx:205 ItemButton`, `review/records/RecordsStage.tsx:339/343`, `processing/ProcessingWorkspace.tsx:543 ReviewLink`, `masthead/HeaderStatus.tsx:293 TargetLink`.
-- **Recommend:** make `primitives.Button` re-export `ui/Button` with `variant="secondary"`, then move call sites over. Use `variant="link"` for the link-style buttons. Control padding becomes one value: `calc(${space[2]} - 1px) ${space[3]}`, or a new `space-control-y` token (7px = 8px minus the 1px border).
+- **Recommend:** make `primitives.Button` re-export `ui/Button` with `variant="secondary"`, then move call sites over. Use `variant="link"` for the link-style buttons. Control padding becomes one value: `calc(${space[4]} - 1px) ${space[6]}`, or a new `space-control-y` token (7px = 8px minus the 1px border).
 
 ### C2. Control padding: 7/9/11px (border-compensated)
-`7px space-3` (Button, primitives Button), `7px 9px` (primitives Input `:98`, SessionChat `:98`, Tabs `:99`), `9px 11px` (OptionRow `:49`, AutoValueField `:201`), `space-1 9px` (Button sm), `9px space-3-5` (Toast `:68`), `9px 14px` (KeepButton), `2px 9px 2px 7px` (Pill `:77`), `2px 9px` (StatusChip `:19`), `1px 7px` (Pill count `:111`), `3px 7px` (RecordChain `:96`).
+`7px space-6` (Button, primitives Button), `7px 9px` (primitives Input `:98`, SessionChat `:98`, Tabs `:99`), `9px 11px` (OptionRow `:49`, AutoValueField `:201`), `space-2 9px` (Button sm), `9px space-7` (Toast `:68`), `9px 14px` (KeepButton), `2px 9px 2px 7px` (Pill `:77`), `2px 9px` (StatusChip `:19`), `1px 7px` (Pill count `:111`), `3px 7px` (RecordChain `:96`).
 
 **Recommend:** keep the odd px only inside `ui/` components and write them as `calc(token - 1px)` so the token relationship shows. Feature code should use the components, not copy the padding.
 
 ### C3. Card / panel / box padding: six recipes
 | Recipe | Where |
 |---|---|
-| `space-3-5 space-4` (14/16) | `primitives.Panel`, `batches/Batches` Card, `processing/ProcessingParts` Card, `records/RecordDetail` Card, `agents/AgentSessions` Group |
-| `space-3 space-4` (12/16) | `ui/ChangeSummary` Section |
-| `space-3 space-3-5` (12/14) | `ui/QuestionCard` Body; `operator/IssuePanel` Box (raw `12px 14px`) |
-| `space-3` / raw `12px` | `primitives.Field`, `records/CompanyDecision`, `media/MediaEvidenceCard`, `operator/BulkEditPanel`, `operator/CompareMatches`, `operator/RestructureDialog` PreviewBox |
-| `space-2-5` (10) | `ui/EvidenceGroup` |
+| `space-7 space-8` (14/16) | `primitives.Panel`, `batches/Batches` Card, `processing/ProcessingParts` Card, `records/RecordDetail` Card, `agents/AgentSessions` Group |
+| `space-6 space-8` (12/16) | `ui/ChangeSummary` Section |
+| `space-6 space-7` (12/14) | `ui/QuestionCard` Body; `operator/IssuePanel` Box (raw `12px 14px`) |
+| `space-6` / raw `12px` | `primitives.Field`, `records/CompanyDecision`, `media/MediaEvidenceCard`, `operator/BulkEditPanel`, `operator/CompareMatches`, `operator/RestructureDialog` PreviewBox |
+| `space-5` (10) | `ui/EvidenceGroup` |
 | `20px` | `processing/QuestionAnswer` Card `:260`, `operator/Modal` `:63`, `media/MediaCropDialog` `:271` |
 
-**Recommend:** cards use `space-3-5 space-4` (the Panel value). Inset sub-boxes such as previews and confirms use `space-3`. Dialogs use a new `space-5` (20px). Change `QuestionAnswer` Card to the card value, since it is a card, not a dialog.
+**Recommend:** cards use `space-7 space-8` (the Panel value). Inset sub-boxes such as previews and confirms use `space-6`. Dialogs use a new `space-10` (20px). Change `QuestionAnswer` Card to the card value, since it is a card, not a dialog.
 
 ### C4. Container radius: 6px used for cards and boxes
 These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, RestructureDialog ChildRow and PreviewBox, BulkEditPanel PreviewBox, CompareMatches Confirm, Diagnostics container and the ReviewTable scroll frame. The role is a card, so the value should be 8px (`radius.card`). The two dialogs (`operator/Modal.tsx:65`, `media/MediaCropDialog.tsx:270`) use 8px, but `radius.dialog` is 12px. ModeSwitch (`ReviewWorkspace.tsx:624`) and KeepButton use 6px, but `radius.btn` is 7px.
@@ -92,7 +94,7 @@ These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, Restructure
 ### C5. Dialogs (no shared component)
 `operator/Modal.tsx` and `media/MediaCropDialog.tsx` both style a native `<dialog>` with 20px padding, 8px radius and their own 760px or 600px stacking rules. `RestructureDialog`, `CompareMatches`, `EvidenceGroupPanel` and `ProcessingWorkspace` use `Modal`.
 
-**Recommend:** add a `ui/Dialog` (radius.dialog, `space-5` padding, `shadow`, `color.overlay` backdrop, `media.compact` stacking). Build `Modal` and `MediaCropDialog` on it.
+**Recommend:** add a `ui/Dialog` (radius.dialog, `space-10` padding, `shadow`, `color.overlay` backdrop, `media.compact` stacking). Build `Modal` and `MediaCropDialog` on it.
 
 ### C6. Popovers: three copies
 `batches/NeedYouPanel.tsx`, `masthead/MastheadMenu.tsx` and `masthead/HeaderDisclosure.tsx` each define the same `translateY(4px)→0` keyframes, `120ms ease-out`, `z-index: 1000` and `${shadow}`. `ui/AutoValueField.tsx:173` also uses `z-index: 1000` with `shadow`.
@@ -130,7 +132,7 @@ These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, Restructure
 - `inset 2px accent + inset 4px bg` (SegmentedControl)
 - `Tabs` `outline-offset: -2px`
 
-**Recommend:** keep the global 2px/2px ring as the one focus style; drop ReviewTable's 3px. Superseded by tokens v2: the `accentWeak` halos fold into the 2px ring (`ring-width`, `ring-offset`), and StatusTimeline's 4px moves to it too.
+**Recommend:** keep the global 2px/2px ring as the one focus style; drop ReviewTable's 3px. Superseded by tokens v3: the `accentWeak` halos fold into the 2px ring (`ring-width`, `ring-offset`), and StatusTimeline's 4px moves to it too.
 
 ### C10. Uppercase eyebrows outside `type.label`
 These eyebrows hand-roll the style instead of using `type.label` or `primitives.Eyebrow` (`11px / 600 / 0.06em`): `ReviewQueue.tsx:174` GroupTitle (12px, 1.2px), `FactRow.tsx:51` dt (12px, 1px), the `ReviewTable.tsx:187` and `CompareMatches.tsx:222` headers (12px, 1px), `RecordChain.tsx:114` Kind (10.5px, 0.04em) and `DisabledFeature.tsx:62` Soon (11px, 0.04em). `DataTable.tsx:158` uses `type.label` but overrides it to 0.05em.
@@ -177,7 +179,7 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 - 2px gaps appear in Tabs, Progress, AutoValueField, ProcessingParts, PreparationTreeView ×2, ReviewMap, RecordDetail, Batches, ImpactSummary, HeaderStatus and MastheadMenu, about 13 sites.
 - 20px is used for dialog padding, the MediaCropDialog gap, indents in SessionTimeline, WorkflowDetails and the PreparationTreeView level, and MediaEvidenceRelations. 24px is used for App padding and the EvidenceViewer empty state. 36px is used for the RotatedCropSelection margin.
 
-**Recommend:** add `space-0-5` (2px) for the hairline gaps. Leave 1px and 3px nudges in components that line up with borders. Add `space-5` (20px) and `space-6` (24px), and move 36px to `space-10` (NEAR: 4px wider, a visible change).
+**Recommend:** add `space-1` (2px) for the hairline gaps. Leave 1px and 3px nudges in components that line up with borders. Add `space-10` (20px) and `space-12` (24px), and move 36px to `space-20` (NEAR: 4px wider, a visible change).
 
 ### C18. Control heights and icon sizes
 - 44px touch targets appear in about 37 rows over 30 files, always under `media.compact`. 32px control heights appear in 9 files.
@@ -192,8 +194,8 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 
 | # | Where | Design | Implemented | Sev | Fix |
 |---|---|---|---|---|---|
-| G1 | App shell width, `App.tsx:226-233`; every fixture `main` uses `maxWidth:1600` | Content width 1240px; 1500px for Review and Records; 1100px for Agents and 1000px for Batches on the canvas; gutter `max(16px,2vw)` | 1600px everywhere; 24px padding, 12px below 700px | High | Make width a per-route token (1240/1500), with `space-6` side padding at desktop and at least `space-4` at phone width |
-| G2 | Breakpoints, 8 `max-width: 700px` media queries in 4 files (`App.tsx:230`, `ReviewFilters.tsx:85`, …) | 760 compact, 860 stacked, 1180 for Review's evidence pane (tokens v2 `bp-wide`) | Legacy 700px queries next to `media.compact` | Medium | Replace with `media.compact` / `media.stacked` |
+| G1 | App shell width, `App.tsx:226-233`; every fixture `main` uses `maxWidth:1600` | Content width 1240px; 1500px for Review and Records; 1100px for Agents and 1000px for Batches on the canvas; gutter `max(16px,2vw)` | 1600px everywhere; 24px padding, 12px below 700px | High | Make width a per-route token (1240/1500), with `space-12` side padding at desktop and at least `space-8` at phone width |
+| G2 | Breakpoints, 8 `max-width: 700px` media queries in 4 files (`App.tsx:230`, `ReviewFilters.tsx:85`, …) | 760 compact, 860 stacked, 1180 for Review's evidence pane (tokens v3 `bp-wide`) | Legacy 700px queries next to `media.compact` | Medium | Replace with `media.compact` / `media.stacked` |
 | G3 | Pill default glyphs, `ui/Pill.tsx:9-17` | Canvas: Running/Sorting `⟳`, New `+`/`✦`, Queued `…`, Edited `✎`, Exists `✓` (ok tone) | `info:'+'`, `acc:'•'`, `neutral:'–'`, `outline:'–'`; callers rarely pass a glyph. So "Running" shows `+` and "Exists" shows `–` | High | Pass state glyphs from the state maps (Running `⟳` or spinner, Queued `…`, Exists `✓`); keep tone defaults only as a fallback |
 | G4 | Record-state tones are inconsistent: `changes/PreparationTreeView.tsx:9-13` is `new:'acc', update:'info', exists:'neutral'`; `review/records/RecordDetail.tsx:19-25` is `new:'info', update:'acc', exists:'neutral'` | New = `info`, Update = `accent`, Exists = `ok` (RecordChain spec; canvas pills) | New and Update are swapped in Changes; Exists is neutral grey in both | High | One shared `RECORD_STATE` map (tone and glyph) used by Changes, Records and RecordChain |
 | G5 | Running session tone, `processing/ProcessingParts.tsx:24,179` | Canvas Agents and Processing: Running = `acc` with `⟳` | `info` (purple) with `+` | Medium | `running: {tone:'acc', glyph:'⟳'}`; Queued `outline` `…` |
@@ -262,7 +264,7 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 | P3 | Pipeline row | — | A stray `ı`-like vertical glyph between "Running" and "Images", and outlined "Not started" pills with an empty glyph slot (leading space) | Medium | Use a consistent `→` separator; give waiting pills a glyph or drop the empty `<i>` |
 | P4 | Needs you (`ui/NeedsYou.tsx` is not used here) | grid 44px thumb · step chip + bold title + assumption · primary sm "Answer" | Underlined link title with "Open in Review" link on the right; no thumb, step chip or button | High | Render `NeedsYou` |
 | P5 | Recent activity | `StatusTimeline` (10px markers, 2px rail, tabular 11.5px times) in a card | Per-attempt bordered cards with "Open this lot in Review" links **outside** each card | High | Timeline; move the attempt detail to the step pages |
-| P6 | Attempt actions | Inline action row (gap 8px) | "Open this question" and "Cancel this attempt" stacked vertically, each on its own line | Medium | `display:flex; gap: space-2; flex-wrap: wrap` |
+| P6 | Attempt actions | Inline action row (gap 8px) | "Open this question" and "Cancel this attempt" stacked vertically, each on its own line | Medium | `display:flex; gap: space-4; flex-wrap: wrap` |
 | P7 | Sessions list | Rows: step chip (neutral) + bold lot + right pill, then status line and time; "All sessions, every batch" link | Plain text rows, ghost sm "Open session" | Medium | Match the canvas rows |
 | P8 | Examine page | Header strip with spinner, title and SegmentedControl "By photo / By lot"; photo cards with a region stage and numbered observations; lead-session drawer docked right with timeline, QuestionCard and chat | Generic cards: Questions, Sessions, per-attempt cards | High (partly blocked by observation data; the layout is not) | Build the step-page pattern; at least the header strip and the docked drawer |
 | P9 | Session drawer | Docked right panel (canvas) or side drawer; StatusTimeline; chat bubbles (85% max, accent-weak for own messages); composer with an inline Send | **Centred modal dialog**; empty "Steps" heading; bold "No status yet"; full-width disabled "Send" button under the textarea | High | Right-side drawer (`position:fixed; right:0; width:min(420px,100%)`) with `shadow`; `SessionChat` composer inline |
