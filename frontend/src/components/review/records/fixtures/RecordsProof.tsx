@@ -162,6 +162,7 @@ const processing = {
             schema_version: 'bench-intake-proposal/5',
             subject_id: id('a', 1),
             summary: 'Yageo RC0603 thick-film resistor.',
+            sources: [],
             tags: ['SMD', '0603'],
             catalogue: {
               category: { choice: 'existing', reference: resistors },
@@ -194,6 +195,7 @@ const processing = {
             schema_version: 'bench-intake-proposal/5',
             subject_id: id('a', 2),
             summary: 'GCT 100 nF MLCC on a reel.',
+            sources: [],
             tags: ['SMD'],
             catalogue: {
               category: {
