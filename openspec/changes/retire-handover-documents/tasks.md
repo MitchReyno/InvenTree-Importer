@@ -58,7 +58,7 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 - Prerequisites: task 2.
 - Acceptance: proposal audit; design D5–D6.
 - TDD approach: documentation; reference checks.
-- Verification: a repository search for `docs/handovers` outside `redesign-batch-workspace`; `pnpm lint:markdown`; `pnpm format:check`.
+- Verification: no relative link points at a deleted handover (docs due for retirement use `2d852e2` permalinks), and no live document cites a handover as evidence; `pnpm lint:markdown`; `pnpm format:check`.
 
 - [x] 3.1 Remove handover links and pointer sentences from live documents.
 - [x] 3.2 Delete the retired handovers.
