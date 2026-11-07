@@ -188,13 +188,13 @@ describe('BatchHeader', () => {
     expect(views.getByRole('link', { name: 'Ready to add, 6 lots' })).toBeInTheDocument()
   })
 
-  it('counts Capture files and the Map unused photos from the media read', () => {
+  it('counts Capture files and the Map unused files from the media read', () => {
     const { unmount } = header({ tab: 'review', view: 'map' }, { files: 9, unused: 1 })
     const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
     const views = within(screen.getByRole('navigation', { name: 'Review views' }))
 
     expect(tabs.getByRole('link', { name: 'Capture, 9 files' })).toBeInTheDocument()
-    expect(views.getByRole('link', { name: 'Map, 1 unused photo' })).toHaveAttribute(
+    expect(views.getByRole('link', { name: 'Map, 1 unused file' })).toHaveAttribute(
       'aria-current',
       'page',
     )

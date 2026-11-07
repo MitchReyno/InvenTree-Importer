@@ -22,7 +22,7 @@ type BatchHeaderProps = {
   attention: BatchAttentionDto | undefined
   /** The attention read failed, so the header cannot say what needs the operator. */
   attentionUnavailable?: boolean
-  /** Capture's file count and the Map's unused photos, from the media read when it is loaded. */
+  /** Capture's file count and the Map's unused files, from the media read when it is loaded. */
   evidence?: EvidenceCounts
   /** Lots retired by a split or merge stay in the snapshot; counts show active lots. */
   activeLotCount: number
@@ -179,7 +179,7 @@ function reviewRow(batchId: string, { attention, evidence, activeLotCount }: Cou
       ...(evidence && evidence.unused > 0
         ? {
             badge: {
-              label: `${evidence.unused} unused ${plural(evidence.unused, 'photo', 'photos')}`,
+              label: `${evidence.unused} unused ${plural(evidence.unused, 'file', 'files')}`,
               short: String(evidence.unused),
               tone: 'warn',
             },
