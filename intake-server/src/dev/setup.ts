@@ -20,6 +20,7 @@ import { developmentAdmin, serverIdentity } from './pg-identity.ts'
 import { developmentTarget, type DevelopmentTarget } from './target.ts'
 import { readonlyState } from './readonly-setup.ts'
 import { readLocalInventree } from './local-inventree.ts'
+import { ensureAgentWriter } from './agent-writer.ts'
 import { grantFoundation } from '../operations/grants.ts'
 import { grantCapture } from '../capture/grants.ts'
 import { grantManual } from '../review/grants.ts'
@@ -180,6 +181,7 @@ async function main() {
     await grantProjection(db.pool, mediaRole)
     await grantCaptureRead(db.pool, mediaRole)
     await db.pool.query(`GRANT UPDATE(revision) ON media_batch TO ${mediaRole}`)
+    await ensureAgentWriter(db.pool, root, url.toString())
   } finally {
     await db.close()
   }

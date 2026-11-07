@@ -180,8 +180,9 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
         </Paragraph>
       )}
       <Paragraph>
-        The web and worker must both select <code>INTAKE_PROCESSING_PROFILE=native-agent/1</code>.
-        Saving settings starts no agent. Start native work from the batch's Processing controls.
+        Start <code>pnpm dev</code> with <code>INTAKE_PROCESSING_PROFILE=native-agent/2</code> for
+        sessions that propose lots from photos, or <code>native-agent/1</code> for one queued
+        result. Saving settings starts no agent.
       </Paragraph>
       <Actions>
         <Button type="submit" disabled={busy}>
