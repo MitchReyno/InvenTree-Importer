@@ -158,7 +158,7 @@ Several surfaces don't receive page data today, so their interfaces change too:
 
 These take an image-attributes object (`src`, `srcSet`, `sizes`, `width`, `height`) instead of a URL.
 
-Images other than the exempt `BatchThumbnail` get explicit `width` and `height`, from the page dimensions for page images and from `renditionDimensions()` of the region for observation images, plus `loading="lazy"` and `decoding="async"`, except the viewer's current image. The crop dialog already maps selections through `page.width`/`page.height`, so showing the `view` rendition leaves recorded coordinates unchanged. A test pins this.
+Images other than the exempt `BatchThumbnail` get explicit `width` and `height`, from the page dimensions for page images and from `renditionDimensions()` of the region for observation images, plus `loading="lazy"` and `decoding="async"`, except the viewer's current image. The crop dialog already maps selections through `page.width`/`page.height`. A rendition's rounded dimensions can differ slightly in aspect ratio from the page; for a 10000 × 101 page, `view` is 2048 × 21. So `RotatedCropSelection` draws its image with `object-fit: fill` across its page-aspect surface, not `contain`, and the image always covers exactly the area the selection maps against. Recorded coordinates are then identical whichever size is shown, at the cost of an invisible sub-pixel stretch. A test pins this.
 
 ## State, authority and failure behavior
 
