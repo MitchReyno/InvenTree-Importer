@@ -71,3 +71,55 @@ The masthead SHALL be one bar over the electronics current (option A). The curre
 - **GIVEN** the dark theme
 - **WHEN** the masthead renders with WebGL 2 available
 - **THEN** the parts use the dark finish on the dark masthead ground, remain visible, and never overlap header text.
+
+### Requirement: Token-driven layout and type
+
+Every spacing, radius, shadow, type style, stacking layer, breakpoint, opacity and fixed size used by a component SHALL come from a design-system token where one exists. Component styles MUST NOT contain those values as literals, except where the design system keeps them local: the masthead scene's palette and photo masks.
+
+#### Scenario: Literal value refused
+
+- **GIVEN** a component style containing a raw spacing, radius, z-index or duration value that a token covers
+- **WHEN** the frontend lint runs
+- **THEN** it fails, naming the file, line and the token to use.
+
+### Requirement: Motion and layers follow the design system
+
+Motion SHALL use the design system's duration and easing tokens: hover backgrounds change over 80ms, popovers and menus open over 120ms and close over 90ms, and toasts rise 8px over 150ms. All animation SHALL stop under reduced motion. Toasts SHALL stack above popovers and menus.
+
+#### Scenario: Reduced motion
+
+- **GIVEN** an operating system set to reduce motion
+- **WHEN** a popover opens, a toast appears and a step runs
+- **THEN** nothing animates, and every state is still shown.
+
+#### Scenario: Toast above an open menu
+
+- **GIVEN** an open masthead menu
+- **WHEN** a toast appears
+- **THEN** the toast is fully visible above the menu.
+
+### Requirement: Screens use the shared components
+
+Where the design system has a component for a control, a status, a table, a notice, a dialog or a popover, every screen SHALL use that component rather than a local copy. A status SHALL show the design's glyph and colour for its state on every screen.
+
+#### Scenario: One status vocabulary
+
+- **GIVEN** a record that is new in Records and new in Changes, and a running step in Processing
+- **WHEN** each screen renders
+- **THEN** both "New" statuses use the same pill colour and glyph, and the running step uses the running state's accent colour and glyph.
+
+### Requirement: Layout follows the design's widths and breakpoints
+
+Main content SHALL be at most 1240px wide (1500px for Review and Records), centred. Layouts SHALL change only at the design system's named breakpoints. At phone width the masthead SHALL stay one row, and every interactive control SHALL have a hit area of at least 44px.
+
+#### Scenario: Wide screen
+
+- **GIVEN** a 1920px-wide window
+- **WHEN** Capture and then Review render
+- **THEN** Capture's content is 1240px wide and Review's 1500px, both centred.
+
+#### Scenario: Phone width
+
+- **GIVEN** a 390px-wide window with the connection status shown
+- **WHEN** the masthead and the Capture actions render
+- **THEN** the masthead is one row, nothing scrolls horizontally, and each control's hit area is at least 44px.
