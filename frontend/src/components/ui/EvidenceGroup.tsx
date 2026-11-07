@@ -3,6 +3,7 @@ import styled, { css } from 'styled-components'
 import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { hoverTransition } from './motion'
+import { Button } from './Button'
 
 type EvidenceGroupProps = {
   name: string
@@ -102,6 +103,12 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
           />
+        )}
+        {props.nameDisabled && dirty && (
+          // A locked field cannot take Escape, so the draft keeps its own way out.
+          <Button size="sm" variant="ghost" onClick={() => setDraft(name)}>
+            Discard name change
+          </Button>
         )}
       </Header>
       <Meta>

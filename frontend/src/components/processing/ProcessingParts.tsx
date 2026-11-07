@@ -72,6 +72,9 @@ export function SessionRows({
           <SessionRow
             type="button"
             aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
+            aria-describedby={`session-${session.jobId}-state${
+              session.status ? ` session-${session.jobId}-status` : ''
+            }`}
             onClick={() => onOpen(session.jobId)}
           >
             <SessionLabel>
@@ -84,9 +87,11 @@ export function SessionRows({
               tone={SESSION_STATE[session.state].tone}
               glyph={SESSION_STATE[session.state].glyph}
             >
-              {SESSION_STATE[session.state].word}
+              <span id={`session-${session.jobId}-state`}>{SESSION_STATE[session.state].word}</span>
             </Pill>
-            {session.status && <SessionStatus>{session.status}</SessionStatus>}
+            {session.status && (
+              <SessionStatus id={`session-${session.jobId}-status`}>{session.status}</SessionStatus>
+            )}
           </SessionRow>
         </li>
       ))}

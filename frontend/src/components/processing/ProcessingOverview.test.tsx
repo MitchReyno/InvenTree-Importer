@@ -381,4 +381,38 @@ describe('InstructionField', () => {
       '1 running · limit 3',
     )
   })
+
+  it('calls only running work running', () => {
+    overview({
+      source: {
+        ...source,
+        steps: [
+          { ...source.steps[0], jobs: 1, ready: 0, running: 0, queued: 1, questions: 0 },
+          ...source.steps.slice(1),
+        ],
+      },
+    })
+    expect(screen.getByText('Examine: waiting')).toBeInTheDocument()
+  })
+
+  it('describes each session row by its state and latest line', () => {
+    overview({
+      source: {
+        ...source,
+        sessions: [
+          {
+            jobId: 'j2',
+            step: 'research',
+            subject: 'Packet B',
+            lotId: null,
+            state: 'waiting_input',
+            status: 'Checking the datasheet',
+          },
+        ],
+      },
+    })
+    expect(
+      screen.getByRole('button', { name: 'Open session: Research · Packet B' }),
+    ).toHaveAccessibleDescription('Waiting for you Checking the datasheet')
+  })
 })

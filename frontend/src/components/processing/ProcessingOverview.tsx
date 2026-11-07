@@ -40,7 +40,7 @@ type Props = {
   onOpenSession: (jobId: string) => void
 }
 
-/** A step's bar: done once every attempt is ready, failed when only failures remain. */
+/** A step's bar: done once every attempt is ready, running only while work runs. */
 function segment(step: StepProgress): ProgressStep {
   if (step.jobs === 0) {
     return { label: step.label, state: 'waiting' }
@@ -48,11 +48,15 @@ function segment(step: StepProgress): ProgressStep {
   if (step.ready === step.jobs) {
     return { label: step.label, state: 'done' }
   }
-  if (step.failed > 0 && step.running + step.queued + step.waiting === 0) {
+  if (step.running > 0) {
+    return { label: step.label, state: 'running', fraction: step.ready / step.jobs }
+  }
+  if (step.failed > 0 && step.queued + step.waiting === 0) {
     return { label: step.label, state: 'failed' }
   }
 
-  return { label: step.label, state: 'running', fraction: step.ready / step.jobs }
+  // Queued, waiting or stopped work is not running; the counts beneath say which.
+  return { label: step.label, state: 'waiting' }
 }
 
 /**

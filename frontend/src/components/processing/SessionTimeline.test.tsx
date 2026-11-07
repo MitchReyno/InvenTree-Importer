@@ -248,3 +248,20 @@ test('a cancelled session keeps its conversation visible', () => {
   expect(screen.getByRole('log', { name: 'Session messages' })).toHaveTextContent('Check the back.')
   expect(screen.getByLabelText('Message this session')).toBeDisabled()
 })
+
+test('replies from a replacement session keep their own identity', () => {
+  const reply = (session: string, text: string, second: number) => ({
+    session_id: session,
+    seq: '1',
+    kind: 'reply' as const,
+    payload: { text },
+    created_at: at(second),
+  })
+
+  const ids = chatMessages({
+    ...timeline,
+    inbox: [],
+    outbox: [reply('first', 'One', 1), reply('second', 'Two', 2)],
+  } as unknown as SessionTimelineDto).map((message) => message.id)
+  expect(new Set(ids).size).toBe(2)
+})

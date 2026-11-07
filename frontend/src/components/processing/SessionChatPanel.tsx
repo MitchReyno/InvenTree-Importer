@@ -81,7 +81,7 @@ export function chatMessages(timeline: Timeline): ChatMessage[] {
     ...timeline.inbox
       .filter((item) => item.kind === 'chat' || item.kind === 'answer')
       .map((item) => ({
-        id: `in:${item.seq}`,
+        id: `in:${item.id}`,
         at: item.created_at,
         who: 'You',
         mine: true,
@@ -93,7 +93,8 @@ export function chatMessages(timeline: Timeline): ChatMessage[] {
     ...timeline.outbox
       .filter((item) => item.kind === 'reply')
       .map((item) => ({
-        id: `out:${item.seq}`,
+        // Sequences restart in each replacement session of the lineage.
+        id: `out:${item.session_id}:${item.seq}`,
         at: item.created_at,
         who: 'Agent',
         mine: false,

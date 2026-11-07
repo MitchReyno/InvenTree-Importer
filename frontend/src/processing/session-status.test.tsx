@@ -63,3 +63,19 @@ it('leaves out the last line of a session that has finished or ended', async () 
   await waitFor(() => expect(result.current.lots.size).toBe(1))
   expect(result.current.lots.get('l3')).toBe('Images · Now')
 })
+
+it('drops its statuses when a later read fails, so Capture stops claiming sorting', async () => {
+  const read = vi
+    .fn()
+    .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Sorting reels')] })
+    .mockRejectedValueOnce(new Error('offline'))
+  const client = { read, session: vi.fn() } as unknown as ProcessingClient
+  const { result, rerender } = renderHook(
+    ({ revision }) => useSessionStatuses(client, 'b', revision),
+    { initialProps: { revision: '1' } },
+  )
+  await waitFor(() => expect(result.current.leadRunning).toBe(true))
+  rerender({ revision: '2' })
+  await waitFor(() => expect(result.current.leadRunning).toBe(false))
+  expect(result.current.lead).toBeUndefined()
+})

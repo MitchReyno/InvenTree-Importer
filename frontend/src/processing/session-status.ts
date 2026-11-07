@@ -59,7 +59,10 @@ export function useSessionStatuses(
         })
       })
       .catch(() => {
-        // The glance works without status lines; Processing shows read failures.
+        // Old lines would read as current, so the glance drops them; Processing shows the failure.
+        if (current) {
+          setStatuses(NONE)
+        }
       })
     return () => {
       current = false

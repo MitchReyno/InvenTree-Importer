@@ -234,3 +234,25 @@ describe('EvidenceGroup composition', () => {
     expect(onRename).not.toHaveBeenCalled()
   })
 })
+
+describe('EvidenceGroup while its name is locked', () => {
+  it('still lets an unsaved name be discarded', async () => {
+    const onDraftChange = vi.fn()
+    const { rerender } = render(
+      <EvidenceGroup name="Bag" count={1} onRename={() => {}} onDraftChange={onDraftChange} />,
+    )
+    await userEvent.type(screen.getByRole('textbox', { name: 'Group name' }), 'X')
+    rerender(
+      <EvidenceGroup
+        name="Bag"
+        count={1}
+        nameDisabled
+        onRename={() => {}}
+        onDraftChange={onDraftChange}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Discard name change' }))
+    expect(screen.getByRole('textbox', { name: 'Group name' })).toHaveValue('Bag')
+    expect(onDraftChange).toHaveBeenLastCalledWith(false)
+  })
+})
