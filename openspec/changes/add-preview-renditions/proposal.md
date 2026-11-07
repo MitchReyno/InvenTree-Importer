@@ -55,7 +55,7 @@ Non-goals:
 Compatibility:
 
 - `preview_id`, page dimensions, region coordinates, recipe digests and existing preview bytes stay unchanged.
-- The new contract fields are additive.
+- The new contract fields ship with the frontend that reads them, because the client validates responses strictly.
 - Retained development data is upgraded in place, without reseeding.
 
 ## Reuse and dependency assessment

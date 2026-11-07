@@ -23,7 +23,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
-| PR-A | New decodes produce, store and serve sized renditions; the snapshot lists them | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together, and older clients keep working because the fields are additive | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check`; independent exact-head review; selected CI green |
+| PR-A | New decodes produce, store and serve sized renditions; the snapshot lists them | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together. The client's strict response schemas and the regenerated contracts ship in the same PR, so the served frontend and API always agree | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check`; independent exact-head review; selected CI green |
 | PR-B | Observation crops at each size, and retained versions upgraded in the background | Tasks 4–5 in full | Both close the remaining server gaps before the UI relies on sizes; they share the worker and HTTP test setup | After PR-A (task 5 needs the table) | `interactive-app`; `feat/add-preview-renditions-backfill`; `feat(add-preview-renditions): sized observation crops and rendition backfill` | PostgreSQL, HTTP and decoder process tiers; backfill run against a copy of retained dev data; independent exact-head review; selected CI green |
 | PR-C | Each frontend surface loads a suitable size, with the viewer switching to full on zoom | Task 6 in full | One UI pass over the media surfaces with a single helper; reviewed with a demo recording | After PR-A and PR-B | `interactive-app`; `feat/add-preview-renditions-frontend`; `feat(add-preview-renditions): use sized previews in the app` | Frontend typecheck, lint, tests and build; byte-transfer comparison and demo video on the PR; independent exact-head review; selected CI green |
 
@@ -70,7 +70,8 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, content types and caching headers, and the snapshot and inbox thumbnail listings.
 - [ ] 3.2 GREEN: extend the contract, regenerate, and implement the read, route and headers.
-- [ ] 3.3 Verify `contracts:check`, `typecheck:intake` and `test:intake`.
+- [ ] 3.3 Verify `contracts:check`, `typecheck:intake`, `test:intake` and `test:frontend`, which validate the new responses against the strict client schemas.
+- [ ] 3.4 Manual: with a tab open on the pre-PR build, restart `pnpm dev` on the PR and confirm the tab reloads onto the new build, through Vite's reload on contract source changes, rather than failing response validation. Record the result on the PR.
 
 ## 4. Sized observation crops
 
@@ -112,21 +113,25 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - a retained page whose bytes don't match its recorded digest, skipped;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
-- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
+- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs. Append the same `media_prepared` live event a decode appends, in the publication transaction.
 - [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
 - [ ] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
+- [ ] 5.5 Add tests for live invalidation and scheduling:
+  - a mounted client on a healthy socket refreshes its rendition listing after a backfill, with no other activity or reload;
+  - an upload that arrives during a page backfill is decoded right after that one page;
+  - after a multi-page PDF backfill is interrupted, its completed pages show renditions and the rest fall back.
 
 ## 6. Frontend preview selection
 
 - **PR delivery:** PR-C.
 - **Outcome:** each image surface uses its usage profile (thumbnail, card, viewer, full) through one helper. Images declare their size and load lazily where offscreen, the viewer switches to full past the `view` resolution, the crop dialog keeps full-resolution coordinates, and missing sizes fall back.
-- **Scope:** `frontend/src/media/types.ts`; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
+- **Scope:** `frontend/src/media/types.ts`, plus a shared `renditionDimensions()` in `contracts/src/media.ts` used by the server and the client; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
 - **Prerequisites:** tasks 3 and 4.
 - **Acceptance:** Media previews fit their surface (all scenarios).
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source and a page not yet backfilled offering it and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer switching both attributes to full on zoom at 3× density; crop selection coordinates unchanged over `view`.
+- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source and a page not yet backfilled offering it; observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer switching both attributes to full on zoom at 3× density; crop selection coordinates unchanged over `view`.
 - [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
 - [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 

@@ -103,7 +103,7 @@ How attempts are claimed and published:
 
 - **Exclusion.** A partial unique index allows one `claimed` row per preview, and the claim is made with `FOR UPDATE SKIP LOCKED`, so concurrent workers never claim the same preview or consume its retry budget twice.
 - **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
-- **Priority.** The worker claims a backfill only when no decode command is waiting, so new uploads never wait behind it.
+- **Priority.** The worker claims a backfill only when no decode command is waiting, and does one page per claim. The worker runs commands one at a time, so an upload arriving during a backfill waits for at most that one in-flight page, which the decoder's 25 s bound limits, and is decoded before any further backfill.
 - **Abandoned claims.** A `claimed` row older than the decoder's outer watchdog plus a grace period (for example 2 minutes) was left by a killed worker. The next worker marks it `interrupted` before claiming, and it becomes eligible again within the three-attempt cap.
 - **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. A mismatched or unreadable page PNG inserts nothing and marks the attempt `skipped_mismatch` (logged). Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
 - **Roles.** The worker role gets `INSERT`/`UPDATE` on this table only, and snapshot reads never touch it.
@@ -115,7 +115,9 @@ Rejected: rendering from the page PNG in the API or a migration. That would deco
 `frontend/src/media/types.ts` gains:
 
 - `previewImage(batchId, page, usage)`, returning `{ src, srcSet, sizes, width, height }` from the page's listed renditions;
-- `observationImage(batchId, observationId, usage)`.
+- `observationImage(batchId, observation, usage)`, which takes the observation with its pixel region, so it knows the crop's real size.
+
+Rendition and crop output sizes come from one shared function, `renditionDimensions(width, height, size)` in `contracts/src/media.ts`, which the decoder, the crop route and the frontend all use. It scales the long edge to the size, rounds the other edge, keeps both at least 1, and never upscales, so client and server cannot disagree. Observation images take their intrinsic size from the region, scaled by that function, not from the page.
 
 Usage profiles:
 
@@ -143,7 +145,7 @@ Several surfaces don't receive page data today, so their interfaces change too:
 
 These take an image-attributes object (`src`, `srcSet`, `sizes`, `width`, `height`) instead of a URL.
 
-Images get explicit `width` and `height` from the page dimensions, plus `loading="lazy"` and `decoding="async"`, except the viewer's current image. The crop dialog already maps selections through `page.width`/`page.height`, so showing the `view` rendition leaves recorded coordinates unchanged. A test pins this.
+Images get explicit `width` and `height`, from the page dimensions for page images and from `renditionDimensions()` of the region for observation images, plus `loading="lazy"` and `decoding="async"`, except the viewer's current image. The crop dialog already maps selections through `page.width`/`page.height`, so showing the `view` rendition leaves recorded coordinates unchanged. A test pins this.
 
 ## State, authority and failure behavior
 
@@ -158,9 +160,10 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 
 - **Identity.** A rendition is identified by (`preview_id`, `size`) and is immutable. Re-decoding never replaces an existing rendition.
 - **Authority.** The decoder role publishes renditions only for the command it holds. It still cannot edit drafts, links or attachment selections. The API role only reads them.
-- **Atomicity.** A normal decode commits previews and renditions together, so an interrupted or limited decode leaves neither. A backfill commits a version's complete rendition set or nothing.
+- **Atomicity.** A normal decode commits previews and renditions together, so an interrupted or limited decode leaves neither. A backfill commits each page's complete rendition set or nothing for that page, so an interrupted multi-page PDF shows renditions for its finished pages and falls back on the rest.
+- **Live updates.** Backfill publication appends the same `media_prepared` live event a decode appends, in the same transaction, so mounted pages refresh their rendition listings without polling.
 - **Collection.** Rendition blobs are protected by the new reference. Orphans from a rolled-back publication follow the existing collection rules.
-- **Compatibility.** The new contract fields are additive. Older clients ignore `renditions` and keep using full previews. Attachments, approval pins and agent evidence still reference versions and full previews.
+- **Compatibility.** The client validates responses against strict schemas (`additionalProperties: false`, `contracts/src/client-policy.ts`), so an older build would reject the new fields rather than ignore them. Because the frontend and API are one app built from the same contracts, PR-A regenerates the client contracts with the server change, so the served frontend and API always agree. A browser tab still open from before the upgrade reloads through Vite when the contract sources change; this is checked manually in task 3. Attachments, approval pins and agent evidence still reference versions and full previews.
 
 ## Verification strategy
 

@@ -124,7 +124,7 @@ An observation crop SHALL be requestable at the `thumb`, `card` or `view` size o
 
 ### Requirement: Media rendition backfill
 
-Ready versions decoded before renditions existed SHALL gain renditions rendered from their retained page previews, without changing those previews' identifiers, dimensions or bytes, without operator action and without blocking other decoding. Until a page has renditions, a requested size SHALL resolve to its full-resolution preview.
+Ready versions decoded before renditions existed SHALL gain renditions rendered from their retained page previews, without changing those previews' identifiers, dimensions or bytes, without operator action, delaying a new decode by at most one in-flight page backfill. Until a page has renditions, a requested size SHALL resolve to its full-resolution preview.
 
 #### Scenario: Retained version upgraded
 
