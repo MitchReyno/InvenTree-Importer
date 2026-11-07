@@ -1,6 +1,6 @@
 # Implementation notes
 
-The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), confinement [PR-A](https://github.com/MitchReyno/InvenTree-Importer/pull/133), correctable tool results [PR-B](https://github.com/MitchReyno/InvenTree-Importer/pull/134) and retained failure details [PR-C](https://github.com/MitchReyno/InvenTree-Importer/pull/137) are merged into interactive-app. PR-D records the authorized live qualification: Claude Haiku passed, Codex failed confinement, and `native-agent/2` keeps `native_unverified`.
+The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), confinement [PR-A](https://github.com/MitchReyno/InvenTree-Importer/pull/133), correctable tool results [PR-B](https://github.com/MitchReyno/InvenTree-Importer/pull/134) and retained failure details [PR-C](https://github.com/MitchReyno/InvenTree-Importer/pull/137) are merged into interactive-app. PR-D records the authorized live qualification: Claude Haiku passed every check except partial status cadence, Codex failed confinement, and `native-agent/2` keeps `native_unverified`.
 
 ## Changes to the plan
 
@@ -32,7 +32,7 @@ The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), co
 - **2026-11-07T18:43:41+11:00, task 5:** Debug data is constructed from typed application codes and bounded metadata. Raw exception text, stderr and stacks are excluded before persistence; unknown values remain unavailable. CLI versions are captured from the existing version and initialize responses, without an extra provider request.
 - **2026-11-07T19:11+11:00, task 5:** Worker shutdown and worker-restart recovery record `agent_worker_interrupted`; `agent_cancelled` is reserved for the attempt leaving `running` through Processing. Both use the Interrupted category.
 - **2026-11-07T20:05+11:00, task 5 review:** `agent_request_refused` covers any failed Codex RPC, so it is Provider/network rather than Tool policy; explicit policy and tool refusals keep their own codes. An unconfirmed reap now publishes a session change when its diagnostic is stored, so an open panel shows it while the slot stays held.
-- **2026-11-08T00:10+11:00, task 6:** Supported matrix, all on subscription logins: Claude Code 2.1.319 with `claude-haiku-5-5`, and Codex 0.166.0 with `gpt-6-luna`. Claude passed confinement, corrected proposals, new-evidence citations, status cadence, chat, resume and cancellation, and retained diagnostics for its refusals. Codex failed confinement and published no identity proposals, so per-lot checks were not reached for it. `native-agent/2` keeps `native_unverified`; one cheap model per provider qualifies no other model.
+- **2026-11-08T00:10+11:00, task 6:** Supported matrix, all on subscription logins: Claude Code 2.1.319 with `claude-haiku-5-5`, and Codex 0.166.0 with `gpt-6-luna`. Claude passed confinement, corrected proposals, new-evidence citations, chat, resume and cancellation, and retained diagnostics for its refusals; status cadence was partial (statuses at milestones, up to 48 s of silence in a turn), as in the previous qualification. Codex failed confinement and published no identity proposals, so per-lot checks were not reached for it. `native-agent/2` keeps `native_unverified`; one cheap model per provider qualifies no other model.
 
 ## Open items
 

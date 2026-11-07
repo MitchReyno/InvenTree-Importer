@@ -70,13 +70,13 @@ test('a question or status about the read chat handles it', () => {
             session_id: session,
             created_at: at(5),
             kind: 'status',
-            payload: { text: 'Checking the reel count against the 5000 in your message' },
+            payload: { text: "Checking the supplier's 5000-piece reel against the label" },
           },
         ],
         at(4),
       ),
     ),
-    { handled: true, by: 'status', matched: ['5000', 'reel'] },
+    { handled: true, by: 'status', matched: ['5000', 'piece', 'reel', 'supplier'] },
   )
 })
 
@@ -141,6 +141,25 @@ test('unrelated activity never counts as handling the chat', () => {
     { session_id: other, created_at: at(11), kind: 'question', payload: { question_id: question } },
   ]
   assert.deepEqual(chatHandled(trace(unrelated, at(4))), { handled: false })
+})
+
+test('a number alone does not show the chat was taken up', () => {
+  assert.deepEqual(
+    chatHandled(
+      trace(
+        [
+          {
+            session_id: session,
+            created_at: at(6),
+            kind: 'status',
+            payload: { text: 'Photo shows 500 pcs' },
+          },
+        ],
+        at(4),
+      ),
+    ),
+    { handled: 'unverified', by: 'status', matched: ['500'] },
+  )
 })
 
 test('without an observed read time, a question or status is unverified', () => {

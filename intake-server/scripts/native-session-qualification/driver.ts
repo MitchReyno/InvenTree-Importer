@@ -112,7 +112,13 @@ const running = (job: ProcessingJobDto) =>
 
 const leadObservations = (line?: SessionTimelineDto) =>
   line?.outbox.filter((item) => item.kind === 'observation').length ?? 0
-const chats: { batchId: string; jobId: string; id: string; text: string; sentAt: string }[] = []
+const chats: {
+  jobId: string
+  id: string
+  text: string
+  purpose: string
+  sentAt: string
+}[] = []
 async function chat(batchId: string, jobId: string, text: string, purpose: string) {
   const receipt = await processing.chat(
     batchId,
@@ -120,7 +126,7 @@ async function chat(batchId: string, jobId: string, text: string, purpose: strin
     { idempotency_key: randomUUID(), text },
     randomUUID(),
   )
-  chats.push({ batchId, jobId, id: receipt.item_id, text, sentAt: new Date().toISOString() })
+  chats.push({ jobId, id: receipt.item_id, text, purpose, sentAt: new Date().toISOString() })
   note('chat', { purpose, jobId })
 }
 
@@ -282,64 +288,66 @@ const questions = Object.fromEntries(
   ]),
 )
 // Provider transcripts for this batch only: Claude by session directory, Codex by conversation.
-const conversations = new Set<string>()
+const conversations = new Map<string, string>()
 let page: string | undefined
 do {
   const list = await agents.sessions(page)
   for (const session of list.sessions) {
     if (session.batch_id === batchId && session.native_session_id) {
-      conversations.add(session.native_session_id)
+      conversations.set(session.native_session_id, session.job_id)
     }
   }
   page = list.next_before ?? undefined
 } while (page)
 
 async function transcriptFiles() {
-  const files: string[] = []
+  const files: { path: string; jobId: string }[] = []
   const jobIds = final.jobs.map((job) => job.id)
-  const roots =
+  const root =
     provider === 'claude'
-      ? [join(homedir(), '.claude/projects')]
-      : [join(args.state!, 'agents/codex/sessions')]
-  const stack = [...roots]
+      ? join(homedir(), '.claude/projects')
+      : join(args.state!, 'agents/codex/sessions')
+  const stack = [{ dir: root, jobId: undefined as string | undefined }]
   while (stack.length) {
-    const dir = stack.pop()!
+    const { dir, jobId } = stack.pop()!
     for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) {
         // Claude keeps one project directory per session working directory, named by job.
-        if (
-          provider === 'codex' ||
-          jobIds.some((id) => entry.name.includes(id)) ||
-          dir !== roots[0]
-        ) {
-          stack.push(path)
+        const owner = jobId ?? jobIds.find((id) => entry.name.includes(id))
+        if (provider === 'codex' || owner) {
+          stack.push({ dir: path, jobId: owner })
         }
-      } else if (
-        entry.name.endsWith('.jsonl') &&
-        (provider === 'claude' || [...conversations].some((id) => entry.name.includes(id)))
-      ) {
-        files.push(path)
+      } else if (entry.name.endsWith('.jsonl')) {
+        const owner =
+          provider === 'claude'
+            ? jobId
+            : [...conversations].find(([id]) => entry.name.includes(id))?.[1]
+        if (owner) {
+          files.push({ path, jobId: owner })
+        }
       }
     }
   }
   return files
 }
 const files = await transcriptFiles()
-const entries: { at: number; line: string; value: Record<string, any> }[] = []
-for (const file of files) {
-  for (const line of (await readFile(file, 'utf8')).split('\n')) {
+const entries: { jobId: string; at: number; line: string; value: Record<string, any> }[] = []
+for (const { path, jobId } of files) {
+  for (const line of (await readFile(path, 'utf8')).split('\n')) {
     if (line) {
       const value = JSON.parse(line)
-      entries.push({ at: Date.parse(value.timestamp ?? ''), line, value })
+      entries.push({ jobId, at: Date.parse(value.timestamp ?? ''), line, value })
     }
   }
 }
+entries.sort((a, b) => a.at - b.at)
 /** The first transcript entry after sending that carries the chat: its read or delivery. */
 function readAt(sent: (typeof chats)[number]) {
   const at = entries
     .filter(
       (entry) =>
+        entry.jobId === sent.jobId &&
         entry.at >= Date.parse(sent.sentAt) &&
         (entry.line.includes(sent.id) || entry.line.includes(sent.text.slice(0, 48))),
     )
@@ -353,7 +361,7 @@ const chatResults = chats.map((sent) => {
   const sessionId = outbox[0]?.session_id ?? ''
   const read = readAt(sent)
   return {
-    purpose: log.find((entry) => entry.event === 'chat' && entry.jobId === sent.jobId)?.purpose,
+    purpose: sent.purpose,
     jobId: sent.jobId,
     read_at: read ?? 'not observed',
     ...chatHandled({
@@ -365,35 +373,55 @@ const chatResults = chats.map((sent) => {
   }
 })
 
-/** Outbox activity separated by more than two minutes is treated as separate turns. */
+/** A turn starts with a prompt (Claude) or task start (Codex) and ends with its last activity. */
+function turnsFor(jobId: string) {
+  const turns: { start: number; end: number }[] = []
+  let open = false
+  for (const { value, at } of entries.filter((entry) => entry.jobId === jobId)) {
+    if (Number.isNaN(at)) continue
+    const content = value.message?.content
+    const prompt =
+      provider === 'claude'
+        ? value.type === 'user' &&
+          (typeof content === 'string' ||
+            (Array.isArray(content) && content.every((block) => block?.type !== 'tool_result')))
+        : value.payload?.type === 'task_started'
+    // Queue bookkeeping before a resumed prompt is not activity; Codex closes turns explicitly.
+    const activity =
+      provider === 'claude'
+        ? ['assistant', 'user', 'api-request', 'attachment'].includes(value.type)
+        : open
+    if (prompt) {
+      turns.push({ start: at, end: at })
+      open = true
+    } else if (turns.length && activity) {
+      turns.at(-1)!.end = at
+    }
+    if (provider === 'codex' && value.payload?.type === 'task_complete') {
+      open = false
+    }
+  }
+  return turns
+}
 const cadence = Object.fromEntries(
   Object.entries(timelines).map(([jobId, line]) => {
-    const items = [...line.outbox].sort(
-      (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
-    )
-    const turns: (typeof items)[] = []
-    for (const item of items) {
-      const last = turns.at(-1)?.at(-1)
-      if (last && Date.parse(item.created_at) - Date.parse(last.created_at) <= 120_000) {
-        turns.at(-1)!.push(item)
-      } else {
-        turns.push([item])
-      }
+    const statuses = line.outbox
+      .filter((item) => item.kind === 'status')
+      .map((item) => Date.parse(item.created_at))
+    const turns = turnsFor(jobId)
+    if (!turns.length) {
+      return [jobId, 'no transcript turns']
     }
     return [
       jobId,
-      turns.map((turn) => {
-        const start = Date.parse(turn[0].created_at)
-        const end = Date.parse(turn.at(-1)!.created_at)
-        const statuses = turn
-          .filter((item) => item.kind === 'status')
-          .map((item) => Date.parse(item.created_at))
-        const marks = [start, ...statuses, end]
+      turns.map(({ start, end }) => {
+        const inside = statuses.filter((at) => at >= start && at <= end + 5000)
+        const marks = [start, ...inside, Math.max(end, inside.at(-1) ?? end)]
         const gaps = marks.slice(1).map((at, index) => Math.round((at - marks[index]) / 1000))
         return {
-          span_s: Math.round((end - start) / 1000),
-          statuses: statuses.length,
-          first_status_after_s: statuses.length ? Math.round((statuses[0] - start) / 1000) : null,
+          span_s: Math.round((marks.at(-1)! - start) / 1000),
+          statuses: inside.length,
+          first_status_after_s: inside.length ? Math.round((inside[0] - start) / 1000) : null,
           longest_silence_s: Math.max(0, ...gaps),
         }
       }),

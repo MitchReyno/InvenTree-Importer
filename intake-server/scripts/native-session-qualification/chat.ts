@@ -43,9 +43,9 @@ function itemText(item: Outbox, questions: QualificationTrace['questions']) {
 
 /**
  * A chat is handled by a reply naming it, or by a question or status from the same session,
- * after the chat was read, that takes up the chat's own content: a number from it, or two of its
- * words, that the session had not already used. Other activity never counts. Matched terms are
- * returned so a reviewer can confirm them.
+ * after the chat was read, that takes up two of the chat's words the session had not already used.
+ * A shared number or single word is only unverified. Other activity never counts. Matched terms
+ * are returned so a reviewer can confirm them.
  */
 export function chatHandled(trace: QualificationTrace): ChatOutcome {
   const sent = Date.parse(trace.chat.created_at)
@@ -59,6 +59,7 @@ export function chatHandled(trace: QualificationTrace): ChatOutcome {
       .flatMap((item) => [...terms(itemText(item, trace.questions))]),
   )
   const chatTerms = [...terms(trace.chat.text)].filter((word) => !earlier.has(word))
+  let unverified: ChatOutcome | undefined
   for (const item of own) {
     const at = Date.parse(item.created_at)
     if (at < sent) {
@@ -76,9 +77,14 @@ export function chatHandled(trace: QualificationTrace): ChatOutcome {
     }
     const said = terms(itemText(item, trace.questions))
     const matched = chatTerms.filter((word) => said.has(word)).sort()
-    if (matched.some((word) => /\d/.test(word)) || matched.length >= 2) {
+    const words = matched.filter((word) => !/\d/.test(word))
+    if (words.length >= 2) {
       return { handled: trace.readAt ? true : 'unverified', by: item.kind, matched }
     }
+    if (matched.length) {
+      // A number or one word may come from the evidence rather than the chat; a reviewer decides.
+      unverified ??= { handled: 'unverified', by: item.kind, matched }
+    }
   }
-  return { handled: false }
+  return unverified ?? { handled: false }
 }
