@@ -22,6 +22,7 @@ import {
 import { useDirtySources } from '../../operator/useDirtySources'
 import { ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
+import { Toast } from '../ui/Toast'
 import { Button } from '../ui/Button'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
@@ -115,6 +116,7 @@ export function ManualWorkspace({
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
   const [busy, setBusy] = useState('')
+  const [confirmation, setConfirmation] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   async function refresh() {
@@ -232,6 +234,8 @@ export function ManualWorkspace({
         { expected_batch_revision: batch.revision, selected_lot_ids: ids },
         crypto.randomUUID(),
       )
+      // No command un-reviews a lot, so the confirmation offers no Undo.
+      setConfirmation(`Marked ${ids.length} lot${ids.length === 1 ? '' : 's'} reviewed`)
     })
   }
 
@@ -372,6 +376,9 @@ export function ManualWorkspace({
   }
   return (
     <>
+      {confirmation && (
+        <Toast key={confirmation} message={confirmation} onDismiss={() => setConfirmation(null)} />
+      )}
       {stage === 'review' ? (
         // Review's tabs already name the page; the heading stays for screen readers.
         <VisuallyHidden as="div">

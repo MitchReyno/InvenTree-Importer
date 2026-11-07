@@ -360,7 +360,7 @@ test('a shared Part choice confirms every affected lot before saving', async () 
     'Shared with 1 other lot: Packet B',
   )
   await user.click(screen.getByRole('button', { name: 'Compare matches' }))
-  await user.click(screen.getByRole('button', { name: 'Use #31' }))
+  await user.click(screen.getByRole('radio', { name: /^#31/ }))
   const confirm = screen.getByRole('alertdialog', { name: 'Confirm shared Part choice' })
   expect(confirm).toHaveTextContent('This shared choice affects 2 lots: Packet A, Packet B.')
   expect(edit).not.toHaveBeenCalled()
@@ -482,6 +482,7 @@ test.each([new TypeError('connection reset'), new IntakeRequestError(500, 'inter
     expect(apply.mock.calls[2][1]).toEqual(apply.mock.calls[1][1])
     expect(apply.mock.calls[2][2]).toBe(apply.mock.calls[1][2])
     await waitFor(() => expect(reload).toHaveBeenCalled())
+    expect(await screen.findByText('Applied to 2 lots')).toBeVisible()
   },
 )
 
@@ -783,7 +784,7 @@ test('an actual Batch revision conflict retains the compared shared Part choice'
     />,
   )
   await user.click(await screen.findByRole('button', { name: 'Compare matches' }))
-  await user.click(screen.getByRole('button', { name: 'Use #31' }))
+  await user.click(screen.getByRole('radio', { name: /^#31/ }))
   await user.click(screen.getByRole('button', { name: 'Use #31 for 2 lots' }))
   await screen.findByText(/Another client saved first/)
   expect(screen.getByRole('dialog', { name: 'Compare matches · Shared resistor' })).toBeVisible()

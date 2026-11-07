@@ -373,6 +373,7 @@ test('manual review and approval keep exact A-only scope, scalar text and server
     { expected_batch_revision: '9007199254740993', selected_lot_ids: [a] },
     expect.any(String),
   )
+  expect(await screen.findByText('Marked 1 lot reviewed')).toBeVisible()
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Prepare exact selected effects' })).toBeEnabled(),
   )

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { OptionRow } from '../ui/OptionRow'
 import { Dialog } from '../ui/Dialog'
 import { localTime } from '../ui/RelativeTime'
 
@@ -154,26 +155,35 @@ export function CompareMatches({
                   )
                 })}
               </tr>
-              <tr>
-                <th scope="row">Choice</th>
-                <td>{current ? `Currently #${current}` : 'Not chosen'}</td>
-                {candidates.map((candidate) => (
-                  <td key={candidate.id}>
-                    <Button
-                      disabled={disabled || saving || candidate.pk === current}
-                      onClick={() => {
-                        setPending(candidate)
-                        onDirtyChange?.(true)
-                      }}
-                    >
-                      Use #{candidate.pk}
-                    </Button>
-                  </td>
-                ))}
-              </tr>
             </tbody>
           </Table>
         </Scroll>
+      )}
+      {candidates.length > 0 && (
+        <ChoiceSet disabled={disabled || saving}>
+          <legend>Use a candidate for this shared Part</legend>
+          <OptionRow
+            name={`match-${part.id}`}
+            options={candidates
+              .filter((candidate) => candidate.pk !== current)
+              .map((candidate) => ({
+                id: candidate.id,
+                title: `#${candidate.pk}`,
+                detail: candidate.label,
+              }))}
+            escape={{
+              id: KEEP,
+              title: 'Keep the current choice',
+              detail: current ? `#${current}` : 'Not chosen',
+            }}
+            value={pending?.id ?? KEEP}
+            onChange={(id) => {
+              const candidate = candidates.find((value) => value.id === id) ?? null
+              setPending(candidate)
+              onDirtyChange?.(candidate !== null)
+            }}
+          />
+        </ChoiceSet>
       )}
       {pending && (
         <Confirm role="alertdialog" aria-label="Confirm shared Part choice">
@@ -206,6 +216,17 @@ export function CompareMatches({
   )
 }
 
+const KEEP = 'keep'
+
+const ChoiceSet = styled.fieldset`
+  margin: ${space[6]} 0 0;
+  padding: 0;
+  border: 0;
+  legend {
+    margin-bottom: ${space[3]};
+    font-weight: ${typeVar.bodyStrong.weight};
+  }
+`
 const Scroll = styled.div`
   overflow-x: auto;
   max-width: 100%;

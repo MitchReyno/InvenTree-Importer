@@ -19,6 +19,7 @@ import {
 } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
+import { Toast } from '../ui/Toast'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 
@@ -100,6 +101,7 @@ export function BulkEditPanel({
   const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
+  const [confirmation, setConfirmation] = useState<string | null>(null)
   const apply = useRetainedCommand(
     (input: { lotIds: string[]; change: BulkChange; revision: string }, key: string) =>
       client.bulkEdit(
@@ -163,15 +165,20 @@ export function BulkEditPanel({
     }
   }
 
-  async function finish(result: unknown) {
+  async function finish(result: unknown, count: number) {
     if (result) {
       onDirtyChange?.(false)
+      // An applied bulk edit has no inverse command, so the confirmation offers no Undo.
+      setConfirmation(`Applied to ${count} lot${count === 1 ? '' : 's'}`)
       await reload()
     }
   }
 
   return (
     <Panel aria-label="Bulk edit selected lots">
+      {confirmation && (
+        <Toast key={confirmation} message={confirmation} onDismiss={() => setConfirmation(null)} />
+      )}
       <Paragraph>
         <strong>{selectedIds.length} selected</strong> · bulk edits apply to every selected lot or
         to none.
@@ -247,7 +254,12 @@ export function BulkEditPanel({
           {apply.message && <ErrorNotice role="alert">{apply.message}</ErrorNotice>}
           {apply.pending ? (
             <span>
-              <Button disabled={apply.busy} onClick={() => void apply.retry().then(finish)}>
+              <Button
+                disabled={apply.busy}
+                onClick={() =>
+                  void apply.retry().then((result) => finish(result, preview.lotIds.length))
+                }
+              >
                 Retry exact bulk edit
               </Button>{' '}
               <Button disabled={apply.busy} onClick={apply.discard}>
@@ -264,7 +276,7 @@ export function BulkEditPanel({
                     change: preview.change,
                     revision: preview.revision,
                   })
-                  .then(finish)
+                  .then((result) => finish(result, preview.lotIds.length))
               }
             >
               Apply to {preview.lotIds.length} lot{preview.lotIds.length === 1 ? '' : 's'}
