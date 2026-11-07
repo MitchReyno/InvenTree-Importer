@@ -6,6 +6,9 @@
 
 ## Running it
 
+The driver is TypeScript run with `tsx`, unlike the `.cjs` utilities the code guidelines prefer: it uses the typed contract clients, which validate every request and response but cannot load under Node's strip-only type support.
+
+
 Start an isolated app from this checkout on a free port, with its own state directory, so another running app is not disturbed:
 
 ```sh
