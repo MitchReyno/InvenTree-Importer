@@ -224,6 +224,12 @@ if (finished) {
 
 // 7. Diagnostics: an unknown model fails at the provider; read its retained details.
 let diagnostic: unknown
+const cancelledJob = cancelled
+  ? (await read(batchId)).jobs.find((item) => item.id === cancelled)
+  : undefined
+const cancellation = cancelledJob
+  ? { state: cancelledJob.state, session_state: cancelledJob.session_state }
+  : 'not reached'
 if (cancelled) {
   await settle({ model: `${args.model}-not-a-model` })
   const job = (await read(batchId)).jobs.find((item) => item.id === cancelled)!
@@ -275,26 +281,123 @@ const questions = Object.fromEntries(
     },
   ]),
 )
+// Provider transcripts for this batch only: Claude by session directory, Codex by conversation.
+const conversations = new Set<string>()
+let page: string | undefined
+do {
+  const list = await agents.sessions(page)
+  for (const session of list.sessions) {
+    if (session.batch_id === batchId && session.native_session_id) {
+      conversations.add(session.native_session_id)
+    }
+  }
+  page = list.next_before ?? undefined
+} while (page)
+
+async function transcriptFiles() {
+  const files: string[] = []
+  const jobIds = final.jobs.map((job) => job.id)
+  const roots =
+    provider === 'claude'
+      ? [join(homedir(), '.claude/projects')]
+      : [join(args.state!, 'agents/codex/sessions')]
+  const stack = [...roots]
+  while (stack.length) {
+    const dir = stack.pop()!
+    for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        // Claude keeps one project directory per session working directory, named by job.
+        if (
+          provider === 'codex' ||
+          jobIds.some((id) => entry.name.includes(id)) ||
+          dir !== roots[0]
+        ) {
+          stack.push(path)
+        }
+      } else if (
+        entry.name.endsWith('.jsonl') &&
+        (provider === 'claude' || [...conversations].some((id) => entry.name.includes(id)))
+      ) {
+        files.push(path)
+      }
+    }
+  }
+  return files
+}
+const files = await transcriptFiles()
+const entries: { at: number; line: string; value: Record<string, any> }[] = []
+for (const file of files) {
+  for (const line of (await readFile(file, 'utf8')).split('\n')) {
+    if (line) {
+      const value = JSON.parse(line)
+      entries.push({ at: Date.parse(value.timestamp ?? ''), line, value })
+    }
+  }
+}
+/** The first transcript entry after sending that carries the chat: its read or delivery. */
+function readAt(sent: (typeof chats)[number]) {
+  const at = entries
+    .filter(
+      (entry) =>
+        entry.at >= Date.parse(sent.sentAt) &&
+        (entry.line.includes(sent.id) || entry.line.includes(sent.text.slice(0, 48))),
+    )
+    .map((entry) => entry.at)
+    .sort((a, b) => a - b)[0]
+  return at === undefined ? undefined : new Date(at).toISOString()
+}
+
 const chatResults = chats.map((sent) => {
   const outbox = timelines[sent.jobId]?.outbox ?? []
   const sessionId = outbox[0]?.session_id ?? ''
+  const read = readAt(sent)
   return {
     purpose: log.find((entry) => entry.event === 'chat' && entry.jobId === sent.jobId)?.purpose,
     jobId: sent.jobId,
+    read_at: read ?? 'not observed',
     ...chatHandled({
       chat: { id: sent.id, session_id: sessionId, created_at: sent.sentAt, text: sent.text },
+      readAt: read,
       outbox: outbox.filter((item) => item.session_id === sessionId),
       questions,
     }),
   }
 })
+
+/** Outbox activity separated by more than two minutes is treated as separate turns. */
 const cadence = Object.fromEntries(
   Object.entries(timelines).map(([jobId, line]) => {
-    const statuses = line.outbox
-      .filter((item) => item.kind === 'status')
-      .map((item) => Date.parse(item.created_at))
-    const gaps = statuses.slice(1).map((at, index) => Math.round((at - statuses[index]) / 1000))
-    return [jobId, { statuses: statuses.length, max_gap_s: Math.max(0, ...gaps) }]
+    const items = [...line.outbox].sort(
+      (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
+    )
+    const turns: (typeof items)[] = []
+    for (const item of items) {
+      const last = turns.at(-1)?.at(-1)
+      if (last && Date.parse(item.created_at) - Date.parse(last.created_at) <= 120_000) {
+        turns.at(-1)!.push(item)
+      } else {
+        turns.push([item])
+      }
+    }
+    return [
+      jobId,
+      turns.map((turn) => {
+        const start = Date.parse(turn[0].created_at)
+        const end = Date.parse(turn.at(-1)!.created_at)
+        const statuses = turn
+          .filter((item) => item.kind === 'status')
+          .map((item) => Date.parse(item.created_at))
+        const marks = [start, ...statuses, end]
+        const gaps = marks.slice(1).map((at, index) => Math.round((at - marks[index]) / 1000))
+        return {
+          span_s: Math.round((end - start) / 1000),
+          statuses: statuses.length,
+          first_status_after_s: statuses.length ? Math.round((statuses[0] - start) / 1000) : null,
+          longest_silence_s: Math.max(0, ...gaps),
+        }
+      }),
+    ]
   }),
 )
 const cited = reelBack
@@ -306,53 +409,24 @@ const resumeObservations = lead
   ? { before: observationsBefore, after: leadObservations(timelines[lead.id]) }
   : 'not reached'
 
-async function transcripts() {
-  const used = new Set<string>()
-  const offered = new Set<string>()
-  const jobIds = final.jobs.map((job) => job.id)
-  if (provider === 'claude') {
-    const root = join(homedir(), '.claude/projects')
-    for (const dir of await readdir(root)) {
-      if (!jobIds.some((id) => dir.includes(id))) continue
-      for (const file of await readdir(join(root, dir))) {
-        if (!file.endsWith('.jsonl')) continue
-        for (const line of (await readFile(join(root, dir, file), 'utf8')).split('\n')) {
-          if (!line) continue
-          const entry = JSON.parse(line)
-          for (const tool of entry.tools ?? []) offered.add(String(tool))
-          for (const block of entry.message?.content ?? []) {
-            if (block?.type === 'tool_use' || block?.type === 'server_tool_use')
-              used.add(block.name)
-          }
-        }
-      }
-    }
-  } else {
-    const root = join(args.state!, 'agents/codex/sessions')
-    const files: string[] = []
-    const stack = [root]
-    while (stack.length) {
-      const dir = stack.pop()!
-      for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
-        if (entry.isDirectory()) stack.push(join(dir, entry.name))
-        else if (entry.name.endsWith('.jsonl')) files.push(join(dir, entry.name))
-      }
-    }
-    for (const file of files) {
-      for (const line of (await readFile(file, 'utf8')).split('\n')) {
-        if (!line) continue
-        const entry = JSON.parse(line)
-        const payload = entry.payload ?? {}
-        if (payload.type === 'function_call' || payload.type === 'custom_tool_call') {
-          used.add(payload.namespace ? `${payload.namespace}.${payload.name}` : payload.name)
-        }
-        for (const tool of payload.tools ?? []) offered.add(String(tool.name ?? tool))
-      }
-    }
+const used = new Set<string>()
+const offered = new Set<string>()
+for (const { value } of entries) {
+  for (const block of value.message?.content ?? []) {
+    if (block?.type === 'tool_use' || block?.type === 'server_tool_use') used.add(block.name)
   }
-  return { used: [...used].sort(), offered: [...offered].sort() }
+  const payload = value.payload ?? {}
+  if (payload.type === 'function_call' || payload.type === 'custom_tool_call') {
+    used.add(payload.namespace ? `${payload.namespace}.${payload.name}` : payload.name)
+  }
+  for (const tool of payload.tools ?? []) offered.add(String(tool.name ?? tool))
 }
-const tools = await transcripts()
+// Claude transcripts do not keep the offered list; the adapter's init check enforces it.
+const tools = {
+  transcripts: files.length,
+  used: [...used].sort(),
+  offered: provider === 'codex' ? [...offered].sort() : 'not recorded',
+}
 
 const results = {
   provider,
@@ -375,7 +449,7 @@ const results = {
   cadence,
   citations: { reel_back_cited_by: cited, before_jobs: before.jobs.length },
   resume_observations: resumeObservations,
-  cancelled: cancelled ? final.jobs.find((job) => job.id === cancelled)?.state : 'not reached',
+  cancellation,
   diagnostic,
   failures,
   tools,

@@ -60,7 +60,7 @@ test('a question or status about the read chat handles it', () => {
         at(4),
       ),
     ),
-    { handled: true, by: 'question' },
+    { handled: true, by: 'question', matched: ['500', '5000', 'reel', 'says'] },
   )
   assert.deepEqual(
     chatHandled(
@@ -76,12 +76,26 @@ test('a question or status about the read chat handles it', () => {
         at(4),
       ),
     ),
-    { handled: true, by: 'status' },
+    { handled: true, by: 'status', matched: ['5000', 'reel'] },
   )
 })
 
 test('unrelated activity never counts as handling the chat', () => {
   const unrelated: QualificationTrace['outbox'] = [
+    // Before the chat existed: these words are the session's own, not the chat's.
+    {
+      session_id: session,
+      created_at: at(-8),
+      kind: 'status',
+      payload: { text: 'Reel close-up shows 500 pcs' },
+    },
+    // Same-component progress after reading, using only words the session already used.
+    {
+      session_id: session,
+      created_at: at(7),
+      kind: 'status',
+      payload: { text: 'Reel label still shows 500 pcs' },
+    },
     // Before the chat existed, even though it mentions the reel.
     {
       session_id: session,
@@ -129,7 +143,7 @@ test('unrelated activity never counts as handling the chat', () => {
   assert.deepEqual(chatHandled(trace(unrelated, at(4))), { handled: false })
 })
 
-test('without an observed read time, only output after sending can count', () => {
+test('without an observed read time, a question or status is unverified', () => {
   assert.deepEqual(
     chatHandled(
       trace([
@@ -154,6 +168,6 @@ test('without an observed read time, only output after sending can count', () =>
         },
       ]),
     ),
-    { handled: true, by: 'question' },
+    { handled: 'unverified', by: 'question', matched: ['500', '5000', 'reel', 'says'] },
   )
 })

@@ -2,7 +2,7 @@
 
 `driver.ts` runs one scripted operator flow per provider against an isolated development app and writes evidence outside the repository. It sends real provider requests on the operator's subscription, so run it only with explicit authorization for live provider use. It never starts an inventory stage or approves anything, and the development app uses the fake inventory target.
 
-`chat.ts` decides whether a chat was handled. A reply counts when it names the chat. A question or status counts only when the same session posts it after reading the chat and it shares a specific word or number with the chat. Observations, proposals and lots never count. `tests/qualification-chat.test.ts` covers both the missed-question case from the previous qualification and unrelated activity.
+`chat.ts` decides whether a chat was handled. A reply counts when it names the chat. A question or status counts only when the same session posts it after reading the chat and it takes up the chat's own content: a number from it, or two of its words, that the session had not used before the chat. Without an observed read time, such a match is reported as unverified. Matched terms are listed so a reviewer can confirm them. Observations, proposals and lots never count. `tests/qualification-chat.test.ts` covers both the missed-question case from the previous qualification and unrelated activity.
 
 ## Running it
 
@@ -31,4 +31,4 @@ Run providers one at a time, since agent settings are shared. For a dry run of t
 5. Chats with a finished per-lot session.
 6. Replaces the cancelled session under an unknown model name and reads the retained failure details.
 
-`<provider>-results.json` summarizes jobs, questions, chat outcomes, status counts and gaps, citations of the new photo, resume observations, cancellation, failure details and the tools named in provider transcripts (Claude project transcripts or Codex rollouts). Timelines and the event log sit beside it. Transcripts and rollouts can contain prompts and evidence text: review them, and attach only redacted summaries to the PR. Never commit evidence.
+`<provider>-results.json` summarizes jobs, questions, chat outcomes with the observed read time, status cadence per turn, citations of the new photo, resume observations, the cancellation outcome before replacement, failure details and the tools named in this batch's provider transcripts (Claude project transcripts, or Codex rollouts of this batch's conversations). Timelines and the event log sit beside it. Transcripts and rollouts can contain prompts and evidence text: review them, and attach only redacted summaries to the PR. Never commit evidence.
