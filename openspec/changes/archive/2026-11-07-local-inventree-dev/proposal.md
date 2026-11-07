@@ -14,7 +14,7 @@ The requested outcome:
 ## Change identity and linked items
 
 - Change name: `local-inventree-dev`. Branches and commit/PR subjects use it, for example `feat(local-inventree-dev): ...`.
-- Index item: [BI-009 — Local development InvenTree](../../../docs/PLANNED_FUNCTIONALITY.md#bi-009--local-development-inventree). The index owns its current status, priority, size and prerequisites.
+- Index item: [BI-009 — Local development InvenTree](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-009--local-development-inventree). The index owns its current status, priority, size and prerequisites.
 
 ## Current behavior and evidence
 

@@ -5,7 +5,7 @@
 - **Plan:** the [proposal](proposal.md) and [design assessment](design.md).
 - **Reuse:** adapt the upstream Compose stack, mount scripts into the pinned base image, and seed with the existing `invimport` sync commands. No new package dependency.
 - **Specs:** none. `.openspec.yaml` declares `skip_specs: true`; acceptance criteria AC1–AC8 live in the design.
-- **Change name:** `local-inventree-dev`, indexed as [BI-009](../../../docs/PLANNED_FUNCTIONALITY.md#bi-009--local-development-inventree).
+- **Change name:** `local-inventree-dev`, indexed as [BI-009](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-009--local-development-inventree).
 
 ## Completion and commit ordering
 

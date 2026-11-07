@@ -120,7 +120,7 @@ Developers have no real InvenTree to run Bench Intake or the importer against lo
 - Status: Done — merged in #105
 - Size: L — Compose stack and bootstrap, a database move, seeding, a new dev target profile and docs.
 - Prerequisites: Docker with Compose 2.24 or later, and the pinned `inventree/inventree` stable image, which is present locally. No BI item dependencies.
-- OpenSpec: [local-inventree-dev](../openspec/changes/local-inventree-dev/)
+- OpenSpec: [local-inventree-dev](../openspec/changes/archive/2026-11-07-local-inventree-dev/)
 
 ### Unassessed
 
