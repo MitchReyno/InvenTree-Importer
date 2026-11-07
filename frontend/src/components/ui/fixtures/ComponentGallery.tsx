@@ -35,6 +35,7 @@ import { SourceChip } from '../SourceChip'
 import { StatusTimeline } from '../StatusTimeline'
 import { StickyFooter } from '../StickyFooter'
 import { SubTabs, Tabs } from '../Tabs'
+import { TextField } from '../TextField'
 import { Toast } from '../Toast'
 import { Input, Label, Notice, Panel } from '../primitives'
 
@@ -457,6 +458,16 @@ export function ComponentGallery() {
         </Section>
 
         <Section title="Forms and existing controls">
+          <Row>
+            <TextField label="Supplier order or receipt number" defaultValue="3381-22" />
+            <TextField label="Quantity" placeholder="e.g. 500" error="Enter a whole number of parts." />
+            <TextField
+              label="Purchase order"
+              defaultValue="Created automatically"
+              help="Purchase orders aren't supported yet."
+              disabled
+            />
+          </Row>
           <Grid>
             <Label>
               Title

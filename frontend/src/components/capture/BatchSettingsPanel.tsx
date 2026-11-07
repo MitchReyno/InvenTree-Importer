@@ -15,7 +15,7 @@ import type { QueueState } from '../../capture/save-queue'
 import { useSaveQueue } from '../../capture/useSaveQueue'
 import { useCatalogue } from '../../catalogue/useCatalogue'
 import { AutosaveStatus, type AutosaveState } from '../ui/AutosaveStatus'
-import { OptionalNotesField } from '../ui/OptionalNotesField'
+import { NotesField } from '../ui/TextField'
 import { SharedTagsInput } from '../ui/SharedTagsInput'
 import {
   Fieldset,
@@ -466,7 +466,7 @@ export function BatchSettingsPanel({
             name="batchNote"
             control={control}
             render={({ field }) => (
-              <OptionalNotesField
+              <NotesField
                 toggleLabel="Add batch notes"
                 label="Batch notes"
                 value={field.value}

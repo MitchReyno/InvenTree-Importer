@@ -78,6 +78,12 @@ const control = css`
   &[aria-invalid='true'] {
     border-color: ${color.bad};
   }
+  &:disabled {
+    border-style: dashed;
+    background: ${color.surface2};
+    color: ${color.muted};
+    cursor: not-allowed;
+  }
   ${media.compact} {
     min-height: ${size.touch};
   }

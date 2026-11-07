@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { AutoValueField } from '../ui/AutoValueField'
-import { OptionalNotesField } from '../ui/OptionalNotesField'
+import { NotesField } from '../ui/TextField'
 import { Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
@@ -56,7 +56,7 @@ export function PurchaseOrderPreview({ order, orderNote }: Props) {
             onChange={noop}
             disabled
           />
-          <OptionalNotesField
+          <NotesField
             toggleLabel="Add order notes"
             label="Order notes"
             value={orderNote}
