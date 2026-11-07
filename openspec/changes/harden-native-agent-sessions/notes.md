@@ -1,6 +1,6 @@
 # Implementation notes
 
-The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), confinement [PR-A](https://github.com/MitchReyno/InvenTree-Importer/pull/133), correctable tool results [PR-B](https://github.com/MitchReyno/InvenTree-Importer/pull/134) and retained failure details [PR-C](https://github.com/MitchReyno/InvenTree-Importer/pull/137) are merged into interactive-app. PR-D records the authorized live qualification: Claude Haiku passed every check except partial status cadence, Codex failed confinement, and `native-agent/2` keeps `native_unverified`.
+The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), confinement [PR-A](https://github.com/MitchReyno/InvenTree-Importer/pull/133), correctable tool results [PR-B](https://github.com/MitchReyno/InvenTree-Importer/pull/134) and retained failure details [PR-C](https://github.com/MitchReyno/InvenTree-Importer/pull/137) and the live qualification [PR-D](https://github.com/MitchReyno/InvenTree-Importer/pull/141) are merged into interactive-app. PR-D recorded the authorized live qualification: Claude Haiku passed every check except partial status cadence, Codex failed confinement, and `native-agent/2` keeps `native_unverified`.
 
 ## Changes to the plan
 
