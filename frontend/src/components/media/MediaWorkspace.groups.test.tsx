@@ -535,3 +535,39 @@ test('opens a file’s note from its tile', async () => {
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeVisible()
   expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 0 lots')
 })
+
+test('confirms a move with a toast whose Undo moves the files back', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce({
+    ...initial,
+    revision: '2',
+    evidence: initial.evidence.map((item) =>
+      item.id === front ? { ...item, group_id: groupB } : item,
+    ),
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+
+  const toast = await screen.findByText('Moved 1 file to Packet B')
+  await user.click(within(toast.parentElement!).getByRole('button', { name: 'Undo' }))
+  await waitFor(() =>
+    expect(client.edit).toHaveBeenLastCalledWith(
+      batch.id,
+      expect.objectContaining({
+        change: { kind: 'move_many', evidence_ids: [front], group_id: groupA },
+      }),
+      expect.any(String),
+    ),
+  )
+})

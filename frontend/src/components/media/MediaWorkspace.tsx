@@ -5,6 +5,7 @@ import { color, radius, space, type } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Label, Paragraph, Select, Small } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
+import { Toast } from '../ui/Toast'
 import { Button } from '../ui/Button'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
@@ -59,6 +60,10 @@ export function MediaWorkspace({
   const upload = useRef<EvidenceUploadHandle>(null)
   const [newGroup, setNewGroup] = useState(false)
   const [destinationGroup, setDestinationGroup] = useState('')
+  const [moved, setMoved] = useState<{
+    message: string
+    undo?: { ids: string[]; groupId: string | null }
+  } | null>(null)
   const confirmation = useRef(state.confirmation)
   useEffect(() => {
     if (confirmation.current !== state.confirmation) {
@@ -76,6 +81,25 @@ export function MediaWorkspace({
   const frozen = disabled || command.busy || command.pending || !snapshot || state.unavailable
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
+
+  // A confirmed move is undoable when its files all came from one group.
+  async function moveEvidence(ids: string[], groupId: string | null) {
+    const origins = new Set(
+      snapshot?.evidence.filter((item) => ids.includes(item.id)).map((item) => item.group_id),
+    )
+    const result = await state.move(ids, groupId)
+    if (result === 'saved') {
+      const name = groupId
+        ? (snapshot?.groups.find((group) => group.id === groupId)?.label ?? 'a group')
+        : 'Ungrouped'
+      const [origin] = origins
+      setMoved({
+        message: `Moved ${plural(ids.length, 'file')} to ${name}`,
+        undo: origins.size === 1 ? { ids, groupId: origin ?? null } : undefined,
+      })
+    }
+    return result
+  }
 
   const retained = (
     <>
@@ -212,7 +236,7 @@ export function MediaWorkspace({
               </Label>
               <Button
                 disabled={blocked('selection')}
-                onClick={() => void state.move(state.selected, destinationGroup || null)}
+                onClick={() => void moveEvidence(state.selected, destinationGroup || null)}
               >
                 Move selected evidence
               </Button>
@@ -236,7 +260,7 @@ export function MediaWorkspace({
             disabled={frozen || drafts.hasOtherSources('selection', 'drag')}
             onDraggingChange={drafts.forSource('drag')}
             onMove={(id, groupId) =>
-              state.move(state.selected.includes(id) ? state.selected : [id], groupId)
+              moveEvidence(state.selected.includes(id) ? state.selected : [id], groupId)
             }
           >
             <Groups>
@@ -308,6 +332,23 @@ export function MediaWorkspace({
             setCrop(null)
           }}
           save={state.saveCrop}
+        />
+      )}
+      {moved && (
+        <Toast
+          key={moved.message}
+          message={moved.message}
+          action={
+            moved.undo && {
+              label: 'Undo',
+              onClick: () => {
+                const undo = moved.undo!
+                setMoved(null)
+                void state.move(undo.ids, undo.groupId)
+              },
+            }
+          }
+          onDismiss={() => setMoved(null)}
         />
       )}
     </Workspace>
