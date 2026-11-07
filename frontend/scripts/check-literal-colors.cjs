@@ -243,9 +243,15 @@ function literalsFor(family, property, value) {
 
 const DECLARATION_START = /^\s*[a-z-]+\s*:/
 
+// An interpolation line carries on a declaration still waiting for its value or its next comma
+// part; a bare interpolation line (a mixin) ends it.
+function continues(text, line) {
+  return /:\s*$|,\s*$/.test(text) || /[;,]\s*$/.test(line)
+}
+
 // Declarations across the whole text, so a value continued on the next line is still read. A
-// declaration starts on a `property:` line and ends at the next one, an interpolation-only line
-// or a ';', '{' or '}'.
+// declaration starts on a `property:` line and ends at the next one, a mixin line or a ';', '{'
+// or '}'.
 function declarations(text) {
   const result = []
   let current = null
@@ -269,7 +275,7 @@ function declarations(text) {
       if (DECLARATION_START.test(body)) {
         finish()
         current = { first: index, last: index, text: body }
-      } else if (/^\s*§/.test(body)) {
+      } else if (/^\s*§/.test(body) && !(current && continues(current.text, line))) {
         finish()
       } else if (current && body.trim()) {
         current.last = index

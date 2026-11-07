@@ -102,8 +102,11 @@ const Body = styled.div`
     width: calc(100vw - 2 * ${space[8]});
   }
   ${media.reducedMotion} {
-    animation: none;
-    transition: none;
+    &,
+    &[data-state='leaving'] {
+      animation: none;
+      transition: none;
+    }
   }
 `
 

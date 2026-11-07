@@ -7,7 +7,8 @@
 //   --out     also write each shot, and a diff image for each changed one, to <dir>
 //   --only    limit to fixture pages whose file name contains <name>
 // The baseline lives in frontend/.screenshots/baseline (gitignored). The script starts its own
-// Vite server. CHROME_PATH overrides the Chrome binary. Needs Node 22+ (WebSocket, zlib.crc32).
+// Vite server. It finds Chrome on PATH or in Applications; CHROME_PATH overrides it.
+// Needs Node 22+ (WebSocket, zlib.crc32).
 const { spawn } = require('node:child_process')
 const {
   existsSync,
@@ -19,14 +20,13 @@ const {
   writeFileSync,
 } = require('node:fs')
 const { createServer } = require('node:net')
-const { tmpdir } = require('node:os')
-const { join } = require('node:path')
+const { homedir, tmpdir } = require('node:os')
+const { delimiter, join } = require('node:path')
 const zlib = require('node:zlib')
 
 const FRONTEND = join(__dirname, '..')
 const FIXTURES = join(FRONTEND, 'tests', 'fixtures')
 const BASELINE = join(FRONTEND, '.screenshots', 'baseline')
-const DEFAULT_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const THEMES = ['light', 'dark']
 const WIDTHS = [1440, 390]
 const SETTLE_MS = 1200
@@ -222,8 +222,34 @@ function startVite(port) {
   return vite
 }
 
+const CHROME_NAMES = [
+  'google-chrome',
+  'google-chrome-stable',
+  'chromium',
+  'chromium-browser',
+  'chrome',
+]
+const MAC_CHROME = 'Google Chrome.app/Contents/MacOS/Google Chrome'
+
+// The first Chrome or Chromium on PATH, then the standard macOS application folders.
+function findChrome() {
+  const onPath = (process.env.PATH ?? '')
+    .split(delimiter)
+    .filter(Boolean)
+    .flatMap((directory) => CHROME_NAMES.map((name) => join(directory, name)))
+  const macApps =
+    process.platform === 'darwin'
+      ? [join('/Applications', MAC_CHROME), join(homedir(), 'Applications', MAC_CHROME)]
+      : []
+  const found = [...onPath, ...macApps].find((candidate) => existsSync(candidate))
+  if (!found) {
+    throw new Error('Chrome not found on PATH or in Applications; set CHROME_PATH.')
+  }
+  return found
+}
+
 function launchChrome(profile) {
-  const binary = process.env.CHROME_PATH || DEFAULT_CHROME
+  const binary = process.env.CHROME_PATH || findChrome()
   return spawn(
     binary,
     [

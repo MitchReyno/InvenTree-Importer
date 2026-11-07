@@ -218,11 +218,11 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
         &::after {
           content: '';
           position: absolute;
-          left: 0;
-          right: 0;
+          left: 50%;
           top: 50%;
+          width: max(100%, ${size.touch});
           height: ${size.touch};
-          transform: translateY(-50%);
+          transform: translate(-50%, -50%);
         }
       }
     `}

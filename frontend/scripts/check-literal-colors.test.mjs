@@ -86,12 +86,15 @@ describe('literal value check', () => {
       '  box-shadow:',
       '    0 0 0 2px red,',
       '    inset 0 0 0 2px red;',
+      '  margin:',
+      '    ${gap} 16px;',
       '`',
     ].join('\n')
 
     expect(values(source)).toEqual([
       '2 | padding | 16px | space-8',
       '4 | box-shadow | 2px | ring-width ring-offset',
+      '7 | margin | 16px | space-8',
     ])
   })
 
