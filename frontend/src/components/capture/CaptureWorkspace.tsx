@@ -9,6 +9,8 @@ import { EvidencePanel } from './EvidencePanel'
 import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '../../processing/proposed-lots'
 import { batchHref } from '../../navigation/batch-route'
+import { media as breakpoints } from '../ui/media'
+import { useMediaQuery } from '../ui/useMediaQuery'
 import { useSessionStatuses } from '../../processing/session-status'
 
 type DirtySource = 'settings' | 'media' | 'note'
@@ -90,6 +92,21 @@ export function CaptureWorkspace({
 
   const frozen = busy || batch.archived
 
+  // On a phone the glance follows the capture tiles and settings collapse, as on the canvas.
+  const phone = useMediaQuery(breakpoints.compact)
+  const glance = (
+    <ProposedLotsGlance
+      batchId={batch.id}
+      lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
+        ...lot,
+        status: statuses.lots.get(lot.id),
+      }))}
+      leadStatus={statuses.lead}
+      leadRunning={statuses.leadRunning}
+      limit={phone ? 3 : undefined}
+    />
+  )
+
   return (
     <>
       {batch.archived && (
@@ -109,16 +126,10 @@ export function CaptureWorkspace({
           onMediaDirtyChange={reportMedia}
           onNoteDirtyChange={reportNote}
           notesSlot={setNotesTarget}
+          afterActions={phone ? glance : undefined}
         />
         <SettingsColumn>
-          <ProposedLotsGlance
-            batchId={batch.id}
-            lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
-              ...lot,
-              status: statuses.lots.get(lot.id),
-            }))}
-            leadStatus={statuses.lead}
-          />
+          {!phone && glance}
           {refresh === 'failed' && (
             <Notice role="alert">
               Saved settings could not be refreshed after the evidence change, so settings stay
@@ -137,6 +148,7 @@ export function CaptureWorkspace({
             observe={observe}
             reload={reload}
             notesTarget={notesTarget}
+            collapsible={phone}
           />
           <NextStep>
             <Button

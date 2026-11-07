@@ -7,11 +7,13 @@ export const SESSION_STATUS_REFRESH_MS = 15_000
 export type SessionStatuses = {
   /** The Examine lead session's newest status line. */
   lead: string | undefined
+  /** The lead session is running, so lots are still being formed. */
+  leadRunning: boolean
   /** Each lot's newest line across its sessions, as "Step · line". */
   lots: ReadonlyMap<string, string>
 }
 
-const NONE: SessionStatuses = { lead: undefined, lots: new Map() }
+const NONE: SessionStatuses = { lead: undefined, leadRunning: false, lots: new Map() }
 
 /**
  * Session status lines for a batch, from the processing read, re-read whenever the capture
@@ -46,6 +48,7 @@ export function useSessionStatuses(
 
         setStatuses({
           lead: lead?.latest_status?.text,
+          leadRunning: lead?.session_state === 'running',
           lots: new Map(
             // Only live sessions' lines: a finished or ended session's last line is history.
             [...subjectStatuses(snapshot)].map(([lotId, status]) => [

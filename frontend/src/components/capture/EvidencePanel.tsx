@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { Paragraph, Summary } from '../ui/primitives'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import styled from 'styled-components'
@@ -23,6 +23,8 @@ type Props = {
   onNoteDirtyChange: (dirty: boolean) => void
   /** Receives the element where Batch settings draws the batch notes field. */
   notesSlot?: (element: HTMLElement | null) => void
+  /** Shown right after the capture actions, such as the phone's lots glance. */
+  afterActions?: ReactNode
 }
 
 /** Evidence actions, groups and batch notes; it no longer depends on a selected subject. */
@@ -37,6 +39,7 @@ export function EvidencePanel({
   onMediaDirtyChange,
   onNoteDirtyChange,
   notesSlot,
+  afterActions,
 }: Props) {
   const [writing, setWriting] = useState(false)
   // Notes and media each advance the revision; one owner's save must not remount the other's draft.
@@ -76,6 +79,7 @@ export function EvidencePanel({
           onDirtyChange={reportMedia}
           captureEdit={edit}
           headingId="evidence"
+          afterActions={afterActions}
         />
       )}
       {!media && (
@@ -88,6 +92,7 @@ export function EvidencePanel({
           unavailable
         />
       )}
+      {!media && afterActions}
       {!media && <EvidenceLabel id="evidence">Evidence</EvidenceLabel>}
       {writing && (
         <EvidenceNoteForm

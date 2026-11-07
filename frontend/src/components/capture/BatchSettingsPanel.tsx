@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,
@@ -11,7 +12,12 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '../../capture/types'
-import { settingsChange, settingsValues, type SettingsValues } from '../../capture/settings-model'
+import {
+  referenceLabel,
+  settingsChange,
+  settingsValues,
+  type SettingsValues,
+} from '../../capture/settings-model'
 import type { QueueState } from '../../capture/save-queue'
 import { useSaveQueue } from '../../capture/useSaveQueue'
 import { useCatalogue } from '../../catalogue/useCatalogue'
@@ -43,6 +49,8 @@ type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'
   paused?: boolean
   /** Where the batch notes field is drawn; Capture puts it in the evidence card. */
   notesTarget?: HTMLElement | null
+  /** On a phone the fields fold behind a summary; folded fields stay mounted, keeping drafts. */
+  collapsible?: boolean
   onDirty: (dirty: boolean) => void
 }
 
@@ -74,6 +82,7 @@ export function BatchSettingsPanel({
   ports,
   paused = false,
   notesTarget,
+  collapsible = false,
   operatorReview,
   observe,
   reload,
@@ -385,13 +394,29 @@ export function BatchSettingsPanel({
     }
   }
 
+  const [open, setOpen] = useState(false)
+  const summary = settingsSummary(batch, values)
   const titleInvalid = !values.title.trim()
   const settingsStatus = laneState(state, 'settings')
 
   return (
     <Settings role="region" aria-labelledby="batch-settings-title" data-area="settings">
       <Head>
-        <Heading id="batch-settings-title">Batch settings</Heading>
+        {collapsible ? (
+          <Heading id="batch-settings-title">
+            <Fold
+              type="button"
+              aria-expanded={open}
+              aria-controls="batch-settings-fields"
+              onClick={() => setOpen(!open)}
+            >
+              Batch settings
+              {summary.length > 0 && <Small as="span"> · {summary.join(' · ')}</Small>}
+            </Fold>
+          </Heading>
+        ) : (
+          <Heading id="batch-settings-title">Batch settings</Heading>
+        )}
         <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
       </Head>
       {!ports && (
@@ -440,6 +465,8 @@ export function BatchSettingsPanel({
         <Button onClick={discardUnsent}>Discard unsent settings edits</Button>
       )}
       <Form
+        id="batch-settings-fields"
+        hidden={collapsible && !open}
         onSubmit={(event) => event.preventDefault()}
         onBlur={flushAll}
         onCompositionStart={() => {
@@ -582,6 +609,34 @@ export function BatchSettingsPanel({
   )
 }
 
+/** The phone summary: the chosen supplier and default location, as their pickers name them. */
+function settingsSummary(batch: Snapshot, values: SettingsValues) {
+  const draftName = (id: string) => values.drafts.find((draft) => draft.draft_id === id)?.value.name
+
+  const parts: string[] = []
+  const supplier = values.intent.supplier
+  if (supplier.absent) {
+    parts.push('No supplier')
+  } else if (supplier.selection.mode === 'existing') {
+    parts.push(referenceLabel(batch, supplier.selection.reference.observation_id))
+  } else if (supplier.selection.mode === 'draft') {
+    const name = draftName(supplier.selection.draft_id)
+    if (name) {
+      parts.push(name)
+    }
+  }
+  const location = values.defaultLocation
+  if (location.mode === 'set') {
+    parts.push(referenceLabel(batch, location.value.observation_id))
+  } else if (location.mode === 'draft') {
+    const name = draftName(location.draft_id)
+    if (name) {
+      parts.push(name)
+    }
+  }
+  return parts
+}
+
 /** One line naming the lots whose location differs from the default; Review holds the detail. */
 function LocationOverrides({ batch }: { batch: Snapshot }) {
   const overrides = batch.lots.filter((lot) => !lot.retired && lot.location.mode !== 'inherit')
@@ -606,6 +661,26 @@ function LocationOverrides({ batch }: { batch: Snapshot }) {
   )
 }
 
+const Fold = styled.button`
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &::before {
+    content: '▸ ';
+  }
+  &[aria-expanded='true']::before {
+    content: '▾ ';
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
+`
+
 const Head = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -620,6 +695,9 @@ const Head = styled.div`
 const Settings = styled(Panel)`
   min-width: 0;
   margin-bottom: 0;
+  form[hidden] {
+    display: none;
+  }
 `
 const Instructions = styled.div`
   display: grid;

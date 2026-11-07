@@ -1,5 +1,5 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
@@ -31,6 +31,8 @@ interface Props {
   captureEdit?: CaptureWorkspaceProps['edit']
   /** Id for the "Evidence" heading, so the enclosing area can be named by it. */
   headingId?: string
+  /** Shown right after the capture actions. */
+  afterActions?: ReactNode
 }
 
 function plural(count: number, word: string) {
@@ -50,6 +52,7 @@ export function MediaWorkspace({
   reload,
   captureEdit,
   headingId,
+  afterActions,
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
@@ -113,6 +116,7 @@ export function MediaWorkspace({
           }
         }}
       />
+      {afterActions}
       <LabelRow>
         <EvidenceLabel id={headingId}>Evidence</EvidenceLabel>
         {snapshot && (

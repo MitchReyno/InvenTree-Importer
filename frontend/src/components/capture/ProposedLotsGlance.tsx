@@ -3,8 +3,9 @@ import { batchHref } from '../../navigation/batch-route'
 import type { ProposedLot, ProposedLotState } from '../../processing/proposed-lots'
 import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
-import { Spinner } from '../ui/Loading'
+import { Skeleton, Spinner } from '../ui/Loading'
 import { Count, Pill, type PillTone } from '../ui/Pill'
+import { linkTouchArea } from '../ui/primitives'
 
 const STATE: Record<ProposedLotState, { tone: PillTone; word: string }> = {
   approved: { tone: 'ok', word: 'Approved' },
@@ -37,16 +38,28 @@ export function ProposedLotsGlance({
   batchId,
   lots,
   leadStatus,
+  leadRunning = false,
+  limit,
 }: {
   batchId: string
   lots: ProposedLot[]
   leadStatus?: string
+  /** The lead session is still forming lots. */
+  leadRunning?: boolean
+  /** Shows only the first lots, with a link to all of them in Review. */
+  limit?: number
 }) {
+  const shown = limit === undefined ? lots : lots.slice(0, limit)
   return (
     <Glance aria-label={`Proposed lots, ${lots.length}`}>
       <Head>
         <Title>
           Proposed lots <Count value={lots.length} />
+          {leadRunning && (
+            <SortingPill>
+              <Pill status="running">Sorting</Pill>
+            </SortingPill>
+          )}
         </Title>
         {leadStatus && (
           <Lead role="status">
@@ -55,11 +68,11 @@ export function ProposedLotsGlance({
           </Lead>
         )}
       </Head>
-      {lots.length === 0 ? (
+      {lots.length === 0 && !leadRunning ? (
         <Empty>No lots yet. Processing proposes them from the evidence.</Empty>
       ) : (
         <List>
-          {lots.map((lot) => {
+          {shown.map((lot) => {
             const detail = meta(lot)
             return (
               <Row key={lot.id} aria-label={lot.label}>
@@ -87,7 +100,23 @@ export function ProposedLotsGlance({
               </Row>
             )
           })}
+          {leadRunning && (
+            <Row aria-hidden="true">
+              <Skeleton width="44px" height="34px" />
+              <Body>
+                <Skeleton width="70%" height="10px" />
+              </Body>
+              <Small>Finding…</Small>
+            </Row>
+          )}
         </List>
+      )}
+      {limit !== undefined && lots.length > limit && (
+        <More>
+          <a href={batchHref(batchId, { tab: 'review', view: 'lots' })}>
+            See all {lots.length} lots
+          </a>
+        </More>
       )}
       <Footer>
         <span>A glance only. Lots are edited in Review.</span>
@@ -118,6 +147,21 @@ const Title = styled.h2`
   gap: ${space[4]};
   margin: 0;
   ${type.h2}
+`
+
+const SortingPill = styled.span`
+  margin-left: auto;
+`
+
+const More = styled.p`
+  margin: 0;
+  padding: ${space[5]} ${space[8]};
+  border-top: 1px solid ${color.line};
+  ${type.small}
+  a {
+    color: ${color.accent};
+    ${linkTouchArea}
+  }
 `
 
 const Lead = styled.p`

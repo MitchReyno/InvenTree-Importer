@@ -114,3 +114,28 @@ it('shows no stray count for an AI lot without crops or suggestions', () => {
   )
   expect(screen.getByRole('listitem', { name: 'Document line lot' })).not.toHaveTextContent(/^.*0$/)
 })
+
+describe('ProposedLotsGlance while sorting and on a phone', () => {
+  const many = Array.from({ length: 5 }, (_, index) => ({
+    id: `m${index}`,
+    label: `Lot ${index + 1}`,
+    state: 'to_review' as const,
+    href: `#b/review/lots/m${index}`,
+  }))
+
+  it('shows Sorting and a Finding row while the lead session runs', () => {
+    render(<ProposedLotsGlance batchId="b" lots={many} leadStatus="Grouping" leadRunning />)
+    const glance = screen.getByRole('region', { name: 'Proposed lots, 5' })
+    expect(within(glance).getByText('Sorting')).toBeInTheDocument()
+    expect(within(glance).getByText('Finding…')).toBeInTheDocument()
+  })
+
+  it('shows the first rows and links to all lots when limited', () => {
+    render(<ProposedLotsGlance batchId="b" lots={many} limit={3} />)
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByRole('link', { name: 'See all 5 lots' })).toHaveAttribute(
+      'href',
+      '#b/review/lots',
+    )
+  })
+})

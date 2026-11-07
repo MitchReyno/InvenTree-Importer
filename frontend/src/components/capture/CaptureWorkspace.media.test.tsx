@@ -403,3 +403,39 @@ test('batch notes sit in the evidence card', async () => {
   const evidence = await screen.findByRole('region', { name: 'Evidence' })
   expect(within(evidence).getByRole('textbox', { name: 'Notes for the whole batch' })).toBeVisible()
 })
+
+test('at phone width the glance follows the capture tiles and settings collapse to a summary', async () => {
+  const user = userEvent.setup()
+  // jsdom has no matchMedia; this one reports every width query as matching.
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        matches: query.includes('max-width'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  const evidence = await screen.findByRole('region', { name: 'Evidence' })
+  const glance = within(evidence).getByRole('region', { name: /Proposed lots/ })
+  const tiles = within(evidence).getByRole('button', { name: 'Take photos' })
+  expect(tiles.compareDocumentPosition(glance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.getAllByRole('region', { name: /Proposed lots/ })).toHaveLength(1)
+
+  const toggle = screen.getByRole('button', { name: /^Batch settings/ })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.getByLabelText('Batch title')).not.toBeVisible()
+  await user.click(toggle)
+  expect(screen.getByLabelText('Batch title')).toBeVisible()
+  delete (window as { matchMedia?: unknown }).matchMedia
+})
