@@ -19,7 +19,7 @@ backend/       uv-managed Python package, config, scripts and tests
 frontend/      React + TypeScript + Vite application and component tests
 intake-server/ Fastify + PostgreSQL foundation, no product executor
 contracts/     runtime schemas and generated OpenAPI/DTO/client
-docs/          operator/design documents and evidence
+docs/          operator and design documents
 .agents/       mirrored project skills
 .claude/       mirrored skills and Claude agents
 .codex/        corresponding Codex agents

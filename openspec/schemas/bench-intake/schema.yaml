@@ -203,8 +203,8 @@ artifacts:
       Keep each entry to a few sentences, dated and tied to its task or PR. Do not
       log review rounds, test output, command transcripts or CI results; put
       verification in the PR description and attach evidence there, never as
-      committed files (CODE_GUIDELINES.md, "Evidence goes on the PR"). A review finding belongs here only when
-      it changed the design or the plan. Write plain facts, not a narrative of the
+      committed files (CODE_GUIDELINES.md, "Evidence goes on the PR"). A review
+      finding belongs here only when it changed the design or the plan. Write plain facts, not a narrative of the
       session. Keep the file short: aim for well under 150 lines for a large change.
     requires:
       - tasks

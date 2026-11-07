@@ -111,7 +111,7 @@ Keep shared architecture/guidance at root and application contracts in their own
 
 ### Evidence goes on the PR
 
-Do not commit evidence: screenshots, browser or video captures, recorded command, probe or benchmark output, and review receipts. Attach it to the PR description instead, with the `github-pr-tools` `--attach` option for images and video and fenced blocks for trimmed text output. When there are three or more items, put them in one collapsible section:
+Do not commit evidence: screenshots, browser or video captures, recorded command, probe or benchmark output, and review receipts. Attach it to the PR description instead: upload images and video through GitHub's attachment upload (for example `github-pr-tools` `--attach`), and use fenced blocks for trimmed text output. When there are three or more items, put them in one collapsible section:
 
 ```html
 <details>
