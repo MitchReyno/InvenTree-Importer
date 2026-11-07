@@ -204,9 +204,21 @@ The frontend SHALL request the smallest suitable rendition for each image surfac
 
 #### Scenario: Thumbnail surfaces
 
-- **GIVEN** a batch with decoded photos and observations
+- **GIVEN** a batch with decoded 4032 × 3024 photos and observations of roughly square regions, shown on a 1× screen
 - **WHEN** the batch list, observation thumbnails or proposed-lot crops are shown
 - **THEN** they load `thumb` renditions or `thumb` crops, not full-resolution pages.
+
+#### Scenario: Narrow region on a high-density screen
+
+- **GIVEN** an observation of an 1800 × 200 region shown in a 64 px square thumbnail at a device pixel ratio of 3
+- **WHEN** the thumbnail renders
+- **THEN** it loads the `view` crop, because the cover-fitted image needs about 1728 pixels of width, and not the full-resolution crop.
+
+#### Scenario: Small source thumbnail
+
+- **GIVEN** a 200 × 150 observation region, or a page no larger than the `thumb` size
+- **WHEN** its thumbnail renders
+- **THEN** it loads the unscaled image, which is no larger than a `thumb` would be.
 
 #### Scenario: Evidence cards
 

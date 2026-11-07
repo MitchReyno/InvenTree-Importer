@@ -114,7 +114,7 @@ How attempts are claimed and published:
 - **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
 - **Priority.** The worker claims a backfill only when no decode command is waiting, and does one page per claim. The worker runs commands one at a time, so an upload arriving during a backfill waits for at most that one in-flight page, which the decoder's 25 s bound limits, and is decoded before any further backfill.
 - **Abandoned claims.** A `claimed` row older than the decoder's outer watchdog plus a grace period (for example 2 minutes) was left by a killed worker. The next worker marks it `interrupted` before claiming, and it becomes eligible again within the three-attempt cap.
-- **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. Only a positively identified mismatch inserts nothing and marks the attempt `skipped_mismatch` (logged): a digest or dimension mismatch, or bytes the decoder rejects as an invalid PNG. A blob-store read or I/O failure, or any infrastructure failure, marks the attempt `interrupted` with its backoff instead, so a temporary outage never disables a page's backfill. Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
+- **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. Only a positively identified mismatch inserts nothing and marks the attempt `skipped_mismatch` (logged): `BlobStore.read()` throwing its typed `blob_corrupt` digest failure (`blob-store.ts`), a dimension mismatch, or bytes the decoder rejects as an invalid PNG. A blob-store read or I/O failure, or any infrastructure failure, marks the attempt `interrupted` with its backoff instead, so a temporary outage never disables a page's backfill. Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
 - **Roles.** The worker role gets `SELECT`, `INSERT` and `UPDATE` on this table only: eligibility reads earlier attempts, claiming uses `RETURNING`, and publication re-reads and locks the attempt. Snapshot reads never touch it.
 
 Rejected: rendering from the page PNG in the API or a migration. That would decode image bytes outside the bounded container, and keeping every decode inside the container keeps the boundary simple to audit.
@@ -132,7 +132,7 @@ Usage profiles:
 
 | Usage | Surfaces | `sizes` / sizes offered |
 | --- | --- | --- |
-| `thumbnail` | `BatchThumbnail`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, card and view; `sizes` is the cover-fitted width (below) |
+| `thumbnail` | `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, card and view; `sizes` is the cover-fitted width (below) |
 | `card` | `MediaEvidenceCard`, `EvidenceFileTile`, crop output check | thumb and card, with `sizes` from the card width |
 | `viewer` | `EvidenceViewer`, `MediaCropDialog` selection | thumb, card and view; the viewer replaces `src` and `srcSet` with the full page once zoom × displayed width exceeds the view width |
 | `full` | `ProcessingImages` open link | full page (the original download link keeps using the version route) |
@@ -151,14 +151,14 @@ The viewer starts with its usage candidates. It promotes to full when `zoom × r
 
 Several surfaces don't receive page data today, so their interfaces change too:
 
-- `BatchThumbnail` gets only `{ preview_id, label }` from the inbox workflow read model. It requests `size=thumb` as a plain `src` inside its fixed CSS box, so that contract doesn't change;
+- `BatchThumbnail` gets only `{ preview_id, label }` from the inbox workflow read model. It is exempt from the shared helper: it requests `size=thumb` as a plain `src`, with no `srcSet` or intrinsic dimensions, inside its fixed CSS box, so that contract doesn't change;
 - `EvidenceFileTile` passes a single URL to `EvidenceTile`;
 - `RotatedCropSelection` takes a single `source` string;
 - `proposed-lots.ts` produces `crops?: string[]` for the images in `ProposedLotsGlance`.
 
 These take an image-attributes object (`src`, `srcSet`, `sizes`, `width`, `height`) instead of a URL.
 
-Images get explicit `width` and `height`, from the page dimensions for page images and from `renditionDimensions()` of the region for observation images, plus `loading="lazy"` and `decoding="async"`, except the viewer's current image. The crop dialog already maps selections through `page.width`/`page.height`, so showing the `view` rendition leaves recorded coordinates unchanged. A test pins this.
+Images other than the exempt `BatchThumbnail` get explicit `width` and `height`, from the page dimensions for page images and from `renditionDimensions()` of the region for observation images, plus `loading="lazy"` and `decoding="async"`, except the viewer's current image. The crop dialog already maps selections through `page.width`/`page.height`, so showing the `view` rendition leaves recorded coordinates unchanged. A test pins this.
 
 ## State, authority and failure behavior
 
