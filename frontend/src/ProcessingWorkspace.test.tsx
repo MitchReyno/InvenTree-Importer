@@ -486,6 +486,8 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
     await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
   )
   const drawer = screen.getByRole('dialog', { name: 'Examine · Packet A' })
+  // Docked on the right, as on the canvas, rather than centred.
+  expect(drawer).toHaveAttribute('data-placement', 'side')
 
   await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
   expect(

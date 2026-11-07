@@ -145,6 +145,11 @@ describe('ProcessingOverview', () => {
     expect(within(sessions).getByText('Checking the datasheet')).toBeInTheDocument()
     expect(within(sessions).getAllByRole('listitem')[1]).not.toHaveTextContent('Checking')
     expect(within(sessions).getByText('Waiting for you')).toBeInTheDocument()
+    // Running work takes the accent colour, as everywhere else.
+    expect(within(sessions).getByText('Running').closest('[data-tone]')).toHaveAttribute(
+      'data-tone',
+      'acc',
+    )
     await userEvent.click(
       within(sessions).getByRole('button', { name: 'Open session: Research · Packet B' }),
     )

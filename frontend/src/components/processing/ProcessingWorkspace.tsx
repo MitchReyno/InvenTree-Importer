@@ -12,7 +12,8 @@ import type {
   ProcessingStartDto,
 } from '@invimport/contracts'
 import type { ProcessingClient, ProcessingView } from '../../processing/types'
-import { ErrorNotice, Heading, Notice, Paragraph, Panel, Small, Summary } from '../ui/primitives'
+import { Heading, Panel, Small, Summary } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import type { MediaClient } from '../../media/types'
 import { ProcessingImages } from './ProcessingImages'
@@ -23,8 +24,8 @@ import { ProcessingOverview } from './ProcessingOverview'
 import { StepPage } from './StepPage'
 import { ExamineView } from './ExamineView'
 import { InstructionField } from './InstructionField'
-import { STEP_LABEL } from './ProcessingParts'
-import { Modal } from '../operator/Modal'
+import { Muted, STEP_LABEL } from './ProcessingParts'
+import { Dialog } from '../ui/Dialog'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
@@ -383,36 +384,48 @@ export function ProcessingWorkspace({
   return (
     <Workspace>
       {batch.archived && (
-        <Notice role="status">
-          Processing is read-only while this batch is archived. Resume it in the batch header to
-          make changes.
-        </Notice>
+        <div role="status">
+          <Banner tone="plain">
+            Processing is read-only while this batch is archived. Resume it in the batch header to
+            make changes.
+          </Banner>
+        </div>
       )}
       {unconfigured && (
-        <Notice role="status">
-          Processing setup required. The operator must configure a persistent private runner channel
-          before work can start.
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            Processing setup required. The operator must configure a persistent private runner
+            channel before work can start.
+          </Banner>
+        </div>
       )}
-      <Notice>
+      <Banner tone="info">
         {snapshot?.runner_status === 'native_unverified'
           ? 'Native agent profile · requires a saved default and supervised worker. Live provider access has not been qualified.'
           : 'Synthetic processing fixture · actual provider support is not qualified.'}{' '}
         Closing this browser does not cancel saved work.
-      </Notice>
+      </Banner>
       {offline && (
-        <ErrorNotice role="alert">
-          Processing status unavailable. The last snapshot is shown; commands are disabled.
-        </ErrorNotice>
+        <div role="alert">
+          <Banner tone="bad">
+            Processing status unavailable. The last snapshot is shown; commands are disabled.
+          </Banner>
+        </div>
       )}
-      {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+      {error && (
+        <div role="alert">
+          <Banner tone="bad">{error}</Banner>
+        </div>
+      )}
       {waitingForRead && snapshot && !offline && (
-        <Notice role="status">
-          Verifying current processing state. Cached results cannot authorize commands.
-        </Notice>
+        <div role="status">
+          <Banner tone="plain">
+            Verifying current processing state. Cached results cannot authorize commands.
+          </Banner>
+        </div>
       )}
       {!snapshot || !source ? (
-        <Paragraph role="status">Reading retained processing state…</Paragraph>
+        <Muted role="status">Reading retained processing state…</Muted>
       ) : (
         <>
           {view !== 'overview' && (
@@ -450,11 +463,11 @@ export function ProcessingWorkspace({
             </>
           ) : (
             questionId && (
-              <Notice>
+              <Banner tone="warn">
                 {waitingForRead || offline
                   ? 'The selected question cannot be opened until current state is available.'
                   : 'The pinned question is unavailable. Choose a current question explicitly.'}
-              </Notice>
+              </Banner>
             )
           )}
           {view === 'overview' ? (
@@ -508,7 +521,8 @@ export function ProcessingWorkspace({
             </StepPage>
           )}
           {sessionJob && client.session && client.chat && (
-            <Modal
+            <Dialog
+              placement="side"
               title={`${STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} · ${subjectLabel(sessionJob.subject_id)}`}
               onClose={() => setSessionJobId(null)}
             >
@@ -542,7 +556,7 @@ export function ProcessingWorkspace({
                 startFresh={() => restart(sessionJob)}
                 freshDisabled={runnerDisabled || !client.replaceSession}
               />
-            </Modal>
+            </Dialog>
           )}
         </>
       )}
@@ -562,11 +576,6 @@ const Workspace = styled.section`
   display: grid;
   gap: ${space[6]};
   min-width: 0;
-  > ${Notice} {
-    margin: 0;
-    padding: ${space[5]} ${space[6]};
-    font-size: 13px;
-  }
   > ${Panel} {
     margin-bottom: 0;
   }

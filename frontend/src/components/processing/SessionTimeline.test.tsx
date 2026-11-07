@@ -215,3 +215,12 @@ test('offers explicit replacement for an incompatible conversation without losin
   expect(send).not.toHaveBeenCalled()
   expect(screen.getByRole('textbox', { name: 'Message this session' })).toHaveValue('Keep my draft')
 })
+
+test('says plainly when a session has posted nothing yet, without an empty Steps heading', () => {
+  render(<SessionTimeline timeline={{ ...timeline, outbox: [], inbox: [] }} />)
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'No status yet. The agent’s steps appear here as it works.',
+  )
+  expect(screen.queryByRole('heading', { name: 'Steps' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('list', { name: 'Session steps' })).not.toBeInTheDocument()
+})

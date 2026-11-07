@@ -39,27 +39,33 @@ export function SessionTimeline({ timeline }: { timeline: SessionTimelineDto }) 
   ].sort((a, b) => a.at.localeCompare(b.at))
   return (
     <section aria-label="Agent session">
-      <Current role="status" aria-live="polite">
-        {latest
-          ? `Current activity: ${(latest.payload as { text: string }).text}`
-          : 'No status yet'}
-      </Current>
+      {latest ? (
+        <Current role="status" aria-live="polite">
+          Current activity: {(latest.payload as { text: string }).text}
+        </Current>
+      ) : (
+        <Small role="status" aria-live="polite">
+          No status yet. The agent’s steps appear here as it works.
+        </Small>
+      )}
       {timeline.truncated && <Small>Older entries are not shown.</Small>}
-      <Heading as="h4">Steps</Heading>
-      <Steps aria-label="Session steps">
-        {steps.map((item) => (
-          <li key={`${item.session_id}:${item.seq}`}>
-            <span>
-              {item.kind === 'status'
-                ? (item.payload as { text: string }).text
-                : (stepText[item.kind] ?? item.kind)}
-            </span>
-            <Small as="time" dateTime={item.created_at}>
-              {time(item.created_at)}
-            </Small>
-          </li>
-        ))}
-      </Steps>
+      {steps.length > 0 && <Heading as="h4">Steps</Heading>}
+      {steps.length > 0 && (
+        <Steps aria-label="Session steps">
+          {steps.map((item) => (
+            <li key={`${item.session_id}:${item.seq}`}>
+              <span>
+                {item.kind === 'status'
+                  ? (item.payload as { text: string }).text
+                  : (stepText[item.kind] ?? item.kind)}
+              </span>
+              <Small as="time" dateTime={item.created_at}>
+                {time(item.created_at)}
+              </Small>
+            </li>
+          ))}
+        </Steps>
+      )}
       {chat.length > 0 && (
         <>
           <Heading as="h4">Chat</Heading>

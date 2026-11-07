@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
 import { Button } from './Button'
 import { motion } from './motion'
@@ -10,11 +10,19 @@ type DialogProps = {
   onClose: () => void
   /** Pending or uncertain work keeps the dialog open until it is resolved. */
   closeDisabled?: boolean
+  /** "side" docks the dialog to the right edge at full height, as a drawer. */
+  placement?: 'center' | 'side'
   children: ReactNode
 }
 
 /** A modal step: the native dialog keeps focus inside, and focus returns to the opener on close. */
-export function Dialog({ title, onClose, closeDisabled = false, children }: DialogProps) {
+export function Dialog({
+  title,
+  onClose,
+  closeDisabled = false,
+  placement = 'center',
+  children,
+}: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
 
@@ -38,6 +46,8 @@ export function Dialog({ title, onClose, closeDisabled = false, children }: Dial
   return createPortal(
     <DialogSurface
       ref={dialog}
+      data-placement={placement}
+      $side={placement === 'side'}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault()
@@ -59,7 +69,7 @@ export function Dialog({ title, onClose, closeDisabled = false, children }: Dial
 }
 
 /** The modal surface, for dialogs that manage their own native lifecycle; `$wide` fits editors. */
-export const DialogSurface = styled.dialog<{ $wide?: boolean }>`
+export const DialogSurface = styled.dialog<{ $wide?: boolean; $side?: boolean }>`
   width: min(${({ $wide }) => ($wide ? '1400px' : '960px')}, calc(100vw - 2 * ${space[8]}));
   max-height: calc(100dvh - 2 * ${space[8]});
   overflow: auto;
@@ -78,6 +88,16 @@ export const DialogSurface = styled.dialog<{ $wide?: boolean }>`
   &::backdrop {
     background: ${color.overlay};
   }
+  ${({ $side }) =>
+    $side &&
+    css`
+      width: min(420px, 100vw);
+      height: 100dvh;
+      max-height: 100dvh;
+      margin: 0 0 0 auto;
+      border-width: 0 0 0 1px;
+      border-radius: 0;
+    `}
 `
 
 const TitleRow = styled.div`

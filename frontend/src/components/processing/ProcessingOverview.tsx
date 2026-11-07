@@ -3,7 +3,9 @@ import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
 import type { ProcessingSource, StepProgress } from '../../processing/source'
-import { color, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { linkTouchArea } from '../ui/primitives'
 import { Count, Pill } from '../ui/Pill'
 import { ProgressSegments, type ProgressStep } from '../ui/ProgressSegments'
 import { StatusTimeline, type TimelineEntry } from '../ui/StatusTimeline'
@@ -203,6 +205,7 @@ const StepLabels = styled.ul`
     color: ${color.fg};
     font-size: ${typeVar.small.size};
     font-weight: ${typeVar.bodyStrong.weight};
+    ${linkTouchArea}
   }
   span {
     ${type.small}
@@ -219,6 +222,9 @@ const Elsewhere = styled.a`
   display: flex;
   align-items: center;
   gap: ${space[4]};
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
   color: ${color.fg};
   text-decoration: none;
   span:nth-child(2) {
@@ -240,4 +246,5 @@ const Go = styled.span`
 const SmallLink = styled.a`
   ${type.small}
   color: ${color.accent};
+  ${linkTouchArea}
 `

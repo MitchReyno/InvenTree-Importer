@@ -11,7 +11,7 @@ import type {
 import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Pill, type PillTone } from '../ui/Pill'
-import { Small } from '../ui/primitives'
+import { linkTouchArea, Small } from '../ui/primitives'
 
 export const STEP_LABEL: Record<string, string> = {
   examine: 'Examine',
@@ -20,9 +20,12 @@ export const STEP_LABEL: Record<string, string> = {
   inventory: 'Inventory',
 }
 
-export const SESSION_STATE: Record<SourceSession['state'], { word: string; tone: PillTone }> = {
-  queued: { word: 'Queued', tone: 'neutral' },
-  running: { word: 'Running', tone: 'info' },
+export const SESSION_STATE: Record<
+  SourceSession['state'],
+  { word: string; tone: PillTone; glyph?: string }
+> = {
+  queued: { word: 'Queued', tone: 'outline', glyph: '…' },
+  running: { word: 'Running', tone: 'acc' },
   waiting_input: { word: 'Waiting for you', tone: 'warn' },
   waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
   waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
@@ -72,7 +75,9 @@ export function SessionRows({
             </span>
             {session.status && <Small>{session.status}</Small>}
           </SessionLabel>
-          <Pill tone={SESSION_STATE[session.state].tone}>{SESSION_STATE[session.state].word}</Pill>
+          <Pill tone={SESSION_STATE[session.state].tone} glyph={SESSION_STATE[session.state].glyph}>
+            {SESSION_STATE[session.state].word}
+          </Pill>
           <Button
             size="sm"
             variant="ghost"
@@ -171,13 +176,14 @@ const Rows = styled.ul`
   a {
     color: ${color.fg};
     font-weight: ${typeVar.bodyStrong.weight};
+    ${linkTouchArea}
   }
 `
 
 /** A Processing job's state in words for the pipeline. */
 export const JOB_STATE: Record<string, { word: string; tone: PillTone }> = {
   queued: { word: 'Queued', tone: 'neutral' },
-  running: { word: 'Running', tone: 'info' },
+  running: { word: 'Running', tone: 'acc' },
   waiting_for_user: { word: 'Waiting for you', tone: 'warn' },
   waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
   waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
