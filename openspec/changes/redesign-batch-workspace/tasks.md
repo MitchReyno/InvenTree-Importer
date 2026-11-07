@@ -54,7 +54,7 @@ Keep a parent unchecked while any of its required subtasks are open. Review, pub
 | 20 Records and Changes, then strict lint | UI/enabling | 15–19 | ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict; Components carry the design system's names, for the whole app |
 | 21 Corrections, region edits and the inline answer | Behavior/UI | 16, 18, 19 | processing-workspace: Correct a reading; review-workspace: Part not chosen (the inline answer), and Map drawing and region edits (Move a region to another lot, adjusting and adding regions) |
 | 22 Data the specs require | Behavior (contracts/server)/UI | 20, 21 | review-records: Records by type (existing against proposed values, a source chip per value); ui-design-system: Provenance on demand (uncertainty in words); processing-workspace: Processing overview (Needs you oldest first); review-workspace: Exclude a lot |
-| 23 Design detail on new data | Behavior (contracts/server)/UI | 20 | processing-workspace: Pause and resume agent work; review-workspace: Same physical item; the rest of task 23 has contract tests and no spec requirement |
+| 23 Design detail on new data | Behavior (contracts/server)/UI | 20 | processing-workspace: Pause and resume agent work, and Processing overview (Instruction reaches the agents); review-workspace: Same physical item; the rest of task 23 has contract tests and no spec requirement |
 
 Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 16–19 can run in any order after task 15. Tasks 21 and 23 can run in either order after task 20; task 22 follows task 21.
 
