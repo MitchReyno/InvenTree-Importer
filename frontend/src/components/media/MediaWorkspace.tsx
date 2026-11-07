@@ -61,6 +61,8 @@ export function MediaWorkspace({
   const [newGroup, setNewGroup] = useState(false)
   const [destinationGroup, setDestinationGroup] = useState('')
   const [moved, setMoved] = useState<{
+    /** Each confirmed move gets its own toast, even when its message repeats. */
+    id: string
     message: string
     undo?: { ids: string[]; groupId: string | null }
   } | null>(null)
@@ -100,6 +102,7 @@ export function MediaWorkspace({
       : 'Ungrouped'
     const [origin] = origins
     const confirmation = {
+      id: crypto.randomUUID(),
       message: `Moved ${plural(ids.length, 'file')} to ${name}`,
       undo: origins.size === 1 ? { ids, groupId: origin ?? null } : undefined,
     }
@@ -360,7 +363,7 @@ export function MediaWorkspace({
       )}
       {moved && (
         <Toast
-          key={moved.message}
+          key={moved.id}
           message={moved.message}
           action={
             // Undo waits for other drafts, as any move does, so it cannot discard them.

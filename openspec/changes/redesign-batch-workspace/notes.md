@@ -118,6 +118,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 10:** The crop editor's number fields and aspect select take a 44px height below `bp-compact`. Processing › Images' notices and the media text editor's error are banners, so no Capture, media or Processing screen keeps the old notice.
 - **2026-11-08, PR-J review round 11:** A sweep of Capture, media and Processing for bare links, summaries and labels gave the evidence viewer's support checkboxes a 44px height below `bp-compact`, and its download link, byte-identity and note-provenance disclosures and Images' preview links the shared `Link` and `Summary` with their hit areas.
 - **2026-11-08, PR-J review round 12:** Crossing `bp-compact` moves the glance and remounts its links, so Capture remembers the focused glance link and focuses its twin after the move, or the glance's first link when the phone shows fewer rows. An attempt with several open questions keeps each "Open this question" beside its prompt, with Cancel in its own row, so the buttons stay distinguishable (P6's single row applies to the attempt's own actions).
+- **2026-11-08, PR-J review round 13:** Each confirmed move's toast has its own id, so a second identical move starts a fresh toast with its own countdown and Undo.
 
 ## Open items
 
