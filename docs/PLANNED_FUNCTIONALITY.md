@@ -47,7 +47,7 @@ The index owns current item metadata; OpenSpec artifacts own detailed intent, re
 Remove manual lot entry and question-blocked processing from Capture and Processing. One Examine lead session per batch finds each item in the photos and documents, groups those observations into lots (a photo can feed several lots and a lot can span several photos) and identifies each lot; proposed lots appear live and are created as editable drafts. Native Claude and Codex sessions stream status lines, proposals and questions while they work, accept queued answers, chat and new evidence whether running or idle, and resume finished sessions. Reading, sorting and identifying combine into that one Examine stage, and Research and Images run in parallel per lot once its identity is stable.
 
 - Change: `simplify-intake-entry`
-- Status: Done — merged in #97, #107, #112 and #118. `native-agent/2` keeps the `native_unverified` label; the live qualification follow-ups are open items in the change's `notes.md`.
+- Status: Done — merged in #97, #107, #112 and #118. `native-agent/2` keeps the `native_unverified` label; the live qualification follow-ups are tracked as BI-010 (`harden-native-agent-sessions`).
 - Size: XL — agent session protocol and tool server, observation-based lot forming, stage restructuring and live UI, delivered in phased PRs.
 - Prerequisites: Native agent integration (`native-agent/1`) is merged; live provider qualification ran on 2026-11-07 (#118) and `native-agent/2` keeps `native_unverified`, so real-provider behavior is not claimed. No dependency on BI-007.
 - OpenSpec: [simplify-intake-entry](../openspec/changes/simplify-intake-entry/)
@@ -96,7 +96,17 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 ## Fixes
 
-No registered items.
+### High
+
+#### BI-010 — Harden native agent sessions
+
+BI-006's live qualification (#118) found that a native Codex session is not confined to the intake tools. Codex wraps them inside its `exec` JavaScript tool, also offers its collaboration, clock, `apply_patch` and `image_gen` tools, and loads the user-level skills catalogue, and neither the start-time check nor the in-run check catches this. Real models also stumble on `propose`, whose rejection does not name the failing field. A session cannot cite evidence it picks up mid-session, because no digest is delivered with it. Fix these, detect or exclude Claude's deferred `advisor` tool, and correct the qualification script's chat detection, then re-run the live qualification so `native-agent/2` can drop `native_unverified`.
+
+- Change: `harden-native-agent-sessions`
+- Status: Proposed
+- Size: M — adapter tool confinement and checks for both providers, validation messages, a digest in the evidence delivery, and a re-run of the qualification.
+- Prerequisites: BI-006 is Done (satisfied). Re-running the live qualification needs fresh explicit authorization for live provider usage (not yet given).
+- OpenSpec: [harden-native-agent-sessions](../openspec/changes/harden-native-agent-sessions/)
 
 ## Improvements
 
