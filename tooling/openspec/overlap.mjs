@@ -4,7 +4,7 @@
 // deltas are parsed with the installed OpenSpec CLI's own parser, and each delta
 // is simulated in the CLI's apply order, so "already applied" and "conflict"
 // mean what they mean to `openspec` sync.
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -138,15 +138,29 @@ export function parseDelta(text) {
   return delta
 }
 
-/** Capability IDs (paths relative to dir, nested included) that hold a spec.md. */
+/**
+ * Capability IDs (relative paths, nested included) as the CLI's
+ * discoverSpecFiles finds them: dot entries are skipped, symlinked directories
+ * are not followed, and spec.md must be a file or a symlink to one.
+ */
 function capabilityDirs(dir, prefix = '') {
   if (!existsSync(dir)) return []
   const found = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    const id = prefix ? `${prefix}/${entry.name}` : entry.name
-    if (existsSync(join(dir, entry.name, 'spec.md'))) found.push(id)
-    found.push(...capabilityDirs(join(dir, entry.name), id))
+    if (entry.name.startsWith('.')) continue
+    if (entry.isDirectory()) {
+      found.push(
+        ...capabilityDirs(join(dir, entry.name), prefix ? `${prefix}/${entry.name}` : entry.name),
+      )
+    } else if (entry.name === 'spec.md' && prefix) {
+      const file = join(dir, entry.name)
+      if (
+        entry.isFile() ||
+        (entry.isSymbolicLink() && statSync(file, { throwIfNoEntry: false })?.isFile())
+      ) {
+        found.push(prefix)
+      }
+    }
   }
   return found
 }

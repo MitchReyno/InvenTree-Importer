@@ -280,6 +280,18 @@ test('scenario checks match the CLI: counts, closing hashes and fenced examples'
   assert.deepEqual(check(tidy, 'base').errors, [])
 })
 
+test('discovery skips dot directories and a directory named spec.md, as the CLI does', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/.draft/spec.md': spec('Rule'),
+    'openspec/changes/base/specs/fresh/spec.md': section('ADDED', requirement('Rule')),
+    'openspec/changes/base/specs/.draft/spec.md': section('MODIFIED', requirement('Missing')),
+    'openspec/changes/base/specs/odd/spec.md/placeholder': 'not a spec',
+  })
+  const { main, changes } = loadWorkspace(root)
+  assert.deepEqual(Object.keys(main), [])
+  assert.deepEqual(Object.keys(changes.base), ['fresh'])
+})
+
 test('nested capability paths are discovered and checked', (t) => {
   const root = workspace(t, {
     'openspec/specs/area/cap/spec.md': spec('Rule'),
