@@ -235,6 +235,11 @@ function literalsFor(family, property, value) {
       .map((ring) => ring[1])
   }
   const numbers = [...value.matchAll(NUMBER)].map((match) => match[1] + (match[2] ?? ''))
+  if (property === 'translate') {
+    return numbers
+      .map((literal) => literal.replace(/^-/, ''))
+      .filter((literal) => parseFloat(literal) !== 0)
+  }
   if (family === 'offset') {
     const translated = [...value.matchAll(/translate[XY3d]*\(([^)]*)\)/g)].flatMap((match) =>
       [...match[1].matchAll(NUMBER)].map((part) => part[1] + (part[2] ?? '')),

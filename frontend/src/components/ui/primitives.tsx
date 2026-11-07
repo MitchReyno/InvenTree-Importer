@@ -138,6 +138,9 @@ export const CheckboxLabel = styled(Label)`
   ${Input} {
     width: 20px;
   }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
 `
 export const Field = styled.div`
   display: grid;
