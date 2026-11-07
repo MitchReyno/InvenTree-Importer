@@ -12,6 +12,7 @@ import type {
 } from '@invimport/contracts'
 import { Heading, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { DialogSurface } from '../ui/Dialog'
 import { mediaResource } from '../../media/types'
 import {
   cropRecipe,
@@ -157,7 +158,8 @@ export function MediaCropDialog({
       : null
 
   return createPortal(
-    <Dialog
+    <DialogSurface
+      $wide
       ref={dialog}
       aria-labelledby="crop-title"
       onCancel={(event) => event.preventDefault()}
@@ -259,23 +261,11 @@ export function MediaCropDialog({
           </Small>
         </Output>
       </CropBody>
-    </Dialog>,
+    </DialogSurface>,
     document.body,
   )
 }
 
-const Dialog = styled.dialog`
-  width: min(1400px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
-  border: 1px solid ${color.lineStrong};
-  border-radius: 8px;
-  padding: ${space[10]};
-  background: ${color.surface};
-  &::backdrop {
-    background: ${color.overlay};
-  }
-`
 const CropBody = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(250px, 0.42fr);

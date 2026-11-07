@@ -36,7 +36,7 @@ export function Dialog({ title, onClose, closeDisabled = false, children }: Dial
   }, [])
 
   return createPortal(
-    <Surface
+    <DialogSurface
       ref={dialog}
       aria-labelledby={titleId}
       onCancel={(event) => {
@@ -53,13 +53,14 @@ export function Dialog({ title, onClose, closeDisabled = false, children }: Dial
         </Button>
       </TitleRow>
       {children}
-    </Surface>,
+    </DialogSurface>,
     document.body,
   )
 }
 
-const Surface = styled.dialog`
-  width: min(960px, calc(100vw - 2 * ${space[8]}));
+/** The modal surface, for dialogs that manage their own native lifecycle; `$wide` fits editors. */
+export const DialogSurface = styled.dialog<{ $wide?: boolean }>`
+  width: min(${({ $wide }) => ($wide ? '1400px' : '960px')}, calc(100vw - 2 * ${space[8]}));
   max-height: calc(100dvh - 2 * ${space[8]});
   overflow: auto;
   padding: ${space[10]};

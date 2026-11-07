@@ -24,9 +24,9 @@ describe('ProposedLotsGlance', () => {
     expect(within(glance).getByText('Blocked')).toBeInTheDocument()
     expect(within(glance).queryByRole('textbox')).not.toBeInTheDocument()
     expect(within(glance).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(glance).getByRole('link', { name: 'Open Review' })).toHaveAttribute(
+    expect(within(glance).getByRole('link', { name: 'See the map in Review' })).toHaveAttribute(
       'href',
-      '#b/review/lots',
+      '#b/review/map',
     )
   })
 
@@ -82,8 +82,11 @@ describe('ProposedLotsGlance with lead-session lots', () => {
     )
     const led = screen.getByRole('listitem', { name: 'LED 0603 red' })
     expect(within(led).getByText('AI-proposed')).toBeInTheDocument()
-    expect(within(led).getAllByRole('img')).toHaveLength(2)
-    expect(within(led).getByText('1 suggestion')).toBeInTheDocument()
+    expect(within(led).getByRole('img', { name: 'LED 0603 red' })).toHaveAttribute(
+      'src',
+      '/crop/o1',
+    )
+    expect(led).toHaveTextContent('2 observations · 1 suggestion')
     const crystal = screen.getByRole('listitem', { name: '16 MHz crystal' })
     expect(within(crystal).getByText('Edited')).toBeInTheDocument()
     expect(within(crystal).queryByText('AI-proposed')).not.toBeInTheDocument()
