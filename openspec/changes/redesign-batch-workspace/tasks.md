@@ -498,7 +498,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] D.5 PR-E: same gates. Review clear at `18b2381` after fourteen rounds, then the merge of #107 and its two fixes reviewed clear at `ad15957`; merged as #108 (`ab80c3b`) with every CI job that ran green and a demo video attached.
 - [x] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7. Review clear at `cabe29c` after six rounds; merged as #109 (`c15e9ce`) with every CI job that ran green and a demo video attached. BI-008 is Done; task 14 follows as PR-G.
 - [x] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`. Review clear at `e99d14f` after seven rounds, with its wording follow-up `2139767` reviewed clear; merged as #110 (`3ed53f2`) with every CI job that ran green and a demo video attached.
-- [ ] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit.
+- [x] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit. The token rename and library swaps left the screenshot diff unchanged. Review clear at `9629c8f` after sixteen rounds and, after rebasing onto #131–#134, at `65d3d61`; the 15.10 checkbox follow-up is `3fd8fff`. Merged as #135 (`2fbc2be`) with every CI job that ran green and a demo video attached.
 - [ ] D.9 PR-I (task 16): same gates, after PR-H.
 - [ ] D.10 PR-J (tasks 17 and 18): same gates, after PR-H.
 - [ ] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J.
