@@ -206,7 +206,7 @@ describe('Evidence notes and lot counts', () => {
     const { rerender } = render(
       <EvidenceTile {...base} state="ready" onOpen={() => {}} onNote={onNote} />,
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Add a note to IMG_2041.jpg' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Note: IMG_2041.jpg' }))
     expect(onNote).toHaveBeenCalledTimes(1)
 
     rerender(
@@ -218,7 +218,7 @@ describe('Evidence notes and lot counts', () => {
         onNote={onNote}
       />,
     )
-    expect(screen.getByRole('button', { name: 'Edit the note on IMG_2041.jpg' })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: 'Edit note: IMG_2041.jpg' })).toHaveTextContent(
       'Edit note',
     )
   })

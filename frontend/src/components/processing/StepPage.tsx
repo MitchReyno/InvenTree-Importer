@@ -52,9 +52,9 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
   )
 }
 
-/** The step's state at a glance: a spinner while it runs, a tick once all is ready. */
+/** The step's state at a glance: a spinner only while work runs, a tick once all is ready. */
 function StateDisc({ progress }: { progress: StepProgress }) {
-  if (progress.running > 0 || progress.queued > 0) {
+  if (progress.running > 0) {
     return (
       <Disc data-state="running" aria-hidden="true">
         <Spinner size={11} />

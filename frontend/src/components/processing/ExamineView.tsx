@@ -124,7 +124,14 @@ export function ExamineView({
           {photos.map((version, index) => {
             const named = names.get(version)
             const shown = observations.filter((item) => item.evidence_version_id === version)
-            const fed = new Set(shown.map((item) => item.lot_id).filter(Boolean))
+            // Retired predecessors keep observations but no longer count as lots fed.
+            const fed = new Set(
+              shown.flatMap((item) =>
+                item.lot_id && lots.get(item.lot_id) && !lots.get(item.lot_id)!.retired
+                  ? [item.lot_id]
+                  : [],
+              ),
+            )
             return (
               <Photo key={version} aria-label={named?.name ?? `Photo ${index + 1}`}>
                 <PhotoHead>
@@ -135,7 +142,7 @@ export function ExamineView({
                     {plural(shown.length, 'observation')} · feeds {plural(fed.size, 'lot')}
                   </Muted>
                   <Button as="a" size="sm" variant="ghost" href={capture}>
-                    Open photo
+                    Evidence in Capture
                   </Button>
                 </PhotoHead>
                 <List>

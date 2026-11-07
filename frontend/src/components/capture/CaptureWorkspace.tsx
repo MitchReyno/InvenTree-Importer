@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { space } from '../../theme/generated/tokens'
 import type { CaptureWorkspaceProps } from '../../capture/types'
-import { Notice } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { EvidencePanel } from './EvidencePanel'
@@ -110,9 +110,11 @@ export function CaptureWorkspace({
   return (
     <>
       {batch.archived && (
-        <Notice role="status">
-          Archived, not deleted. History and original contributions are retained. Resume to edit.
-        </Notice>
+        <ArchivedNote role="status">
+          <Banner tone="plain">
+            Archived, not deleted. History and original contributions are retained. Resume to edit.
+          </Banner>
+        </ArchivedNote>
       )}
       <CaptureGrid data-capture-grid>
         <EvidencePanel
@@ -131,13 +133,19 @@ export function CaptureWorkspace({
         <SettingsColumn>
           {!phone && glance}
           {refresh === 'failed' && (
-            <Notice role="alert">
-              Saved settings could not be refreshed after the evidence change, so settings stay
-              paused.{' '}
-              <Button type="button" onClick={refreshSettings}>
-                Refresh saved settings
-              </Button>
-            </Notice>
+            <div role="alert">
+              <Banner
+                tone="bad"
+                action={
+                  <Button size="sm" onClick={refreshSettings}>
+                    Refresh saved settings
+                  </Button>
+                }
+              >
+                Saved settings could not be refreshed after the evidence change, so settings stay
+                paused.
+              </Banner>
+            </div>
           )}
           <BatchSettingsPanel
             batch={batch}
@@ -183,6 +191,9 @@ const SettingsColumn = styled.div`
   display: grid;
   gap: ${space[6]};
   min-width: 0;
+`
+const ArchivedNote = styled.div`
+  margin-bottom: ${space[8]};
 `
 const NextStep = styled.div`
   display: grid;

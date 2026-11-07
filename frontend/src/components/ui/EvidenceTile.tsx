@@ -98,7 +98,7 @@ export function EvidenceTile(props: EvidenceTileProps) {
           {props.onNote && (
             <NoteLink
               type="button"
-              aria-label={note ? `Edit the note on ${name}` : `Add a note to ${name}`}
+              aria-label={note ? `Edit note: ${name}` : `Note: ${name}`}
               onClick={props.onNote}
             >
               {note ? 'Edit note' : '＋ Note'}

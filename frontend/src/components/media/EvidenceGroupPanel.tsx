@@ -9,6 +9,8 @@ import type {
 } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { mediaDisplayLabels, type MediaIdentityLabels } from '../../media/identity-labels'
+import { reviewMap } from '../../operator/review-map'
+import { predecessorLotIds } from '../../operator/review-model'
 import type { EditMedia } from '../../media/types'
 import { Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -83,19 +85,18 @@ export function EvidenceGroupPanel({
   const opened = evidence.find((item) => item.id === openId)
   const renameKey = `rename:${groupId}`
 
-  const groupLots = new Set(
-    evidence.flatMap((item) =>
-      batch.lots
-        .filter((lot) => !lot.retired && item.linked_subject_ids.includes(lot.id))
-        .map((lot) => lot.id),
-    ),
+  // The Map's own count: links to a lot, its Part or an earlier lot, and observed regions.
+  const map = reviewMap(
+    batch,
+    snapshot.evidence,
+    new Set(batch.lots.filter((lot) => lot.retired).map((lot) => lot.id)),
+    predecessorLotIds(review),
   )
+  const lotsOf = new Map(map.files.map((file) => [file.id, file.lotIds]))
+  const groupLots = new Set(evidence.flatMap((item) => lotsOf.get(item.id) ?? []))
 
   function supportedLots(item: MediaSnapshotDto['evidence'][number]) {
-    // Retired predecessors keep their links but no longer count as lots the file feeds.
-    const count = batch.lots.filter(
-      (lot) => !lot.retired && item.linked_subject_ids.includes(lot.id),
-    ).length
+    const count = lotsOf.get(item.id)?.length ?? 0
     return count === 1 ? '1 lot' : `${count} lots`
   }
 

@@ -531,7 +531,7 @@ test('opens a file’s note from its tile', async () => {
       onDirtyChange={vi.fn()}
     />,
   )
-  await user.click(await screen.findByRole('button', { name: 'Add a note to Front label' }))
+  await user.click(await screen.findByRole('button', { name: 'Note: Front label' }))
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeVisible()
   expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 0 lots')
 })

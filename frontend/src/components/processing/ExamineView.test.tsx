@@ -121,7 +121,7 @@ it('names each photo by its file, with its group and what it feeds, and keeps co
   render(<ExamineView batch={batch} lead={lead} media={media} />)
   const bench = screen.getByRole('region', { name: 'bench.jpg' })
   expect(bench).toHaveTextContent('Not in a group · 2 observations · feeds 1 lot')
-  expect(within(bench).getByRole('link', { name: 'Open photo' })).toHaveAttribute(
+  expect(within(bench).getByRole('link', { name: 'Evidence in Capture' })).toHaveAttribute(
     'href',
     '#b/capture',
   )
