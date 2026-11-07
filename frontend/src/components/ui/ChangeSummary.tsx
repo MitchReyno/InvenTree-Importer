@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, font, space, type } from '../../theme/generated/tokens'
+import { color, font, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 
 export type ChangeItem = { id: string; label: string; href?: string; pill?: ReactNode }
@@ -63,7 +63,7 @@ const Section = styled.section`
     ${media.compact} {
       display: inline-flex;
       align-items: center;
-      min-height: 44px;
+      min-height: ${size.touch};
     }
   }
 `
@@ -71,6 +71,6 @@ const Section = styled.section`
 const Total = styled.span`
   font-family: ${font.mono};
   font-size: 13px;
-  font-weight: 400;
+  font-weight: ${typeVar.mono.weight};
   color: ${color.muted};
 `

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, font, space } from '../../theme/generated/tokens'
+import { color, font, space, typeVar } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
 import { media } from './media'
 
@@ -78,7 +78,7 @@ const Row = styled.div`
   display: contents;
   dt {
     padding-top: 5px;
-    font-size: 12.5px;
+    font-size: ${typeVar.small.size};
     color: ${color.muted};
   }
   dd {
@@ -115,7 +115,7 @@ const ValueText = styled.span<{ $state: ValueState; $mono: boolean }>`
     $mono &&
     css`
       font-family: ${font.mono};
-      font-size: 12.5px;
+      font-size: ${typeVar.mono.size};
     `}
   ${({ $state }) =>
     $state === 'edited' &&

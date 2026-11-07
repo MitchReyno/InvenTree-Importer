@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from './primitives'
 
 export type AutosaveState =
@@ -74,14 +74,14 @@ const Status = styled.p<{ 'data-state': AutosaveState }>`
   align-items: center;
   gap: ${space[3]};
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
   &::before {
     content: '';
     flex: none;
     width: 7px;
     height: 7px;
-    border-radius: 50%;
+    border-radius: ${radius.round};
     background: ${(props) => dotTone[props['data-state']]};
   }
   &[data-state='invalid'],
@@ -99,7 +99,7 @@ const Problem = styled.div<{ 'data-state': 'conflict' | 'unconfirmed' }>`
   border-radius: ${radius.input};
   background: ${(props) => (props['data-state'] === 'conflict' ? color.badWeak : color.warnWeak)};
   color: ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   ${Button} {
     justify-self: start;
     color: ${color.fg};

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { Pill } from './Pill'
 
@@ -52,12 +52,12 @@ const List = styled.ul`
     border-top: 0;
   }
   a {
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
     color: ${color.fg};
     ${media.compact} {
       display: inline-flex;
       align-items: center;
-      min-height: 44px;
+      min-height: ${size.touch};
     }
   }
 `

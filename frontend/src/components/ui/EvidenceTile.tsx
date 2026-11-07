@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
 import { Skeleton } from './Progress'
 
@@ -106,7 +106,7 @@ const Tile = styled.div<{ $selected: boolean }>`
   ${({ $selected }) =>
     $selected &&
     css`
-      outline: 2px solid ${color.accent};
+      outline: ${ring.width} solid ${color.accent};
       outline-offset: 1px;
     `}
 `
@@ -126,7 +126,7 @@ const Preview = styled.button`
   &:focus-visible::after {
     content: '';
     position: absolute;
-    inset: 4px;
+    inset: ${space[2]};
     border: 2px solid ${color.photoFg};
     border-radius: ${radius.sm};
     box-shadow:
@@ -203,8 +203,8 @@ const Tick = styled.label`
   padding: 3px 5px;
   cursor: pointer;
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
     top: 0;
     right: 0;
   }
@@ -239,8 +239,8 @@ const Retry = styled.button`
   text-decoration: underline;
   cursor: pointer;
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `
 

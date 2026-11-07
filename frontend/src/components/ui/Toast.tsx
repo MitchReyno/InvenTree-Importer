@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, space } from '../../theme/generated/tokens'
+import {
+  color,
+  duration,
+  easing,
+  offset,
+  radius,
+  shadow,
+  size,
+  space,
+} from '../../theme/generated/tokens'
 import { media } from './media'
 
 type ToastProps = {
@@ -51,7 +60,7 @@ export function Toast({
 }
 
 const enter = keyframes`
-  from { opacity: 0; transform: translate(-50%, 8px); }
+  from { opacity: 0; transform: translate(-50%, ${offset.toast}); }
   to { opacity: 1; transform: translate(-50%, 0); }
 `
 
@@ -70,7 +79,7 @@ const Body = styled.div`
   background: ${color.fg};
   color: ${color.bg};
   box-shadow: ${shadow};
-  animation: ${enter} 150ms ease-out;
+  animation: ${enter} ${duration.toast} ${easing.enter};
   ${media.compact} {
     width: calc(100vw - 2 * ${space[8]});
   }
@@ -90,7 +99,7 @@ const Action = styled.button`
   text-decoration: underline;
   cursor: pointer;
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `

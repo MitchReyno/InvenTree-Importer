@@ -6,7 +6,17 @@ import {
   type ReactNode,
 } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import {
+  color,
+  duration,
+  easing,
+  opacity,
+  radius,
+  size,
+  space,
+  type,
+  typeVar,
+} from '../../theme/generated/tokens'
 import { media } from './media'
 import { Spinner } from './Progress'
 
@@ -166,7 +176,7 @@ const variants = {
 const sizes = {
   sm: css`
     padding: ${space[2]} 9px;
-    font-size: 12.5px;
+    font-size: ${typeVar.small.size};
   `,
   md: css`
     padding: 7px ${space[6]};
@@ -182,29 +192,29 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   align-items: center;
   justify-content: center;
   gap: ${space[3]};
-  min-height: 32px;
+  min-height: ${size.control};
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   background: ${color.surface};
   color: ${color.fg};
-  font-weight: 500;
+  font-weight: ${typeVar.buttonLg.weight};
   line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background-color 80ms linear;
+  transition: background-color ${duration.fast} ${easing.linear};
   ${({ $size }) => sizes[$size]}
   ${({ $variant }) => variants[$variant]}
   ${({ $variant }) => ($variant === 'link' ? 'min-height: 0;' : '')}
   &:disabled {
-    opacity: 0.5;
+    opacity: ${opacity.disabled};
     cursor: not-allowed;
   }
   &[aria-busy='true'] {
     cursor: progress;
   }
   ${media.compact} {
-    min-height: ${({ $variant }) => ($variant === 'link' ? '0' : '44px')};
+    min-height: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
   }
   ${media.reducedMotion} {
     transition: none;
@@ -218,6 +228,6 @@ const Glyph = styled.span`
 
 const Reason = styled.span`
   margin-left: ${space[4]};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

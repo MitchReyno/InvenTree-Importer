@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, icon, radius, space, typeVar } from '../../theme/generated/tokens'
 
 export type BannerTone = 'info' | 'warn' | 'bad' | 'ok' | 'plain'
 
@@ -52,7 +52,7 @@ const Body = styled.div<{ $tone: BannerTone }>`
   border-radius: ${radius.card};
   a {
     color: inherit;
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
   ${({ $tone }) => css`
     background: ${grounds[$tone]};
@@ -62,7 +62,7 @@ const Body = styled.div<{ $tone: BannerTone }>`
 
 const Icon = styled.span<{ $tone: BannerTone }>`
   flex: none;
-  width: 20px;
+  width: ${icon.md};
   font-weight: 700;
   text-align: center;
   color: ${({ $tone }) => inks[$tone]};

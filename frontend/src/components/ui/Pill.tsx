@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, type } from '../../theme/generated/tokens'
+import { color, icon, radius, space, type } from '../../theme/generated/tokens'
 import { formatCount } from './media'
 
 export type PillTone = 'ok' | 'warn' | 'bad' | 'info' | 'acc' | 'neutral' | 'outline'
@@ -74,14 +74,14 @@ const PillBody = styled.span<{ $tone: PillTone }>`
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 9px 2px 7px;
+  padding: ${space[1]} 9px ${space[1]} 7px;
   border: 1px solid transparent;
   border-radius: ${radius.pill};
   white-space: nowrap;
   ${type.pill}
   ${({ $tone }) => pillTones[$tone]}
   i {
-    width: 14px;
+    width: ${icon.sm};
     font-style: normal;
     font-size: 11px;
     text-align: center;

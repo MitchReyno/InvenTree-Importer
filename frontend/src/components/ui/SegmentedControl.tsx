@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, duration, easing, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 
@@ -47,9 +47,9 @@ const Segment = styled.button`
   padding: ${space[3]} 11px;
   border: 0;
   background: ${color.surface};
-  font-weight: 500;
+  font-weight: ${typeVar.buttonLg.weight};
   cursor: pointer;
-  transition: background-color 80ms linear;
+  transition: background-color ${duration.fast} ${easing.linear};
   &:hover {
     background: ${color.surface2};
   }
@@ -65,7 +65,7 @@ const Segment = styled.button`
       inset 0 0 0 4px ${color.bg};
   }
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import { media } from './media'
 import { motion, stillWhenReduced } from './motion'
 
@@ -64,7 +64,7 @@ export const VisuallyHidden = styled.span`
 
 const Segments = styled.span<{ $size: 'sm' | 'lg' }>`
   display: flex;
-  gap: 2px;
+  gap: ${space[1]};
   flex: none;
   width: ${({ $size }) => ($size === 'lg' ? '100%' : 'auto')};
 `
@@ -103,7 +103,7 @@ const SpinnerRing = styled.span`
   flex: none;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  border-radius: 50%;
+  border-radius: ${radius.round};
   ${motion.spin}
   ${stillWhenReduced}
 `

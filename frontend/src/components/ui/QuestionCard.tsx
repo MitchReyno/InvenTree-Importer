@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 
 export type Closeup = { label: string; image: string }
 
@@ -79,7 +79,7 @@ const Why = styled.p`
   margin: 0;
   padding: 0 ${space[7]} ${space[5]} calc(${space[7]} + 18px);
   background: ${color.warnWeak};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -123,5 +123,5 @@ const Closeups = styled.div`
 
 const Assumption = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
 `

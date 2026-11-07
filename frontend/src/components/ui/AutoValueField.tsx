@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled from 'styled-components'
-import { color, radius, shadow, space } from '../../theme/generated/tokens'
+import { color, radius, shadow, size, space, typeVar, zIndex } from '../../theme/generated/tokens'
 import { Input, Small } from './primitives'
 
 export type AutoValue = { mode: 'auto' } | { mode: 'none' } | { mode: 'manual'; value: string }
@@ -129,13 +129,13 @@ export function AutoValueField({
 
 const Wrapper = styled.div`
   display: grid;
-  gap: 6px;
+  gap: ${space[3]};
   min-width: 0;
 `
 const Trigger = styled.button`
   display: grid;
-  gap: 2px;
-  min-height: 44px;
+  gap: ${space[1]};
+  min-height: ${size.touch};
   width: 100%;
   padding: ${space[3]} ${space[5]};
   text-align: left;
@@ -170,9 +170,9 @@ const TriggerValue = styled.span`
   overflow-wrap: anywhere;
 `
 const Content = styled(Popover.Content)`
-  z-index: 1000;
+  z-index: ${zIndex.popover};
   display: grid;
-  gap: 12px;
+  gap: ${space[6]};
   width: min(320px, calc(100vw - 24px));
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
@@ -182,22 +182,22 @@ const Content = styled(Popover.Content)`
   border: 1px solid ${color.line};
   border-radius: ${radius.popover};
   box-shadow: ${shadow};
-  font-size: 14px;
+  font-size: ${typeVar.body.size};
 `
 const Choices = styled.div`
   display: grid;
-  gap: 4px;
+  gap: ${space[2]};
 `
 const Title = styled.span`
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: ${typeVar.bodyStrong.weight};
+  margin-bottom: ${space[2]};
 `
 const Choice = styled.label`
   display: grid;
   grid-template-columns: auto 1fr;
-  column-gap: 8px;
+  column-gap: ${space[4]};
   align-items: center;
-  min-height: 44px;
+  min-height: ${size.touch};
   padding: 9px 11px;
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
@@ -219,8 +219,8 @@ const Hint = styled.span`
 `
 const ManualArea = styled.div`
   display: grid;
-  gap: 6px;
-  padding-top: 10px;
+  gap: ${space[3]};
+  padding-top: ${space[5]};
   border-top: 1px solid ${color.line};
   font-weight: 550;
 `

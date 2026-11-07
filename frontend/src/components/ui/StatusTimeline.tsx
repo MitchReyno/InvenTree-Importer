@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar, zIndex } from '../../theme/generated/tokens'
 
 export type TimelineEntry = { text: string; time: string; current?: boolean }
 
@@ -40,7 +40,7 @@ const List = styled.ol`
     content: '';
     position: absolute;
     left: 7px;
-    top: 14px;
+    top: ${space[7]};
     bottom: -6px;
     width: 2px;
     background: ${color.line};
@@ -49,7 +49,7 @@ const List = styled.ol`
     display: none;
   }
   li[data-current='true'] > span:nth-child(2) {
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
   li[data-current='true'] > span:first-child {
     background: ${color.accent};
@@ -64,10 +64,10 @@ const List = styled.ol`
 
 const Marker = styled.span`
   position: relative;
-  z-index: 1;
+  z-index: ${zIndex.raised};
   width: 10px;
   height: 10px;
   margin: 0 3px;
-  border-radius: 50%;
+  border-radius: ${radius.round};
   background: ${color.lineStrong};
 `

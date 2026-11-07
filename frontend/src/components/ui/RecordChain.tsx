@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
 export type RecordState = 'exists' | 'new' | 'update' | 'choose' | 'none'
@@ -73,7 +73,7 @@ const Chain = styled.ol`
   max-width: 100%;
   margin: -4px;
   /* Room for focus rings inside the scroll container. */
-  padding: 4px;
+  padding: ${space[2]};
   overflow-x: auto;
   list-style: none;
 `
@@ -106,13 +106,13 @@ const Link = styled.a<{ $state: RecordState }>`
   }
   ${media.compact} {
     justify-content: center;
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
 const Kind = styled.span`
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: ${typeVar.label.weight};
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: ${color.muted};
@@ -122,8 +122,8 @@ const Status = styled.span`
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: ${typeVar.pill.size};
+  font-weight: ${typeVar.pill.weight};
   white-space: nowrap;
   color: var(--chain-ink);
 `

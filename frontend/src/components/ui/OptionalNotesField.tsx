@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
 import { Button, CheckboxLabel, Label, Small, TextArea } from './primitives'
+import { space } from '../../theme/generated/tokens'
 
 type Props = {
   toggleLabel: string
@@ -72,7 +73,7 @@ export function OptionalNotesField({
 
 const Notes = styled.div`
   display: grid;
-  gap: 8px;
+  gap: ${space[4]};
   min-width: 0;
 `
 const Remove = styled(Button)`

@@ -1,5 +1,15 @@
 import styled, { css } from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import {
+  color,
+  duration,
+  easing,
+  opacity,
+  radius,
+  size,
+  space,
+  type,
+  typeVar,
+} from '../../theme/generated/tokens'
 import { media } from './media'
 
 export const Button = styled.button`
@@ -8,25 +18,25 @@ export const Button = styled.button`
   justify-content: center;
   gap: ${space[3]};
   cursor: pointer;
-  min-height: 32px;
+  min-height: ${size.control};
   padding: 7px ${space[6]};
   color: ${color.fg};
   background: ${color.surface};
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
-  font-weight: 500;
+  font-weight: ${typeVar.buttonLg.weight};
   line-height: 1.2;
   touch-action: manipulation;
-  transition: background-color 80ms linear;
+  transition: background-color ${duration.fast} ${easing.linear};
   &:hover:not(:disabled) {
     background: ${color.surface2};
   }
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: ${opacity.disabled};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 export const Link = styled.a`
@@ -59,10 +69,10 @@ export const Paragraph = styled.p`
 `
 export const Small = styled.small`
   display: block;
-  font-size: 12.5px;
-  font-weight: 400;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.small.weight};
   color: ${color.muted};
-  line-height: 18px;
+  line-height: ${typeVar.small.lineHeight};
   overflow-wrap: anywhere;
 `
 export const Form = styled.form`
@@ -88,25 +98,25 @@ export const Fieldset = styled.fieldset`
 export const Label = styled.label`
   display: grid;
   gap: ${space[2]};
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 const control = css`
   width: 100%;
   min-width: 0;
-  min-height: 32px;
+  min-height: ${size.control};
   padding: 7px 9px;
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.input};
   background: ${color.surface};
   color: ${color.fg};
-  font-size: 14px;
-  font-weight: 400;
+  font-size: ${typeVar.body.size};
+  font-weight: ${typeVar.body.weight};
   &[aria-invalid='true'] {
     border-color: ${color.bad};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 export const Input = styled.input`
@@ -123,10 +133,10 @@ export const TextArea = styled.textarea`
 `
 export const Summary = styled.summary`
   cursor: pointer;
-  min-height: 32px;
+  min-height: ${size.control};
   padding: ${space[4]} 0;
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 export const HeadingRow = styled.div`
@@ -141,7 +151,7 @@ export const HeadingRow = styled.div`
 `
 export const Caption = styled(Paragraph)`
   color: ${color.muted};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   margin: ${space[4]} 0 ${space[8]};
 `
 export const Eyebrow = styled(Paragraph)`

@@ -6,7 +6,7 @@ import Select, {
   type StylesConfig,
 } from 'react-select'
 import styled from 'styled-components'
-import { color, radius, shadow } from '../../theme/generated/tokens'
+import { color, radius, shadow, typeVar } from '../../theme/generated/tokens'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
 import { rankReferences, type RankTier } from '../../capture/reference-rank'
 import { Label, Small } from './primitives'
@@ -277,5 +277,5 @@ const styles: StylesConfig<Option, false> = {
 }
 
 const Status = styled(Small)`
-  font-weight: 400;
+  font-weight: ${typeVar.body.weight};
 `

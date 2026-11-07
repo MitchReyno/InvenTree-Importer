@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, shadow, space } from '../../theme/generated/tokens'
+import { color, radius, shadow, space, typeVar } from '../../theme/generated/tokens'
 
 type Props = { label: string; explanation: string }
 
@@ -58,8 +58,8 @@ const Wrapper = styled.div`
 `
 
 const Soon = styled.span`
-  font-size: 11px;
-  font-weight: 600;
+  font-size: ${typeVar.label.size};
+  font-weight: ${typeVar.label.weight};
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: ${color.info};
@@ -67,7 +67,7 @@ const Soon = styled.span`
 
 const Tip = styled.span`
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + ${space[2]});
   left: 0;
   z-index: 10;
   width: max-content;
@@ -77,7 +77,7 @@ const Tip = styled.span`
   background: ${color.fg};
   color: ${color.bg};
   box-shadow: ${shadow};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   line-height: 1.4;
   &[hidden] {
     display: none;

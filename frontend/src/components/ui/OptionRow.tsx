@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 
 export type Option = { id: string; title: string; detail: string }
 
@@ -62,6 +62,6 @@ const Choice = styled.label`
 
 const Detail = styled.span`
   display: block;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

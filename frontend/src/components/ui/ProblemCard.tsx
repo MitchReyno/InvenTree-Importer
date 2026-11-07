@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
 
 export type ProblemSeverity = 'blocking' | 'warning'
 
@@ -76,7 +76,7 @@ const Header = styled.div`
 `
 
 const Icon = styled.span<{ $severity: ProblemSeverity }>`
-  width: 14px;
+  width: ${icon.sm};
   font-weight: 700;
   text-align: center;
   color: ${({ $severity }) => ($severity === 'blocking' ? color.bad : color.warn)};
@@ -88,12 +88,12 @@ const Title = styled.h3`
 `
 
 const Severity = styled.span`
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 
 const Summary = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 

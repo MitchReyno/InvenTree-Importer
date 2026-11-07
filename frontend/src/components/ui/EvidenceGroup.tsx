@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
 type EvidenceGroupProps = {
@@ -123,29 +123,29 @@ const NameField = styled.input`
   border: 1px solid transparent;
   border-radius: ${radius.input};
   background: transparent;
-  font-weight: 650;
+  font-weight: ${typeVar.h3.weight};
   &:hover,
   &:focus {
     border-color: ${color.lineStrong};
     background: ${color.surface};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
 const StaticName = styled.span`
   flex: 1;
-  font-weight: 650;
+  font-weight: ${typeVar.h3.weight};
 `
 
 const Count = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
 const Note = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

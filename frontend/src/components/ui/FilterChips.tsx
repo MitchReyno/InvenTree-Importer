@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, opacity, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 
@@ -48,7 +48,7 @@ const Chip = styled.button`
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   cursor: pointer;
   &:hover {
     background: ${color.surface2};
@@ -59,12 +59,12 @@ const Chip = styled.button`
     color: ${color.bg};
   }
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `
 
 const ChipCount = styled.span`
   font-variant-numeric: tabular-nums;
-  opacity: 0.75;
+  opacity: ${opacity.muted};
 `

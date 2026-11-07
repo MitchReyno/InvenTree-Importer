@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from 'react'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from './Button'
 
 export type ChatMessage = { id: string; who: string; text: string; mine: boolean }
@@ -76,9 +76,9 @@ const Message = styled.p<{ $mine: boolean }>`
 
 const Who = styled.span`
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: ${space[1]};
   font-size: 11px;
-  font-weight: 600;
+  font-weight: ${typeVar.bodyStrong.weight};
   color: ${color.muted};
 `
 
@@ -104,6 +104,6 @@ const Compose = styled.form`
 
 const Closed = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

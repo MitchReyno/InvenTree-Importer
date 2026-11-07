@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
 
 export type SourceTone = 'default' | 'likely' | 'conflict' | 'user'
@@ -64,7 +64,7 @@ const Chip = styled.button<{ $tone: SourceTone }>`
       left: 0;
       right: 0;
       top: 50%;
-      height: 44px;
+      height: ${size.touch};
       transform: translateY(-50%);
     }
   }

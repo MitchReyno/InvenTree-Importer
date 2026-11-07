@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
 import { Spinner } from './Progress'
@@ -81,7 +81,7 @@ export function SubTabs(props: TabsProps) {
 
 const Row = styled.nav`
   display: flex;
-  gap: 2px;
+  gap: ${space[1]};
   overflow-x: auto;
   scrollbar-width: none;
   border-bottom: 1px solid ${color.line};
@@ -129,7 +129,7 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
     cursor: not-allowed;
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
