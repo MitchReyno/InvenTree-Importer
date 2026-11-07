@@ -29,6 +29,15 @@ for (const mode of ['retained', 'storage_failure', 'reap_pending'] as const) {
         )
       }
       const secret = `private-token ${join(root, 'private-file')} SQL credentials`
+      const eventCount = async () =>
+        Number(
+          (
+            await fixture.db.pool.query(
+              "SELECT count(*) FROM ui_event WHERE kind='session_changed'",
+            )
+          ).rows[0].count,
+        )
+      let eventsBefore = 0
       const deps = {
         pool: fixture.runner.pool,
         config: fixture.config,
@@ -37,6 +46,7 @@ for (const mode of ['retained', 'storage_failure', 'reap_pending'] as const) {
         drivers: {
           'synthetic-session/1': async () => {
             if (mode === 'reap_pending') {
+              eventsBefore = await eventCount()
               throw new ResearchReapPendingError()
             }
             throw new NativeSessionError('agent_tool_refused', { cause: new Error(secret) })
@@ -48,6 +58,7 @@ for (const mode of ['retained', 'storage_failure', 'reap_pending'] as const) {
           runSessionTurn(deps, session.attempt, new AbortController().signal),
           ResearchReapPendingError,
         )
+        assert.equal(await eventCount(), eventsBefore + 1, 'An open panel learns of the diagnostic')
       } else {
         assert.equal(
           await runSessionTurn(deps, session.attempt, new AbortController().signal),

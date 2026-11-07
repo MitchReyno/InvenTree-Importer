@@ -626,7 +626,11 @@ export async function runSessionTurn(
       await watching
       const pendingFailure = captureFailure(new NativeSessionError('agent_reap_pending'), 'reap')
       try {
-        await transaction(pool, (client) => retainSessionFailure(client, pendingFailure))
+        await transaction(pool, async (client) => {
+          if (await retainSessionFailure(client, pendingFailure)) {
+            await publish(client, current.batchId)
+          }
+        })
       } catch {
         process.stderr.write(
           JSON.stringify({

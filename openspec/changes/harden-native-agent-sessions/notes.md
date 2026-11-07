@@ -26,6 +26,7 @@ The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131), co
 - **2026-11-07T18:43:41+11:00, task 5:** Chose an additive immutable `agent_session_failure` table keyed by attempt and turn rather than rewriting the mutable session row. A savepoint isolates diagnostic insertion from settlement, preserving the original failure and cleanup semantics if diagnostic storage fails. Summaries refer only to the current turn so an earlier diagnostic is never presented as current. The first diagnostic recorded for a turn is kept; a later worker-restart interruption of the same turn does not replace the original cause.
 - **2026-11-07T18:43:41+11:00, task 5:** Debug data is constructed from typed application codes and bounded metadata. Raw exception text, stderr and stacks are excluded before persistence; unknown values remain unavailable. CLI versions are captured from the existing version and initialize responses, without an extra provider request.
 - **2026-11-07T19:11+11:00, task 5:** Worker shutdown and worker-restart recovery record `agent_worker_interrupted`; `agent_cancelled` is reserved for the attempt leaving `running` through Processing. Both use the Interrupted category.
+- **2026-11-07T20:05+11:00, task 5 review:** `agent_request_refused` covers any failed Codex RPC, so it is Provider/network rather than Tool policy; explicit policy and tool refusals keep their own codes. An unconfirmed reap now publishes a session change when its diagnostic is stored, so an open panel shows it while the slot stays held.
 
 ## Open items
 

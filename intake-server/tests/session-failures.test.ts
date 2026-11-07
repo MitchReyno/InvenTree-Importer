@@ -59,3 +59,21 @@ test('every typed session failure code has a category', () => {
     )
   }
 })
+test('known model identifiers are retained and generic RPC refusals are not tool policy', () => {
+  for (const model of ['o3', 'o4-mini', 'gpt-5.5-codex', 'claude-opus-5-5']) {
+    assert.equal(
+      sessionFailure(new NativeSessionError('agent_turn_failed'), { ...context, model }).model,
+      model,
+    )
+  }
+  for (const model of ['o', 'other-model', '/private/model']) {
+    assert.equal(
+      sessionFailure(new NativeSessionError('agent_turn_failed'), { ...context, model }).model,
+      null,
+    )
+  }
+  assert.equal(
+    sessionFailure(new NativeSessionError('agent_request_refused'), context).category,
+    'provider_network',
+  )
+})

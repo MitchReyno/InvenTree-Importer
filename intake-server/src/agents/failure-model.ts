@@ -16,7 +16,7 @@ const categories: Record<string, Category> = {
   agent_host_customization_refused: 'configuration',
   agent_policy_refused: 'tool_policy',
   agent_tool_refused: 'tool_policy',
-  agent_request_refused: 'tool_policy',
+  agent_request_refused: 'provider_network',
   agent_protocol_invalid: 'provider_network',
   agent_process_failed: 'provider_network',
   agent_input_closed: 'provider_network',
@@ -134,7 +134,7 @@ export function sessionFailure(error: unknown, context: Context): SessionFailure
     stage: context.stage,
     provider: context.provider ?? null,
     model:
-      context.model && /^(?:gpt-|o[1-9]-|claude-)[a-zA-Z0-9.-]{1,110}$/.test(context.model)
+      context.model && /^(?:gpt-|o[1-9]|claude-)[a-zA-Z0-9.-]{0,110}$/.test(context.model)
         ? context.model
         : null,
     provider_session_id:
