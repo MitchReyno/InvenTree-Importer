@@ -114,6 +114,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 6:** A move is remembered for a retry's toast only while its own request is retained, and forgotten as soon as nothing is (confirmed, refused or discarded), so a later retry of another command cannot raise it. The glance's observation count counts every active observation of the lot, document lines included; crops only draw the thumbnail. When the phone fold arrives while a settings field has focus, the fold opens rather than hiding it. "New group" is named by its visible words.
 - **2026-11-08, PR-J review round 7:** The glance's spinner shows only while the lead session runs; a stopped session's last line stays as text. A running step with nothing ready draws a thin sliver rather than an empty bar. An operator lot with only document-line observations now gets its observation count. The drawer's question links use the shared `Link`, with its 44px hit area below `bp-compact`.
 - **2026-11-08, PR-J review round 8:** Examine's source chip says "Read from the document" for a reading from document lines and "Read from the photo" only for a photo region.
+- **2026-11-08, PR-J review round 9:** Examine's media read polls at the retained interval too, so file names and groups changed elsewhere reach it without live updates.
 
 ## Open items
 

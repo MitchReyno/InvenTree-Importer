@@ -177,6 +177,7 @@ export function ProcessingWorkspace({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: media !== undefined && view === 'examine',
+    refetchInterval: pollInterval,
   })
   const offline = snapshotQuery.isError || snapshotQuery.fetchStatus === 'paused'
   const waitingForRead =
