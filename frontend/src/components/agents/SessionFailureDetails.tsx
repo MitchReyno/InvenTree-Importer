@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, space, radius } from '../../theme/generated/tokens'
+import { color, space, radius, type } from '../../theme/generated/tokens'
 import { useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { SessionFailureDto, SessionFailureSummaryDto } from '@invimport/contracts'
@@ -138,8 +138,8 @@ const FailureSection = styled.section`
     margin-bottom: 0;
   }
   dt {
+    ${type.small}
     color: ${color.muted};
-    font-size: 12px;
   }
   dd {
     margin: ${space[1]} 0 0;
