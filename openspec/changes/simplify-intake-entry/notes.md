@@ -1,6 +1,6 @@
 # Implementation notes
 
-Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Importer/pull/97)), Examine lot forming (PR-B, [#107](https://github.com/MitchReyno/InvenTree-Importer/pull/107)) and the per-lot pipeline with selective rework (PR-C, [#112](https://github.com/MitchReyno/InvenTree-Importer/pull/112)) are merged into `interactive-app`. PR-D, the live provider qualification (task 13), is held until live provider use is authorized, so BI-006 stays In progress.
+Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Importer/pull/97)), Examine lot forming (PR-B, [#107](https://github.com/MitchReyno/InvenTree-Importer/pull/107)) and the per-lot pipeline with selective rework (PR-C, [#112](https://github.com/MitchReyno/InvenTree-Importer/pull/112)) are merged into `interactive-app`. PR-D, the live provider qualification (task 13), ran on 2026-11-07 under Mitch's authorization; its evidence is in the PR-D description. `native-agent/2` keeps `native_unverified`, and BI-006 moves to Done once PR-D merges.
 
 ## Changes to the plan
 
@@ -33,6 +33,10 @@ Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Im
 - **2026-11-07, task 10:** A tier run hung for about 2.7 hours in `processing-suggestions.test.ts` because it was started without `INTAKE_MEDIA_DECODER_IMAGE`. Tier runs now get a hard time cap and a stall check.
 - **2026-11-07, task 11:** An eager import of `currentness.ts` from capture formed a load-time cycle through the media modules (Processing depends on capture), so capture loads it lazily. On a manual-only deployment the capture `api` role has no Processing grants, so the currentness and regroup hooks check `has_table_privilege` and do nothing there.
 - **2026-11-07, PR-C review:** On `native-agent/2`, queueing from the lead identity failed because `createSessionAttempt` read Agent settings `FOR SHARE`, which `agent_writer` cannot. That path passes `lockSettings: false`, as the Examine trigger does.
+- **2026-11-07, task 13:** Codex (codex-cli 0.166.0, `gpt-6-luna`) was not confined to the intake tools. It wrapped the `mcp__intake__*` tools inside its `exec` JavaScript tool (code mode), so they were not top-level tools. It also offered `wait`, `request_user_input_async`, the `collaboration` and `clock` namespaces, `apply_patch` and `image_gen`, and loaded the user-level skills catalogue despite the dedicated `CODEX_HOME`. The adapter's start-time check compares only MCP server tools, so it sees no built-ins, and the in-run item check sees only the nested MCP calls, not code run inside `exec`. Codex's first call ran arbitrary JavaScript, and the session was not refused.
+- **2026-11-07, task 13:** `propose` rejects with `validation_failed` ("Arguments do not match SessionProposeArgs: invalid_contract") and does not name the failing field. Codex's single lead `propose` was rejected and never retried, so no identity became stable. Claude (`claude-haiku-5-5`) LED Research was rejected four times, with object arguments, before it published a minimal proposal; its own explanation, that it had sent a JSON string, was wrong.
+- **2026-11-07, task 13:** A session cannot cite evidence it picks up mid-session: the inbox payload carries only `evidence_id` and `version_id`, and `fetch_evidence` returns no digest. On resume, Claude LED Images tried to cite the new photo with an invented all-zero `sha256`, and the server correctly refused it with `source_not_delivered`.
+- **2026-11-07, task 13:** Claude sessions were also offered a deferred `advisor` server tool (`advisor_20260301`) and a non-callable `DeferredToolPlaceholder`. The start-time check does not see `advisor`, because it is not in the init tools list, and it could not be loaded because no tool-search tool was offered.
 
 ## Decisions made during implementation
 
@@ -49,10 +53,15 @@ Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Im
 - **2026-11-07, task 11:** An answer supersedes only the question's declared `fields`, so a quantity answer leaves identity proposals current. A null-subject answer affects no proposals. The answer path applies its value through `capture.apply`, not `edit`, so it is not counted twice as a correction.
 - **2026-11-07, task 12:** The Examine view numbers photos by their first observation, because the capture snapshot carries no photo labels.
 - **2026-11-07, PR-C (#110 merge):** `assessCatalogue` moved into contracts with #110, and `applicableCatalogueSpec` builds on it. Records treats a proposal as current only while its job is not superseded and its own `currentness` is not stale, and prefers current proposals for field origins and the catalogue choice.
+- **2026-11-07, task 13:** `native-agent/2` keeps the `native_unverified` label. Claude passed every check except status cadence, which was partial (status lines at milestones, not at each step); Codex failed the tool-only allowlist and the identity proposals. The label is set per profile, and one run per provider on a cheap model qualifies neither. Task 13's acceptance is the documented outcome, not a passing label, so BI-006 moves to Done once PR-D merges.
 
 ## Open items
 
-- **Live qualification (task 13, PR-D):** held until live provider use is authorized. Still unknown: whether real models call the tools reliably, act on in-turn input promptly, and resume with full context, and the subscription login paths. The spike used the API-key route with a fake key. BI-006 moves to Done only after this.
+- **Codex tool surface (from task 13):** expose the intake MCP tools directly, with `exec` (code-mode) wrapping turned off, since turning off `exec` alone would cut off every app tool. Remove `wait`, `request_user_input_async`, the `collaboration` and `clock` namespaces, `apply_patch`, `image_gen` and the skills catalogue, keeping D2's four accepted exceptions. Check the full offered tool surface at start, including built-ins, and refuse code run inside `exec`.
+- **Proposal validation messages (from task 13):** `propose` should name the field that failed validation.
+- **Citable new evidence (from task 13):** deliver a digest for evidence picked up mid-session, in the inbox payload or the `fetch_evidence` result.
+- **Claude `advisor` tool (from task 13):** exclude or detect the deferred `advisor` server tool in intake sessions.
+- **Qualification script (from task 13):** count a chat as handled when the session asks a question or posts a status after reading it, not only when it replies in chat.
 - **`/1` Codex goal tools:** `features.goals` defaults to on in codex-cli 0.166.0, so a `/1` Codex turn is also offered the goal tools and `request_user_input`. `/1` was out of scope; raise it separately if wanted.
 - **Resume routing:** routing a resume to the matching worker is not solved. One actor's worker per DBOS application is the supported deployment; a mis-routed claim changes nothing.
 - **Dev launcher:** dev setup does not create the `agent_writer` role and the dev launcher does not start a session worker. Without `INTAKE_AGENT_WRITER_DATABASE_URL` the lot-forming tools refuse with `tool_not_allowed`.

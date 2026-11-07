@@ -43,7 +43,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 | PR-A | Resumable agent sessions: tool server, outbox/inbox, status lines, chat, slots, header status. Questions become non-blocking at protocol level. | 1–6 | One protocol foundation that the other bundles build on, reviewable on its own with the synthetic profile. The `/1` flow is unchanged. | None. Merges first. | `interactive-app` ← `feat/simplify-intake-entry-sessions`; `feat(simplify-intake-entry): add resumable agent sessions` | `pnpm contracts:check`, `pnpm typecheck`, `pnpm test:intake`, `test:intake:pg`, `test:intake:process`, frontend typecheck/lint/test/build; independent exact-head review; selected CI green |
 | PR-B | Examine lead session: observations with regions, live draft lots and per-lot identity proposals | 7–9 | Observation and lot authority plus the session that writes them form one coherent capture-boundary change, visible end to end. | PR-A merged | `interactive-app` ← `feat/simplify-intake-entry-lot-forming`; `feat(simplify-intake-entry): form lots from observations` | Same checks plus a browser check of live lots formed from regions (one photo, three lots; one lot, two photos), with Research/Images queued through the existing Processing controls (automatic queueing on a stable identity arrives in PR-C); independent review; CI green |
 | PR-C | Per-lot Research ∥ Images on a stable identity, selective rework, observation pickup | 10–12 | Changes successor triggering and currentness together; it needs lead-session lots for its end-to-end check. | PR-B merged | `interactive-app` ← `feat/simplify-intake-entry-examine-pipeline`; `feat(simplify-intake-entry): run research and images per lot in parallel` | Same checks plus a browser qualification of the full flow; handover updated; independent review; CI green |
-| PR-D | Live provider qualification evidence (notes and docs only) | 13 | Kept separate because it needs explicit live-usage authorization and may stay on hold. | PR-C merged and authorization given | `interactive-app` ← `feat/simplify-intake-entry-live-qualification`; `docs(simplify-intake-entry): record live session qualification` | Recorded evidence; review; held without authorization |
+| PR-D | Live provider qualification evidence (notes and docs only) | 13 | Kept separate because it needs explicit live-usage authorization and may stay on hold. | PR-C merged and authorization given | `interactive-app` ← `docs/simplify-intake-entry-live-qualification`; `docs(simplify-intake-entry): record live provider qualification (PR-D, task 13)` | Recorded evidence; review; authorized and run on 2026-11-07 |
 
 ## 1. Proof-of-fit spike for tools, resume and in-turn input
 
@@ -377,9 +377,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** review of the evidence in the PR-D description.
 - **Risks and decisions:** billable usage. Held until authorized.
 
-- [ ] 13.1 Obtain explicit live-usage authorization, and record its scope.
-- [ ] 13.2 Run the scripted qualification for Claude and Codex: tool-only allowlist, status cadence, in-turn answer, resume after finish.
-- [ ] 13.3 Record the outcomes in the PR-D description and the label decision in `notes.md`.
+- [x] 13.1 Obtain explicit live-usage authorization, and record its scope.
+- [x] 13.2 Run the scripted qualification for Claude and Codex: tool-only allowlist, status cadence, in-turn answer, resume after finish. (Codex's in-turn answer was not reached; see the PR-D description.)
+- [x] 13.3 Record the outcomes in the PR-D description and the label decision in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -388,6 +388,6 @@ CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage).
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`.
 - [x] D.2 PR-B: same gates. Review clear at `0948449` (rounds 9–10 covered the two `interactive-app` merges); CI green; merged as `776c302` (#107).
 - [x] D.3 PR-C: same gates; BI-006 is updated to Done only after acceptance and merge are evidenced. Review clear at `37bfd82` (round 6, after the `interactive-app` merge); CI green; merged as `236a165` (#112). BI-006 stays In progress until PR-D.
-- [ ] D.4 PR-D: held until live authorization; same gates once run.
+- [ ] D.4 PR-D: authorized and run on 2026-11-07; same gates.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.
