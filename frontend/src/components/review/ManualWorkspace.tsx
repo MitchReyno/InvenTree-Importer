@@ -21,6 +21,7 @@ import {
 } from '../../manual/types'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
+import { VisuallyHidden } from '../ui/VisuallyHidden'
 import { Button } from '../ui/Button'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
@@ -371,17 +372,16 @@ export function ManualWorkspace({
   }
   return (
     <>
-      <HeadingRow>
-        <Heading>
-          {
-            {
-              review: 'Review selected lots',
-              approve: 'Ready to add',
-              results: 'Added',
-            }[stage]
-          }
-        </Heading>
-      </HeadingRow>
+      {stage === 'review' ? (
+        // Review's tabs already name the page; the heading stays for screen readers.
+        <VisuallyHidden as="div">
+          <Heading>Review selected lots</Heading>
+        </VisuallyHidden>
+      ) : (
+        <HeadingRow>
+          <Heading>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
+        </HeadingRow>
+      )}
       {workspace?.preparations_truncated && (
         <Notice>
           Only the 20 most recent unapproved preparations are considered here. Older exact plans

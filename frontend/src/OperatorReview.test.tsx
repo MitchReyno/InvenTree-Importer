@@ -1101,6 +1101,24 @@ test('lot details show Exclude with its reason and no internal identifiers inlin
   expect(details.textContent).not.toMatch(UUID)
 })
 
+test('the lot detail ends in its action footer and holds the lot edits', async () => {
+  renderReview()
+  const details = await screen.findByRole('region', { name: 'Decision' })
+  const footer = within(details).getByRole('region', { name: 'Lot actions' })
+
+  expect(within(footer).getByRole('button', { name: 'Mark reviewed' })).toHaveAttribute(
+    'aria-keyshortcuts',
+    'R',
+  )
+  expect(within(footer).getByRole('button', { name: 'Exclude' })).toBeDisabled()
+  expect(screen.getAllByRole('button', { name: 'Edit lot details' })).toEqual([
+    within(details).getByRole('button', { name: 'Edit lot details' }),
+  ])
+  expect(screen.getByLabelText('Human capture context').closest('details')).not.toHaveAttribute(
+    'open',
+  )
+})
+
 test('lot details show the records the lot becomes', async () => {
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })

@@ -12,7 +12,7 @@ import type {
   OperatorReviewDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Panel, Paragraph, Small, Notice } from '../ui/primitives'
+import { Panel, Paragraph, Small, Notice, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { CaptureContextSummary } from '../capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
@@ -331,7 +331,10 @@ export function ReviewWorkspace({
           are retained; reload saved values deliberately before new commands.
         </Notice>
       )}
-      <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
+      <ContextFold>
+        <Summary>Batch context</Summary>
+        <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
+      </ContextFold>
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
@@ -339,6 +342,7 @@ export function ReviewWorkspace({
           {problem && <Small role="status">{problem}</Small>}
         </div>
         <Button
+          size="sm"
           disabled={
             drafts.dirty ||
             reviewUnavailable ||
@@ -352,6 +356,7 @@ export function ReviewWorkspace({
           Mark selected reviewed
         </Button>
         <Button
+          size="sm"
           disabled={
             drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
           }
@@ -365,53 +370,6 @@ export function ReviewWorkspace({
           Adding stock isn’t available for this target, so lots can be reviewed but not added.
         </Notice>
       )}
-      <SubjectActions aria-label="Manual subjects">
-        <Button
-          type="button"
-          disabled={busy || batch.archived || !observe || drafts.dirty}
-          onClick={() => openEditor(ADD_LOT)}
-        >
-          Add physical lot
-        </Button>
-        <Button
-          type="button"
-          disabled={busy || batch.archived || !observe || drafts.dirty}
-          onClick={() => openEditor(ADD_PART)}
-        >
-          Add shared Part proposal
-        </Button>
-        {lot && (
-          <Button
-            type="button"
-            disabled={busy || batch.archived || !observe || drafts.dirty}
-            onClick={() => openEditor(lot.id)}
-          >
-            Edit lot details
-          </Button>
-        )}
-        {part && (
-          <Button
-            type="button"
-            disabled={busy || batch.archived || !observe || drafts.dirty}
-            onClick={() => openEditor(part.id)}
-          >
-            Edit shared Part
-          </Button>
-        )}
-        {/* A Part linked to no lot has no lot to focus, so it keeps its own entry point. */}
-        {batch.parts
-          .filter((item) => !batch.lots.some((value) => value.part_subject_id === item.id))
-          .map((item) => (
-            <Button
-              key={item.id}
-              type="button"
-              disabled={busy || batch.archived || !observe || drafts.dirty}
-              onClick={() => openEditor(item.id)}
-            >
-              Edit unlinked shared Part: {item.label}
-            </Button>
-          ))}
-      </SubjectActions>
       {editing && observe && (
         <ReviewSubjectEditor
           batch={batch}
@@ -431,8 +389,8 @@ export function ReviewWorkspace({
           retainRoute={retainEditorRoute}
         />
       )}
-      {operatorReview && (
-        <Toolbar>
+      <Toolbar>
+        {operatorReview && (
           <SegmentedControl
             label="Review view"
             options={[
@@ -442,11 +400,45 @@ export function ReviewWorkspace({
             value={route.view}
             onChange={(view) => navigate({ view: view as ReviewView })}
           />
+        )}
+        <SubjectActions aria-label="Manual subjects">
+          <Button
+            size="sm"
+            type="button"
+            disabled={busy || batch.archived || !observe || drafts.dirty}
+            onClick={() => openEditor(ADD_LOT)}
+          >
+            Add physical lot
+          </Button>
+          <Button
+            size="sm"
+            type="button"
+            disabled={busy || batch.archived || !observe || drafts.dirty}
+            onClick={() => openEditor(ADD_PART)}
+          >
+            Add shared Part proposal
+          </Button>
+          {/* A Part linked to no lot has no lot to focus, so it keeps its own entry point. */}
+          {batch.parts
+            .filter((item) => !batch.lots.some((value) => value.part_subject_id === item.id))
+            .map((item) => (
+              <Button
+                key={item.id}
+                size="sm"
+                type="button"
+                disabled={busy || batch.archived || !observe || drafts.dirty}
+                onClick={() => openEditor(item.id)}
+              >
+                Edit unlinked shared Part: {item.label}
+              </Button>
+            ))}
+        </SubjectActions>
+        {operatorReview && (
           <KeyboardHint>
             J/K move · R mark reviewed · E edit quantity · V view evidence
           </KeyboardHint>
-        </Toolbar>
-      )}
+        )}
+      </Toolbar>
       {operatorReview && (
         <ReviewFilters
           review={operatorReview}
@@ -552,6 +544,7 @@ export function ReviewWorkspace({
                 openQuestion={openQuestions.get(lot.id) ?? null}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
+                subjectsDisabled={busy || batch.archived || !observe || drafts.dirty}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}
               />
@@ -601,8 +594,12 @@ const ScopeBar = styled.div`
 const SubjectActions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[4]};
+  gap: ${space[3]};
+  margin-right: auto;
+`
+const ContextFold = styled.details`
   margin-bottom: ${space[4]};
+  color: ${color.muted};
 `
 const KeyboardHint = styled(Small)`
   ${media.compact} {

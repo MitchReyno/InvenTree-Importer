@@ -14,6 +14,8 @@ import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/r
 import type { OperatorReviewClient } from '../../operator/types'
 import { Heading, Link, Notice, Paragraph, Small, linkTouchArea } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { Kbd } from '../ui/Kbd'
+import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
 import { FactRow } from './FactRow'
 import { SharedTagsChoice } from './SharedTagsChoice'
@@ -50,7 +52,10 @@ interface Props {
   /** Marks this one lot reviewed; refused while it has unresolved problems. */
   markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
+  /** Opens the subject editor for a lot or Part; also the lot's "Edit lot details". */
   editPart?: (partId: string) => void
+  /** Locks the subject editor entry points (no observe client, archived or unsaved work). */
+  subjectsDisabled?: boolean
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
   /** The lot's latest agent status line, where a session works on it. */
@@ -154,6 +159,7 @@ export function DecisionPanel({
   markReviewed,
   openQuestion = null,
   editPart,
+  subjectsDisabled = false,
   editSignal = 0,
   onDirtyChange,
   agent = null,
@@ -202,19 +208,6 @@ export function DecisionPanel({
             Answer the open question
           </Link>
         </Paragraph>
-      )}
-      {markReviewed && operatorLot && (
-        <LotActions>
-          <Button
-            disabled={disabled || drafts.dirty || reviewBlock !== null}
-            onClick={markReviewed}
-          >
-            Mark reviewed
-          </Button>
-          <Button disabled>Exclude</Button>
-          {reviewBlock && <Small>{reviewBlock}</Small>}
-          <Small>Excluding a lot arrives with record edits.</Small>
-        </LotActions>
       )}
       <dl>
         <FactRow
@@ -307,21 +300,31 @@ export function DecisionPanel({
           </Notice>
         ))
       )}
-      <Paragraph>{reviewSentence(operatorLot, workspace, lot)}</Paragraph>
-      <Actions>
+      <Actions aria-label="Edit this lot">
         <Button
+          size="sm"
           disabled={disabled || (editing ? drafts.isDirty('quick') : drafts.dirty)}
           aria-expanded={editing}
           onClick={() => setEditing(!editing)}
         >
           {editing ? 'Close lot editor' : 'Edit lot values'}
         </Button>
+        {editPart && (
+          <Button size="sm" disabled={subjectsDisabled} onClick={() => editPart(lot.id)}>
+            Edit lot details
+          </Button>
+        )}
+        {editPart && part && (
+          <Button size="sm" disabled={subjectsDisabled} onClick={() => editPart(part.id)}>
+            Edit shared Part
+          </Button>
+        )}
         {operator && (
           <>
-            <Button disabled={restructureLocked} onClick={() => setRestructure('split')}>
+            <Button size="sm" disabled={restructureLocked} onClick={() => setRestructure('split')}>
               Split lot…
             </Button>
-            <Button disabled={restructureLocked} onClick={() => setRestructure('move')}>
+            <Button size="sm" disabled={restructureLocked} onClick={() => setRestructure('move')}>
               Move to Part proposal…
             </Button>
           </>
@@ -355,6 +358,34 @@ export function DecisionPanel({
           onDirtyChange={drafts.forSource('compare')}
           onEditPart={editPart && (() => editPart(part.id))}
         />
+      )}
+      {markReviewed && operatorLot ? (
+        <StickyFooter
+          label="Lot actions"
+          leading={
+            <Button size="sm" variant="ghost" disabled>
+              Exclude
+            </Button>
+          }
+          summary={
+            <>
+              <Small>{reviewBlock ?? reviewSentence(operatorLot, workspace, lot)}</Small>
+              <Small>Excluding a lot arrives with record edits.</Small>
+            </>
+          }
+          primary={
+            <Button
+              variant="primary"
+              aria-keyshortcuts="R"
+              disabled={disabled || drafts.dirty || reviewBlock !== null}
+              onClick={markReviewed}
+            >
+              Mark reviewed <ButtonKbd aria-hidden="true">R</ButtonKbd>
+            </Button>
+          }
+        />
+      ) : (
+        <Paragraph>{reviewSentence(operatorLot, workspace, lot)}</Paragraph>
       )}
       {restructure && operator && (
         <RestructureDialog
@@ -390,6 +421,12 @@ function reviewSentence(
   return 'Review binds these saved choices, relevant human notes and any warning dismissals.'
 }
 
+/** The shortcut drawn in the button's own ink, on any variant or state. */
+const ButtonKbd = styled(Kbd)`
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+`
 const SharedLine = styled.p`
   margin: 0;
   font-size: ${typeVar.body.size};
@@ -410,12 +447,4 @@ const Actions = styled.div`
   align-items: center;
   gap: ${space[4]};
   margin: ${space[4]} 0;
-`
-
-const LotActions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[4]};
-  margin: ${space[4]} 0 ${space[6]};
 `
