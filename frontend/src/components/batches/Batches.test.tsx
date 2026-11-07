@@ -46,7 +46,7 @@ test('shows retained thumbnail/counts and submits server search once rather than
     `/api/v1/batches/${saved.id}/media/previews/${saved.workflow.thumbnail.preview_id}`,
   )
   expect(within(continued).getByText('3 need you')).toBeVisible()
-  expect(within(continued).getByText('Agents working')).toBeVisible()
+  expect(within(continued).getByText('Processing')).toBeVisible()
   expect(within(continued).getByLabelText('Batch counts')).toHaveTextContent(
     '2 lots proposed1 ready3 questions',
   )

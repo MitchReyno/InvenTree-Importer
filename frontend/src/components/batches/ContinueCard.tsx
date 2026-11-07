@@ -55,7 +55,7 @@ export function ContinueCard({ batch }: { batch: InboxBatch }) {
               {batch.workflow.open_questions > 0 && (
                 <Pill status="needs-answer">{batch.workflow.open_questions} need you</Pill>
               )}
-              {batch.workflow.active_jobs > 0 && <Pill status="processing">Agents working</Pill>}
+              {batch.workflow.active_jobs > 0 && <Pill status="processing">Processing</Pill>}
               {lastActivity}
             </Row>
             <BatchCounts workflow={batch.workflow} />

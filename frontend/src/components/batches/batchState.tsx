@@ -25,7 +25,8 @@ export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {
     return <Pill status="draft">Draft</Pill>
   }
   if (workflow.active_jobs > 0) {
-    return <Pill status="processing">Agents working</Pill>
+    // `active_jobs` counts queued jobs too, so this does not claim an agent has started.
+    return <Pill status="processing">Processing</Pill>
   }
   if (workflow.open_questions > 0) {
     return <Pill status="needs-answer">{workflow.open_questions} need you</Pill>

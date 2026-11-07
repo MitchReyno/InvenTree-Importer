@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>tmp</title></head><body><div id="root" style="padding:24px"></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { GlobalStyle } from '/src/components/GlobalStyle.tsx';
+import { NeedsYouPanel } from '/src/components/batches/NeedsYouPanel.tsx';
+const b = 'b0000000-0000-4000-8000-000000000001'
+const z = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+const attention = { batch_id: b, revision: '3', processing: { questions: 3, failed: 0, running: 0, steps: { examine: z, research: z, images: z, inventory: z } }, review: { to_check: 1, changed_after_review: 1, to_decide: 0 }, changes: { ready: 0, failed: 1, uncertain: 0 }, items_truncated: false, items: [
+ { key: 'q1', group: 'question', tab: 'processing', title: 'Which existing Part is the ATmega328P?', detail: 'Using MCU-0012 meanwhile', route: `${b}/processing/inventory/q1` },
+ { key: 'q2', group: 'question', tab: 'processing', title: 'How many 1N4148 diodes?', detail: 'Using 200 (estimate)', route: `${b}/processing/examine/q2` },
+ { key: 'l1', group: 'changed_lot', tab: 'review', title: 'Packet B changed since review', detail: 'Count updated from your corrected reading', route: `${b}/review/lots/l1` },
+ { key: 'r1', group: 'result', tab: 'changes', title: 'Datasheet attachment failed', detail: 'RES-0144 · Retry attachment', route: `${b}/changes/added/r1` },
+]}
+createRoot(document.getElementById('root')).render(React.createElement(React.Fragment, null, React.createElement(GlobalStyle), React.createElement(NeedsYouPanel, { attention })));
+</script></body></html>
