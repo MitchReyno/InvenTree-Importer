@@ -42,6 +42,7 @@ export async function blobReferenced(client: PoolClient, digest: string): Promis
   const result = await client.query<{ referenced: boolean }>(
     `SELECT EXISTS(SELECT 1 FROM media_version WHERE blob_digest=$1)
          OR EXISTS(SELECT 1 FROM media_preview WHERE blob_digest=$1)
+         OR EXISTS(SELECT 1 FROM media_preview_rendition WHERE blob_digest=$1)
          OR EXISTS(SELECT 1 FROM media_approval_pin WHERE blob_digest=$1)
          OR EXISTS(SELECT 1 FROM media_command_pin WHERE blob_digest=$1) AS referenced`,
     [Buffer.from(digest, 'hex')],

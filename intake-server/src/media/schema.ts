@@ -1,6 +1,7 @@
 import { boolean, customType, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { MediaVersionDto } from '@invimport/contracts'
+import type { MediaRenditionSize } from '@invimport/contracts/media'
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 // node-postgres returns bigint as exact decimal strings; retain existing DTO/command bytes.
@@ -69,6 +70,14 @@ export const mediaPreviews = pgTable('media_preview', {
   versionId: uuid('version_id').notNull(),
   commandId: uuid('command_id').notNull(),
   page: integer().notNull(),
+  width: integer().notNull(),
+  height: integer().notNull(),
+  blobDigest: bytea('blob_digest').notNull(),
+})
+export const mediaPreviewRenditions = pgTable('media_preview_rendition', {
+  previewId: uuid('preview_id').notNull(),
+  batchId: uuid('batch_id').notNull(),
+  size: text().$type<MediaRenditionSize>().notNull(),
   width: integer().notNull(),
   height: integer().notNull(),
   blobDigest: bytea('blob_digest').notNull(),

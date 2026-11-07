@@ -53,10 +53,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("One table keyed by preview and size"), using the existing digest locks and immutability-trigger pattern.
 - **Verification:** PostgreSQL tier (`pnpm test:intake:pg`) for the migration, the trigger, grants, atomic publication, interrupted publication and collection.
 
-- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
-- [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
-- [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
-- [ ] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
+- [x] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
+- [x] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
+- [x] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
+- [x] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
 
 ## 3. Sized preview reads
 
