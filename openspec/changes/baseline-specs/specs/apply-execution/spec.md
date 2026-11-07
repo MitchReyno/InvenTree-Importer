@@ -72,7 +72,7 @@ Every mutation SHALL require a matching private activation record held outside t
 
 ### Requirement: Apply one committed intent per actual request
 
-Each actual target request, including precondition reads, verification reads and transfers, SHALL have its own committed request intent before it is sent. The transport SHALL make exactly one HTTP request per intent, with no implicit retry, redirect following or connection reuse, and with five-second transport and body deadlines and a 64 KiB response bound.
+Each actual target request, including precondition reads, verification reads and transfers, SHALL have its own committed request intent before it is sent. The transport SHALL make exactly one HTTP request per intent, with no implicit retry, redirect following or connection reuse, and with five-second transport and body deadlines. Record responses SHALL be bounded at 64 KiB; attachment downloads are bounded at the 20 MiB media maximum plus an 8 KiB frame.
 
 #### Scenario: HTTP 421
 
