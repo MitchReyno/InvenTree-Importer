@@ -408,11 +408,19 @@ async function main(argv) {
 
   // Found before anything starts, so a missing Chrome leaves nothing to clean up.
   const binary = process.env.CHROME_PATH || findChrome()
+  if (!existsSync(binary)) {
+    throw new Error(`CHROME_PATH does not exist: ${binary}`)
+  }
   const port = await freePort()
   const vite = startVite(port)
   const origin = `http://127.0.0.1:${port}`
   const profile = mkdtempSync(join(tmpdir(), 'screenshot-check-'))
   const chrome = launchChrome(binary, profile)
+  // A spawn failure is raised inside the try, so Vite and the profile are still cleaned up.
+  let chromeError = null
+  chrome.once('error', (error) => {
+    chromeError = error
+  })
   try {
     await waitFor(
       () =>
@@ -425,7 +433,10 @@ async function main(argv) {
     )
     const activePort = join(profile, 'DevToolsActivePort')
     const devtools = await waitFor(
-      () => existsSync(activePort) && readFileSync(activePort, 'utf8').split('\n')[0],
+      () => {
+        if (chromeError) throw chromeError
+        return existsSync(activePort) && readFileSync(activePort, 'utf8').split('\n')[0]
+      },
       15000,
       'Chrome',
     )

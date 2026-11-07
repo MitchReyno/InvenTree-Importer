@@ -78,6 +78,17 @@ function values(source) {
 }
 
 describe('literal value check', () => {
+  it('exempts a calc() that adjusts a token, not one that adds a prop', () => {
+    const source = [
+      'const A = styled.div`',
+      '  padding: calc(${space[8]} - 1px);',
+      '  margin: calc(16px + ${(props) => props.$extra}px);',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual(['3 | margin | 16px | space-8'])
+  })
+
   it('reads the font shorthand by part and a media query that spans lines', () => {
     const source = [
       'const A = styled.div`',

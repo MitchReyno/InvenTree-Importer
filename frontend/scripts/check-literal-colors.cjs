@@ -110,7 +110,11 @@ const NUMBER = /(?<![\w.-])(-?(?:\d+\.?\d*|\.\d+))(px|em|rem|%|ms|s)?(?![\w.%(])
 const EASING = /(?<![\w-])(ease-in-out|ease-in|ease-out|linear)(?![\w(-])/g
 
 // Keeps template-literal text (styled-components CSS) at its line positions and blanks the rest.
-// An interpolation becomes '§' plus the contents of its quoted strings and nested templates.
+// An interpolation becomes '§' when it reads a design token and '¤' otherwise, plus the contents
+// of its quoted strings and nested templates.
+const TOKEN_READ =
+  /^\s*(?:color|space|radius|duration|easing|zIndex|breakpoint|opacity|size|icon|ring|offset|pageWidth|font|shadow|type|typeVar)\s*[.[]/
+
 function templateText(source) {
   let out = ''
   const stack = ['js']
@@ -144,7 +148,7 @@ function templateText(source) {
         out += ';'
       } else if (char === '$' && next === '{') {
         stack.push({ depth: 0 })
-        out += '§ '
+        out += TOKEN_READ.test(source.slice(index + 2, index + 80)) ? '§ ' : '¤ '
         index++
       } else {
         out += char
@@ -284,7 +288,7 @@ function declarations(text) {
       if (DECLARATION_START.test(body)) {
         finish()
         current = { first: index, last: index, text: body }
-      } else if (/^\s*§/.test(body) && !(current && continues(current.text, line))) {
+      } else if (/^\s*[§¤]/.test(body) && !(current && continues(current.text, line))) {
         finish()
       } else if (current && body.trim()) {
         current.last = index
