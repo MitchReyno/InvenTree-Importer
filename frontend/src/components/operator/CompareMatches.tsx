@@ -5,6 +5,7 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
+import { localTime } from '../ui/RelativeTime'
 
 type Part = CaptureSnapshotDto['parts'][number]
 type Observation = CaptureSnapshotDto['observations'][number]
@@ -135,7 +136,7 @@ export function CompareMatches({
                 <th scope="row">Read</th>
                 <td>—</td>
                 {candidates.map((candidate) => (
-                  <td key={candidate.id}>{new Date(candidate.observed_at).toLocaleString()}</td>
+                  <td key={candidate.id}>{localTime(candidate.observed_at) ?? 'Unknown'}</td>
                 ))}
               </tr>
               <tr>

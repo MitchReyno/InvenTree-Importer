@@ -125,9 +125,12 @@ test('reports unavailable snapshots and retries only the selected failed preview
   const user = userEvent.setup()
   render(<EvidenceViewer batchId="batch" evidence={[evidence]} unavailable />)
   expect(screen.getByText(/last retained snapshot/)).toBeVisible()
+  const source = screen.getByRole('img').getAttribute('src')
   fireEvent.error(screen.getByRole('img'))
   expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
-  const source = screen.getByRole('img').getAttribute('src')
+  // The stage shows the file's name on a glyph, never a broken image.
+  expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  expect(screen.getByLabelText(/Evidence image/)).toHaveTextContent('Packing slip')
   await user.click(screen.getByRole('button', { name: 'Retry selected preview' }))
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(screen.getByRole('img')).toHaveAttribute('src', source)

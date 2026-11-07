@@ -10,7 +10,7 @@ import {
 } from '../../processing/pending-messages'
 import type { ProcessingClient } from '../../processing/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { space } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { chatConfirmation } from '../processing/SessionChatPanel'
 import { Button } from '../ui/Button'
@@ -122,6 +122,9 @@ export function TellExamine({
 const Form = styled.form`
   display: grid;
   gap: ${space[4]};
+  padding: ${space[6]};
+  border-radius: ${radius.btn};
+  background: ${color.surface2};
 `
 const Row = styled.div`
   display: flex;

@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { reviewMap } from '../../operator/review-map'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { Select } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { Pill } from '../ui/Pill'
@@ -25,6 +27,8 @@ type Props = {
   /** Locks split, merge and move until the latest operator review is read. */
   restructureUnavailable?: boolean
   loading: boolean
+  /** Drawn at the foot of the Lots column, e.g. the Tell Examine composer. */
+  aside?: ReactNode
 }
 
 const MAX_MERGE_LOTS = 10
@@ -42,19 +46,28 @@ export function ReviewMap({
   approvedLotIds,
   restructureUnavailable = false,
   loading,
+  aside,
 }: Props) {
   const [targets, setTargets] = useState<Record<string, string>>({})
   const [merging, setMerging] = useState<string[]>([])
 
   if (loading) {
-    return <Muted role="status">Reading evidence…</Muted>
+    return (
+      <>
+        <Muted role="status">Reading evidence…</Muted>
+        {aside}
+      </>
+    )
   }
   if (!evidence) {
     return (
-      <Banner tone="bad">
-        Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still in
-        Lots.
-      </Banner>
+      <>
+        <Banner tone="bad">
+          Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still in
+          Lots.
+        </Banner>
+        {aside}
+      </>
     )
   }
 
@@ -89,9 +102,10 @@ export function ReviewMap({
       <Column aria-labelledby="map-evidence">
         <Title id="map-evidence">Evidence</Title>
         <Rows>
-          {map.files.map((file) => (
+          {map.files.map((file, index) => (
             <li key={file.id} aria-label={file.label}>
               <Head>
+                <Number>{index + 1}</Number>
                 <strong>{file.label}</strong>
                 {file.unused && (
                   <Pill tone="warn">
@@ -135,7 +149,7 @@ export function ReviewMap({
                 </Regions>
               )}
               <Controls>
-                <select
+                <LinkSelect
                   aria-label={`Link ${file.label} to a lot`}
                   value={targetFor(file)}
                   disabled={disabled}
@@ -147,7 +161,7 @@ export function ReviewMap({
                       {lot.label}
                     </option>
                   ))}
-                </select>
+                </LinkSelect>
                 <Button
                   size="sm"
                   disabled={disabled || !targetFor(file)}
@@ -179,19 +193,21 @@ export function ReviewMap({
             <li key={lot.id} aria-label={lot.label}>
               <Head>
                 {openRestructure && (
-                  <input
-                    type="checkbox"
-                    aria-label={`Choose ${lot.label} to merge or move`}
-                    checked={chosen.includes(lot.id)}
-                    disabled={restructureLocked || approvedLotIds.has(lot.id)}
-                    onChange={() =>
-                      setMerging(
-                        merging.includes(lot.id)
-                          ? merging.filter((id) => id !== lot.id)
-                          : [...merging, lot.id],
-                      )
-                    }
-                  />
+                  <CheckHit>
+                    <input
+                      type="checkbox"
+                      aria-label={`Choose ${lot.label} to merge or move`}
+                      checked={chosen.includes(lot.id)}
+                      disabled={restructureLocked || approvedLotIds.has(lot.id)}
+                      onChange={() =>
+                        setMerging(
+                          merging.includes(lot.id)
+                            ? merging.filter((id) => id !== lot.id)
+                            : [...merging, lot.id],
+                        )
+                      }
+                    />
+                  </CheckHit>
                 )}
                 <strong>{lot.label}</strong>
                 {lot.singleSource && <Pill tone="info">Rests on one file</Pill>}
@@ -208,7 +224,6 @@ export function ReviewMap({
                 <Controls>
                   <Button
                     size="sm"
-                    variant="ghost"
                     disabled={restructureLocked || approvedLotIds.has(lot.id)}
                     aria-label={`Split ${lot.label}`}
                     onClick={() => openRestructure('split', [lot.id])}
@@ -227,22 +242,25 @@ export function ReviewMap({
           </Muted>
         )}
         {openRestructure && (
-          <Controls>
+          <Fix role="group" aria-labelledby="map-fix">
+            <FixTitle id="map-fix">Fix lots directly</FixTitle>
             <Button
+              size="sm"
               disabled={restructureLocked || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
               onClick={() => openRestructure('merge', chosen)}
             >
               Merge {chosen.length} lots
             </Button>
             <Button
-              variant="ghost"
+              size="sm"
               disabled={restructureLocked || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
               onClick={() => openRestructure('move', chosen)}
             >
               Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal
             </Button>
-          </Controls>
+          </Fix>
         )}
+        {aside}
       </Column>
     </Layout>
   )
@@ -267,7 +285,8 @@ const Column = styled.section`
 
 const Title = styled.h2`
   margin: 0;
-  ${type.h2}
+  ${type.label}
+  color: ${color.muted};
 `
 
 const Rows = styled.ul`
@@ -275,15 +294,68 @@ const Rows = styled.ul`
   margin: 0;
   padding: 0;
   list-style: none;
+  gap: ${space[4]};
   > li {
     display: grid;
-    gap: ${space[2]};
-    padding: ${space[5]} 0;
-    border-top: 1px solid ${color.line};
+    gap: ${space[3]};
+    padding: ${space[5]} ${space[6]};
+    border: 1px solid ${color.line};
+    border-radius: ${radius.btn};
+    background: ${color.surface};
+    /* Clears the unlink button's 44px hit area off the controls below it. */
+    ${media.compact} {
+      gap: ${space[5]};
+    }
   }
-  > li:first-child {
-    border-top: 0;
+`
+
+/** The file's place in the list, so a region or lot can name it by number. */
+const Number = styled.span`
+  display: inline-grid;
+  place-items: center;
+  min-width: ${space[10]};
+  height: ${space[10]};
+  padding: 0 ${space[2]};
+  border-radius: ${radius.pill};
+  background: ${color.fg};
+  color: ${color.bg};
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
+`
+
+/** A checkbox's clickable area, 44px square below 760px. */
+const CheckHit = styled.label`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  ${media.compact} {
+    min-width: ${size.touch};
+    min-height: ${size.touch};
+    margin: calc((${space[10]} - ${size.touch}) / 2) 0;
   }
+`
+
+/** Sized with the small Link button beside it. */
+const LinkSelect = styled(Select)`
+  flex: 1 1 160px;
+  width: auto;
+  min-width: 0;
+  padding: ${space[2]} ${space[4]};
+  font-size: ${typeVar.small.size};
+`
+
+const Fix = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
+`
+
+const FixTitle = styled.span`
+  flex-basis: 100%;
+  ${type.label}
+  color: ${color.muted};
 `
 
 const Head = styled.div`
@@ -311,10 +383,30 @@ const Chip = styled.span`
   background: ${color.surface2};
   color: ${color.fg};
   button {
+    display: inline-grid;
+    place-items: center;
+    min-width: ${space[12]};
+    min-height: ${space[12]};
     border: 0;
+    border-radius: ${radius.pill};
     background: none;
     color: ${color.muted};
     cursor: pointer;
+  }
+  button:hover {
+    background: ${color.line};
+    color: ${color.fg};
+  }
+  /* A 44px hit area around the 24px glyph, without growing the chip. */
+  ${media.compact} {
+    button {
+      position: relative;
+    }
+    button::after {
+      content: '';
+      position: absolute;
+      inset: calc((${space[12]} - ${size.touch}) / 2);
+    }
   }
 `
 

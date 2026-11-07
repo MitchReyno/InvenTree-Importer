@@ -13,6 +13,7 @@ import { ProcessingSources } from '../processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
 import { Pill } from '../ui/Pill'
 import { LotObservations } from './LotObservations'
+import { localTime } from '../ui/RelativeTime'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -121,7 +122,10 @@ export function LotEvidence({
         <Field key={note.id}>
           <strong>{source}</strong>
           <OriginalNote>{note.text || 'Empty original note'}</OriginalNote>
-          <Small>Human · {new Date(note.created_at).toLocaleString()}</Small>
+          <Small>
+            Human
+            {localTime(note.created_at) && ` · ${localTime(note.created_at)}`}
+          </Small>
         </Field>
       ))}
       {proposals.length > 0 && (

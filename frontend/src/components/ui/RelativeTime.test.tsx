@@ -1,8 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { RelativeTime, relativeTime } from './RelativeTime'
+import { RelativeTime, localTime, relativeTime } from './RelativeTime'
 
 const now = Date.parse('2026-11-07T12:00:00Z')
+
+describe('localTime', () => {
+  it('formats a timestamp, and gives nothing for a missing or invalid one', () => {
+    expect(localTime('2026-11-07T12:00:00Z')).toBe(new Date(now).toLocaleString())
+    expect(localTime(undefined)).toBeNull()
+    expect(localTime('not a date')).toBeNull()
+  })
+})
 
 describe('relativeTime', () => {
   it('says how long ago in the largest whole unit', () => {

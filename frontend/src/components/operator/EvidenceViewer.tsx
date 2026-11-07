@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { media } from '../ui/media'
-import { color, size, space } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
@@ -15,7 +15,7 @@ import {
   type MediaIdentityLabels,
 } from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
-import { Label, Select, Small } from '../ui/primitives'
+import { Label, Select, Small, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { batchHref } from '../../navigation/batch-route'
 
@@ -224,7 +224,13 @@ export function EvidenceViewer({
             tabIndex={0}
             aria-label="Evidence image; scroll to inspect when zoomed"
           >
-            {stageWidth !== null && (
+            {failed && (
+              <Missing>
+                <span aria-hidden="true">▧</span>
+                {labels.versions.get(version.id) ?? source.label}
+              </Missing>
+            )}
+            {stageWidth !== null && !failed && (
               <PreviewImage
                 key={`${page.preview_id}:${loadAttempt}`}
                 $zoom={zoom}
@@ -351,7 +357,7 @@ export function EvidenceViewer({
           />
         ))}
       <details>
-        <summary>Details</summary>
+        <Summary>Details</Summary>
         {evidence.flatMap((item) =>
           item.versions.map((value) => (
             <Small key={value.id}>
@@ -389,6 +395,20 @@ const Zoom = styled.div`
     min-width: ${size.touch};
   }
 `
+/** A preview that failed to load: the file's name on the stage, never a broken image. */
+const Missing = styled.div`
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: ${space[4]};
+  height: 100%;
+  color: ${color.photoFg};
+  font-size: ${typeVar.small.size};
+  span {
+    font-size: ${typeVar.h1.size};
+  }
+`
+
 const Preview = styled.div`
   width: 100%;
   height: clamp(240px, 40vw, 460px);

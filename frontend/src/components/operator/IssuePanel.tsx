@@ -8,6 +8,7 @@ import { Button } from '../ui/Button'
 import { DismissWarning } from './DismissWarning'
 import type { ProblemAction } from '../../operator/problem-actions'
 import { batchHref } from '../../navigation/batch-route'
+import { localTime } from '../ui/RelativeTime'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -174,8 +175,8 @@ function WarningAction(props: WarningActionProps) {
   if (issue.disposition) {
     return (
       <Small>
-        Dismissed: “{issue.disposition.reason}” ·{' '}
-        {new Date(issue.disposition.created_at).toLocaleString()}
+        Dismissed: “{issue.disposition.reason}”
+        {localTime(issue.disposition.created_at) && ` · ${localTime(issue.disposition.created_at)}`}
       </Small>
     )
   }

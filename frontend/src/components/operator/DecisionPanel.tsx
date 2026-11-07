@@ -12,7 +12,7 @@ import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
 import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
-import { Heading, Link, Notice, Paragraph, Small } from '../ui/primitives'
+import { Heading, Link, Notice, Paragraph, Small, linkTouchArea } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { CompareMatches } from './CompareMatches'
 import { FactRow } from './FactRow'
@@ -402,6 +402,7 @@ const LinkButton = styled.button`
   text-decoration: underline;
   cursor: pointer;
   font: inherit;
+  ${linkTouchArea}
 `
 const Actions = styled.div`
   display: flex;
