@@ -24,4 +24,4 @@ Choices the design left open: a package or version chosen, a trade-off taken, a 
 
 Known limitations, deferred work and follow-ups, with where each is tracked. Write None when nothing remains.
 
-<!-- Add entries as they happen during implementation; do not reconstruct them at the end. Keep each entry to a few sentences. Leave out review-round logs, test output, command transcripts, CI results and restatements of the plan: verification belongs in the PR description and the plan belongs in the other artifacts. Delete these comments and any unused example entries. -->
+<!-- Add entries as they happen during implementation; do not reconstruct them at the end. Keep each entry to a few sentences. Leave out review-round logs, test output, command transcripts, CI results and restatements of the plan: verification and evidence belong in the PR description and the plan belongs in the other artifacts. Link to the PR rather than committing screenshots or recorded output. Delete these comments and any unused example entries. -->

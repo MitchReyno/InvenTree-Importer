@@ -12,7 +12,7 @@ BI-002 was delivered in two PRs: tasks 1–2 in [#77](https://github.com/MitchRe
 - **Task 2 (PR-A):** connection reads could probe the target while bootstrap still required setup. They now share the bootstrap configuration predicate, so a missing or blank credential returns `unconfigured` without a probe.
 - **Task 3 (PR-B):** the generated public client entry point did not re-export the foundation's `headerClient`. The generator template was fixed and its outputs regenerated, with a regression that imports the public entry point, rather than importing through an internal path.
 - **Task 3 (PR-B):** after the browser is suspended, the local clock can advance before the socket deadline timer fires. An old live observation then stayed labelled connected. Transport state is now derived from the observed time under the same 30-second policy.
-- **Task 1 (PR-A):** native browser zoom could not be driven through the attached Chrome. An isolated headless profile with Chromium's default-zoom preference gave real 200% zoom, confirmed by CDP's `cssVisualViewport.zoom`. Evidence is in [status-signalling evidence](../../../../docs/bench-intake/evidence/status-signalling/).
+- **Task 1 (PR-A):** native browser zoom could not be driven through the attached Chrome. An isolated headless profile with Chromium's default-zoom preference gave real 200% zoom, confirmed by CDP's `cssVisualViewport.zoom`. Evidence is in [status-signalling evidence](https://github.com/MitchReyno/InvenTree-Importer/tree/e3ac646/docs/bench-intake/evidence/status-signalling).
 
 ## Decisions made during implementation
 

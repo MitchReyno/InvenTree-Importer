@@ -87,7 +87,7 @@ Map all planned work without unexplained gaps or duplicate ownership. Update the
 
 For each PR bundle, record the actual reviewed commit, check results and published/merged state after they exist. These are delivery gates, not a substitute for the implementation tasks or permission to check future events early. Any corresponding evidence commit follows the same completion-before-commit rule and canonical change-name convention.
 
-Before publication, update affected documentation and the change's `notes.md`, obtain independent read-only review of the exact candidate, fix/re-review findings until clear, and use the project's normal PR workflow. Merge only after the applicable authorization and selected green CI; preserve any hold. If follow-up repository work is needed after merge, describe its delivery boundary rather than silently writing to trunk.
+Before publication, update affected documentation and the change's `notes.md`, attach evidence to the PR description rather than committing it (collapsed when there are three or more items), obtain independent read-only review of the exact candidate, fix/re-review findings until clear, and use the project's normal PR workflow. Merge only after the applicable authorization and selected green CI; preserve any hold. If follow-up repository work is needed after merge, describe its delivery boundary rather than silently writing to trunk.
 
 Update linked BI entries to their actual current status as evidence changes. Done requires accepted and merged implementation; completed checkboxes alone are insufficient. If there are no indexed items, say so. Check direct OpenSpec links and current metadata whenever the index is updated.
 
