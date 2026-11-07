@@ -31,43 +31,44 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - **PR delivery:** PR-A.
 - **Outcome:** a ready decode returns, for every page, `thumb`/`card`/`view` WebP renditions that never upscale. Sizes the page doesn't exceed are omitted, and the full page and crop outputs are unchanged.
-- **Scope:** `intake-server/src/media/decode.ts`, `decoder-protocol.ts`, `decoder-main.ts`, `decoder-output.ts`, `contracts/src/media.ts` (decoder result header).
+- **Scope:** `intake-server/src/media/decode.ts`, `decoder-protocol.ts`, `decoder-main.ts`, `decoder-output.ts` and `decoder-runner.ts` (result framing and a shared header bound raised to 64 KiB), `contracts/src/media.ts` (decoder result header).
 - **Prerequisites:** none.
 - **Acceptance:** Media preview renditions (photo, small source, multi-page, derived crop, failed decode, decoder bounds); Media full-resolution crop source.
-- **Approach:** as in design ("Renditions are produced in the decoder"). Rendition bytes count toward `totalOutputBytes`; any failure follows `limit_exceeded`.
+- **Approach:** as in design ("Renditions are produced in the decoder"). Rendition bytes count toward `totalOutputBytes`; only identified limits end `limit_exceeded`, and unexpected encoder failures stay `interrupted`.
 - **Verification:** decoder unit tests; real decoder-image timing for a 50 MP JPEG and a 30-page PDF.
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
 - [ ] 1.1 Baseline: run the existing decoder tests and record a 50 MP JPEG and a 30-page PDF decode time in the real image.
-- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing and a total-output limit. They fail because no renditions are returned.
-- [ ] 1.3 GREEN: encode renditions per page and extend the result header and byte framing, plus the parser in `decoder-output.ts`.
+- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit, an injected encoder failure (`interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
+- [ ] 1.3 GREEN: encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
 - [ ] 1.4 Re-measure the two large inputs in the real image, tune `effort` if needed, and record the times for the PR.
 
 ## 2. Rendition storage and publication
 
 - **PR delivery:** PR-A.
 - **Outcome:** a ready decode commits its renditions with its previews in one transaction. Rendition blobs are referenced for collection, and the decoder role can insert but not alter them.
-- **Scope:** `intake-server/migrations/0020_media_preview_renditions.sql`, `media/schema.ts`, `media/worker.ts`, `media/grants.ts`, `media/blob-reference.ts`, intake-server architecture notes.
+- **Scope:** `intake-server/migrations/0020_media_preview_renditions.sql`, `media/schema.ts`, `media/worker.ts`, `media/grants.ts` (decoder `INSERT`, API and `gc` `SELECT`), `media/blob-reference.ts`, intake-server architecture notes and the rollback note in `docs/development.md`.
 - **Prerequisites:** task 1.
 - **Acceptance:** Media preview renditions (atomic with the page; none on failure); existing Media orphan collection guarantees.
 - **Approach:** as in design ("One table keyed by preview and size"), using the existing digest locks and immutability-trigger pattern.
 - **Verification:** PostgreSQL tier (`pnpm test:intake:pg`) for the migration, the trigger, grants, atomic publication, interrupted publication and collection.
 
-- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API grants and `blobReferenced()` on a rendition blob.
+- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/`gc` grants, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
 - [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
 - [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
+- [ ] 2.4 Document and test the rollback procedure: clear rendition rows before an older collector runs, then confirm every remaining referenced blob survives collection.
 
 ## 3. Sized preview reads and contract
 
 - **PR delivery:** PR-A.
-- **Outcome:** the snapshot lists each page's renditions, and `GET …/media/previews/:id?size=` serves a rendition or falls back to the page. Responses are privately and immutably cacheable, and authorization is unchanged.
-- **Scope:** `contracts/src/media.ts` (`MediaVersion.pages[].renditions`), generated client contracts, `media/read.ts`, `media/content.ts`, `media/routes.ts`.
+- **Outcome:** the snapshot and the inbox workflow thumbnail list each page's dimensions and renditions, and `GET …/media/previews/:id?size=` serves a rendition or falls back to the page. Stored renditions and `full` are private and immutable, fallbacks are `no-cache`, and authorization is unchanged.
+- **Scope:** `contracts/src/media.ts` (`MediaVersion.pages[].renditions`), the inbox workflow thumbnail contract and its read model, generated client contracts, `media/read.ts`, `media/content.ts`, `media/routes.ts`.
 - **Prerequisites:** task 2.
 - **Acceptance:** Media authorized byte reads (cross-batch rendition, private immutable caching); Media preview renditions (snapshot listing).
 - **Approach:** as in design ("The route takes a size…"). Override the global `no-store` only on these routes.
 - **Verification:** HTTP tests; `pnpm contracts:check`; `pnpm test:intake`.
 
-- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions, 400 on an unknown size, 404 across batches, content types and caching headers, and the snapshot listing.
+- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, content types and caching headers, and the snapshot and inbox thumbnail listings.
 - [ ] 3.2 GREEN: extend the contract, regenerate, and implement the read, route and headers.
 - [ ] 3.3 Verify `contracts:check`, `typecheck:intake` and `test:intake`.
 
@@ -87,15 +88,22 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 ## 5. Rendition backfill
 
 - **PR delivery:** PR-B.
-- **Outcome:** the media worker upgrades retained ready versions without renditions in the background, after pending work. It never changes existing previews, skips a dimension mismatch, and retries an interrupted backfill only on a later run.
-- **Scope:** `media/worker.ts` (enqueue and publication), decode-command `purpose`, and a migration column if one is needed for it.
+- **Outcome:** the media worker upgrades retained ready versions in the background, after pending work. Eligibility comes from the sizes each page's dimensions call for, and attempts are tracked in their own table. It never changes existing previews, versions, commands or decode results, skips a dimension mismatch, and retries an interrupted attempt only on a later run, within a three-attempt cap.
+- **Scope:** a migration adding `media_rendition_backfill` with its worker grants, `media/worker.ts` (eligibility, claim, decode input from the original and its recipe, and rendition-only publication), and snapshot reads, which must not change.
 - **Prerequisites:** task 2.
 - **Acceptance:** Media rendition backfill (upgrade, request before backfill, interrupted, source changed).
-- **Approach:** as in design ("Backfill enqueues ordinary decode commands").
+- **Approach:** as in design ("Backfill uses its own attempt table, not decode commands").
 - **Verification:** PostgreSQL tier, plus a run against a copy of retained development data. Never run it against the live namespace without a backup.
 
-- [ ] 5.1 RED: add PostgreSQL tests for an upgrade with an unchanged `preview_id` and bytes, deferral to pending commands, a dimension mismatch, an interrupted backfill not repeated in the same run, and a derived version's recipe backfill.
-- [ ] 5.2 GREEN: implement enqueueing, the `renditions` purpose and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
+- [ ] 5.1 RED: add PostgreSQL tests for:
+  - an upgrade with an unchanged `preview_id`, bytes, version count, decode state and command count;
+  - deferral to pending commands;
+  - a dimension mismatch;
+  - small pages never selected;
+  - a mixed-size PDF;
+  - an interrupted attempt retried only on a later run and capped;
+  - a derived version's recipe backfill.
+- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
 - [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
 - [ ] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
 
@@ -103,13 +111,13 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - **PR delivery:** PR-C.
 - **Outcome:** each image surface uses its usage profile (thumbnail, card, viewer, full) through one helper. Images declare their size and load lazily where offscreen, the viewer switches to full past the `view` resolution, the crop dialog keeps full-resolution coordinates, and missing sizes fall back.
-- **Scope:** `frontend/src/media/types.ts` and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
+- **Scope:** `frontend/src/media/types.ts`; the image interfaces of `EvidenceTile` and `RotatedCropSelection`, which change from a URL to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
 - **Prerequisites:** tasks 3 and 4.
 - **Acceptance:** Media previews fit their surface (all scenarios).
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests (`srcSet`/`sizes` per usage, fallback with no renditions) and surface tests (thumbnail and card sizes requested, viewer zoom switching to full, crop selection coordinates unchanged over `view`).
+- [ ] 6.1 RED: add helper tests (`srcSet`/`sizes` per usage, the full page never in `srcSet`, fallback with no renditions) and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`; thumbnail and card sizes requested; the viewer switching both attributes to full on zoom at 3× density; crop selection coordinates unchanged over `view`.
 - [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
 - [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 

@@ -4,7 +4,7 @@
 
 ### Requirement: Media authorized byte reads
 
-Original, preview, rendition and observation-crop bytes SHALL be returned only after the batch and object are authorized for the configured actor and target context, and a digest SHALL never act as an access token. Originals SHALL be served as attachments with a sandboxing content security policy. Preview and rendition bytes are immutable for their identifier and SHALL be cacheable only privately; observation-crop bytes SHALL be revalidated by their digest, so a changed region is never served from a stale cache.
+Original, preview, rendition and observation-crop bytes SHALL be returned only after the batch and object are authorized for the configured actor and target context, and a digest SHALL never act as an access token. Originals SHALL be served as attachments with a sandboxing content security policy. Stored previews and renditions SHALL be cacheable only privately and immutably, while a fallback served for a size not yet rendered and every observation crop SHALL be revalidated by digest, so stale bytes are never reused.
 
 #### Scenario: Cross-batch download
 
@@ -23,6 +23,12 @@ Original, preview, rendition and observation-crop bytes SHALL be returned only a
 - **GIVEN** an authorized request for a page preview or one of its renditions
 - **WHEN** the bytes are returned
 - **THEN** the response is marked private and immutable with its exact media type, and is never marked publicly cacheable.
+
+#### Scenario: Fallback not cached as a rendition
+
+- **GIVEN** a browser that requested a page's `thumb` size before its renditions existed
+- **WHEN** the page is backfilled and the same URL is requested again
+- **THEN** the WebP rendition is returned, not the cached fallback.
 
 #### Scenario: Revalidated observation crop
 
@@ -66,6 +72,12 @@ Every ready page of an original or derived version SHALL have aspect-preserving 
 - **WHEN** it is decoded
 - **THEN** the version has no previews and no renditions, and the original remains downloadable.
 
+#### Scenario: Encoder failure is not a limit
+
+- **GIVEN** a decode whose rendition encoding fails for a reason other than a resource limit
+- **WHEN** the result is recorded
+- **THEN** the version reads `interrupted`, not `limit_exceeded`, and no previews or renditions are committed.
+
 #### Scenario: Rendition within decoder bounds
 
 - **GIVEN** a 50-megapixel photo decoded with the existing time, memory and output limits
@@ -80,7 +92,7 @@ Documentary crops and observation crops SHALL be cut only from the retained orig
 
 - **GIVEN** a decoded photo whose page has renditions
 - **WHEN** a documentary crop is derived or an observation region is cropped
-- **THEN** the output pixels come from the full-resolution source at the requested coordinates, and the crop's dimensions equal the selected region's.
+- **THEN** the output pixels come from the full-resolution source at the requested coordinates: a full-size, unrotated observation crop has exactly the region's dimensions, a documentary crop has the dimensions its recipe defines (swapped by an odd quarter turn), and a sized crop is that full-resolution cut downscaled.
 
 #### Scenario: Coordinates unchanged
 
@@ -126,11 +138,17 @@ Ready versions decoded before renditions existed SHALL gain renditions without c
 - **WHEN** its `thumb` size is requested
 - **THEN** the full-resolution preview is returned.
 
+#### Scenario: Small page backfill settles
+
+- **GIVEN** a retained version whose pages are all no larger than 320 pixels on their long edge
+- **WHEN** the media worker runs repeatedly
+- **THEN** the version is never selected for backfill, because no rendition is expected for it.
+
 #### Scenario: Backfill interrupted
 
 - **GIVEN** a backfill decode that is interrupted or fails
 - **WHEN** the worker runs again
-- **THEN** the page still has its full preview, no partial set of renditions is visible, and the backfill is retried.
+- **THEN** the page still has its full preview, no partial set of renditions is visible, the version's decode state and version count are unchanged, and the backfill is retried on a later run up to a bounded number of attempts.
 
 #### Scenario: Source changed
 
