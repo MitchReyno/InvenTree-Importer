@@ -28,7 +28,16 @@ function ancestors(predecessors: ReadonlyMap<string, readonly string[]>, lotId: 
 }
 
 /** A region of a file that an observation records, and the lot it supports. */
-export type MapRegion = { id: string; label: string; lotId: string | null }
+export type MapRegion = {
+  id: string
+  label: string
+  lotId: string | null
+  /** A photo region shows the item; a document line only supports it. */
+  kind: 'pixels' | 'lines'
+}
+
+/** A drawn connector: solid where the file shows the lot, dotted where it only supports it. */
+export type MapEdge = { lotId: string; style: 'solid' | 'dotted' }
 
 export type MapFile = {
   id: string
@@ -39,9 +48,18 @@ export type MapFile = {
   links: MapLink[]
   /** Regions observations record on this file; empty before observations exist. */
   regions: MapRegion[]
+  edges: MapEdge[]
   unused: boolean
 }
-export type MapLot = { id: string; label: string; fileIds: string[]; singleSource: boolean }
+export type MapLot = {
+  id: string
+  label: string
+  fileIds: string[]
+  /** Active observations in the lot; zero before observations exist. */
+  observations: number
+  /** One observation once observations exist, otherwise one file. */
+  singleSource: boolean
+}
 
 /**
  * How the evidence became lots. A file supports a lot when it is linked to the lot, to the lot's
@@ -87,6 +105,7 @@ export function reviewMap(
           item.lot_id !== null && item.lot_id !== undefined && active.has(item.lot_id)
             ? item.lot_id
             : null,
+        kind: item.region.kind,
       }))
   }
 
@@ -103,18 +122,31 @@ export function reviewMap(
         ...regions.flatMap((region) => (region.lotId ? [region.lotId] : [])),
       ]),
     ]
+
+    const shows = (lotId: string) =>
+      links.some((link) => link.lotId === lotId && link.via === 'direct') ||
+      regions.some((region) => region.lotId === lotId && region.kind === 'pixels')
+
     return {
       id: file.id,
       label: names.get(file.id) ?? file.label,
       lotIds,
       links,
       regions,
+      edges: lotIds.map((lotId) => ({ lotId, style: shows(lotId) ? 'solid' : 'dotted' })),
       unused: lotIds.length === 0,
     }
   })
   const mapLots: MapLot[] = lots.map((lot) => {
     const fileIds = files.filter((file) => file.lotIds.includes(lot.id)).map((file) => file.id)
-    return { id: lot.id, label: lot.label, fileIds, singleSource: fileIds.length === 1 }
+    const count = observations.filter((item) => item.lot_id === lot.id).length
+    return {
+      id: lot.id,
+      label: lot.label,
+      fileIds,
+      observations: count,
+      singleSource: count > 0 ? count === 1 : fileIds.length === 1,
+    }
   })
 
   return { files, lots: mapLots }

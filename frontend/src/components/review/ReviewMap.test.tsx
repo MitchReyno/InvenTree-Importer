@@ -48,6 +48,49 @@ function map(overrides: Partial<Parameters<typeof ReviewMap>[0]> = {}) {
 }
 
 describe('ReviewMap', () => {
+  it('titles the diagram with its warnings and draws one connector per link', () => {
+    const { container } = render(
+      <ReviewMap
+        batch={batch}
+        evidence={evidence}
+        retiredLotIds={new Set()}
+        disabled={false}
+        link={vi.fn(async () => undefined)}
+        newLotFrom={vi.fn(async () => undefined)}
+        approvedLotIds={new Set()}
+        loading={false}
+      />,
+    )
+    const title = screen.getByRole('heading', { name: 'How photos became lots' }).parentElement!
+    expect(title).toHaveTextContent('1 file in no lot')
+    expect(title).toHaveTextContent('2 lots on a single file')
+    const drawing = container.querySelector('svg[aria-hidden="true"]')!
+    // Front label → A directly; the slip → A and B through their Part; the bag photo → Bag.
+    expect(drawing.querySelectorAll('path[data-style="solid"]')).toHaveLength(2)
+    expect(drawing.querySelectorAll('path[data-style="dotted"]')).toHaveLength(2)
+    expect(screen.getByText(/Solid: the file shows the lot/)).toBeInTheDocument()
+  })
+
+  it('selects a file to draw its links in accent', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <ReviewMap
+        batch={batch}
+        evidence={evidence}
+        retiredLotIds={new Set()}
+        disabled={false}
+        link={vi.fn(async () => undefined)}
+        newLotFrom={vi.fn(async () => undefined)}
+        approvedLotIds={new Set()}
+        loading={false}
+      />,
+    )
+    const show = screen.getByRole('button', { name: 'Show links for Packing slip' })
+    await user.click(show)
+    expect(show).toHaveAttribute('aria-pressed', 'true')
+    expect(container.querySelectorAll('path[data-selected="true"]')).toHaveLength(2)
+  })
+
   it('flags unused evidence and lots resting on a single file', () => {
     map()
     const files = screen.getByRole('region', { name: 'Evidence' })
