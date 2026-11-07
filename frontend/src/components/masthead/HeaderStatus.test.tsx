@@ -717,3 +717,116 @@ test('at phone width a failed job still draws a word, never an empty pill', asyn
     screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
   ).toHaveAttribute('data-short', 'Failed')
 })
+
+/** The server's shape: one retained job per step, each with that one step. */
+function job(stage: 'examine' | 'research' | 'images' | 'inventory', state: string, n: number) {
+  const jobId = `9000000${n}-0000-4000-8000-000000000000`
+  return {
+    kind: 'processing' as const,
+    id: jobId,
+    batch_id: batchId,
+    attempt_id: jobId,
+    stage,
+    state,
+    input_current: true,
+    occupies_lane: state === 'running',
+    blocked_code: null,
+    steps: [{ stage, state }],
+    steps_complete: false,
+  } as HeaderWorkDto['work'][number]
+}
+
+test('the planned steps come from all of the batch’s jobs, one step each', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    work: [job('examine', 'ready', 1), job('research', 'running', 2), job('images', 'queued', 3)],
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  await waitFor(() =>
+    expect(
+      within(trigger)
+        .getAllByRole('listitem', { hidden: true })
+        .map((step) => step.textContent),
+    ).toEqual(['Examine: done', 'Research: running', 'Images: waiting', 'Inventory: waiting']),
+  )
+})
+
+test('an import run keeps its own state, apart from Processing’s questions and agents', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const busy = processingWork()
+  vi.mocked(api.work).mockResolvedValue({
+    ...busy,
+    work: [
+      ...busy.work,
+      {
+        kind: 'import',
+        id: 'd0000000-0000-4000-8000-00000000000d',
+        batch_id: batchId,
+        stage: 'inventory',
+        state: 'recovery_required',
+        steps: [{ name: 'approval', state: 'confirmed' }],
+        steps_complete: true,
+      },
+    ],
+    active_sessions: busy.active_sessions.map((session) => ({
+      ...session,
+      latest_status: { text: 'Comparing supplier listings', at: new Date().toISOString() },
+    })),
+  })
+  render(
+    <>
+      <BatchReads attention={attention} />
+      <HeaderStatus client={api} batchId={batchId} />
+    </>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = screen.getByRole('dialog', { name: 'Workflow details' })
+
+  const run = within(panel).getByRole('region', { name: /· Import$/ })
+  expect(within(run).getByText('Needs recovery')).toBeInTheDocument()
+  expect(run).not.toHaveTextContent('need you')
+  expect(run).not.toHaveTextContent('Comparing supplier listings')
+  const processing = within(panel).getByRole('region', { name: /· Processing$/ })
+  await waitFor(() => expect(within(processing).getByText('3 need you')).toBeInTheDocument())
+})
+
+test('at phone width a read that is not current names its state before any cached count', async () => {
+  const api = client()
+  vi.mocked(api.work).mockRejectedValue(new Error('offline'))
+  render(
+    <>
+      <BatchReads attention={attention} />
+      <HeaderStatus client={api} batchId={batchId} />
+    </>,
+  )
+  await screen.findByText('Workflow unavailable')
+  const trigger = screen.getByRole('button', { name: 'Workflow activity' })
+
+  await waitFor(() => expect(trigger.querySelector('[data-current]')).not.toBeNull())
+  expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Offline')
+  expect(trigger.querySelector('[data-current]')).toHaveAttribute('data-current', 'false')
+})
+
+test('a cancelled attempt that still holds its slot says so, on the pill and in the panel', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    work: [
+      { ...job('research', 'cancelled', 4), occupies_lane: true } as HeaderWorkDto['work'][number],
+    ],
+    lane_occupied: true,
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  await waitFor(() =>
+    expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Slot held'),
+  )
+  await user.click(trigger)
+  expect(within(screen.getByRole('dialog')).getByText('Cancelled · slot held')).toBeInTheDocument()
+})

@@ -2,7 +2,14 @@ import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import { batchHref } from '../../navigation/batch-route'
-import { jobPill, segmentSteps, stateWords } from '../../header/workSegments'
+import {
+  batchPill,
+  jobPill,
+  processingSegments,
+  segmentSteps,
+  stateWords,
+  stepTone,
+} from '../../header/workSegments'
 import { media } from '../ui/media'
 import { Pill } from '../ui/Pill'
 import { Link, Small } from '../ui/primitives'
@@ -38,12 +45,14 @@ export function ActivityPopover({
 }: Props) {
   const work = data?.work ?? []
   const sessions = data?.active_sessions ?? []
-  const ordered = [
-    ...work.filter((item) => item.batch_id === batchId),
-    ...work.filter((item) => item.batch_id !== batchId),
-  ]
+  const processing = work.filter((item) => item.kind === 'processing')
+  const imports = work.filter((item) => item.kind === 'import')
+  // One Processing entry per batch, the open batch first; each import run is its own entry.
+  const batches = [...new Set(processing.map((item) => item.batch_id))].sort(
+    (a, b) => Number(b === batchId) - Number(a === batchId),
+  )
   const sessionOnly = [...new Set(sessions.map((session) => session.batch_id))].filter(
-    (batch) => !work.some((item) => item.batch_id === batch),
+    (batch) => !batches.includes(batch),
   )
 
   const title = (batch: string) =>
@@ -69,15 +78,21 @@ export function ActivityPopover({
         </Note>
       )}
       {data && !fresh && <Note role="status">This workflow observation is stale.</Note>}
-      {ordered.map((item) => (
-        <Job
-          key={`${item.kind}:${item.id}`}
-          item={item}
-          title={title(item.batch_id)}
-          attention={item.batch_id === batchId ? attention : undefined}
-          sessions={sessionsOf(item.batch_id)}
+      {batches.map((batch) => (
+        <ProcessingJob
+          key={batch}
+          batch={batch}
+          title={title(batch)}
+          jobs={processing.filter((item) => item.batch_id === batch)}
+          attention={batch === batchId ? attention : undefined}
+          sessions={sessionsOf(batch)}
         />
       ))}
+      {[...imports]
+        .sort((a, b) => Number(b.batch_id === batchId) - Number(a.batch_id === batchId))
+        .map((item) => (
+          <ImportJob key={item.id} item={item} title={title(item.batch_id)} />
+        ))}
       {sessionOnly.map((batch) => (
         <SessionJob key={batch} batch={batch} title={title(batch)} sessions={sessionsOf(batch)} />
       ))}
@@ -126,27 +141,31 @@ function StatusLine({ sessions, fallback }: { sessions: Session[]; fallback: str
   )
 }
 
-function Job({
-  item,
+/** A batch's Processing: its planned steps, its agents' newest status line and one link. */
+function ProcessingJob({
+  batch,
   title,
+  jobs,
   attention,
   sessions,
 }: {
-  item: WorkItem
+  batch: string
   title: string
+  jobs: WorkItem[]
   attention?: BatchAttentionDto
   sessions: Session[]
 }) {
-  const kind = item.kind === 'processing' ? 'Processing' : 'Import'
-  const steps = segmentSteps(item, attention)
-  const pill = jobPill(item, attention?.processing.questions ?? 0)
-  const href =
-    item.kind === 'processing'
-      ? batchHref(item.batch_id, { tab: 'processing', step: 'overview' })
-      : batchHref(item.batch_id, { tab: 'changes', view: 'added', runId: item.id })
+  const steps = processingSegments(jobs, attention)
+  const questions = attention?.processing.questions ?? 0
+  const pill =
+    questions > 0
+      ? { status: 'needs-answer' as const, word: `${questions} need you` }
+      : batchPill(jobs)
+  const lead =
+    jobs.find((job) => job.steps.some((step) => stepTone(step.state) === 'running')) ?? jobs[0]
 
   return (
-    <JobBody aria-label={`${title} · ${kind}`}>
+    <JobBody aria-label={`${title} · Processing`}>
       <Head>
         <b>{title}</b>
         <Pill status={pill.status}>{pill.word}</Pill>
@@ -159,39 +178,74 @@ function Job({
       </StepLabels>
       <StatusLine
         sessions={sessions}
-        fallback={`${kind} · ${item.stage} · ${stateWords(item.state)}`}
+        fallback={`Processing · ${lead.stage} · ${stateWords(lead.state)}`}
       />
-      <Action href={href}>
-        {item.kind === 'processing' ? 'Open processing' : 'Open original run'}
+      <Action href={batchHref(batch, { tab: 'processing', step: 'overview' })}>
+        Open processing
       </Action>
       <Details>
         <summary>Details</summary>
-        <p>
-          {kind} · {item.stage} · {stateWords(item.state)}
-        </p>
-        {item.kind === 'processing' && (
-          <p>
-            {item.occupies_lane
-              ? 'Physical lane occupied'
-              : 'No physical occupancy reported for this attempt'}{' '}
-            ·{' '}
-            {item.input_current === null
-              ? 'Input currency unknown'
-              : item.input_current
-                ? 'Retained input current'
-                : 'Retained input stale'}
-            {item.blocked_code ? ` · ${stateWords(item.blocked_code)}` : ''}
-          </p>
+        {jobs.map(
+          (job) =>
+            job.kind === 'processing' && (
+              <p key={job.id}>
+                {job.stage} · {stateWords(job.state)} ·{' '}
+                {job.occupies_lane
+                  ? 'Physical lane occupied'
+                  : 'No physical occupancy reported for this attempt'}{' '}
+                ·{' '}
+                {job.input_current === null
+                  ? 'Input currency unknown'
+                  : job.input_current
+                    ? 'Retained input current'
+                    : 'Retained input stale'}
+                {job.blocked_code ? ` · ${stateWords(job.blocked_code)}` : ''} · attempt{' '}
+                {job.attempt_id}
+              </p>
+            ),
         )}
-        {!item.steps_complete && (
+        {jobs.some((job) => !job.steps_complete) && (
           <p>Fine-grained step coverage is incomplete. No percentage is inferred.</p>
         )}
         {sessions.map((session) => (
           <SessionFacts key={session.attempt_id} session={session} />
         ))}
+        <p>Batch {batch}</p>
+      </Details>
+    </JobBody>
+  )
+}
+
+/** An import run: its own state, steps and link; Processing's questions and agents are not its. */
+function ImportJob({ item, title }: { item: WorkItem; title: string }) {
+  const steps = segmentSteps(item)
+  const pill = jobPill(item)
+
+  return (
+    <JobBody aria-label={`${title} · Import`}>
+      <Head>
+        <b>{title}</b>
+        <Pill status={pill.status}>{pill.word}</Pill>
+      </Head>
+      <ProgressSegments steps={steps} size="lg" />
+      <StepLabels aria-hidden="true">
+        {steps.map((step) => (
+          <span key={step.label}>{step.label}</span>
+        ))}
+      </StepLabels>
+      <Line>
+        Import · {item.stage} · {stateWords(item.state)}
+      </Line>
+      <Action href={batchHref(item.batch_id, { tab: 'changes', view: 'added', runId: item.id })}>
+        Open original run
+      </Action>
+      <Details>
+        <summary>Details</summary>
+        {!item.steps_complete && (
+          <p>Fine-grained step coverage is incomplete. No percentage is inferred.</p>
+        )}
         <p>
-          Batch {item.batch_id} ·{' '}
-          {item.kind === 'processing' ? `attempt ${item.attempt_id}` : `run ${item.id}`}
+          Batch {item.batch_id} · run {item.id}
         </p>
       </Details>
     </JobBody>

@@ -50,9 +50,10 @@ test('shows retained thumbnail/counts and submits server search once rather than
   expect(within(continued).getByLabelText('Batch counts')).toHaveTextContent(
     '2 lots proposed1 ready3 questions',
   )
-  expect(within(continued).getByRole('link', { name: 'Review 1 ready lot' })).toHaveAttribute(
+  // Ready counts what Ready to add lists: reviewed, nothing blocking and not yet approved.
+  expect(within(continued).getByRole('link', { name: 'Add 1 ready lot' })).toHaveAttribute(
     'href',
-    `#${saved.id}/review/lots?filter=reviewed`,
+    `#${saved.id}/changes/ready`,
   )
   // One primary and one secondary action; the stage links are gone.
   expect(within(continued).queryByRole('link', { name: 'Processing' })).not.toBeInTheDocument()

@@ -19,40 +19,77 @@ function stepName(step: WorkItem['steps'][number]) {
   return 'stage' in step ? step.stage : step.name
 }
 
-/** The attention read's attempt counts for a Processing step, where it has them. */
-function stepCounts(
-  step: WorkItem['steps'][number],
-  attention: BatchAttentionDto | undefined,
-): StepCounts | undefined {
-  const steps = attention?.processing.steps
-  if (!steps || !('stage' in step) || !(step.stage in steps)) {
-    return undefined
-  }
-
-  return steps[step.stage as keyof typeof steps]
+/** An import run's own steps; it fills only what its retained states say. */
+export function segmentSteps(item: WorkItem): ProgressStep[] {
+  return item.steps.map((step) => ({
+    label: capitalised(stepName(step)),
+    state: segmentState(step.state),
+  }))
 }
 
-/** A running step fills by its ready share only where the batch's attention read counts it. */
-export function segmentSteps(
-  item: WorkItem,
+const PLANNED = ['examine', 'research', 'images', 'inventory'] as const
+
+/** Reading and Identifying are the Examine step on the redesigned Processing tab. */
+const PLANNED_STEP: Record<string, (typeof PLANNED)[number]> = {
+  reading: 'examine',
+  identifying: 'examine',
+  examine: 'examine',
+  research: 'research',
+  images: 'images',
+  inventory: 'inventory',
+}
+
+/**
+ * A batch's Processing steps in plan order. Each retained job is one step, so the steps come from all
+ * of the batch's jobs, filled by the attention read's ready share where it counts the step.
+ */
+export function processingSegments(
+  items: WorkItem[],
   attention: BatchAttentionDto | undefined,
 ): ProgressStep[] {
-  return item.steps.map((step) => {
-    const counts = stepCounts(step, attention)
+  const retained = items.flatMap((item) => (item.kind === 'processing' ? item.steps : []))
+  return PLANNED.map((step) => {
+    const counts = attention?.processing.steps[step]
+    const states = retained
+      .filter((own) => 'stage' in own && PLANNED_STEP[own.stage] === step)
+      .map((own) => own.state)
     return {
-      label: capitalised(stepName(step)),
-      state: segmentState(step.state),
+      label: capitalised(step),
+      state: counts?.jobs ? countedState(counts) : retainedState(states),
       fraction: counts?.jobs ? counts.ready / counts.jobs : undefined,
     }
   })
 }
 
-/** "Research: 7 of 12" for the first running step the attention read counts. */
-export function runningStepProgress(item: WorkItem, attention: BatchAttentionDto | undefined) {
-  for (const step of item.steps) {
-    const counts = stepCounts(step, attention)
-    if (segmentState(step.state) === 'running' && counts?.jobs) {
-      return `${capitalised(stepName(step))}: ${counts.ready} of ${counts.jobs}`
+function countedState(counts: StepCounts): SegmentState {
+  if (counts.running > 0) {
+    return 'running'
+  }
+  if (counts.failed > 0) {
+    return 'failed'
+  }
+
+  return counts.ready >= counts.jobs ? 'done' : 'waiting'
+}
+
+function retainedState(states: string[]): SegmentState {
+  const segments = states.map(segmentState)
+  if (segments.includes('running')) {
+    return 'running'
+  }
+  if (segments.includes('failed')) {
+    return 'failed'
+  }
+
+  return segments.length > 0 && segments.every((state) => state === 'done') ? 'done' : 'waiting'
+}
+
+/** "Research: 7 of 12" for the first step the attention read counts as running. */
+export function processingProgress(attention: BatchAttentionDto | undefined) {
+  for (const step of PLANNED) {
+    const counts = attention?.processing.steps[step]
+    if (counts?.jobs && counts.running > 0) {
+      return `${capitalised(step)}: ${counts.ready} of ${counts.jobs}`
     }
   }
 
@@ -61,9 +98,16 @@ export function runningStepProgress(item: WorkItem, attention: BatchAttentionDto
 
 const SETTLED = ['ready', 'confirmed', 'finished', 'cancelled', 'superseded', 'settled_complete']
 
-/** Jobs still under way, apart from the one the indicator names. */
+/** A batch's Processing jobs read as one entry; each import run is its own. */
+export function jobGroup(item: WorkItem) {
+  return item.kind === 'processing' ? `processing:${item.batch_id}` : `import:${item.id}`
+}
+
+/** Other entries still under way, apart from the one the indicator names. */
 export function otherOpenJobs(work: WorkItem[], named: WorkItem | undefined) {
-  return work.filter((item) => item !== named && !SETTLED.includes(item.state)).length
+  const open = work.filter((item) => !SETTLED.includes(item.state)).map(jobGroup)
+  const others = new Set(open.filter((group) => !named || group !== jobGroup(named)))
+  return others.size
 }
 
 type JobPill = { status: PillStatus; word: string }
@@ -85,16 +129,47 @@ const JOB_PILL: Record<string, JobPill> = {
   superseded: { status: 'excluded', word: 'Superseded' },
 }
 
-/** A job's state pill; open questions on the batch outrank its run state, as on the canvas. */
-export function jobPill(item: WorkItem, questions: number): JobPill {
-  if (questions > 0) {
-    return { status: 'needs-answer', word: `${questions} need you` }
+/** A job's state pill. A job that still holds its slot says so, whatever its logical state. */
+export function jobPill(item: WorkItem): JobPill {
+  const own = JOB_PILL[item.state] ?? {
+    status: 'draft' as const,
+    word: capitalised(stateWords(item.state)),
   }
-  if (item.kind === 'processing' && item.occupies_lane && !JOB_PILL[item.state]) {
-    return JOB_PILL.running
+  if (item.kind === 'processing' && item.occupies_lane && own.status !== 'running') {
+    return { status: 'running', word: `${own.word} · slot held` }
   }
 
-  return JOB_PILL[item.state] ?? { status: 'draft', word: capitalised(stateWords(item.state)) }
+  return own
+}
+
+const PILL_RANK: PillStatus[] = [
+  'failed',
+  'needs-answer',
+  'warning',
+  'running',
+  'queued',
+  'complete',
+]
+
+/** A batch's Processing entry takes the most pressing of its jobs' pills. */
+export function batchPill(jobs: WorkItem[]): JobPill {
+  const pills = jobs.map(jobPill)
+
+  const rank = (pill: JobPill) => {
+    const index = PILL_RANK.indexOf(pill.status)
+    return index === -1 ? PILL_RANK.length : index
+  }
+
+  return pills.sort((a, b) => rank(a) - rank(b))[0] ?? JOB_PILL.queued
+}
+
+/** One short word for the phone pill; a held slot outranks the job's logical state. */
+export function compactJobWord(item: WorkItem) {
+  if (item.kind === 'processing' && item.occupies_lane && segmentState(item.state) !== 'running') {
+    return 'Slot held'
+  }
+
+  return jobPill(item).word
 }
 
 /** Only a step that is running fills; queued and waiting steps hold no progress yet. */

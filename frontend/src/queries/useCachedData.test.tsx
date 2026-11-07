@@ -62,3 +62,33 @@ test('a failed refresh withholds the old data instead of passing it off as curre
 
   await waitFor(() => expect(screen.getByLabelText('Cached')).toHaveTextContent('none'))
 })
+
+test('an invalidated read with no owner left to refresh it is withheld', async () => {
+  const read = vi.fn().mockResolvedValue('first')
+  let client: ReturnType<typeof useQueryClient> | undefined
+
+  function Grab() {
+    client = useQueryClient()
+    return null
+  }
+
+  const view = render(
+    <>
+      <Grab />
+      <Owner read={read} />
+      <Reader />
+    </>,
+  )
+  await waitFor(() => expect(screen.getByLabelText('Cached')).toHaveTextContent('first'))
+  view.rerender(
+    <>
+      <Grab />
+      <Reader />
+    </>,
+  )
+
+  await act(() => client!.invalidateQueries({ queryKey: key }))
+
+  expect(screen.getByLabelText('Cached')).toHaveTextContent('none')
+  expect(read).toHaveBeenCalledOnce()
+})

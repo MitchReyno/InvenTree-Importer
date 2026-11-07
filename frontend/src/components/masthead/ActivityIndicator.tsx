@@ -5,9 +5,11 @@ import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { observationFresh, preferredWork, workflowSummary } from '../../header/observations'
 import { useCachedBatchReads } from '../../header/useCachedBatchReads'
 import {
-  jobPill,
+  compactJobWord,
+  jobGroup,
   otherOpenJobs,
-  runningStepProgress,
+  processingProgress,
+  processingSegments,
   segmentSteps,
   stepTone,
 } from '../../header/workSegments'
@@ -35,9 +37,14 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
   const preferred = preferredWork(data, batchId)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
-  const attention = ownBatch ? cached.attention : undefined
-  const running =
-    fresh && !!preferred && preferred.steps.some((step) => stepTone(step.state) === 'running')
+  // The open batch's questions and progress, unless the pill names another batch's work.
+  const attention = batchId && (!preferred || ownBatch) ? cached.attention : undefined
+  // Each retained Processing job is one step, so the pill reads all of the batch's jobs.
+  const jobs =
+    fresh && data && preferred
+      ? data.work.filter((item) => jobGroup(item) === jobGroup(preferred))
+      : []
+  const running = jobs.some((item) => item.steps.some((step) => stepTone(step.state) === 'running'))
   const idle = fresh && !!data && workflowSummary(data, preferred, false, now) === 'Idle'
   const working = fresh && data && preferred ? agentsWorking(data, preferred.batch_id) : ''
   const headline = working || workflowSummary(data, preferred, unavailable, now)
@@ -47,14 +54,21 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       ? (cached.title ?? 'Current batch')
       : 'Application-wide'
   const questions = attention?.processing.questions ?? 0
-  const progress = fresh && preferred ? runningStepProgress(preferred, attention) : ''
+  const segments =
+    preferred?.kind === 'processing'
+      ? processingSegments(jobs, attention)
+      : preferred
+        ? segmentSteps(preferred)
+        : []
+  const progress = fresh && preferred?.kind === 'processing' ? processingProgress(attention) : ''
   const more = fresh && data ? otherOpenJobs(data.work, preferred) : 0
-  const compact =
-    fresh && preferred
-      ? jobPill(preferred, 0).word
+  const compact = !fresh
+    ? compactWord(unavailable, !!data)
+    : preferred
+      ? compactJobWord(preferred)
       : idle
         ? 'Idle'
-        : compactWord(unavailable, !!data, fresh)
+        : 'Active'
   const describedBy = [
     `${ids}-headline`,
     `${ids}-name`,
@@ -87,11 +101,14 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
             </b>
             <Name id={`${ids}-name`}>{name}</Name>
           </Labels>
-          {/* At phone width one mark always shows: the question count, the spinner or this word. */}
-          {questions === 0 && !running && <ShortText aria-hidden="true" data-short={compact} />}
+          {/* At phone width one mark shows: a read that is not current says so first, then the
+              question count, the spinner or the job's word. */}
+          {(!fresh || (questions === 0 && !running)) && (
+            <ShortText aria-hidden="true" data-short={compact} />
+          )}
           {fresh && preferred && (
             <WideOnly>
-              <ProgressSegments steps={segmentSteps(preferred, attention)} />
+              <ProgressSegments steps={segments} />
               {progress && <Current id={`${ids}-progress`}>{progress}</Current>}
               {more > 0 && (
                 <More>
@@ -104,7 +121,7 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
             </WideOnly>
           )}
           {questions > 0 && (
-            <QuestionPill>
+            <QuestionPill data-current={fresh}>
               <Pill tone="warn">
                 <span aria-hidden="true">{questions}</span>
                 <VisuallyHidden id={`${ids}-questions`}>
@@ -141,16 +158,13 @@ function agentsWorking(data: HeaderWorkDto, batch: string) {
   return `${count}${more} ${count === 1 && !more ? 'agent' : 'agents'} working`
 }
 
-/** At phone width the labels hide; without segments to show, this word stands in. */
-function compactWord(unavailable: boolean, loaded: boolean, fresh: boolean) {
+/** At phone width the labels hide, so a workflow read that is not current names its state. */
+function compactWord(unavailable: boolean, loaded: boolean) {
   if (unavailable) {
     return 'Offline'
   }
-  if (!loaded) {
-    return 'Reading…'
-  }
 
-  return fresh ? 'Active' : 'Stale'
+  return loaded ? 'Stale' : 'Reading…'
 }
 
 const Labels = styled.span`
@@ -215,6 +229,11 @@ const QuestionPill = styled.span`
   & > span {
     gap: ${space[1]};
     padding: 0 ${space[3]} 0 ${space[2]};
+  }
+  ${media.compact} {
+    &[data-current='false'] > span {
+      display: none;
+    }
   }
 `
 

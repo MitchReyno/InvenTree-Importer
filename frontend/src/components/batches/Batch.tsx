@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { useCachedData } from '../../queries/useCachedData'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '../../operator/review-model'
@@ -14,6 +15,7 @@ import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
+  MediaSnapshotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
@@ -386,18 +388,12 @@ export function Batch({
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
-  // Never fetches itself: Capture, the Map, Lots and Images own this read and its polling. The
-  // disabled observer keeps their snapshot while other tabs show, with the same fetch function, so
-  // their refreshes still work; the header's counts then match those screens without a request.
-  const mediaQuery = useQuery({
-    queryKey: serverQueryKey(scope, 'media', id),
-    queryFn: () => media!.snapshot(id),
-    enabled: false,
-  })
-  const mediaCurrent =
-    mediaQuery.status === 'success' && mediaQuery.fetchStatus !== 'paused'
-      ? mediaQuery.data
-      : undefined
+  // Capture, the Map, Lots and Images own the media read and its polling. This disabled observer
+  // only keeps their snapshot while other tabs show, with the same fetch function so their refreshes
+  // still work; the counts come from `useCachedData`, which drops it once invalidated and unrefreshed.
+  const mediaKey = serverQueryKey(scope, 'media', id)
+  useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
+  const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
   const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
   const evidence = useMemo(
     () =>

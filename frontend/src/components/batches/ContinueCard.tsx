@@ -68,11 +68,9 @@ export function ContinueCard({ batch }: { batch: InboxBatch }) {
             {resume.label}
           </Button>
           {batch.workflow && batch.workflow.ready > 0 && resume.label.startsWith('Open') && (
-            <Button
-              as="a"
-              href={batchHref(batch.id, { tab: 'review', view: 'lots' }, '?filter=reviewed')}
-            >
-              Review {batch.workflow.ready} ready {batch.workflow.ready === 1 ? 'lot' : 'lots'}
+            // `ready` counts reviewed lots with nothing blocking and not yet approved: Ready to add.
+            <Button as="a" href={batchHref(batch.id, { tab: 'changes', view: 'ready' })}>
+              Add {batch.workflow.ready} ready {batch.workflow.ready === 1 ? 'lot' : 'lots'}
             </Button>
           )}
         </Actions>

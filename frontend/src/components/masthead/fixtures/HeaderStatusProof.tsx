@@ -111,24 +111,28 @@ export function HeaderStatusProof() {
         lane_occupied: false,
       }
       if (scenario.current !== 'idle' && scenario.current !== 'unconfigured') {
-        value.work.push({
-          kind: 'processing',
-          id: attempt,
-          batch_id: batchId,
-          attempt_id: attempt,
-          stage: 'research',
-          state: 'running',
-          input_current: true,
-          occupies_lane: true,
-          blocked_code: null,
-          steps: [
-            { stage: 'examine', state: 'ready' },
-            { stage: 'research', state: 'running' },
-            { stage: 'images', state: 'queued' },
-            { stage: 'inventory', state: 'queued' },
-          ],
-          steps_complete: false,
-        })
+        // The server's shape: one retained job per Processing step, each carrying that step.
+        for (const [index, stage, state] of [
+          [1, 'examine', 'ready'],
+          [2, 'research', 'running'],
+          [3, 'images', 'queued'],
+          [4, 'inventory', 'queued'],
+        ] as const) {
+          const jobId = index === 2 ? attempt : `2000000${index}-0000-4000-8000-00000000000${index}`
+          value.work.push({
+            kind: 'processing',
+            id: jobId,
+            batch_id: batchId,
+            attempt_id: jobId,
+            stage,
+            state,
+            input_current: true,
+            occupies_lane: stage === 'research',
+            blocked_code: null,
+            steps: [{ stage, state }],
+            steps_complete: false,
+          })
+        }
         value.work.push({
           kind: 'import',
           id: scope.targetId,
