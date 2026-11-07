@@ -159,6 +159,12 @@ export function ProcessingWorkspace({
     enabled: agents !== undefined && view === 'overview',
   })
   const started = firstStart(agentSessions.data?.sessions, batch.id)
+  // Capture's media read names Examine's photos by file and group.
+  const mediaSnapshot = useQuery({
+    queryKey: serverQueryKey(scope, 'media', batch.id),
+    queryFn: () => media!.snapshot(batch.id),
+    enabled: media !== undefined && view === 'examine',
+  })
   const offline = snapshotQuery.isError || snapshotQuery.fetchStatus === 'paused'
   const waitingForRead =
     !successfulRead.current ||
@@ -548,6 +554,14 @@ export function ProcessingWorkspace({
                     <ExamineView
                       batch={batch}
                       lead={jobs.find((job) => job.stage === 'examine' && job.subject_id === null)}
+                      media={mediaSnapshot.data}
+                      questionedLots={
+                        new Set(
+                          source.questions.flatMap((question) =>
+                            question.lotId ? [question.lotId] : [],
+                          ),
+                        )
+                      }
                     />
                   )}
                   {jobCards}
