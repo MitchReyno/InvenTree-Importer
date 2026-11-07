@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space, typeVar, zIndex } from '../../theme/generated/tokens'
+import { color, radius, ring, space, typeVar, zIndex } from '../../theme/generated/tokens'
 
 export type TimelineEntry = { text: string; time: string; current?: boolean }
 
@@ -53,7 +53,7 @@ const List = styled.ol`
   }
   li[data-current='true'] > span:first-child {
     background: ${color.accent};
-    box-shadow: 0 0 0 4px ${color.accentWeak};
+    box-shadow: 0 0 0 ${ring.width} ${color.accentWeak};
   }
   time {
     font-size: 11.5px;

@@ -107,7 +107,7 @@ const Tile = styled.div<{ $selected: boolean }>`
     $selected &&
     css`
       outline: ${ring.width} solid ${color.accent};
-      outline-offset: 1px;
+      outline-offset: ${ring.offset};
     `}
 `
 

@@ -1,7 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 type EvidenceGroupProps = {
   name: string
@@ -104,7 +105,7 @@ const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
     $over &&
     css`
       border-color: ${color.accent};
-      box-shadow: 0 0 0 3px ${color.accentWeak};
+      box-shadow: 0 0 0 ${ring.width} ${color.accentWeak};
     `}
 `
 
@@ -124,6 +125,7 @@ const NameField = styled.input`
   border-radius: ${radius.input};
   background: transparent;
   font-weight: ${typeVar.h3.weight};
+  ${hoverTransition}
   &:hover,
   &:focus {
     border-color: ${color.lineStrong};

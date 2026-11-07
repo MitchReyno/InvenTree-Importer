@@ -1,6 +1,7 @@
 import styled, { css } from 'styled-components'
 import { color, radius, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 export type SourceTone = 'default' | 'likely' | 'conflict' | 'user'
 
@@ -68,6 +69,7 @@ const Chip = styled.button<{ $tone: SourceTone }>`
       transform: translateY(-50%);
     }
   }
+  ${hoverTransition}
   &:hover,
   &:focus-visible {
     border-color: ${color.accent};

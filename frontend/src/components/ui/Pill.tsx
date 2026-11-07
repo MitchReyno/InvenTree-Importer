@@ -10,17 +10,47 @@ export const TONE_GLYPH: Record<PillTone, string> = {
   ok: '✓',
   warn: '?',
   bad: '×',
-  info: '+',
-  acc: '•',
+  info: '＋',
+  acc: '⟳',
   neutral: '–',
   outline: '–',
 }
 
-type PillProps = { tone: PillTone; glyph?: string; children: ReactNode }
+/** The design system's status vocabulary: each state's tone and glyph, the same on every screen. */
+const STATUS = {
+  ready: { tone: 'ok', glyph: '✓' },
+  exists: { tone: 'ok', glyph: '✓' },
+  complete: { tone: 'ok', glyph: '✓' },
+  'needs-answer': { tone: 'warn', glyph: '?' },
+  warning: { tone: 'warn', glyph: '!' },
+  duplicate: { tone: 'warn', glyph: '≈' },
+  blocking: { tone: 'bad', glyph: '×' },
+  failed: { tone: 'bad', glyph: '×' },
+  new: { tone: 'info', glyph: '＋' },
+  processing: { tone: 'info', glyph: '⟳' },
+  'ai-proposed': { tone: 'info', glyph: '✦' },
+  update: { tone: 'acc', glyph: '⟳' },
+  running: { tone: 'acc', glyph: '⟳' },
+  selected: { tone: 'acc', glyph: '⟳' },
+  excluded: { tone: 'neutral', glyph: '–' },
+  queued: { tone: 'outline', glyph: '…' },
+  deferred: { tone: 'outline', glyph: '⏸' },
+  draft: { tone: 'outline', glyph: '✎' },
+  edited: { tone: 'outline', glyph: '✎' },
+} as const satisfies Record<string, { tone: PillTone; glyph: string }>
 
-export function Pill({ tone, glyph = TONE_GLYPH[tone], children }: PillProps) {
+export type PillStatus = keyof typeof STATUS
+
+type PillProps =
+  | { status: PillStatus; tone?: never; glyph?: never; children: ReactNode }
+  | { status?: never; tone: PillTone; glyph?: string; children: ReactNode }
+
+export function Pill(props: PillProps) {
+  const tone = props.status ? STATUS[props.status].tone : props.tone
+  const glyph = props.status ? STATUS[props.status].glyph : (props.glyph ?? TONE_GLYPH[props.tone])
+  const { children } = props
   return (
-    <PillBody $tone={tone}>
+    <PillBody $tone={tone} data-tone={tone}>
       <i aria-hidden="true">{glyph}</i>
       <span>{children}</span>
     </PillBody>
@@ -74,7 +104,7 @@ const PillBody = styled.span<{ $tone: PillTone }>`
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: ${space[1]} 9px ${space[1]} 7px;
+  padding: ${space[1]} calc(${space[5]} - 1px) ${space[1]} calc(${space[4]} - 1px);
   border: 1px solid transparent;
   border-radius: ${radius.pill};
   white-space: nowrap;
@@ -108,7 +138,7 @@ const countTones = {
 }
 
 const CountBody = styled.span<{ $tone: CountTone }>`
-  padding: 1px 7px;
+  padding: 1px calc(${space[4]} - 1px);
   border-radius: 10px;
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;

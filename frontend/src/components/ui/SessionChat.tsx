@@ -95,7 +95,7 @@ const Compose = styled.form`
   input {
     flex: 1;
     min-width: 0;
-    padding: 7px 9px;
+    padding: calc(${space[4]} - 1px) calc(${space[5]} - 1px);
     border: 1px solid ${color.lineStrong};
     border-radius: ${radius.input};
     background: ${color.surface};

@@ -54,6 +54,16 @@ export const motion = {
   `,
 } as const
 
+/** Hover colour, border and brightness changes ease over the fast duration. */
+export const hoverTransition = css`
+  transition-property: background-color, color, border-color, filter;
+  transition-duration: ${duration.fast};
+  transition-timing-function: ${easing.linear};
+  ${media.reducedMotion} {
+    transition: none;
+  }
+`
+
 /** Stops an element's animation under prefers-reduced-motion. */
 export const stillWhenReduced = css`
   ${media.reducedMotion} {

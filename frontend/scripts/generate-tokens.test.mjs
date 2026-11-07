@@ -87,6 +87,7 @@ describe('token generator', () => {
     expect(ts).toContain("enter: 'var(--offset-enter)',")
     expect(ts).toContain("content: 'var(--width-content)',")
     expect(ts).toMatch(/export const breakpoint = \{\n {2}phone: 480,/)
+    expect(ts).toMatch(/export const durationMs = \{\n {2}fast: 80,/)
   })
 
   it('gives each type style its size, line height, weight and letter spacing as variables', () => {

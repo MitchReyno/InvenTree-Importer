@@ -7,18 +7,9 @@ import {
   type ReactNode,
 } from 'react'
 import styled, { css } from 'styled-components'
-import {
-  color,
-  duration,
-  easing,
-  opacity,
-  radius,
-  size,
-  space,
-  type,
-  typeVar,
-} from '../../theme/generated/tokens'
+import { color, opacity, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 import { Spinner } from './Progress'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'warn' | 'link'
@@ -177,11 +168,11 @@ const variants = {
 
 const sizes = {
   sm: css`
-    padding: ${space[2]} 9px;
+    padding: ${space[2]} calc(${space[5]} - 1px);
     font-size: ${typeVar.small.size};
   `,
   md: css`
-    padding: 7px ${space[6]};
+    padding: calc(${space[4]} - 1px) ${space[6]};
   `,
   lg: css`
     padding: ${space[6]} ${space[8]};
@@ -204,7 +195,7 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background-color ${duration.fast} ${easing.linear};
+  ${hoverTransition}
   ${({ $size }) => sizes[$size]}
   ${({ $variant }) => variants[$variant]}
   ${({ $variant }) => ($variant === 'link' ? 'min-height: 0;' : '')}
@@ -218,9 +209,23 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   ${media.compact} {
     min-height: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
   }
-  ${media.reducedMotion} {
-    transition: none;
-  }
+  /* A link keeps its line height; an invisible box gives it the touch-size hit area. */
+  ${({ $variant }) =>
+    $variant === 'link' &&
+    css`
+      ${media.compact} {
+        position: relative;
+        &::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          height: ${size.touch};
+          transform: translateY(-50%);
+        }
+      }
+    `}
 `
 
 const Glyph = styled.span`

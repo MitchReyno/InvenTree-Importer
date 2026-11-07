@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import { color, opacity, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { useRovingFocus } from './useRovingFocus'
+import { hoverTransition } from './motion'
 
 export type FilterOption = { id: string; label: string; count: number }
 
@@ -50,6 +51,7 @@ const Chip = styled.button`
   background: ${color.surface};
   font-size: ${typeVar.small.size};
   cursor: pointer;
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }

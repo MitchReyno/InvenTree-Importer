@@ -138,6 +138,11 @@ function renderTs(tokens) {
   const spaceNames = tokens.spacing.tokens.map((token) => token.name)
   const radiusNames = tokens.radius.tokens.map((token) => token.name)
   const styles = typeStyles(tokens)
+  // Timers in script need durations as numbers.
+  const durations = tokens.duration.tokens.map((token) => [
+    quotedKey(camelCase(token.name.replace('duration-', ''))),
+    String(parseInt(token.value, 10)),
+  ])
   // Media queries cannot read custom properties, so breakpoints are raw pixel numbers.
   const breakpoints = tokens.breakpoint.tokens.map((token) => [
     quotedKey(token.name.replace('bp-', '')),
@@ -166,6 +171,10 @@ ${variableMap(radiusNames, (name) => quotedKey(name.replace('radius-', '')))}
 
 export const duration = {
 ${prefixMap(tokens, 'duration', 'duration-')}
+} as const
+
+export const durationMs = {
+${objectLiteral(durations)}
 } as const
 
 export const easing = {

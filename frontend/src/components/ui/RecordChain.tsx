@@ -1,6 +1,7 @@
 import styled, { css } from 'styled-components'
 import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 export type RecordState = 'exists' | 'new' | 'update' | 'choose' | 'none'
 
@@ -93,7 +94,7 @@ const Link = styled.a<{ $state: RecordState }>`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 3px 7px;
+  padding: 3px calc(${space[4]} - 1px);
   border: 1px solid ${color.line};
   border-radius: ${radius.input};
   background: ${color.surface};
@@ -101,6 +102,7 @@ const Link = styled.a<{ $state: RecordState }>`
   line-height: 1.3;
   text-decoration: none;
   ${({ $state }) => states[$state]}
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }

@@ -74,6 +74,16 @@ export const duration = {
   pulse: 'var(--duration-pulse)',
 } as const
 
+export const durationMs = {
+  fast: 80,
+  exit: 90,
+  enter: 120,
+  toast: 150,
+  spin: 800,
+  sweep: 1300,
+  pulse: 1600,
+} as const
+
 export const easing = {
   enter: 'var(--ease-enter)',
   exit: 'var(--ease-exit)',

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import styled from 'styled-components'
 import { color, font, radius, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 type InlineEditProps = {
   label: string
@@ -84,6 +85,7 @@ const Trigger = styled.button`
   background: none;
   text-align: left;
   cursor: text;
+  ${hoverTransition}
   &:hover {
     border-color: ${color.line};
     background: ${color.surface2};

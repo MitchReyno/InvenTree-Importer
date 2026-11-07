@@ -1,7 +1,8 @@
 import styled from 'styled-components'
-import { color, duration, easing, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
+import { hoverTransition } from './motion'
 
 export type SegmentOption = { id: string; label: string }
 
@@ -49,7 +50,7 @@ const Segment = styled.button`
   background: ${color.surface};
   font-weight: ${typeVar.buttonLg.weight};
   cursor: pointer;
-  transition: background-color ${duration.fast} ${easing.linear};
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }

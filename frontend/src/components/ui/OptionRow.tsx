@@ -46,7 +46,7 @@ const Choice = styled.label`
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: start;
   gap: ${space[5]};
-  padding: 9px 11px;
+  padding: calc(${space[5]} - 1px) calc(${space[6]} - 1px);
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   background: ${color.surface};

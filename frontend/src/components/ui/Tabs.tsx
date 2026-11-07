@@ -3,6 +3,7 @@ import { color, size, space } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
 import { Spinner } from './Progress'
+import { hoverTransition } from './motion'
 
 export type TabBadge = { label: string; tone: 'warn' | 'bad' | 'ok' }
 
@@ -96,7 +97,7 @@ const levels = {
     gap: ${space[2]};
   `,
   secondary: css`
-    padding: 7px ${space[5]} 9px;
+    padding: calc(${space[4]} - 1px) ${space[5]} calc(${space[5]} - 1px);
     gap: ${space[3]};
     font-size: 13px;
   `,
@@ -113,6 +114,7 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   text-decoration: none;
   cursor: pointer;
   ${({ $level }) => levels[$level]}
+  ${hoverTransition}
   &:hover {
     color: ${color.fg};
   }

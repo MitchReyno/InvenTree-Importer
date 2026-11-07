@@ -4,6 +4,7 @@ import { color, font, radius, size, space, type, typeVar } from '../../theme/gen
 import { InlineEdit } from './InlineEdit'
 import { media } from './media'
 import { VisuallyHidden } from './Progress'
+import { hoverTransition } from './motion'
 
 export type DataColumn = { id: string; header: string; editable?: boolean; mono?: boolean }
 
@@ -167,6 +168,7 @@ const Table = styled.table`
     padding: ${space[3]} ${space[5]};
     border-bottom: 1px solid ${color.line};
     vertical-align: middle;
+    ${hoverTransition}
   }
   tbody tr:hover td {
     background: ${color.surface2};

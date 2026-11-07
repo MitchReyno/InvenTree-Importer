@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, space, type } from '../../theme/generated/tokens'
-import { motion, stillWhenReduced } from './motion'
+import { hoverTransition, motion, stillWhenReduced } from './motion'
 import type { StepState } from './Progress'
 import { VisuallyHidden } from './Progress'
 
@@ -66,6 +66,7 @@ const Header = styled.button`
   background: none;
   text-align: left;
   cursor: pointer;
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }

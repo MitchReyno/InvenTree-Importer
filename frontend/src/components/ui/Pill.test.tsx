@@ -14,11 +14,28 @@ describe('Pill', () => {
   it.each([
     ['ok', '✓'],
     ['bad', '×'],
-    ['info', '+'],
+    ['info', '＋'],
+    ['acc', '⟳'],
   ] as const)('uses the %s glyph by default', (tone, glyph) => {
     render(<Pill tone={tone}>Word</Pill>)
 
     expect(screen.getByText('Word').parentElement).toHaveTextContent(`${glyph}Word`)
+  })
+
+  it.each([
+    ['running', 'acc', '⟳'],
+    ['exists', 'ok', '✓'],
+    ['new', 'info', '＋'],
+    ['queued', 'outline', '…'],
+    ['edited', 'outline', '✎'],
+    ['excluded', 'neutral', '–'],
+    ['blocking', 'bad', '×'],
+  ] as const)('gives the %s status its tone and glyph', (status, tone, glyph) => {
+    render(<Pill status={status}>Word</Pill>)
+    const pill = screen.getByText('Word').parentElement!
+
+    expect(pill).toHaveTextContent(`${glyph}Word`)
+    expect(pill).toHaveAttribute('data-tone', tone)
   })
 
   it('accepts a custom glyph', () => {

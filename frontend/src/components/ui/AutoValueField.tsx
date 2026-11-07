@@ -3,6 +3,7 @@ import * as Popover from '@radix-ui/react-popover'
 import styled from 'styled-components'
 import { color, radius, shadow, size, space, typeVar, zIndex } from '../../theme/generated/tokens'
 import { Input, Small } from './primitives'
+import { hoverTransition } from './motion'
 
 export type AutoValue = { mode: 'auto' } | { mode: 'none' } | { mode: 'manual'; value: string }
 
@@ -144,6 +145,7 @@ const Trigger = styled.button`
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   cursor: pointer;
+  ${hoverTransition}
   &:hover:not(:disabled) {
     background: ${color.surface2};
   }
@@ -198,7 +200,7 @@ const Choice = styled.label`
   column-gap: ${space[4]};
   align-items: center;
   min-height: ${size.touch};
-  padding: 9px 11px;
+  padding: calc(${space[5]} - 1px) calc(${space[6]} - 1px);
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   cursor: pointer;

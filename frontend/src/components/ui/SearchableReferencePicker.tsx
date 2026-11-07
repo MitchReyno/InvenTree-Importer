@@ -6,7 +6,7 @@ import Select, {
   type StylesConfig,
 } from 'react-select'
 import styled from 'styled-components'
-import { color, radius, shadow, typeVar } from '../../theme/generated/tokens'
+import { color, duration, easing, radius, shadow, typeVar } from '../../theme/generated/tokens'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
 import { rankReferences, type RankTier } from '../../capture/reference-rank'
 import { Label, Small } from './primitives'
@@ -246,6 +246,8 @@ const styles: StylesConfig<Option, false> = {
     borderStyle: state.isDisabled ? 'dashed' : 'solid',
     boxShadow: state.isFocused ? `0 0 0 2px ${color.accent}` : 'none',
     '&:hover': { borderColor: state.isFocused ? color.accent : color.lineStrong },
+    transition: `border-color ${duration.fast} ${easing.linear}`,
+    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
     background: state.isDisabled ? color.surface2 : color.surface,
   }),
   singleValue: (base, state) => ({

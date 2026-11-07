@@ -22,7 +22,7 @@ import { NeedsYou } from '../NeedsYou'
 import { OptionRow } from '../OptionRow'
 import { PhaseRow } from '../PhaseRow'
 import { Popover } from '../Popover'
-import { Count, Pill, type PillTone } from '../Pill'
+import { Count, Pill, type PillStatus, type PillTone } from '../Pill'
 import { ProblemList } from '../ProblemCard'
 import { ProgressSegments, Skeleton, Spinner } from '../Progress'
 import { QuestionCard } from '../QuestionCard'
@@ -42,6 +42,26 @@ const WHITE_PREVIEW =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='white'/%3E%3C/svg%3E"
 
 /** Owned browser fixture: every design-system component with synthetic data, no API. */
+const statuses: [PillStatus, string][] = [
+  ['ready', 'Ready'],
+  ['exists', 'Exists'],
+  ['needs-answer', 'Needs answer'],
+  ['warning', '1 warning'],
+  ['duplicate', 'Possible duplicate'],
+  ['blocking', '2 blocking'],
+  ['failed', 'Failed'],
+  ['new', 'New'],
+  ['processing', 'Processing'],
+  ['ai-proposed', 'AI-proposed'],
+  ['update', 'Update'],
+  ['running', 'Running'],
+  ['excluded', 'Excluded'],
+  ['queued', 'Queued'],
+  ['deferred', 'Deferred'],
+  ['draft', 'Draft'],
+  ['edited', 'Edited'],
+]
+
 export function ComponentGallery() {
   const [view, setView] = useState('workspace')
   const [filter, setFilter] = useState('all')
@@ -115,6 +135,13 @@ export function ComponentGallery() {
             <Count value={8} tone="warn" />
             <Count value={12} tone="ok" />
             <Count value={1200} tone="bad" />
+          </Row>
+          <Row>
+            {statuses.map(([status, word]) => (
+              <Pill key={status} status={status}>
+                {word}
+              </Pill>
+            ))}
           </Row>
           <Row>
             <SourceChip source="Packet label" certainty="Label and slip agree" onOpen={() => {}} />
