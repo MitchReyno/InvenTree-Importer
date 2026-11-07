@@ -129,7 +129,7 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - [x] 7.1 Confirm the scoped baseline and prerequisites for complete documentation and delivery.
 - [x] 7.2 No prose tests: inspect references, behavior claims and qualification evidence; run OpenSpec validation and overlap checks.
 - [x] 7.3 Reconcile supported-version claims, diagnostic categories and recovery guidance with implementation and actual qualification.
-- [ ] 7.4 Obtain fresh exact-head independent review, fix/re-review findings, publish only when authorized, wait for selected green CI and authorized merge to interactive-app. Update index truthfully; archive only when requested.
+- [x] 7.4 Obtain fresh exact-head independent review, fix/re-review findings, publish only when authorized, wait for selected green CI and authorized merge to interactive-app. Update index truthfully; archive only when requested.
 
 ## Delivery evidence and lifecycle follow-up
 
