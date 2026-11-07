@@ -470,3 +470,35 @@ test('a refused retry of an uncertain note keeps the typed text in the viewer', 
   expect(within(viewer).getByRole('alert')).toBeInTheDocument()
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
 })
+
+test('renames a group inline and keeps each file’s move handle on its tile', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const name = await screen.findByRole('textbox', { name: 'Name for Packet A' })
+
+  await user.clear(name)
+  await user.type(name, 'Resistor bag{Enter}')
+  expect(client.edit).toHaveBeenCalledWith(
+    batch.id,
+    {
+      expected_revision: '1',
+      change: { kind: 'rename_group', group_id: groupA, label: 'Resistor bag' },
+    },
+    expect.any(String),
+  )
+
+  const group = screen.getByRole('region', { name: /Packet A/ })
+  const tile = within(group).getByRole('button', { name: 'Open Front label' }).parentElement!
+  expect(within(tile).getByRole('button', { name: 'Drag Front label' })).toBeVisible()
+  expect(within(group).queryByText('Move evidence')).not.toBeInTheDocument()
+  expect(within(group).getByRole('button', { name: 'Ungroup Packet A' })).toBeVisible()
+})

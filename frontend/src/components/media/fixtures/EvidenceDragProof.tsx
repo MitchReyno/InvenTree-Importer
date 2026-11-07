@@ -3,7 +3,8 @@ import styled from 'styled-components'
 import { GlobalStyle } from '../../GlobalStyle'
 import { EvidenceDragContext } from '../EvidenceDragContext'
 import { EvidenceDragHandle } from '../EvidenceDragHandle'
-import { EvidenceDropZone } from '../EvidenceDropZone'
+import { useEvidenceDropZone } from '../EvidenceDropZone'
+import { EvidenceGroup } from '../../ui/EvidenceGroup'
 
 export function EvidenceDragProof() {
   const [group, setGroup] = useState<string | null>(null)
@@ -32,28 +33,36 @@ export function EvidenceDragProof() {
         >
           <Zones>
             {[null, 'packet-a', 'packet-b'].map((id) => (
-              <EvidenceDropZone
-                key={id ?? 'ungrouped'}
-                groupId={id}
-                label={id ?? 'Ungrouped'}
-                disabled={false}
-              >
-                <h2>{id ?? 'Ungrouped'}</h2>
-                {group === id && (
-                  <EvidenceDragHandle
-                    evidenceId="synthetic-original"
-                    label="Synthetic original"
-                    disabled={false}
-                  >
-                    <p>Synthetic original · unchanged identity</p>
-                  </EvidenceDragHandle>
-                )}
-              </EvidenceDropZone>
+              <Zone key={id ?? 'ungrouped'} id={id} hasFile={group === id} />
             ))}
           </Zones>
         </EvidenceDragContext>
       </Main>
     </StrictMode>
+  )
+}
+
+function Zone({ id, hasFile }: { id: string | null; hasFile: boolean }) {
+  const name = id ?? 'Ungrouped'
+  const drop = useEvidenceDropZone(id, name, false)
+  return (
+    <EvidenceGroup
+      ref={drop.ref}
+      dropState={drop.dropState}
+      name={name}
+      count={hasFile ? 1 : 0}
+      ungrouped={id === null}
+    >
+      {hasFile && (
+        <EvidenceDragHandle
+          evidenceId="synthetic-original"
+          label="Synthetic original"
+          disabled={false}
+        >
+          {(handle) => <p>{handle} Synthetic original · unchanged identity</p>}
+        </EvidenceDragHandle>
+      )}
+    </EvidenceGroup>
   )
 }
 

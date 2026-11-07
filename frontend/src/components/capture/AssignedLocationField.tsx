@@ -1,4 +1,6 @@
 import { useId } from 'react'
+import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type {
   CaptureAssignedLocationChangeDto,
   CaptureAssignedLocationDto,
@@ -13,6 +15,8 @@ type Props = {
   value: CaptureAssignedLocationDto | undefined
   batch: Snapshot
   disabled?: boolean
+  /** Sits directly in its container instead of in its own field box. */
+  inline?: boolean
   onChange: (value: CaptureAssignedLocationChangeDto) => void
 }
 
@@ -20,13 +24,22 @@ type Props = {
  * A shared-Part or evidence-group location assignment: none (lower levels apply), explicitly no
  * location, or an observed location. It is an application default, never an inventory field.
  */
-export function AssignedLocationField({ label, scope, value, batch, disabled, onChange }: Props) {
+export function AssignedLocationField({
+  label,
+  scope,
+  value,
+  batch,
+  disabled,
+  inline,
+  onChange,
+}: Props) {
   const id = useId()
   const observations = batch.observations.filter((item) => item.model === 'location')
   const current =
     value === undefined ? 'unset' : value.mode === 'set' ? value.value.observation_id : 'clear'
+  const Box = inline ? InlineField : Field
   return (
-    <Field>
+    <Box>
       <Label htmlFor={id}>{label}</Label>
       <Select
         id={id}
@@ -60,6 +73,11 @@ export function AssignedLocationField({ label, scope, value, batch, disabled, on
         ))}
       </Select>
       <Small id={`${id}-scope`}>{scope}</Small>
-    </Field>
+    </Box>
   )
 }
+
+const InlineField = styled.div`
+  display: grid;
+  gap: ${space[2]};
+`

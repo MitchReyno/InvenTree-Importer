@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { EvidenceGroup } from './EvidenceGroup'
@@ -133,5 +133,54 @@ describe('EvidenceGroup', () => {
     rerender(<EvidenceGroup name="Not grouped yet" count={3} ungrouped />)
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Not grouped yet' })).toHaveTextContent('3 files')
+  })
+})
+
+describe('EvidenceGroup on Capture', () => {
+  it('names its region and field, reports an unsaved name and locks the name while blocked', async () => {
+    const onDraftChange = vi.fn()
+    const { rerender } = render(
+      <EvidenceGroup
+        name="Bag"
+        count={2}
+        label="Bag · 2 files"
+        nameLabel="Name for Bag"
+        onRename={() => {}}
+        onDraftChange={onDraftChange}
+      />,
+    )
+    const field = screen.getByRole('textbox', { name: 'Name for Bag' })
+    expect(screen.getByRole('region', { name: 'Bag · 2 files' })).toBeVisible()
+
+    await userEvent.type(field, 'X')
+    expect(onDraftChange).toHaveBeenLastCalledWith(true)
+    await userEvent.type(field, '{Escape}')
+    expect(onDraftChange).toHaveBeenLastCalledWith(false)
+
+    rerender(
+      <EvidenceGroup
+        name="Bag"
+        count={2}
+        nameLabel="Name for Bag"
+        nameDisabled
+        onRename={() => {}}
+      />,
+    )
+    expect(screen.getByRole('textbox', { name: 'Name for Bag' })).toBeDisabled()
+  })
+})
+
+describe('EvidenceTile handle', () => {
+  it('shows a move handle on the tile', () => {
+    render(
+      <EvidenceTile
+        {...base}
+        state="ready"
+        onOpen={() => {}}
+        handle={<button type="button">Drag IMG_2041.jpg</button>}
+      />,
+    )
+    const tile = screen.getByRole('button', { name: 'Open IMG_2041.jpg' }).parentElement!
+    expect(within(tile).getByRole('button', { name: 'Drag IMG_2041.jpg' })).toBeVisible()
   })
 })

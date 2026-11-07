@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { mediaResource } from '../../media/types'
 import { EvidenceTile, type PreviewState } from '../ui/EvidenceTile'
@@ -13,6 +14,7 @@ type EvidenceFileTileProps = {
   selected: boolean
   onSelect: (selected: boolean) => void
   onOpen: () => void
+  handle?: ReactNode
 }
 
 /** A ready crop shows in place of its original; otherwise the newest version decides. */
@@ -51,6 +53,7 @@ export function EvidenceFileTile(props: EvidenceFileTileProps) {
       selected={props.selected}
       onSelect={props.onSelect}
       onOpen={props.onOpen}
+      handle={props.handle}
     />
   )
 }

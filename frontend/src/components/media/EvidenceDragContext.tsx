@@ -107,8 +107,8 @@ export function EvidenceDragContext({ children, disabled, onMove, onDraggingChan
       }}
     >
       <Small id="evidence-drag-instructions">
-        Use the Move evidence handle with pointer or touch. With keyboard, press Space or Enter, use
-        arrow keys to choose a group, then confirm; Escape cancels. Selection and Move controls
+        Drag a file by the ⠿ handle on its tile. With keyboard, press Space or Enter on the handle,
+        use arrow keys to choose a group, then confirm; Escape cancels. Selection and Move controls
         provide an equivalent path.
       </Small>
       {children}

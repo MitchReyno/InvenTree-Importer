@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, ring, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
@@ -21,6 +21,8 @@ type EvidenceTileProps = {
   onOpen: () => void
   onSelect?: (selected: boolean) => void
   onRetry?: () => void
+  /** A move handle, drawn on the tile's top-left corner. */
+  handle?: ReactNode
 }
 
 function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'name' | 'state'>) {
@@ -63,7 +65,12 @@ export function EvidenceTile(props: EvidenceTileProps) {
       <Preview type="button" aria-label={`Open ${name}`} onClick={props.onOpen}>
         <Stage preview={props.preview} name={name} state={state} />
       </Preview>
-      {kind === 'document' && <Tag>Document</Tag>}
+      {(props.handle || kind === 'document') && (
+        <Corner>
+          {props.handle}
+          {kind === 'document' && <Tag>Document</Tag>}
+        </Corner>
+      )}
       {selectable && (
         <Tick>
           <input
@@ -183,11 +190,28 @@ const overlay = css`
   color: ${color.photoFg};
 `
 
-const Tag = styled.span`
-  ${overlay}
+const Corner = styled.span`
+  position: absolute;
+  top: ${space[2]};
   left: ${space[2]};
+  display: flex;
+  align-items: flex-start;
+  gap: ${space[2]};
+  ${media.compact} {
+    top: 0;
+    left: 0;
+  }
+`
+
+const Tag = styled.span`
+  border-radius: ${radius.sm};
+  background: ${color.photoScrim};
+  color: ${color.photoFg};
   padding: 1px 5px;
   font-size: 10.5px;
+  ${media.compact} {
+    margin: ${space[2]};
+  }
 `
 
 const Tick = styled.label`
