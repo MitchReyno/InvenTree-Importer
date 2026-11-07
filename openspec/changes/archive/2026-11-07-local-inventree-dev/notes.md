@@ -1,6 +1,6 @@
 # Implementation notes
 
-Tasks 1–5 were delivered in one PR, PR-B ([#105](https://github.com/MitchReyno/InvenTree-Importer/pull/105)), after the planning PR ([#103](https://github.com/MitchReyno/InvenTree-Importer/pull/103)), and [BI-009](../../../docs/PLANNED_FUNCTIONALITY.md#bi-009--local-development-inventree) is Done. Archiving the change is a separate step.
+Tasks 1–5 were delivered in one PR, PR-B ([#105](https://github.com/MitchReyno/InvenTree-Importer/pull/105)), after the planning PR ([#103](https://github.com/MitchReyno/InvenTree-Importer/pull/103)), and [BI-009](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-009--local-development-inventree) is Done. The change was archived on 2026-11-07.
 
 ## Changes to the plan
 
