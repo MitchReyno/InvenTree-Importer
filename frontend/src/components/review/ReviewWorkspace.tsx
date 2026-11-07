@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { subjectStatuses, type LotStatus } from '../../processing/source'
 import { SegmentedControl } from '../ui/SegmentedControl'
+import { Kbd } from '../ui/Kbd'
 import styled from 'styled-components'
 import { media } from '../ui/media'
 import { color, space } from '../../theme/generated/tokens'
@@ -213,6 +214,7 @@ export function ReviewWorkspace({
 
   // Review opens on the first queued lot, so its evidence shows without a separate step.
   const autoShown = useRef(false)
+  const skipEvidenceFocus = useRef(false)
   useEffect(() => {
     if (
       autoShown.current ||
@@ -224,11 +226,15 @@ export function ReviewWorkspace({
       return
     }
     autoShown.current = true
+    // Opening the first lot for the operator is not their move, so focus stays where it is.
+    skipEvidenceFocus.current = true
     navigate({ lotId: visibleIds[0] })
   })
 
   useEffect(() => {
-    if (focused) {
+    if (focused && skipEvidenceFocus.current) {
+      skipEvidenceFocus.current = false
+    } else if (focused) {
       evidenceRef.current?.focus({ preventScroll: true })
     } else if (previousFocus.current) {
       queueRef.current?.focus({ preventScroll: true })
@@ -435,7 +441,8 @@ export function ReviewWorkspace({
         </SubjectActions>
         {operatorReview && (
           <KeyboardHint>
-            J/K move · R mark reviewed · E edit quantity · V view evidence
+            <Kbd>J</Kbd>/<Kbd>K</Kbd> move · <Kbd>R</Kbd> mark reviewed · <Kbd>E</Kbd> edit quantity
+            · <Kbd>V</Kbd> view evidence
           </KeyboardHint>
         )}
       </Toolbar>

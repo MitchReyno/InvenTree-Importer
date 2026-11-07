@@ -6,7 +6,8 @@ import type {
   OperatorLotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Field, Heading, Paragraph, Small, Subheading } from '../ui/primitives'
+import { Field, Paragraph, Small, Subheading } from '../ui/primitives'
+import { color, type } from '../../theme/generated/tokens'
 import { mediaDisplayLabels } from '../../media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
@@ -96,9 +97,18 @@ export function LotEvidence({
         .filter((proposal) => subjects.has(job.subject_id ?? proposal.value.subject_id))
         .map((proposal) => ({ job, proposal })),
     ) ?? []
+  const members = new Set(lot.evidence_observation_ids ?? [])
+  const observations = (batch.evidence_observations ?? []).filter(
+    (observation) => members.has(observation.id) && observation.status === 'active',
+  ).length
+  const files = media ? `${evidence.length} file${evidence.length === 1 ? '' : 's'}` : null
   return (
     <>
-      <Heading>Human evidence</Heading>
+      <PaneTitle>
+        {observations > 0
+          ? `This lot's observations · ${observations}${files ? ` from ${files}` : ''}`
+          : `This lot's evidence${files ? ` · ${files}` : ''}`}
+      </PaneTitle>
       {!media && (mediaUnavailable || mediaLoading) && (
         <Small role="status">
           {mediaUnavailable
@@ -159,4 +169,10 @@ export function LotEvidence({
 const OriginalNote = styled(Paragraph)`
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+`
+
+const PaneTitle = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
 `

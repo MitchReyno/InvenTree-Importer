@@ -1101,6 +1101,27 @@ test('lot details show Exclude with its reason and no internal identifiers inlin
   expect(details.textContent).not.toMatch(UUID)
 })
 
+test('opening Review on its first lot leaves focus alone; choosing a lot moves it to the evidence', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await screen.findByRole('region', { name: 'Decision' })
+  const pane = screen.getByRole('region', { name: 'Human evidence' })
+  expect(pane).not.toHaveFocus()
+  await user.click(screen.getByRole('button', { name: 'Show Packet A' }))
+  await waitFor(() => expect(pane).toHaveFocus())
+})
+
+test('a click on a Table row opens its lot, and the shortcut hint names its keys', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await user.click(await screen.findByRole('button', { name: 'Table' }))
+  const table = screen.getByRole('region', { name: 'Lot table' })
+  const row = within(table).getByRole('checkbox', { name: 'Select Packet A' }).closest('tr')!
+  await user.click(within(row).getAllByRole('cell')[2])
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${a}`))
+  expect(document.querySelectorAll('kbd')).not.toHaveLength(0)
+})
+
 test('the lot detail ends in its action footer and holds the lot edits', async () => {
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })

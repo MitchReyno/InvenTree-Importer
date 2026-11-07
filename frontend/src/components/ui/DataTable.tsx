@@ -35,6 +35,8 @@ type DataTableProps = {
   onCellEdit?: (rowId: string, columnId: string, value: string) => void
   /** Names the scroll container as a region keyboard users can focus and scroll. */
   region?: string
+  /** A click on the row's open space opens it; a control in the row keeps its own click. */
+  onRowOpen?: (rowId: string) => void
 }
 
 function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelection }) {
@@ -84,6 +86,7 @@ export function DataTable({
   selection,
   onCellEdit,
   region,
+  onRowOpen,
 }: DataTableProps) {
   return (
     <TableWrap {...(region && { role: 'region', 'aria-label': region, tabIndex: 0 })}>
@@ -108,7 +111,19 @@ export function DataTable({
             const selected = selection?.selected.has(row.id) ?? false
 
             return (
-              <tr key={row.id} data-selected={selected}>
+              <tr
+                key={row.id}
+                data-selected={selected}
+                data-opens={onRowOpen ? true : undefined}
+                onClick={
+                  onRowOpen &&
+                  ((event) => {
+                    if (!(event.target as Element).closest('button, input, a, label')) {
+                      onRowOpen(row.id)
+                    }
+                  })
+                }
+              >
                 {selection && (
                   <td>
                     <Hit>
@@ -198,6 +213,9 @@ const Table = styled.table`
   }
   tbody tr:hover td {
     background: ${color.surface2};
+  }
+  tr[data-opens] {
+    cursor: pointer;
   }
   tr[data-selected='true'] td {
     background: ${color.accentWeak};

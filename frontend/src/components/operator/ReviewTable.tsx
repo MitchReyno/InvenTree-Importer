@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -134,6 +134,7 @@ export function ReviewTable({
       <DataTable
         caption="Lots in this filter. Select rows to act on several at once."
         region="Lot table"
+        onRowOpen={inspect}
         columns={COLUMNS}
         rows={rows}
         selection={{
@@ -153,16 +154,20 @@ const ProblemList = styled.span`
   flex-wrap: wrap;
   gap: ${space[2]};
 `
+/** Plain text that opens the lot, so the row stays reachable by keyboard. */
 const ItemButton = styled.button`
   padding: 0;
   border: 0;
   background: none;
-  color: ${color.accent};
-  text-decoration: underline;
+  color: ${color.fg};
   text-align: left;
   font: inherit;
+  font-weight: ${typeVar.bodyStrong.weight};
   cursor: pointer;
   min-height: ${size.control};
+  &:hover {
+    text-decoration: underline;
+  }
 `
 const SharedCount = styled.span`
   color: ${color.muted};
