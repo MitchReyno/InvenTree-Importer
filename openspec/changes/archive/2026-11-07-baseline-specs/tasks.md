@@ -29,7 +29,7 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 
 - PR delivery: PR-A.
 - Outcome: the documents and the Stage 1 spikes live in this change with their history.
-- Scope and approach: `git mv` of `docs/bench-intake/` chapters, README and assets; `docs/typescript-data-model/`; `docs/intake-*`; `docs/import-execution-*`; the five spikes, the spikes README and `backend/tests/spikes/`. Repair links resolved against the old locations. The reference mockups and `spikes/mcp-session-tools` stay.
+- Scope and approach: `git mv` of `docs/bench-intake/` chapters, README and assets; `docs/typescript-data-model/`; `docs/intake-*`; `docs/import-execution-*`; the five spikes, the spikes README and `backend/tests/spikes/`. Repair links resolved against the old locations. The reference mockups stay. `spikes/mcp-session-tools` was left for `simplify-intake-entry` and now lives in that change's archive.
 - Verification: no broken relative link; prettier and eslint ignore the moved spikes.
 
 - [x] 1.1 Move the sources and spikes.

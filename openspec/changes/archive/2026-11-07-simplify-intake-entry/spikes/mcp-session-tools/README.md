@@ -1,6 +1,6 @@
 # Session tool server spike
 
-Proof-of-fit for the `simplify-intake-entry` session tool server: [design](../../openspec/changes/archive/2026-11-07-simplify-intake-entry/design.md) D2 and D3, task 1. This is investigation code, not a production path. The [change notes](../../openspec/changes/archive/2026-11-07-simplify-intake-entry/notes.md) record the decisions taken from it.
+Proof-of-fit for the `simplify-intake-entry` session tool server: [design](../../design.md) D2 and D3, task 1. This is investigation code, not a production path. The [change notes](../../notes.md) record the decisions taken from it.
 
 Nothing here contacts a model provider or reads a real credential. Both CLI harnesses run the real binary against a loopback stub of the provider API, with a fake API key and a throwaway home directory. The stubs record tool names and message shapes, never request headers.
 
@@ -37,7 +37,7 @@ The recorded output from the original run, with temporary paths replaced by `<tm
 The spike has its own `package.json` and is not a pnpm workspace member. Use Node 24 (`.node-version`).
 
 ```sh
-cd spikes/mcp-session-tools
+cd openspec/changes/archive/2026-11-07-simplify-intake-entry/spikes/mcp-session-tools
 npm ci --ignore-scripts
 npm run spike
 npm run spike:claude
