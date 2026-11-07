@@ -78,6 +78,24 @@ function values(source) {
 }
 
 describe('literal value check', () => {
+  it('reads the font shorthand by part and a media query that spans lines', () => {
+    const source = [
+      'const A = styled.div`',
+      '  font: 600 12px/18px sans-serif;',
+      '  @media (',
+      '    min-width: 760px) {',
+      '  }',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual([
+      '2 | font-weight | 600 | type-body-strong-weight type-pill-weight type-label-weight',
+      '2 | font-size | 12px | type-pill-size',
+      '2 | line-height | 18px | type-small-line-height type-pill-line-height type-button-lg-line-height type-mono-line-height type-mono-strong-line-height',
+      '3 | @media | 760px | bp-compact',
+    ])
+  })
+
   it('reads a value continued on the next line, at the line its property starts', () => {
     const source = [
       'const A = styled.div`',

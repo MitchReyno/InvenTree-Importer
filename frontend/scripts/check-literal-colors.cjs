@@ -296,6 +296,20 @@ function declarations(text) {
   return result
 }
 
+// The font shorthand's weight, size and line height, checked as their own properties.
+function longhands({ property, value }) {
+  if (property !== 'font') return [{ property, value }]
+  const match = value.match(
+    /(?:^|\s)(?:(\d{3})\s+)?(\d+(?:\.\d+)?px)(?:\s*\/\s*(\d+(?:\.\d+)?(?:px)?))?\s/,
+  )
+  if (!match) return []
+  return [
+    match[1] && { property: 'font-weight', value: match[1] },
+    { property: 'font-size', value: match[2] },
+    match[3] && { property: 'line-height', value: match[3] },
+  ].filter(Boolean)
+}
+
 let defaultFamilies = null
 
 function literalValues(source, families) {
@@ -306,9 +320,10 @@ function literalValues(source, families) {
   const allowed = (index) =>
     ALLOW.test(lines[index]) || (index > 0 && ALLOW_LINE.test(lines[index - 1]))
   const found = []
-  text.split('\n').forEach((line, index) => {
-    const media = line.match(/@media[^{]*/)
-    if (!media || allowed(index)) return
+  // A media query's prelude can span lines; it is reported at the line it starts on.
+  for (const media of text.matchAll(/@media[^{]*/g)) {
+    const index = text.slice(0, media.index).split('\n').length - 1
+    if (allowed(index)) continue
     for (const match of media[0].matchAll(/(?:min|max)-width:\s*(\d+(?:\.\d+)?px)/g)) {
       const matches = tokens.breakpoint.filter((token) => sameValue(match[1], token.value))
       if (matches.length > 0) {
@@ -320,23 +335,26 @@ function literalValues(source, families) {
         })
       }
     }
-  })
-  for (const { first, last, property, value } of declarations(text)) {
-    if (property.startsWith('grid-template')) continue
-    const span = Array.from({ length: last - first + 1 }, (_, offset) => first + offset)
-    if (span.some(allowed)) continue
-    const plain = withoutTokenCalc(value)
-    for (const [pattern, family] of PROPERTY_FAMILIES) {
-      if (!pattern.test(property)) continue
-      for (const literal of literalsFor(family, property, plain)) {
-        const matches = tokens[family].filter((token) => sameValue(literal, token.value))
-        if (matches.length > 0) {
-          found.push({
-            line: first + 1,
-            property,
-            literal,
-            tokens: matches.map((token) => token.name),
-          })
+  }
+  for (const declaration of declarations(text)) {
+    const { first, last } = declaration
+    for (const { property, value } of longhands(declaration)) {
+      if (property.startsWith('grid-template')) continue
+      const span = Array.from({ length: last - first + 1 }, (_, offset) => first + offset)
+      if (span.some(allowed)) continue
+      const plain = withoutTokenCalc(value)
+      for (const [pattern, family] of PROPERTY_FAMILIES) {
+        if (!pattern.test(property)) continue
+        for (const literal of literalsFor(family, property, plain)) {
+          const matches = tokens[family].filter((token) => sameValue(literal, token.value))
+          if (matches.length > 0) {
+            found.push({
+              line: first + 1,
+              property,
+              literal,
+              tokens: matches.map((token) => token.name),
+            })
+          }
         }
       }
     }
