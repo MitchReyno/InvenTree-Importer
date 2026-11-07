@@ -126,18 +126,24 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
 
 const STEPS = ['examine', 'research', 'images', 'inventory'] as const
 
-function stepWork(items: AttentionItemDto[]) {
-  const step = (name: string) => {
+type StepWork = { questions: number; failed: number; jobs: number; ready: number; running: number }
+
+function stepWork(items: AttentionItemDto[], processing: ProcessingSnapshotDto | undefined) {
+  const step = (name: string): StepWork => {
     const own = items.filter((item) => item.route.split('/')[2] === name)
+    const jobs = (processing?.jobs ?? []).filter((job) => STEP_BY_STAGE[job.stage] === name)
     return {
       questions: own.filter((item) => item.group === 'question').length,
       failed: own.filter((item) => item.group === 'failed_job').length,
+      jobs: jobs.length,
+      ready: jobs.filter((job) => job.state === 'ready').length,
+      running: jobs.filter((job) => job.state === 'running').length,
     }
   }
 
   return Object.fromEntries(STEPS.map((name) => [name, step(name)])) as Record<
     (typeof STEPS)[number],
-    { questions: number; failed: number }
+    StepWork
   >
 }
 
@@ -160,7 +166,8 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
     processing: {
       questions: questions.length,
       failed: failedJobs.length,
-      steps: stepWork([...questions, ...failedJobs]),
+      running: (sources.processing?.jobs ?? []).filter((job) => job.state === 'running').length,
+      steps: stepWork([...questions, ...failedJobs], sources.processing),
     },
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,

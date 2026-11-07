@@ -59,3 +59,42 @@ describe('SubTabs', () => {
     ).not.toBeNull()
   })
 })
+
+describe('step progress and short badges', () => {
+  it('names a finished step done and a working step by how many attempts are ready', () => {
+    render(
+      <SubTabs
+        label="Processing steps"
+        current="research"
+        items={[
+          { id: 'examine', label: 'Examine', href: '#e', progress: { ready: 3, of: 3 } },
+          { id: 'research', label: 'Research', href: '#r', progress: { ready: 7, of: 12 } },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Examine, done' })).toBeInTheDocument()
+    const research = screen.getByRole('link', { name: 'Research, 7 of 12 ready' })
+    expect(research).toHaveTextContent('7 of 12')
+  })
+
+  it('keeps the badge words for assistive technology when phone width shows only its number', () => {
+    render(
+      <Tabs
+        label="Batch"
+        current="review"
+        items={[
+          {
+            id: 'review',
+            label: 'Review',
+            href: '#r',
+            badge: { label: '3 to decide', short: '3', tone: 'warn' },
+          },
+        ]}
+      />,
+    )
+
+    const link = screen.getByRole('link', { name: 'Review, 3 to decide' })
+    expect(link).toHaveTextContent('3 to decide')
+  })
+})

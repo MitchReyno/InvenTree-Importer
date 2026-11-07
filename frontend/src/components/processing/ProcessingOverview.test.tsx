@@ -8,7 +8,7 @@ import { InstructionField } from './InstructionField'
 import { ProcessingOverview } from './ProcessingOverview'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
-const none = { questions: 0, failed: 0 }
+const none = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
 
 const step = (name: 'examine' | 'research' | 'images' | 'inventory', label: string, jobs = 0) => ({
   step: name,
@@ -52,6 +52,7 @@ const attention = {
   processing: {
     questions: 1,
     failed: 1,
+    running: 0,
     steps: { examine: none, research: none, images: none, inventory: none },
   },
   review: { to_check: 8, changed_after_review: 0, to_decide: 2 },

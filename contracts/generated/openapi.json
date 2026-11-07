@@ -17129,6 +17129,7 @@
             "required": [
               "questions",
               "failed",
+              "running",
               "steps"
             ],
             "properties": {
@@ -17138,6 +17139,11 @@
                 "type": "integer"
               },
               "failed": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "running": {
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"
@@ -17157,7 +17163,10 @@
                     "type": "object",
                     "required": [
                       "questions",
-                      "failed"
+                      "failed",
+                      "jobs",
+                      "ready",
+                      "running"
                     ],
                     "properties": {
                       "questions": {
@@ -17166,6 +17175,21 @@
                         "type": "integer"
                       },
                       "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "jobs": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "running": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"
@@ -17177,7 +17201,10 @@
                     "type": "object",
                     "required": [
                       "questions",
-                      "failed"
+                      "failed",
+                      "jobs",
+                      "ready",
+                      "running"
                     ],
                     "properties": {
                       "questions": {
@@ -17186,6 +17213,21 @@
                         "type": "integer"
                       },
                       "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "jobs": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "running": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"
@@ -17197,7 +17239,10 @@
                     "type": "object",
                     "required": [
                       "questions",
-                      "failed"
+                      "failed",
+                      "jobs",
+                      "ready",
+                      "running"
                     ],
                     "properties": {
                       "questions": {
@@ -17206,6 +17251,21 @@
                         "type": "integer"
                       },
                       "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "jobs": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "running": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"
@@ -17217,7 +17277,10 @@
                     "type": "object",
                     "required": [
                       "questions",
-                      "failed"
+                      "failed",
+                      "jobs",
+                      "ready",
+                      "running"
                     ],
                     "properties": {
                       "questions": {
@@ -17226,6 +17289,21 @@
                         "type": "integer"
                       },
                       "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "jobs": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "ready": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "running": {
                         "minimum": 0,
                         "maximum": 100000,
                         "type": "integer"

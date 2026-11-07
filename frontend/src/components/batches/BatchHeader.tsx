@@ -39,6 +39,7 @@ function plural(count: number, one: string, many: string) {
 }
 
 type StepWork = { questions: number; failed: number }
+type StepAttempts = StepWork & { jobs: number; ready: number; running: number }
 
 /** A failed attempt outranks a question, so the badge turns to the stronger tone. */
 function processingBadge({ questions, failed }: StepWork): Pick<TabItem, 'badge'> {
@@ -50,7 +51,13 @@ function processingBadge({ questions, failed }: StepWork): Pick<TabItem, 'badge'
     return {}
   }
 
-  return { badge: { label: parts.join(' · '), tone: failed > 0 ? 'bad' : 'warn' } }
+  return {
+    badge: {
+      label: parts.join(' · '),
+      short: String(questions + failed),
+      tone: failed > 0 ? 'bad' : 'warn',
+    },
+  }
 }
 
 function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
@@ -64,6 +71,7 @@ function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined):
       id: 'processing',
       label: 'Processing',
       href: batchHref(batchId, { tab: 'processing', step: 'overview' }),
+      spinner: (attention?.processing.running ?? 0) > 0,
       ...processingBadge(attention?.processing ?? { questions: 0, failed: 0 }),
     },
     {
@@ -72,16 +80,28 @@ function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined):
       href: batchHref(batchId, { tab: 'review', view: 'lots' }),
       ...(review ? { count: review.to_check, countLabel: 'to check' } : {}),
       ...(review && review.to_decide > 0
-        ? { badge: { label: `${review.to_decide} to decide`, tone: 'warn' } }
+        ? {
+            badge: {
+              label: `${review.to_decide} to decide`,
+              short: String(review.to_decide),
+              tone: 'warn',
+            },
+          }
         : {}),
     },
     {
       id: 'changes',
       label: 'Changes',
       href: batchHref(batchId, { tab: 'changes', view: 'ready' }),
-      ...(changes ? { count: changes.ready, countLabel: 'ready' } : {}),
+      ...(changes ? { count: changes.ready, countLabel: 'ready', countTone: 'ok' } : {}),
       ...(changeProblems > 0
-        ? { badge: { label: `${changeProblems} to check`, tone: 'bad' } }
+        ? {
+            badge: {
+              label: `${changeProblems} to check`,
+              short: String(changeProblems),
+              tone: 'bad',
+            },
+          }
         : {}),
     },
   ]
@@ -91,15 +111,24 @@ function processingRow(batchId: string, attention: BatchAttentionDto | undefined
   const processing = attention?.processing
 
   return STEPS.map(({ id, label }) => {
-    const work = (id === 'overview' ? processing : processing?.steps[id]) ?? {
+    const href = batchHref(batchId, { tab: 'processing', step: id })
+    if (id === 'overview') {
+      return { id, label, href, ...processingBadge(processing ?? { questions: 0, failed: 0 }) }
+    }
+    const step: StepAttempts = processing?.steps[id] ?? {
       questions: 0,
       failed: 0,
+      jobs: 0,
+      ready: 0,
+      running: 0,
     }
     return {
       id,
       label,
-      href: batchHref(batchId, { tab: 'processing', step: id }),
-      ...processingBadge(work),
+      href,
+      spinner: step.running > 0,
+      ...(step.jobs > 0 ? { progress: { ready: step.ready, of: step.jobs } } : {}),
+      ...processingBadge(step),
     }
   })
 }
@@ -120,7 +149,13 @@ function reviewRow(batchId: string, attention: BatchAttentionDto | undefined): T
       label: 'Records',
       href: batchHref(batchId, { tab: 'review', view: 'records' }),
       ...(review && review.to_decide > 0
-        ? { badge: { label: `${review.to_decide} to decide`, tone: 'warn' } }
+        ? {
+            badge: {
+              label: `${review.to_decide} to decide`,
+              short: String(review.to_decide),
+              tone: 'warn',
+            },
+          }
         : {}),
     },
   ]
@@ -141,7 +176,9 @@ function changesRow(batchId: string, attention: BatchAttentionDto | undefined): 
       id: 'added',
       label: 'Added',
       href: batchHref(batchId, { tab: 'changes', view: 'added' }),
-      ...(problems > 0 ? { badge: { label: `${problems} to check`, tone: 'bad' } } : {}),
+      ...(problems > 0
+        ? { badge: { label: `${problems} to check`, short: String(problems), tone: 'bad' } }
+        : {}),
     },
   ]
 }
@@ -269,6 +306,14 @@ const TabSlot = styled.div`
   max-width: 100%;
   > nav {
     border-bottom: 0;
+  }
+  /* At phone width the rows run into the band's padding, as on the canvas, to fit four tabs. */
+  ${media.compact} {
+    max-width: none;
+    margin-inline: calc(-1 * ${space[8]});
+    > nav {
+      padding-inline: ${space[4]};
+    }
   }
 `
 

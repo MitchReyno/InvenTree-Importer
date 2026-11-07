@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { BatchHeader } from './BatchHeader'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0 },
-  research: { questions: 0, failed: 0 },
-  images: { questions: 0, failed: 0 },
-  inventory: { questions: 0, failed: 0 },
+  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
 }
 
 const batchId = 'b0000000-0000-4000-8000-000000000001'
@@ -22,7 +22,7 @@ const batch = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '3',
-  processing: { questions: 3, failed: 0, steps: noSteps },
+  processing: { questions: 3, failed: 0, running: 0, steps: noSteps },
   review: { to_check: 8, changed_after_review: 0, to_decide: 3 },
   changes: { ready: 6, failed: 0, uncertain: 0 },
   items: [],
@@ -54,7 +54,11 @@ describe('BatchHeader', () => {
           processing: {
             questions: 3,
             failed: 1,
-            steps: { ...noSteps, research: { questions: 0, failed: 1 } },
+            running: 0,
+            steps: {
+              ...noSteps,
+              research: { questions: 0, failed: 1, jobs: 0, ready: 0, running: 0 },
+            },
           },
           // Step badges come from exact counts, not from the possibly truncated items.
           items: [],
@@ -72,6 +76,40 @@ describe('BatchHeader', () => {
       tabs.getByRole('link', { name: 'Processing, 3 questions · 1 failed' }),
     ).toBeInTheDocument()
     expect(steps.getByRole('link', { name: 'Research, 1 failed' })).toBeInTheDocument()
+  })
+
+  it('marks running work and the progress of each step from the attention read', () => {
+    render(
+      <BatchHeader
+        batch={batch}
+        route={{ tab: 'processing', step: 'research' }}
+        attention={{
+          ...attention,
+          processing: {
+            questions: 0,
+            failed: 0,
+            running: 2,
+            steps: {
+              ...noSteps,
+              examine: { questions: 0, failed: 0, jobs: 3, ready: 3, running: 0 },
+              research: { questions: 0, failed: 0, jobs: 12, ready: 7, running: 2 },
+            },
+          },
+          items: [],
+        }}
+        activeLotCount={8}
+        retiredLotCount={0}
+        busy={false}
+        onArchive={vi.fn()}
+      />,
+    )
+    const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
+
+    expect(steps.getByRole('link', { name: 'Examine, done' })).toBeInTheDocument()
+    expect(steps.getByRole('link', { name: 'Research, 7 of 12 ready' })).toHaveTextContent(
+      '7 of 12',
+    )
+    expect(steps.getByRole('link', { name: 'Images' })).toBeInTheDocument()
   })
 
   it('says when the attention read is unavailable instead of showing nothing to do', () => {
