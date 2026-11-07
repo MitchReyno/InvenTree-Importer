@@ -582,3 +582,107 @@ test(
     }
   },
 )
+
+test(
+  'a retained page whose recorded dimensions disagree with its bytes is skipped for good',
+  { skip },
+  async () => {
+    const fixture = await retainedFixture()
+    try {
+      await fixture.upload('Photo', await jpeg(2400, 1600))
+      await fixture.forgetRenditions()
+      // Record a width the stored PNG does not have.
+      const client = await fixture.db.pool.connect()
+      try {
+        await client.query('BEGIN')
+        await client.query('ALTER TABLE media_preview DISABLE TRIGGER media_preview_immutable')
+        await client.query('UPDATE media_preview SET width = width - 1')
+        await client.query('ALTER TABLE media_preview ENABLE TRIGGER media_preview_immutable')
+        await client.query('COMMIT')
+      } finally {
+        client.release()
+      }
+      assert.equal(
+        await backfillRenditions(fixture.decoder, fixture.store, fixture.binding, image!),
+        'skipped_mismatch',
+      )
+      assert.equal(
+        await backfillRenditions(fixture.decoder, fixture.store, fixture.binding, image!, {
+          now: later(120),
+        }),
+        null,
+      )
+      assert.deepEqual(await fixture.attempts(), [{ outcome: 'skipped_mismatch', attempt: 1 }])
+      assert.equal((await fixture.counts()).renditions, 0)
+    } finally {
+      await fixture.dispose()
+    }
+  },
+)
+
+test('a derived documentary crop is backfilled from its own retained page', { skip }, async () => {
+  const { editMedia } = await import('../../src/media/edit.ts')
+  const fixture = await retainedFixture()
+  try {
+    await fixture.upload('Photo', await jpeg(2400, 1600))
+    const snapshot = await fixture.repository.snapshot(fixture.batch.id)
+    const version = snapshot.evidence[0].versions[0]
+    await editMedia(fixture.db.pool, fixture.binding, fixture.batch.id, randomUUID(), {
+      expected_revision: snapshot.revision,
+      change: {
+        kind: 'derive',
+        evidence_id: snapshot.evidence[0].id,
+        recipe: {
+          version: 'documentary-crop/1',
+          source_version_id: version.id,
+          source_digest: version.digest,
+          page: 1,
+          source_width: 2400,
+          source_height: 1600,
+          x: 100,
+          y: 100,
+          width: 1500,
+          height: 1000,
+          quarter_turns: 0,
+        },
+      },
+    })
+    assert.equal(
+      await processMediaCommand(fixture.decoder, fixture.store, fixture.binding, image!),
+      true,
+    )
+    await fixture.forgetRenditions()
+    assert.equal(
+      await backfillRenditions(fixture.decoder, fixture.store, fixture.binding, image!),
+      'completed',
+    )
+    assert.equal(
+      await backfillRenditions(fixture.decoder, fixture.store, fixture.binding, image!),
+      'completed',
+    )
+    assert.equal(
+      await backfillRenditions(fixture.decoder, fixture.store, fixture.binding, image!),
+      null,
+    )
+    const sized = await fixture.db.pool.query<{
+      kind: string
+      size: string
+      width: number
+      height: number
+    }>(
+      `SELECT v.kind, r.size, r.width, r.height FROM media_preview_rendition r
+       JOIN media_preview p ON p.id = r.preview_id JOIN media_version v ON v.id = p.version_id
+       WHERE v.kind = 'derived' ORDER BY r.width`,
+    )
+    // Sized from the 1500 × 1000 crop, not the 2400 × 1600 source.
+    assert.deepEqual(
+      sized.rows.map((row) => [row.size, row.width, row.height]),
+      [
+        ['thumb', 320, 213],
+        ['card', 960, 640],
+      ],
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})
