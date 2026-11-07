@@ -88,7 +88,7 @@ function upgradeHead(response) {
   return lines.join('\r\n') + '\r\n\r\n'
 }
 
-function createGateway(options) {
+function createGateway({ handshakeMs = 10000, ...options }) {
   const upstream = new URL(options.loopbackOrigin)
   const target = (req, headers) => ({
     host: upstream.hostname,
@@ -132,9 +132,27 @@ function createGateway(options) {
       return
     }
     const forward = request(target(req, headers))
-    forward.on('upgrade', (response, upstreamSocket, upstreamHead) => {
+    // A plain timer, not a socket timeout, which would carry over to the open WebSocket.
+    const handshake = setTimeout(() => {
+      forward.destroy()
+      socket.destroy()
+    }, handshakeMs)
+    let upstreamSocket
+    // Upgrade sockets are half-open: a client disconnect arrives as `end`, not `close`.
+    socket.on('end', () => socket.destroy())
+    socket.on('close', () => {
+      clearTimeout(handshake)
+      forward.destroy()
+      upstreamSocket?.destroy()
+    })
+    forward.on('upgrade', (response, opened, upstreamHead) => {
+      clearTimeout(handshake)
+      upstreamSocket = opened
+      if (socket.destroyed) {
+        opened.destroy()
+        return
+      }
       upstreamSocket.on('error', () => socket.destroy())
-      socket.on('close', () => upstreamSocket.destroy())
       upstreamSocket.on('close', () => socket.destroy())
       socket.write(upgradeHead(response))
       if (upstreamHead.length) {
@@ -145,11 +163,18 @@ function createGateway(options) {
       }
       upstreamSocket.pipe(socket).pipe(upstreamSocket)
     })
+    // Browsers expose nothing of a refused upgrade, so relay only its status, correctly delimited.
     forward.on('response', (response) => {
-      socket.write(upgradeHead(response))
-      response.pipe(socket)
+      clearTimeout(handshake)
+      response.resume()
+      socket.end(
+        `HTTP/1.1 ${response.statusCode} ${response.statusMessage}\r\ncontent-length: 0\r\nconnection: close\r\n\r\n`,
+      )
     })
-    forward.on('error', () => socket.destroy())
+    forward.on('error', () => {
+      clearTimeout(handshake)
+      socket.destroy()
+    })
     forward.end()
   })
   return server

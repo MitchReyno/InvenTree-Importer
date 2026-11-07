@@ -2,6 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { createServer, request } = require('node:http')
 const { connect } = require('node:net')
+const { setTimeout: delay } = require('node:timers/promises')
 const { tailscaleOption, tailnetIdentity, translate, createGateway } = require('../dev/tailnet.cjs')
 
 const publicOrigin = 'https://bench.example-tailnet.ts.net'
@@ -222,4 +223,68 @@ test('gateway propagates truncated responses and cancelled uploads', async (t) =
   req.write('first chunk')
   setTimeout(() => req.destroy(), 50)
   assert.equal(await upload, false)
+})
+
+function rawUpgrade(port) {
+  const socket = connect(port, '127.0.0.1')
+  socket.on('error', () => {})
+  socket.write(
+    'GET /hmr HTTP/1.1\r\nhost: bench.example-tailnet.ts.net\r\n' +
+      `tailscale-user-login: ${login}\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
+  )
+  return socket
+}
+
+test('pending upgrades end with their client, time out, and refusals are well framed', async (t) => {
+  const pending = []
+  const refusing = createServer((req, res) => {
+    res.writeHead(403)
+    res.write('refused')
+    res.end()
+  })
+  const stalled = createServer()
+  stalled.on('upgrade', (req, socket) => pending.push(socket))
+  const refusingPort = await listen(refusing)
+  const stalledPort = await listen(stalled)
+  const gateways = []
+  const gateway = async (upstreamPort, handshakeMs) => {
+    const server = createGateway({
+      publicOrigin,
+      loopbackOrigin: `http://127.0.0.1:${upstreamPort}`,
+      login,
+      handshakeMs,
+    })
+    gateways.push(server)
+    return listen(server)
+  }
+  t.after(() => {
+    for (const server of [...gateways, refusing, stalled]) {
+      server.closeAllConnections()
+      server.close()
+    }
+    for (const socket of pending) {
+      socket.destroy()
+    }
+  })
+  const closed = (socket) => new Promise((done) => socket.once('close', done))
+
+  const client = rawUpgrade(await gateway(stalledPort, 10000))
+  while (pending.length === 0) {
+    await delay(10)
+  }
+  // The upgraded upstream socket is half-open, so the gateway's close arrives as `end`.
+  const upstreamClosed = new Promise((done) => pending[0].once('end', done))
+  client.destroy()
+  // Well inside the 10 s handshake bound: the disconnect itself must end the upstream request.
+  assert.equal(await Promise.race([upstreamClosed.then(() => 'ended'), delay(2000)]), 'ended')
+
+  await closed(rawUpgrade(await gateway(stalledPort, 100)))
+
+  const refused = rawUpgrade(await gateway(refusingPort, 10000))
+  let text = ''
+  refused.on('data', (chunk) => (text += chunk))
+  await closed(refused)
+  assert.match(text, /^HTTP\/1\.1 403 /)
+  assert.match(text, /content-length: 0/)
+  assert.doesNotMatch(text, /transfer-encoding|refused/i)
 })
