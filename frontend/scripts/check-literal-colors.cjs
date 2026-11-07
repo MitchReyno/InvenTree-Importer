@@ -306,15 +306,19 @@ function declarations(text) {
 // The font shorthand's weight, size and line height, checked as their own properties.
 function longhands({ property, value }) {
   if (property !== 'font') return [{ property, value }]
+  // Each part may be a token (an interpolation or var()); only the literal parts are checked.
+  const part = String.raw`(?:\d+(?:\.\d+)?(?:px)?|[§¤]|var\([^)]*\))`
   const match = value.match(
-    /(?:^|\s)(?:(\d{3})\s+)?(\d+(?:\.\d+)?px)(?:\s*\/\s*(\d+(?:\.\d+)?(?:px)?))?\s/,
+    new RegExp(String.raw`(?:^|\s)(?:(${part})\s+)?(${part})(?:\s*\/\s*(${part}))?(?:\s|$)`),
   )
   if (!match) return []
   return [
-    match[1] && { property: 'font-weight', value: match[1] },
-    { property: 'font-size', value: match[2] },
-    match[3] && { property: 'line-height', value: match[3] },
-  ].filter(Boolean)
+    ['font-weight', match[1]],
+    ['font-size', match[2]],
+    ['line-height', match[3]],
+  ]
+    .filter(([, part]) => part && /^\d/.test(part))
+    .map(([property, part]) => ({ property, value: part }))
 }
 
 let defaultFamilies = null
