@@ -1,104 +1,105 @@
 #!/usr/bin/env node
 // Checks that syncing one OpenSpec change cannot overwrite or contradict another
-// change's pending deltas or silently collide with the main specs. A delta whose
-// result is already in the main spec counts as applied, not as a conflict.
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+// change's pending deltas or silently collide with the main specs. Specs and
+// deltas are parsed with the installed OpenSpec CLI's own parser, and each delta
+// is simulated in the CLI's apply order, so "already applied" and "conflict"
+// mean what they mean to `openspec` sync.
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
+import { delimiter, dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const OPERATIONS = ['ADDED', 'MODIFIED', 'REMOVED', 'RENAMED']
-// Matches OpenSpec 1.16.0's normalizeBlockRaw: only line endings and outer whitespace.
-const normalize = (text) => text.replace(/\r\n?/g, '\n').trim()
-
-/** Lists [name, block] pairs in order; a `## ` heading ends the current block. */
-function parseBlocks(text) {
-  const blocks = []
-  let name = null
-  let lines = []
-  const flush = () => {
-    if (name !== null) blocks.push([name, normalize(lines.join('\n'))])
+/** The installed CLI's package root: OPENSPEC_CLI_DIR, else `openspec` on PATH. */
+export function cliRoot(env = process.env) {
+  if (env.OPENSPEC_CLI_DIR) return resolve(env.OPENSPEC_CLI_DIR)
+  for (const dir of (env.PATH ?? '').split(delimiter)) {
+    const bin = join(dir, 'openspec')
+    if (existsSync(bin)) return dirname(dirname(realpathSync(bin)))
   }
-  for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
-    const heading = line.match(/^### Requirement:\s*(.+?)\s*$/)
-    if (heading || /^## /.test(line)) {
-      flush()
-      name = heading ? heading[1] : null
-      lines = []
-      continue
-    }
-    if (name !== null) lines.push(line)
-  }
-  flush()
-  return blocks
+  throw new Error('OpenSpec CLI not found: install it or set OPENSPEC_CLI_DIR')
 }
 
-/** Maps each requirement name to its block text. */
+const root = cliRoot()
+const parser = await import(
+  pathToFileURL(join(root, 'dist/core/parsers/requirement-blocks.js')).href
+)
+export const cliVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+const {
+  parseDeltaSpec,
+  extractRequirementsSection,
+  normalizeRequirementName,
+  foldRequirementName,
+} = parser
+// The CLI's normalizeBlockRaw: only line endings and outer whitespace.
+const normalizeBlock = (raw) => raw.replace(/\r\n?/g, '\n').trim()
+const scenarioNames = (raw) =>
+  [...raw.matchAll(/^####\s+Scenario:\s*(.+?)\s*$/gim)].map((m) => m[1].toLowerCase())
+
+/** Main spec requirements, keyed by the CLI's normalized name. */
 export function parseRequirements(text) {
-  return new Map(parseBlocks(text))
+  return new Map(
+    extractRequirementsSection(text).bodyBlocks.map((block) => [
+      normalizeRequirementName(block.name),
+      block.raw,
+    ]),
+  )
 }
 
-/**
- * Parses a delta and records the structural problems OpenSpec rejects before
- * applying: duplicate names within a section and contradictory sections.
- */
+/** A delta parsed by the CLI, plus the problems its pre-validation rejects. */
 export function parseDelta(text) {
+  const plan = parseDeltaSpec(text)
+  const problems = []
+  const unique = (op, names) => {
+    const seen = new Set()
+    for (const name of names) {
+      if (seen.has(name)) problems.push(`duplicate requirement in ${op} "${name}"`)
+      seen.add(name)
+    }
+    return seen
+  }
   const delta = {
-    ADDED: new Map(),
-    MODIFIED: new Map(),
-    REMOVED: new Map(),
-    RENAMED: [],
-    problems: [],
+    ADDED: plan.added.map((b) => ({ name: normalizeRequirementName(b.name), raw: b.raw })),
+    MODIFIED: plan.modified.map((b) => ({ name: normalizeRequirementName(b.name), raw: b.raw })),
+    REMOVED: plan.removed.map((name) => normalizeRequirementName(name)),
+    RENAMED: plan.renamed.map(({ from, to }) => ({
+      from: normalizeRequirementName(from),
+      to: normalizeRequirementName(to),
+    })),
+    problems,
   }
-  for (const section of text.replace(/\r\n?/g, '\n').split(/^(?=## )/m)) {
-    const op = section.match(/^## (ADDED|MODIFIED|REMOVED|RENAMED) Requirements\s*$/m)?.[1]
-    if (!op) continue
-    if (op === 'RENAMED') {
-      let from = null
-      for (const line of section.split('\n')) {
-        const entry = line.match(/^\s*-\s*(FROM|TO):\s*`?(?:### Requirement:\s*)?(.+?)`?\s*$/)
-        if (!entry) continue
-        if (entry[1] === 'FROM') from = entry[2]
-        else if (from !== null) {
-          delta.RENAMED.push({ from, to: entry[2] })
-          from = null
-        }
-      }
-      continue
-    }
-    for (const [name, block] of parseBlocks(section)) {
-      if (delta[op].has(name)) delta.problems.push(`duplicate requirement in ${op} "${name}"`)
-      else delta[op].set(name, block)
-    }
+  const added = unique(
+    'ADDED',
+    delta.ADDED.map((b) => b.name),
+  )
+  const modified = unique(
+    'MODIFIED',
+    delta.MODIFIED.map((b) => b.name),
+  )
+  const removed = unique('REMOVED', delta.REMOVED)
+  unique(
+    'RENAMED FROM',
+    delta.RENAMED.map((r) => r.from),
+  )
+  unique(
+    'RENAMED TO',
+    delta.RENAMED.map((r) => r.to),
+  )
+  for (const { side, name } of plan.unpairedRenames) {
+    problems.push(`unpaired RENAMED ${side} "${name}"`)
   }
-  const froms = new Set()
-  const tos = new Set()
+  for (const n of modified) {
+    if (removed.has(n)) problems.push(`"${n}" is both MODIFIED and REMOVED`)
+    if (added.has(n)) problems.push(`"${n}" is both MODIFIED and ADDED`)
+  }
+  for (const n of added) if (removed.has(n)) problems.push(`"${n}" is both ADDED and REMOVED`)
   for (const { from, to } of delta.RENAMED) {
-    if (froms.has(from)) delta.problems.push(`duplicate FROM in RENAMED "${from}"`)
-    if (tos.has(to)) delta.problems.push(`duplicate TO in RENAMED "${to}"`)
-    froms.add(from)
-    tos.add(to)
-  }
-  const both = (a, b) => [...delta[a].keys()].filter((n) => delta[b].has(n))
-  for (const n of both('MODIFIED', 'REMOVED'))
-    delta.problems.push(`"${n}" is both MODIFIED and REMOVED`)
-  for (const n of both('MODIFIED', 'ADDED'))
-    delta.problems.push(`"${n}" is both MODIFIED and ADDED`)
-  for (const n of both('ADDED', 'REMOVED')) delta.problems.push(`"${n}" is both ADDED and REMOVED`)
-  for (const { from, to } of delta.RENAMED) {
-    if (delta.REMOVED.has(from)) delta.problems.push(`"${from}" is both RENAMED and REMOVED`)
-    if (delta.MODIFIED.has(from)) {
-      delta.problems.push(`MODIFIED must use the new name "${to}" of renamed "${from}"`)
+    if ([...removed].some((r) => foldRequirementName(r) === foldRequirementName(from))) {
+      problems.push(`"${from}" is both RENAMED and REMOVED`)
     }
-    if (delta.ADDED.has(to)) delta.problems.push(`RENAMED destination "${to}" collides with ADDED`)
+    if (modified.has(from))
+      problems.push(`MODIFIED must use the new name "${to}" of renamed "${from}"`)
+    if (added.has(to)) problems.push(`RENAMED destination "${to}" collides with ADDED`)
   }
   return delta
-}
-
-/** Every name a delta mentions, used when its problems prevent classification. */
-function namesIn(delta) {
-  const names = new Set([...delta.ADDED.keys(), ...delta.MODIFIED.keys(), ...delta.REMOVED.keys()])
-  for (const { from, to } of delta.RENAMED) names.add(from).add(to)
-  return names
 }
 
 function capabilityDirs(dir) {
@@ -108,15 +109,15 @@ function capabilityDirs(dir) {
     .map((entry) => entry.name)
 }
 
-export function loadWorkspace(root) {
-  const specsDir = join(root, 'openspec/specs')
+export function loadWorkspace(workspaceRoot) {
+  const specsDir = join(workspaceRoot, 'openspec/specs')
   const main = Object.fromEntries(
     capabilityDirs(specsDir).map((cap) => [
       cap,
       parseRequirements(readFileSync(join(specsDir, cap, 'spec.md'), 'utf8')),
     ]),
   )
-  const changesDir = join(root, 'openspec/changes')
+  const changesDir = join(workspaceRoot, 'openspec/changes')
   const changes = {}
   const entries = existsSync(changesDir) ? readdirSync(changesDir, { withFileTypes: true }) : []
   for (const entry of entries) {
@@ -132,10 +133,21 @@ export function loadWorkspace(root) {
   return { main, changes }
 }
 
+/** Every name a delta mentions, used when its problems prevent simulation. */
+function namesIn(delta) {
+  const names = new Set([
+    ...delta.ADDED.map((b) => b.name),
+    ...delta.MODIFIED.map((b) => b.name),
+    ...delta.REMOVED,
+  ])
+  for (const { from, to } of delta.RENAMED) names.add(from).add(to)
+  return names
+}
+
 /**
- * Classifies one capability delta against the main spec in OpenSpec's apply
- * order (renamed, removed, modified, added), so later operations see earlier
- * renames. Returns the names its pending operations touch.
+ * Simulates one capability delta against the main spec in the CLI's apply order
+ * (renamed, removed, modified, added). Returns what it would change (pending),
+ * what is already in the main spec (applied), and what the CLI would reject.
  */
 export function classifyDelta(cap, delta, existing) {
   const result = { pending: new Set(), applied: [], errors: [], warnings: [] }
@@ -145,44 +157,70 @@ export function classifyDelta(cap, delta, existing) {
     return result
   }
   const working = new Map(existing)
+  const nearMiss = (name, except) =>
+    [...working.keys()].find(
+      (k) => k !== except && foldRequirementName(k) === foldRequirementName(name),
+    )
   for (const { from, to } of delta.RENAMED) {
-    const hasFrom = working.has(from)
-    const hasTo = working.has(to)
-    if (hasFrom && hasTo) {
-      result.errors.push(`${cap}: RENAMED "${from}" to "${to}", but both exist in the main spec`)
-    } else if (hasFrom) {
-      working.set(to, working.get(from))
+    if (!working.has(from)) {
+      if (working.has(to) && nearMiss(from, to) === undefined) {
+        result.applied.push(`${cap}: RENAMED "${from}" to "${to}"`)
+      } else {
+        result.errors.push(`${cap}: RENAMED "${from}" is not in the main spec`)
+      }
+    } else if (working.has(to) || nearMiss(to, from) !== undefined) {
+      result.errors.push(`${cap}: RENAMED destination "${to}" already exists in the main spec`)
+    } else {
+      const lines = working.get(from).split('\n')
+      lines[0] = `### Requirement: ${to}`
       working.delete(from)
+      working.set(to, lines.join('\n'))
       result.pending.add(from).add(to)
-    } else if (hasTo) {
-      result.applied.push(`${cap}: RENAMED "${from}" to "${to}"`)
-    } else {
-      result.errors.push(`${cap}: RENAMED "${from}" is not in the main spec`)
     }
   }
-  for (const requirement of delta.REMOVED.keys()) {
-    if (working.delete(requirement)) result.pending.add(requirement)
-    else {
-      result.warnings.push(
-        `${cap}: REMOVED "${requirement}" is not in the main spec (already removed, or misnamed)`,
-      )
-    }
-  }
-  for (const [requirement, block] of delta.MODIFIED) {
-    if (!working.has(requirement)) {
-      result.errors.push(`${cap}: MODIFIED "${requirement}" is not in the main spec`)
-    } else if (working.get(requirement) === block) {
-      result.applied.push(`${cap}: MODIFIED "${requirement}"`)
-    } else result.pending.add(requirement)
-  }
-  for (const [requirement, block] of delta.ADDED) {
-    if (!working.has(requirement)) result.pending.add(requirement)
-    else if (working.get(requirement) === block) {
-      result.applied.push(`${cap}: ADDED "${requirement}"`)
-    } else {
+  for (const name of delta.REMOVED) {
+    if (working.delete(name)) result.pending.add(name)
+    else if (nearMiss(name) !== undefined) {
       result.errors.push(
-        `${cap}: ADDED "${requirement}" differs from the main spec requirement of that name`,
+        `${cap}: REMOVED "${name}" is not in the main spec, but a near-miss spelling is`,
       )
+    } else {
+      result.warnings.push(`${cap}: REMOVED "${name}" is not in the main spec (already removed)`)
+    }
+  }
+  for (const { name, raw } of delta.MODIFIED) {
+    const current = working.get(name)
+    if (current === undefined) {
+      result.errors.push(`${cap}: MODIFIED "${name}" is not in the main spec`)
+      continue
+    }
+    const missing = scenarioNames(current).filter((s) => !scenarioNames(raw).includes(s))
+    if (missing.length) {
+      result.errors.push(
+        `${cap}: MODIFIED "${name}" drops current scenario(s): ${missing.join(', ')}`,
+      )
+    }
+    if (normalizeBlock(current) === normalizeBlock(raw))
+      result.applied.push(`${cap}: MODIFIED "${name}"`)
+    else result.pending.add(name)
+    working.set(name, raw)
+  }
+  for (const { name, raw } of delta.ADDED) {
+    const current = working.get(name)
+    if (current !== undefined) {
+      if (normalizeBlock(current) === normalizeBlock(raw))
+        result.applied.push(`${cap}: ADDED "${name}"`)
+      else
+        result.errors.push(
+          `${cap}: ADDED "${name}" differs from the main spec requirement of that name`,
+        )
+    } else if (nearMiss(name) !== undefined) {
+      result.errors.push(
+        `${cap}: ADDED "${name}" differs only in case or spacing from "${nearMiss(name)}"`,
+      )
+    } else {
+      result.pending.add(name)
+      working.set(name, raw)
     }
   }
   return result
@@ -208,7 +246,7 @@ export function checkOverlap({ main, changes }, name, { newCapabilitiesOnly = fa
       .filter(([, pending]) => pending.size > 0)
     for (const [other, pending] of others) {
       for (const requirement of own.pending) {
-        if (pending.has(requirement)) {
+        if ([...pending].some((p) => foldRequirementName(p) === foldRequirementName(requirement))) {
           errors.push(`${cap}: "${requirement}" is also changed by ${other}`)
         }
       }
@@ -237,16 +275,19 @@ function main(argv) {
     return 2
   }
   const rootIndex = args.indexOf('--root')
-  const root = resolve(rootIndex >= 0 ? args[rootIndex + 1] : process.cwd())
-  const result = checkOverlap(loadWorkspace(root), name, {
+  const workspaceRoot = resolve(rootIndex >= 0 ? args[rootIndex + 1] : process.cwd())
+  const result = checkOverlap(loadWorkspace(workspaceRoot), name, {
     newCapabilitiesOnly: args.includes('--new-capabilities-only'),
   })
-  if (result.applied.length)
+  console.log(`parsed with OpenSpec ${cliVersion}`)
+  if (result.applied.length) {
     console.log(`${result.applied.length} delta operation(s) already applied to the main specs`)
+  }
   for (const warning of result.warnings) console.log(`warning: ${warning}`)
   for (const error of result.errors) console.error(`error: ${error}`)
-  if (!result.errors.length)
+  if (!result.errors.length) {
     console.log(`${name}: no sync conflicts with the main specs or other active changes`)
+  }
   return result.errors.length ? 1 : 0
 }
 

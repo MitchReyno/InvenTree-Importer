@@ -27,13 +27,61 @@ const renamed = (from, to) =>
   `## RENAMED Requirements\n\n- FROM: \`### Requirement: ${from}\`\n- TO: \`### Requirement: ${to}\`\n`
 const check = (root, name, options) => checkOverlap(loadWorkspace(root), name, options)
 
-test('parses delta sections, block text and rename pairs', () => {
+test('parses delta sections, block text and rename pairs with the CLI parser', () => {
   const parsed = parseDelta(
-    `## Purpose\n\n${requirement('Not a delta')}\n${section('ADDED', requirement('New', 'Body SHALL be.'))}\n${renamed('A', 'B')}`,
+    `## Purpose\n\n${requirement('Not a delta')}\n${section('ADDED', requirement('New ###', 'Body SHALL be.'))}\n${renamed('A', 'B')}`,
   )
-  assert.deepEqual([...parsed.ADDED.keys()], ['New'])
-  assert.equal(parsed.ADDED.get('New'), 'Body SHALL be.')
+  assert.deepEqual(parsed.ADDED, [
+    { name: 'New', raw: '### Requirement: New ###\n\nBody SHALL be.' },
+  ])
   assert.deepEqual(parsed.RENAMED, [{ from: 'A', to: 'B' }])
+  assert.deepEqual(parsed.problems, [])
+})
+
+test('accepts the delta syntax the CLI accepts and ignores fenced examples', () => {
+  const fence = '```'
+  const parsed = parseDelta(
+    `## added requirements\n\n${requirement('A', `Text SHALL hold.\n\n${fence}\n### Requirement: A\n${fence}`)}\n## REMOVED Requirements\n\n- \`### Requirement: Old\`\n\n## RENAMED Requirements\n\n- FROM: \`### Requirement: Lone\`\n`,
+  )
+  assert.deepEqual(
+    parsed.ADDED.map((b) => b.name),
+    ['A'],
+  )
+  assert.deepEqual(parsed.REMOVED, ['Old'])
+  assert.deepEqual(parsed.problems, ['unpaired RENAMED FROM "Lone"'])
+})
+
+test('name variants are matched as the CLI matches them', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/shared/spec.md': spec('Old Name'),
+    'openspec/changes/dupe/specs/shared/spec.md': section(
+      'ADDED',
+      requirement('A'),
+      requirement('A ###'),
+    ),
+    'openspec/changes/fold/specs/shared/spec.md': `${renamed('Old Name', 'New')}\n${section('REMOVED', requirement('old  name'))}`,
+    'openspec/changes/case/specs/shared/spec.md': section('ADDED', requirement('old name')),
+    'openspec/changes/header/specs/shared/spec.md': section('ADDED', requirement(' Old Name')),
+  })
+  assert.ok(
+    check(root, 'dupe').errors.some((e) => e.includes('duplicate requirement in ADDED "A"')),
+  )
+  assert.ok(
+    check(root, 'fold').errors.some((e) => e.includes('"Old Name" is both RENAMED and REMOVED')),
+  )
+  assert.ok(check(root, 'case').errors.some((e) => e.includes('differs only in case or spacing')))
+  assert.deepEqual(check(root, 'header').applied, [])
+})
+
+test('a modification must keep the current scenarios', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/shared/spec.md': `## Requirements\n\n${requirement('Rule', 'Text SHALL hold.\n\n#### Scenario: Kept\n\n- **GIVEN** x')}`,
+    'openspec/changes/base/specs/shared/spec.md': section(
+      'MODIFIED',
+      requirement('Rule', 'Text SHALL change.'),
+    ),
+  })
+  assert.ok(check(root, 'base').errors.some((e) => e.includes('drops current scenario(s): kept')))
 })
 
 test('a new capability with unique requirements is clean', (t) => {
@@ -128,7 +176,7 @@ test('renames check the source, the destination and concurrent edits', (t) => {
     ),
   })
   const { errors, applied } = check(root, 'base')
-  assert.ok(errors.some((e) => e.includes('RENAMED "A" to "B", but both exist')))
+  assert.ok(errors.some((e) => e.includes('RENAMED destination "B" already exists')))
   assert.ok(errors.some((e) => e.includes('"C" is also changed by later')))
   assert.ok(errors.some((e) => e.includes('RENAMED "Nowhere" is not in the main spec')))
   assert.deepEqual(applied, ['shared: RENAMED "Old" to "Moved"'])
@@ -190,7 +238,7 @@ test('duplicates and contradictory sections are rejected, as OpenSpec rejects th
     'RENAMED destination "B" collides with ADDED': `${renamed('A', 'B')}\n${section('ADDED', requirement('B'))}`,
     '"A" is both RENAMED and REMOVED': `${renamed('A', 'B')}\n${section('REMOVED', requirement('A'))}`,
     'MODIFIED must use the new name "B"': `${renamed('A', 'B')}\n${section('MODIFIED', requirement('A'))}`,
-    'duplicate FROM in RENAMED "A"': `${renamed('A', 'B')}\n- FROM: \`### Requirement: A\`\n- TO: \`### Requirement: C\`\n`,
+    'duplicate requirement in RENAMED FROM "A"': `${renamed('A', 'B')}\n- FROM: \`### Requirement: A\`\n- TO: \`### Requirement: C\`\n`,
   }
   for (const [expected, delta] of Object.entries(cases)) {
     const root = workspace(t, {
