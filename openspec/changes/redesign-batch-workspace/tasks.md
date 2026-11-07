@@ -322,7 +322,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Prerequisites:** tasks 1–14.
 - **Acceptance:** ui-design-system: Token-driven layout and type (Literal value refused, for the library); Layout follows the design's widths and breakpoints (Phone width, for the library's controls); Motion and layers follow the design system (Reduced motion; Toast above an open menu); Screens use the shared components, at component level.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them. The generator's contract test and the lint's tests fail first on the new families.
-- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
 - [ ] 15.1 Add the screenshot-diff check over every owned fixture page in light and dark at 1440 and 390 px, with a `pnpm` command and its use documented in `frontend/README.md`, and capture its baseline before any other change in this task, so 15.2 and 15.3 are diffed against it.
 - [ ] 15.2 Copy the design system's tokens v2 into `frontend/src/theme/tokens.json`; write failing generator contract tests for the `duration`, `easing`, `zIndex`, `breakpoint`, `opacity` and `size` families and the new spacing and radius steps (RED), then generate them as CSS custom properties and typed constants (GREEN), with each type style's size, line-height, weight and letter-spacing also emitted as its own variable.
@@ -331,7 +331,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 15.5 Swap exact values for tokens in `components/ui/` and `primitives.tsx`, with the screenshot diff unchanged.
 - [ ] 15.6 Make `primitives.Button` the shared `ui/Button`, and add `Dialog` and `Popover` surfaces (radius, padding, shadow, layer and motion from tokens).
 - [ ] 15.7 Close the library's V1 gaps: G3 (each status's glyph and colour), G7 and G11 (a shared hover-transition mixin, applied to the library's hover rules; G7's Batches, HeaderStatus and MastheadMenu sites go to 16.6 and EvidenceActions to 17.5), G8 (table row hover), G10 (toast exit), the toast's layer from `z-index: 50` to `z-toast`, G15 for the library's own controls (Button `link` and `sm`, interactive chips and links) and the `Banner` component's part of G12; and move the library's near values and visible cluster changes onto tokens (C2, C3, C9, C10, C15, C16, and C18's control heights and icon sizes), with before-and-after screenshots. The other V1 gaps belong to the area task that owns their files: G1 and G9 to task 16, G2 to tasks 16 and 19, G4 to task 20, G5 and G16 (Processing) to task 18, G6 to tasks 17 and 19, G12's screens to tasks 17, 18 and 20, G13, G14 and G17 to task 19, G15's screen-local controls to every area task, and G16 (Records) to task 20.
-- [ ] 15.8 Record the screenshots, the shrunk baseline and the results in the handover.
+- [ ] 15.8 Record the screenshots, the shrunk baseline and the results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 16. App shell, masthead, Batches and Agents
 
@@ -341,7 +341,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead).
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
-- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
 - [ ] 16.1 Swap exact values for tokens in these areas, with the screenshot diff unchanged.
 - [ ] 16.2 Set the content widths (G1) (`width-content`, `width-review`) and page padding (`space-6` at desktop, at least `space-4` at phone width), move the app shell's 700px query to `bp-compact` (G2), and move the global focus ring and body type onto tokens.
@@ -349,7 +349,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 16.4 Make the batch header a full-width band (M5, M8) with the tabs on the title row, the second tab row as its own band, tab counts with sub-tab counts and badges (M9), and the Processing step icons.
 - [ ] 16.5 Close the V3 and V6 gaps (B1–B7, A1–A4) on Batches, Agents and Agent settings (`components/agents/AgentSettings*`).
 - [ ] 16.6 Apply the hover-transition mixin to G7's Batches, HeaderStatus and MastheadMenu rows, move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
-- [ ] 16.7 Record the screenshots and results in the handover.
+- [ ] 16.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 17. Capture
 
@@ -359,14 +359,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: Phone width (the Capture actions); Screens use the shared components on Capture.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
-- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 17.1 Swap exact values for tokens in Capture and media, with the screenshot diff unchanged, recording in the handover each inclusive 760px or 860px query that moves to just below its token's edge.
+- [ ] 17.1 Swap exact values for tokens in Capture and media, with the screenshot diff unchanged, recording in the PR description each inclusive 760px or 860px query that moves to just below its token's edge.
 - [ ] 17.2 Restyle the capture actions as the design's tiles (K1), and give every Capture control a 44px hit area below `bp-compact` (G15).
 - [ ] 17.3 Restyle evidence groups and tiles (K3–K5): inline group name, small and ghost actions, the move handle on the tile.
 - [ ] 17.4 Restyle the Proposed lots glance (K6; its chips onto `Pill`, G6), and move `MediaCropDialog` onto `Dialog`.
 - [ ] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
-- [ ] 17.6 Record the screenshots and results in the handover.
+- [ ] 17.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 18. Processing
 
@@ -376,13 +376,13 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: One status vocabulary (the running step); processing-workspace: Overview with running agents and Session drawer, as laid out in the canvas.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
-- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged, recording in the handover the inclusive 480px query that moves to just below `bp-phone`.
+- [ ] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged, recording in the PR description the inclusive 480px query that moves to just below `bp-phone`.
 - [ ] 18.2 Lay out the overview in two columns (P1, P2, P4, P5) with the step progress bar, Needs-you cards and the activity timeline.
 - [ ] 18.3 Dock the session drawer on the right (P9) with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
 - [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7, P8, P10 and P11 (P10 and P11 in `ui/PhaseRow.tsx`).
-- [ ] 18.5 Record the screenshots and results in the handover.
+- [ ] 18.5 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 19. Review Lots and Map
 
@@ -392,14 +392,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints).
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
-- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 19.1 Swap exact values for tokens in Review Lots, Map and the operator components, with the screenshot diff unchanged, recording in the handover the inclusive 600px queries (`RestructureDialog`, `ImpactSummary`) that move to just below `bp-narrow`.
+- [ ] 19.1 Swap exact values for tokens in Review Lots, Map and the operator components, with the screenshot diff unchanged, recording in the PR description the inclusive 600px queries (`RestructureDialog`, `ImpactSummary`) that move to just below `bp-narrow`.
 - [ ] 19.2 Move Review's breakpoints onto `bp-compact` and `bp-wide` (G2), with screenshots at 700–800 and 1000–1200 px.
 - [ ] 19.3 Move `StatusChip` (G6), the filters, the view switch and the tables (R1, R2, R11, R12) onto `Pill`, `FilterChips`, `SegmentedControl` and `DataTable` with `BulkBar`, and `Modal` onto `Dialog`.
 - [ ] 19.4 Restyle the lot rows (R4), the observation cards and their small buttons (R14), the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
 - [ ] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
-- [ ] 19.6 Record the screenshots and results in the handover.
+- [ ] 19.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 20. Records and Changes, then strict lint
 
@@ -409,14 +409,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Prerequisites:** tasks 15–19.
 - **Acceptance:** ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
-- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR. Also a final screenshot pass over every screen.
+- **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`. Also a final screenshot pass over every screen.
 
-- [ ] 20.1 Swap exact values for tokens in Records and Changes, with the screenshot diff unchanged, recording in the handover each inclusive 860px query that moves to just below `bp-stacked`.
+- [ ] 20.1 Swap exact values for tokens in Records and Changes, with the screenshot diff unchanged, recording in the PR description each inclusive 860px query that moves to just below `bp-stacked`.
 - [ ] 20.2 Restyle the Records type rail (R15), `RecordDetail`'s table onto `DataTable`, its empty state (G16), and the Ready to add layout and lot rows (X1, X2); give New, Update and Exists the same colours on both screens (G4); and give these screens' controls a 44px hit area below `bp-compact` (G15).
 - [ ] 20.3 Move the remaining `primitives.Notice` users, including Added's (G12), onto `Banner` and remove the unused legacy primitives.
 - [ ] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
 - [ ] 20.5 Empty the literal-value baseline and make the lint strict.
-- [ ] 20.6 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the handover.
+- [ ] 20.6 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 
