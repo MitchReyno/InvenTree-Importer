@@ -309,7 +309,7 @@ function longhands({ property, value }) {
   // Each part may be a token (an interpolation or var()); only the literal parts are checked.
   const part = String.raw`(?:\d+(?:\.\d+)?(?:px)?|[§¤]|var\([^)]*\))`
   const match = value.match(
-    new RegExp(String.raw`(?:^|\s)(?:(${part})\s+)?(${part})(?:\s*\/\s*(${part}))?(?:\s|$)`),
+    new RegExp(String.raw`(?:^|\s)(?:(${part})\s+)?(${part})(?:\s*\/\s*([^\s/]+))?(?:\s|$)`),
   )
   if (!match) return []
   return [
@@ -317,7 +317,7 @@ function longhands({ property, value }) {
     ['font-size', match[2]],
     ['line-height', match[3]],
   ]
-    .filter(([, part]) => part && /^\d/.test(part))
+    .filter(([, part]) => part && /^\d+(?:\.\d+)?(?:px)?$/.test(part))
     .map(([property, part]) => ({ property, value: part }))
 }
 

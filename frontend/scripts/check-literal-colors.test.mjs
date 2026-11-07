@@ -96,6 +96,8 @@ describe('literal value check', () => {
       'const A = styled.div`',
       '  font: 600 12px/18px sans-serif;',
       '  font: 600 ${typeVar.small.size}/18px sans-serif;',
+      '  font: 600 12px/normal sans-serif;',
+      '  font: 12px/120% sans-serif;',
       '  @media (',
       '    min-width: 760px) {',
       '  }',
@@ -108,7 +110,10 @@ describe('literal value check', () => {
       '2 | line-height | 18px | type-small-line-height type-pill-line-height type-button-lg-line-height type-mono-line-height type-mono-strong-line-height',
       '3 | font-weight | 600 | type-body-strong-weight type-pill-weight type-label-weight',
       '3 | line-height | 18px | type-small-line-height type-pill-line-height type-button-lg-line-height type-mono-line-height type-mono-strong-line-height',
-      '4 | @media | 760px | bp-compact',
+      '4 | font-weight | 600 | type-body-strong-weight type-pill-weight type-label-weight',
+      '4 | font-size | 12px | type-pill-size',
+      '5 | font-size | 12px | type-pill-size',
+      '6 | @media | 760px | bp-compact',
     ])
   })
 
