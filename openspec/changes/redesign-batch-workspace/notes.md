@@ -97,6 +97,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-07, PR-I review round 8:** The Map's badge says "unused file", because its count includes documents as well as photos.
 - **2026-11-07, PR-I review round 9:** While a split or merged batch's lineage is unknown (the operator review is unavailable and lots are retired), the header shows no unused-file count, as the Map shows "checking history" rather than calling inherited files unused; the file total stays.
 - **2026-11-07, PR-I review round 10:** The Continue card's Review action counts the lots it opens: the lots still to check when it filters to them, otherwise every lot.
+- **2026-11-07, task 17.2 (PR-J):** The capture actions are the canvas's `bi-capbtn` tiles: an accent glyph, the action and a muted subline, outlined on `surface` with a `surface-2` hover. The subline is each tile's description, so the buttons keep their action names. At phone width they stay three across, at least 88px tall, as on the `CapturePhone` artboard, so the 430px one-column query is removed rather than moved to `bp-phone` (17.5, C8). The phone artboard's shortened labels ("Photos", "Document", "Note") are not used, since a label that changes with the width would also change the button's name. The glyph is `icon-md` (20px), folding the canvas's 22px as C18 recommends.
 
 ## Open items
 

@@ -373,7 +373,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
 - [x] 17.1 Swap exact values for tokens in Capture and media, with the screenshot diff unchanged, recording in the PR description each inclusive 760px or 860px query that moves to just below its token's edge.
-- [ ] 17.2 Restyle the capture actions as the design's tiles (K1), and give every Capture control a 44px hit area below `bp-compact` (G15).
+- [x] 17.2 Restyle the capture actions as the design's tiles (K1), and give every Capture control a 44px hit area below `bp-compact` (G15).
 - [ ] 17.3 Restyle evidence groups and tiles (K3–K5): inline group name, small and ghost actions, the move handle on the tile.
 - [ ] 17.4 Restyle the Proposed lots glance (K6; its chips onto `Pill`, G6), and move `MediaCropDialog` onto `Dialog`.
 - [ ] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.

@@ -1,7 +1,9 @@
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
 import type { ProposedLot, ProposedLotState } from '../../processing/proposed-lots'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { linkTouchArea } from '../ui/primitives'
 import { Pill, type PillTone } from '../ui/Pill'
 
 const STATE: Record<ProposedLotState, { tone: PillTone; word: string }> = {
@@ -114,10 +116,15 @@ const List = styled.ul`
   a {
     min-width: 0;
     overflow: hidden;
+    touch-action: manipulation;
     color: ${color.fg};
     font-weight: ${typeVar.bodyStrong.weight};
     text-overflow: ellipsis;
     white-space: nowrap;
+    ${media.compact} {
+      display: block;
+      line-height: ${size.touch};
+    }
   }
 `
 
@@ -173,5 +180,7 @@ const Footer = styled.p`
   color: ${color.muted};
   a {
     color: ${color.accent};
+    touch-action: manipulation;
+    ${linkTouchArea}
   }
 `

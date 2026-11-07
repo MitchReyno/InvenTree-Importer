@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { AutoValueField } from '../ui/AutoValueField'
 import { NotesField } from '../ui/TextField'
@@ -83,6 +84,9 @@ const Unavailable = styled.fieldset`
     display: flex;
     gap: ${space[4]};
     align-items: center;
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
 `
 const Toggle = styled(Button)`

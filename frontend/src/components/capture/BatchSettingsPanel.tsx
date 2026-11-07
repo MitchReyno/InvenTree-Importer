@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import { color, size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,
@@ -583,6 +584,12 @@ const Settings = styled(Panel)`
   details {
     margin-top: ${space[6]};
     overflow-wrap: anywhere;
+  }
+  summary {
+    cursor: pointer;
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
 `
 const Instructions = styled.div`

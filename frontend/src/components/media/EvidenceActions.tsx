@@ -1,7 +1,9 @@
+import { useId } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, icon, opacity, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
 import { Paragraph } from '../ui/primitives'
-import { Button } from '../ui/Button'
 
 type Props = {
   mediaDisabled: boolean
@@ -23,15 +25,27 @@ export function EvidenceActions({
   return (
     <>
       <Actions aria-label="Add evidence">
-        <Action type="button" disabled={mediaDisabled} onClick={takePhotos}>
-          Take photos
-        </Action>
-        <Action type="button" disabled={mediaDisabled} onClick={addDocument}>
-          Add document
-        </Action>
-        <Action type="button" disabled={noteDisabled || !writeNote} onClick={writeNote}>
-          Write a note
-        </Action>
+        <CaptureTile
+          glyph="◉"
+          label="Take photos"
+          subline="Camera or library"
+          disabled={mediaDisabled}
+          onClick={takePhotos}
+        />
+        <CaptureTile
+          glyph="▤"
+          label="Add document"
+          subline="Receipt, invoice, PDF"
+          disabled={mediaDisabled}
+          onClick={addDocument}
+        />
+        <CaptureTile
+          glyph="✎"
+          label="Write a note"
+          subline="Or paste text"
+          disabled={noteDisabled || !writeNote}
+          onClick={writeNote}
+        />
       </Actions>
       {unavailable && (
         <Paragraph role="status">
@@ -42,23 +56,73 @@ export function EvidenceActions({
   )
 }
 
+type TileProps = {
+  glyph: string
+  label: string
+  subline: string
+  disabled: boolean
+  onClick?: () => void
+}
+
+// The subline describes the tile, so the button's name stays the action alone.
+function CaptureTile({ glyph, label, subline, disabled, onClick }: TileProps) {
+  const id = useId()
+
+  return (
+    <Tile
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-labelledby={`${id}-label`}
+      aria-describedby={`${id}-subline`}
+    >
+      <TileGlyph aria-hidden="true">{glyph}</TileGlyph>
+      <span id={`${id}-label`}>{label}</span>
+      <TileSubline id={`${id}-subline`}>{subline}</TileSubline>
+    </Tile>
+  )
+}
+
 const Actions = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: ${space[4]};
   margin: 0 0 ${space[8]};
-  @media (max-width: 430px) {
-    grid-template-columns: minmax(0, 1fr);
+`
+const Tile = styled.button`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${space[2]};
+  padding: ${space[7]} ${space[4]};
+  border: 1px solid ${color.lineStrong};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+  color: ${color.fg};
+  font: inherit;
+  font-weight: ${typeVar.bodyStrong.weight};
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  touch-action: manipulation;
+  ${hoverTransition}
+  &:hover:not(:disabled) {
+    background: ${color.surface2};
+  }
+  &:disabled {
+    opacity: ${opacity.disabled};
+    cursor: not-allowed;
+  }
+  ${media.compact} {
+    min-height: 88px;
   }
 `
-const Action = styled(Button)`
-  min-height: 50px;
-  background: ${color.accent};
-  border-color: ${color.accent};
-  color: ${color.onAccent};
-  font-weight: 650;
-  &:hover:not(:disabled) {
-    background: ${color.accent};
-    filter: brightness(1.07);
-  }
+const TileGlyph = styled.span`
+  color: ${color.accent};
+  font-size: ${icon.md};
+  line-height: 1;
+`
+const TileSubline = styled.small`
+  ${type.small}
+  color: ${color.muted};
 `
