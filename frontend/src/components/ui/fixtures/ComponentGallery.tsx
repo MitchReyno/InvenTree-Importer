@@ -20,7 +20,6 @@ import { KeyValue } from '../KeyValue'
 import { Kbd } from '../Kbd'
 import { NeedsYou } from '../NeedsYou'
 import { OptionRow } from '../OptionRow'
-import { PhaseRow } from '../PhaseRow'
 import { Popover } from '../Popover'
 import { Count, Pill, type PillStatus, type PillTone } from '../Pill'
 import { ProblemList } from '../ProblemCard'
@@ -67,7 +66,6 @@ const statuses: [PillStatus, string][] = [
 export function ComponentGallery() {
   const [view, setView] = useState('workspace')
   const [filter, setFilter] = useState('all')
-  const [phaseOpen, setPhaseOpen] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [answer, setAnswer] = useState<string | undefined>()
   const [auto, setAuto] = useState<AutoValue>({ mode: 'auto' })
@@ -377,35 +375,12 @@ export function ComponentGallery() {
 
         <Section title="Processing and agents">
           <Card>
-            <PhaseRow
-              state="done"
-              title="Examine"
-              outcome="6 photos read, 4 lots formed"
-              expanded={false}
-              onToggle={() => {}}
-            />
-            <PhaseRow
-              state="running"
-              title="Research"
-              outcome="4 of 9 lots researched"
-              badges={<Pill tone="warn">1 question</Pill>}
-              expanded={phaseOpen}
-              onToggle={() => setPhaseOpen((open) => !open)}
-            >
-              <StatusTimeline
-                label="Research session"
-                entries={[
-                  { text: 'Read the datasheet for RC0603', time: '10:02' },
-                  { text: 'Checking the reel label', time: '10:04', current: true },
-                ]}
-              />
-            </PhaseRow>
-            <PhaseRow
-              state="waiting"
-              title="Images"
-              outcome="Waits for Research"
-              expanded={false}
-              onToggle={() => {}}
+            <StatusTimeline
+              label="Research session"
+              entries={[
+                { text: 'Read the datasheet for RC0603', time: '10:02' },
+                { text: 'Checking the reel label', time: '10:04', current: true },
+              ]}
             />
           </Card>
           <QuestionCard
