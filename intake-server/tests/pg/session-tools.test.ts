@@ -30,6 +30,7 @@ async function call(client: Client, name: string, args: Record<string, unknown>)
   const result = await client.callTool({ name, arguments: args })
   return result.structuredContent as {
     ok: boolean
+    issues?: { path: string; rule: string; reason: string }[]
     error?: string
     pending_inbox: number
     items?: { id: string; seq: string; kind: string }[]
@@ -156,6 +157,17 @@ test('invalid outbox items return typed errors and publish nothing', async () =>
           relies_on: { fields: ['quantity'], sources },
         },
       })
+      const beforeInvalid = await counts(fixture, a.attempt, a.job)
+      const invalid = await call(session, 'propose', {
+        proposal: { ...proposal([noteSource]).proposal, quantity: { status: 'estimated' } },
+      })
+      assert.equal(invalid.error, 'validation_failed')
+      assert.ok(
+        invalid.issues?.some(
+          (issue) => issue.path === '/proposal/quantity/value' && issue.rule === 'required',
+        ),
+      )
+      assert.deepEqual(await counts(fixture, a.attempt, a.job), beforeInvalid)
       const undelivered = {
         kind: 'media_version',
         evidence_id: randomUUID(),

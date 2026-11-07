@@ -15508,6 +15508,13 @@ export interface components {
             pending_inbox: number;
             /** Format: int64 */
             revision?: string;
+            source?: {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            };
             id?: string;
             items?: ({
                 id: string;
@@ -15623,6 +15630,11 @@ export interface components {
             /** @constant */
             ok: false;
             error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
+            issues?: {
+                path: string;
+                rule: string;
+                reason: string;
+            }[];
             message: string;
             pending_inbox: number;
             /** Format: int64 */

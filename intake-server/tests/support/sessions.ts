@@ -88,17 +88,27 @@ export async function seedPhoto(
   label = 'Photo',
   /** How long ago decoding finished; the Examine quiet period counts from it. */
   readySecondsAgo = 0,
+  content?: { original: Buffer; preview: Buffer },
 ) {
   const ids = { evidence: randomUUID(), version: randomUUID(), decode: randomUUID() }
-  const digest = createHash('sha256').update(ids.version).digest()
+  const digest = createHash('sha256')
+    .update(content?.original ?? ids.version)
+    .digest()
+  const previewDigest = content ? createHash('sha256').update(content.preview).digest() : digest
   await transaction(fixture.db.pool, async (client) => {
     await client.query('INSERT INTO media_batch(batch_id) VALUES($1) ON CONFLICT DO NOTHING', [
       batchId,
     ])
     await client.query(
       'INSERT INTO media_blob(digest,byte_size) VALUES($1,$2) ON CONFLICT DO NOTHING',
-      [digest, '64'],
+      [digest, content?.original.length.toString() ?? '64'],
     )
+    if (content) {
+      await client.query(
+        'INSERT INTO media_blob(digest,byte_size) VALUES($1,$2) ON CONFLICT DO NOTHING',
+        [previewDigest, content.preview.length.toString()],
+      )
+    }
     await client.query(
       'INSERT INTO media_evidence(id,batch_id,label,actor_id) VALUES($1,$2,$3,$4)',
       [ids.evidence, batchId, label, fixture.identity.actor],
@@ -120,7 +130,7 @@ export async function seedPhoto(
     await client.query(
       `INSERT INTO media_preview(id,batch_id,version_id,command_id,page,width,height,blob_digest)
        VALUES($1,$2,$3,$4,1,$5,$6,$7)`,
-      [randomUUID(), batchId, ids.version, ids.decode, size.width, size.height, digest],
+      [randomUUID(), batchId, ids.version, ids.decode, size.width, size.height, previewDigest],
     )
   })
   return ids

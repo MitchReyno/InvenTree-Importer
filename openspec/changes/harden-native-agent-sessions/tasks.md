@@ -66,10 +66,10 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - TDD or equivalent verification: Baseline contracts/session-tools; RED for nested required fields and generic invalid_contract responses; GREEN returns bounded paths/reasons without echoing values.
 - Verification and risks: Run contracts generation/checks and scoped PG session-tools tests, including corrected retry, malformed unions and no publication on rejection.
 
-- [ ] 3.1 Confirm the scoped baseline and prerequisites for return correctable proposal diagnostics.
-- [ ] 3.2 Baseline contracts/session-tools; RED for nested required fields and generic invalid_contract responses; GREEN returns bounded paths/reasons without echoing values.
-- [ ] 3.3 Expose sanitized copied Ajv issues without changing existing validate semantics; keep authority and currentness failures distinct.
-- [ ] 3.4 Run contracts generation/checks and scoped PG session-tools tests, including corrected retry, malformed unions and no publication on rejection.
+- [x] 3.1 Confirm the scoped baseline and prerequisites for return correctable proposal diagnostics.
+- [x] 3.2 Baseline contracts/session-tools; RED for nested required fields and generic invalid_contract responses; GREEN returns bounded paths/reasons without echoing values.
+- [x] 3.3 Expose sanitized copied Ajv issues without changing existing validate semantics; keep authority and currentness failures distinct.
+- [x] 3.4 Run contracts generation/checks and scoped PG session-tools tests, including corrected retry, malformed unions and no publication on rejection.
 
 ## 4. Deliver authoritative evidence citations
 
@@ -78,13 +78,13 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - Prerequisites: None.
 - Acceptance: D3; Authoritative citations for fetched evidence.
 - Approach: Return the exact proposal source reference with successful content delivery; retain scope, digest semantics, delivery tracking and byte limits.
-- TDD or equivalent verification: RED for mid-session fetch lacking digest and accepted use of wrong preview digest; GREEN accepts the returned original-version reference only after successful delivery.
+- TDD or equivalent verification: A baseline negative control must detect the missing mid-session citation digest; characterize the existing wrong-preview-digest refusal. GREEN accepts the returned original-version reference only after successful delivery.
 - Verification and risks: Test cross-batch fetch, missing bytes, exhausted budget, crop/page paths, stale references and restart/refetch; run generated-contract and scoped PG checks.
 
-- [ ] 4.1 Confirm the scoped baseline and prerequisites for deliver authoritative evidence citations.
-- [ ] 4.2 RED for mid-session fetch lacking digest and accepted use of wrong preview digest; GREEN accepts the returned original-version reference only after successful delivery.
-- [ ] 4.3 Return the exact proposal source reference with successful content delivery; retain scope, digest semantics, delivery tracking and byte limits.
-- [ ] 4.4 Test cross-batch fetch, missing bytes, exhausted budget, crop/page paths, stale references and restart/refetch; run generated-contract and scoped PG checks.
+- [x] 4.1 Confirm the scoped baseline and prerequisites for deliver authoritative evidence citations.
+- [x] 4.2 A baseline negative control must detect the missing mid-session citation digest; characterize the existing wrong-preview-digest refusal. GREEN accepts the returned original-version reference only after successful delivery.
+- [x] 4.3 Return the exact proposal source reference with successful content delivery; retain scope, digest semantics, delivery tracking and byte limits.
+- [x] 4.4 Test cross-batch fetch, missing bytes, exhausted budget, crop/page paths, stale references and restart/refetch; run generated-contract and scoped PG checks.
 
 ## 5. Retain categorized failures and expose debug details
 

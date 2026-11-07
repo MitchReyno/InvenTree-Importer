@@ -67445,6 +67445,34 @@
                 "format": "int64",
                 "type": "string"
               },
+              "source": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "evidence_id",
+                  "version_id",
+                  "sha256"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "media_version",
+                    "type": "string"
+                  },
+                  "evidence_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "version_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
               "id": {
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
@@ -68134,6 +68162,35 @@
                     "type": "string"
                   }
                 ]
+              },
+              "issues": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "rule",
+                    "reason"
+                  ],
+                  "properties": {
+                    "path": {
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "rule": {
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "maxLength": 160,
+                      "type": "string"
+                    }
+                  }
+                }
               },
               "message": {
                 "minLength": 1,

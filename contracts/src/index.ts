@@ -1,4 +1,6 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
+import { copyValidationIssues } from './validation-issues.ts'
+export type { ValidationIssue } from './validation-issues.ts'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import {
   Id,
@@ -208,4 +210,13 @@ export function validate(name: keyof typeof schemas, value: unknown): void {
   if (!validators.get(name)!(value)) {
     throw new Error('invalid_contract')
   }
+}
+
+/** Copies bounded schema issues immediately; existing validate callers keep their error contract. */
+export function validationIssues(name: keyof typeof schemas, value: unknown) {
+  const validator = validators.get(name)!
+  if (validator(value)) {
+    return []
+  }
+  return copyValidationIssues(schemas[name], validator.errors ?? [])
 }
