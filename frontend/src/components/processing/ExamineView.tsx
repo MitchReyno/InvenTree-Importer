@@ -41,7 +41,13 @@ function readings(observation: Observation) {
 function source(observation: Observation) {
   return observation.origin === 'operator' || observation.operator_edited
     ? { source: 'You', certainty: 'Your edit', tone: 'user' as const }
-    : { source: 'Examine', certainty: 'Read from the photo', tone: 'default' as const }
+    : {
+        source: 'Examine',
+        // Line regions are a document's lines; pixel regions are part of a photo.
+        certainty:
+          observation.region.kind === 'lines' ? 'Read from the document' : 'Read from the photo',
+        tone: 'default' as const,
+      }
 }
 
 /** Each photo's file name and group, from the media snapshot when it has been read. */

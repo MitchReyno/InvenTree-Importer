@@ -148,3 +148,19 @@ it('marks each lot formed as stable or questioned, with a count and the map', ()
     'acc',
   )
 })
+
+it('says a reading from document lines came from the document', () => {
+  const lines = {
+    ...batch,
+    evidence_observations: [
+      {
+        ...observation('o9', 'v9', 'Invoice line 3', null),
+        region: { kind: 'lines', from_line: 3, to_line: 3 },
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(<ExamineView batch={lines} lead={lead} />)
+  expect(
+    screen.getByRole('button', { name: 'Source: Examine, Read from the document. Open evidence' }),
+  ).toBeInTheDocument()
+})
