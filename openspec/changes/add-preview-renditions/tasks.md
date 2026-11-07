@@ -137,7 +137,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - [x] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source offering it; identical output for the same page before and after backfill (fallback bytes are checked through the HTTP route, not the helper); observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output; a narrow 3600 × 400 region in a 64 px cover thumbnail at 3× density selecting the `view` crop and surface tests: `BatchThumbnail` requesting `size=thumb` as a plain `src`; attributes reaching the real `<img>` in `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`, including a 10000 × 101 page whose rounded `view` changes aspect ratio, with the same selection recording identical coordinates over the full page and over `view`.
 - [x] 6.2 GREEN: implement the helper and adopt it on every listed surface.
-- [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
+- [x] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 
 ## Delivery evidence and lifecycle follow-up
 
