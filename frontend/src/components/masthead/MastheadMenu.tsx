@@ -1,7 +1,6 @@
 import { useId } from 'react'
-import * as Popover from '@radix-ui/react-popover'
-import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, size, space, type } from '../../theme/generated/tokens'
+import styled from 'styled-components'
+import { color, radius, size, space, type } from '../../theme/generated/tokens'
 import {
   THEME_CHOICES,
   useThemeChoice,
@@ -9,6 +8,7 @@ import {
   type ThemeController,
 } from '../../theme/theme'
 import { media } from '../ui/media'
+import { Popover } from '../ui/Popover'
 
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
@@ -18,46 +18,43 @@ export function MastheadMenu({ themeController }: { themeController?: ThemeContr
   const themeId = useId()
 
   return (
-    <Popover.Root modal={false}>
-      <Popover.Trigger asChild>
+    <Popover
+      label="Application options"
+      width="220px"
+      trigger={
         <Trigger type="button" aria-label="More">
           <span aria-hidden="true">⋯</span>
         </Trigger>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Content align="end" sideOffset={8} collisionPadding={12} aria-label="Application options">
-          <Links aria-label="Application">
-            <a href="#agents">Agents</a>
-            <a href="#settings">Agent settings</a>
-          </Links>
-          <Theme role="radiogroup" aria-labelledby={`${themeId}-label`}>
-            <Label id={`${themeId}-label`}>Theme</Label>
-            {THEME_CHOICES.map((option) => (
-              <Choice key={option}>
-                <input
-                  type="radio"
-                  name={themeId}
-                  value={option}
-                  checked={choice === option}
-                  onChange={() => choose(option)}
-                />
-                {THEME_LABEL[option]}
-              </Choice>
-            ))}
-          </Theme>
-        </Content>
-      </Popover.Portal>
-    </Popover.Root>
+      }
+    >
+      <Body>
+        <Links aria-label="Application">
+          <a href="#agents">Agents</a>
+          <a href="#settings">Agent settings</a>
+        </Links>
+        <Theme role="radiogroup" aria-labelledby={`${themeId}-label`}>
+          <Label id={`${themeId}-label`}>Theme</Label>
+          {THEME_CHOICES.map((option) => (
+            <Choice key={option}>
+              <input
+                type="radio"
+                name={themeId}
+                value={option}
+                checked={choice === option}
+                onChange={() => choose(option)}
+              />
+              {THEME_LABEL[option]}
+            </Choice>
+          ))}
+        </Theme>
+      </Body>
+    </Popover>
   )
 }
 
-const open = keyframes`
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-`
-
 const Trigger = styled.button`
   display: inline-grid;
+  flex: none;
   place-items: center;
   width: ${size.control};
   height: ${size.control};
@@ -78,21 +75,9 @@ const Trigger = styled.button`
   }
 `
 
-const Content = styled(Popover.Content)`
-  z-index: 1000;
+const Body = styled.div`
   display: grid;
   gap: ${space[4]};
-  width: 220px;
-  padding: ${space[2]};
-  border: 1px solid ${color.line};
-  border-radius: ${radius.popover};
-  background: ${color.surface};
-  color: ${color.fg};
-  box-shadow: ${shadow};
-  animation: ${open} 120ms ease-out;
-  ${media.reducedMotion} {
-    animation: none;
-  }
 `
 
 const Links = styled.nav`

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
+import { visuallyHidden } from '../ui/VisuallyHidden'
 import { Spinner } from '../ui/Loading'
 import type { HeaderClient } from '../../header/types'
 import { useHeaderObservations } from '../../header/useHeaderObservations'
@@ -46,6 +47,18 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
   })
   const workActive =
     workFresh && !!preferred && preferred.steps.some((step) => stepTone(step.state) === 'running')
+  const inventreeLink = navigation ? (
+    <TargetLink
+      aria-label="Open InvenTree"
+      href={navigation}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Open InvenTree ↗
+    </TargetLink>
+  ) : (
+    <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
+  )
   return (
     <StatusRow aria-label="Application status">
       <HeaderDisclosure
@@ -120,19 +133,9 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
           now={now}
           health={health}
         />
+        <PhoneTarget>{inventreeLink}</PhoneTarget>
       </HeaderDisclosure>
-      {navigation ? (
-        <TargetLink
-          aria-label="Open InvenTree"
-          href={navigation}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open InvenTree ↗
-        </TargetLink>
-      ) : (
-        <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
-      )}
+      <BarTarget>{inventreeLink}</BarTarget>
     </StatusRow>
   )
 }
@@ -174,17 +177,7 @@ function stepTone(state: string): StepTone {
   return STEP_TONE[state] ?? 'other'
 }
 
-const visuallyHidden = css`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-`
-
-// The masthead's end group lays these out with its menu, so they wrap as one set.
+// The masthead's end group lays these out in one row with its menu.
 const StatusRow = styled.div`
   display: contents;
 `
@@ -312,4 +305,20 @@ const TargetLink = styled.a`
 const UnavailableLink = styled.span`
   font-size: ${typeVar.small.size};
   color: ${color.muted};
+`
+
+/** At phone width the bar has no room for Open InvenTree, so it moves into the connection panel. */
+const BarTarget = styled.span`
+  display: contents;
+  ${media.compact} {
+    display: none;
+  }
+`
+
+const PhoneTarget = styled.div`
+  display: none;
+  margin-top: ${space[5]};
+  ${media.compact} {
+    display: block;
+  }
 `

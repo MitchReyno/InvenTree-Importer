@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
@@ -456,4 +456,17 @@ test('a session shows its latest status line, and a waiting session holds no slo
   expect(panel).toHaveTextContent('Physical lane occupied')
   expect(panel).toHaveTextContent('Asked how many reels there are')
   expect(panel).toHaveTextContent('Waiting for your input · holds no slot')
+})
+
+test('the connection panel also offers Open InvenTree, for phone width where the bar has no room', async () => {
+  const user = userEvent.setup()
+  render(<HeaderStatus client={client()} batchId={batchId} />)
+  await screen.findByText('InvenTree unavailable')
+  await user.click(screen.getByRole('button', { name: 'Connection status' }))
+
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  // Shown only below bp-compact, which jsdom cannot match, so it counts as hidden here.
+  const link = within(panel).getByRole('link', { name: 'Open InvenTree', hidden: true })
+  expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
+  expect(link).toHaveAttribute('rel', 'noopener noreferrer')
 })

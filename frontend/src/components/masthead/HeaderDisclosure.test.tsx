@@ -28,3 +28,13 @@ test('switching disclosures keeps one open and preserves a neighbouring draft', 
   await user.click(screen.getByRole('button', { name: 'Close Workflow details' }))
   expect(draft).toHaveValue('Preserve exact input Ω')
 })
+
+test('Close shuts the disclosure and returns focus to its trigger', async () => {
+  const user = userEvent.setup()
+  render(<HeaderDisclosureProof />)
+  const trigger = screen.getByRole('button', { name: 'Workflow activity' })
+  await user.click(trigger)
+  await user.click(await screen.findByRole('button', { name: 'Close Workflow details' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(trigger).toHaveFocus()
+})

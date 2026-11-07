@@ -19,3 +19,15 @@ test('opens a labelled popover from its trigger and returns focus on Escape', as
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(trigger).toHaveFocus()
 })
+
+test('a panel can set its width, kept inside the window', async () => {
+  const user = userEvent.setup()
+  render(
+    <Popover label="Options" width="220px" trigger={<button type="button">More</button>}>
+      <p>Theme</p>
+    </Popover>,
+  )
+  await user.click(screen.getByRole('button', { name: 'More' }))
+
+  expect(await screen.findByRole('dialog', { name: 'Options' })).toHaveStyle({ width: '220px' })
+})

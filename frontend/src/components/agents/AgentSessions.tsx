@@ -10,6 +10,7 @@ import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { linkTouchArea } from '../ui/primitives'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { SESSION_STATE, STEP_LABEL } from '../processing/ProcessingParts'
 import { Banner } from '../ui/Banner'
@@ -290,6 +291,7 @@ const GroupHead = styled.div`
   }
   a {
     color: ${color.accent};
+    ${linkTouchArea}
   }
 `
 

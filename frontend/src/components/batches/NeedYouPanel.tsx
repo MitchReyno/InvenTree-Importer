@@ -1,11 +1,11 @@
-import * as Popover from '@radix-ui/react-popover'
 import { useState } from 'react'
 import type { AttentionItemDto, BatchAttentionDto } from '@invimport/contracts'
-import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, size, space, type, typeVar } from '../../theme/generated/tokens'
+import styled from 'styled-components'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { NeedsYou } from '../ui/NeedsYou'
 import { Pill } from '../ui/Pill'
+import { Popover } from '../ui/Popover'
 
 const GROUPS: { tab: AttentionItemDto['tab']; title: string }[] = [
   { tab: 'processing', title: 'Processing' },
@@ -32,60 +32,49 @@ export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
   }
 
   return (
-    <Popover.Root modal={false} open={open} onOpenChange={setOpen}>
-      <Popover.Trigger asChild>
+    <Popover
+      label="Needs you"
+      width={`min(420px, calc(100vw - ${space[12]}))`}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
         <Trigger type="button">
           <span aria-hidden="true">!</span>
           {label}
         </Trigger>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Content
-          align="end"
-          sideOffset={8}
-          collisionPadding={12}
-          aria-label="Needs you"
-          // The header stays mounted across navigation, so close once an item is chosen.
-          onClick={(event) => {
-            if ((event.target as Element).closest('a')) {
-              setOpen(false)
-            }
-          }}
-        >
-          {GROUPS.map(({ tab, title }) => {
-            const items = attention.items.filter((item) => item.tab === tab)
-            if (items.length === 0) {
-              return null
-            }
+      }
+    >
+      <Body>
+        {GROUPS.map(({ tab, title }) => {
+          const items = attention.items.filter((item) => item.tab === tab)
+          if (items.length === 0) {
+            return null
+          }
 
-            return (
-              <Group key={tab} aria-label={title}>
-                <Heading>{title}</Heading>
-                <NeedsYou
-                  items={items.map((item) => ({
-                    id: item.key,
-                    title: item.title,
-                    assumption: item.detail ?? '',
-                    step: GROUP_WORD[item.group],
-                    href: `#${item.route}`,
-                  }))}
-                />
-              </Group>
-            )
-          })}
-          {attention.items_truncated && (
-            <More>Showing the first {total}. Each tab shows the rest.</More>
-          )}
-        </Content>
-      </Popover.Portal>
-    </Popover.Root>
+          return (
+            <Group key={tab} aria-label={title}>
+              <Heading>{title}</Heading>
+              <NeedsYou
+                // The header stays mounted across navigation, so close once an item is chosen.
+                onChoose={() => setOpen(false)}
+                items={items.map((item) => ({
+                  id: item.key,
+                  title: item.title,
+                  assumption: item.detail ?? '',
+                  step: GROUP_WORD[item.group],
+                  href: `#${item.route}`,
+                }))}
+              />
+            </Group>
+          )
+        })}
+        {attention.items_truncated && (
+          <More>Showing the first {total}. Each tab shows the rest.</More>
+        )}
+      </Body>
+    </Popover>
   )
 }
-
-const appear = keyframes`
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-`
 
 const Trigger = styled.button`
   display: inline-flex;
@@ -105,23 +94,10 @@ const Trigger = styled.button`
   }
 `
 
-const Content = styled(Popover.Content)`
-  z-index: 1000;
+const Body = styled.div`
   display: grid;
   gap: ${space[4]};
-  width: min(420px, calc(100vw - 24px));
-  max-height: min(70vh, var(--radix-popover-content-available-height));
-  overflow: auto;
-  padding: ${space[4]};
-  border: 1px solid ${color.line};
-  border-radius: ${radius.popover};
-  background: ${color.surface};
-  color: ${color.fg};
-  box-shadow: ${shadow};
-  animation: ${appear} 120ms ease-out;
-  ${media.reducedMotion} {
-    animation: none;
-  }
+  padding: ${space[2]};
 `
 
 const Group = styled.section``

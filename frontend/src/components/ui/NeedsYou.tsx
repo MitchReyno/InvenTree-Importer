@@ -12,7 +12,8 @@ export type NeedsYouItem = {
 }
 
 /** Questions and decisions waiting on the operator; each links to the page that owns it. */
-export function NeedsYou({ items }: { items: NeedsYouItem[] }) {
+/** `onChoose` runs when an item's Answer link is followed, e.g. to close the panel holding it. */
+export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?: () => void }) {
   if (items.length === 0) {
     return <Empty>Nothing needs you right now.</Empty>
   }
@@ -30,6 +31,7 @@ export function NeedsYou({ items }: { items: NeedsYouItem[] }) {
           <Button
             as="a"
             href={item.href}
+            onClick={onChoose}
             size="sm"
             variant="primary"
             aria-label={`Answer: ${item.title}`}

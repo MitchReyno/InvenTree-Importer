@@ -1,4 +1,4 @@
-import { Input } from '../ui/primitives'
+import { Input, linkTouchArea } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
@@ -343,6 +343,9 @@ const SearchForm = styled.form`
 
 const SearchInput = styled(Input)`
   min-height: ${size.control};
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
 `
 
 const ArchiveToggle = styled.label`
@@ -387,6 +390,7 @@ const BatchIdentity = styled.div`
     color: ${color.fg};
     text-decoration: none;
     overflow-wrap: anywhere;
+    ${linkTouchArea}
   }
   > a:hover {
     text-decoration: underline;

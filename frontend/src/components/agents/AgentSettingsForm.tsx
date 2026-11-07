@@ -4,8 +4,9 @@ import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { Notice, Paragraph } from '../ui/primitives'
+import { media } from '../ui/media'
 import { Button } from '../ui/Button'
-import { space, typeVar } from '../../theme/generated/tokens'
+import { size, space, typeVar } from '../../theme/generated/tokens'
 
 interface Props {
   initial: AgentSettingsDto
@@ -214,6 +215,9 @@ const Form = styled.form`
     min-height: 40px;
     padding: ${space[4]};
     font: inherit;
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
   code {
     overflow-wrap: anywhere;
