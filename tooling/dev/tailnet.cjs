@@ -1,4 +1,5 @@
 const { createServer, request } = require('node:http')
+const { pipeline } = require('node:stream')
 const { execFile } = require('node:child_process')
 
 const IDENTITY_HEADERS = /^tailscale-/
@@ -105,15 +106,22 @@ function createGateway(options) {
     }
     const forward = request(target(req, headers), (response) => {
       res.writeHead(response.statusCode, response.statusMessage, response.rawHeaders)
-      response.pipe(res)
+      // A truncated upstream response must fail the client response, not leave it waiting.
+      pipeline(response, res, (failure) => failure && res.destroy())
+    })
+    res.on('close', () => {
+      if (!res.writableFinished) {
+        forward.destroy()
+      }
     })
     forward.on('error', () => {
-      if (!res.headersSent) {
-        res.writeHead(502, { 'content-type': 'text/plain' })
+      if (res.headersSent) {
+        res.destroy()
+      } else {
+        res.writeHead(502, { 'content-type': 'text/plain' }).end()
       }
-      res.end()
     })
-    req.pipe(forward)
+    pipeline(req, forward, (failure) => failure && forward.destroy())
   })
 
   server.on('upgrade', (req, socket, head) => {

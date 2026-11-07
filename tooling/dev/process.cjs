@@ -11,11 +11,15 @@ function launch(name, command, args, { group = false, ...options }, ready) {
   })
   let text = ''
   let error
+  let closed = false
   const exited = new Promise((resolve) => {
     child.once('error', () => {
       error = new Error(`${name}_unavailable`)
     })
-    child.once('close', (code, signal) => resolve({ code, signal }))
+    child.once('close', (code, signal) => {
+      closed = true
+      resolve({ code, signal })
+    })
   })
   for (const stream of [child.stdout, child.stderr]) {
     stream.on('data', (bytes) => {
@@ -27,11 +31,15 @@ function launch(name, command, args, { group = false, ...options }, ready) {
     name,
     child,
     exited,
+    /** A group is signalled until its output closes, even after the leader has exited. */
     terminate(signal = 'SIGTERM') {
+      if (closed || !child.pid) {
+        return
+      }
       try {
         if (group) {
           process.kill(-child.pid, signal)
-        } else {
+        } else if (child.exitCode === null && child.signalCode === null) {
           child.kill(signal)
         }
       } catch {}
@@ -57,9 +65,7 @@ function launch(name, command, args, { group = false, ...options }, ready) {
 
 async function stop(children, graceMs = 45000) {
   for (const item of children) {
-    if (item.child.exitCode === null && item.child.signalCode === null) {
-      item.terminate()
-    }
+    item.terminate()
   }
   let timer
   let result

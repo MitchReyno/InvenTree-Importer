@@ -234,9 +234,7 @@ async function main() {
     closing = true
     startup.abort()
     for (const item of children) {
-      if (item.child.exitCode === null && item.child.signalCode === null) {
-        item.terminate()
-      }
+      item.terminate()
     }
     resolveStop()
   }

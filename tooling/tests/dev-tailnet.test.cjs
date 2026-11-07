@@ -170,3 +170,56 @@ test('gateway forwards admitted HTTP and upgrade requests to loopback with trans
   )
   assert.equal(seen.length, 2)
 })
+
+test('gateway propagates truncated responses and cancelled uploads', async (t) => {
+  let uploadClosed
+  const upload = new Promise((done) => (uploadClosed = done))
+  const upstream = createServer((req, res) => {
+    if (req.method === 'POST') {
+      req.on('close', () => uploadClosed(req.complete))
+      req.resume()
+      return
+    }
+    res.writeHead(200, { 'content-length': '100' })
+    res.write('partial')
+    setTimeout(() => res.socket.destroy(), 20)
+  })
+  const upstreamPort = await listen(upstream)
+  const gateway = createGateway({
+    publicOrigin,
+    loopbackOrigin: `http://127.0.0.1:${upstreamPort}`,
+    login,
+  })
+  const port = await listen(gateway)
+  t.after(() => {
+    gateway.closeAllConnections()
+    gateway.close()
+    upstream.closeAllConnections()
+    upstream.close()
+  })
+  const headers = { host: 'bench.example-tailnet.ts.net', 'tailscale-user-login': login }
+
+  const truncated = await new Promise((resolve) => {
+    const req = request({ host: '127.0.0.1', port, path: '/', headers }, (res) => {
+      res.on('error', () => resolve('failed'))
+      res.on('aborted', () => resolve('failed'))
+      res.on('end', () => resolve('completed'))
+      res.resume()
+    })
+    req.on('error', () => resolve('failed'))
+    req.end()
+  })
+  assert.equal(truncated, 'failed')
+
+  const req = request({
+    host: '127.0.0.1',
+    port,
+    method: 'POST',
+    path: '/upload',
+    headers: { ...headers, origin: publicOrigin, 'transfer-encoding': 'chunked' },
+  })
+  req.on('error', () => {})
+  req.write('first chunk')
+  setTimeout(() => req.destroy(), 50)
+  assert.equal(await upload, false)
+})

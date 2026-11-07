@@ -161,3 +161,13 @@ test('group termination reaches the real process behind a wrapper script', async
   await stop([owned], 5000)
   assert.notEqual((await owned.exited).signal ?? (await owned.exited).code, null)
 })
+
+test('group termination still reaches the real process after its wrapper has exited', async () => {
+  const script = "process.stdout.write('READY\\n'); setInterval(() => {}, 1000)"
+  const wrapper = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)} & exit 0`
+  const owned = launch('orphaning', '/bin/sh', ['-c', wrapper], { group: true }, () => true)
+  while (owned.child.exitCode === null) {
+    await delay(20)
+  }
+  await stop([owned], 5000)
+})
