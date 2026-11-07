@@ -58,3 +58,16 @@ describe('BatchState', () => {
     expect(screen.getByText('Adding to InvenTree')).toBeInTheDocument()
   })
 })
+
+describe('BatchThumbnail', () => {
+  it('says whether a batch has no photos yet or its preview failed', async () => {
+    const { BatchThumbnail } = await import('./BatchThumbnail')
+    const { rerender } = render(<BatchThumbnail batchId="b" thumbnail={null} />)
+    expect(screen.getByRole('img', { name: 'No photos yet' })).toBeInTheDocument()
+
+    rerender(<BatchThumbnail batchId="b" thumbnail={{ preview_id: 'p', label: 'Packet' }} />)
+    const image = screen.getByRole('img', { name: 'Packet' })
+    image.dispatchEvent(new Event('error'))
+    expect(await screen.findByRole('img', { name: 'Preview unavailable' })).toBeInTheDocument()
+  })
+})

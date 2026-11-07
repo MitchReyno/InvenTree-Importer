@@ -11,7 +11,6 @@ import {
   processingProgress,
   processingSegments,
   segmentSteps,
-  stepTone,
 } from '../../header/workSegments'
 import { Spinner } from '../ui/Loading'
 import { media } from '../ui/media'
@@ -44,7 +43,8 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
     fresh && data && preferred
       ? data.work.filter((item) => jobGroup(item) === jobGroup(preferred))
       : []
-  const running = jobs.some((item) => item.steps.some((step) => stepTone(step.state) === 'running'))
+  // Only steps actually running spin; queued and waiting steps do not.
+  const running = jobs.some((item) => item.steps.some((step) => step.state === 'running'))
   const idle = fresh && !!data && workflowSummary(data, preferred, false, now) === 'Idle'
   const working = fresh && data && preferred ? agentsWorking(data, preferred.batch_id) : ''
   const headline = working || workflowSummary(data, preferred, unavailable, now)
@@ -69,6 +69,8 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       : idle
         ? 'Idle'
         : 'Active'
+  // A held slot outranks the spinner on the phone pill, which has room for one mark.
+  const held = fresh && compact === 'Slot held'
   const describedBy = [
     `${ids}-headline`,
     `${ids}-name`,
@@ -91,7 +93,7 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       trigger={
         <>
           {running && (
-            <SpinnerSlot data-questions={questions > 0}>
+            <SpinnerSlot data-questions={questions > 0 || held}>
               <Spinner />
             </SpinnerSlot>
           )}
@@ -103,7 +105,7 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
           </Labels>
           {/* At phone width one mark shows: a read that is not current says so first, then the
               question count, the spinner or the job's word. */}
-          {(!fresh || (questions === 0 && !running)) && (
+          {(!fresh || (questions === 0 && (!running || held))) && (
             <ShortText aria-hidden="true" data-short={compact} />
           )}
           {fresh && preferred && (

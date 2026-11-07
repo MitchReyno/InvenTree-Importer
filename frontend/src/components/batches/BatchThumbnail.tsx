@@ -21,7 +21,12 @@ export function BatchThumbnail({
           loading="lazy"
           onError={() => setFailed(thumbnail.preview_id)}
         />
-      ) : null}
+      ) : (
+        // No photo yet, or one that failed to load: a quiet glyph that still says which.
+        <span role="img" aria-label={thumbnail ? 'Preview unavailable' : 'No photos yet'}>
+          {thumbnail ? '⊘' : '✎'}
+        </span>
+      )}
     </Frame>
   )
 }
@@ -36,6 +41,7 @@ const Frame = styled.div`
   overflow: hidden;
   display: grid;
   place-items: center;
+  color: ${color.muted};
   img {
     width: 100%;
     height: 100%;

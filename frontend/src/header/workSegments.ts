@@ -105,7 +105,12 @@ export function jobGroup(item: WorkItem) {
 
 /** Other entries still under way, apart from the one the indicator names. */
 export function otherOpenJobs(work: WorkItem[], named: WorkItem | undefined) {
-  const open = work.filter((item) => !SETTLED.includes(item.state)).map(jobGroup)
+  // A job still holding its slot is under way, whatever its logical state.
+  const open = work
+    .filter(
+      (item) => !SETTLED.includes(item.state) || (item.kind === 'processing' && item.occupies_lane),
+    )
+    .map(jobGroup)
   const others = new Set(open.filter((group) => !named || group !== jobGroup(named)))
   return others.size
 }

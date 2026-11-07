@@ -830,3 +830,40 @@ test('a cancelled attempt that still holds its slot says so, on the pill and in 
   await user.click(trigger)
   expect(within(screen.getByRole('dialog')).getByText('Cancelled · slot held')).toBeInTheDocument()
 })
+
+test('another batch’s cancelled job still holding its slot counts in +N', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    work: [
+      job('research', 'running', 5),
+      {
+        ...job('images', 'cancelled', 6),
+        batch_id: 'c0000000-0000-4000-8000-00000000000c',
+        occupies_lane: true,
+      } as HeaderWorkDto['work'][number],
+    ],
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription(/1 more job/))
+})
+
+test('on phones a held slot outranks the spinner of a merely queued sibling', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    work: [
+      { ...job('research', 'cancelled', 7), occupies_lane: true } as HeaderWorkDto['work'][number],
+      job('images', 'queued', 8),
+    ],
+    lane_occupied: true,
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+
+  await waitFor(() =>
+    expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Slot held'),
+  )
+})
