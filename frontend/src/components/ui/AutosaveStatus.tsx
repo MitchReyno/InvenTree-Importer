@@ -36,19 +36,26 @@ export function AutosaveStatus({ label, state, revision, onRetry, onReload }: Pr
   const message = `${label}: ${text[state](revision)}`
   if (state === 'conflict' || state === 'unconfirmed') {
     return (
-      <Problem role="alert" data-state={state}>
-        <span>{message}</span>
-        {state === 'unconfirmed' && onRetry && (
-          <Button type="button" onClick={onRetry}>
-            Retry the same save
-          </Button>
-        )}
-        {onReload && (
-          <Button type="button" onClick={onReload}>
-            Discard my edits and load saved values
-          </Button>
-        )}
-      </Problem>
+      <Status role="alert" data-state={state}>
+        <Message>
+          {message}
+          {state === 'unconfirmed' && onRetry && (
+            <Button type="button" size="sm" onClick={onRetry} aria-label="Retry the same save">
+              Retry
+            </Button>
+          )}
+          {onReload && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onReload}
+              aria-label="Reload saved values and discard my edits"
+            >
+              Reload
+            </Button>
+          )}
+        </Message>
+      </Status>
     )
   }
   return (
@@ -86,22 +93,19 @@ const Status = styled.p<{ 'data-state': AutosaveState }>`
   }
   &[data-state='invalid'],
   &[data-state='rejected'],
-  &[data-state='disconnected'] {
+  &[data-state='disconnected'],
+  &[data-state='unconfirmed'] {
     color: ${color.warn};
+  }
+  &[data-state='conflict'] {
+    color: ${color.bad};
   }
 `
 
-const Problem = styled.div<{ 'data-state': 'conflict' | 'unconfirmed' }>`
-  display: grid;
-  gap: ${space[4]};
-  padding: ${space[5]} ${space[6]};
-  border: 1px solid ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
-  border-radius: ${radius.input};
-  background: ${(props) => (props['data-state'] === 'conflict' ? color.badWeak : color.warnWeak)};
-  color: ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
-  font-size: ${typeVar.small.size};
+/** Text and recovery buttons share one line that wraps as prose, as in the design system. */
+const Message = styled.span`
+  min-width: 0;
   button {
-    justify-self: start;
-    color: ${color.fg};
+    margin-left: ${space[3]};
   }
 `

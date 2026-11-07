@@ -248,7 +248,7 @@ test('refresh URL resumes server batch and a 412 preserves local inputs while sh
       },
     },
   ])
-  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   await waitFor(() =>
     expect(screen.getByRole('heading', { name: 'Other client saved' })).toBeVisible(),
   )
@@ -476,7 +476,7 @@ test('app-wide activity navigation preserves the dirty editor instance; explicit
   expect(screen.queryByRole('heading', { name: 'Added' })).not.toBeInTheDocument()
   await screen.findByText(/another change was saved first/)
   expect(title).toHaveValue('UNSAVED activity regression')
-  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   await waitFor(() =>
     expect(screen.getByLabelText('Batch title')).toHaveValue('Another saved title'),
   )
@@ -857,7 +857,7 @@ test('uncertain composite settings save retries identical revision, payload and 
   expect(requests).toHaveLength(2)
   expect(title).toHaveValue('Separate packets draft changed')
   expect(dirty).toHaveBeenLastCalledWith(true)
-  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   await waitFor(() => expect(screen.getByLabelText('Batch title')).toHaveValue('Separate packets'))
   await user.type(screen.getByLabelText('Batch title'), ' new intent')
   await waitFor(() => expect(requests).toHaveLength(3))

@@ -1,7 +1,6 @@
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
-import { media } from './media'
-import { Pill } from './Pill'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { Button } from './Button'
 
 export type NeedsYouItem = {
   id: string
@@ -24,10 +23,19 @@ export function NeedsYou({ items }: { items: NeedsYouItem[] }) {
         <li key={item.id}>
           <Thumb aria-hidden="true">{item.thumb && <img src={item.thumb} alt="" />}</Thumb>
           <span>
-            <a href={item.href}>{item.title}</a>
+            {item.step && <StepChip>{item.step}</StepChip>}
+            <Title>{item.title}</Title>
             <Assumption>{item.assumption}</Assumption>
           </span>
-          {item.step ? <Pill tone="warn">{item.step}</Pill> : <span />}
+          <Button
+            as="a"
+            href={item.href}
+            size="sm"
+            variant="primary"
+            aria-label={`Answer: ${item.title}`}
+          >
+            Answer
+          </Button>
         </li>
       ))}
     </List>
@@ -51,15 +59,6 @@ const List = styled.ul`
   li:first-child {
     border-top: 0;
   }
-  a {
-    font-weight: ${typeVar.bodyStrong.weight};
-    color: ${color.fg};
-    ${media.compact} {
-      display: inline-flex;
-      align-items: center;
-      min-height: ${size.touch};
-    }
-  }
 `
 
 const Thumb = styled.span`
@@ -75,6 +74,20 @@ const Thumb = styled.span`
     height: 100%;
     object-fit: cover;
   }
+`
+
+const StepChip = styled.span`
+  display: inline-flex;
+  margin-right: ${space[3]};
+  padding: ${space[1]} calc(${space[5]} - 1px);
+  border-radius: ${radius.pill};
+  background: ${color.surface2};
+  color: ${color.muted};
+  font-size: ${typeVar.pill.size};
+`
+
+const Title = styled.b`
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 
 const Assumption = styled.span`

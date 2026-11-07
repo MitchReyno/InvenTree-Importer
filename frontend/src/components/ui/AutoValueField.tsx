@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { color, radius, shadow, size, space, typeVar, zIndex } from '../../theme/generated/tokens'
 import { Input, Small } from './primitives'
+import { media } from './media'
 import { hoverTransition } from './motion'
 
 export type AutoValue = { mode: 'auto' } | { mode: 'none' } | { mode: 'manual'; value: string }
@@ -22,6 +23,8 @@ const choices = [
   { mode: 'none', label: 'None', hint: 'Record that there is no value' },
   { mode: 'manual', label: 'Manual', hint: 'Enter the exact value' },
 ] as const
+
+const TRIGGER_HINT = { auto: 'Propose from evidence', none: 'No value' } as const
 
 function display(value: AutoValue) {
   if (value.mode === 'manual') {
@@ -78,7 +81,12 @@ export function AutoValueField({
             aria-invalid={error ? true : undefined}
           >
             <TriggerLabel>{label}</TriggerLabel>
-            <TriggerValue>{display(value)}</TriggerValue>
+            <Mode $mode={value.mode}>{choices.find((c) => c.mode === value.mode)?.label}</Mode>
+            <TriggerHint>
+              {value.mode === 'manual'
+                ? value.value.trim() || 'Not entered'
+                : TRIGGER_HINT[value.mode]}
+            </TriggerHint>
           </Trigger>
         </Popover.Trigger>
         <Popover.Portal>
@@ -130,14 +138,17 @@ export function AutoValueField({
 
 const Wrapper = styled.div`
   display: grid;
+  justify-items: start;
+  align-content: start;
   gap: ${space[3]};
   min-width: 0;
 `
 const Trigger = styled.button`
-  display: grid;
-  gap: ${space[1]};
-  min-height: ${size.touch};
-  width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+  max-width: 100%;
   padding: ${space[3]} ${space[5]};
   text-align: left;
   color: ${color.fg};
@@ -151,7 +162,6 @@ const Trigger = styled.button`
   }
   &[data-state='open'] {
     border-color: ${color.accent};
-    background: ${color.accentWeak};
   }
   &[aria-invalid='true'] {
     border-color: ${color.bad};
@@ -162,13 +172,39 @@ const Trigger = styled.button`
     background: ${color.surface2};
     border-style: dashed;
   }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
 `
 const TriggerLabel = styled.span`
-  font-size: 12px;
-  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
 `
-const TriggerValue = styled.span`
-  font-weight: 550;
+const modes = {
+  auto: css`
+    color: ${color.accent};
+    background: ${color.accentWeak};
+  `,
+  none: css`
+    color: ${color.muted};
+    background: ${color.surface2};
+  `,
+  manual: css`
+    color: ${color.fg};
+    background: ${color.surface2};
+  `,
+}
+const Mode = styled.span<{ $mode: AutoValue['mode'] }>`
+  padding: ${space[1]} ${space[4]};
+  border-radius: ${radius.pill};
+  font-size: ${typeVar.pill.size};
+  font-weight: ${typeVar.pill.weight};
+  ${({ $mode }) => modes[$mode]}
+`
+const TriggerHint = styled.span`
+  min-width: 0;
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
   overflow-wrap: anywhere;
 `
 const Content = styled(Popover.Content)`
@@ -224,5 +260,5 @@ const ManualArea = styled.div`
   gap: ${space[3]};
   padding-top: ${space[5]};
   border-top: 1px solid ${color.line};
-  font-weight: 550;
+  font-weight: ${typeVar.bodyStrong.weight};
 `

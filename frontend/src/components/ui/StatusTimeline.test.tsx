@@ -39,7 +39,7 @@ describe('NeedsYou', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: 'Resistor value' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Answer: Resistor value' })).toHaveAttribute(
       'href',
       '#b1/processing/research?question=q1',
     )

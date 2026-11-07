@@ -877,7 +877,7 @@ test('Batch keeps an autosaved instruction draft after a foreign revision and re
   expect(operator.instruct).toHaveBeenCalledOnce()
   vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
   vi.mocked(client.read).mockResolvedValue({ ...batch, revision: '13' })
-  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   await waitFor(() => expect(savedRevision('Batch settings')).toBe('13'))
   expect(screen.getByLabelText('Custom instructions')).toHaveValue('')
   expect(operator.instruct).toHaveBeenCalledOnce()
