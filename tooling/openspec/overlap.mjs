@@ -86,15 +86,55 @@ export function loadWorkspace(root) {
   return { main, changes }
 }
 
-/** Names another change adds, edits, removes or renames in the same capability. */
-function touchedBy(delta) {
-  const touched = new Set([
-    ...delta.ADDED.keys(),
-    ...delta.MODIFIED.keys(),
-    ...delta.REMOVED.keys(),
-  ])
-  for (const { from, to } of delta.RENAMED) touched.add(from).add(to)
-  return touched
+/**
+ * Classifies one capability delta against the main spec in OpenSpec's apply
+ * order (renamed, removed, modified, added), so later operations see earlier
+ * renames. Returns the names its pending operations touch.
+ */
+export function classifyDelta(cap, delta, existing) {
+  const working = new Map(existing)
+  const result = { pending: new Set(), applied: [], errors: [], warnings: [] }
+  for (const { from, to } of delta.RENAMED) {
+    const hasFrom = working.has(from)
+    const hasTo = working.has(to)
+    if (hasFrom && hasTo) {
+      result.errors.push(`${cap}: RENAMED "${from}" to "${to}", but both exist in the main spec`)
+    } else if (hasFrom) {
+      working.set(to, working.get(from))
+      working.delete(from)
+      result.pending.add(from).add(to)
+    } else if (hasTo) {
+      result.applied.push(`${cap}: RENAMED "${from}" to "${to}"`)
+    } else {
+      result.errors.push(`${cap}: RENAMED "${from}" is not in the main spec`)
+    }
+  }
+  for (const requirement of delta.REMOVED.keys()) {
+    if (working.delete(requirement)) result.pending.add(requirement)
+    else {
+      result.warnings.push(
+        `${cap}: REMOVED "${requirement}" is not in the main spec (already removed, or misnamed)`,
+      )
+    }
+  }
+  for (const [requirement, block] of delta.MODIFIED) {
+    if (!working.has(requirement)) {
+      result.errors.push(`${cap}: MODIFIED "${requirement}" is not in the main spec`)
+    } else if (working.get(requirement) === block) {
+      result.applied.push(`${cap}: MODIFIED "${requirement}"`)
+    } else result.pending.add(requirement)
+  }
+  for (const [requirement, block] of delta.ADDED) {
+    if (!working.has(requirement)) result.pending.add(requirement)
+    else if (working.get(requirement) === block) {
+      result.applied.push(`${cap}: ADDED "${requirement}"`)
+    } else {
+      result.errors.push(
+        `${cap}: ADDED "${requirement}" differs from the main spec requirement of that name`,
+      )
+    }
+  }
+  return result
 }
 
 export function checkOverlap({ main, changes }, name, { newCapabilitiesOnly = false } = {}) {
@@ -105,62 +145,33 @@ export function checkOverlap({ main, changes }, name, { newCapabilitiesOnly = fa
   const applied = []
   for (const [cap, delta] of Object.entries(deltas)) {
     const existing = main[cap] ?? new Map()
+    const own = classifyDelta(cap, delta, existing)
+    errors.push(...own.errors)
+    warnings.push(...own.warnings)
+    applied.push(...own.applied)
+    // Only another change's pending operations can conflict; an already-synced
+    // but unarchived change no longer competes for its requirements.
     const others = Object.entries(changes)
       .filter(([other, specs]) => other !== name && specs[cap])
-      .map(([other, specs]) => [other, touchedBy(specs[cap])])
-    const conflict = (requirement) => {
-      for (const [other, touched] of others) {
-        if (touched.has(requirement))
+      .map(([other, specs]) => [other, classifyDelta(cap, specs[cap], existing).pending])
+      .filter(([, pending]) => pending.size > 0)
+    for (const [other, pending] of others) {
+      for (const requirement of own.pending) {
+        if (pending.has(requirement)) {
           errors.push(`${cap}: "${requirement}" is also changed by ${other}`)
+        }
       }
     }
-    let pending = 0
-
-    for (const [requirement, block] of delta.ADDED) {
-      conflict(requirement)
-      if (!existing.has(requirement)) pending++
-      else if (existing.get(requirement) === block) applied.push(`${cap}: ADDED "${requirement}"`)
-      else
-        errors.push(
-          `${cap}: ADDED "${requirement}" differs from the main spec requirement of that name`,
-        )
-    }
-    for (const [requirement, block] of delta.MODIFIED) {
-      conflict(requirement)
-      if (!existing.has(requirement))
-        errors.push(`${cap}: MODIFIED "${requirement}" is not in the main spec`)
-      else if (existing.get(requirement) === block)
-        applied.push(`${cap}: MODIFIED "${requirement}"`)
-      else pending++
-    }
-    for (const requirement of delta.REMOVED.keys()) {
-      conflict(requirement)
-      if (existing.has(requirement)) pending++
-      else
-        warnings.push(
-          `${cap}: REMOVED "${requirement}" is not in the main spec (already removed, or misnamed)`,
-        )
-    }
-    for (const { from, to } of delta.RENAMED) {
-      conflict(from)
-      conflict(to)
-      const hasFrom = existing.has(from)
-      const hasTo = existing.has(to)
-      if (hasFrom && hasTo)
-        errors.push(`${cap}: RENAMED "${from}" to "${to}", but both exist in the main spec`)
-      else if (hasFrom) pending++
-      else if (hasTo) applied.push(`${cap}: RENAMED "${from}" to "${to}"`)
-      else errors.push(`${cap}: RENAMED "${from}" is not in the main spec`)
-    }
-
-    if (newCapabilitiesOnly && cap in main && pending > 0) {
+    if (newCapabilitiesOnly && cap in main && own.pending.size > 0) {
       errors.push(
         `${cap}: exists in openspec/specs, but --new-capabilities-only allows only new capabilities`,
       )
     }
-    for (const [other] of others) {
-      const message = `${cap}: also changed by active change ${other}; sync order decides which wins`
-      ;(newCapabilitiesOnly ? errors : warnings).push(message)
+    if (own.pending.size > 0) {
+      for (const [other] of others) {
+        const message = `${cap}: also changed by active change ${other}; sync order decides which wins`
+        ;(newCapabilitiesOnly ? errors : warnings).push(message)
+      }
     }
   }
   return { errors, warnings, applied }

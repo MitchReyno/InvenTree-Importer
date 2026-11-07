@@ -122,13 +122,46 @@ test('renames check the source, the destination and concurrent edits', (t) => {
   const root = workspace(t, {
     'openspec/specs/shared/spec.md': spec('A', 'B', 'C', 'Moved'),
     'openspec/changes/base/specs/shared/spec.md': `${renamed('A', 'B')}\n- FROM: \`### Requirement: C\`\n- TO: \`### Requirement: D\`\n- FROM: \`### Requirement: Old\`\n- TO: \`### Requirement: Moved\`\n- FROM: \`### Requirement: Nowhere\`\n- TO: \`### Requirement: Else\`\n`,
-    'openspec/changes/later/specs/shared/spec.md': section('MODIFIED', requirement('C')),
+    'openspec/changes/later/specs/shared/spec.md': section(
+      'MODIFIED',
+      requirement('C', 'Edited SHALL differ.'),
+    ),
   })
   const { errors, applied } = check(root, 'base')
   assert.ok(errors.some((e) => e.includes('RENAMED "A" to "B", but both exist')))
   assert.ok(errors.some((e) => e.includes('"C" is also changed by later')))
   assert.ok(errors.some((e) => e.includes('RENAMED "Nowhere" is not in the main spec')))
   assert.deepEqual(applied, ['shared: RENAMED "Old" to "Moved"'])
+})
+
+test('a synced but unarchived change does not block later edits to its requirements', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/fresh/spec.md': spec('Rule'),
+    'openspec/changes/baseline/specs/fresh/spec.md': section('ADDED', requirement('Rule')),
+    'openspec/changes/next/specs/fresh/spec.md': section(
+      'MODIFIED',
+      requirement('Rule', 'Revised SHALL apply.'),
+    ),
+  })
+  assert.deepEqual(check(root, 'next'), { errors: [], warnings: [], applied: [] })
+})
+
+test('a modification may use the new name of a requirement renamed in the same delta', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/shared/spec.md': spec('Old'),
+    'openspec/changes/base/specs/shared/spec.md': `${renamed('Old', 'New')}\n${section('MODIFIED', requirement('New', 'Edited SHALL apply.'))}`,
+  })
+  assert.deepEqual(check(root, 'base').errors, [])
+})
+
+test('a synced rename-and-modify counts as applied', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/shared/spec.md': `## Requirements\n\n${requirement('New', 'Edited SHALL apply.')}`,
+    'openspec/changes/base/specs/shared/spec.md': `${renamed('Old', 'New')}\n${section('MODIFIED', requirement('New', 'Edited SHALL apply.'))}`,
+  })
+  const { errors, applied } = check(root, 'base')
+  assert.deepEqual(errors, [])
+  assert.deepEqual(applied, ['shared: RENAMED "Old" to "New"', 'shared: MODIFIED "New"'])
 })
 
 test('archived changes are not treated as pending', (t) => {
