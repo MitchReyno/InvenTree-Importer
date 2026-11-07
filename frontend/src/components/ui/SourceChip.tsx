@@ -10,11 +10,19 @@ type SourceChipProps = {
   /** Certainty in words ("Likely — check"), never a percentage. */
   certainty: string
   tone?: SourceTone
-  onOpen: () => void
+  /** Without evidence to open (the operator's own edit) the chip is plain text. */
+  onOpen?: () => void
 }
 
 /** Opens the provenance viewer, where IDs and digests live. */
 export function SourceChip({ source, certainty, tone = 'default', onOpen }: SourceChipProps) {
+  if (!onOpen) {
+    return (
+      <Plain $tone={tone}>
+        {source} · {certainty}
+      </Plain>
+    )
+  }
   return (
     <Chip
       type="button"
@@ -43,7 +51,7 @@ const tones = {
   `,
 }
 
-const Chip = styled.button<{ $tone: SourceTone }>`
+const chip = css`
   display: inline-flex;
   align-items: center;
   gap: ${space[2]};
@@ -55,6 +63,15 @@ const Chip = styled.button<{ $tone: SourceTone }>`
   font-size: 11.5px;
   line-height: 1.6;
   white-space: nowrap;
+`
+
+const Plain = styled.span<{ $tone: SourceTone }>`
+  ${chip}
+  ${({ $tone }) => tones[$tone]}
+`
+
+const Chip = styled.button<{ $tone: SourceTone }>`
+  ${chip}
   cursor: pointer;
   ${({ $tone }) => tones[$tone]}
   ${linkTouchArea}

@@ -19,6 +19,7 @@ import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
 import { KeyValue } from '../ui/KeyValue'
 import { ProvenancePill } from './ProvenancePill'
+import { SourceChip } from '../ui/SourceChip'
 import { partFacts, type PartFacts } from '../../operator/part-facts'
 import type { KeyValueRow } from '../ui/KeyValue'
 import { SharedTagsChoice } from './SharedTagsChoice'
@@ -59,6 +60,8 @@ interface Props {
   editPart?: (partId: string) => void
   /** Locks the subject editor entry points (no observe client, archived or unsaved work). */
   subjectsDisabled?: boolean
+  /** Moves focus to the lot's evidence, where a proposed value's source is shown. */
+  openEvidence?: () => void
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
   /** The lot's latest agent status line, where a session works on it. */
@@ -163,6 +166,7 @@ export function DecisionPanel({
   openQuestion = null,
   editPart,
   subjectsDisabled = false,
+  openEvidence,
   editSignal = 0,
   onDirtyChange,
   agent = null,
@@ -217,22 +221,24 @@ export function DecisionPanel({
             label: part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part',
             value: partValue(batch, part),
             state: 'plain',
-            source: <ProvenancePill provenance={part ? partProvenance(part.choice) : 'unset'} />,
+            source: valueSource(part ? partProvenance(part.choice) : 'unset', false, openEvidence),
           },
           ...partFactRows(partFacts(batch, part), part),
           {
             label: 'Quantity',
             value: display(lot.quantity, batch, 'quantity'),
             state: 'plain',
-            source: (
-              <ProvenancePill provenance={lotProvenance(lot.quantity, batch.defaults.quantity)} />
+            source: valueSource(
+              lotProvenance(lot.quantity, batch.defaults.quantity),
+              lot.origin === 'agent' && !lot.operator_edited,
+              openEvidence,
             ),
           },
           {
             label: 'Location',
             value: location.value,
             state: 'plain',
-            source: <ProvenancePill provenance={location.provenance} />,
+            source: valueSource(location.provenance, false, openEvidence),
           },
         ]}
       />
@@ -423,9 +429,23 @@ export function DecisionPanel({
   )
 }
 
+/**
+ * Who a value came from: the operator's own choice, Examine's proposal (which opens the evidence),
+ * or, for an inherited, missing or uncertain value, its provenance in words.
+ */
+function valueSource(provenance: Provenance, proposed: boolean, openEvidence?: () => void) {
+  if (proposed) {
+    return <SourceChip source="Examine" certainty="Proposed" tone="likely" onOpen={openEvidence} />
+  }
+  if (provenance === 'human' || provenance === 'override') {
+    return <SourceChip source="You" certainty="Your edit" tone="user" />
+  }
+  return <ProvenancePill provenance={provenance} />
+}
+
 /** The new Part's maker and markings; supplier prices stay out (review-records). */
 function partFactRows(facts: PartFacts, part: Part | undefined): KeyValueRow[] {
-  const source = part ? <ProvenancePill provenance={partProvenance(part.choice)} /> : undefined
+  const source = part ? valueSource(partProvenance(part.choice), false) : undefined
   const rows: [string, string | undefined, boolean][] = [
     ['Manufacturer', facts.manufacturer, false],
     ['MPN', facts.mpn, true],

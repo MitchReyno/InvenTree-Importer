@@ -24,4 +24,10 @@ describe('SourceChip', () => {
     await userEvent.keyboard('{Enter}')
     expect(onOpen).toHaveBeenCalledTimes(1)
   })
+
+  it('is a plain chip when there is no evidence to open', () => {
+    render(<SourceChip source="You" certainty="Your edit" tone="user" />)
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByText('You · Your edit')).toBeInTheDocument()
+  })
 })

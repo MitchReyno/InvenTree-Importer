@@ -1207,6 +1207,13 @@ test('lot details show the new Part maker, MPN, package and date code', async ()
   expect(within(details).queryByText('Date code', { selector: 'dt' })).toBeNull()
 })
 
+test('lot details name the operator as the source of their own values', async () => {
+  renderReview()
+  const details = await screen.findByRole('region', { name: 'Decision' })
+  const quantity = within(details).getByText('Quantity', { selector: 'dt' }).nextElementSibling!
+  expect(quantity).toHaveTextContent('You · Your edit')
+})
+
 test('lot details show the records the lot becomes', async () => {
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })

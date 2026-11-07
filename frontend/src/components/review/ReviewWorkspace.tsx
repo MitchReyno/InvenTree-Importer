@@ -552,6 +552,7 @@ export function ReviewWorkspace({
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || !observe || drafts.dirty}
+                openEvidence={() => evidenceRef.current?.focus()}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}
               />

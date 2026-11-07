@@ -193,7 +193,12 @@ function WarningAction(props: WarningActionProps) {
   }
   if (!open) {
     return (
-      <Button size="sm" disabled={disabled || otherOpen} onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={disabled || otherOpen}
+        onClick={() => setOpen(true)}
+      >
         Dismiss…
       </Button>
     )

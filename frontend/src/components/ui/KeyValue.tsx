@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, font, size, space, typeVar } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
+import { SourceChip } from './SourceChip'
 import { media } from './media'
 
 export type ValueState = 'plain' | 'edited' | 'override' | 'inherited'
@@ -17,9 +18,17 @@ export type KeyValueRow = {
 
 const STATE_NOTE: Record<ValueState, string | null> = {
   plain: null,
-  edited: '· edited',
+  edited: null,
   override: '· overrides batch',
   inherited: '· from batch',
+}
+
+/** An edited value's source is the operator, unless the row names another. */
+function sourceOf(row: KeyValueRow) {
+  return (
+    row.source ??
+    (row.state === 'edited' ? <SourceChip source="You" certainty="Your edit" tone="user" /> : null)
+  )
 }
 
 function Value({ row }: { row: KeyValueRow }) {
@@ -48,12 +57,12 @@ export function KeyValue({ rows }: { rows: KeyValueRow[] }) {
                 <InlineEdit label={row.label} value={row.value} onSave={row.onEdit} mono={row.mono}>
                   <Value row={row} />
                 </InlineEdit>
-                {row.source}
+                {sourceOf(row)}
               </Editable>
             ) : (
               <Static>
                 <Value row={row} />
-                {row.source}
+                {sourceOf(row)}
               </Static>
             )}
           </dd>
