@@ -1,3 +1,4 @@
+import { NativeSessionError } from './failure-model.ts'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { strictJson } from '@invimport/contracts/json'
@@ -45,12 +46,12 @@ export class AgentChild {
             )
             this.buffer = Buffer.alloc(0)
           } catch {
-            this.failure = new Error('agent_protocol_invalid')
+            this.failure = new NativeSessionError('agent_protocol_invalid')
           }
         }
         this.ended = true
         if (code !== 0 && !this.failure) {
-          this.failure = new Error('agent_process_failed')
+          this.failure = new NativeSessionError('agent_process_failed')
         }
         this.wake?.()
         resolve()
@@ -68,7 +69,7 @@ export class AgentChild {
   }
 
   private reject(code: string) {
-    this.failure ??= new Error(code)
+    this.failure ??= new NativeSessionError(code)
     this.stop()
     // Escalation must not depend on the caller leaving a backpressured stdin write.
     this.escalation ??= setTimeout(() => {
@@ -120,11 +121,11 @@ export class AgentChild {
 
   async send(frame: unknown) {
     if (this.ended || this.failure) {
-      throw new Error('agent_input_closed')
+      throw new NativeSessionError('agent_input_closed')
     }
     await new Promise<void>((resolve, reject) => {
       this.child.stdin.write(JSON.stringify(frame) + '\n', (error) =>
-        error ? reject(new Error('agent_input_closed')) : resolve(),
+        error ? reject(new NativeSessionError('agent_input_closed')) : resolve(),
       )
     })
   }
@@ -143,7 +144,7 @@ export class AgentChild {
       }
       if (this.ended) {
         if (this.buffer.length) {
-          throw new Error('agent_truncated_frame')
+          throw new NativeSessionError('agent_truncated_frame')
         }
         return undefined
       }
@@ -203,7 +204,7 @@ export class AgentChild {
 
 export function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('agent_protocol_invalid')
+    throw new NativeSessionError('agent_protocol_invalid')
   }
   return value as Record<string, unknown>
 }

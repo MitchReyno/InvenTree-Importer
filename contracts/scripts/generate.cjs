@@ -221,6 +221,9 @@ async function main() {
         get: get('AgentSettings', CAPTURE_TIMEOUT_MS),
         put: post('AgentSettingsUpdate', 'AgentSettings', '200', CAPTURE_TIMEOUT_MS),
       },
+      '/api/v1/agent-sessions/{attemptId}/failures/{failureId}': {
+        get: get('SessionFailure', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/agent-sessions': {
         get: {
           ...get('AgentSessionList', CAPTURE_TIMEOUT_MS),

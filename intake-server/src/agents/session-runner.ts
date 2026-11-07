@@ -1,3 +1,6 @@
+import { NativeSessionError, sessionFailure } from './failure-model.ts'
+import { retainSessionFailure } from './failures.ts'
+import type { SessionFailureDto } from '@invimport/contracts'
 import { pinnedIdentityCurrent, successorsCurrent } from '../processing/stable-identity.ts'
 import { supersedeJobAttempts } from '../processing/jobs.ts'
 import { join } from 'node:path'
@@ -161,6 +164,7 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
     queryDatabase(pool)
       .select({
         attemptId: agentSessions.attemptId,
+        turnCount: agentSessions.turnCount,
         jobId: processingAttempts.jobId,
         batchId: processingAttempts.batchId,
       })
@@ -189,6 +193,15 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
         ['running', 'cancelling'],
       )
       if (changed) {
+        await retainSessionFailure(
+          client,
+          sessionFailure(new NativeSessionError('agent_worker_interrupted'), {
+            attemptId: session.attemptId,
+            lineageId: session.jobId,
+            turn: session.turnCount.toString(),
+            stage: 'turn',
+          }),
+        )
         await revokeSessionCapability(client, session.attemptId)
         await publish(client, session.batchId)
         interrupted.push(session.attemptId)
@@ -422,7 +435,7 @@ export async function runSessionTurn(
         row.instructionDigest.toString('hex') !== manifest.instruction_sha256 ||
         !sha256(row.instructions).equals(row.instructionDigest)
       ) {
-        throw new Error('agent_input_invalid')
+        throw new NativeSessionError('agent_input_invalid')
       }
       // Superseded before it started (its lot regrouped, or a new attempt replaced it): settle
       // the session and never run it.
@@ -501,7 +514,28 @@ export async function runSessionTurn(
   // The highest sequence the CLI accepted in turn; acknowledged only when the turn succeeds.
   let accepted = 0n
   const resumed = current.providerSessionId !== null
+  let diagnostic: SessionFailureDto | undefined
+  let diagnosticStage: SessionFailureDto['stage'] = 'startup'
+  let providerSessionId = current.providerSessionId
+  let cliVersion: string | undefined
+  let actualModel = current.manifest.agent?.model
+
+  const captureFailure = (error: unknown, stage = diagnosticStage) =>
+    sessionFailure(error, {
+      attemptId,
+      lineageId: current.jobId,
+      turn: (current.turnCount + 1n).toString(),
+      stage,
+      provider: current.manifest.agent?.provider,
+      model: actualModel,
+      providerSessionId,
+      cliVersion,
+    })
+
   const turn: SessionTurn = {
+    onCliVersion: (version) => {
+      cliVersion = version
+    },
     instructions: current.instructions.toString('utf8'),
     text: openingText(current.manifest, current.pending, resumed),
     resume: current.providerSessionId ?? undefined,
@@ -542,12 +576,16 @@ export async function runSessionTurn(
         accepted = seq
       }
     },
-    onStarted: (started) =>
-      recordSessionProgress(pool, config, attemptId, {
+    onStarted: (started) => {
+      diagnosticStage = 'turn'
+      providerSessionId = started.providerSessionId
+      actualModel = started.actualModel
+      return recordSessionProgress(pool, config, attemptId, {
         nativeSessionId: started.providerSessionId,
         actualModel: started.actualModel,
         progress: 'responding',
-      }),
+      })
+    },
   }
 
   // One controller per turn: worker shutdown, the attempt leaving `running` or the deadline
@@ -576,16 +614,43 @@ export async function runSessionTurn(
       (current.manifest.agent
         ? nativeDriver(host, current.manifest.agent)
         : (() => {
-            throw new Error('agent_input_invalid')
+            throw new NativeSessionError('agent_input_invalid')
           })())
     await driver(turn, { manifest: current.manifest, cwd, signal: turnControl.signal })
     next = 'finished'
   } catch (error) {
     if (error instanceof ResearchReapPendingError) {
       clearTimeout(deadline)
+      signal.removeEventListener('abort', stopTurn)
+      turnControl.abort()
+      await watching
+      const pendingFailure = captureFailure(new NativeSessionError('agent_reap_pending'), 'reap')
+      try {
+        await transaction(pool, async (client) => {
+          if (await retainSessionFailure(client, pendingFailure)) {
+            await publish(client, current.batchId)
+          }
+        })
+      } catch {
+        process.stderr.write(
+          JSON.stringify({
+            event: 'session_diagnostic_unavailable',
+            correlation_id: pendingFailure.correlation_id,
+          }) + '\n',
+        )
+      }
       // The child was not confirmed gone, so the session keeps its slot and stays visible.
       throw error
     }
+    diagnostic = captureFailure(
+      expired && !signal.aborted
+        ? new NativeSessionError('agent_timeout')
+        : signal.aborted
+          ? new NativeSessionError('agent_worker_interrupted')
+          : turnControl.signal.aborted
+            ? new NativeSessionError('agent_cancelled')
+            : error,
+    )
     if (error instanceof SessionResumeUnavailable) {
       next = 'resume_unavailable'
     } else if (expired && !signal.aborted) {
@@ -594,12 +659,12 @@ export async function runSessionTurn(
     } else if (turnControl.signal.aborted) {
       next = 'interrupted'
     } else if (
-      error instanceof Error &&
-      (error.message === 'agent_process_failed' || error.message === 'agent_delivery_failed')
+      error instanceof NativeSessionError &&
+      (error.code === 'agent_process_failed' || error.code === 'agent_delivery_failed')
     ) {
       // A provider crash is resumable, like a worker restart; refusals are failures.
       next = 'interrupted'
-    } else if (error instanceof Error && error.message === 'agent_login_required') {
+    } else if (error instanceof NativeSessionError && error.code === 'agent_login_required') {
       next = 'waiting_for_login'
     } else {
       next = 'failed'
@@ -641,6 +706,9 @@ export async function runSessionTurn(
     }
     // Job and attempt first, then the session row, as the tool handlers lock them.
     const settled = (await setSessionState(client, attemptId, current.jobId, next)) || next
+    if (diagnostic) {
+      await retainSessionFailure(client, diagnostic)
+    }
     await revokeSessionCapability(client, attemptId)
     await releaseSessionSlot(client, attemptId)
     await executeDatabaseQuery(

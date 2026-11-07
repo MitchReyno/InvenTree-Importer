@@ -195,3 +195,8 @@ The controlled Radix disclosures are mutually exclusive, portalled outside the d
 ## Native session replacement
 
 Processing's session chat offers an explicit fresh-conversation action when a session cannot resume, failed, was interrupted or needs login, as well as after cancellation. It submits the exact job/attempt and capture/job revisions through the validated replacement API for both Examine lead and lot sessions. History and queued input stay on the same lineage. Opening the session or refreshing retained state never triggers replacement; unavailable reads, an outstanding send or a busy/unavailable runner disable the action. The server remains authoritative for revision, scope and physical-slot checks.
+
+### Session failure disclosure
+
+Agent history and Processing session panels share `SessionFailureDetails`. Summaries display a category; the accessible Show details button lazily reads the immutable failure record using the server scope, attempt and failure IDs in its query key. The disclosure shows safe technical context, recovery guidance and explicit unavailable fields. Loading or failed reads do not retry work, send chat, change the selected session or reset a draft. Legacy failed sessions show an unavailable diagnostic state.
+

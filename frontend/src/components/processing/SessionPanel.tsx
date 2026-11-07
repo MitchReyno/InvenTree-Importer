@@ -1,3 +1,4 @@
+import { SessionFailureDetails, FAILED_SESSION_STATES } from '../agents/SessionFailureDetails'
 import { useQuery } from '@tanstack/react-query'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '../../processing/types'
@@ -10,7 +11,7 @@ import { SessionTimeline } from './SessionTimeline'
 interface Props {
   batchId: string
   job: ProcessingJobDto
-  client: Required<Pick<ProcessingClient, 'session' | 'chat'>>
+  client: Required<Pick<ProcessingClient, 'session' | 'chat'>> & Pick<ProcessingClient, 'failure'>
   freshDisabled?: boolean
   startFresh: () => void
 }
@@ -34,6 +35,14 @@ export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }
     <>
       {timeline.isRefetchError && (
         <Small role="status">Session history could not be refreshed; showing the last copy.</Small>
+      )}
+      {(timeline.data.failure || FAILED_SESSION_STATES.has(timeline.data.session_state)) && (
+        <SessionFailureDetails
+          key={`${timeline.data.attempt_id}:${timeline.data.failure?.id ?? 'legacy'}`}
+          attemptId={timeline.data.attempt_id}
+          failure={timeline.data.failure}
+          load={client.failure}
+        />
       )}
       <SessionTimeline timeline={timeline.data} />
       <SessionChat

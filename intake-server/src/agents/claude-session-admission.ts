@@ -1,3 +1,4 @@
+import { NativeSessionError } from './failure-model.ts'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { AgentChild, record } from './child.ts'
@@ -15,13 +16,13 @@ async function control(child: AgentChild, subtype: string) {
     response.request_id !== id ||
     response.subtype !== 'success'
   ) {
-    throw new Error('agent_policy_refused')
+    throw new NativeSessionError('agent_policy_refused')
   }
   if (
     Array.isArray(response.pending_permission_requests) &&
     response.pending_permission_requests.length
   ) {
-    throw new Error('agent_tool_refused')
+    throw new NativeSessionError('agent_tool_refused')
   }
   return record(response.response)
 }
@@ -40,7 +41,7 @@ function requireConfiguration(config: Record<string, unknown>) {
     config.commands.length !== 0 ||
     JSON.stringify(actualAgents) !== JSON.stringify(agents)
   ) {
-    throw new Error('agent_policy_refused')
+    throw new NativeSessionError('agent_policy_refused')
   }
 }
 
@@ -51,7 +52,7 @@ async function inspect(child: AgentChild, tools: readonly string[], signal: Abor
     const status = await control(child, 'mcp_status')
     const servers = Array.isArray(status.mcpServers) ? status.mcpServers.map(record) : []
     if (servers.length !== 1 || servers[0].name !== 'intake') {
-      throw new Error('agent_tool_refused')
+      throw new NativeSessionError('agent_tool_refused')
     }
     const server = servers[0]
     if (server.status === 'pending') {
@@ -65,7 +66,7 @@ async function inspect(child: AgentChild, tools: readonly string[], signal: Abor
       server.status !== 'connected' ||
       JSON.stringify(names) !== JSON.stringify([...tools].sort())
     ) {
-      throw new Error('agent_tool_refused')
+      throw new NativeSessionError('agent_tool_refused')
     }
     return
   }
@@ -79,7 +80,10 @@ export async function admitClaudeSession(
 ) {
   let timer: ReturnType<typeof setTimeout> | undefined
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('agent_admission_timeout')), ADMISSION_TIMEOUT_MS)
+    timer = setTimeout(
+      () => reject(new NativeSessionError('agent_admission_timeout')),
+      ADMISSION_TIMEOUT_MS,
+    )
   })
   try {
     await Promise.race([inspect(child, tools, signal), deadline])

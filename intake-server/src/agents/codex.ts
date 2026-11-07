@@ -1,3 +1,4 @@
+import { NativeSessionError } from './failure-model.ts'
 import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AgentSelectionDto } from '@invimport/contracts'
@@ -31,9 +32,9 @@ export async function rejectHostCustomizations(home: string) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
         continue
       }
-      throw new Error('agent_home_unavailable')
+      throw new NativeSessionError('agent_home_unavailable')
     }
-    throw new Error('agent_home_customizations_refused')
+    throw new NativeSessionError('agent_home_customizations_refused')
   }
 }
 

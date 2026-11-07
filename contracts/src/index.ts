@@ -30,6 +30,8 @@ import { researchSchemas } from './research.ts'
 import { agentSchemas } from './agents.ts'
 export * from './agents.ts'
 import { liveSchemas } from './live.ts'
+import { sessionFailureSchemas } from './session-failures.ts'
+export * from './session-failures.ts'
 import { sessionSchemas } from './sessions.ts'
 import { evidenceObservationSchemas } from './evidence-observations.ts'
 export * from './evidence-observations.ts'
@@ -188,6 +190,7 @@ export const schemas = {
   ...liveSchemas,
   ...agentSchemas,
   ...sessionSchemas,
+  ...sessionFailureSchemas,
   ...evidenceObservationSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>

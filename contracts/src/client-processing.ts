@@ -16,6 +16,12 @@ export function processingClient(
   const client = typedClient(baseUrl, transport, csrfToken)
 
   return {
+    failure: (attemptId: string, failureId: string) =>
+      successfulData(
+        client.GET('/api/v1/agent-sessions/{attemptId}/failures/{failureId}', {
+          params: { path: { attemptId, failureId } },
+        }),
+      ),
     read: (id: string) =>
       successfulData(
         client.GET('/api/v1/batches/{id}/processing', {
