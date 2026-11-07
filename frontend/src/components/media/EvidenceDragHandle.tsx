@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/react'
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 
 type Props = { evidenceId: string; label: string; disabled: boolean; children?: ReactNode }
@@ -34,5 +35,5 @@ const Card = styled.div<{ $dragging: boolean }>`
 const Handle = styled(Button)`
   touch-action: none;
   cursor: grab;
-  margin-bottom: 8px;
+  margin-bottom: ${space[4]};
 `

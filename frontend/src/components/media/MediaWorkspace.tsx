@@ -1,7 +1,7 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -273,15 +273,15 @@ export function MediaWorkspace({
 
 const Groups = styled.div`
   display: grid;
-  gap: 16px;
-  margin: 16px 0;
+  gap: ${space[8]};
+  margin: ${space[8]} 0;
   min-width: 0;
 `
 const MoveControls = styled.div`
   display: grid;
-  gap: 8px;
-  margin: 12px 0;
-  padding: 12px;
+  gap: ${space[4]};
+  margin: ${space[6]} 0;
+  padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   min-width: 0;

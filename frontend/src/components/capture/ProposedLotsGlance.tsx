@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
 import type { ProposedLot, ProposedLotState } from '../../processing/proposed-lots'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Pill, type PillTone } from '../ui/Pill'
 
 const STATE: Record<ProposedLotState, { tone: PillTone; word: string }> = {
@@ -92,8 +92,8 @@ const Title = styled.h2`
 `
 
 const Total = styled.span`
-  font-size: 12.5px;
-  font-weight: 400;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.small.weight};
   color: ${color.muted};
 `
 
@@ -115,7 +115,7 @@ const List = styled.ul`
     min-width: 0;
     overflow: hidden;
     color: ${color.fg};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -123,7 +123,7 @@ const List = styled.ul`
 
 const Lead = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -158,7 +158,7 @@ const Crop = styled.img`
 `
 
 const Small = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -169,7 +169,7 @@ const Empty = styled.p`
 
 const Footer = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
   a {
     color: ${color.accent};

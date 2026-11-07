@@ -1,5 +1,6 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { MediaReceiptDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -185,8 +186,8 @@ export function MediaUpload({
 
 const UploadArea = styled.div`
   display: grid;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: ${space[5]};
+  margin-bottom: ${space[8]};
   min-width: 0;
   p {
     overflow-wrap: anywhere;

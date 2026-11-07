@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { AutoValueField } from '../ui/AutoValueField'
 import { NotesField } from '../ui/TextField'
@@ -71,9 +71,9 @@ export function PurchaseOrderPreview({ order, orderNote }: Props) {
 
 const Unavailable = styled.fieldset`
   display: grid;
-  gap: 8px;
+  gap: ${space[4]};
   margin: 0;
-  padding: 12px;
+  padding: ${space[6]};
   color: ${color.muted};
   background: ${color.surface2};
   border: 1px solid ${color.lineStrong};
@@ -81,7 +81,7 @@ const Unavailable = styled.fieldset`
   min-width: 0;
   label {
     display: flex;
-    gap: 8px;
+    gap: ${space[4]};
     align-items: center;
   }
 `
@@ -91,5 +91,5 @@ const Toggle = styled(Button)`
 const Preview = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-  gap: 10px;
+  gap: ${space[5]};
 `

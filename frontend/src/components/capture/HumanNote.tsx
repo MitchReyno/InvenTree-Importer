@@ -1,7 +1,7 @@
 import { Paragraph, Small, Summary } from '../ui/primitives'
 import type { Snapshot } from '../../capture/types'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 
 export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; batch: Snapshot }) {
   const subject = [...batch.lots, ...batch.parts].find((s) => s.id === note.subject_id)
@@ -24,8 +24,8 @@ export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; ba
 
 const NoteCard = styled.article`
   border-top: 1px solid ${color.line};
-  padding: 14px 0 4px;
-  font-size: 14px;
+  padding: ${space[7]} 0 ${space[2]};
+  font-size: ${typeVar.body.size};
   p {
     white-space: pre-wrap;
     overflow-wrap: anywhere;

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import { Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
@@ -45,8 +45,8 @@ export function EvidenceActions({
 const Actions = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0 0 16px;
+  gap: ${space[4]};
+  margin: 0 0 ${space[8]};
   @media (max-width: 430px) {
     grid-template-columns: minmax(0, 1fr);
   }

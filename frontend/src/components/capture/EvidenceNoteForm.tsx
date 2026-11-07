@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { Fieldset, Form, Label, Small, TextArea } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -66,8 +66,8 @@ export function EvidenceNoteForm({ disabled, edit, onDirtyChange, onClose }: Pro
 }
 
 const NoteForm = styled(Form)`
-  margin: 12px 0;
-  padding: 12px;
+  margin: ${space[6]} 0;
+  padding: ${space[6]};
   border: 1px solid ${color.line};
   border-radius: 6px;
   background: ${color.surface2};
@@ -75,5 +75,5 @@ const NoteForm = styled(Form)`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${space[4]};
 `

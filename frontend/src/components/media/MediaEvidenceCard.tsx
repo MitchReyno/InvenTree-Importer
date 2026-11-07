@@ -1,6 +1,6 @@
 import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { Paragraph, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -57,21 +57,21 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
 
 const Card = styled.article`
   display: grid;
-  gap: 10px;
+  gap: ${space[5]};
   border: 1px solid ${color.line};
   border-radius: 5px;
-  padding: 12px;
-  margin: 12px 0;
+  padding: ${space[6]};
+  margin: ${space[6]} 0;
 `
 
 const Version = styled.div`
   display: grid;
-  gap: 8px;
+  gap: ${space[4]};
   overflow-wrap: anywhere;
 
   figure {
     display: grid;
-    gap: 8px;
+    gap: ${space[4]};
     margin: 0;
   }
 

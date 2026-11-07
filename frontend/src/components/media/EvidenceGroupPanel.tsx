@@ -13,7 +13,7 @@ import { mediaDisplayLabels, type MediaIdentityLabels } from '../../media/identi
 import type { EditMedia } from '../../media/types'
 import { Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
-import { color, space, type } from '../../theme/generated/tokens'
+import { color, space, type, typeVar } from '../../theme/generated/tokens'
 import { EvidenceDropZone } from './EvidenceDropZone'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
@@ -298,7 +298,7 @@ const GroupName = styled.h3`
 `
 
 const FileCount = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 

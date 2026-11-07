@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { Notice } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -151,9 +153,9 @@ const CaptureGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
   grid-template-areas: 'context settings';
-  gap: 16px;
+  gap: ${space[8]};
   align-items: start;
-  @media (max-width: 860px) {
+  ${media.stacked} {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'context' 'settings';
   }
@@ -161,7 +163,7 @@ const CaptureGrid = styled.div`
 const SettingsColumn = styled.div`
   grid-area: settings;
   display: grid;
-  gap: 12px;
+  gap: ${space[6]};
   min-width: 0;
 `
 const ReviewEntry = styled(Button)`

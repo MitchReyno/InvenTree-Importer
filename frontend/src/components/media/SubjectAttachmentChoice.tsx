@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaEditDto, MediaSnapshotDto } from '@invimport/contracts'
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { Label, Select, Small } from '../ui/primitives'
@@ -70,7 +71,7 @@ export function SubjectAttachmentChoice({ batch, subjectId, snapshot, disabled, 
 
 const Choice = styled.div`
   display: grid;
-  gap: 6px;
+  gap: ${space[3]};
   width: 100%;
   min-width: 0;
   max-width: 100%;

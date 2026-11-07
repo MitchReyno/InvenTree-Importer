@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { Heading, Panel, Paragraph, Summary } from '../ui/primitives'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { MediaWorkspace } from '../media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
@@ -126,7 +127,7 @@ const EvidenceArea = styled(Panel)`
   grid-area: context;
 `
 const IdentityDetails = styled.details`
-  padding: 14px;
+  padding: ${space[7]};
   overflow-wrap: anywhere;
   font-size: 12px;
 `
