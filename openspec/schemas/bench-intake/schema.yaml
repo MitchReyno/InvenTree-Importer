@@ -185,6 +185,29 @@ artifacts:
       - specs
       - design
 
+  - id: notes
+    generates: notes.md
+    description: Short historical record of how implementation departed from the plan, written during and after implementation.
+    template: notes.md
+    instruction: |
+      Create notes.md when implementation starts, not during planning, and add
+      entries as they happen. It replaces handover documents: do not write a
+      handover under docs/handovers/ or anywhere else.
+
+      Record only what the other artifacts and the code cannot tell a later reader:
+      departures from the proposal, specs, design or tasks and why; unexpected
+      challenges and how they were resolved; decisions the design left open; and
+      remaining limitations or follow-ups. When a departure changes the plan, also
+      update the affected artifact so it stays current; the note keeps the history.
+
+      Keep each entry to a few sentences, dated and tied to its task or PR. Do not
+      log review rounds, test output, command transcripts or CI results; put
+      verification in the PR description. A review finding belongs here only when
+      it changed the design or the plan. Write plain facts, not a narrative of the
+      session. Keep the file short: aim for well under 150 lines for a large change.
+    requires:
+      - tasks
+
 apply:
   requires:
     - tasks
@@ -216,7 +239,10 @@ apply:
 
     Reconcile material discoveries into the plan within authorized scope before
     continuing. A meaningful scope, compatibility or product decision requires the
-    user; a routine correction does not require another permission round. Reassess
+    user; a routine correction does not require another permission round.
+    Record departures, unexpected challenges and open decisions in the change's
+    notes.md as they happen, following `openspec instructions notes`; write no
+    separate handover document. Reassess
     repeated failures and report the actual blocker without a fixed three-attempt
     rule that abandons recoverable work. Continue useful authorized work.
 
@@ -233,8 +259,8 @@ apply:
     can be recorded only after they actually occur, not pre-checked for convenience.
     Check each task only after its deliverable and required evidence are satisfied.
     Keep publication/merge tasks pending until their own conditions are met. Preserve
-    the existing commit and PR workflow: isolated conventional branches, maintained
-    handovers, independent read-only review of the exact candidate, correction and
+    the existing commit and PR workflow: isolated conventional branches, current
+    implementation notes, independent read-only review of the exact candidate, correction and
     re-review until clear, then selected green CI. Commits are permitted within that
     workflow. Merge and archive require applicable user authorization; obey any hold.
     Update linked BI index entries from actual evidence and keep their OpenSpec

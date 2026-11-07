@@ -111,6 +111,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
    - Show which task is being worked on
    - Make the code changes required
+   - When the change's schema has a `notes` artifact (see `openspec status`), create it from `openspec instructions notes --change "<name>" --json` once implementation starts, and add an entry whenever the work departs from the plan, hits an unexpected problem or settles a decision the design left open. Do not write a separate handover document
    - Keep changes minimal and focused
    - Before editing, confirm the checkbox at the returned `sourcePath` and `line` still matches the task description; if it does not, rerun the apply instructions and use the refreshed location
    - Mark the task complete at its returned `sourcePath` and `line`: `- [ ]` → `- [x]`

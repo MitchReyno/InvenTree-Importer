@@ -24,6 +24,6 @@ Run `pnpm lint:readability` for the shared runtime TypeScript check, then `pnpm 
 
 ## Verify changes
 
-Behavior changes require the applicable typecheck, fast/contract and PG/process tiers in [TESTING.md](TESTING.md). Formatting-only edits need stability, generated-byte checks, types and affected tests; selected hosted CI remains merge evidence. CI skips the PG/process tiers, so run them locally and record the results in the handover (see [TESTING.md](TESTING.md)).
+Behavior changes require the applicable typecheck, fast/contract and PG/process tiers in [TESTING.md](TESTING.md). Formatting-only edits need stability, generated-byte checks, types and affected tests; selected hosted CI remains merge evidence. CI skips the PG/process tiers, so run them locally and record the results in the PR description (see [TESTING.md](TESTING.md)).
 
 Preserve protected-target guards, retained identities/bytes and no-retry behavior during conflict resolution. Apply shared Markdown readability rules to server documentation, keeping observed evidence distinct from proposed capability.

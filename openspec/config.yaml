@@ -12,7 +12,9 @@ operations:
     guidance:
       - Use the owning project's declared checks and required independent exact-head review; keep merge tasks pending during a user hold.
       - Check completed actions before committing their completed work and include the task-file update in the same commit; retain current item status only.
+      - Keep the change's notes.md current as departures, surprises and open decisions happen; never write a handover document.
   archive:
     guidance:
       - Check implementation and acceptance evidence before describing a linked BI item as Done; archive state alone is insufficient.
       - Update the functionality index links if the authorized archive moves the referenced change.
+      - Confirm notes.md exists and records the final open items before archiving an implemented change.

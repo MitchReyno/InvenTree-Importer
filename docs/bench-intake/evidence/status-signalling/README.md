@@ -1,6 +1,6 @@
 # Status header qualification
 
-Checked 2026-11-03 with owned synthetic data. Foundation disclosure screenshots use the `disclosure-*` prefix; integrated controls use `header-*`. The maintained [handover](../../../handovers/status-signalling-uplift.md) records package, transport and retained-data evidence separately.
+Checked 2026-11-03 with owned synthetic data. Foundation disclosure screenshots use the `disclosure-*` prefix; integrated controls use `header-*`. The maintained [handover](https://github.com/MitchReyno/InvenTree-Importer/blob/2d852e2/docs/handovers/status-signalling-uplift.md) records package, transport and retained-data evidence separately.
 
 ## Integrated connection and workflow controls
 

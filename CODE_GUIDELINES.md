@@ -6,14 +6,14 @@ Improve the code you touch proportionately. A focused task does not authorize an
 
 ## Plan before implementation
 
-Write a task-specific plan in the owning handover **before implementing anything**. Read the relevant code/contracts, then record:
+Plan **before implementing anything**. Nontrivial work is planned as an OpenSpec change ([docs/openspec.md](docs/openspec.md)): its proposal, design and tasks hold the plan, and its `notes.md` records departures and surprises during implementation. Small work outside a change puts its plan in the PR description. Read the relevant code/contracts, then record:
 
 - Scope, non-goals, affected files and public interfaces.
 - Dependencies, ownership and meaningful alternatives.
 - Package research and rationale.
 - Implementation steps and independent verification, including adverse cases.
 
-Update the plan as evidence changes. If this rule arrives mid-task, preserve existing work and record the actual chronology and remaining plan; never backdate it. Planning adds no human approval gate where autonomous work is already authorized.
+Update the plan as evidence changes, and note the departure in `notes.md`; never backdate it. Planning adds no human approval gate where autonomous work is already authorized.
 
 Prefer existing helpers, public framework APIs and suitable maintained packages. Before adding a dependency, assess its required guarantees, compatibility, maintenance, licensing/security and dependency cost using authoritative sources or versioned APIs. Record what is proved and what remains untested.
 
@@ -107,7 +107,7 @@ Use paragraph size as a review signal, not a word quota. Check the rendered read
 
 Write each paragraph/list item on one source line and rely on soft wrap. Preserve list nesting, code blocks, tables, frontmatter, raw HTML, intentional hard breaks and semantic whitespace. Use Markdown-aware tooling and verify meaning after reflow.
 
-Keep shared architecture/guidance at root and application contracts in their owning documents. Audit active links and anchors when moving sections. Preserve historical evidence and the distinction between plans, observed behavior and untested capability; put investigation/validation records in handovers.
+Keep shared architecture/guidance at root and application contracts in their owning documents. Audit active links and anchors when moving sections. Keep the distinction between plans, observed behavior and untested capability. Architecture documents describe the current code; put validation results in the PR description and implementation history in the owning change's `notes.md`.
 
 Keep mirrored skills/host-adapted agents synchronized per AGENTS. Use relative paths and named skills, never machine-specific config.
 

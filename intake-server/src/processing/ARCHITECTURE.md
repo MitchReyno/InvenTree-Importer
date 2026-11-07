@@ -32,7 +32,7 @@ Manual notes support standalone T06; meaningful retained notes or ready relevant
 
 ## Verification and limits
 
-The T06 handover records current PostgreSQL, HTTP, DBOS process, browser and normal-suite evidence separately. The original repository environment's InvenTree server remains strictly read-only. Tests use random owned databases, synthetic identities and explicit fixture workers without loading that environment or constructing a target/provider transport.
+The original repository environment's InvenTree server remains strictly read-only. Tests use random owned databases, synthetic identities and explicit fixture workers without loading that environment or constructing a target/provider transport.
 
 ## Read models and occupied capacity
 
@@ -50,7 +50,7 @@ V2 proposal provenance binds note ID and exact text digest, or evidence ID, vers
 
 Logical cancellation/supersession of a held attempt retains physical lane ownership. Authenticated stale proposal bytes remain inspectable without publishing current proposals or releasing that lane. Only its exact command-ending terminal/question or explicit interruption after reaping settles the claim; old settlement cannot release a newer attempt or regress its selected job.
 
-All actual agent/model/provider usage is prohibited until explicit later user authorization. Deterministic fixtures exercise coordination and descriptor provenance only. Corrected qualification passed 64 PostgreSQL and 25 process cases without skips; independent domain review reran the original predecessor-replacement reproduction and all eight new scenarios. Independent desktop/phone checks observed multi-stage progression and exact human-answer continuation. The [T06 handover](../../../../docs/handovers/bench-intake-T06.md) and [dependency correction](../../../../docs/handovers/bench-intake-T06-dependency-currency.md) record evidence and limits. These fixture results do not establish actual provider support.
+All actual agent/model/provider usage is prohibited until explicit later user authorization. Deterministic fixtures exercise coordination and descriptor provenance only. Corrected qualification passed 64 PostgreSQL and 25 process cases without skips; independent domain review reran the original predecessor-replacement reproduction and all eight new scenarios. Independent desktop/phone checks observed multi-stage progression and exact human-answer continuation. These fixture results do not establish actual provider support.
 
 ## Exact predecessor lineage and fresh consumer input
 
@@ -60,7 +60,7 @@ Historical predecessor inputs are not recomputed against the newest capture/medi
 
 ## Retired subjects
 
-A lot split or merged before approval is marked `retired: true` in the capture snapshot. `startProcessing` refuses it with `subject_retired` (409) inside the idempotency closure, so an earlier committed start still adopts its receipt. `processingInputIsCurrent` treats a retired subject as stale, which the existing stale policy then applies everywhere: a queued claim becomes `superseded` without new work, an answer fails with `stale_question`, and reads project the job and open questions as `superseded` while retained proposals stay listed. Retirement never releases a held lane; only its exact terminal settlement or reap does. The [T08 handover](../../../docs/handovers/bench-intake-T08.md) records the PG evidence.
+A lot split or merged before approval is marked `retired: true` in the capture snapshot. `startProcessing` refuses it with `subject_retired` (409) inside the idempotency closure, so an earlier committed start still adopts its receipt. `processingInputIsCurrent` treats a retired subject as stale, which the existing stale policy then applies everywhere: a queued claim becomes `superseded` without new work, an answer fails with `stale_question`, and reads project the job and open questions as `superseded` while retained proposals stay listed. Retirement never releases a held lane; only its exact terminal settlement or reap does.
 
 ## Restricted fixture profile
 

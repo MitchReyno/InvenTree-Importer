@@ -1,6 +1,6 @@
 # Narrow stock executor
 
-This module implements T03, with T04 consuming its public seams from the manual approval API. The [owning handover](../../../docs/handovers/bench-intake-T03.md) records evidence and limitations. The [server architecture](../../ARCHITECTURE.md) describes the integrated manual boundary. No import, web startup, migration or scheduler acknowledgment launches physical apply.
+This module implements T03, with T04 consuming its public seams from the manual approval API. The [server architecture](../../ARCHITECTURE.md) describes the integrated manual boundary. No import, web startup, migration or scheduler acknowledgment launches physical apply.
 
 ## Scope and capability
 
