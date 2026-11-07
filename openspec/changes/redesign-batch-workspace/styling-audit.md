@@ -375,6 +375,7 @@ Made in the design system artifact with this plan, so both sides agree before ta
 - **DS3:** Pill documents the count's `bad` tone and its 999+ cap; Banner documents its `plain` tone and action slot.
 - **DS4:** TextField documents the disabled control (dashed `line-strong` on `surface-2`).
 - **DS5:** new cards for Kbd, Loading (spinner and skeleton), Popover, Dialog and MastheadMenu; the Masthead card lists the overflow menu as its last slot.
+- **DS6 (with task 18.5, not yet made):** remove the PhaseRow card. No canvas screen uses it, the Processing overview shows steps with `ProgressSegments`, and task 18.5 deletes the app's unused `ui/PhaseRow`.
 
 ### New gaps by area
 
@@ -394,7 +395,7 @@ Severity and status as in the sections above. Spec quotes name the delta spec in
 | G25 | `OptionRow` is used on no screen; choices are selects and buttons | Use it for answers (G19) and match choices (`CompareMatches`) | Low | 18, 19 |
 | G26 | EvidenceTile truncates its failure sentence on the stage; its caption line-height is 20px (design about 17px); preparing shows a chip on a flat stage instead of the shimmer with "Preparing…" in the caption | One legible failure sentence with retry; caption type from the token; skeleton while preparing | Medium | 17 |
 | G27 | KeyValue marks an edited value with muted "· edited" text instead of the "You · Your edit" source chip; the gallery says "You · Entered" | Use the source chip and the design's words | Low | 19 |
-| G28 | PhaseRow puts a state word beside the title, and its waiting disc is empty where the design shows the step number | Drop the word; number the waiting disc | Low | 18 |
+| G28 | PhaseRow puts a state word beside the title, and its waiting disc is empty where the design shows the step number | Lapses: no canvas screen uses PhaseRow, so task 18.5 deletes it (design D12) | Low | 18 |
 | G29 | ProblemCard groups per problem with per-lot issues, where the design's header is the severity group and each problem is an issue row; it has no ghost secondary action | Follow the design's grouping and add the ghost action ("Dismiss…", "Show in Part") | Low | 19 |
 | G30 | DataTable's selection column is about 120px (design 40px); BulkBar has no field select and says "Clear selection" | Narrow the column; add the field select; say "Clear" | Low | 19 |
 

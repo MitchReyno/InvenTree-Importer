@@ -18,8 +18,9 @@ Review › Records SHALL list the records the batch touches, grouped by type:
 - parameters and parameter templates;
 - locations;
 - stock items;
-- images and attachments;
 - tags.
+
+Images and attachments are chosen as evidence in Capture, not listed in Records; a Part record SHALL link to Capture for its images.
 
 Each type SHALL show counts of new, existing and to-decide records. Each record SHALL show its New, Update, Exists or Choose state, existing against proposed values, a source chip per value, and the lots that use it.
 
