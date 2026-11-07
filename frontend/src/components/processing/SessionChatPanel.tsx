@@ -126,12 +126,15 @@ export function SessionChatPanel({
   const pending = useSyncExternalStore(subscribe, () => pendingSends.get(storeKey))
   if (state === 'cancelled') {
     return (
-      <Paragraph>
-        This session was cancelled.{' '}
-        <Button type="button" onClick={startFresh} disabled={freshDisabled}>
-          Start a fresh session
-        </Button>
-      </Paragraph>
+      <Panel>
+        <Paragraph>
+          This session was cancelled.{' '}
+          <Button type="button" onClick={startFresh} disabled={freshDisabled}>
+            Start a fresh session
+          </Button>
+        </Paragraph>
+        <SessionChat messages={messages} onSend={() => {}} label="Message this session" disabled />
+      </Panel>
     )
   }
 

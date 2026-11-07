@@ -13,7 +13,7 @@ import { Button } from '../ui/Button'
 import { Count, Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { SourceChip } from '../ui/SourceChip'
-import { Summary } from '../ui/primitives'
+import { linkTouchArea, Summary } from '../ui/primitives'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 
@@ -308,6 +308,7 @@ const List = styled.ul`
   }
   a {
     color: ${color.accent};
+    ${linkTouchArea}
   }
 `
 
@@ -352,6 +353,7 @@ const LotBlock = styled.section`
   border-top: 1px solid ${color.line};
   a {
     color: ${color.fg};
+    ${linkTouchArea}
   }
 `
 

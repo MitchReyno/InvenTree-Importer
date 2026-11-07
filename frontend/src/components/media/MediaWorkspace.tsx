@@ -339,14 +339,17 @@ export function MediaWorkspace({
           key={moved.message}
           message={moved.message}
           action={
-            moved.undo && {
-              label: 'Undo',
-              onClick: () => {
-                const undo = moved.undo!
-                setMoved(null)
-                void state.move(undo.ids, undo.groupId)
-              },
-            }
+            // Undo waits for other drafts, as any move does, so it cannot discard them.
+            moved.undo && !(frozen || drafts.hasOtherSources('selection', 'drag'))
+              ? {
+                  label: 'Undo',
+                  onClick: () => {
+                    const undo = moved.undo!
+                    setMoved(null)
+                    void state.move(undo.ids, undo.groupId)
+                  },
+                }
+              : undefined
           }
           onDismiss={() => setMoved(null)}
         />

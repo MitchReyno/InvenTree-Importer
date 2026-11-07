@@ -158,7 +158,17 @@ export function ProcessingWorkspace({
     queryFn: () => agents!.settings(),
     enabled: agents !== undefined && view === 'overview',
   })
-  const started = firstStart(agentSessions.data?.sessions, batch.id)
+
+  // A read that failed or paused keeps old data; it is withheld rather than shown as current.
+  const liveRead = (read: { isSuccess: boolean; isError: boolean; fetchStatus: string }) =>
+    read.isSuccess && !read.isError && read.fetchStatus !== 'paused'
+
+  // The list is one page across every batch, so a start time needs the whole history.
+  const started =
+    liveRead(agentSessions) && agentSessions.data?.next_before === null
+      ? firstStart(agentSessions.data.sessions, batch.id)
+      : undefined
+  const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
   // Capture's media read names Examine's photos by file and group.
   const mediaSnapshot = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
@@ -538,7 +548,7 @@ export function ProcessingWorkspace({
               queue={queue}
               unusedFiles={unusedFiles}
               started={started}
-              sessionLimit={agentSettings.data?.session_concurrency}
+              sessionLimit={sessionLimit}
             />
           ) : (
             <StepPage
@@ -554,7 +564,7 @@ export function ProcessingWorkspace({
                     <ExamineView
                       batch={batch}
                       lead={jobs.find((job) => job.stage === 'examine' && job.subject_id === null)}
-                      media={mediaSnapshot.data}
+                      media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
                       questionedLots={
                         new Set(
                           source.questions.flatMap((question) =>

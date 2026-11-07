@@ -85,12 +85,17 @@ export function EvidenceGroupPanel({
 
   const groupLots = new Set(
     evidence.flatMap((item) =>
-      batch.lots.filter((lot) => item.linked_subject_ids.includes(lot.id)).map((lot) => lot.id),
+      batch.lots
+        .filter((lot) => !lot.retired && item.linked_subject_ids.includes(lot.id))
+        .map((lot) => lot.id),
     ),
   )
 
   function supportedLots(item: MediaSnapshotDto['evidence'][number]) {
-    const count = batch.lots.filter((lot) => item.linked_subject_ids.includes(lot.id)).length
+    // Retired predecessors keep their links but no longer count as lots the file feeds.
+    const count = batch.lots.filter(
+      (lot) => !lot.retired && item.linked_subject_ids.includes(lot.id),
+    ).length
     return count === 1 ? '1 lot' : `${count} lots`
   }
 

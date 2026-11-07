@@ -131,7 +131,7 @@ test('discarding an unconfirmed send frees the composer', async () => {
   expect(screen.queryByText(/was not confirmed/)).not.toBeInTheDocument()
 })
 
-test('a cancelled session offers a fresh session instead of the composer', () => {
+test('a cancelled session offers a fresh session and takes no messages', () => {
   const startFresh = vi.fn()
   render(
     <SessionChat
@@ -141,7 +141,7 @@ test('a cancelled session offers a fresh session instead of the composer', () =>
       startFresh={startFresh}
     />,
   )
-  expect(screen.queryByLabelText('Message this session')).not.toBeInTheDocument()
+  expect(screen.getByLabelText('Message this session')).toBeDisabled()
   fireEvent.click(screen.getByRole('button', { name: 'Start a fresh session' }))
   expect(startFresh).toHaveBeenCalled()
 })
@@ -233,4 +233,18 @@ test('says plainly when a session has posted nothing yet, without an empty Steps
   )
   expect(screen.queryByRole('heading', { name: 'Steps' })).not.toBeInTheDocument()
   expect(screen.queryByRole('list', { name: 'Session steps' })).not.toBeInTheDocument()
+})
+
+test('a cancelled session keeps its conversation visible', () => {
+  render(
+    <SessionChat
+      storeKey="batch:cancelled-history"
+      state="cancelled"
+      messages={[{ id: 'm', who: 'You', text: 'Check the back.', mine: true }]}
+      send={vi.fn()}
+      startFresh={vi.fn()}
+    />,
+  )
+  expect(screen.getByRole('log', { name: 'Session messages' })).toHaveTextContent('Check the back.')
+  expect(screen.getByLabelText('Message this session')).toBeDisabled()
 })

@@ -571,3 +571,55 @@ test('confirms a move with a toast whose Undo moves the files back', async () =>
     ),
   )
 })
+
+test('Undo waits while another draft is open, so the draft is not lost', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce({
+    ...initial,
+    revision: '2',
+    evidence: initial.evidence.map((item) =>
+      item.id === front ? { ...item, group_id: groupB } : item,
+    ),
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  const toast = await screen.findByText('Moved 1 file to Packet B')
+  await user.click(screen.getByRole('button', { name: 'New evidence group' }))
+  await user.type(screen.getByRole('textbox', { name: 'New group name' }), 'Third')
+  expect(within(toast.parentElement!).queryByRole('button', { name: 'Undo' })).toBeNull()
+  expect(screen.getByRole('textbox', { name: 'New group name' })).toHaveValue('Third')
+})
+
+test('a retired lot no longer counts among the lots a group feeds', async () => {
+  const lot = (id: string, retired: boolean) =>
+    ({ id, label: id, retired }) as unknown as CaptureSnapshotDto['lots'][number]
+
+  const client = mediaClient()
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    evidence: initial.evidence.map((item) => ({ ...item, linked_subject_ids: ['old', 'new'] })),
+  })
+  render(
+    <MediaWorkspace
+      batch={{ ...batch, lots: [lot('old', true), lot('new', false)] }}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  expect(await screen.findByRole('region', { name: /Packet A/ })).toHaveTextContent(
+    '2 files · 1 lot',
+  )
+})

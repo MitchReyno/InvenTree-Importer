@@ -223,3 +223,14 @@ describe('Evidence notes and lot counts', () => {
     )
   })
 })
+
+describe('EvidenceGroup composition', () => {
+  it('does not rename on the Enter that confirms an IME candidate', () => {
+    const onRename = vi.fn()
+    render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)
+    const name = screen.getByRole('textbox', { name: 'Group name' })
+    fireEvent.change(name, { target: { value: 'にほ' } })
+    fireEvent.keyDown(name, { key: 'Enter', isComposing: true })
+    expect(onRename).not.toHaveBeenCalled()
+  })
+})

@@ -69,7 +69,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
+    // The Enter that confirms an IME candidate is not a commit.
+    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
       event.preventDefault()
       sentOnEnter.current = true
       commit()

@@ -4,6 +4,7 @@ import { batchHref } from '../../navigation/batch-route'
 import type { ProcessingSource, StepProgress, WorkStep } from '../../processing/source'
 import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Spinner } from '../ui/Loading'
+import { linkTouchArea } from '../ui/primitives'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -117,6 +118,7 @@ const Head = styled.div`
   a {
     margin-left: auto;
     color: ${color.accent};
+    ${linkTouchArea}
   }
 `
 
