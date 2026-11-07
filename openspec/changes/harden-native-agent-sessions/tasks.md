@@ -111,10 +111,10 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - TDD or equivalent verification: RED synthetic chat traces for false negatives and unrelated-activity false positives; GREEN predicate tests. Live behavior needs recorded observations rather than fabricated test-first claims.
 - Verification and risks: Run synthetic harness first, then only authorized bounded live runs; retain native_unverified on any incomplete matrix/criterion and attach redacted evidence to PR, never source control.
 
-- [ ] 6.1 Confirm the scoped baseline and prerequisites for repair and execute qualification matrix.
-- [ ] 6.2 RED synthetic chat traces for false negatives and unrelated-activity false positives; GREEN predicate tests. Live behavior needs recorded observations rather than fabricated test-first claims.
-- [ ] 6.3 Define supported provider/model/auth/CLI matrix; fix chat detection for causally relevant replies, questions and status. Exercise confinement, proposal correction, new-evidence citations, status cadence, chat, resume, cancellation and operator diagnostics.
-- [ ] 6.4 Run synthetic harness first, then only authorized bounded live runs; retain native_unverified on any incomplete matrix/criterion and attach redacted evidence to PR, never source control.
+- [x] 6.1 Confirm the scoped baseline and prerequisites for repair and execute qualification matrix.
+- [x] 6.2 RED synthetic chat traces for false negatives and unrelated-activity false positives; GREEN predicate tests. Live behavior needs recorded observations rather than fabricated test-first claims.
+- [x] 6.3 Define supported provider/model/auth/CLI matrix; fix chat detection for causally relevant replies, questions and status. Exercise confinement, proposal correction, new-evidence citations, status cadence, chat, resume, cancellation and operator diagnostics.
+- [x] 6.4 Run synthetic harness first, then only authorized bounded live runs; retain native_unverified on any incomplete matrix/criterion and attach redacted evidence to PR, never source control.
 
 ## 7. Complete documentation and delivery
 
@@ -126,9 +126,9 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - TDD or equivalent verification: No prose tests: inspect references, behavior claims and qualification evidence; run OpenSpec validation and overlap checks.
 - Verification and risks: Obtain fresh exact-head independent review, fix/re-review findings, publish only when authorized, wait for selected green CI and authorized merge to interactive-app. Update index truthfully; archive only when requested.
 
-- [ ] 7.1 Confirm the scoped baseline and prerequisites for complete documentation and delivery.
-- [ ] 7.2 No prose tests: inspect references, behavior claims and qualification evidence; run OpenSpec validation and overlap checks.
-- [ ] 7.3 Reconcile supported-version claims, diagnostic categories and recovery guidance with implementation and actual qualification.
+- [x] 7.1 Confirm the scoped baseline and prerequisites for complete documentation and delivery.
+- [x] 7.2 No prose tests: inspect references, behavior claims and qualification evidence; run OpenSpec validation and overlap checks.
+- [x] 7.3 Reconcile supported-version claims, diagnostic categories and recovery guidance with implementation and actual qualification.
 - [ ] 7.4 Obtain fresh exact-head independent review, fix/re-review findings, publish only when authorized, wait for selected green CI and authorized merge to interactive-app. Update index truthfully; archive only when requested.
 
 ## Delivery evidence and lifecycle follow-up

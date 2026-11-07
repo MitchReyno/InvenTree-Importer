@@ -145,30 +145,31 @@ export function requireClaudeSessionConfig(value: unknown) {
   const config = policyRecord(value)
   const emptyLists = ['slash_commands', 'skills', 'additional_directories']
   const builtinPlugins = ['cc-plugin-agents-md', 'cc-plugin-privacy', 'cc-plugin-plugin-authoring']
+  // Subscription sessions also load the built-in telemetry plugin.
+  const admittedPluginSets = [builtinPlugins, [...builtinPlugins, 'cc-plugin-telemetry']].map(
+    (set) => JSON.stringify([...set].sort()),
+  )
   if (
     config.claude_code_version !== '2.1.319' ||
     config.permissionMode !== 'default' ||
     config.output_style !== 'default' ||
     emptyLists.some((key) => !Array.isArray(config[key]) || config[key].length !== 0) ||
-    !Array.isArray(config.plugins) ||
-    config.plugins.length !== builtinPlugins.length
+    !Array.isArray(config.plugins)
   ) {
     throw new NativeSessionError('agent_policy_refused')
   }
-  const names = new Set<string>()
-  for (const value of config.plugins) {
+  const names = config.plugins.map((value) => {
     const plugin = policyRecord(value)
     if (
       typeof plugin.name !== 'string' ||
-      !builtinPlugins.includes(plugin.name) ||
       plugin.path !== 'builtin' ||
       plugin.source !== `${plugin.name}@builtin`
     ) {
       throw new NativeSessionError('agent_policy_refused')
     }
-    names.add(plugin.name)
-  }
-  if (names.size !== builtinPlugins.length) {
+    return plugin.name
+  })
+  if (!admittedPluginSets.includes(JSON.stringify(names.sort()))) {
     throw new NativeSessionError('agent_policy_refused')
   }
 }

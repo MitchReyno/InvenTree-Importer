@@ -103,9 +103,9 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 BI-006's live qualification (#118) found that a native Codex session is not confined to the intake tools. Codex wraps them inside its `exec` JavaScript tool, also offers its collaboration, clock, `apply_patch` and `image_gen` tools, and loads the user-level skills catalogue, and neither the start-time check nor the in-run check catches this. Real models also stumble on `propose`, whose rejection does not name the failing field. A session cannot cite evidence it picks up mid-session, because no digest is delivered with it. Fix these, detect or exclude Claude's deferred `advisor` tool, and correct the qualification script's chat detection, then re-run the live qualification so `native-agent/2` can drop `native_unverified`.
 
 - Change: `harden-native-agent-sessions`
-- Status: In progress — tool admission and actionable tool results merged in #133 and #134; retained failure diagnostics are in review. Live qualification has not run, so `native-agent/2` keeps `native_unverified`.
+- Status: In progress — tool admission, actionable tool results and retained failure details merged in #133, #134 and #137. The authorized live qualification is in review: Claude Haiku passed apart from partial status cadence, but Codex still receives code-mode tools on subscription turns, so `native-agent/2` keeps `native_unverified`.
 - Size: M — adapter tool confinement and checks for both providers, validation messages, a digest in the evidence delivery, and a re-run of the qualification.
-- Prerequisites: BI-006 is Done (satisfied). Re-running the live qualification needs fresh explicit authorization for live provider usage (not yet given).
+- Prerequisites: BI-006 is Done (satisfied). Live qualification was authorized for Claude Haiku and GPT 6 Luna on 2026-11-07; any further live run needs fresh authorization.
 - OpenSpec: [harden-native-agent-sessions](../openspec/changes/harden-native-agent-sessions/)
 
 ## Improvements

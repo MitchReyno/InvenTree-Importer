@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os'
 import { AgentChild } from '../src/agents/child.ts'
 import { admitClaudeSession } from '../src/agents/claude-session-admission.ts'
 
-for (const mode of ['normal', 'skills-enabled', 'extra-tool']) {
+// web-fetch-agent is the built-in set a 2.1.319 subscription CLI reports; extra-agent is a user agent.
+for (const mode of ['normal', 'web-fetch-agent', 'skills-enabled', 'extra-tool', 'extra-agent']) {
   test(`Claude pre-input admission: ${mode}`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'claude-admission-'))
     const path = join(root, 'provider.cjs')
@@ -28,7 +29,7 @@ for (const mode of ['normal', 'skills-enabled', 'extra-tool']) {
     const signal = AbortSignal.timeout(5000)
     const child = new AgentChild(process.execPath, [path], root, {}, signal)
     try {
-      if (mode === 'normal') {
+      if (mode === 'normal' || mode === 'web-fetch-agent') {
         await admitClaudeSession(child, tools, signal)
       } else {
         await assert.rejects(

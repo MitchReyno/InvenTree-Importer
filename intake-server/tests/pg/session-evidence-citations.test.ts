@@ -138,6 +138,8 @@ for (const mode of ['manifest', 'notice', 'lead'] as const) {
       }
       assert.equal(cropped.images?.length, 1)
       assert.equal((await restarted.propose(token, proposal())).result.ok, true)
+      const read = await fixture.http(`/batches/${capture.batch.id}/processing`)
+      assert.equal(read.status, 200, 'a delivered citation keeps Processing readable')
       if (mode === 'notice') {
         const emptyStore = await BlobStore.initialize(
           join(root, 'empty-blobs'),
