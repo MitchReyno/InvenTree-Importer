@@ -23,7 +23,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
-| PR-A | New decodes produce, store and serve sized renditions, with no API response changing shape | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together. Response shapes stay as they are, so already-open built clients keep working | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check` unchanged; independent exact-head review; selected CI green |
+| PR-A | New decodes produce, store and serve sized renditions, with no JSON response changing shape | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together. Response shapes stay as they are, so already-open built clients keep working | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check` showing only the image-route declaration changes; independent exact-head review; selected CI green |
 | PR-B | Observation crops at each size, and retained versions upgraded in the background | Tasks 4–5 in full | Both close the remaining server gaps before the UI relies on sizes; they share the worker and HTTP test setup | After PR-A (task 5 needs the table) | `interactive-app`; `feat/add-preview-renditions-backfill`; `feat(add-preview-renditions): sized observation crops and rendition backfill` | PostgreSQL, HTTP and decoder process tiers; backfill run against a copy of retained dev data; independent exact-head review; selected CI green |
 | PR-C | Each frontend surface loads a suitable size, with the viewer switching to full when its density-adjusted width needs it | Task 6 in full | One UI pass over the media surfaces with a single helper; reviewed with a demo recording | After PR-A and PR-B | `interactive-app`; `feat/add-preview-renditions-frontend`; `feat(add-preview-renditions): use sized previews in the app` | Frontend typecheck, lint, tests and build; byte-transfer comparison and demo video on the PR; independent exact-head review; selected CI green |
 
@@ -56,21 +56,21 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
 - [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
 - [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
-- [ ] 2.4 Document and test rollback by restore: take an `operations backup`, migrate, restore into a fresh `intake_restore_*` database, and confirm the pre-change build passes the compatibility gate and starts against it.
+- [ ] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
 
 ## 3. Sized preview reads
 
 - **PR delivery:** PR-A.
-- **Outcome:** `GET …/media/previews/:id?size=` serves a rendition or falls back to the page, and no snapshot or inbox response changes shape. Stored renditions and `full` are private and immutable, fallbacks are `no-cache`, and authorization is unchanged.
+- **Outcome:** `GET …/media/previews/:id?size=` serves a rendition or falls back to the page, and no snapshot or inbox response changes shape. Every image response is private and `no-cache` with a digest ETag and 304, so authorization is checked on each view.
 - **Scope:** `media/read.ts`, `media/content.ts`, `media/routes.ts`. Response contracts are deliberately unchanged.
 - **Prerequisites:** task 2.
-- **Acceptance:** Media authorized byte reads (cross-batch rendition, private immutable caching); Media preview renditions (response shapes unchanged).
+- **Acceptance:** Media authorized byte reads (cross-batch rendition, private revalidated caching, cached bytes under another context); Media preview renditions (response shapes unchanged).
 - **Approach:** as in design ("The route takes a size…"). Override the global `no-store` only on these routes.
-- **Verification:** HTTP tests; `pnpm contracts:check`; `pnpm test:intake`.
+- **Verification:** HTTP tests; regenerate and run `pnpm contracts:check`; `pnpm test:intake`.
 
 - [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
 - [ ] 3.2 GREEN: implement the sized read, route and headers.
-- [ ] 3.3 Verify `contracts:check` reports no generated-contract change, then run `typecheck:intake`, `test:intake` and `test:frontend`.
+- [ ] 3.3 Update `contracts/scripts/generate.cjs` for the image routes' media types, query parameters and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
 
 ## 4. Sized observation crops
 
@@ -109,6 +109,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - two concurrent workers never claiming one preview, including when one worker pauses between candidate selection and insertion while the other completes or interrupts that preview;
   - a foreign-context batch never claimed, recovered or published, under the restricted worker role;
   - an abandoned claim recovered after expiry, and a stale owner refused at publication;
+  - a page whose third attempt was interrupted never claimed again, still serving its full preview;
   - a retained page whose bytes don't match its recorded digest, skipped;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
@@ -131,7 +132,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source and a page not yet backfilled offering it; observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`.
+- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source offering it; identical output for the same page before and after backfill (fallback bytes are checked through the HTTP route, not the helper); observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`.
 - [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
 - [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 

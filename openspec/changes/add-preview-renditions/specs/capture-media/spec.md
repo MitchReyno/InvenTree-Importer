@@ -4,7 +4,7 @@
 
 ### Requirement: Media authorized byte reads
 
-Original, preview, rendition and observation-crop bytes SHALL be returned only after the batch and object are authorized for the configured actor and target context, and a digest SHALL never act as an access token. Originals SHALL be served as attachments with a sandboxing content security policy. Stored previews and renditions SHALL be cacheable only privately and immutably, while a fallback served for a size not yet rendered and every observation crop SHALL be revalidated by digest, so stale bytes are never reused.
+Original, preview, rendition and observation-crop bytes SHALL be returned only after the batch and object are authorized for the configured actor and target context, and a digest SHALL never act as an access token. Originals SHALL be served as attachments with a sandboxing content security policy. Image responses SHALL be cacheable only privately and SHALL be revalidated by digest on every use, so authorization is checked each time and stale bytes are never reused.
 
 #### Scenario: Cross-batch download
 
@@ -18,11 +18,17 @@ Original, preview, rendition and observation-crop bytes SHALL be returned only a
 - **WHEN** any of its sizes is requested under batch B
 - **THEN** the response is 404 and no bytes are returned.
 
-#### Scenario: Private immutable preview caching
+#### Scenario: Private revalidated preview caching
 
 - **GIVEN** an authorized request for a page preview or one of its renditions
-- **WHEN** the bytes are returned
-- **THEN** the response is marked private and immutable with its exact media type, and is never marked publicly cacheable.
+- **WHEN** the bytes are returned and later requested again with their validator
+- **THEN** the response is marked private and `no-cache` with its exact media type and an ETag, and the repeat request is authorized again before answering `304 Not Modified`.
+
+#### Scenario: Cached bytes under another context
+
+- **GIVEN** a browser that cached a preview while authorized for one target context
+- **WHEN** the same URL is requested on the same origin under a configuration that is not authorized for that batch
+- **THEN** the response is 404, not the cached bytes.
 
 #### Scenario: Fallback not cached as a rendition
 
@@ -182,9 +188,15 @@ Ready versions decoded before renditions existed SHALL gain renditions rendered 
 
 #### Scenario: Worker killed after claiming
 
-- **GIVEN** a worker killed after claiming a page's backfill
-- **WHEN** another worker runs after the claim has expired
-- **THEN** the abandoned attempt is recorded as interrupted and the page is upgraded within the bounded number of attempts.
+- **GIVEN** a worker killed after claiming a page's backfill, with attempts remaining
+- **WHEN** another worker runs after the claim has expired and its backoff has passed
+- **THEN** the abandoned attempt is recorded as interrupted and the page is upgraded on a later attempt.
+
+#### Scenario: Attempts exhausted
+
+- **GIVEN** a page whose third backfill attempt was interrupted
+- **WHEN** the media worker runs again
+- **THEN** the page is not claimed again automatically, and every size keeps resolving to its full-resolution preview.
 
 ### Requirement: Media previews fit their surface
 

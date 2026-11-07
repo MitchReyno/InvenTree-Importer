@@ -13,7 +13,7 @@ The [proposal](proposal.md) and the [capture-media delta](specs/capture-media/sp
 - Sized WebP renditions for every ready page, original or derived.
 - Sized observation crops.
 - Crops cut only from full-resolution sources.
-- Private, immutable caching.
+- Private caching that still checks authorization on every view.
 - Backfill of retained versions.
 - Each surface using a suitable size.
 
@@ -59,13 +59,14 @@ Rejected: extra `media_preview` rows per size, which would break every consumer 
 `GET /media/previews/:previewId?size=thumb|card|view|full` serves the rendition row when present, and otherwise the full page.
 
 - Response type: `image/webp` for a rendition, `image/png` for the page.
-- Headers for a stored rendition, or `size=full`: `cache-control: private, max-age=31536000, immutable`, with `etag` set to the blob digest. Those bytes never change for that ID and size.
-- Headers for a fallback, where a size is requested that has no rendition yet: `cache-control: private, no-cache`, with the page's digest as `etag`. This stops a pre-backfill PNG being cached under a URL that later serves WebP. Fallbacks occur only before a page is backfilled.
+- Headers for every image response, including renditions, `size=full` and fallbacks: `cache-control: private, no-cache`, with `etag` set to the served blob digest, and `304 Not Modified` for a matching `if-none-match`. The browser keeps the bytes, but every view still reaches the server and its authorization check, so a cache shared by different actors or target contexts on one origin can't show bytes the current one may not see. The 304 is cheap, so this keeps nearly all of the saving.
+- Rejected: `max-age=31536000, immutable`. It would skip the server entirely, and `private` doesn't partition the browser cache by application identity.
+- A fallback, served for a size with no rendition yet, carries the page's digest as its ETag. Once the rendition exists, the next revalidation returns the WebP.
 - The global `no-store` hook is overridden only on these routes.
 - Unknown sizes return 400.
 - Authorization stays as it is: the preview must belong to the authorized batch.
 
-Response contracts don't change. The URL needs only `preview_id` and the size, and the client derives each size's dimensions from the page dimensions it already receives, so neither rendition IDs nor a listing are exposed.
+JSON response schemas don't change. The generated API contract (`contracts/scripts/generate.cjs`) does: the preview route declares `image/webp` as well as `image/png`, both image routes declare their optional `size` (and, for crops, `rev`) query parameters, and both declare their ETag/304 behavior. The URL needs only `preview_id` and the size, and the client derives each size's dimensions from the page dimensions it already receives, so neither rendition IDs nor a listing are exposed.
 
 Rejected: a separate route per rendition ID. It would add identifiers for the frontend to carry, for no gain in authority or caching.
 
@@ -196,8 +197,8 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 - **Migration.** Migration `0020_media_preview_renditions.sql` adds the table, the trigger, the grants and the reference check. Dev setup reapplies grants on start, so retained namespaces upgrade automatically.
 - **Backfill.** It then runs in the background worker, and the UI shows full previews until each page is upgraded.
 - **Rollback.** Older code cannot run against an upgraded database. The schema compatibility gate (`operations/compatibility.ts`) quarantines a database whose migration names and hashes don't exactly match the checkout. So rollback means restoring a backup, not running older code:
-  - Before migrating a retained namespace, take a coherent archive with `pnpm --filter @invimport/intake-server operations backup`.
-  - To go back, restore that archive into a fresh `intake_restore_*` database with `operations restore`, and point the older build at it.
+  - Before migrating a retained namespace, check out the **pre-change** build, with its migration files, and take a coherent archive with `pnpm --filter @invimport/intake-server operations backup`. Backup and restore both require the database or archive migrations to match the executing checkout, so the upgraded build can do neither for the old schema.
+  - To go back, check out the pre-change build again, restore that archive into a fresh `intake_restore_*` database with `operations restore`, and point that build at it.
   - The restored database predates the rendition tables, so the older collector has no rendition references to miss. Work done after the upgrade is not carried back.
   - Task 2 checks this: back up, upgrade, restore, then start the pre-change build against the restored database and confirm it passes the compatibility gate.
 

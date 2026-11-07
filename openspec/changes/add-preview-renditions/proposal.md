@@ -41,7 +41,7 @@ In scope:
 
 - **Image renditions.** The bounded decoder produces downscaled WebP renditions for every ready page, original or derived, in the same decode command, never upscaling. The full-resolution PNG page stays as it is: same row, identity, dimensions and role as the coordinate and crop source.
 - **Crop renditions.** Observation crops are served at a requested rendition size, cut from the full page and then downscaled.
-- **Contracts and routes.** No API response changes shape. Clients derive rendition sizes from the page dimensions they already receive, and the preview and observation-crop routes gain optional `size` (and, for crops, `rev`) query parameters. Immutable preview and rendition bytes get private long-lived caching, and observation crops are validated by digest.
+- **Contracts and routes.** No JSON response changes shape. Clients derive rendition sizes from the page dimensions they already receive, and the preview and observation-crop routes gain optional `size` (and, for crops, `rev`) query parameters. Every image response becomes privately cacheable and is revalidated by digest, so repeat views cost a 304 while authorization is still checked each time. The generated route contract records the new media type, parameters and validators.
 - **Existing data.** Retained versions decoded before this change get renditions through a bounded backfill. Until then, the frontend falls back to the full page.
 - **Frontend.** A shared helper picks the rendition per surface with `srcset`/`sizes`. The viewer switches to the full page when zoomed beyond the largest rendition.
 
