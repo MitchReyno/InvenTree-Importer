@@ -74,7 +74,7 @@ The masthead SHALL be one bar over the electronics current (option A). The curre
 
 ### Requirement: Token-driven layout and type
 
-Every spacing, radius, shadow, type style, motion duration and easing, stacking layer, breakpoint, opacity and fixed size used by a component SHALL come from a design-system token where one exists. Component styles MUST NOT contain a literal equal to a token meant for that property (spacing tokens for margins and gaps, radius tokens for corners, size tokens for widths and heights, and so on). Values with no token, `calc()` adjustments of a token, grid track widths (`grid-template-*`), values marked with an annotated allow because their role has no token, and the masthead scene's palette and photo masks stay local.
+Every spacing, radius, shadow, type, motion, layer, breakpoint, opacity and fixed-size value used by a component SHALL come from a design-system token where one exists. Component styles MUST NOT contain a literal equal to a token meant for that property. The exceptions in design D11 stay local: values with no token, `calc()` of a token, grid track widths, annotated allows, the scene palette and photo masks.
 
 #### Scenario: Literal value refused
 
