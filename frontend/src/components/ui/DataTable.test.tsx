@@ -100,3 +100,40 @@ describe('BulkBar', () => {
     expect(onClear).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('BulkBar without a field', () => {
+  it('carries only the selection actions', async () => {
+    const onClear = vi.fn()
+    render(
+      <BulkBar count={2} onClear={onClear} extraActions={<button type="button">Merge</button>} />,
+    )
+    const bar = screen.getByRole('region', { name: 'Bulk edit' })
+    expect(bar).toHaveTextContent('2 selected')
+    expect(within(bar).queryByRole('textbox')).toBeNull()
+    expect(within(bar).queryByRole('button', { name: /Apply/ })).toBeNull()
+    await userEvent.click(within(bar).getByRole('button', { name: 'Clear selection' }))
+    expect(onClear).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('DataTable region and disabled selection', () => {
+  it('names a keyboard-scrollable region and locks the checkboxes while disabled', () => {
+    render(
+      <DataTable
+        caption="Lots"
+        region="Lot table"
+        columns={[{ id: 'name', header: 'Name' }]}
+        rows={[{ id: 'a', label: 'Packet A', cells: { name: { value: 'Packet A' } } }]}
+        selection={{
+          selected: new Set(),
+          onToggle: () => {},
+          onToggleAll: () => {},
+          disabled: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('region', { name: 'Lot table' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Select all rows' })).toBeDisabled()
+  })
+})

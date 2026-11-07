@@ -14,6 +14,7 @@ import {
   openWarnings,
 } from '../../operator/review-model'
 import { Pill } from '../ui/Pill'
+import { DataTable, type DataColumn, type DataRow } from '../ui/DataTable'
 
 export interface ReviewTableProps {
   batch: CaptureSnapshotDto
@@ -68,6 +69,15 @@ function partCell(batch: CaptureSnapshotDto, lot: OperatorLotDto) {
   return `${part.label}${chosen}`
 }
 
+const COLUMNS: DataColumn[] = [
+  { id: 'status', header: 'Status', nowrap: true },
+  { id: 'problems', header: 'Problems' },
+  { id: 'item', header: 'Item' },
+  { id: 'qty', header: 'Qty', nowrap: true },
+  { id: 'location', header: 'Location' },
+  { id: 'part', header: 'Part' },
+]
+
 /** A second projection of the same retained facts; selection here is explicit and per row. */
 export function ReviewTable({
   batch,
@@ -83,120 +93,61 @@ export function ReviewTable({
   const lots = lotIds
     .map((id) => review.lots.find((lot) => lot.lot_id === id))
     .filter((lot): lot is OperatorLotDto => lot !== undefined)
-  const allSelected = lots.length > 0 && lots.every((lot) => selected.has(lot.lot_id))
+  const rows: DataRow[] = lots.map((lot) => {
+    const capture = batch.lots.find((value) => value.id === lot.lot_id)!
+    const location = lotLocationFact(batch, capture, media)
+    const part = partCell(batch, lot)
+    return {
+      id: lot.lot_id,
+      label: lot.label,
+      cells: {
+        status: { value: '', content: <ReviewStateChip lot={lot} /> },
+        problems: { value: '', content: <Problems lot={lot} /> },
+        item: {
+          value: lot.label,
+          content: (
+            <ItemButton type="button" onClick={() => inspect(lot.lot_id)}>
+              {lot.label}
+            </ItemButton>
+          ),
+        },
+        qty: { value: display(capture.quantity, batch, 'quantity') },
+        location: {
+          value: `${location.value} · ${PROVENANCE_LABELS[location.provenance]}`,
+        },
+        part: {
+          value: part,
+          content: (
+            <>
+              {part}
+              {lot.shared_lot_ids.length > 0 && (
+                <SharedCount> ×{lot.shared_lot_ids.length + 1} lots</SharedCount>
+              )}
+            </>
+          ),
+        },
+      },
+    }
+  })
   return (
-    <Scroll role="region" aria-label="Lot table" tabIndex={0}>
-      <Table>
-        <caption>
-          Select rows to edit several at once. Per-lot overrides show as Override in the evidence
-          view.
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">
-              <input
-                type="checkbox"
-                aria-label="Select all shown lots"
-                checked={allSelected}
-                disabled={disabled || !lots.length}
-                onChange={() => toggleAll(lots.map((lot) => lot.lot_id))}
-              />
-            </th>
-            <th scope="col">Status</th>
-            <th scope="col">Problems</th>
-            <th scope="col">Item</th>
-            <th scope="col">Qty</th>
-            <th scope="col">Location</th>
-            <th scope="col">Part</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lots.map((lot) => {
-            const capture = batch.lots.find((value) => value.id === lot.lot_id)!
-            const location = lotLocationFact(batch, capture, media)
-            return (
-              <tr key={lot.lot_id} aria-selected={selected.has(lot.lot_id)}>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${lot.label}`}
-                    checked={selected.has(lot.lot_id)}
-                    disabled={disabled}
-                    onChange={() => toggle(lot.lot_id)}
-                  />
-                </td>
-                <td>
-                  <ReviewStateChip lot={lot} />
-                </td>
-                <td>
-                  <Problems lot={lot} />
-                </td>
-                <td>
-                  <ItemButton type="button" onClick={() => inspect(lot.lot_id)}>
-                    {lot.label}
-                  </ItemButton>
-                </td>
-                <td>{display(capture.quantity, batch, 'quantity')}</td>
-                <td>
-                  {location.value} · {PROVENANCE_LABELS[location.provenance]}
-                </td>
-                <td>
-                  {partCell(batch, lot)}
-                  {lot.shared_lot_ids.length > 0 && (
-                    <SharedCount> ×{lot.shared_lot_ids.length + 1} lots</SharedCount>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </Table>
+    <>
+      <DataTable
+        caption="Lots in this filter. Select rows to act on several at once."
+        region="Lot table"
+        columns={COLUMNS}
+        rows={rows}
+        selection={{
+          selected,
+          disabled,
+          onToggle: toggle,
+          onToggleAll: () => toggleAll(lots.map((lot) => lot.lot_id)),
+        }}
+      />
       {!lots.length && <Empty>No lots match this filter.</Empty>}
-    </Scroll>
+    </>
   )
 }
 
-const Scroll = styled.div`
-  overflow-x: auto;
-  max-width: 100%;
-  background: ${color.surface};
-  border: 1px solid ${color.line};
-  border-radius: 6px;
-  &:focus-visible {
-    outline: 3px solid ${color.accent};
-  }
-`
-const Table = styled.table`
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 860px;
-  caption {
-    padding: ${space[5]} ${space[6]};
-    text-align: left;
-    color: ${color.muted};
-    font-size: 13px;
-  }
-  th,
-  td {
-    padding: ${space[5]} ${space[6]};
-    text-align: left;
-    vertical-align: top;
-    border-top: 1px solid ${color.line};
-  }
-  thead th {
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: ${color.muted};
-  }
-  tr[aria-selected='true'] td {
-    background: ${color.accentWeak};
-  }
-  input[type='checkbox'] {
-    width: 20px;
-    height: 20px;
-  }
-`
 const ProblemList = styled.span`
   display: flex;
   flex-wrap: wrap;

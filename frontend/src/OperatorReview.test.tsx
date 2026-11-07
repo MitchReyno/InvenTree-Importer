@@ -376,12 +376,29 @@ test('a shared Part choice confirms every affected lot before saving', async () 
 })
 
 async function openTableAndSelect(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('tab', { name: 'Table' }))
+  await user.click(await screen.findByRole('button', { name: 'Table' }))
   expect(location.hash).toBe(`#${batchId}/review/lots/${b}?view=table`)
   const table = screen.getByRole('region', { name: 'Lot table' })
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet A' }))
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
 }
+
+test('the Table shows its selection bar above the rows only while lots are selected', async () => {
+  const user = userEvent.setup()
+  renderReview({ operator: operatorClient() })
+  await user.click(await screen.findByRole('button', { name: 'Table' }))
+  expect(screen.queryByRole('region', { name: 'Selected lots' })).toBeNull()
+  await openTableAndSelect(user)
+  const bar = screen.getByRole('region', { name: 'Selected lots' })
+  expect(bar).toHaveTextContent('2 selected')
+  expect(within(bar).getByRole('button', { name: 'Merge selected…' })).toBeEnabled()
+  expect(
+    bar.compareDocumentPosition(screen.getByRole('region', { name: 'Lot table' })) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+  await user.click(within(bar).getByRole('button', { name: 'Clear selection' }))
+  expect(screen.queryByRole('region', { name: 'Selected lots' })).toBeNull()
+})
 
 test('an uncertain dismissal retries the exact intent, then closes and reloads', async () => {
   const user = userEvent.setup()
@@ -474,11 +491,11 @@ test('a conflicting bulk edit keeps the local input and does not reapply', async
   expect(screen.getByLabelText('Exact pieces for every selected lot')).toHaveValue('9')
   expect(operator.bulkEdit).toHaveBeenCalledTimes(2)
   expect(reload).not.toHaveBeenCalled()
-  await user.click(screen.getByRole('tab', { name: 'Evidence' }))
+  await user.click(screen.getByRole('button', { name: 'Workspace' }))
   expect(screen.getByLabelText('Exact pieces for every selected lot')).toHaveValue('9')
   expect(location.hash).toContain('view=table')
   await user.click(screen.getByRole('button', { name: 'Discard bulk edits' }))
-  await user.click(screen.getByRole('tab', { name: 'Evidence' }))
+  await user.click(screen.getByRole('button', { name: 'Workspace' }))
   expect(screen.queryByLabelText('Exact pieces for every selected lot')).not.toBeInTheDocument()
 })
 
@@ -527,7 +544,7 @@ test('split sends exact decimal strings and merge requires explicit confirmation
   })
   await user.click(within(split).getByRole('button', { name: 'Discard restructure edits' }))
 
-  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Table' }))
   const table = screen.getByRole('region', { name: 'Lot table' })
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
   await user.click(within(table).getByRole('checkbox', { name: 'Select Bag half' }))
@@ -563,7 +580,7 @@ test('dirty lot drafts survive local navigation, keyboard movement and closing u
   await user.click(screen.getByRole('button', { name: 'Show Packet B' }))
   expect(quantity).toHaveValue('123')
   expect(location.hash).toContain(`/review/lots/${a}`)
-  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Table' }))
   expect(quantity).toHaveValue('123')
   quantity.blur()
   await user.keyboard('k')
@@ -587,12 +604,12 @@ test('closing a clean sibling editor cannot clear a warning draft guard', async 
   const reason = screen.getByLabelText('Why is this acceptable?')
   await user.type(reason, 'Keep this reason')
   await user.click(screen.getByRole('button', { name: 'Close lot editor' }))
-  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Table' }))
   expect(reason).toHaveValue('Keep this reason')
   expect(location.hash).toContain(`/review/lots/${b}`)
   expect(onDirtyChange).toHaveBeenLastCalledWith(true)
   await user.click(screen.getByRole('button', { name: 'Cancel' }))
-  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Table' }))
   expect(screen.getByRole('region', { name: 'Lot table' })).toBeVisible()
 })
 
@@ -803,7 +820,7 @@ test.each(['quick', 'bulk'] as const)(
     })
     expect(discard).toBeEnabled()
     await user.click(discard)
-    await user.click(screen.getByRole('tab', { name: kind === 'quick' ? 'Table' : 'Evidence' }))
+    await user.click(screen.getByRole('button', { name: kind === 'quick' ? 'Table' : 'Workspace' }))
     expect(edit).not.toHaveBeenCalled()
     expect(operator.bulkEdit).not.toHaveBeenCalled()
     expect(screen.queryByText(/Save or explicitly discard local edits/)).not.toBeInTheDocument()
@@ -1135,7 +1152,7 @@ test('switching between Workspace and Table keeps the same selection and filter'
   renderReview()
   await user.click(await screen.findByRole('checkbox', { name: 'Select Packet B' }))
   await user.click(screen.getByRole('checkbox', { name: 'Select Bag half' }))
-  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Table' }))
   const table = await screen.findByRole('region', { name: 'Lot table' })
 
   expect(within(table).getByRole('checkbox', { name: 'Select Packet B' })).toBeChecked()
@@ -1144,7 +1161,7 @@ test('switching between Workspace and Table keeps the same selection and filter'
 
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
   await user.click(screen.getByRole('button', { name: /^Changed/ }))
-  await user.click(screen.getByRole('tab', { name: 'Evidence' }))
+  await user.click(screen.getByRole('button', { name: 'Workspace' }))
 
   expect(screen.getByRole('checkbox', { name: 'Select Bag half' })).toBeChecked()
   expect(location.hash).toContain('filter=changed')
@@ -1219,13 +1236,13 @@ test('Needs answer lists only lots with an open question, in the Workspace and t
     ],
   } as unknown as ProcessingSnapshotDto
   renderReview({ processing: { read: vi.fn(async () => snapshot) } as unknown as ProcessingClient })
-  const chip = await screen.findByRole('button', { name: /^Needs answer 1/ })
+  const chip = await screen.findByRole('button', { name: 'Needs answer, 1' })
   await user.click(chip)
   const queue = screen.getByRole('region', { name: 'Physical lot review queue' })
 
   expect(within(queue).getByRole('button', { name: 'Show Packet A' })).toBeInTheDocument()
   expect(within(queue).queryByRole('button', { name: 'Show Packet B' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('tab', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Table' }))
   expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeInTheDocument()
   expect(screen.queryByRole('checkbox', { name: 'Select Packet B' })).not.toBeInTheDocument()
 })
@@ -1233,7 +1250,7 @@ test('Needs answer lists only lots with an open question, in the Workspace and t
 test('Needs answer says when open questions are unknown rather than counting none', async () => {
   const user = userEvent.setup()
   renderReview()
-  await user.click(await screen.findByRole('button', { name: /^Needs answer …/ }))
+  await user.click(await screen.findByRole('button', { name: 'Needs answer, not counted yet' }))
 
   expect(screen.getByText(/Open questions have not been read/)).toBeInTheDocument()
 })
@@ -1253,7 +1270,7 @@ test('a lot with an open question links to it even when no problem asks for an a
     ],
   } as unknown as ProcessingSnapshotDto
   renderReview({ processing: { read: vi.fn(async () => snapshot) } as unknown as ProcessingClient })
-  await user.click(await screen.findByRole('button', { name: /^Needs answer 1/ }))
+  await user.click(await screen.findByRole('button', { name: 'Needs answer, 1' }))
   await user.click(screen.getByRole('button', { name: 'Show Packet B' }))
 
   const links = await screen.findAllByRole('link', { name: 'Answer the open question' })

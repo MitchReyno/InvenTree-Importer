@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { subjectStatuses, type LotStatus } from '../../processing/source'
+import { SegmentedControl } from '../ui/SegmentedControl'
 import styled from 'styled-components'
 import { media } from '../ui/media'
-import { color, space, typeVar } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -432,19 +433,15 @@ export function ReviewWorkspace({
       )}
       {operatorReview && (
         <Toolbar>
-          <ModeSwitch role="tablist" aria-label="Review view">
-            {(['evidence', 'table'] as ReviewView[]).map((view) => (
-              <ModeTab
-                key={view}
-                type="button"
-                role="tab"
-                aria-selected={route.view === view}
-                onClick={() => navigate({ view })}
-              >
-                {view === 'evidence' ? 'Evidence' : 'Table'}
-              </ModeTab>
-            ))}
-          </ModeSwitch>
+          <SegmentedControl
+            label="Review view"
+            options={[
+              { id: 'evidence', label: 'Workspace' },
+              { id: 'table', label: 'Table' },
+            ]}
+            value={route.view}
+            onChange={(view) => navigate({ view: view as ReviewView })}
+          />
           <KeyboardHint>
             J/K move · R mark reviewed · E edit quantity · V view evidence
           </KeyboardHint>
@@ -619,25 +616,6 @@ const Toolbar = styled.div`
   flex-wrap: wrap;
   gap: ${space[4]} ${space[8]};
   margin-bottom: ${space[3]};
-`
-const ModeSwitch = styled.div`
-  display: inline-flex;
-  border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  overflow: hidden;
-`
-const ModeTab = styled.button`
-  min-height: 40px;
-  padding: ${space[4]} ${space[8]};
-  border: 0;
-  background: ${color.surface};
-  color: ${color.fg};
-  cursor: pointer;
-  &[aria-selected='true'] {
-    background: ${color.accentWeak};
-    color: ${color.accent};
-    font-weight: ${typeVar.bodyStrong.weight};
-  }
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;

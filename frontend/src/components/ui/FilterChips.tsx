@@ -4,7 +4,8 @@ import { formatCount, media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 import { hoverTransition } from './motion'
 
-export type FilterOption = { id: string; label: string; count: number }
+/** A null count is not known yet, such as before the read that counts it arrives. */
+export type FilterOption = { id: string; label: string; count: number | null }
 
 type FilterChipsProps = {
   label: string
@@ -27,11 +28,14 @@ export function FilterChips({ label, options, value, onChange }: FilterChipsProp
           key={option.id}
           type="button"
           aria-pressed={option.id === value}
-          aria-label={`${option.label}, ${formatCount(option.count)}`}
+          aria-label={`${option.label}, ${
+            option.count === null ? 'not counted yet' : formatCount(option.count)
+          }`}
           onClick={() => onChange(option.id)}
           {...optionProps(option.id)}
         >
-          {option.label} <ChipCount>{formatCount(option.count)}</ChipCount>
+          {option.label}{' '}
+          <ChipCount>{option.count === null ? '…' : formatCount(option.count)}</ChipCount>
         </Chip>
       ))}
     </Group>

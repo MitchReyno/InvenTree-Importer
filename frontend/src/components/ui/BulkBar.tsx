@@ -5,11 +5,13 @@ import { formatCount, media } from './media'
 
 type BulkBarProps = {
   count: number
-  field: string
+  /** Without a field and `onApply` the bar carries only the selection actions. */
+  field?: string
   value?: string
-  onApply: (value: string) => void
+  onApply?: (value: string) => void
   onClear: () => void
   extraActions?: ReactNode
+  label?: string
 }
 
 /** Applies one field value to every selected row; the apply label states its scope. */
@@ -20,18 +22,23 @@ export function BulkBar({
   onApply,
   onClear,
   extraActions,
+  label = 'Bulk edit',
 }: BulkBarProps) {
   const inputId = useId()
   const [draft, setDraft] = useState(value)
 
   return (
-    <Bar role="region" aria-label="Bulk edit">
+    <Bar role="region" aria-label={label}>
       <strong>{formatCount(count)} selected</strong>
-      <label htmlFor={inputId}>{field}</label>
-      <input id={inputId} value={draft} onChange={(event) => setDraft(event.target.value)} />
-      <BarButton type="button" onClick={() => onApply(draft)}>
-        Apply to {formatCount(count)}
-      </BarButton>
+      {field && onApply && (
+        <>
+          <label htmlFor={inputId}>{field}</label>
+          <input id={inputId} value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <BarButton type="button" onClick={() => onApply(draft)}>
+            Apply to {formatCount(count)}
+          </BarButton>
+        </>
+      )}
       {extraActions}
       <BarButton type="button" onClick={onClear}>
         Clear selection

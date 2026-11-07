@@ -24,6 +24,7 @@ export type TableSelection = {
   selected: ReadonlySet<string>
   onToggle: (rowId: string) => void
   onToggleAll: () => void
+  disabled?: boolean
 }
 
 type DataTableProps = {
@@ -32,6 +33,8 @@ type DataTableProps = {
   rows: DataRow[]
   selection?: TableSelection
   onCellEdit?: (rowId: string, columnId: string, value: string) => void
+  /** Names the scroll container as a region keyboard users can focus and scroll. */
+  region?: string
 }
 
 function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelection }) {
@@ -52,6 +55,7 @@ function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelec
         type="checkbox"
         aria-label="Select all rows"
         checked={all}
+        disabled={selection.disabled || rows.length === 0}
         onChange={selection.onToggleAll}
       />
     </Hit>
@@ -73,9 +77,16 @@ function CellContent({ cell, mono }: { cell: DataCell; mono: boolean }) {
 }
 
 /** A scrolling table; ◆ marks an override and an underline marks an edit, both also in words. */
-export function DataTable({ caption, columns, rows, selection, onCellEdit }: DataTableProps) {
+export function DataTable({
+  caption,
+  columns,
+  rows,
+  selection,
+  onCellEdit,
+  region,
+}: DataTableProps) {
   return (
-    <TableWrap>
+    <TableWrap {...(region && { role: 'region', 'aria-label': region, tabIndex: 0 })}>
       <Table>
         <VisuallyHidden as="caption">{caption}</VisuallyHidden>
         <thead>
@@ -105,6 +116,7 @@ export function DataTable({ caption, columns, rows, selection, onCellEdit }: Dat
                         type="checkbox"
                         aria-label={`Select ${row.label}`}
                         checked={selected}
+                        disabled={selection.disabled}
                         onChange={() => selection.onToggle(row.id)}
                       />
                     </Hit>
