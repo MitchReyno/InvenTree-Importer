@@ -2,7 +2,7 @@ import styled, { css } from 'styled-components'
 import { color, size, space } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
-import { Spinner } from './Progress'
+import { Spinner } from './Loading'
 import { hoverTransition } from './motion'
 
 export type TabBadge = { label: string; tone: 'warn' | 'bad' | 'ok' }

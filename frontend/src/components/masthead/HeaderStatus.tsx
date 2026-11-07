@@ -2,7 +2,7 @@ import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
-import { Spinner } from '../ui/Progress'
+import { Spinner } from '../ui/Loading'
 import type { HeaderClient } from '../../header/types'
 import { useHeaderObservations } from '../../header/useHeaderObservations'
 import {

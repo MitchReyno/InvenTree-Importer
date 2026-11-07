@@ -2,7 +2,7 @@ import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, ring, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
-import { Skeleton } from './Progress'
+import { Skeleton } from './Loading'
 
 export type EvidenceKind = 'photo' | 'document'
 export type PreviewState = 'ready' | 'preparing' | 'failed'

@@ -1,7 +1,8 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import { media } from './media'
-import { motion, stillWhenReduced } from './motion'
+import { motion } from './motion'
+import { VisuallyHidden } from './VisuallyHidden'
 
 export type StepState = 'done' | 'running' | 'waiting'
 
@@ -42,26 +43,6 @@ export function ProgressSegments({ steps, size = 'sm' }: ProgressSegmentsProps) 
   )
 }
 
-export function Spinner({ size = 12 }: { size?: number }) {
-  return <SpinnerRing aria-hidden="true" style={{ width: size, height: size }} />
-}
-
-export function Skeleton({ width, height }: { width: string; height: string }) {
-  return <SkeletonBlock aria-hidden="true" style={{ width, height }} />
-}
-
-export const VisuallyHidden = styled.span`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-`
-
 const Segments = styled.span<{ $size: 'sm' | 'lg' }>`
   display: flex;
   gap: ${space[1]};
@@ -71,6 +52,7 @@ const Segments = styled.span<{ $size: 'sm' | 'lg' }>`
 
 const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   display: block;
+  /* literal-allowed: a small segment's width, not a glyph box; no token has this role */
   width: ${({ $size }) => ($size === 'lg' ? 'auto' : '14px')};
   flex: ${({ $size }) => ($size === 'lg' ? '1' : 'none')};
   height: ${({ $size }) => ($size === 'lg' ? '8px' : '6px')};
@@ -96,23 +78,4 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
       animation: none;
     }
   }
-`
-
-const SpinnerRing = styled.span`
-  display: inline-block;
-  flex: none;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: ${radius.round};
-  ${motion.spin}
-  ${stillWhenReduced}
-`
-
-const SkeletonBlock = styled.span`
-  display: block;
-  border-radius: ${radius.thumb};
-  background: linear-gradient(90deg, ${color.surface2}, ${color.line}, ${color.surface2});
-  background-size: 200% 100%;
-  ${motion.sweep}
-  ${stillWhenReduced}
 `

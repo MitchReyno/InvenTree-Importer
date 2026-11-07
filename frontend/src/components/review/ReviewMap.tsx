@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { VisuallyHidden } from '../ui/Progress'
+import { VisuallyHidden } from '../ui/VisuallyHidden'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { reviewMap } from '../../operator/review-map'
 import { color, radius, space, type } from '../../theme/generated/tokens'

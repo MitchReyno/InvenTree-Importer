@@ -10,7 +10,7 @@ import styled, { css } from 'styled-components'
 import { color, opacity, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { hoverTransition } from './motion'
-import { Spinner } from './Progress'
+import { Spinner } from './Loading'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'warn' | 'link'
 export type ButtonSize = 'sm' | 'md' | 'lg'

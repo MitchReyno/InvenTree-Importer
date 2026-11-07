@@ -2,8 +2,8 @@ import { useId, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, space, type } from '../../theme/generated/tokens'
 import { hoverTransition, motion, stillWhenReduced } from './motion'
-import type { StepState } from './Progress'
-import { VisuallyHidden } from './Progress'
+import type { StepState } from './ProgressSegments'
+import { VisuallyHidden } from './VisuallyHidden'
 
 type PhaseRowProps = {
   state: StepState

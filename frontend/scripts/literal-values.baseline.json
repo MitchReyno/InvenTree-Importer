@@ -312,7 +312,6 @@
   "components/ui/Pill.tsx | font-size | 11px": 1,
   "components/ui/primitives.tsx | font-weight | 500": 1,
   "components/ui/primitives.tsx | width | 20px": 1,
-  "components/ui/Progress.tsx | width | 14px": 1,
   "components/ui/QuestionCard.tsx | font-size | 11px": 1,
   "components/ui/RecordChain.tsx | font-size | 12px": 1,
   "components/ui/SessionChat.tsx | font-size | 11px": 1,
