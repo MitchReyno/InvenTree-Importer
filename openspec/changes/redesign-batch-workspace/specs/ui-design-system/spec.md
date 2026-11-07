@@ -74,7 +74,7 @@ The masthead SHALL be one bar over the electronics current (option A). The curre
 
 ### Requirement: Token-driven layout and type
 
-Every spacing, radius, shadow, type style, stacking layer, breakpoint, opacity and fixed size used by a component SHALL come from a design-system token where one exists. Component styles MUST NOT contain those values as literals, except where the design system keeps them local: the masthead scene's palette and photo masks.
+Every spacing, radius, shadow, type style, motion duration and easing, stacking layer, breakpoint, opacity and fixed size used by a component SHALL come from a design-system token where one exists. Component styles MUST NOT contain a literal equal to a token. Values with no token, and the masthead scene's palette and photo masks, stay local.
 
 #### Scenario: Literal value refused
 
