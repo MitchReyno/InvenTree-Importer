@@ -12,6 +12,22 @@ import { media } from './media'
 import { hoverTransition } from './motion'
 import { Spinner } from './Loading'
 
+/** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
+export const linkTouchArea = css`
+  ${media.compact} {
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, ${size.touch});
+      height: ${size.touch};
+      transform: translate(-50%, -50%);
+    }
+  }
+`
+
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'warn' | 'link'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
@@ -209,23 +225,7 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   ${media.compact} {
     min-height: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
   }
-  /* A link keeps its line height; an invisible box gives it the touch-size hit area. */
-  ${({ $variant }) =>
-    $variant === 'link' &&
-    css`
-      ${media.compact} {
-        position: relative;
-        &::after {
-          content: '';
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: max(100%, ${size.touch});
-          height: ${size.touch};
-          transform: translate(-50%, -50%);
-        }
-      }
-    `}
+  ${({ $variant }) => $variant === 'link' && linkTouchArea}
 `
 
 const Glyph = styled.span`

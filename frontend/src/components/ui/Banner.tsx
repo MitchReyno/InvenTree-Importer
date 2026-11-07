@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, icon, radius, space, typeVar } from '../../theme/generated/tokens'
+import { linkTouchArea } from './Button'
 
 export type BannerTone = 'info' | 'warn' | 'bad' | 'ok' | 'plain'
 
@@ -53,6 +54,7 @@ const Body = styled.div<{ $tone: BannerTone }>`
   a {
     color: inherit;
     font-weight: ${typeVar.bodyStrong.weight};
+    ${linkTouchArea}
   }
   ${({ $tone }) => css`
     background: ${grounds[$tone]};
