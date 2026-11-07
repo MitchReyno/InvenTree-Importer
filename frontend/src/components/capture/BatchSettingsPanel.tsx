@@ -396,11 +396,18 @@ export function BatchSettingsPanel({
 
   const [open, setOpen] = useState(false)
   const fields = useRef<HTMLFormElement>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const foldFocused = useRef(false)
   // Folding at the breakpoint must not hide the field being edited, so the fold opens instead.
   useEffect(() => {
     if (collapsible && fields.current?.contains(document.activeElement)) {
       setOpen(true)
     }
+    // The fold button leaves with the phone layout; its focus moves to the plain heading.
+    if (!collapsible && foldFocused.current && document.activeElement === document.body) {
+      heading.current?.focus()
+    }
+    foldFocused.current = false
   }, [collapsible])
   const summary = settingsSummary(batch, values)
   const titleInvalid = !values.title.trim()
@@ -413,6 +420,14 @@ export function BatchSettingsPanel({
           <Heading id="batch-settings-title">
             <Fold
               type="button"
+              onFocus={() => {
+                foldFocused.current = true
+              }}
+              onBlur={(event) => {
+                if (event.relatedTarget) {
+                  foldFocused.current = false
+                }
+              }}
               aria-expanded={open}
               aria-controls="batch-settings-fields"
               onClick={() => setOpen(!open)}
@@ -422,7 +437,9 @@ export function BatchSettingsPanel({
             </Fold>
           </Heading>
         ) : (
-          <Heading id="batch-settings-title">Batch settings</Heading>
+          <Heading id="batch-settings-title" ref={heading} tabIndex={-1}>
+            Batch settings
+          </Heading>
         )}
         <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
       </Head>

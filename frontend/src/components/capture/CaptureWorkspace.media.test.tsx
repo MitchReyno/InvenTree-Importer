@@ -510,3 +510,36 @@ test('focus in the lots glance survives crossing the phone breakpoint', () => {
   expect(document.activeElement).toHaveAttribute('href', map.getAttribute('href'))
   delete (window as { matchMedia?: unknown }).matchMedia
 })
+
+test('focus on the settings fold moves to the heading when the phone layout ends', () => {
+  let phone = true
+  const listeners = new Set<() => void>()
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        get matches() {
+          return phone && query.includes('max-width')
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  screen.getByRole('button', { name: /^Batch settings/ }).focus()
+  act(() => {
+    phone = false
+    listeners.forEach((listener) => listener())
+  })
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Batch settings' }))
+  delete (window as { matchMedia?: unknown }).matchMedia
+})
