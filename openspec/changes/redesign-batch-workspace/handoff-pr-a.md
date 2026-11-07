@@ -269,6 +269,6 @@ All motion stops under `prefers-reduced-motion: reduce`, except the spinner, whi
 
 - Every component above has component tests for its variants, states, keyboard behaviour and accessible name.
 - The contrast script passes in both themes; the literal-colour check passes (`photo-scrim` removes the photo exceptions).
-- Browser screenshots of a component gallery page and the masthead at 1440px, 860px and 390px, plus 200% zoom, in both themes, recorded in the handover.
+- Browser screenshots of a component gallery page and the masthead at 1440px, 860px and 390px, plus 200% zoom, in both themes, recorded in a handover, since replaced by the [notes](notes.md).
 - Masthead frame sampling shows no part pixels over text boxes in either theme, and the reduced-motion still frame shows.
 - Existing frontend tests stay green with no behaviour change. The only test edits allowed in PR-A are styling assertions: the hex dot colours in `HeaderStatus.test.tsx`, and masthead layout and slot assertions in `Masthead.test.tsx` and `App.test.tsx` for the moved Agent settings link.

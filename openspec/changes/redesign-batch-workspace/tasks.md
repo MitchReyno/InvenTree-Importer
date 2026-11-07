@@ -62,7 +62,7 @@ Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 
 | PR-C | Processing Overview, step pages and session drawer over the `ProcessingSource` adapter; Agents page | 7, 12 | Both present agent work from one adapter and can be qualified with the fixture profile. | PR-B | `interactive-app` ← `feat/redesign-batch-workspace-processing`; `feat(redesign-batch-workspace): processing overview and step pages` | Frontend checks; fixture-profile browser check; review; CI |
 | PR-D | Review Lots (Workspace and Table) and Map | 8 | The lot-centred half of Review, independent of record editing. | PR-B | `interactive-app` ← `feat/redesign-batch-workspace-review-lots`; `feat(redesign-batch-workspace): review lots and map` | Frontend checks; browser check; review; CI |
 | PR-E | Record edits on capture authority, records projection, and the Records UI | 9–10 | Backend and UI for one capability, reviewable together; the server half has its own integration tests. | PR-B (UI); task 9 may start earlier | `interactive-app` ← `feat/redesign-batch-workspace-records`; `feat(redesign-batch-workspace): review and edit records` | Contracts, intake and PostgreSQL tests; frontend checks; browser check; review; CI |
-| PR-F | Preparation tree, Changes Ready to add (By type and Tree) and Added; removal of the old Approve and Results screens | 11, 13 | Commits the batch on the existing authority, and ends the migration by removing the old screens. Documentation and qualification close the change. | PR-D, PR-E | `interactive-app` ← `feat/redesign-batch-workspace-changes`; `feat(redesign-batch-workspace): changes ready to add and added` | All checks; full browser qualification recorded in the handover; review; CI |
+| PR-F | Preparation tree, Changes Ready to add (By type and Tree) and Added; removal of the old Approve and Results screens | 11, 13 | Commits the batch on the existing authority, and ends the migration by removing the old screens. Documentation and qualification close the change. | PR-D, PR-E | `interactive-app` ← `feat/redesign-batch-workspace-changes`; `feat(redesign-batch-workspace): changes ready to add and added` | All checks; full browser qualification (recorded in a handover, since replaced by the [notes](notes.md)); review; CI |
 | PR-G | Task 14: the `ProcessingSource` adapter for BI-006's sessions and observations, live sessions on Processing and Agents, Tell Examine and region-level Map links, Ask, and BI-006's catalogue proposals in the records projection | 14 | One conditional PR after the screens it switches on exist, so nothing ships before its adapter or screen | PR-C, PR-D, PR-E, and BI-006's contracts on `interactive-app` | `interactive-app` ← `feat/redesign-batch-workspace-agent-data`; `feat(redesign-batch-workspace): wire agent sessions, observations and proposals` | `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks; synthetic-session browser check; review; CI |
 | PR-H | Tokens v2 in the app, the screenshot-diff check and the literal-value lint baseline; the component library on tokens, one Button, Dialog and Popover surfaces, and the library's visual gaps | 15 | The foundation the area PRs build on, and their safety net | PR-G. Merges before PR-I, PR-J and PR-K. | `interactive-app` ← `feat/redesign-batch-workspace-styling-foundation`; `feat(redesign-batch-workspace): token foundation and component library` | Frontend checks; contrast script; screenshot diff unchanged for the token-swap commit; before-and-after screenshots; demo video; review; CI |
 | PR-I | App shell widths and global CSS, masthead and header popovers, the batch header band, Batches, Agents and settings | 16 | The frame every screen sits in | PR-H | `interactive-app` ← `feat/redesign-batch-workspace-styling-shell`; `feat(redesign-batch-workspace): restyle app shell, masthead, batches and agents` | As PR-H |
@@ -287,13 +287,13 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 
 - **PR delivery:** PR-F.
 - **Outcome:** documentation matches the code, and browser evidence exists for every redesigned screen.
-- **Scope:** `frontend/ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`, `frontend/README.md`, `docs/handovers/redesign-batch-workspace.md`.
+- **Scope:** `frontend/ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`, `frontend/README.md`, and a handover, since replaced by the [notes](notes.md).
 - **Acceptance:** all specs in their pre-BI-006 forms, browser evidence. Step 14.8 records the session and proposal scenarios.
 - **TDD approach:** Documentation only, so test-first does not apply. It is verified by checking each statement against the merged code, plus the markdown lint.
-- **Verification:** headless screenshots of each canvas screen in both themes at 1440, 860 and 390 and 200%, against the owned fake and the fixture profile, linked from the handover, with stated limits (no live provider, no real InvenTree).
+- **Verification:** headless screenshots of each canvas screen in both themes at 1440, 860 and 390 and 200%, against the owned fake and the fixture profile, with stated limits (no live provider, no real InvenTree).
 
 - [x] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
-- [x] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
+- [x] 13.2 Record the browser qualification and any deviations from the canvas (in a handover, since replaced by the [notes](notes.md)).
 
 ## 14. BI-006 sessions, observations and proposals (conditional)
 
@@ -312,7 +312,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
 - [x] 14.6 Turn on Ask on Records.
 - [x] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
-- [x] 14.8 Record the browser check of every screen above in the handover.
+- [x] 14.8 Record the browser check of every screen above (in a handover, since replaced by the [notes](notes.md)).
 
 ## 15. Token foundation and component library
 

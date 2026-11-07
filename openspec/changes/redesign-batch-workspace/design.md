@@ -261,10 +261,10 @@ browser ──CaptureEdit{record}──▶ capture repository (CAS on batch revi
 | Record edits | Server integration tests on the owned database for every operation: CAS 412, fan-out to multiple Parts in one transaction, `lotReviewState` returning `changed_after_review` for reviewed lots of an edited Part, `set_category` refusal for unmapped parameters, and re-validation failures, role-mismatched company maps, `map_template` refusal for Parts without a category mapping, and clearing a description. Part description: an existing frozen-plan fixture without a description decodes with unchanged digests, and a description reaches the owned fake and is confirmed. The tree route reads a stored preparation of each plan version, and leaves replayed preparation results byte-identical. |
 | Contracts | Schema and OpenAPI tests for `record`, records, attention and the preparation tree. |
 | Tree | Keyboard tests following the WAI-ARIA tree pattern, and a property test that the tree and By type views have equal node counts per state. |
-| Screens | Component tests for each new screen with fixture data. Headless-browser screenshots of each canvas screen in both themes at 1440 px, 860 px and 390 px, plus 200% zoom, against the owned fake. Results go in the handover. |
+| Screens | Component tests for each new screen with fixture data. Headless-browser screenshots of each canvas screen in both themes at 1440 px, 860 px and 390 px, plus 200% zoom, against the owned fake. Results go in each PR's description, and departures from the plan in the [notes](notes.md). |
 | Masthead | A browser check that, in both themes, no part pixel overlaps the text boxes (sampled frames) and the reduced-motion still frame shows. |
 | Styling uplift | Generator contract tests for every token family. The extended literal-value lint, against its shrinking baseline and finally strict. The screenshot diff, which must show no change for a token-swap commit. Before-and-after screenshots of every changed screen in both themes at 1440 and 390 px, plus 860 px and 200% zoom where layouts change. |
-| Excluded | Live provider sessions and real InvenTree. These are synthetic or fixture only, and the handover says so. |
+| Excluded | Live provider sessions and real InvenTree. These are synthetic or fixture only, and the PR descriptions and [notes](notes.md) say so. |
 
 ## Migration, rollout and recovery
 
