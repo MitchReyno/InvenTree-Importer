@@ -109,6 +109,21 @@ Write each paragraph/list item on one source line and rely on soft wrap. Preserv
 
 Keep shared architecture/guidance at root and application contracts in their owning documents. Audit active links and anchors when moving sections. Keep the distinction between plans, observed behavior and untested capability. Architecture documents describe the current code; put validation results in the PR description and implementation history in the owning change's `notes.md`.
 
+### Evidence goes on the PR
+
+Do not commit evidence: screenshots, browser or video captures, recorded command, probe or benchmark output, and review receipts. Attach it to the PR description instead: upload images and video through GitHub's attachment upload (for example `github-pr-tools` `--attach`), and use fenced blocks for trimmed text output. When there are three or more items, put them in one collapsible section:
+
+```html
+<details>
+<summary>Evidence (5 items)</summary>
+
+...
+
+</details>
+```
+
+Notes, specs and architecture documents link to the PR rather than to evidence files. Data that a test reads is a fixture, not evidence: keep it with the tests.
+
 Keep mirrored skills/host-adapted agents synchronized per AGENTS. Use relative paths and named skills, never machine-specific config.
 
 ### Publish focused changes

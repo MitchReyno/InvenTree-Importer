@@ -38,7 +38,7 @@ These are handled by a follow-up change, `baseline-specs`, not by this one, beca
 | `docs/bench-intake/01`–`07` | Whole-application design written before implementation; its banner still says "proposed, not implemented" | Convert still-true requirements into baseline specs, checked against the code, then delete. |
 | `docs/bench-intake/08-implementation-plan.md`, `09-package-candidates.md` | T00–T10 task plan and package shortlist; delivered | Delete; no requirements to carry over. |
 | `docs/bench-intake/reference/` | Original mockups | Keep: used by the formatting tests, pre-commit and current changes. |
-| `docs/bench-intake/evidence/` | Browser evidence per task | Keep for now; notes and architecture link to it. Review in the follow-up. |
+| `docs/bench-intake/evidence/` | Browser evidence per task | Removed after this change; evidence now goes on PRs, and links point to permalinks at `e3ac646`. |
 | `docs/typescript-data-model/` | Logical schema proposal; the Drizzle schema now owns it | Carry invariants into baseline specs, then delete. |
 | `docs/intake-design.md`, `docs/intake-plan.md` | Post-spike proposal and plan, superseded by the TypeScript design | Delete; repoint `ARCHITECTURE.md`. |
 | `docs/import-execution-design.md`, `-contracts.md`, `-plan.md` | Python durable-import design, contracts and stage plan (stage 7 complete) | Convert contracts into baseline specs for the backend import; delete the plan and design; update `AGENTS.md` and `backend/` references. |

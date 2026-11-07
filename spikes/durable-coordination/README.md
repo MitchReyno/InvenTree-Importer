@@ -4,7 +4,7 @@ This is the isolated Stage 1B Django/PostgreSQL/DBOS spike, not an application s
 
 ## Reproduce
 
-Use Python 3.12, uv and installed PostgreSQL **14 or later** binaries (`initdb` and `pg_ctl`) on PATH. The tested versions are recorded in [process-probe.json](evidence/process-probe.json). The local Python manifest/lock isolate these dependencies from `backend/`; do not add them to the backend manifest merely to run this investigation.
+Use Python 3.12, uv and installed PostgreSQL **14 or later** binaries (`initdb` and `pg_ctl`) on PATH. The tested versions are recorded in [process-probe.json](https://github.com/MitchReyno/InvenTree-Importer/blob/e3ac646/spikes/durable-coordination/evidence/process-probe.json). The local Python manifest/lock isolate these dependencies from `backend/`; do not add them to the backend manifest merely to run this investigation.
 
 From repository root:
 
@@ -34,4 +34,4 @@ For inspecting a retained owned cluster, PostgreSQL's `pg_ctl -D <state>/pg stat
 - A counted answer creates a different immutable input and `attempt-2`, atomically with its own outbox item. This authored simulation accepts only the fixture's counted-20 answer; it is not a general human-input parser. Obsolete answer revision, actor mismatch, old attempt and old input results are rejected.
 - Restart after the application result commits but before the DBOS step checkpoint replays the step without a second accepted emission. Explicit `coordination-v1`/`coordination-v2` version fencing keeps old ENQUEUED and PENDING work from the incompatible-version process; restoring the compatible version drains it. Version labels exercise fencing, not the correctness of an arbitrary future code migration.
 
-[state.sh](state.sh) prints read-only review state. The evidence JSON is an observed run, not a guarantee about remote side effects, arbitrary provider sessions, production availability, backup/restore or distributed ownership.
+[state.sh](state.sh) prints read-only review state. The [recorded evidence JSON](https://github.com/MitchReyno/InvenTree-Importer/tree/e3ac646/spikes/durable-coordination/evidence) from the original run, kept at `e3ac646`, is an observed run, not a guarantee about remote side effects, arbitrary provider sessions, production availability, backup/restore or distributed ownership.

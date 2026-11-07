@@ -30,7 +30,7 @@ Nothing here contacts a model provider or reads a real credential. Both CLI harn
   - `thread/resume` in a new process.
   - What `request_user_input` does.
 
-`evidence/` holds the recorded output, with temporary paths replaced by `<tmp>`.
+The recorded output from the original run, with temporary paths replaced by `<tmp>`, is kept at [`e3ac646`](https://github.com/MitchReyno/InvenTree-Importer/tree/e3ac646/spikes/mcp-session-tools/evidence). A new run prints its output; attach it to the PR description rather than committing it.
 
 ## Running it
 

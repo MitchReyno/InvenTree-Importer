@@ -22,8 +22,8 @@ BI-001 was delivered in three PRs: tasks 1–2 in [#75](https://github.com/Mitch
 ## Decisions made during implementation
 
 - **Task 1 (PR-A):** current human context reaches Processing as labelled context notes in the existing untrusted human-note input fields. The frozen `/1`–`/4` input shapes stay unchanged. Context never becomes an executor supplier or tag choice. Scoped group and evidence context uses a new `media-inputs/3` without rewriting `/1` or `/2`.
-- **Task 3 (PR-B):** right-side desktop settings were chosen over placing them above the content. At 1440 CSS pixels, evidence starts at y214 instead of y1201. The comparison is in [capture-settings evidence](../../../../docs/bench-intake/evidence/capture-settings/).
-- **Task 4 (PR-C):** drag and drop uses `@dnd-kit/react@0.5.3` rather than the 6.x core API, which upstream now marks as legacy. Pointer, keyboard and touch all call the same atomic multi-move command. The rejected options are recorded in [grouped-evidence evidence](../../../../docs/bench-intake/evidence/grouped-evidence/README.md).
+- **Task 3 (PR-B):** right-side desktop settings were chosen over placing them above the content. At 1440 CSS pixels, evidence starts at y214 instead of y1201. The comparison is in [capture-settings evidence](https://github.com/MitchReyno/InvenTree-Importer/tree/e3ac646/docs/bench-intake/evidence/capture-settings).
+- **Task 4 (PR-C):** drag and drop uses `@dnd-kit/react@0.5.3` rather than the 6.x core API, which upstream now marks as legacy. Pointer, keyboard and touch all call the same atomic multi-move command. The rejected options are recorded in [grouped-evidence evidence](https://github.com/MitchReyno/InvenTree-Importer/blob/e3ac646/docs/bench-intake/evidence/grouped-evidence/README.md).
 - **Task 4 (PR-C):** after an upload, group assignment is a separate command. If membership fails, the retained original stays Ungrouped and selected for reconciliation, and it is never uploaded again.
 
 ## Open items
