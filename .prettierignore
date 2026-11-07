@@ -21,6 +21,7 @@
 **/migrations/**
 docs/**
 spikes/**
+openspec/changes/**/spikes/**
 backend/**
 
 # Mirrored workflow assets are outside this web-tooling rollout.

@@ -1,6 +1,6 @@
 # Implemented intake application
 
-T01 adds the Fastify/TypeScript foundation and `contracts`; T02 connects the React browser to retained manual capture. Merged T03 adds a separately supervised fake-only stock executor. T04 connects exact manual review, frozen preparation, approval, explicit dispatch and truthful results. No component calls Python, and capture alone grants no inventory-write authorization. [The approved implementation plan](../docs/bench-intake/08-implementation-plan.md) remains authoritative for later work.
+T01 adds the Fastify/TypeScript foundation and `contracts`; T02 connects the React browser to retained manual capture. Merged T03 adds a separately supervised fake-only stock executor. T04 connects exact manual review, frozen preparation, approval, explicit dispatch and truthful results. No component calls Python, and capture alone grants no inventory-write authorization. Required behavior is in the [main specs](../openspec/specs/), and later work is planned as OpenSpec changes.
 
 ## Public boundaries and process ownership
 

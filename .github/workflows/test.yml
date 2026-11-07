@@ -91,6 +91,8 @@ jobs:
         run: pnpm --filter @invimport/contracts test
       - name: Test development supervisor policies
         run: pnpm test:dev
+      - name: Test the OpenSpec sync overlap check
+        run: pnpm test:openspec
       - name: Test public HTTP and protected-target boundaries
         run: pnpm --filter @invimport/intake-server test
 

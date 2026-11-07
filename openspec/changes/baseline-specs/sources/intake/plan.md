@@ -1,6 +1,6 @@
 # Bench Intake — revised delivery plan
 
-Status: proposed on 2026-11-01 after the independently reviewed Stage 1 investigations. Read the [reconciled design](intake-design.md) for evidence, decisions and authority boundaries. This plan supersedes the older Stage 0-in-progress and generic-main-target assumptions, not the product's approval, source-identity or uncertainty requirements. It does not start production implementation or authorize live inventory writes.
+Status: proposed on 2026-11-01 after the independently reviewed Stage 1 investigations. Read the [reconciled design](design.md) for evidence, decisions and authority boundaries. This plan supersedes the older Stage 0-in-progress and generic-main-target assumptions, not the product's approval, source-identity or uncertainty requirements. It does not start production implementation or authorize live inventory writes.
 
 ## Delivery and publication
 
@@ -89,4 +89,4 @@ Retain every earlier safety requirement; the evidence column deliberately limits
 | Incompatible workflow code                                    | 1B version fencing and compatible drain                     | Deployment/retention procedure, not arbitrary migration                          |
 | Backup predates remote effects                                | Not proved                                                  | Coherent restore/reconciliation exercise before live release                     |
 
-Human decisions still gate final runner host/auth route, any remote/OAuth deployment, final package pins, retention/access roles and pilot permission. No dates, throughput targets or automatic production start are committed by this plan. Keep the separate [importer execution plan](import-execution-plan.md) authoritative for engine internals; this application plan neither replaces its safeguards nor changes the legacy CLI default.
+Human decisions still gate final runner host/auth route, any remote/OAuth deployment, final package pins, retention/access roles and pilot permission. No dates, throughput targets or automatic production start are committed by this plan. Keep the separate [importer execution plan](../import-execution/plan.md) authoritative for engine internals; this application plan neither replaces its safeguards nor changes the legacy CLI default.

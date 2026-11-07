@@ -12,6 +12,7 @@ export default [
       '**/.temp/**',
       'backend/**',
       'spikes/**',
+      'openspec/changes/**/spikes/**',
       'docs/**',
       '.agents/**',
       '.claude/**',

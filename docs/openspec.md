@@ -37,6 +37,8 @@ openspec status --change change-name --json
 openspec instructions proposal --change change-name --json
 ```
 
+Before syncing or archiving a change, run `pnpm openspec:overlap --change change-name`. It fails when the change would add a requirement name that already exists, or modify or remove a requirement that is missing or that another active change also edits. It warns when another active change touches the same capability, because the sync order then decides which change wins. Add `--new-capabilities-only` for a change that must not touch existing capabilities, such as `baseline-specs`.
+
 Use the correct repository root and preserve CLI-resolved output paths and artifact scope. Structural validation does not establish artifact quality, approval, provider behavior or inventory-write authority.
 
 ## Maintenance and qualification

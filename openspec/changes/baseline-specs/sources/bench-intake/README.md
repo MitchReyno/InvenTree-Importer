@@ -8,7 +8,7 @@ Status: **proposed, not implemented**. Prepared on 2026-11-01. At Mitch's reques
 
 ## Read the design
 
-Read the summary here, then the chapters below. Diagrams and wireframes show proposed responsibilities and behavior, not running services. The current application remains the [browser-local scaffold and Python importer](../../ARCHITECTURE.md).
+Read the summary here, then the chapters below. Diagrams and wireframes show proposed responsibilities and behavior, not running services. The current application remains the [browser-local scaffold and Python importer](../../../../../ARCHITECTURE.md).
 
 | Chapter | Questions answered |
 | --- | --- |
@@ -76,7 +76,7 @@ Exact package versions, first supported host/provider and target compatibility r
 | Stage 1E | Clean bounded independent review; reviewer reproduced 44 combined/shared cases with real owned PostgreSQL/process state | New inference, production authentication, durable SSE, restore or live-target compatibility |
 | This design | Product traceability, proposed interfaces and reviewable diagrams | Any implemented API, schema migration, performance result or operational guarantee |
 
-The prior [reconciled design](../intake-design.md) and [plan](../intake-plan.md) retain their historical Python/spike evidence and safety gates. For this proposed TypeScript application, this package supersedes their Python/Django/SQLite-reuse recommendations, not their evidence or safety requirements. The companion [TypeScript data model](../typescript-data-model/README.md) is the logical schema authority; this package owns product, process, API, UX and delivery design. Resolve disagreements explicitly before implementation. Nothing relaxes the [existing execution contracts](../import-execution-contracts.md). Stage 1E [PR #33](https://github.com/MitchReyno/InvenTree-Importer/pull/33) merged into the shared-contract dependency, not proof of a TypeScript implementation. Application implementation remains paused.
+The prior [reconciled design](../intake/design.md) and [plan](../intake/plan.md) retain their historical Python/spike evidence and safety gates. For this proposed TypeScript application, this package supersedes their Python/Django/SQLite-reuse recommendations, not their evidence or safety requirements. The companion [TypeScript data model](../typescript-data-model/README.md) is the logical schema authority; this package owns product, process, API, UX and delivery design. Resolve disagreements explicitly before implementation. Nothing relaxes the [existing execution contracts](../import-execution/contracts.md). Stage 1E [PR #33](https://github.com/MitchReyno/InvenTree-Importer/pull/33) merged into the shared-contract dependency, not proof of a TypeScript implementation. Application implementation remains paused.
 
 ## Design principles
 

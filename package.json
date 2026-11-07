@@ -38,11 +38,12 @@
     "test:scanner": "uv run --directory backend --extra scanner pytest -m tui",
     "test:all": "uv run --directory backend --extra scanner pytest -m \"\" && pnpm run test:frontend && pnpm run test:intake",
     "workflow-sync": "uv run --directory backend pytest tests/test_project_workflow_sync.py",
-    "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py",
     "lint:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --max-warnings 0",
     "test:readability": "node --test tooling/tests/readability.test.mjs",
     "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0",
     "dev:ui": "pnpm --filter @invimport/frontend dev",
+    "test:openspec": "node --test tooling/tests/openspec-overlap.test.mjs",
+    "openspec:overlap": "node tooling/openspec/overlap.mjs",
     "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs"
   },
   "devDependencies": {

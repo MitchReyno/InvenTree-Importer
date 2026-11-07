@@ -48,7 +48,6 @@ pnpm demo --help           # synthetic loopback demonstration commands
 pnpm workflow-sync        # mirrored skill/agent consistency
 pnpm test:scanner         # scanner extra and scanner/TUI suite
 pnpm test:all              # normal/scanner, frontend and fast intake suites
-pnpm spikes:check          # offline shared intake-spike contract and fixtures
 ```
 
 Root scripts also expose per-app checks. These commands delegate to existing application boundaries; they do not start a backend web service or connect the scaffold to inventory. The [backend guide](backend/README.md) documents explicit import approvals and limits.
@@ -87,7 +86,7 @@ There is no aggregate required **CI** gate, `continue-on-error` or success-forci
 
 ## Initiative and contributions
 
-`interactive-app` is the user-named integration trunk for this initiative, starting from the reviewed main base. Target initiative PRs there on separate conventional feature branches. The approved [Bench Intake workflow](docs/bench-intake/08-implementation-plan.md#owner-reviewer-and-merge-protocol) publishes a ready PR first, then requires fresh independent review and passing selected checks before coordinator merge. No merge into main is part of this work.
+`interactive-app` is the user-named integration trunk for this initiative, starting from the reviewed main base. Target initiative PRs there on separate conventional feature branches. Work is planned as [OpenSpec changes](docs/openspec.md), and each PR needs a fresh independent review of its exact head and passing selected checks before it merges. No merge into main is part of this work.
 
 Read the shared and owning app guidelines/architecture before changes. Keep future product/workflow plans explicitly labeled until implemented; the file-picker scaffold is not capture/approval, and the separate intake foundation is not an inventory executor or release-qualified deployment.
 
