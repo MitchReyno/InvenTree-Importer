@@ -134,6 +134,16 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 
 ### Unassessed
 
+#### BI-013 — Preview renditions for media
+
+Every image in the app is served as the full-resolution decoded PNG, often several megabytes, even for 44 px thumbnails, so pages load slowly, especially on a phone over Tailscale. The decoder should also produce smaller WebP preview sizes for each page and documentary crop. Observation crops should be served at those sizes too, and each frontend surface should load the size it needs. Crops stay cut from the retained original or its full-resolution page, never from a reduced preview. Already-retained media is upgraded in the background.
+
+- Change: `add-preview-renditions`
+- Status: Proposed
+- Size: L — decoder, storage, routes, a background backfill and several frontend surfaces.
+- Prerequisites: None. Coordinate frontend edits with `redesign-batch-workspace` restyling (PR-I to PR-K), which touches the same components.
+- OpenSpec: [add-preview-renditions](../openspec/changes/add-preview-renditions/)
+
 #### BI-001 — Capture tab uplift
 
 Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements with PO controls disabled and greyed out, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
