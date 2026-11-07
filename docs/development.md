@@ -121,6 +121,8 @@ You can run it while `pnpm dev` is already up. Automatic read-only and local nam
 
 Use the CLI login flow; do not copy an authentication store. The dedicated directory must contain no `config.toml`, hooks, plugins or skills. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the default synthetic profile.
 
+The authorized live qualification flow is reproducible with [the qualification driver](../intake-server/scripts/native-session-qualification/README.md). It sends real provider requests on your subscription, so run it only with explicit authorization, against an isolated app on its own port and state directory.
+
 ## Verification
 
 `pnpm test:dev` checks source-byte filtering and owned-child shutdown. The process tier includes the actual `pnpm dev` launcher boundary: public HTTP/WS, decoding, synthetic DBOS Processing, source restart/error recovery, no-op/runtime-state exclusions, retained restart and shutdown. Run the [PG/process tiers](../intake-server/TESTING.md) under the shared service allocation, with any running full-stack app stopped first.
