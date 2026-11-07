@@ -171,7 +171,7 @@ export function AgentSessions({ client, batches }: Props) {
               </Muted>
             </Block>
             <Block>
-              <Label>Model</Label>
+              <Label>Default for new sessions</Label>
               <span>
                 {settings.data?.selection
                   ? `${settings.data.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.selection.model}`
