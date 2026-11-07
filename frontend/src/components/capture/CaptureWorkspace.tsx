@@ -94,17 +94,44 @@ export function CaptureWorkspace({
 
   // On a phone the glance follows the capture tiles and settings collapse, as on the canvas.
   const phone = useMediaQuery(breakpoints.compact)
+  // Moving the glance remounts its links, so focus on one returns to its twin after the move.
+  const glanceBox = useRef<HTMLDivElement>(null)
+  const glanceFocus = useRef<string | null>(null)
+
+  const rememberGlanceFocus = (event: React.FocusEvent) => {
+    glanceFocus.current = event.target.getAttribute('href')
+  }
+
+  const forgetGlanceFocus = (event: React.FocusEvent) => {
+    if (event.relatedTarget) {
+      glanceFocus.current = null
+    }
+  }
+
+  useEffect(() => {
+    const href = glanceFocus.current
+    if (!href || document.activeElement !== document.body) {
+      return
+    }
+    const twin = [...(glanceBox.current?.querySelectorAll('a') ?? [])].find(
+      (link) => link.getAttribute('href') === href,
+    )
+    // A lot beyond the phone's first rows has no twin; the glance's first link takes focus.
+    ;(twin ?? glanceBox.current?.querySelector('a'))?.focus()
+  }, [phone])
   const glance = (
-    <ProposedLotsGlance
-      batchId={batch.id}
-      lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
-        ...lot,
-        status: statuses.lots.get(lot.id),
-      }))}
-      leadStatus={statuses.lead}
-      leadRunning={statuses.leadRunning}
-      limit={phone ? 3 : undefined}
-    />
+    <GlanceFocus ref={glanceBox} onFocus={rememberGlanceFocus} onBlur={forgetGlanceFocus}>
+      <ProposedLotsGlance
+        batchId={batch.id}
+        lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
+          ...lot,
+          status: statuses.lots.get(lot.id),
+        }))}
+        leadStatus={statuses.lead}
+        leadRunning={statuses.leadRunning}
+        limit={phone ? 3 : undefined}
+      />
+    </GlanceFocus>
   )
 
   return (
@@ -194,6 +221,9 @@ const SettingsColumn = styled.div`
 `
 const ArchivedNote = styled.div`
   margin-bottom: ${space[8]};
+`
+const GlanceFocus = styled.div`
+  display: contents;
 `
 const NextStep = styled.div`
   display: grid;

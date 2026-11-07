@@ -105,24 +105,19 @@ export function ProcessingJobCard({
       {job.questions
         .filter((question) => question.state === 'open')
         .map((question) => (
-          <Paragraph key={question.id}>
-            {question.spec.prompt}
-            {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
-          </Paragraph>
+          // Each question keeps its own button beside it, so several stay distinguishable.
+          <Question key={question.id}>
+            <Paragraph>
+              {question.spec.prompt}
+              {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
+            </Paragraph>
+            <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
+              Open this question
+            </Button>
+          </Question>
         ))}
       {session}
       <Actions>
-        {job.questions
-          .filter((question) => question.state === 'open')
-          .map((question) => (
-            <Button
-              key={question.id}
-              disabled={disabled}
-              onClick={() => chooseQuestion(question.id)}
-            >
-              Open this question
-            </Button>
-          ))}
         {cancellable && (
           <Button disabled={disabled} onClick={cancel}>
             Cancel this attempt
@@ -153,5 +148,16 @@ const Actions = styled.div`
   gap: ${space[4]};
   &:empty {
     display: none;
+  }
+`
+
+const Question = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+  > p {
+    flex: 1 1 240px;
+    margin: 0;
   }
 `

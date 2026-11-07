@@ -476,3 +476,37 @@ test('settings stay open when the phone fold arrives while a field is being edit
   expect(screen.getByLabelText('Batch title')).toBeVisible()
   delete (window as { matchMedia?: unknown }).matchMedia
 })
+
+test('focus in the lots glance survives crossing the phone breakpoint', () => {
+  let phone = false
+  const listeners = new Set<() => void>()
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        get matches() {
+          return phone && query.includes('max-width')
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  const map = screen.getByRole('link', { name: 'See the map in Review' })
+  map.focus()
+  act(() => {
+    phone = true
+    listeners.forEach((listener) => listener())
+  })
+  expect(document.activeElement).toHaveAttribute('href', map.getAttribute('href'))
+  delete (window as { matchMedia?: unknown }).matchMedia
+})
