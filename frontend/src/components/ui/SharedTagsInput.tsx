@@ -132,7 +132,7 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
 
 const Tags = styled.div`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
 `
 const Title = styled.span`
@@ -142,7 +142,7 @@ const Title = styled.span`
 const Chips = styled.ul`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   margin: 0;
   padding: 0;
   list-style: none;
@@ -150,7 +150,7 @@ const Chips = styled.ul`
 const Chip = styled.li`
   display: inline-flex;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   max-width: 100%;
   padding: 2px 2px 2px 9px;
   border-radius: ${radius.pill};

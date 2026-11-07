@@ -43,15 +43,15 @@ const Wrapper = styled.div`
   position: relative;
   display: inline-flex;
   flex-direction: column;
-  gap: ${space[1]};
+  gap: ${space[2]};
   min-height: 44px;
-  padding: ${space['2-5']} ${space[3]};
+  padding: ${space[5]} ${space[6]};
   border: 1px dashed ${color.lineStrong};
   border-radius: ${radius.card};
   color: ${color.muted};
   label {
     display: inline-flex;
-    gap: ${space[2]};
+    gap: ${space[4]};
     align-items: center;
     cursor: not-allowed;
   }
@@ -72,7 +72,7 @@ const Tip = styled.span`
   z-index: 10;
   width: max-content;
   max-width: min(280px, calc(100vw - 32px));
-  padding: ${space['1-5']} ${space[2]};
+  padding: ${space[3]} ${space[4]};
   border-radius: ${radius.sm};
   background: ${color.fg};
   color: ${color.bg};

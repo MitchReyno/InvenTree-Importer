@@ -476,34 +476,34 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 const Page = styled.main`
   display: flex;
   flex-direction: column;
-  gap: ${space['4-5']};
+  gap: ${space[9]};
   max-width: 1240px;
   margin: 0 auto;
-  padding: ${space['4-5']} ${space[4]} ${space[10]};
+  padding: ${space[9]} ${space[8]} ${space[20]};
 `
 
 const Heading = styled.h2`
-  margin: 0 0 ${space[3]};
+  margin: 0 0 ${space[6]};
   ${type.h2}
 `
 
 const Stack = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Row = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Card = styled.div`

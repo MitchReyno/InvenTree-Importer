@@ -44,8 +44,8 @@ const List = styled.ul`
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr) auto;
     align-items: center;
-    gap: ${space['2-5']};
-    padding: ${space['2-5']} ${space[3]};
+    gap: ${space[5]};
+    padding: ${space[5]} ${space[6]};
     border-top: 1px solid ${color.line};
   }
   li:first-child {
@@ -85,6 +85,6 @@ const Assumption = styled.span`
 
 const Empty = styled.p`
   margin: 0;
-  padding: ${space['2-5']} ${space[3]};
+  padding: ${space[5]} ${space[6]};
   color: ${color.muted};
 `

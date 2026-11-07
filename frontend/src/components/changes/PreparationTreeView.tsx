@@ -154,7 +154,7 @@ const Tree = styled.ul`
   display: grid;
   gap: 2px;
   margin: 0;
-  padding: ${space[1]};
+  padding: ${space[2]};
   list-style: none;
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
@@ -164,9 +164,9 @@ const Row = styled.li<{ $level: number }>`
   display: grid;
   grid-template-columns: 1em minmax(0, 1fr) auto;
   align-items: center;
-  gap: ${space[2]};
-  padding: ${space[1]} ${space[2]};
-  padding-left: calc(${space[2]} + ${({ $level }) => ($level - 1) * 20}px);
+  gap: ${space[4]};
+  padding: ${space[2]} ${space[4]};
+  padding-left: calc(${space[4]} + ${({ $level }) => ($level - 1) * 20}px);
   border-radius: ${radius.card};
   cursor: default;
   overflow-wrap: anywhere;

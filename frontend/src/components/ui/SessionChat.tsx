@@ -56,19 +56,19 @@ export function SessionChat({ messages, onSend, disabled = false }: SessionChatP
 const Chat = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Log = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Message = styled.p<{ $mine: boolean }>`
   max-width: 85%;
   margin: 0;
-  padding: ${space[2]} ${space['2-5']};
+  padding: ${space[4]} ${space[5]};
   border-radius: ${radius.card};
   align-self: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};
   background: ${({ $mine }) => ($mine ? color.accentWeak : color.surface2)};
@@ -84,7 +84,7 @@ const Who = styled.span`
 
 const Compose = styled.form`
   display: flex;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   label {
     position: absolute;
     width: 1px;

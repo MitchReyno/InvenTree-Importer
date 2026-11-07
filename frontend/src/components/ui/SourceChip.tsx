@@ -45,7 +45,7 @@ const tones = {
 const Chip = styled.button<{ $tone: SourceTone }>`
   display: inline-flex;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   padding: 0 5px;
   border: 1px solid ${color.line};
   border-radius: ${radius.sm};

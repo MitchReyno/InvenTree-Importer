@@ -60,7 +60,7 @@ const Trigger = styled.button`
   min-height: 32px;
   max-width: 100%;
   min-width: 0;
-  padding: 3px ${space['2-5']};
+  padding: 3px ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};
@@ -88,7 +88,7 @@ const Content = styled(Popover.Content)`
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
   overscroll-behavior: contain;
-  padding: ${space['3-5']};
+  padding: ${space[7]};
   border: 1px solid ${color.line};
   border-radius: ${radius.popover};
   background: ${color.surface};
@@ -103,7 +103,7 @@ const Content = styled(Popover.Content)`
 
 const TitleRow = styled.div`
   display: flex;
-  gap: ${space[3]};
+  gap: ${space[6]};
   align-items: center;
   justify-content: space-between;
 `
@@ -115,7 +115,7 @@ const Title = styled.h2`
 
 const Close = styled.button`
   min-height: 32px;
-  padding: ${space['1-5']} ${space['2-5']};
+  padding: ${space[3]} ${space[5]};
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   background: ${color.surface};

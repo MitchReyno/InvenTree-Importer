@@ -3,7 +3,7 @@ import { color, font, radius, space } from '../../theme/generated/tokens'
 
 /** Shortcut hints only. */
 export const Kbd = styled.kbd`
-  padding: 0 ${space[1]};
+  padding: 0 ${space[2]};
   border: 1px solid ${color.lineStrong};
   border-bottom-width: 2px;
   border-radius: ${radius.xs};

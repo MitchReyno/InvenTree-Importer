@@ -33,7 +33,7 @@ const Trail = styled.nav`
   flex-wrap: nowrap;
   align-items: center;
   white-space: nowrap;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   min-width: 0;
   color: ${color.muted};
 `

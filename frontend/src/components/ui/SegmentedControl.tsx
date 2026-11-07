@@ -44,7 +44,7 @@ const Group = styled.div`
 `
 
 const Segment = styled.button`
-  padding: ${space['1-5']} 11px;
+  padding: ${space[3]} 11px;
   border: 0;
   background: ${color.surface};
   font-weight: 500;

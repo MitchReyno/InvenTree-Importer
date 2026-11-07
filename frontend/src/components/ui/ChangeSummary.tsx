@@ -31,7 +31,7 @@ export function ChangeSummary({ sections }: { sections: ChangeSection[] }) {
 }
 
 const Section = styled.section`
-  padding: ${space[3]} ${space[4]};
+  padding: ${space[6]} ${space[8]};
   border-top: 1px solid ${color.line};
   &:first-child {
     border-top: 0;
@@ -39,7 +39,7 @@ const Section = styled.section`
   h3 {
     display: flex;
     align-items: baseline;
-    gap: ${space[2]};
+    gap: ${space[4]};
     margin: 0;
     ${type.h3}
   }
@@ -47,7 +47,7 @@ const Section = styled.section`
     display: flex;
     flex-direction: column;
     gap: 5px;
-    margin: ${space[2]} 0 0;
+    margin: ${space[4]} 0 0;
     padding: 0;
     list-style: none;
   }
@@ -55,7 +55,7 @@ const Section = styled.section`
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: ${space[2]};
+    gap: ${space[4]};
     overflow-wrap: anywhere;
   }
   a {

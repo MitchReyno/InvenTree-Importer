@@ -33,7 +33,7 @@ const List = styled.ol`
     display: grid;
     grid-template-columns: 16px minmax(0, 1fr) auto;
     align-items: baseline;
-    gap: ${space['2-5']};
+    gap: ${space[5]};
     padding: 5px 0;
   }
   li::before {

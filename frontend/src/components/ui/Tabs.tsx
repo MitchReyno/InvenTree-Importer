@@ -92,12 +92,12 @@ const Row = styled.nav`
 
 const levels = {
   primary: css`
-    padding: 9px ${space[3]} ${space['2-5']};
-    gap: ${space[1]};
+    padding: 9px ${space[6]} ${space[5]};
+    gap: ${space[2]};
   `,
   secondary: css`
-    padding: 7px ${space['2-5']} 9px;
-    gap: ${space['1-5']};
+    padding: 7px ${space[5]} 9px;
+    gap: ${space[3]};
     font-size: 13px;
   `,
 }

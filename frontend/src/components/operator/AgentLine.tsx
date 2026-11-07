@@ -29,6 +29,6 @@ const Line = styled.p`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
   margin: 0;
 `

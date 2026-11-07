@@ -205,14 +205,14 @@ export function BatchHeader({
 
 const Band = styled.header`
   display: grid;
-  gap: ${space[2]};
-  margin-bottom: ${space['4-5']};
-  padding: ${space['3-5']} ${space[4]} 0;
+  gap: ${space[4]};
+  margin-bottom: ${space[9]};
+  padding: ${space[7]} ${space[8]} 0;
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
   ${media.compact} {
-    padding: ${space[3]} ${space[3]} 0;
+    padding: ${space[6]} ${space[6]} 0;
   }
 `
 
@@ -221,7 +221,7 @@ const TitleRow = styled.div`
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: ${space[3]};
+  gap: ${space[6]};
   > div:first-child {
     min-width: 0;
   }
@@ -234,7 +234,7 @@ const Title = styled.h1`
 `
 
 const Meta = styled.p`
-  margin: ${space[1]} 0 0;
+  margin: ${space[2]} 0 0;
   font-size: 12.5px;
   color: ${color.muted};
 `
@@ -243,5 +243,5 @@ const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `

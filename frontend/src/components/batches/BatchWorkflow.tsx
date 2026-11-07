@@ -61,7 +61,7 @@ const Summary = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[1]} ${space['1-5']};
+  gap: ${space[2]} ${space[3]};
   font-size: 12.5px;
   color: ${color.muted};
   > span {
@@ -70,7 +70,7 @@ const Summary = styled.div`
   a {
     display: inline-flex;
     align-items: center;
-    padding: 1px ${space[2]};
+    padding: 1px ${space[4]};
     border-radius: ${radius.pill};
     background: ${color.surface2};
     color: ${color.fg};

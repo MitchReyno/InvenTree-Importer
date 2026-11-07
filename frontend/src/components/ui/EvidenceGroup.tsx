@@ -89,8 +89,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
 const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
   display: flex;
   flex-direction: column;
-  gap: ${space[2]};
-  padding: ${space['2-5']};
+  gap: ${space[4]};
+  padding: ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -112,13 +112,13 @@ const Header = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const NameField = styled.input`
   min-width: 0;
   flex: 1;
-  padding: ${space[1]} ${space['1-5']};
+  padding: ${space[2]} ${space[3]};
   margin-left: -6px;
   border: 1px solid transparent;
   border-radius: ${radius.input};

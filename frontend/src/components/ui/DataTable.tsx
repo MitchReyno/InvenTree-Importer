@@ -156,7 +156,7 @@ const Table = styled.table`
   th {
     ${type.label}
     letter-spacing: 0.05em;
-    padding: ${space[2]} ${space['2-5']};
+    padding: ${space[4]} ${space[5]};
     border-bottom: 1px solid ${color.line};
     background: ${color.surface2};
     color: ${color.muted};
@@ -164,7 +164,7 @@ const Table = styled.table`
     white-space: nowrap;
   }
   td {
-    padding: ${space['1-5']} ${space['2-5']};
+    padding: ${space[3]} ${space[5]};
     border-bottom: 1px solid ${color.line};
     vertical-align: middle;
   }

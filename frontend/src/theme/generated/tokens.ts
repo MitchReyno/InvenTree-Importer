@@ -38,14 +38,17 @@ export const color = {
 
 export const space = {
   '1': 'var(--space-1)',
-  '1-5': 'var(--space-1-5)',
   '2': 'var(--space-2)',
-  '2-5': 'var(--space-2-5)',
   '3': 'var(--space-3)',
-  '3-5': 'var(--space-3-5)',
   '4': 'var(--space-4)',
-  '4-5': 'var(--space-4-5)',
+  '5': 'var(--space-5)',
+  '6': 'var(--space-6)',
+  '7': 'var(--space-7)',
+  '8': 'var(--space-8)',
+  '9': 'var(--space-9)',
   '10': 'var(--space-10)',
+  '12': 'var(--space-12)',
+  '20': 'var(--space-20)',
 } as const
 
 export const radius = {
@@ -58,6 +61,69 @@ export const radius = {
   popover: 'var(--radius-popover)',
   dialog: 'var(--radius-dialog)',
   pill: 'var(--radius-pill)',
+  round: 'var(--radius-round)',
+} as const
+
+export const duration = {
+  fast: 'var(--duration-fast)',
+  exit: 'var(--duration-exit)',
+  enter: 'var(--duration-enter)',
+  toast: 'var(--duration-toast)',
+  spin: 'var(--duration-spin)',
+  sweep: 'var(--duration-sweep)',
+  pulse: 'var(--duration-pulse)',
+} as const
+
+export const easing = {
+  enter: 'var(--ease-enter)',
+  exit: 'var(--ease-exit)',
+  linear: 'var(--ease-linear)',
+  loop: 'var(--ease-loop)',
+} as const
+
+export const zIndex = {
+  raised: 'var(--z-raised)',
+  popover: 'var(--z-popover)',
+  toast: 'var(--z-toast)',
+} as const
+
+export const breakpoint = {
+  phone: 480,
+  narrow: 600,
+  compact: 760,
+  stacked: 860,
+  wide: 1180,
+} as const
+
+export const opacity = {
+  disabled: 'var(--opacity-disabled)',
+  muted: 'var(--opacity-muted)',
+} as const
+
+export const size = {
+  control: 'var(--size-control)',
+  touch: 'var(--size-touch)',
+} as const
+
+export const icon = {
+  sm: 'var(--icon-sm)',
+  md: 'var(--icon-md)',
+  lg: 'var(--icon-lg)',
+} as const
+
+export const ring = {
+  width: 'var(--ring-width)',
+  offset: 'var(--ring-offset)',
+} as const
+
+export const offset = {
+  enter: 'var(--offset-enter)',
+  toast: 'var(--offset-toast)',
+} as const
+
+export const pageWidth = {
+  content: 'var(--width-content)',
+  review: 'var(--width-review)',
 } as const
 
 export const font = {
@@ -80,6 +146,22 @@ export const type = {
   buttonLg: 'font-family: var(--font-sans); font-size: 15px; line-height: 18px; font-weight: 500;',
   mono: 'font-family: var(--font-mono); font-size: 12.5px; line-height: 18px; font-weight: 400;',
   monoStrong: 'font-family: var(--font-mono); font-size: 12.5px; line-height: 18px; font-weight: 500;',
+} as const
+
+// Each type style's parts, for a rule that matches one property of a style rather than all.
+export const typeVar = {
+  brand: { size: 'var(--type-brand-size)', lineHeight: 'var(--type-brand-line-height)', weight: 'var(--type-brand-weight)', letterSpacing: 'var(--type-brand-letter-spacing)' },
+  h1: { size: 'var(--type-h1-size)', lineHeight: 'var(--type-h1-line-height)', weight: 'var(--type-h1-weight)', letterSpacing: 'var(--type-h1-letter-spacing)' },
+  h2: { size: 'var(--type-h2-size)', lineHeight: 'var(--type-h2-line-height)', weight: 'var(--type-h2-weight)', letterSpacing: 'var(--type-h2-letter-spacing)' },
+  h3: { size: 'var(--type-h3-size)', lineHeight: 'var(--type-h3-line-height)', weight: 'var(--type-h3-weight)', letterSpacing: 'var(--type-h3-letter-spacing)' },
+  body: { size: 'var(--type-body-size)', lineHeight: 'var(--type-body-line-height)', weight: 'var(--type-body-weight)', letterSpacing: 'var(--type-body-letter-spacing)' },
+  bodyStrong: { size: 'var(--type-body-strong-size)', lineHeight: 'var(--type-body-strong-line-height)', weight: 'var(--type-body-strong-weight)', letterSpacing: 'var(--type-body-strong-letter-spacing)' },
+  small: { size: 'var(--type-small-size)', lineHeight: 'var(--type-small-line-height)', weight: 'var(--type-small-weight)', letterSpacing: 'var(--type-small-letter-spacing)' },
+  pill: { size: 'var(--type-pill-size)', lineHeight: 'var(--type-pill-line-height)', weight: 'var(--type-pill-weight)', letterSpacing: 'var(--type-pill-letter-spacing)' },
+  label: { size: 'var(--type-label-size)', lineHeight: 'var(--type-label-line-height)', weight: 'var(--type-label-weight)', letterSpacing: 'var(--type-label-letter-spacing)' },
+  buttonLg: { size: 'var(--type-button-lg-size)', lineHeight: 'var(--type-button-lg-line-height)', weight: 'var(--type-button-lg-weight)', letterSpacing: 'var(--type-button-lg-letter-spacing)' },
+  mono: { size: 'var(--type-mono-size)', lineHeight: 'var(--type-mono-line-height)', weight: 'var(--type-mono-weight)', letterSpacing: 'var(--type-mono-letter-spacing)' },
+  monoStrong: { size: 'var(--type-mono-strong-size)', lineHeight: 'var(--type-mono-strong-line-height)', weight: 'var(--type-mono-strong-weight)', letterSpacing: 'var(--type-mono-strong-letter-spacing)' },
 } as const
 
 export const themeColours = {

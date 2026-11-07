@@ -310,18 +310,18 @@ export function ReadyToAdd({
 
 const Layout = styled.div`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 const SectionHeading = styled(Heading)`
-  margin-top: ${space[3]};
+  margin-top: ${space[6]};
 `
 const Controls = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 const Binding = styled.div`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[2]};
   overflow-wrap: anywhere;
 `

@@ -22,15 +22,49 @@ function themeShadow(tokens, themeId) {
   return tokens.shadow.tokens.map((token) => [token.name, token.value[themeId]])
 }
 
+// Families whose tokens are one value each, emitted as variables in this order.
+const VALUE_FAMILIES = [
+  'spacing',
+  'radius',
+  'duration',
+  'easing',
+  'zIndex',
+  'breakpoint',
+  'opacity',
+  'size',
+]
+
+function typeStyles(tokens) {
+  return tokens.type.groups.flatMap((group) =>
+    group.styles.map((style) => ({ ...style, family: group.family })),
+  )
+}
+
+// A letter spacing of 0 is no letter spacing; any other value marks an uppercase eyebrow.
+function letterSpacing(style) {
+  return style.letterSpacing && style.letterSpacing !== '0' ? style.letterSpacing : null
+}
+
+function typeProperties(style) {
+  const prefix = `type-${style.name}`
+  return [
+    [`${prefix}-size`, style.fontSize],
+    [`${prefix}-line-height`, style.lineHeight],
+    [`${prefix}-weight`, String(style.fontWeight)],
+    [`${prefix}-letter-spacing`, letterSpacing(style) ?? '0'],
+  ]
+}
+
 function sharedProperties(tokens) {
   const families = Object.entries(tokens.type.families).map(([name, value]) => [
     `font-${name}`,
     value,
   ])
-  const spacing = tokens.spacing.tokens.map((token) => [token.name, token.value])
-  const radii = tokens.radius.tokens.map((token) => [token.name, token.value])
+  const values = VALUE_FAMILIES.flatMap((family) =>
+    tokens[family].tokens.map((token) => [token.name, token.value]),
+  )
 
-  return [...families, ...spacing, ...radii]
+  return [...families, ...values, ...typeStyles(tokens).flatMap(typeProperties)]
 }
 
 function block(selector, scheme, properties) {
@@ -62,8 +96,8 @@ function typeStyle(style, families) {
     `line-height: ${style.lineHeight};`,
     `font-weight: ${style.fontWeight};`,
   ]
-  if (style.letterSpacing) {
-    parts.push('text-transform: uppercase;', `letter-spacing: ${style.letterSpacing};`)
+  if (letterSpacing(style)) {
+    parts.push('text-transform: uppercase;', `letter-spacing: ${letterSpacing(style)};`)
   }
 
   return parts.join(' ')
@@ -81,13 +115,34 @@ function variableMap(names, keyFor) {
   return objectLiteral(names.map((name) => [keyFor(name), `'var(--${name})'`]))
 }
 
+function names(tokens, family, prefix) {
+  return tokens[family].tokens.map((token) => token.name).filter((name) => name.startsWith(prefix))
+}
+
+// A typed map of one name prefix in a family: { short-name: 'var(--name)' }.
+function prefixMap(tokens, family, prefix) {
+  return variableMap(names(tokens, family, prefix), (name) =>
+    quotedKey(camelCase(name.slice(prefix.length))),
+  )
+}
+
+function typeVariables(style) {
+  const [size, lineHeight, weight, spacing] = typeProperties(style).map(
+    ([name]) => `'var(--${name})'`,
+  )
+  return `{ size: ${size}, lineHeight: ${lineHeight}, weight: ${weight}, letterSpacing: ${spacing} }`
+}
+
 function renderTs(tokens) {
   const colourNames = tokens.color.tokens.map((token) => token.name)
   const spaceNames = tokens.spacing.tokens.map((token) => token.name)
   const radiusNames = tokens.radius.tokens.map((token) => token.name)
-  const styles = tokens.type.groups.flatMap((group) =>
-    group.styles.map((style) => ({ ...style, family: group.family })),
-  )
+  const styles = typeStyles(tokens)
+  // Media queries cannot read custom properties, so breakpoints are raw pixel numbers.
+  const breakpoints = tokens.breakpoint.tokens.map((token) => [
+    quotedKey(token.name.replace('bp-', '')),
+    String(parseInt(token.value, 10)),
+  ])
   const families = { sans: 'sans', mono: 'mono' }
   const raw = (themeId) =>
     objectLiteral(
@@ -109,6 +164,46 @@ export const radius = {
 ${variableMap(radiusNames, (name) => quotedKey(name.replace('radius-', '')))}
 } as const
 
+export const duration = {
+${prefixMap(tokens, 'duration', 'duration-')}
+} as const
+
+export const easing = {
+${prefixMap(tokens, 'easing', 'ease-')}
+} as const
+
+export const zIndex = {
+${prefixMap(tokens, 'zIndex', 'z-')}
+} as const
+
+export const breakpoint = {
+${objectLiteral(breakpoints)}
+} as const
+
+export const opacity = {
+${prefixMap(tokens, 'opacity', 'opacity-')}
+} as const
+
+export const size = {
+${prefixMap(tokens, 'size', 'size-')}
+} as const
+
+export const icon = {
+${prefixMap(tokens, 'size', 'icon-')}
+} as const
+
+export const ring = {
+${prefixMap(tokens, 'size', 'ring-')}
+} as const
+
+export const offset = {
+${prefixMap(tokens, 'size', 'offset-')}
+} as const
+
+export const pageWidth = {
+${prefixMap(tokens, 'size', 'width-')}
+} as const
+
 export const font = {
   sans: 'var(--font-sans)',
   mono: 'var(--font-mono)',
@@ -118,6 +213,11 @@ export const shadow = 'var(--shadow)'
 
 export const type = {
 ${objectLiteral(styles.map((style) => [quotedKey(camelCase(style.name)), `'${typeStyle(style, families)}'`]))}
+} as const
+
+// Each type style's parts, for a rule that matches one property of a style rather than all.
+export const typeVar = {
+${objectLiteral(styles.map((style) => [quotedKey(camelCase(style.name)), typeVariables(style)]))}
 } as const
 
 export const themeColours = {

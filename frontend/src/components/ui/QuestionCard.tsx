@@ -67,9 +67,9 @@ const Question = styled.legend`
   float: left;
   display: flex;
   align-items: flex-start;
-  gap: ${space[2]};
+  gap: ${space[4]};
   width: 100%;
-  padding: ${space['2-5']} ${space['3-5']} ${space[1]};
+  padding: ${space[5]} ${space[7]} ${space[2]};
   background: ${color.warnWeak};
   ${type.h3}
 `
@@ -77,7 +77,7 @@ const Question = styled.legend`
 const Why = styled.p`
   clear: both;
   margin: 0;
-  padding: 0 ${space['3-5']} ${space['2-5']} calc(${space['3-5']} + 18px);
+  padding: 0 ${space[7]} ${space[5]} calc(${space[7]} + 18px);
   background: ${color.warnWeak};
   font-size: 12.5px;
   color: ${color.muted};
@@ -86,14 +86,14 @@ const Why = styled.p`
 const Body = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[3]};
-  padding: ${space[3]} ${space['3-5']};
+  gap: ${space[6]};
+  padding: ${space[6]} ${space[7]};
 `
 
 const Closeups = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: ${space[2]};
+  gap: ${space[4]};
   figure {
     position: relative;
     margin: 0;
@@ -111,9 +111,9 @@ const Closeups = styled.div`
   }
   figcaption {
     position: absolute;
-    left: ${space[1]};
-    bottom: ${space[1]};
-    padding: 1px ${space['1-5']};
+    left: ${space[2]};
+    bottom: ${space[2]};
+    padding: 1px ${space[3]};
     border-radius: ${radius.sm};
     background: ${color.photoScrim};
     color: ${color.photoFg};

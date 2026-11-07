@@ -299,11 +299,11 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
 }
 
 const Row = styled.div`
-  padding: ${space[3]} 0;
+  padding: ${space[6]} 0;
   border-top: 1px solid ${color.line};
 `
 const Details = styled.div`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[2]};
   overflow-wrap: anywhere;
 `

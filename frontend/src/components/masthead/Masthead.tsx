@@ -100,9 +100,9 @@ const Row = styled.div`
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: ${space[3]};
+  gap: ${space[6]};
   min-height: 56px;
-  padding: ${space['2-5']} ${space[4]};
+  padding: ${space[5]} ${space[8]};
   ${media.compact} {
     flex-wrap: wrap;
   }
@@ -112,7 +112,7 @@ const Lead = styled.div`
   display: flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: ${space[3]};
+  gap: ${space[6]};
   min-width: 0;
 `
 
@@ -123,7 +123,7 @@ const End = styled.div`
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: ${space[2]};
+  gap: ${space[4]};
   max-width: 100%;
   ${media.compact} {
     flex: 1 1 100%;
@@ -143,7 +143,7 @@ const Wordmark = styled.a`
 `
 
 const DevBadge = styled.span`
-  padding: 2px ${space[2]};
+  padding: 2px ${space[4]};
   border: 1px solid ${color.devLine};
   border-radius: ${radius.pill};
   background: ${color.devBg};
@@ -171,7 +171,7 @@ const Spacer = styled.span`
 `
 
 const WorkflowLabel = styled.span`
-  padding: 3px ${space['2-5']};
+  padding: 3px ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};

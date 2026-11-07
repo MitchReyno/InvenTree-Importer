@@ -63,16 +63,16 @@ const Body = styled.div`
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: ${space['2-5']};
-  max-width: calc(100vw - 2 * ${space[4]});
-  padding: 9px ${space['3-5']};
+  gap: ${space[5]};
+  max-width: calc(100vw - 2 * ${space[8]});
+  padding: 9px ${space[7]};
   border-radius: ${radius.card};
   background: ${color.fg};
   color: ${color.bg};
   box-shadow: ${shadow};
   animation: ${enter} 150ms ease-out;
   ${media.compact} {
-    width: calc(100vw - 2 * ${space[4]});
+    width: calc(100vw - 2 * ${space[8]});
   }
   ${media.reducedMotion} {
     animation: none;

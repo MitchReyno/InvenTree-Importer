@@ -44,8 +44,8 @@ const Bar = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
-  padding: ${space[2]} ${space[3]};
+  gap: ${space[4]};
+  padding: ${space[4]} ${space[6]};
   border-radius: ${radius.card};
   background: ${color.fg};
   color: ${color.bg};
@@ -57,7 +57,7 @@ const Bar = styled.div`
   select {
     width: auto;
     min-width: 0;
-    padding: ${space[1]} 7px;
+    padding: ${space[2]} 7px;
     border: 0;
     border-radius: ${radius.input};
     background: ${color.bg};
@@ -73,7 +73,7 @@ const Bar = styled.div`
 `
 
 const BarButton = styled.button`
-  padding: ${space[1]} 9px;
+  padding: ${space[2]} 9px;
   border: 1px solid transparent;
   border-radius: ${radius.btn};
   background: ${color.bg};

@@ -143,15 +143,15 @@ export function ExamineView({ batch, lead }: { batch: CaptureSnapshotDto; lead: 
 
 const List = styled.ul`
   display: grid;
-  gap: ${space[1]};
-  margin: ${space[1]} 0 ${space[2]};
+  gap: ${space[2]};
+  margin: ${space[2]} 0 ${space[4]};
   padding: 0;
   list-style: none;
   li {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: ${space[2]};
+    gap: ${space[4]};
     min-width: 0;
   }
   a {
@@ -170,8 +170,8 @@ const Crop = styled.img`
 const LotBlock = styled.section`
   display: grid;
   justify-items: start;
-  gap: ${space[1]};
-  padding: ${space[2]} 0;
+  gap: ${space[2]};
+  padding: ${space[4]} 0;
   border-top: 1px solid ${color.line};
   &:first-of-type {
     border-top: 0;
@@ -183,5 +183,5 @@ const LotBlock = styled.section`
 
 const Candidate = styled.div`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `

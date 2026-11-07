@@ -40,11 +40,11 @@ export function FilterChips({ label, options, value, onChange }: FilterChipsProp
 const Group = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Chip = styled.button`
-  padding: 3px ${space['2-5']};
+  padding: 3px ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};

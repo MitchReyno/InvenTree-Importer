@@ -581,14 +581,14 @@ const Settings = styled(Panel)`
   min-width: 0;
   margin-bottom: 0;
   details {
-    margin-top: ${space[3]};
+    margin-top: ${space[6]};
     overflow-wrap: anywhere;
   }
 `
 const Instructions = styled.div`
   display: grid;
-  gap: ${space[2]};
-  padding-top: ${space[3]};
+  gap: ${space[4]};
+  padding-top: ${space[6]};
   border-top: 1px solid ${color.line};
 `
 const KeepButton = styled.button`

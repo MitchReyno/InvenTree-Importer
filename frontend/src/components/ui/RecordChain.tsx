@@ -69,7 +69,7 @@ const Chain = styled.ol`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   max-width: 100%;
   margin: -4px;
   /* Room for focus rings inside the scroll container. */
@@ -81,7 +81,7 @@ const Chain = styled.ol`
 const Item = styled.li`
   display: flex;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Arrow = styled.span`

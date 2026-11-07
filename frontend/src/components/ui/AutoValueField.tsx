@@ -137,7 +137,7 @@ const Trigger = styled.button`
   gap: 2px;
   min-height: 44px;
   width: 100%;
-  padding: ${space['1-5']} ${space['2-5']};
+  padding: ${space[3]} ${space[5]};
   text-align: left;
   color: ${color.fg};
   background: ${color.surface};
@@ -176,7 +176,7 @@ const Content = styled(Popover.Content)`
   width: min(320px, calc(100vw - 24px));
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
-  padding: ${space[3]};
+  padding: ${space[6]};
   color: ${color.fg};
   background: ${color.surface};
   border: 1px solid ${color.line};

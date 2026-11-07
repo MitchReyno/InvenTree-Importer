@@ -6,10 +6,10 @@ export const Button = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   cursor: pointer;
   min-height: 32px;
-  padding: 7px ${space[3]};
+  padding: 7px ${space[6]};
   color: ${color.fg};
   background: ${color.surface};
   border: 1px solid ${color.lineStrong};
@@ -34,25 +34,25 @@ export const Link = styled.a`
   touch-action: manipulation;
 `
 export const Panel = styled.section`
-  padding: ${space['3-5']} ${space[4]};
+  padding: ${space[7]} ${space[8]};
   background: ${color.surface};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
-  margin-bottom: ${space[3]};
+  margin-bottom: ${space[6]};
   min-width: 0;
 `
 export const PageTitle = styled.h1`
   ${type.h1}
-  margin: ${space[3]} 0;
+  margin: ${space[6]} 0;
   overflow-wrap: anywhere;
 `
 export const Heading = styled.h2`
   ${type.h2}
-  margin: 0 0 ${space[3]};
+  margin: 0 0 ${space[6]};
 `
 export const Subheading = styled.h3`
   ${type.h3}
-  margin: 0 0 ${space['2-5']};
+  margin: 0 0 ${space[5]};
 `
 export const Paragraph = styled.p`
   line-height: 1.45;
@@ -67,7 +67,7 @@ export const Small = styled.small`
 `
 export const Form = styled.form`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 export const Fieldset = styled.fieldset`
   border: none;
@@ -75,7 +75,7 @@ export const Fieldset = styled.fieldset`
   margin: 0;
   min-width: 0;
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
   &:disabled input,
   &:disabled textarea,
   &:disabled select {
@@ -87,7 +87,7 @@ export const Fieldset = styled.fieldset`
 `
 export const Label = styled.label`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[2]};
   font-size: 12.5px;
   font-weight: 600;
 `
@@ -124,7 +124,7 @@ export const TextArea = styled.textarea`
 export const Summary = styled.summary`
   cursor: pointer;
   min-height: 32px;
-  padding: ${space[2]} 0;
+  padding: ${space[4]} 0;
   ${media.compact} {
     min-height: 44px;
   }
@@ -133,16 +133,16 @@ export const HeadingRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: ${space[3]};
+  gap: ${space[6]};
   flex-wrap: wrap;
   ${Heading} {
-    margin-bottom: ${space[2]};
+    margin-bottom: ${space[4]};
   }
 `
 export const Caption = styled(Paragraph)`
   color: ${color.muted};
   font-size: 12.5px;
-  margin: ${space[2]} 0 ${space[4]};
+  margin: ${space[4]} 0 ${space[8]};
 `
 export const Eyebrow = styled(Paragraph)`
   ${type.label}
@@ -162,23 +162,23 @@ export const CheckboxLabel = styled(Label)`
 `
 export const Field = styled.div`
   display: grid;
-  gap: ${space['2-5']};
-  padding: ${space[3]};
+  gap: ${space[5]};
+  padding: ${space[6]};
   border: 1px solid ${color.line};
   background: ${color.surface2};
   border-radius: ${radius.card};
 `
 export const Notice = styled(Paragraph)`
-  padding: ${space['2-5']} ${space['3-5']};
+  padding: ${space[5]} ${space[7]};
   border: 1px solid transparent;
   background: ${color.warnWeak};
   border-radius: ${radius.card};
-  margin-bottom: ${space['4-5']};
+  margin-bottom: ${space[9]};
 `
 export const ErrorNotice = styled.div`
-  padding: ${space['2-5']} ${space['3-5']};
+  padding: ${space[5]} ${space[7]};
   border: 1px solid ${color.bad};
   background: ${color.badWeak};
   border-radius: ${radius.card};
-  margin-bottom: ${space['4-5']};
+  margin-bottom: ${space[9]};
 `

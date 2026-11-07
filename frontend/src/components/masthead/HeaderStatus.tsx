@@ -192,7 +192,7 @@ const StatusRow = styled.div`
 const TriggerContent = styled.span`
   display: flex;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   min-width: 0;
   text-align: left;
   color: ${color.accent};
@@ -294,7 +294,7 @@ const TargetLink = styled.a`
   display: inline-flex;
   align-items: center;
   min-height: 32px;
-  padding: ${space[1]} 9px;
+  padding: ${space[2]} 9px;
   border: 1px solid transparent;
   border-radius: ${radius.btn};
   color: ${color.fg};

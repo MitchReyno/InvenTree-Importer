@@ -71,8 +71,8 @@ const Header = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: ${space[1]} ${space[2]};
-  padding: ${space[2]} ${space[3]};
+  gap: ${space[2]} ${space[4]};
+  padding: ${space[4]} ${space[6]};
 `
 
 const Icon = styled.span<{ $severity: ProblemSeverity }>`
@@ -100,8 +100,8 @@ const Summary = styled.span`
 const Issue = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space['1-5']};
-  padding: ${space[2]} ${space[3]};
+  gap: ${space[3]};
+  padding: ${space[4]} ${space[6]};
   border-top: 1px solid ${color.line};
   background: ${color.surface};
 `
@@ -109,11 +109,11 @@ const Issue = styled.div`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
 `
 
 const List = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space['2-5']};
+  gap: ${space[5]};
 `

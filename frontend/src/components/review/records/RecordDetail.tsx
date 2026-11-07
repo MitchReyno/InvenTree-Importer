@@ -246,9 +246,9 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
 
 const Card = styled.section`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
-  padding: ${space['3-5']} ${space[4]};
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -257,7 +257,7 @@ const Head = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 const Title = styled.h2`
   margin: 0;
@@ -267,7 +267,7 @@ const Fields = styled.table`
   border-collapse: collapse;
   th,
   td {
-    padding: ${space[1]} ${space[2]} ${space[1]} 0;
+    padding: ${space[2]} ${space[4]} ${space[2]} 0;
     text-align: left;
     vertical-align: top;
   }
@@ -275,8 +275,8 @@ const Fields = styled.table`
 
 const Unsupported = styled.section`
   display: grid;
-  gap: ${space[2]};
-  padding: ${space[3]};
+  gap: ${space[4]};
+  padding: ${space[6]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   div {

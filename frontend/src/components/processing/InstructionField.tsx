@@ -123,7 +123,7 @@ export function InstructionField({
 
 const Field = styled.div`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   label {
     font-weight: 600;
   }
@@ -132,7 +132,7 @@ const Field = styled.div`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Problem = styled.p`

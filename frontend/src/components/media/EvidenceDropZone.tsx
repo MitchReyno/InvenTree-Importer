@@ -27,9 +27,9 @@ export function EvidenceDropZone({ groupId, label, disabled, children }: Props) 
 
 const Zone = styled.section<{ $target: boolean; $ungrouped: boolean }>`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
-  padding: ${space['2-5']};
+  padding: ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};

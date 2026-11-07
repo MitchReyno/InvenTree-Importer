@@ -90,9 +90,9 @@ const appear = keyframes`
 const Trigger = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   min-height: 32px;
-  padding: 3px ${space[3]};
+  padding: 3px ${space[6]};
   border: 1px solid ${color.warn};
   border-radius: ${radius.pill};
   background: ${color.warnWeak};
@@ -108,11 +108,11 @@ const Trigger = styled.button`
 const Content = styled(Popover.Content)`
   z-index: 1000;
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   width: min(420px, calc(100vw - 24px));
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
-  padding: ${space[2]};
+  padding: ${space[4]};
   border: 1px solid ${color.line};
   border-radius: ${radius.popover};
   background: ${color.surface};
@@ -127,14 +127,14 @@ const Content = styled(Popover.Content)`
 const Group = styled.section``
 
 const Heading = styled.h3`
-  margin: ${space[1]} ${space[3]};
+  margin: ${space[2]} ${space[6]};
   ${type.label}
   color: ${color.muted};
 `
 
 const More = styled.p`
   margin: 0;
-  padding: ${space[2]} ${space[3]};
+  padding: ${space[4]} ${space[6]};
   font-size: 12.5px;
   color: ${color.muted};
 `

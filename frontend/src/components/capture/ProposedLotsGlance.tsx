@@ -76,8 +76,8 @@ export function ProposedLotsGlance({
 
 const Glance = styled.section`
   display: grid;
-  gap: ${space[2]};
-  padding: ${space['3-5']} ${space[4]};
+  gap: ${space[4]};
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -86,7 +86,7 @@ const Glance = styled.section`
 const Title = styled.h2`
   display: flex;
   align-items: baseline;
-  gap: ${space[2]};
+  gap: ${space[4]};
   margin: 0;
   ${type.h2}
 `
@@ -104,8 +104,8 @@ const List = styled.ul`
   list-style: none;
   li {
     display: grid;
-    gap: ${space[1]};
-    padding: ${space['1-5']} 0;
+    gap: ${space[2]};
+    padding: ${space[3]} 0;
     border-top: 1px solid ${color.line};
   }
   li:first-child {
@@ -131,21 +131,21 @@ const Row = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
 `
 
 const Pills = styled.span`
   display: inline-flex;
   flex-shrink: 0;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Detail = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Crop = styled.img`

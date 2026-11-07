@@ -38,14 +38,14 @@ export function OptionRow({ name, legend, options, escape, value, onChange }: Op
 const Options = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
 `
 
 const Choice = styled.label`
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: start;
-  gap: ${space['2-5']};
+  gap: ${space[5]};
   padding: 9px 11px;
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};

@@ -296,7 +296,7 @@ function lotsText(record: BatchRecordDto) {
 const Layout = styled.div`
   display: grid;
   grid-template-columns: minmax(180px, 220px) minmax(220px, 320px) minmax(0, 1fr);
-  gap: ${space[3]};
+  gap: ${space[6]};
   align-items: start;
   @media (max-width: 860px) {
     grid-template-columns: 1fr;
@@ -304,8 +304,8 @@ const Layout = styled.div`
 `
 const column = `
   display: grid;
-  gap: ${space[1]};
-  padding: ${space[2]};
+  gap: ${space[2]};
+  padding: ${space[4]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -318,14 +318,14 @@ const List = styled.section`
 `
 const Detail = styled.div`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
 `
 const choice = `
   display: grid;
   gap: 2px;
   justify-items: start;
-  padding: ${space[2]};
+  padding: ${space[4]};
   border: 0;
   border-radius: ${radius.card};
   background: none;

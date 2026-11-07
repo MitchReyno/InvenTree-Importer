@@ -72,7 +72,7 @@ const dotTone: Record<AutosaveState, string> = {
 const Status = styled.p<{ 'data-state': AutosaveState }>`
   display: inline-flex;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   margin: 0;
   font-size: 12.5px;
   color: ${color.muted};
@@ -93,8 +93,8 @@ const Status = styled.p<{ 'data-state': AutosaveState }>`
 
 const Problem = styled.div<{ 'data-state': 'conflict' | 'unconfirmed' }>`
   display: grid;
-  gap: ${space[2]};
-  padding: ${space['2-5']} ${space[3]};
+  gap: ${space[4]};
+  padding: ${space[5]} ${space[6]};
   border: 1px solid ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
   border-radius: ${radius.input};
   background: ${(props) => (props['data-state'] === 'conflict' ? color.badWeak : color.warnWeak)};

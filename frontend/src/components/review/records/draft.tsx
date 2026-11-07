@@ -135,7 +135,7 @@ const Row = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Problem = styled.span`

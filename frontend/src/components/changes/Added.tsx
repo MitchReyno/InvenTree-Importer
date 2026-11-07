@@ -130,11 +130,11 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
 
 const Layout = styled.div`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 const Strip = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]} ${space[3]};
+  gap: ${space[4]} ${space[6]};
 `

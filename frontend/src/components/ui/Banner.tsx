@@ -46,8 +46,8 @@ const inks = {
 const Body = styled.div<{ $tone: BannerTone }>`
   display: flex;
   align-items: flex-start;
-  gap: ${space['2-5']};
-  padding: ${space['2-5']} ${space['3-5']};
+  gap: ${space[5]};
+  padding: ${space[5]} ${space[7]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   a {

@@ -23,12 +23,12 @@ export function BatchStageLinks({ batchId, title }: Props) {
 const Stages = styled.nav`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[1]};
+  gap: ${space[2]};
   a {
     display: inline-flex;
     align-items: center;
     min-height: 28px;
-    padding: 0 ${space[2]};
+    padding: 0 ${space[4]};
     border-radius: ${radius.btn};
     color: ${color.accent};
     font-size: 12.5px;

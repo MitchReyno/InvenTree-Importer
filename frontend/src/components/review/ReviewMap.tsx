@@ -251,15 +251,15 @@ export function ReviewMap({
 const Layout = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: ${space[3]};
+  gap: ${space[6]};
   align-items: start;
 `
 
 const Column = styled.section`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
-  padding: ${space['3-5']} ${space[4]};
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -277,8 +277,8 @@ const Rows = styled.ul`
   list-style: none;
   > li {
     display: grid;
-    gap: ${space[1]};
-    padding: ${space['2-5']} 0;
+    gap: ${space[2]};
+    padding: ${space[5]} 0;
     border-top: 1px solid ${color.line};
   }
   > li:first-child {
@@ -290,14 +290,14 @@ const Head = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Links = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   font-size: 12.5px;
   color: ${color.muted};
 `
@@ -305,8 +305,8 @@ const Links = styled.div`
 const Chip = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: ${space[1]};
-  padding: 1px ${space[2]};
+  gap: ${space[2]};
+  padding: 1px ${space[4]};
   border-radius: ${radius.pill};
   background: ${color.surface2};
   color: ${color.fg};
@@ -322,14 +322,14 @@ const Controls = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Regions = styled.ul`
   display: grid;
   gap: 2px;
   margin: 0;
-  padding-left: ${space[4]};
+  padding-left: ${space[8]};
 `
 const Muted = styled.span`
   font-size: 12.5px;

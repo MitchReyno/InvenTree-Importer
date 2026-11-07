@@ -225,7 +225,7 @@ export function AgentSessions({ client, batches }: Props) {
 
 const Page = styled.div`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Title = styled.h1`
@@ -241,11 +241,11 @@ const Muted = styled.span`
 const Summary = styled.section`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: ${space[2]};
+  gap: ${space[4]};
   > div {
     display: grid;
-    gap: ${space[1]};
-    padding: ${space[3]};
+    gap: ${space[2]};
+    padding: ${space[6]};
     border: 1px solid ${color.line};
     border-radius: ${radius.card};
     background: ${color.surface};
@@ -254,8 +254,8 @@ const Summary = styled.section`
 
 const Group = styled.section`
   display: grid;
-  gap: ${space[2]};
-  padding: ${space['3-5']} ${space[4]};
+  gap: ${space[4]};
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -266,7 +266,7 @@ const GroupHead = styled.div`
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: ${space[2]};
+  gap: ${space[4]};
   h2 {
     margin: 0;
     ${type.h2}
@@ -285,8 +285,8 @@ const Rows = styled.ul`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: ${space[2]};
-    padding: ${space[2]} 0;
+    gap: ${space[4]};
+    padding: ${space[4]} 0;
     border-top: 1px solid ${color.line};
     overflow-wrap: anywhere;
   }
@@ -303,5 +303,5 @@ const Rows = styled.ul`
 const Paging = styled.nav`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `

@@ -63,9 +63,9 @@ const Header = styled.button`
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto 14px;
   align-items: center;
-  gap: ${space['2-5']};
+  gap: ${space[5]};
   width: 100%;
-  padding: ${space[3]} ${space[4]};
+  padding: ${space[6]} ${space[8]};
   border: 0;
   border-top: 1px solid ${color.line};
   background: none;
@@ -115,7 +115,7 @@ const Title = styled.span`
 `
 
 const State = styled.span`
-  margin-left: ${space[2]};
+  margin-left: ${space[4]};
   font-size: 12px;
   font-weight: 600;
   color: ${color.muted};
@@ -132,7 +132,7 @@ const Badges = styled.span`
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Caret = styled.span`
@@ -140,5 +140,5 @@ const Caret = styled.span`
 `
 
 const Panel = styled.div`
-  padding: 0 ${space[4]} ${space[3]};
+  padding: 0 ${space[8]} ${space[6]};
 `

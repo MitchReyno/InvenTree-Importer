@@ -165,14 +165,14 @@ const variants = {
 
 const sizes = {
   sm: css`
-    padding: ${space[1]} 9px;
+    padding: ${space[2]} 9px;
     font-size: 12.5px;
   `,
   md: css`
-    padding: 7px ${space[3]};
+    padding: 7px ${space[6]};
   `,
   lg: css`
-    padding: ${space[3]} ${space[4]};
+    padding: ${space[6]} ${space[8]};
     ${type.buttonLg}
   `,
 }
@@ -181,7 +181,7 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   min-height: 32px;
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
@@ -217,7 +217,7 @@ const Glyph = styled.span`
 `
 
 const Reason = styled.span`
-  margin-left: ${space[2]};
+  margin-left: ${space[4]};
   font-size: 12.5px;
   color: ${color.muted};
 `

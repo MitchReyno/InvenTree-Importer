@@ -56,8 +56,8 @@ const Footer = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space['2-5']};
-  padding: ${space[3]} ${space['3-5']};
+  gap: ${space[5]};
+  padding: ${space[6]} ${space[7]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
