@@ -226,7 +226,7 @@ if (args[0] === 'app-server') {
       if (frame.request.subtype === 'initialize') response = {
         claude_code_version: '2.1.319', current_permission_mode: 'default', output_style: 'default', session_state: 'idle',
         commands: mode === 'skills-enabled' ? ['planted'] : [],
-        agents: ['claude','Explore','general-purpose','Plan','statusline-setup'].map((name) => ({ name })),
+        agents: ['claude','Explore','general-purpose','Plan','statusline-setup',...(mode === 'web-fetch-agent' ? ['web-fetch'] : []),...(mode === 'extra-agent' ? ['backend-architect'] : [])].map((name) => ({ name })),
       }
       if (frame.request.subtype === 'mcp_status') response = { mcpServers: [{name:'intake',status:'connected',tools:[...TOOLS,...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => ({name}))}] }
       send({type:'control_response',response:{subtype:'success',request_id:frame.request_id,response}})
