@@ -75,7 +75,7 @@ Tasks 4 and 9 are backend work and can run in parallel with the UI tasks. Tasks 
 | PR-K | Review Lots and Map, then Records and Changes, ending with the strict lint | 19, 20 | The rest of Review and Changes; the lint can only become strict once every area is clean | PR-H, PR-I, PR-J | `interactive-app` ← `feat/redesign-batch-workspace-styling-review-changes`; `feat(redesign-batch-workspace): restyle review, records and changes` | As PR-H, plus the strict lint and a final screenshot pass over every screen |
 | PR-L | Examine corrections, region adjusting, adding and moving on the Map, Review's inline answer, and opening a session from Agents | 21 | New interaction on commands that already exist, reviewed apart from the restyling | PR-I, PR-J, PR-K | `interactive-app` ← `feat/redesign-batch-workspace-corrections`; `feat(redesign-batch-workspace): corrections, region edits and the inline answer` | `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg` and `test:intake:process` for server changes, frontend checks; browser check; demo video; review; CI |
 | PR-M | Existing values in Records, source kind and agreement for values, question times, and Exclude | 22 | Contract and server changes the specs require, with their screens | PR-L | `interactive-app` ← `feat/redesign-batch-workspace-required-data`; `feat(redesign-batch-workspace): existing values, source agreement and question times` | `pnpm contracts:check`, `pnpm typecheck`, `pnpm test:intake`, `test:intake:pg`, `test:intake:process`, frontend checks; browser check; demo video; review; CI |
-| PR-N | The batch list's stage and counts, the tree's unticked lots and field diffs, parameter markers and conflicts, the reuse and category reasons, run times, Pause all, "Same item as…", the InvenTree version, step counts and lots-formed times | 23 | The remaining canvas detail, each on a new field or command | PR-K | `interactive-app` ← `feat/redesign-batch-workspace-design-detail`; `feat(redesign-batch-workspace): design detail on new data` | As PR-M |
+| PR-N | The batch list's stage and counts, the tree's unticked lots and field diffs, parameter markers and conflicts, the reuse and category reasons, run times, Pause all, "Same item as…", the InvenTree version, step counts, lots-formed times and instruction delivery | 23 | The remaining canvas detail, each on a new field or command | PR-K | `interactive-app` ← `feat/redesign-batch-workspace-design-detail`; `feat(redesign-batch-workspace): design detail on new data` | As PR-M |
 
 PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be reviewed in parallel after PR-H. PR-L and PR-N can be reviewed in parallel after PR-K.
 
@@ -394,7 +394,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 18.2 Lay out the overview in two columns (P1, P2, P4, P5) with the step progress bar, Needs-you cards and the activity timeline.
 - [ ] 18.3 Dock the session drawer on the right (P9) with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
 - [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7 and P8.
-- [ ] 18.5 Make `QuestionAnswer` the form inside `ui/QuestionCard` with `OptionRow` answers (G19, G25), rename `processing/SessionChat` to `SessionChatPanel` rendering `ui/SessionChat`, make `SessionTimeline` render `ui/StatusTimeline` (design D12), and use `NeedsYou` on the overview (G21); close P12, P14, P15, P16 (without Pause all, task 23.6, and the lots-formed time, task 23.10) and P17, with Examine's source chips keyed by step and operator edits (G18); and delete `ui/PhaseRow` with its tests, which no screen in the canvas uses, removing its design-system card at the same time (DS6, design D12).
+- [ ] 18.5 Make `QuestionAnswer` the form inside `ui/QuestionCard` with `OptionRow` answers (G19, G25), rename `processing/SessionChat` to `SessionChatPanel` rendering `ui/SessionChat`, make `SessionTimeline` render `ui/StatusTimeline` (design D12), and use `NeedsYou` on the overview (G21); close P12, P14, P15, P16 (without Pause all, task 23.6, the lots-formed time, task 23.10, and instruction delivery, task 23.11, with help text saying the instruction is saved for the batch until then) and P17, with Examine's source chips keyed by step and operator edits (G18); and delete `ui/PhaseRow` with its tests, which no screen in the canvas uses, removing its design-system card at the same time (DS6, design D12).
 - [ ] 18.6 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 19. Review Lots and Map
@@ -470,9 +470,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 
 - **PR delivery:** PR-N.
 - **Outcome:** the canvas detail that no current read or command backs is shown, each on a new additive field or command.
-- **Scope:** `contracts/src/`, `intake-server/src/` and the screens that show each item. Gaps B8, X8, R26's markers and conflict rows, R28, X9's activity times, P16's and A2's Pause all, R22's "Same item as…", M18's InvenTree version, M16's step counts and P16's lots-formed time.
+- **Scope:** `contracts/src/`, `intake-server/src/` and the screens that show each item. Gaps B8, X8, R26's markers and conflict rows, R28, X9's activity times, P16's and A2's Pause all, R22's "Same item as…", M18's InvenTree version, M16's step counts, and P16's lots-formed time and instruction delivery.
 - **Prerequisites:** task 20.
-- **Acceptance:** processing-workspace: Pause and resume agent work (Pause keeps queued answers; Pause every batch from Agents); review-workspace: Same physical item (One bag seen twice); the other items have no spec requirement, and each has contract tests and a browser check.
+- **Acceptance:** processing-workspace: Pause and resume agent work (Pause keeps queued answers; Pause every batch from Agents), Processing overview (Instruction reaches the agents); review-workspace: Same physical item (One bag seen twice); the other items have no spec requirement, and each has contract tests and a browser check.
 - **TDD approach:** failing contract tests first (RED) for each new field or command, including that older snapshots stay readable, then the server and screens (GREEN).
 - **Verification:** as task 22, with `pnpm test:intake:process` also covering pause and resume: queued answers and messages kept, nothing cancelled, and a paused batch staying paused across a worker restart.
 
@@ -486,7 +486,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 23.8 Retain the InvenTree server's version in the connection status, and show it in the connection details (M18).
 - [ ] 23.9 Retain completed and total counts per step in the header's activity read, and show the running step's partial fill and "Research: 3 of 5" in the activity indicator (M16).
 - [ ] 23.10 Retain when each lot was formed, and show "N lots formed by HH:MM" on the Processing overview (P16).
-- [ ] 23.11 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [ ] 23.11 Deliver a changed batch instruction to the batch's running sessions and wake finished ones to apply it, and change the instruction's help text to say so (P16).
+- [ ] 23.12 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 

@@ -25,6 +25,12 @@ It SHALL NOT list lots as an editing surface.
 - **WHEN** Overview opens
 - **THEN** each session shows its latest status line, both questions show their assumptions, and “8 lots ready to check” links to Review.
 
+#### Scenario: Instruction reaches the agents
+
+- **GIVEN** a batch with one running session and one finished session
+- **WHEN** the operator changes the batch instruction
+- **THEN** the running session receives it while it works, the finished session is woken to apply it, and a failed delivery says so while the instruction stays saved.
+
 ### Requirement: Step page pattern
 
 Each step page SHALL show the step's outputs: readings, sources, crops or matches. Corrections on the page apply to every lot that used that output. The page SHALL also show the step's questions and its sessions, with a session drawer that holds the status timeline, the open question and chat. Step pages SHALL link values to Review and evidence to Capture rather than editing lots themselves.
