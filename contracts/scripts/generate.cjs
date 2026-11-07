@@ -238,6 +238,9 @@ async function main() {
       '/api/v1/batches/{id}/processing/{jobId}/session': {
         get: get('SessionTimeline', CAPTURE_TIMEOUT_MS),
       },
+      '/api/v1/batches/{id}/processing/{jobId}/replacement': {
+        post: post('SessionReplacement', 'ProcessingReceipt', '202', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/batches/{id}/processing/{jobId}/inbox': {
         post: post('SessionInboxSubmission', 'SessionInboxReceipt', '200', CAPTURE_TIMEOUT_MS),
       },

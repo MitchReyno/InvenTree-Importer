@@ -4,7 +4,16 @@ import { join } from 'node:path'
 import type { AgentSelectionDto } from '@invimport/contracts'
 import { AgentChild, record } from './child.ts'
 import type { NativeAgentHost } from './environment.ts'
+import { admitClaudeSession } from './claude-session-admission.ts'
 import { CODEX_CONFIG, rejectHostCustomizations } from './codex.ts'
+import {
+  hasAdmission,
+  rememberAdmission,
+  requireCodexSessionConfig,
+  requireCodexSessionVersion,
+  requireClaudeSessionVersion,
+  requireClaudeSessionConfig,
+} from './session-admission.ts'
 
 /** The MCP server name both providers see; tool names are `mcp__intake__<tool>`. */
 export const SESSION_MCP_SERVER = 'intake'
@@ -80,6 +89,10 @@ export async function runClaudeSession(
   env: NodeJS.ProcessEnv,
   signal: AbortSignal,
 ) {
+  if (turn.resume && !(await hasAdmission(cwd, selection, turn.resume))) {
+    throw new SessionResumeUnavailable()
+  }
+  await requireClaudeSessionVersion(host.claudeExecutable, cwd, env, signal)
   const mcpConfig = join(cwd, 'mcp.json')
   // The file names the variable, never the capability; the CLI expands it from the environment.
   await writeFile(
@@ -105,6 +118,9 @@ export async function runClaudeSession(
     '--verbose',
     '--tools',
     '',
+    '--disable-slash-commands',
+    '--disallowedTools',
+    'advisor',
     '--strict-mcp-config',
     '--mcp-config',
     mcpConfig,
@@ -147,6 +163,7 @@ export async function runClaudeSession(
   let stopDelivery: (() => Promise<void>) | undefined
   let initialized = false
   try {
+    await admitClaudeSession(child, turn.tools, turnSignal)
     await child.send(userMessage(turn.text))
     let finished = false
     while (true) {
@@ -157,6 +174,7 @@ export async function runClaudeSession(
       }
       const message = record(value)
       if (message.type === 'system' && message.subtype === 'init') {
+        requireClaudeSessionConfig(message)
         const tools = Array.isArray(message.tools) ? [...message.tools].sort() : []
         const servers = Array.isArray(message.mcp_servers) ? message.mcp_servers.map(record) : []
         const onlyAppTools =
@@ -171,6 +189,7 @@ export async function runClaudeSession(
           throw new Error('agent_tool_refused')
         }
         initialized = true
+        await rememberAdmission(cwd, selection, sessionId)
         await turn.onStarted({ providerSessionId: sessionId, actualModel: message.model })
         stopDelivery = deliveryLoop(
           turn,
@@ -231,8 +250,13 @@ export async function runClaudeSession(
   }
 }
 
-/** The `/1` hardening keys, plus `features.goals` off so no goal tools are offered (design D2). */
-const CODEX_SESSION_CONFIG: Record<string, unknown> = { ...CODEX_CONFIG, 'features.goals': false }
+/** Qualified `/2` settings; `/1` retains its independent compatibility policy. */
+const CODEX_SESSION_CONFIG: Record<string, unknown> = {
+  ...CODEX_CONFIG,
+  'features.goals': false,
+  'features.code_mode.enabled': false,
+  'skills.include_instructions': false,
+}
 
 /** Codex app-server: one MCP server, pre-approved app tools, persisted threads and in-turn steer. */
 export async function runCodexSession(
@@ -243,9 +267,12 @@ export async function runCodexSession(
   env: NodeJS.ProcessEnv,
   signal: AbortSignal,
 ) {
+  if (turn.resume && !(await hasAdmission(cwd, selection, turn.resume))) {
+    throw new SessionResumeUnavailable()
+  }
   // The same dedicated-home preflight as `/1`, before any child starts.
   await rejectHostCustomizations(env.CODEX_HOME!)
-  const args = ['app-server', '--listen', 'stdio://']
+  const args = ['app-server', '--strict-config', '--listen', 'stdio://']
   const config = {
     ...CODEX_SESSION_CONFIG,
     forced_login_method: selection.authentication === 'subscription' ? 'chatgpt' : 'api',
@@ -337,10 +364,11 @@ export async function runCodexSession(
 
   let stopDelivery: (() => Promise<void>) | undefined
   try {
-    await request('initialize', {
+    const initialized = await request('initialize', {
       clientInfo: { name: 'bench_intake', version: '1' },
       capabilities: { experimentalApi: true },
     })
+    requireCodexSessionVersion(initialized.userAgent)
     await child.send({ method: 'initialized' })
     if (selection.authentication === 'subscription') {
       const account = await request('account/read', { refreshToken: false })
@@ -379,6 +407,7 @@ export async function runCodexSession(
       throw new Error('agent_policy_refused')
     }
     const effective = record((await request('config/read', { includeLayers: false, cwd })).config)
+    requireCodexSessionConfig(effective)
     const servers = Object.keys(record(effective.mcp_servers ?? {}))
     const status = await request('mcpServerStatus/list', {})
     const listed = Array.isArray(status.data) ? status.data.map(record) : []
@@ -392,6 +421,10 @@ export async function runCodexSession(
     ) {
       throw new Error('agent_tool_refused')
     }
+    if (turn.resume && threadId !== turn.resume) {
+      throw new SessionResumeUnavailable()
+    }
+    await rememberAdmission(cwd, selection, threadId)
     await turn.onStarted({ providerSessionId: threadId, actualModel: thread.model })
     const started = await request('turn/start', {
       threadId,

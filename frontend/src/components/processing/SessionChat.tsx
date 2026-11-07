@@ -9,6 +9,7 @@ interface Props {
   state: SessionStateDto
   /** Queues one message; the same key is reused only to retry that exact message. */
   send: (text: string, key: string) => Promise<unknown>
+  freshDisabled?: boolean
   startFresh: () => void
 }
 
@@ -69,7 +70,7 @@ export function chatConfirmation(state: SessionStateDto) {
 }
 
 /** Chat queues in every session state; a cancelled session offers a fresh one instead. */
-export function SessionChat({ storeKey, state, send, startFresh }: Props) {
+export function SessionChat({ storeKey, state, send, startFresh, freshDisabled }: Props) {
   const [draft, setDraft] = useState('')
   const [message, setMessage] = useState('')
   const pending = useSyncExternalStore(subscribe, () => pendingSends.get(storeKey))
@@ -77,7 +78,7 @@ export function SessionChat({ storeKey, state, send, startFresh }: Props) {
     return (
       <Paragraph>
         This session was cancelled.{' '}
-        <Button type="button" onClick={startFresh}>
+        <Button type="button" onClick={startFresh} disabled={freshDisabled}>
           Start a fresh session
         </Button>
       </Paragraph>
@@ -100,6 +101,18 @@ export function SessionChat({ storeKey, state, send, startFresh }: Props) {
   const sending = pending?.status === 'sending'
   return (
     <Form onSubmit={submit}>
+      {['resume_unavailable', 'failed', 'interrupted', 'waiting_for_login'].includes(state) && (
+        <Paragraph>
+          This session needs a fresh conversation. History and queued messages will be kept.{' '}
+          <Button
+            type="button"
+            onClick={startFresh}
+            disabled={freshDisabled || pending !== undefined}
+          >
+            Start a fresh session
+          </Button>
+        </Paragraph>
+      )}
       {pending?.status === 'unconfirmed' && (
         <Unconfirmed role="alert">
           Sending “{pending.text}” was not confirmed. It may already be queued.

@@ -228,3 +228,7 @@ Existing primary/foreign-key joins and `agent_session_history(queued_at DESC,att
 ### Development native-session startup
 
 The development launcher selects the single-result or session supervisor from the explicit Processing profile. Setup owns provisioning of a dedicated agent-writer role for capture/session operations, retaining its private URL separately from app.json. Reuse checks the endpoint, database-bound role comment, restricted role attributes and credentials before reapplying grants. The URL is passed only to the session worker; no inventory-target permission is added. The login helper uses the same target/state resolution as development startup and authenticates Codex in that namespace's private home without copying an authentication store.
+
+## Explicit native conversation replacement
+
+`processing/session-replacement.ts` owns the revision-checked replacement command for terminal or non-resumable session attempts, including the Examine lead. It locks current capture/media and the processing lane/job/attempt, verifies the session state and absence of a held agent slot, then creates a fresh scoped attempt while retaining lineage history and pending input. Adapter policy and private conversation provenance are owned by [agents](src/agents/ARCHITECTURE.md). Replacement never grants inventory effects or live qualification.

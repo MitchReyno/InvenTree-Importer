@@ -176,6 +176,15 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "POST /api/v1/batches/{id}/processing/{jobId}/replacement",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingReceipt",
+      "requestSchema": "SessionReplacement"
+    }
+  ],
+  [
     "POST /api/v1/batches/{id}/processing/{jobId}/inbox",
     {
       "timeoutMs": 10000,

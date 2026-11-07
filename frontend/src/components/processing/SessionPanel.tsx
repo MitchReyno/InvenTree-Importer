@@ -11,11 +11,12 @@ interface Props {
   batchId: string
   job: ProcessingJobDto
   client: Required<Pick<ProcessingClient, 'session' | 'chat'>>
+  freshDisabled?: boolean
   startFresh: () => void
 }
 
 /** A session's steps and chat. Live hints invalidate this read like every retained read. */
-export function SessionPanel({ batchId, job, client, startFresh }: Props) {
+export function SessionPanel({ batchId, job, client, startFresh, freshDisabled }: Props) {
   const scope = useServerScope()
   // Same retained-read polling as the Processing snapshot, for when live hints are unavailable.
   const pollInterval = useRetainedPollInterval()
@@ -43,6 +44,9 @@ export function SessionPanel({ batchId, job, client, startFresh }: Props) {
           await timeline.refetch()
         }}
         startFresh={startFresh}
+        freshDisabled={
+          freshDisabled || timeline.isError || timeline.data.attempt_id !== job.attempt_id
+        }
       />
     </>
   )

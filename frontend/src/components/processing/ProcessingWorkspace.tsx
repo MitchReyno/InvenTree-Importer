@@ -250,19 +250,19 @@ export function ProcessingWorkspace({
     }).catch(() => {})
   }
 
-  /** A fresh session for one lot and stage after the previous one was cancelled. */
+  /** Explicitly replace the provider conversation while retaining its application lineage. */
   function restart(job: ProcessingSnapshotDto['jobs'][number]) {
-    if (job.subject_id === null) {
+    if (!client.replaceSession) {
       return
     }
     void perform(() =>
-      client.start(
+      client.replaceSession!(
         batch.id,
+        job.id,
         {
-          schema_version: 'bench-intake-processing/1',
           expected_capture_revision: batch.revision,
-          subject_ids: [job.subject_id!],
-          stages: [job.stage as ProcessingStartDto['stages'][number]],
+          expected_revision: job.revision,
+          attempt_id: job.attempt_id,
         },
         crypto.randomUUID(),
       ),
@@ -529,6 +529,7 @@ export function ProcessingWorkspace({
                 job={sessionJob}
                 client={{ session: client.session, chat: client.chat }}
                 startFresh={() => restart(sessionJob)}
+                freshDisabled={runnerDisabled || !client.replaceSession}
               />
             </Modal>
           )}

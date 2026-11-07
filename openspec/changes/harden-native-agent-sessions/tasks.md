@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `harden-native-agent-sessions`, linked to [BI-010](../../../docs/PLANNED_FUNCTIONALITY.md#bi-010--harden-native-agent-sessions). Follow the [proposal and reuse assessment](proposal.md), [design](design.md) and [acceptance delta](specs/processing-agent-sessions/spec.md). This is planning only; all implementation actions remain pending.
+Canonical change: `harden-native-agent-sessions`, linked to [BI-010](../../../docs/PLANNED_FUNCTIONALITY.md#bi-010--harden-native-agent-sessions). Follow the [proposal and reuse assessment](proposal.md), [design](design.md) and [acceptance delta](specs/processing-agent-sessions/spec.md). Implementation is in progress; unchecked actions remain pending.
 
 ## Completion and commit ordering
 
@@ -33,13 +33,13 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - TDD or equivalent verification: Investigation uses an explicit pass/fail matrix instead of TDD; do not send a live model request.
 - Verification and risks: Produce a reproducible versioned probe and document unsupported configurations; stop dependent confinement claims if no complete mechanism exists.
 
-- [ ] 1.0 Probe `features.code_mode.enabled`, `features.code_mode.direct_only_tool_namespaces` and `mcp_servers.intake.omit_tools_from` against the installed CLI. Record supported keys, resolved namespace identifiers and effective configuration. Compare direct intake calls, executor absence and the full remaining tool surface separately on fresh and resumed sessions, using a wrapping-enabled negative control and no live inference.
-- [ ] 1.1 Confirm the scoped baseline and prerequisites for prove native admission feasibility.
-- [ ] 1.2 Investigation uses an explicit pass/fail matrix instead of TDD; do not send a live model request.
-- [ ] 1.3 Run a no-inference controlled probe for direct MCP tools, built-ins, deferred advisor, skill loading and resume. Record exact executable versions and the reliable pre-turn observation/control mechanism. An incomplete inventory is a failed proof, not a pass.
-- [ ] 1.4 Produce a reproducible versioned probe and document unsupported configurations; stop dependent confinement claims if no complete mechanism exists.
+- [x] 1.0 Probe `features.code_mode.enabled`, `features.code_mode.direct_only_tool_namespaces` and `mcp_servers.intake.omit_tools_from` against the installed CLI. Record supported keys, resolved namespace identifiers and effective configuration. Compare direct intake calls, executor absence and the full remaining tool surface separately on fresh and resumed sessions, using a wrapping-enabled negative control and no live inference.
+- [x] 1.1 Confirm the scoped baseline and prerequisites for prove native admission feasibility.
+- [x] 1.2 Investigation uses an explicit pass/fail matrix instead of TDD; do not send a live model request.
+- [x] 1.3 Run a no-inference controlled probe for direct MCP tools, built-ins, deferred advisor, skill loading and resume. Record exact executable versions and the reliable pre-turn observation/control mechanism. An incomplete inventory is a failed proof, not a pass.
+- [x] 1.4 Produce a reproducible versioned probe and document unsupported configurations; stop dependent confinement claims if no complete mechanism exists.
 
-- [ ] 1.5 Once a suitable avenue is selected, expand this same change's proposal, behavioral delta specs, design, tasks and PR map with the concrete continuation. Record the decision in notes.md, replace provisional assumptions, add acceptance and verification for newly identified work, and validate the revised artifacts before implementation. Keep all new actions unchecked; do not create a separate follow-up change or close this change after investigation alone.
+- [x] 1.5 Once a suitable avenue is selected, expand this same change's proposal, behavioral delta specs, design, tasks and PR map with the concrete continuation. Record the decision in notes.md, replace provisional assumptions, add acceptance and verification for newly identified work, and validate the revised artifacts before implementation. Keep all new actions unchecked; do not create a separate follow-up change or close this change after investigation alone.
 
 ## 2. Enforce fresh and resumed tool confinement
 
@@ -47,14 +47,14 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - Outcome and scope: session-adapters.ts, session-runner.ts and tests/process/sessions.test.ts.
 - Prerequisites: Task 1 successful proof and expansion of this same change with the selected approach and remaining work.
 - Acceptance: D1; Session tool boundary scenarios.
-- Approach: Implement the demonstrated admission policy and runtime guards for both providers, with direct intake tools and only the four inert exceptions.
-- TDD or equivalent verification: Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must admit the normal lead tool set including read_batch, refuse forbidden surfaces before inference and preserve reap ordering.
+- Approach: Implement version-pinned offline qualification policy, per-turn executable/effective-config and MCP checks, and runtime guards for both providers, with direct intake tools and only the four inert Codex exceptions. Include unknown-version, ignored-setting and resume-drift tests. Bind admission-policy provenance to provider conversations; refuse legacy resume and provide explicit replacement preserving history/pending input without duplicating effects.
+- TDD or equivalent verification: Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must admit the normal lead tool set including read_batch, refuse unqualified versions/configuration drift before inference, reject forbidden runtime events and preserve reap ordering.
 - Verification and risks: Run scoped process tests including cancellation, server-request refusal and unconfirmed reap; update agents architecture.
 
-- [ ] 2.1 Confirm the scoped baseline and prerequisites for enforce fresh and resumed tool confinement.
-- [ ] 2.2 Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must admit the normal lead tool set including read_batch, refuse forbidden surfaces before inference and preserve reap ordering.
-- [ ] 2.3 Implement the demonstrated admission policy and runtime guards for both providers, with direct intake tools and only the four inert exceptions.
-- [ ] 2.4 Run scoped process tests including cancellation, server-request refusal and unconfirmed reap; update agents architecture.
+- [x] 2.1 Confirm the scoped baseline and prerequisites for enforce fresh and resumed tool confinement.
+- [x] 2.2 Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must admit the normal lead tool set including read_batch, refuse unqualified versions/configuration drift before inference, reject forbidden runtime events and preserve reap ordering.
+- [x] 2.3 Implement version-pinned offline qualification policy, per-turn executable/effective-config and MCP checks, and runtime guards for both providers, with direct intake tools and only the four inert Codex exceptions. Include unknown-version, ignored-setting and resume-drift tests. Bind admission-policy provenance to provider conversations; refuse legacy resume and provide explicit replacement preserving history/pending input without duplicating effects.
+- [x] 2.4 Run scoped process tests including cancellation, server-request refusal and unconfirmed reap; update agents architecture.
 
 ## 3. Return correctable proposal diagnostics
 
