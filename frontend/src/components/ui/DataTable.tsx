@@ -6,7 +6,14 @@ import { media } from './media'
 import { VisuallyHidden } from './VisuallyHidden'
 import { hoverTransition } from './motion'
 
-export type DataColumn = { id: string; header: string; editable?: boolean; mono?: boolean }
+/** `nowrap` keeps a short label column (a step or a state) from breaking inside a word. */
+export type DataColumn = {
+  id: string
+  header: string
+  editable?: boolean
+  mono?: boolean
+  nowrap?: boolean
+}
 
 /** `content` shows in place of the plain value, e.g. a status pill. */
 export type DataCell = { value: string; content?: ReactNode; override?: boolean; edited?: boolean }
@@ -109,7 +116,7 @@ export function DataTable({ caption, columns, rows, selection, onCellEdit }: Dat
                   const editable = column.editable && onCellEdit
 
                   return (
-                    <td key={column.id}>
+                    <td key={column.id} data-nowrap={column.nowrap || undefined}>
                       {editable ? (
                         <InlineEdit
                           label={column.header}
@@ -173,6 +180,9 @@ const Table = styled.table`
     border-bottom: 1px solid ${color.line};
     vertical-align: middle;
     ${hoverTransition}
+  }
+  td[data-nowrap] {
+    white-space: nowrap;
   }
   tbody tr:hover td {
     background: ${color.surface2};

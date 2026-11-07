@@ -298,11 +298,11 @@ export function AgentSessions({ client, batches }: Props) {
 }
 
 const COLUMNS = [
-  { id: 'step', header: 'Step' },
+  { id: 'step', header: 'Step', nowrap: true },
   { id: 'lot', header: 'Lot' },
   { id: 'status', header: 'Latest status' },
-  { id: 'state', header: 'State' },
-  { id: 'since', header: 'Since', mono: true },
+  { id: 'state', header: 'State', nowrap: true },
+  { id: 'since', header: 'Since', mono: true, nowrap: true },
 ]
 
 const Page = styled.div`
