@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 import { hoverTransition } from './motion'
@@ -62,8 +62,8 @@ const Segment = styled.button`
   &:focus-visible {
     outline: none;
     box-shadow:
-      inset 0 0 0 2px ${color.accent},
-      inset 0 0 0 4px ${color.bg};
+      inset 0 0 0 ${ring.width} ${color.accent},
+      inset 0 0 0 calc(${ring.width} + ${ring.offset}) ${color.bg};
   }
   ${media.compact} {
     min-width: ${size.touch};

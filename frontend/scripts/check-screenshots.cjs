@@ -248,8 +248,7 @@ function findChrome() {
   return found
 }
 
-function launchChrome(profile) {
-  const binary = process.env.CHROME_PATH || findChrome()
+function launchChrome(binary, profile) {
   return spawn(
     binary,
     [
@@ -391,11 +390,13 @@ async function main(argv) {
     mkdirSync(outDir, { recursive: true })
   }
 
+  // Found before anything starts, so a missing Chrome leaves nothing to clean up.
+  const binary = process.env.CHROME_PATH || findChrome()
   const port = await freePort()
   const vite = startVite(port)
   const origin = `http://127.0.0.1:${port}`
   const profile = mkdtempSync(join(tmpdir(), 'screenshot-check-'))
-  const chrome = launchChrome(profile)
+  const chrome = launchChrome(binary, profile)
   try {
     await waitFor(
       () =>

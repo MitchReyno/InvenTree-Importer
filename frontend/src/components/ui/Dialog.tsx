@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import styled from 'styled-components'
 import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
 import { Button } from './Button'
+import { motion } from './motion'
 
 type DialogProps = {
   title: string
@@ -67,6 +68,9 @@ const Surface = styled.dialog`
   background: ${color.surface};
   color: ${color.fg};
   box-shadow: ${shadow};
+  &[open] {
+    ${motion.enter}
+  }
   a {
     color: ${color.accent};
   }

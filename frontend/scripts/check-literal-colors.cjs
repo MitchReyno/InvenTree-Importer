@@ -227,9 +227,12 @@ function literalsFor(family, property, value) {
     return [...value.matchAll(EASING)].map((match) => match[1])
   }
   if (property === 'box-shadow') {
-    // Only a ring: no offset or blur, so the fourth length is its spread.
-    const ring = value.trim().match(/^0(?:px)? 0(?:px)? 0(?:px)? (\d+px)/)
-    return ring ? [ring[1]] : []
+    // Only rings, outer or inset: no offset or blur, so each layer's fourth length is its spread.
+    return value
+      .split(/,(?![^(]*\))/)
+      .map((layer) => layer.trim().match(/^(?:inset )?0(?:px)? 0(?:px)? 0(?:px)? (\d+px)/))
+      .filter(Boolean)
+      .map((ring) => ring[1])
   }
   const numbers = [...value.matchAll(NUMBER)].map((match) => match[1] + (match[2] ?? ''))
   if (family === 'offset') {

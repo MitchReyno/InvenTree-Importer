@@ -131,7 +131,7 @@ const Preview = styled.button`
     border-radius: ${radius.sm};
     box-shadow:
       0 0 0 ${ring.width} ${color.photoStage},
-      inset 0 0 0 2px ${color.photoStage};
+      inset 0 0 0 ${ring.width} ${color.photoStage};
     pointer-events: none;
   }
 `

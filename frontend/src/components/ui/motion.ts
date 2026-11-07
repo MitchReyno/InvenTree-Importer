@@ -38,6 +38,13 @@ export const motion = {
   sweep: css`
     animation: ${sweepFrames} ${duration.sweep} ${easing.linear} infinite;
   `,
+  /** A dialog rising into view as it opens; it closes at once, as the native dialog does. */
+  enter: css`
+    animation: ${riseIn} ${duration.enter} ${easing.enter};
+    ${media.reducedMotion} {
+      animation: none;
+    }
+  `,
   /** A popover or menu opening and closing, keyed on Radix's data-state. */
   popover: css`
     &[data-state='open'] {
