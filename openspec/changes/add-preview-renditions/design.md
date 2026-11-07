@@ -76,7 +76,7 @@ Rejected: a separate route per rendition ID. It would add identifiers for the fr
 - `thumb`, `card` and `view` crops are WebP;
 - `full` stays PNG, as today.
 
-The cache key gains the size. The route serves `?size=`, defaulting to `full`, with `cache-control: private, no-cache` and `etag` set to the output digest, and answers a matching `if-none-match` with 304. A region edit keeps the observation ID but changes the region digest, and so the bytes and ETag, so a cached crop is never wrongly reused.
+The cache key gains the size. Crop URLs also carry a region revision, `rev`, built from the observation's source version, page and region values. Editing a region changes the URL, so a mounted image requests the new crop instead of keeping the old one, even when the observation ID and size are unchanged. The route refuses a `rev` that doesn't match the current region with 409. It serves `?size=`, defaulting to `full`, with `cache-control: private, no-cache` and `etag` set to the output digest, and answers a matching `if-none-match` with 304. A region edit keeps the observation ID but changes the region digest, and so the bytes and ETag, so a cached crop is never wrongly reused.
 
 Observation crops stay outside the blob store. They remain a disposable cache, as the existing design intends.
 
@@ -101,7 +101,7 @@ Attempts are tracked per preview in a `media_rendition_backfill` table, with the
 
 How attempts are claimed and published:
 
-- **Exclusion.** A partial unique index allows one `claimed` row per preview, and the claim is made with `FOR UPDATE SKIP LOCKED`, so concurrent workers never claim the same preview or consume its retry budget twice.
+- **Claiming.** A claim is an insert, not a row lock. The worker selects eligible previews, reading `media_preview`, its renditions and earlier attempts, which it can already read. For each candidate in turn it runs `INSERT … (outcome 'claimed', owner_id, attempt = prior attempts + 1) ON CONFLICT DO NOTHING RETURNING id`. A partial unique index on `preview_id WHERE outcome = 'claimed'` makes a second concurrent claim on the same preview insert nothing, so that worker moves to the next candidate. No lock on `media_preview` is needed, and the worker role needs only `INSERT`/`UPDATE` on the attempt table. A unique index on (`preview_id`, `attempt`) also stops two workers recording the same attempt number.
 - **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
 - **Priority.** The worker claims a backfill only when no decode command is waiting, and does one page per claim. The worker runs commands one at a time, so an upload arriving during a backfill waits for at most that one in-flight page, which the decoder's 25 s bound limits, and is decoded before any further backfill.
 - **Abandoned claims.** A `claimed` row older than the decoder's outer watchdog plus a grace period (for example 2 minutes) was left by a killed worker. The next worker marks it `interrupted` before claiming, and it becomes eligible again within the three-attempt cap.
@@ -117,7 +117,7 @@ Rejected: rendering from the page PNG in the API or a migration. That would deco
 - `previewImage(batchId, page, usage)`, returning `{ src, srcSet, sizes, width, height }` from the page's listed renditions;
 - `observationImage(batchId, observation, usage)`, which takes the observation with its pixel region, so it knows the crop's real size.
 
-Rendition and crop output sizes come from one shared function, `renditionDimensions(width, height, size)` in `contracts/src/media.ts`, which the decoder, the crop route and the frontend all use. It scales the long edge to the size, rounds the other edge, keeps both at least 1, and never upscales, so client and server cannot disagree. Observation images take their intrinsic size from the region, scaled by that function, not from the page.
+Rendition and crop output sizes come from one shared function, `renditionDimensions(width, height, size)` in `contracts/src/media.ts`. Task 1 adds it, and the decoder, the crop route and the frontend all use it. It scales the long edge to the size, rounds the other edge, keeps both at least 1, and never upscales, so client and server cannot disagree. Observation images take their intrinsic size from the region, scaled by that function, not from the page.
 
 Usage profiles:
 
@@ -169,15 +169,15 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 
 - **Decoder unit tests.** A 30-page result passes through the real header framing, and an injected encoder failure stays `interrupted`, not `limit_exceeded`. Fixtures cover a JPEG with EXIF orientation, a small PNG, a three-page PDF, a recipe crop and a rotated region. Each checks the expected sizes, dimensions and omitted sizes, that the output is WebP, and that the full page is unchanged. An oversized total output must end `limit_exceeded` with no renditions.
 - **Decoder bounds (process tier).** Run the real decoder image through `decodeIsolated()` against a 50 MP photo and a 30-page PDF. Both must complete within the inner 25 s bound, and the times go on the PR. Also run a `media-renditions/1` input with a matching page, a digest mismatch and a dimension mismatch.
-- **PostgreSQL tier.** Check the migration, the immutability trigger, grants (decoder inserts; API, `processing`, `processing-reader` and `gc` read; none update), a processing-side snapshot read run as the restricted processing reader, and `blobReferenced()` and collection with rendition blobs run as the restricted `gc` role. Check atomic publication. Check the backfill:
+- **PostgreSQL tier.** Run the concurrent first-claim test with two workers on the restricted worker role. Check the migration, the immutability trigger, grants (decoder inserts; API, `processing`, `processing-reader` and `gc` read; none update), a processing-side snapshot read run as the restricted processing reader, and `blobReferenced()` and collection with rendition blobs run as the restricted `gc` role. Check atomic publication. Check the backfill:
   - it upgrades without touching previews, versions, commands or decode results, and marks a mismatch skipped;
   - it never selects small pages, and defers to pending commands;
   - two concurrent workers never claim one preview;
   - a claim abandoned by a killed worker is recovered and retried within the cap;
   - a stale owner cannot publish.
 
-  Check the rollback procedure: after clearing rendition rows, the collector keeps every remaining referenced blob.
-- **HTTP tests.** Check size selection and fallback, with fallbacks marked `no-cache` and a same-URL request after backfill returning WebP, 400 on an unknown size, 404 across batches, the caching headers, and observation-crop sizes, aspect ratio, ETag and 304, plus a region change returning new bytes.
+  Check rollback by restore: back up, migrate, restore into a fresh database, and start the pre-change build against it through the compatibility gate.
+- **HTTP tests.** Check a crop request with a stale `rev` refused with 409, and size selection and fallback, with fallbacks marked `no-cache` and a same-URL request after backfill returning WebP, 400 on an unknown size, 404 across batches, the caching headers, and observation-crop sizes, aspect ratio, ETag and 304, plus a region change returning new bytes.
 - **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage. A large page with its renditions present never offers the full page in `srcSet`; a small source and a page not yet backfilled do offer it. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, an 800 × 600 page offering its full page in cards and the viewer, the viewer promoting to full just above, and not just below, the density-adjusted threshold at 1× and 3×, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
 - **Manual check.** On `pnpm dev --tailscale` from a phone, record transferred bytes for the batch list, Capture and the viewer before and after, and attach them to the PR.
 
@@ -185,18 +185,13 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 
 - **Migration.** Migration `0020_media_preview_renditions.sql` adds the table, the trigger, the grants and the reference check. Dev setup reapplies grants on start, so retained namespaces upgrade automatically.
 - **Backfill.** It then runs in the background worker, and the UI shows full previews until each page is upgraded.
-- **Rollback.** Older code ignores the tables for reads, but its collector also ignores rendition references, and could delete aged rendition blobs whose rows remain. So the older collector must not run until the rendition rows are cleared. The immutability trigger refuses deletes, so the procedure runs as the table owner in one transaction:
+- **Rollback.** Older code cannot run against an upgraded database. The schema compatibility gate (`operations/compatibility.ts`) quarantines a database whose migration names and hashes don't exactly match the checkout. So rollback means restoring a backup, not running older code:
+  - Before migrating a retained namespace, take a coherent archive with `pnpm --filter @invimport/intake-server operations backup`.
+  - To go back, restore that archive into a fresh `intake_restore_*` database with `operations restore`, and point the older build at it.
+  - The restored database predates the rendition tables, so the older collector has no rendition references to miss. Work done after the upgrade is not carried back.
+  - Task 2 checks this: back up, upgrade, restore, then start the pre-change build against the restored database and confirm it passes the compatibility gate.
 
-  ```sql
-  BEGIN;
-  ALTER TABLE media_preview_rendition DISABLE TRIGGER media_preview_rendition_immutable;
-  DELETE FROM media_preview_rendition;
-  ALTER TABLE media_preview_rendition ENABLE TRIGGER media_preview_rendition_immutable;
-  DELETE FROM media_rendition_backfill;  -- once PR-B has added it
-  COMMIT;
-  ```
-
-  This is safe because renditions are display-only and are backfilled again after re-upgrading. PR-A documents and tests the rendition-table part, and PR-B adds the backfill table to it. A down-migration is not provided, matching the project's forward-only migrations.
+  A down-migration is not provided, matching the project's forward-only migrations.
 - **Observability.** The worker logs backfill progress (`renditions_backfilled`, `renditions_skipped_mismatch`) without content or digests beyond existing log policy.
 - **Authorization.** This plan does not authorize live operations. It touches only the local development stack and its own data.
 

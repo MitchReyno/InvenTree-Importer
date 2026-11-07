@@ -15,7 +15,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 | 1. Decoder renditions | Behavior | None | Media preview renditions; Media full-resolution crop source |
 | 2. Rendition storage and publication | Behavior, migration | 1 | Media preview renditions; Media orphan collection (unchanged guarantees) |
 | 3. Sized preview reads and contract | Behavior, contract | 2 | Media authorized byte reads; Media preview renditions (snapshot listing) |
-| 4. Sized observation crops | Behavior | None (reads existing full previews) | Media sized observation crops; Media authorized byte reads (revalidation); Media full-resolution crop source |
+| 4. Sized observation crops | Behavior | 1 (`renditionDimensions()`) | Media sized observation crops; Media authorized byte reads (revalidation); Media full-resolution crop source |
 | 5. Rendition backfill | Behavior, migration of retained data | 2 | Media rendition backfill |
 | 6. Frontend preview selection | Behavior (UI) | 3, 4 | Media previews fit their surface |
 
@@ -25,13 +25,13 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-A | New decodes produce, store and serve sized renditions; the snapshot lists them | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together. The client's strict response schemas and the regenerated contracts ship in the same PR, so the served frontend and API always agree | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check`; independent exact-head review; selected CI green |
 | PR-B | Observation crops at each size, and retained versions upgraded in the background | Tasks 4–5 in full | Both close the remaining server gaps before the UI relies on sizes; they share the worker and HTTP test setup | After PR-A (task 5 needs the table) | `interactive-app`; `feat/add-preview-renditions-backfill`; `feat(add-preview-renditions): sized observation crops and rendition backfill` | PostgreSQL, HTTP and decoder process tiers; backfill run against a copy of retained dev data; independent exact-head review; selected CI green |
-| PR-C | Each frontend surface loads a suitable size, with the viewer switching to full on zoom | Task 6 in full | One UI pass over the media surfaces with a single helper; reviewed with a demo recording | After PR-A and PR-B | `interactive-app`; `feat/add-preview-renditions-frontend`; `feat(add-preview-renditions): use sized previews in the app` | Frontend typecheck, lint, tests and build; byte-transfer comparison and demo video on the PR; independent exact-head review; selected CI green |
+| PR-C | Each frontend surface loads a suitable size, with the viewer switching to full when its density-adjusted width needs it | Task 6 in full | One UI pass over the media surfaces with a single helper; reviewed with a demo recording | After PR-A and PR-B | `interactive-app`; `feat/add-preview-renditions-frontend`; `feat(add-preview-renditions): use sized previews in the app` | Frontend typecheck, lint, tests and build; byte-transfer comparison and demo video on the PR; independent exact-head review; selected CI green |
 
 ## 1. Decoder renditions
 
 - **PR delivery:** PR-A.
 - **Outcome:** a ready decode returns, for every page, `thumb`/`card`/`view` WebP renditions that never upscale. Sizes the page doesn't exceed are omitted, and the full page and crop outputs are unchanged.
-- **Scope:** `intake-server/src/media/decode.ts`, `decoder-protocol.ts`, `decoder-main.ts`, `decoder-output.ts` and `decoder-runner.ts` (result framing and a shared header bound raised to 64 KiB), `contracts/src/media.ts` (decoder result header).
+- **Scope:** `intake-server/src/media/decode.ts`, `decoder-protocol.ts`, `decoder-main.ts`, `decoder-output.ts` and `decoder-runner.ts` (result framing and a shared header bound raised to 64 KiB), and `contracts/src/media.ts` for the decoder result header and the shared `renditionDimensions()`.
 - **Prerequisites:** none.
 - **Acceptance:** Media preview renditions (photo, small source, multi-page, derived crop, failed decode, decoder bounds); Media full-resolution crop source.
 - **Approach:** as in design ("Renditions are produced in the decoder"). Rendition bytes count toward `totalOutputBytes`; only identified limits end `limit_exceeded`, and unexpected encoder failures stay `interrupted`.
@@ -40,7 +40,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
 - [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
-- [ ] 1.3 GREEN: encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
+- [ ] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
 - [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
 ## 2. Rendition storage and publication
@@ -56,7 +56,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
 - [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
 - [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
-- [ ] 2.4 Document and test the rendition-table rollback (owner transaction disabling the immutability trigger to clear rows) before an older collector runs, then confirm every remaining referenced blob survives collection.
+- [ ] 2.4 Document and test rollback by restore: take an `operations backup`, migrate, restore into a fresh `intake_restore_*` database, and confirm the pre-change build passes the compatibility gate and starts against it.
 
 ## 3. Sized preview reads and contract
 
@@ -78,12 +78,12 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **PR delivery:** PR-B.
 - **Outcome:** `…/observations/:id/crop?size=` returns the region cut from the full page and then downscaled. The cache is keyed per size, and responses carry a digest ETag and answer 304, so a changed region yields new bytes.
 - **Scope:** `media/region-crops.ts`, `media/content.ts`, `media/routes.ts`.
-- **Prerequisites:** none. This works on existing full previews.
+- **Prerequisites:** task 1 for `renditionDimensions()`. Otherwise it works on existing full previews.
 - **Acceptance:** Media sized observation crops; Media authorized byte reads (revalidated observation crop); Media full-resolution crop source (coordinates unchanged).
 - **Approach:** as in design ("Observation crops are cut full, then downscaled").
 - **Verification:** HTTP tests.
 
-- [ ] 4.1 RED: add tests for `thumb` dimensions, a small region left unscaled, 400 on an unknown size, the default `full`, ETag/304, and a region change returning new bytes.
+- [ ] 4.1 RED: add tests for `thumb` dimensions, a `rev` that no longer matches refused with 409, a small region left unscaled, 400 on an unknown size, the default `full`, ETag/304, and a region change returning new bytes.
 - [ ] 4.2 GREEN: implement the sized cut, the per-size cache key and the headers.
 
 ## 5. Rendition backfill
@@ -95,7 +95,6 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - the `media-renditions/1` decoder input, with its 64 MiB input bound and rendition-only response framing, through every layer of the container boundary: the input and output contracts in `contracts/src/media.ts`, plus `decoder-protocol.ts`, `decoder-main.ts`, `decode.ts`, `decoder-output.ts` and `decoder-runner.ts`;
   - in `media/worker.ts`: eligibility, claiming, abandoned-claim recovery and owner-checked rendition-only publication;
   - snapshot reads, which must not change;
-  - adding the backfill table to the rollback procedure.
 - **Prerequisites:** task 2.
 - **Acceptance:** Media rendition backfill (upgrade, request before backfill, interrupted, source changed).
 - **Approach:** as in design ("Backfill renders from the retained page, per preview, with claimed attempts").
@@ -125,13 +124,13 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - **PR delivery:** PR-C.
 - **Outcome:** each image surface uses its usage profile (thumbnail, card, viewer, full) through one helper. Images declare their size and load lazily where offscreen, the viewer switches to full past the `view` resolution, the crop dialog keeps full-resolution coordinates, and missing sizes fall back.
-- **Scope:** `frontend/src/media/types.ts`, plus a shared `renditionDimensions()` in `contracts/src/media.ts` used by the server and the client; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
+- **Scope:** `frontend/src/media/types.ts`, which adopts task 1's `renditionDimensions()`, plus crop URLs carrying the region revision; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
 - **Prerequisites:** tasks 3 and 4.
 - **Acceptance:** Media previews fit their surface (all scenarios).
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source and a page not yet backfilled offering it; observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer switching both attributes to full on zoom at 3× density; crop selection coordinates unchanged over `view`.
+- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source and a page not yet backfilled offering it; observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output and surface tests: attributes reaching the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`.
 - [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
 - [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 

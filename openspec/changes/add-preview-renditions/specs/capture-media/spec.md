@@ -116,6 +116,12 @@ An observation crop SHALL be requestable at the `thumb`, `card` or `view` size o
 - **WHEN** its `card` crop is requested
 - **THEN** the 200 × 150 region is returned unscaled.
 
+#### Scenario: Region edited while shown
+
+- **GIVEN** an observation crop shown on a mounted page
+- **WHEN** the observation's region is edited
+- **THEN** the page requests and shows the crop of the new region without a reload, and a request for the old region's revision is refused.
+
 #### Scenario: Unknown size
 
 - **GIVEN** an authorized observation crop
@@ -192,9 +198,15 @@ The frontend SHALL request the smallest suitable rendition for each image surfac
 
 #### Scenario: Viewer zoom
 
-- **GIVEN** the evidence viewer open on a photo
-- **WHEN** it first renders and when the operator zooms beyond the `view` rendition's resolution
-- **THEN** it first loads the `view` rendition, and loads the full-resolution page only after that zoom.
+- **GIVEN** the evidence viewer open on a 4032 × 3024 photo
+- **WHEN** its zoom × rendered width × device pixel ratio is at or below the `view` rendition's 2048 px width, and later exceeds it
+- **THEN** it shows the `view` rendition or smaller while at or below that width, and loads the full-resolution page once it exceeds it.
+
+#### Scenario: Viewer on a high-density screen
+
+- **GIVEN** the evidence viewer rendered 900 CSS pixels wide at a device pixel ratio of 3
+- **WHEN** it first renders at zoom 1
+- **THEN** it loads the full-resolution page immediately, because 2700 pixels exceeds the `view` width.
 
 #### Scenario: Crop selection
 
