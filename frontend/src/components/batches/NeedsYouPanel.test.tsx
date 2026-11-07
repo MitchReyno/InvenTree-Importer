@@ -61,11 +61,15 @@ describe('NeedsYouPanel', () => {
       within(panel)
         .getAllByRole('heading')
         .map((heading) => heading.textContent),
-    ).toEqual(['Processing', 'Review', 'Changes'])
-    expect(
-      within(panel).getByRole('link', { name: 'Answer: A run needs recovery' }),
-    ).toHaveAttribute('href', `#${b}/changes/added/${run}`)
+    ).toEqual(['Needs you3', 'Questions · Processing', 'Lots · Review', 'Results · Changes'])
+    expect(within(panel).getByRole('link', { name: 'Open: A run needs recovery' })).toHaveAttribute(
+      'href',
+      `#${b}/changes/added/${run}`,
+    )
     expect(within(panel).getByText('Assuming 10kΩ')).toBeVisible()
+    expect(
+      within(panel).getByText('Each item opens the tab that owns it.', { exact: false }),
+    ).toBeVisible()
   })
 
   it('closes once an item is chosen, so it does not cover the screen it opens', async () => {
@@ -73,9 +77,40 @@ describe('NeedsYouPanel', () => {
     render(<NeedsYouPanel attention={attention} />)
 
     await user.click(screen.getByRole('button', { name: '3 need you' }))
-    await user.click(screen.getByRole('link', { name: 'Answer: A run needs recovery' }))
+    await user.click(screen.getByRole('link', { name: 'Open: A run needs recovery' }))
 
     expect(screen.queryByRole('dialog', { name: 'Needs you' })).not.toBeInTheDocument()
+  })
+
+  it('names each question by its step and marks other items by tone, never colour alone', async () => {
+    const user = userEvent.setup()
+    render(<NeedsYouPanel attention={attention} />)
+    await user.click(screen.getByRole('button', { name: '3 need you' }))
+    const panel = screen.getByRole('dialog', { name: 'Needs you' })
+
+    const question = within(panel)
+      .getByRole('link', { name: 'Answer: Is this 10kΩ?' })
+      .closest('li')!
+    expect(question).toHaveTextContent('Examine')
+    const changed = within(panel).getByRole('link', { name: 'Check: Resistor bag' }).closest('li')!
+    expect(within(changed).getByText('Changed since review')).toBeInTheDocument()
+    expect(changed.querySelector('[data-tone="warn"]')).toHaveTextContent('!')
+    const result = within(panel)
+      .getByRole('link', { name: 'Open: A run needs recovery' })
+      .closest('li')!
+    expect(result.querySelector('[data-tone="bad"]')).toHaveTextContent('×')
+  })
+
+  it('closes from its own close button and returns focus to the pill', async () => {
+    const user = userEvent.setup()
+    render(<NeedsYouPanel attention={attention} />)
+    const pill = screen.getByRole('button', { name: '3 need you' })
+
+    await user.click(pill)
+    await user.click(screen.getByRole('button', { name: 'Close Needs you' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Needs you' })).not.toBeInTheDocument()
+    expect(pill).toHaveFocus()
   })
 
   it('closes with Escape and returns focus to the pill', async () => {

@@ -1,6 +1,11 @@
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from './Button'
+import { Pill } from './Pill'
+import { VisuallyHidden } from './VisuallyHidden'
+
+/** A tone marker in place of the step chip: its glyph shows, its word is read. */
+export type NeedsYouMark = { tone: 'warn' | 'bad'; glyph: string; word: string }
 
 export type NeedsYouItem = {
   id: string
@@ -8,6 +13,9 @@ export type NeedsYouItem = {
   title: string
   assumption: string
   step?: string
+  mark?: NeedsYouMark
+  /** The link's verb, "Answer" unless the item is not a question. */
+  action?: string
   href: string
 }
 
@@ -22,9 +30,20 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
     <List>
       {items.map((item) => (
         <li key={item.id}>
-          <Thumb aria-hidden="true">{item.thumb && <img src={item.thumb} alt="" />}</Thumb>
+          {item.thumb && (
+            <Thumb aria-hidden="true" data-thumb>
+              <img src={item.thumb} alt="" />
+            </Thumb>
+          )}
           <span>
             {item.step && <StepChip>{item.step}</StepChip>}
+            {item.mark && (
+              <Mark>
+                <Pill tone={item.mark.tone} glyph={item.mark.glyph}>
+                  <VisuallyHidden>{item.mark.word}</VisuallyHidden>
+                </Pill>
+              </Mark>
+            )}
             <Title>{item.title}</Title>
             <Assumption>{item.assumption}</Assumption>
           </span>
@@ -34,9 +53,9 @@ export function NeedsYou({ items, onChoose }: { items: NeedsYouItem[]; onChoose?
             onClick={onChoose}
             size="sm"
             variant="primary"
-            aria-label={`Answer: ${item.title}`}
+            aria-label={`${item.action ?? 'Answer'}: ${item.title}`}
           >
-            Answer
+            {item.action ?? 'Answer'}
           </Button>
         </li>
       ))}
@@ -52,11 +71,14 @@ const List = styled.ul`
   list-style: none;
   li {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: ${space[5]};
     padding: ${space[5]} ${space[6]};
     border-top: 1px solid ${color.line};
+  }
+  li:has(> [data-thumb]) {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
   }
   li:first-child {
     border-top: 0;
@@ -86,6 +108,12 @@ const StepChip = styled.span`
   background: ${color.surface2};
   color: ${color.muted};
   font-size: ${typeVar.pill.size};
+`
+
+const Mark = styled.span`
+  display: inline-flex;
+  margin-right: ${space[3]};
+  vertical-align: middle;
 `
 
 const Title = styled.b`

@@ -162,7 +162,7 @@ Each component lives in `frontend/src/components/ui/`, uses only tokens, and is 
 | `QuestionCard` | `question`, `why`, `closeups?: {label, image}[]`, `assumption`, `answer` (slot), `secondary` | 1px `warn` border, `radius-card`; header on `warn-weak` padded `space-2-5` `space-3-5`; body padded `space-3` `space-3-5`, gap `space-3`; close-ups in two columns, 4:3 | States the assumption in use |
 | `OptionRow` | radio group; `options: {id, title, detail}[]` | grid 18px plus fluid, padded 9px 11px, `radius-btn`; selected on `accent-weak` with `accent` border | Always includes an escape option |
 | `StatusTimeline` | `entries: {text, time, current?}[]` | rows padded 5px 0; marker 10px with a 2px rail; current marker has a 4px `accent-weak` halo and bold text; time 11.5px tabular | Newest last |
-| `NeedsYou` | `items: {thumb?, title, assumption, step?, href}[]` | grid 44px · fluid · auto; padded `space-2-5` `space-3` | Each item links to its owner |
+| `NeedsYou` | `items: {thumb?, title, assumption, step?, mark?, action?, href}[]` | grid fluid · auto, with a 44px thumbnail column only when an item has a photo; `mark` is a tone pill (glyph shown, word read) for items without a step, and `action` the link's verb (default Answer); padded `space-2-5` `space-3` | Each item links to its owner |
 | `SessionChat` | `messages: {who, text, mine}[]`, `onSend`, `disabled?` | message max 85% width, padded `space-2` `space-2-5`, `radius-card`; own messages right-aligned on `accent-weak` | Composer stays enabled except for a cancelled session |
 
 ### Restyled existing controls
