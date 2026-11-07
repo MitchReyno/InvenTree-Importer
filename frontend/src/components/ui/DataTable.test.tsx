@@ -95,7 +95,7 @@ describe('BulkBar', () => {
     expect(bar).toHaveTextContent('3 selected')
     await userEvent.type(within(bar).getByRole('textbox', { name: 'Location' }), 'Drawer 2')
     await userEvent.click(within(bar).getByRole('button', { name: 'Apply to 3' }))
-    expect(onApply).toHaveBeenCalledWith('Drawer 2')
+    expect(onApply).toHaveBeenCalledWith('Drawer 2', 'Location')
     await userEvent.click(within(bar).getByRole('button', { name: 'Clear selection' }))
     expect(onClear).toHaveBeenCalledTimes(1)
   })
@@ -135,5 +135,22 @@ describe('DataTable region and disabled selection', () => {
     expect(screen.getByRole('region', { name: 'Lot table' })).toHaveAttribute('tabindex', '0')
     expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Select all rows' })).toBeDisabled()
+  })
+})
+
+describe('BulkBar with several fields', () => {
+  it('chooses the field, applies its value and clears', async () => {
+    const onApply = vi.fn()
+    render(
+      <BulkBar count={2} field={['Quantity', 'Location']} onApply={onApply} onClear={() => {}} />,
+    )
+    const bar = screen.getByRole('region', { name: 'Bulk edit' })
+    await userEvent.selectOptions(within(bar).getByRole('combobox', { name: 'Field' }), 'Location')
+    await userEvent.type(within(bar).getByRole('textbox', { name: 'Location' }), 'Drawer 2')
+    await userEvent.click(within(bar).getByRole('button', { name: 'Apply to 2' }))
+    expect(onApply).toHaveBeenCalledWith('Drawer 2', 'Location')
+    expect(within(bar).getByRole('button', { name: 'Clear selection' })).toHaveTextContent(
+      /^Clear$/,
+    )
   })
 })

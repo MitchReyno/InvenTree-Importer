@@ -1111,6 +1111,21 @@ test('opening Review on its first lot leaves focus alone; choosing a lot moves i
   await waitFor(() => expect(pane).toHaveFocus())
 })
 
+test('the Table shows one State column, the part markings and a legend for its markers', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await user.click(await screen.findByRole('button', { name: 'Table' }))
+  const table = screen.getByRole('region', { name: 'Lot table' })
+  const headers = within(table)
+    .getAllByRole('columnheader')
+    .map((cell) => cell.textContent)
+  expect(headers).toEqual(
+    expect.arrayContaining(['State', 'Item', 'MPN', 'D/C', 'Supplier SKU', 'Qty', 'Location']),
+  )
+  expect(headers).not.toContain('Problems')
+  expect(screen.getByText(/overrides the batch value/)).toBeVisible()
+})
+
 test('a click on a Table row opens its lot, and the shortcut hint names its keys', async () => {
   const user = userEvent.setup()
   renderReview()

@@ -8,11 +8,13 @@ import type {
 } from '@invimport/contracts'
 import { display } from '../../capture/display'
 import {
-  PROVENANCE_LABELS,
   blockingIssues,
   lotLocationFact,
+  lotProvenance,
   openWarnings,
+  type Provenance,
 } from '../../operator/review-model'
+import { partFacts } from '../../operator/part-facts'
 import { Pill } from '../ui/Pill'
 import { DataTable, type DataColumn, type DataRow } from '../ui/DataTable'
 
@@ -29,35 +31,35 @@ export interface ReviewTableProps {
   inspect: (lotId: string) => void
 }
 
-function ReviewStateChip({ lot }: { lot: OperatorLotDto }) {
+/** One state per lot, most pressing first; Excluded follows the Exclude command (task 22.4). */
+function LotState({ lot }: { lot: OperatorLotDto }) {
+  const blocking = blockingIssues(lot).length
+  const warnings = openWarnings(lot).length
   if (lot.approved) {
     return <Pill tone="ok">Approved</Pill>
   }
-  if (lot.review_state === 'reviewed') {
-    return <Pill status="ready">Reviewed</Pill>
+  if (blocking) {
+    return <Pill status="blocking">{blocking} blocking</Pill>
+  }
+  if (warnings) {
+    return (
+      <Pill status="warning">
+        {warnings} warning{warnings === 1 ? '' : 's'}
+      </Pill>
+    )
   }
   if (lot.review_state === 'changed_after_review') {
     return <Pill status="warning">Changed</Pill>
   }
+  if (lot.review_state === 'reviewed') {
+    return <Pill status="ready">Reviewed</Pill>
+  }
   return <Pill tone="neutral">Needs review</Pill>
 }
 
-function Problems({ lot }: { lot: OperatorLotDto }) {
-  const blocking = blockingIssues(lot).length
-  const warnings = openWarnings(lot).length
-  if (!blocking && !warnings) {
-    return <span>None</span>
-  }
-  return (
-    <ProblemList>
-      {blocking > 0 && <Pill status="blocking">{blocking} blocking</Pill>}
-      {warnings > 0 && (
-        <Pill status="warning">
-          {warnings} warning{warnings === 1 ? '' : 's'}
-        </Pill>
-      )}
-    </ProblemList>
-  )
+/** ◆ marks a lot value that overrides the batch; an underline marks the operator's own edit. */
+function markers(provenance: Provenance) {
+  return { override: provenance === 'override', edited: provenance === 'human' }
 }
 
 function partCell(batch: CaptureSnapshotDto, lot: OperatorLotDto) {
@@ -70,9 +72,11 @@ function partCell(batch: CaptureSnapshotDto, lot: OperatorLotDto) {
 }
 
 const COLUMNS: DataColumn[] = [
-  { id: 'status', header: 'Status', nowrap: true },
-  { id: 'problems', header: 'Problems' },
+  { id: 'state', header: 'State', nowrap: true },
   { id: 'item', header: 'Item' },
+  { id: 'mpn', header: 'MPN', mono: true },
+  { id: 'dateCode', header: 'D/C', mono: true, nowrap: true },
+  { id: 'sku', header: 'Supplier SKU', mono: true },
   { id: 'qty', header: 'Qty', nowrap: true },
   { id: 'location', header: 'Location' },
   { id: 'part', header: 'Part' },
@@ -97,12 +101,18 @@ export function ReviewTable({
     const capture = batch.lots.find((value) => value.id === lot.lot_id)!
     const location = lotLocationFact(batch, capture, media)
     const part = partCell(batch, lot)
+    const facts = partFacts(
+      batch,
+      batch.parts.find((value) => value.id === lot.part_subject_id),
+    )
     return {
       id: lot.lot_id,
       label: lot.label,
       cells: {
-        status: { value: '', content: <ReviewStateChip lot={lot} /> },
-        problems: { value: '', content: <Problems lot={lot} /> },
+        state: { value: '', content: <LotState lot={lot} /> },
+        mpn: { value: facts.mpn ?? '' },
+        dateCode: { value: facts.dateCode ?? '' },
+        sku: { value: facts.supplierSku ?? '' },
         item: {
           value: lot.label,
           content: (
@@ -111,10 +121,11 @@ export function ReviewTable({
             </ItemButton>
           ),
         },
-        qty: { value: display(capture.quantity, batch, 'quantity') },
-        location: {
-          value: `${location.value} · ${PROVENANCE_LABELS[location.provenance]}`,
+        qty: {
+          value: display(capture.quantity, batch, 'quantity'),
+          ...markers(lotProvenance(capture.quantity, batch.defaults.quantity)),
         },
+        location: { value: location.value, ...markers(location.provenance) },
         part: {
           value: part,
           content: (
@@ -145,14 +156,23 @@ export function ReviewTable({
         }}
       />
       {!lots.length && <Empty>No lots match this filter.</Empty>}
+      <Legend>
+        <span aria-hidden="true">◆</span> overrides the batch value · <Edited>underline</Edited>:
+        your edit
+      </Legend>
     </>
   )
 }
 
-const ProblemList = styled.span`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${space[2]};
+const Legend = styled.p`
+  margin: ${space[3]} 0 0;
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+`
+const Edited = styled.span`
+  text-decoration: underline;
+  text-decoration-color: ${color.accent};
+  text-decoration-thickness: 2px;
 `
 /** Plain text that opens the lot, so the row stays reachable by keyboard. */
 const ItemButton = styled.button`

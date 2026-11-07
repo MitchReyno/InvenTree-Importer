@@ -95,7 +95,7 @@ export function DataTable({
         <thead>
           <tr>
             {selection && (
-              <th scope="col">
+              <th scope="col" data-select>
                 <SelectAll rows={rows} selection={selection} />
               </th>
             )}
@@ -125,7 +125,7 @@ export function DataTable({
                 }
               >
                 {selection && (
-                  <td>
+                  <td data-select>
                     <Hit>
                       <input
                         type="checkbox"
@@ -207,6 +207,10 @@ const Table = styled.table`
     border-bottom: 1px solid ${color.line};
     vertical-align: middle;
     ${hoverTransition}
+  }
+  [data-select] {
+    width: ${space[20]};
+    padding-right: 0;
   }
   td[data-nowrap] {
     white-space: nowrap;
