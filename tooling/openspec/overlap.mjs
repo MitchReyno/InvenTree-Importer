@@ -7,17 +7,18 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const OPERATIONS = ['ADDED', 'MODIFIED', 'REMOVED', 'RENAMED']
-const normalize = (text) => text.replace(/\s+/g, ' ').trim()
+// Matches OpenSpec 1.16.0's normalizeBlockRaw: only line endings and outer whitespace.
+const normalize = (text) => text.replace(/\r\n?/g, '\n').trim()
 
-/** Maps each requirement name to its normalized block text. */
-export function parseRequirements(text) {
-  const blocks = new Map()
+/** Lists [name, block] pairs in order; a `## ` heading ends the current block. */
+function parseBlocks(text) {
+  const blocks = []
   let name = null
   let lines = []
   const flush = () => {
-    if (name !== null) blocks.set(name, normalize(lines.join('\n')))
+    if (name !== null) blocks.push([name, normalize(lines.join('\n'))])
   }
-  for (const line of text.split('\n')) {
+  for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
     const heading = line.match(/^### Requirement:\s*(.+?)\s*$/)
     if (heading || /^## /.test(line)) {
       flush()
@@ -31,10 +32,24 @@ export function parseRequirements(text) {
   return blocks
 }
 
+/** Maps each requirement name to its block text. */
+export function parseRequirements(text) {
+  return new Map(parseBlocks(text))
+}
+
+/**
+ * Parses a delta and records the structural problems OpenSpec rejects before
+ * applying: duplicate names within a section and contradictory sections.
+ */
 export function parseDelta(text) {
-  const delta = { ADDED: new Map(), MODIFIED: new Map(), REMOVED: new Map(), RENAMED: [] }
-  const sections = text.split(/^(?=## )/m)
-  for (const section of sections) {
+  const delta = {
+    ADDED: new Map(),
+    MODIFIED: new Map(),
+    REMOVED: new Map(),
+    RENAMED: [],
+    problems: [],
+  }
+  for (const section of text.replace(/\r\n?/g, '\n').split(/^(?=## )/m)) {
     const op = section.match(/^## (ADDED|MODIFIED|REMOVED|RENAMED) Requirements\s*$/m)?.[1]
     if (!op) continue
     if (op === 'RENAMED') {
@@ -48,11 +63,42 @@ export function parseDelta(text) {
           from = null
         }
       }
-    } else {
-      delta[op] = parseRequirements(section.replace(/^## .*$/m, '## x'))
+      continue
+    }
+    for (const [name, block] of parseBlocks(section)) {
+      if (delta[op].has(name)) delta.problems.push(`duplicate requirement in ${op} "${name}"`)
+      else delta[op].set(name, block)
     }
   }
+  const froms = new Set()
+  const tos = new Set()
+  for (const { from, to } of delta.RENAMED) {
+    if (froms.has(from)) delta.problems.push(`duplicate FROM in RENAMED "${from}"`)
+    if (tos.has(to)) delta.problems.push(`duplicate TO in RENAMED "${to}"`)
+    froms.add(from)
+    tos.add(to)
+  }
+  const both = (a, b) => [...delta[a].keys()].filter((n) => delta[b].has(n))
+  for (const n of both('MODIFIED', 'REMOVED'))
+    delta.problems.push(`"${n}" is both MODIFIED and REMOVED`)
+  for (const n of both('MODIFIED', 'ADDED'))
+    delta.problems.push(`"${n}" is both MODIFIED and ADDED`)
+  for (const n of both('ADDED', 'REMOVED')) delta.problems.push(`"${n}" is both ADDED and REMOVED`)
+  for (const { from, to } of delta.RENAMED) {
+    if (delta.REMOVED.has(from)) delta.problems.push(`"${from}" is both RENAMED and REMOVED`)
+    if (delta.MODIFIED.has(from)) {
+      delta.problems.push(`MODIFIED must use the new name "${to}" of renamed "${from}"`)
+    }
+    if (delta.ADDED.has(to)) delta.problems.push(`RENAMED destination "${to}" collides with ADDED`)
+  }
   return delta
+}
+
+/** Every name a delta mentions, used when its problems prevent classification. */
+function namesIn(delta) {
+  const names = new Set([...delta.ADDED.keys(), ...delta.MODIFIED.keys(), ...delta.REMOVED.keys()])
+  for (const { from, to } of delta.RENAMED) names.add(from).add(to)
+  return names
 }
 
 function capabilityDirs(dir) {
@@ -92,8 +138,13 @@ export function loadWorkspace(root) {
  * renames. Returns the names its pending operations touch.
  */
 export function classifyDelta(cap, delta, existing) {
-  const working = new Map(existing)
   const result = { pending: new Set(), applied: [], errors: [], warnings: [] }
+  if (delta.problems.length) {
+    result.errors.push(...delta.problems.map((problem) => `${cap}: ${problem}`))
+    result.pending = namesIn(delta)
+    return result
+  }
+  const working = new Map(existing)
   for (const { from, to } of delta.RENAMED) {
     const hasFrom = working.has(from)
     const hasTo = working.has(to)

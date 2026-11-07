@@ -164,6 +164,59 @@ test('a synced rename-and-modify counts as applied', (t) => {
   assert.deepEqual(applied, ['shared: RENAMED "Old" to "New"', 'shared: MODIFIED "New"'])
 })
 
+test('a Markdown structure change is pending, not applied; only line endings are normalized', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/shared/spec.md': `## Requirements\r\n\r\n${requirement('Rule', '- one\r\n- two')}`,
+    'openspec/changes/base/specs/shared/spec.md': section(
+      'MODIFIED',
+      requirement('Rule', '- one - two'),
+    ),
+    'openspec/changes/same/specs/shared/spec.md': section(
+      'MODIFIED',
+      requirement('Rule', '- one\n- two'),
+    ),
+  })
+  assert.deepEqual(check(root, 'base', { newCapabilitiesOnly: true }).applied, [])
+  assert.ok(check(root, 'base', { newCapabilitiesOnly: true }).errors.length > 0)
+  assert.deepEqual(check(root, 'same').applied, ['shared: MODIFIED "Rule"'])
+})
+
+test('duplicates and contradictory sections are rejected, as OpenSpec rejects them', (t) => {
+  const cases = {
+    'duplicate requirement in MODIFIED "A"': `${section('MODIFIED', requirement('A', 'New SHALL be.'))}\n${section('MODIFIED', requirement('A'))}`,
+    '"A" is both ADDED and REMOVED': `${section('ADDED', requirement('A'))}\n${section('REMOVED', requirement('A'))}`,
+    '"A" is both MODIFIED and REMOVED': `${section('MODIFIED', requirement('A'))}\n${section('REMOVED', requirement('A'))}`,
+    '"A" is both MODIFIED and ADDED': `${section('MODIFIED', requirement('A'))}\n${section('ADDED', requirement('A'))}`,
+    'RENAMED destination "B" collides with ADDED': `${renamed('A', 'B')}\n${section('ADDED', requirement('B'))}`,
+    '"A" is both RENAMED and REMOVED': `${renamed('A', 'B')}\n${section('REMOVED', requirement('A'))}`,
+    'MODIFIED must use the new name "B"': `${renamed('A', 'B')}\n${section('MODIFIED', requirement('A'))}`,
+    'duplicate FROM in RENAMED "A"': `${renamed('A', 'B')}\n- FROM: \`### Requirement: A\`\n- TO: \`### Requirement: C\`\n`,
+  }
+  for (const [expected, delta] of Object.entries(cases)) {
+    const root = workspace(t, {
+      'openspec/specs/shared/spec.md': spec('A'),
+      'openspec/changes/base/specs/shared/spec.md': delta,
+    })
+    const { errors } = check(root, 'base')
+    assert.ok(
+      errors.some((e) => e.includes(expected)),
+      `${expected}: ${errors.join('; ')}`,
+    )
+  }
+})
+
+test('a change with problems still blocks another change on the names it mentions', (t) => {
+  const root = workspace(t, {
+    'openspec/specs/shared/spec.md': spec('A'),
+    'openspec/changes/broken/specs/shared/spec.md': `${section('ADDED', requirement('A'))}\n${section('REMOVED', requirement('A'))}`,
+    'openspec/changes/base/specs/shared/spec.md': section(
+      'MODIFIED',
+      requirement('A', 'Mine SHALL be.'),
+    ),
+  })
+  assert.ok(check(root, 'base').errors.some((e) => e.includes('"A" is also changed by broken')))
+})
+
 test('archived changes are not treated as pending', (t) => {
   const root = workspace(t, {
     'openspec/changes/base/specs/fresh/spec.md': section('ADDED', requirement('Rule')),
