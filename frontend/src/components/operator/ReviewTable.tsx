@@ -13,7 +13,7 @@ import {
   lotLocationFact,
   openWarnings,
 } from '../../operator/review-model'
-import { StatusChip } from './StatusChip'
+import { Pill } from '../ui/Pill'
 
 export interface ReviewTableProps {
   batch: CaptureSnapshotDto
@@ -30,15 +30,15 @@ export interface ReviewTableProps {
 
 function ReviewStateChip({ lot }: { lot: OperatorLotDto }) {
   if (lot.approved) {
-    return <StatusChip $tone="green">Approved</StatusChip>
+    return <Pill tone="ok">Approved</Pill>
   }
   if (lot.review_state === 'reviewed') {
-    return <StatusChip $tone="green">✓ Reviewed</StatusChip>
+    return <Pill status="ready">Reviewed</Pill>
   }
   if (lot.review_state === 'changed_after_review') {
-    return <StatusChip $tone="amber">! Changed</StatusChip>
+    return <Pill status="warning">Changed</Pill>
   }
-  return <StatusChip $tone="neutral">Needs review</StatusChip>
+  return <Pill tone="neutral">Needs review</Pill>
 }
 
 function Problems({ lot }: { lot: OperatorLotDto }) {
@@ -49,11 +49,11 @@ function Problems({ lot }: { lot: OperatorLotDto }) {
   }
   return (
     <ProblemList>
-      {blocking > 0 && <StatusChip $tone="red">× {blocking} blocking</StatusChip>}
+      {blocking > 0 && <Pill status="blocking">{blocking} blocking</Pill>}
       {warnings > 0 && (
-        <StatusChip $tone="amber">
-          ! {warnings} warning{warnings === 1 ? '' : 's'}
-        </StatusChip>
+        <Pill status="warning">
+          {warnings} warning{warnings === 1 ? '' : 's'}
+        </Pill>
       )}
     </ProblemList>
   )

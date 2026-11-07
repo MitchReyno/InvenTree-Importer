@@ -2,7 +2,7 @@ import styled from 'styled-components'
 import { color, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
-import { StatusChip } from './StatusChip'
+import { Pill } from '../ui/Pill'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -27,7 +27,7 @@ export function RetiredLots({ batch, review }: Props) {
         {review.retired_lots.map((lot) => (
           <li key={lot.lot_id}>
             <strong>{lot.label}</strong>{' '}
-            <StatusChip $tone="neutral">{lot.action === 'split' ? 'Split' : 'Merged'}</StatusChip>
+            <Pill tone="neutral">{lot.action === 'split' ? 'Split' : 'Merged'}</Pill>
             <Small>
               Into {lot.successor_lot_ids.map((id) => label(batch, id)).join(', ')} · revision{' '}
               {lot.retired_revision}

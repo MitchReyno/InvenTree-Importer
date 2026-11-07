@@ -18,7 +18,7 @@ import {
   type QueueGroup,
   type ReviewFilter,
 } from '../../operator/review-model'
-import { StatusChip } from '../operator/StatusChip'
+import { Pill } from '../ui/Pill'
 import { LotStatusChips } from '../operator/LotStatusChips'
 import { RetiredLots } from '../operator/RetiredLots'
 
@@ -141,9 +141,9 @@ export function ReviewQueue({
                   <strong>{lot.label}</strong>
                 </CheckLabel>
                 {lot.origin === 'agent' && (
-                  <StatusChip $tone={lot.operator_edited ? 'neutral' : 'blue'}>
+                  <Pill tone={lot.operator_edited ? 'neutral' : 'acc'}>
                     {lot.operator_edited ? 'Edited' : 'AI-proposed'}
-                  </StatusChip>
+                  </Pill>
                 )}
                 <Small>{display(lot.quantity, batch, 'quantity')}</Small>
                 {operatorLot ? (

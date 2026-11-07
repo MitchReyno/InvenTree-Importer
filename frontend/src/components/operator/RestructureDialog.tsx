@@ -20,7 +20,7 @@ import {
 } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
-import { Modal } from './Modal'
+import { Dialog } from '../ui/Dialog'
 import { observationNames } from './observation-names'
 
 export type RestructureKind = 'split' | 'merge' | 'move'
@@ -248,7 +248,7 @@ export function RestructureDialog({
   }
 
   return (
-    <Modal title={TITLES[kind]} onClose={onClose} closeDisabled={locked || isDirty}>
+    <Dialog title={TITLES[kind]} onClose={onClose} closeDisabled={locked || isDirty}>
       <Paragraph>
         {kind === 'split' &&
           `Split ${lotLabels(batch, lotIds)[0]} into separate physical lots. The original is retired and kept as history.`}
@@ -427,7 +427,7 @@ export function RestructureDialog({
           )}
         </PreviewBox>
       )}
-    </Modal>
+    </Dialog>
   )
 }
 

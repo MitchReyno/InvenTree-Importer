@@ -2,19 +2,19 @@ import styled from 'styled-components'
 import { color, space } from '../../theme/generated/tokens'
 import type { ReactNode } from 'react'
 import { PROVENANCE_LABELS, type Provenance } from '../../operator/review-model'
-import { StatusChip, type ChipTone } from './StatusChip'
+import { Pill, type PillTone } from '../ui/Pill'
 
-const PROVENANCE_TONES: Record<Provenance, ChipTone> = {
-  human: 'blue',
-  override: 'blue',
+const PROVENANCE_TONES: Record<Provenance, PillTone> = {
+  human: 'acc',
+  override: 'acc',
   inherited: 'neutral',
-  unknown: 'amber',
+  unknown: 'warn',
   cleared: 'neutral',
-  unset: 'amber',
+  unset: 'warn',
   shared_part: 'neutral',
   evidence_group: 'neutral',
-  conflict: 'amber',
-  unconfirmed: 'amber',
+  conflict: 'warn',
+  unconfirmed: 'warn',
 }
 
 interface Props {
@@ -32,9 +32,7 @@ export function FactRow({ label, value, provenance, children }: Props) {
       <dd>
         <Value>
           <span>{value}</span>
-          <StatusChip $tone={PROVENANCE_TONES[provenance]}>
-            {PROVENANCE_LABELS[provenance]}
-          </StatusChip>
+          <Pill tone={PROVENANCE_TONES[provenance]}>{PROVENANCE_LABELS[provenance]}</Pill>
         </Value>
         {children}
       </dd>

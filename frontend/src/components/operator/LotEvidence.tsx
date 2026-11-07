@@ -11,7 +11,7 @@ import { mediaDisplayLabels } from '../../media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
-import { StatusChip } from './StatusChip'
+import { Pill } from '../ui/Pill'
 import { LotObservations } from './LotObservations'
 
 type Lot = CaptureSnapshotDto['lots'][number]
@@ -130,8 +130,7 @@ export function LotEvidence({
           {proposals.map(({ job, proposal }) => (
             <Field key={proposal.id}>
               <span>
-                <StatusChip $tone="neutral">Fixture-only</StatusChip> {job.stage} · attempt{' '}
-                {job.attempt_number}
+                <Pill tone="neutral">Fixture-only</Pill> {job.stage} · attempt {job.attempt_number}
               </span>
               <Paragraph>{proposal.value.summary}</Paragraph>
               <ProcessingSources proposal={proposal.value} />

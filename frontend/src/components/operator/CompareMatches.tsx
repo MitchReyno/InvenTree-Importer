@@ -4,7 +4,7 @@ import { color, space } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
-import { Modal } from './Modal'
+import { Dialog } from '../ui/Dialog'
 
 type Part = CaptureSnapshotDto['parts'][number]
 type Observation = CaptureSnapshotDto['observations'][number]
@@ -82,7 +82,7 @@ export function CompareMatches({
   }
 
   return (
-    <Modal
+    <Dialog
       title={`Compare matches · ${part.label}`}
       onClose={onClose}
       closeDisabled={pending !== null || saving}
@@ -200,7 +200,7 @@ export function CompareMatches({
           </span>
         </Confirm>
       )}
-    </Modal>
+    </Dialog>
   )
 }
 

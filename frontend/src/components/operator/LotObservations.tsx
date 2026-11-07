@@ -4,7 +4,7 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { coverSizes, observationImage } from '../../media/images'
 import { Field, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
-import { StatusChip } from './StatusChip'
+import { Pill } from '../ui/Pill'
 import { ObservationMove } from './ObservationMove'
 import { observationNames } from './observation-names'
 
@@ -89,9 +89,9 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
         Observations{' '}
         {lot.origin === 'agent' &&
           (lot.operator_edited ? (
-            <StatusChip $tone="neutral">Edited</StatusChip>
+            <Pill tone="neutral">Edited</Pill>
           ) : (
-            <StatusChip $tone="blue">AI-proposed</StatusChip>
+            <Pill tone="acc">AI-proposed</Pill>
           ))}
       </Subheading>
       {lot.estimated_quantity && (
@@ -105,7 +105,7 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
           <li key={observation.id}>
             {crop(observation)}
             <Reading observation={observation} />
-            {observation.operator_edited && <StatusChip $tone="neutral">Edited</StatusChip>}
+            {observation.operator_edited && <Pill tone="neutral">Edited</Pill>}
             <ObservationMove
               batch={batch}
               observationId={observation.id}
