@@ -30,6 +30,7 @@ const DEFAULT_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Ch
 const THEMES = ['light', 'dark']
 const WIDTHS = [1440, 390]
 const SETTLE_MS = 1200
+const BODY_FONT = 'Public Sans Variable'
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 
 // Animations, transitions and the caret are frozen, and the masthead scene (a three.js canvas
@@ -311,6 +312,19 @@ async function capture(cdp, origin, scenario) {
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     })()`,
   )
+  // A web font the server cannot serve falls back silently. Faces load only when text uses them,
+  // so any failed face fails the capture, and the body face must have loaded.
+  const fonts = await evaluate(
+    cdp,
+    `[...document.fonts].map((font) => ({ family: font.family.replace(/"/g, ''), status: font.status }))`,
+  )
+  const failed = fonts.filter((font) => font.status === 'error').map((font) => font.family)
+  const bodyLoaded = fonts.some((font) => font.family === BODY_FONT && font.status === 'loaded')
+  if (failed.length > 0 || !bodyLoaded) {
+    throw new Error(
+      `${shotName(scenario)}: web fonts did not load (${failed.length > 0 ? failed.join(', ') : BODY_FONT})`,
+    )
+  }
   const { cssContentSize } = await cdp.send('Page.getLayoutMetrics')
   const result = await cdp.send('Page.captureScreenshot', {
     format: 'png',
