@@ -1,0 +1,50 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["eslint.config.mjs"],
+      "project": ["eslint.config.mjs", "tooling/eslint/**/*.{js,cjs,mjs}"]
+    },
+    "frontend": {
+      "entry": ["src/main.tsx", "src/**/fixtures/*.tsx", "scripts/*.{cjs,mjs}"],
+      "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{cjs,mjs}", "tests/**/*.{ts,tsx}"]
+    },
+    "contracts": {
+      "entry": [
+        "src/index.ts",
+        "src/json.ts",
+        "src/media.ts",
+        "src/research.ts",
+        "generated/client.ts",
+        "scripts/*.cjs",
+        "tests/*.ts"
+      ],
+      "project": ["src/**/*.ts", "scripts/**/*.cjs", "tests/**/*.ts"]
+    },
+    "intake-server": {
+      "entry": [
+        "src/main.ts",
+        "src/**/*-main.ts",
+        "src/dev/setup.ts",
+        "scripts/*.{cjs,mjs}",
+        "tests/**/*.ts",
+        "tests/fixtures/**/*.{cjs,mjs}"
+      ],
+      "project": ["src/**/*.ts", "scripts/**/*.{cjs,mjs}", "tests/**/*.{ts,cjs,mjs}"]
+    }
+  },
+  "ignoreWorkspaces": ["tooling/openapi-generator"],
+  "ignore": ["**/generated/**"],
+  "tags": ["-planned"],
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "unlisted",
+    "exports",
+    "types",
+    "nsExports",
+    "nsTypes"
+  ],
+  "ignoreExportsUsedInFile": true
+}

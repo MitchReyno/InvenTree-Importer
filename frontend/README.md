@@ -31,6 +31,10 @@ pnpm screenshots:frontend -- --only records   # limit to fixture pages whose nam
 
 The script starts its own Vite server and needs Chrome (`CHROME_PATH` overrides its location). The baseline is local, in the gitignored `frontend/.screenshots/baseline`, so record it on the base commit before changing anything. Captures freeze animations and transitions, hide the decorative masthead scene, and use CPU rasterisation, so an unchanged page is identical from run to run. Screenshots are evidence for the PR description, not committed files.
 
+### Unused code
+
+`pnpm lint:unused` runs [knip](https://knip.dev) over `frontend`, `contracts` and `intake-server` (configured in `knip.json` at the root) and fails when unused files, exports, types or dependencies grow beyond `tooling/unused-code/baseline.json`. The baseline records unused code that predates the check, which BI-011 removes; it may only shrink, and a stale baseline fails until it is recorded smaller with `node tooling/unused-code/check.mjs --update-baseline`. A change deletes the code it makes unused. Code kept for planned work stays with a tag naming that work: `/** @planned BI-005 <why> */` on an export, or the same in a file's first comment to keep the whole file; a tag that names no `BI-NNN` item or `task N.N` fails the check.
+
 The root `pnpm lint`/`pnpm test` also run backend checks, which need the Python/uv setup in the [backend README](../backend/README.md). Capture development needs no Python execution or real inventory services; see [explicit server setup and service ownership](../intake-server/README.md). No production deployment is configured; a successful build does not deploy the application.
 
 ## Current and future scope
