@@ -1914,18 +1914,143 @@
     "/api/v1/batches/{batchId}/media/previews/{resourceId}": {
       "get": {
         "x-intake-browser-resource": true,
-        "description": "Private image preview; use a browser resource URL.",
+        "description": "Private image preview, revalidated by digest; use a browser resource URL.",
+        "parameters": [
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Display rendition; a size not yet rendered is served by the full page.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "thumb",
+                "card",
+                "view",
+                "full"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Private image preview; use a browser resource URL.",
+            "description": "Private image preview, revalidated by digest; use a browser resource URL.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "image/png": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
                 }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
+          },
+          "304": {
+            "description": "Unchanged since the If-None-Match validator."
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "resourceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/batches/{batchId}/media/observations/{resourceId}/crop": {
+      "get": {
+        "x-intake-browser-resource": true,
+        "description": "An observation's region, cut at full resolution and sized; use a browser resource URL.",
+        "parameters": [
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Display rendition; a size not yet rendered is served by the full page.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "thumb",
+                "card",
+                "view",
+                "full"
+              ]
+            }
+          },
+          {
+            "name": "rev",
+            "in": "query",
+            "required": false,
+            "description": "Region revision; a revision other than the current region is refused.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}(-\\d{1,9}){5}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An observation's region, cut at full resolution and sized; use a browser resource URL.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the If-None-Match validator."
           },
           "default": {
             "description": "ErrorDto",

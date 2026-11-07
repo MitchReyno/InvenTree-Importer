@@ -16,7 +16,8 @@ export function BatchThumbnail({
     <Frame>
       {thumbnail && failed !== thumbnail.preview_id ? (
         <img
-          src={mediaResource(batchId, 'previews', thumbnail.preview_id)}
+          // The read model carries no dimensions; the fixed box only ever needs the thumb size.
+          src={`${mediaResource(batchId, 'previews', thumbnail.preview_id)}?size=thumb`}
           alt={thumbnail.label}
           loading="lazy"
           onError={() => setFailed(thumbnail.preview_id)}

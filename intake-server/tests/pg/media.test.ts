@@ -778,6 +778,7 @@ test('SELECT-only GC CLI collects one aged orphan and preserves retained bytes a
         'media_approval_pin',
         'media_command_pin',
         'media_preview',
+        'media_preview_rendition',
         'media_store_identity',
         'media_version',
       ].map((table_name) => ({ table_name, privilege_type: 'SELECT' })),

@@ -6,7 +6,7 @@ import type {
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { evidenceDisplayNames } from '../../media/identity-labels'
-import { observationCrop } from '../../media/types'
+import { coverSizes, observationImage } from '../../media/images'
 import { batchHref } from '../../navigation/batch-route'
 import { color, radius, space, type } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
@@ -102,7 +102,14 @@ export function ExamineView({
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (
       <Crop
-        src={observationCrop(batch.id, observation.id)}
+        {...observationImage(
+          batch.id,
+          { ...observation, region: observation.region },
+          'thumbnail',
+          coverSizes({ width: 56, height: 56 }, observation.region),
+        )}
+        loading="lazy"
+        decoding="async"
         alt={`Region: ${readings(observation)}`}
       />
     ) : null

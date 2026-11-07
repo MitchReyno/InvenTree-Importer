@@ -120,6 +120,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 12:** Crossing `bp-compact` moves the glance and remounts its links, so Capture remembers the focused glance link and focuses its twin after the move, or the glance's first link when the phone shows fewer rows. An attempt with several open questions keeps each "Open this question" beside its prompt, with Cancel in its own row, so the buttons stay distinguishable (P6's single row applies to the attempt's own actions).
 - **2026-11-08, PR-J review round 13:** Each confirmed move's toast has its own id, so a second identical move starts a fresh toast with its own countdown and Undo.
 - **2026-11-08, PR-J review round 14:** When the phone layout ends while the settings fold has focus, focus moves to the "Batch settings" heading instead of dropping to the page.
+- **2026-11-08, PR-J merge of `interactive-app` (#140–#144):** The preview-rendition work changed the same image call sites from URLs to sized image attributes (`media/images`). Each takes both: the glance's thumbnail spreads the lot's first sized crop, now sized for its 44 × 34 box rather than the earlier 40px, Examine's crops and the crop dialog take the new helpers, and the evidence tile keeps its states with the sized preview. The PR's screenshots are unchanged by the merge.
 
 ## Open items
 

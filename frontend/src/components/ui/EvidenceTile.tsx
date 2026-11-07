@@ -4,13 +4,14 @@ import { color, radius, ring, size, space, typeVar } from '../../theme/generated
 import { media } from './media'
 import { Skeleton } from './Loading'
 import { linkTouchArea } from './primitives'
+import type { ImageAttributes } from '../../media/images'
 
 export type EvidenceKind = 'photo' | 'document'
 export type PreviewState = 'ready' | 'preparing' | 'failed'
 
 type EvidenceTileProps = {
-  /** Preview image URL; without one the tile shows the file name on the photo stage. */
-  preview?: string
+  /** Preview image, as a URL or sized attributes; without one the tile shows the file name. */
+  preview?: string | ImageAttributes
   name: string
   /** What the file supports, such as "1 lot". */
   support?: string
@@ -42,7 +43,8 @@ function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'na
       </Placeholder>
     )
   }
-  if (!preview || failedPreview === preview) {
+  const image = typeof preview === 'string' ? { src: preview } : preview
+  if (!image || failedPreview === image.src) {
     return (
       <Placeholder>
         <PhotoText aria-hidden="true">▧</PhotoText>
@@ -51,7 +53,15 @@ function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'na
     )
   }
 
-  return <Image src={preview} alt="" onError={() => setFailedPreview(preview)} />
+  return (
+    <Image
+      {...image}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailedPreview(image.src)}
+    />
+  )
 }
 
 /** One evidence file. No IDs on the tile; the viewer's Details hold them. */

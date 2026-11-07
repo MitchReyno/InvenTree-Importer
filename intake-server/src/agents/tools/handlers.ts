@@ -222,11 +222,13 @@ async function previewFetchEvidence(
   const source = () => context.store!.read(preview.digest)
 
   const bytes = region
-    ? await regionCropCache(context.cropCacheDir!).crop(
-        { versionId: plan.versionId, page: preview.page },
-        { kind: 'pixels', ...region },
-        source,
-      )
+    ? (
+        await regionCropCache(context.cropCacheDir!).crop(
+          { versionId: plan.versionId, page: preview.page },
+          { kind: 'pixels', ...region },
+          source,
+        )
+      ).bytes
     : await sharp(await source(), { limitInputPixels: false })
         .resize({
           width: LEAD_PREVIEW_LONG_EDGE,

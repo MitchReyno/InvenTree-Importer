@@ -38,10 +38,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Verification:** decoder unit tests; real decoder-image timing for a 50 MP JPEG and a 30-page PDF.
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
-- [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
-- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
-- [ ] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
-- [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
+- [x] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
+- [x] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
+- [x] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
+- [x] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
 ## 2. Rendition storage and publication
 
@@ -53,10 +53,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("One table keyed by preview and size"), using the existing digest locks and immutability-trigger pattern.
 - **Verification:** PostgreSQL tier (`pnpm test:intake:pg`) for the migration, the trigger, grants, atomic publication, interrupted publication and collection.
 
-- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
-- [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
-- [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
-- [ ] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
+- [x] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
+- [x] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
+- [x] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
+- [x] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
 
 ## 3. Sized preview reads
 
@@ -68,9 +68,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("The route takes a size…"). Override the global `no-store` only on these routes.
 - **Verification:** HTTP tests; regenerate and run `pnpm contracts:check`; `pnpm test:intake`.
 
-- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
-- [ ] 3.2 GREEN: implement the sized read, route and headers.
-- [ ] 3.3 Update `contracts/scripts/generate.cjs` for the preview route's media types, `size` parameter and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
+- [x] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
+- [x] 3.2 GREEN: implement the sized read, route and headers.
+- [x] 3.3 Update `contracts/scripts/generate.cjs` for the preview route's media types, `size` parameter and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
 
 ## 4. Sized observation crops
 
@@ -82,9 +82,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("Observation crops are cut full, then downscaled").
 - **Verification:** HTTP tests.
 
-- [ ] 4.1 RED: add tests for `thumb` dimensions, a `rev` that no longer matches refused with 409, a small region left unscaled, 400 on an unknown size, the default `full`, ETag/304, and a region change returning new bytes.
-- [ ] 4.2 GREEN: implement the sized cut, the per-size cache key and the headers.
-- [ ] 4.3 Update `contracts/scripts/generate.cjs` for the observation-crop route's `size` and `rev` parameters, WebP output and ETag/304 behavior, regenerate, and confirm with `contracts:check` that only that route's declaration changed.
+- [x] 4.1 RED: add tests for `thumb` dimensions, a `rev` that no longer matches refused with 409, a small region left unscaled, 400 on an unknown size, the default `full`, ETag/304, and a region change returning new bytes.
+- [x] 4.2 GREEN: implement the sized cut, the per-size cache key and the headers.
+- [x] 4.3 Update `contracts/scripts/generate.cjs` for the observation-crop route's `size` and `rev` parameters, WebP output and ETag/304 behavior, regenerate, and confirm with `contracts:check` that only that route's declaration changed.
 
 ## 5. Rendition backfill
 
@@ -100,7 +100,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("Backfill renders from the retained page, per preview, with claimed attempts").
 - **Verification:** PostgreSQL tier, plus a run against a copy of retained development data. Never run it against the live namespace without a backup.
 
-- [ ] 5.1 RED: add PostgreSQL tests for:
+- [x] 5.1 RED: add PostgreSQL tests for:
   - an upgrade with an unchanged `preview_id`, bytes, version count, decode state and command count;
   - deferral to pending commands;
   - a dimension mismatch;
@@ -116,10 +116,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - against the real blob store: a corrupt blob (`blob_corrupt`) recorded `skipped_mismatch`, and a transient read or I/O failure recorded interrupted with backoff, then upgraded once reads recover;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
-- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
-- [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
-- [ ] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
-- [ ] 5.5 Add scheduling tests:
+- [x] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
+- [x] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
+- [x] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
+- [x] 5.5 Add scheduling tests:
   - repeated polling within the backoff never re-claims an interrupted preview, which becomes eligible once `retry_after` passes;
   - claim, recovery and publication all succeed under the restricted worker role;
   - an upload that arrives during a page backfill is decoded right after that one page;
@@ -135,13 +135,13 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
 - **Verification:** `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`. For the manual check, record transferred bytes from a phone on `pnpm dev --tailscale` before and after.
 
-- [ ] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source offering it; identical output for the same page before and after backfill (fallback bytes are checked through the HTTP route, not the helper); observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output; a narrow 3600 × 400 region in a 64 px cover thumbnail at 3× density selecting the `view` crop and surface tests: `BatchThumbnail` requesting `size=thumb` as a plain `src`; attributes reaching the real `<img>` in `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`, including a 10000 × 101 page whose rounded `view` changes aspect ratio, with the same selection recording identical coordinates over the full page and over `view`.
-- [ ] 6.2 GREEN: implement the helper and adopt it on every listed surface.
-- [ ] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
+- [x] 6.1 RED: add helper tests: `srcSet`/`sizes` per usage; a large page with renditions never offering the full page; a small source offering it; identical output for the same page before and after backfill (fallback bytes are checked through the HTTP route, not the helper); observation images sized from their region through `renditionDimensions()` for small, portrait and landscape regions, matching the server's output; a narrow 3600 × 400 region in a 64 px cover thumbnail at 3× density selecting the `view` crop and surface tests: `BatchThumbnail` requesting `size=thumb` as a plain `src`; attributes reaching the real `<img>` in `EvidenceTile` and `RotatedCropSelection` and `ProposedLotsGlance`; thumbnail and card sizes requested; the viewer promoting both attributes to full just above, and not just below, the density-adjusted threshold, including on first render at 3× density; a mounted crop image requesting the new crop after its region is edited; crop selection coordinates unchanged over `view`, including a 10000 × 101 page whose rounded `view` changes aspect ratio, with the same selection recording identical coordinates over the full page and over `view`.
+- [x] 6.2 GREEN: implement the helper and adopt it on every listed surface.
+- [x] 6.3 Run the frontend checks and build; record the byte-transfer comparison and a demo recording for the PR.
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
-- [ ] D.2 PR-B: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Reviewed `e9adfbd`, merged as `24193c7` in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140).
+- [x] D.2 PR-B: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Reviewed `a4cf470`, merged as `ebc93b7` in [#143](https://github.com/MitchReyno/InvenTree-Importer/pull/143).
 - [ ] D.3 PR-C: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
 - [ ] D.4 After all PRs merge with acceptance evidence, update BI-013's status in the index. Archive only when authorized, after `pnpm openspec:overlap --change add-preview-renditions`.

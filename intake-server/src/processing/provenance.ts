@@ -22,7 +22,7 @@ interface DeliveredEvidence {
  */
 export function deliveredSourceCheck(
   delivered: DeliveredEvidence,
-  extraVersions: readonly MediaInputVersion[] = [],
+  extraVersions: readonly Pick<MediaInputVersion, 'versionId' | 'evidenceId' | 'digest'>[] = [],
 ) {
   const notesById = new Map(
     evidenceNotes(delivered.notes, delivered.batchId).map((note) => [note.id, note]),

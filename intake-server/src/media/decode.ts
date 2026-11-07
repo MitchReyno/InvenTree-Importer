@@ -1,5 +1,9 @@
 import { decodeRotatedRegion, RotatedRegionLimitError } from './rotated-region.ts'
-import { requireMediaRecipeBounds } from '@invimport/contracts/media'
+import {
+  expectedRenditionSizes,
+  renditionDimensions,
+  requireMediaRecipeBounds,
+} from '@invimport/contracts/media'
 import sharp from 'sharp'
 import { createCanvas } from '@napi-rs/canvas'
 import { createRequire } from 'node:module'
@@ -11,12 +15,17 @@ import {
   type DecodeInput,
   type DecodedMedia,
   type DecodedPage,
+  type DecodedRendition,
+  type RenderedPage,
+  type RenditionInput,
+  type RenditionResult,
+  checkedRenditionInput,
 } from './decoder-protocol.ts'
 
 sharp.cache(false)
 sharp.concurrency(1)
 
-class LimitError extends Error {}
+export class LimitError extends Error {}
 
 class UnsupportedMediaError extends Error {}
 
@@ -123,6 +132,79 @@ async function pdfPages(bytes: Buffer): Promise<DecodedPage[]> {
   }
 }
 
+/**
+ * Display renditions of a decoded page. Resizing to the shared function's exact dimensions keeps
+ * the bytes identical to what clients predict; `fit: 'inside'` can shrink the long edge again.
+ */
+export async function renditions(page: DecodedPage): Promise<DecodedRendition[]> {
+  const output: DecodedRendition[] = []
+  for (const size of expectedRenditionSizes(page.width, page.height)) {
+    const target = renditionDimensions(page.width, page.height, size)!
+    const bytes = await sharp(page.bytes, { limitInputPixels: MEDIA_LIMITS.pixels })
+      .resize({ width: target.width, height: target.height, fit: 'fill' })
+      .webp({ quality: 80, effort: 4 })
+      .toBuffer()
+    if (bytes.length > MEDIA_LIMITS.outputBytes) {
+      throw new LimitError('output_limit')
+    }
+    output.push({ size, ...target, bytes })
+  }
+  return output
+}
+
+/** Pages and renditions share the total output budget; only that identified limit fails here. */
+export async function rendered(
+  pages: DecodedPage[],
+  budget: number = MEDIA_LIMITS.totalOutputBytes,
+): Promise<RenderedPage[]> {
+  let total = 0
+  const output: RenderedPage[] = []
+  for (const page of pages) {
+    const sized = await renditions(page)
+    total += page.bytes.length + sized.reduce((sum, item) => sum + item.bytes.length, 0)
+    if (total > budget) {
+      throw new LimitError('total_output_limit')
+    }
+    output.push({ ...page, renditions: sized })
+  }
+  return output
+}
+
+/**
+ * Renditions of a retained page PNG for the backfill. Only bytes that are a single PNG of exactly
+ * the recorded dimensions are rendered; anything else is `malformed`, a positive mismatch.
+ */
+export async function renderRetained(
+  input: RenditionInput,
+  inspect: (bytes: Buffer) => Promise<{ format?: string; pages?: number }> = (bytes) =>
+    sharp(bytes, { limitInputPixels: MEDIA_LIMITS.pixels }).metadata(),
+): Promise<RenditionResult> {
+  checkedRenditionInput(input)
+  const malformed: RenditionResult = {
+    state: 'malformed',
+    toolchain: MEDIA_TOOLCHAIN,
+    renditions: [],
+  }
+  // A mismatch is identified from the bytes themselves: the PNG signature and IHDR dimensions.
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  if (
+    input.bytes.length < 24 ||
+    !input.bytes.subarray(0, 8).equals(signature) ||
+    !input.bytes.subarray(12, 16).equals(Buffer.from('IHDR')) ||
+    input.bytes.readUInt32BE(16) !== input.width ||
+    input.bytes.readUInt32BE(20) !== input.height
+  ) {
+    return malformed
+  }
+  // Any library failure from here is not a claim about the bytes, so it propagates as interrupted.
+  const metadata = await inspect(input.bytes)
+  if (metadata.format !== 'png' || (metadata.pages ?? 1) !== 1) {
+    return malformed
+  }
+  const page = { page: 1, width: input.width, height: input.height, bytes: input.bytes }
+  return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions: await renditions(page) }
+}
+
 /** Called only inside the bounded decoder image; never from an HTTP route. */
 export async function decode(input: DecodeInput): Promise<DecodedMedia> {
   checkedInput(input)
@@ -151,8 +233,11 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
       }
       requireMediaRecipeBounds(recipe)
       if (recipe.version === 'documentary-rotated-region/1') {
-        pages = [await decodeRotatedRegion(source, recipe)]
-        return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, pages }
+        return {
+          state: 'ready',
+          toolchain: MEDIA_TOOLCHAIN,
+          pages: await rendered([await decodeRotatedRegion(source, recipe)]),
+        }
       }
       const { data, info } = await sharp(source.bytes, { limitInputPixels: MEDIA_LIMITS.pixels })
         .extract({ left: recipe.x, top: recipe.y, width: recipe.width, height: recipe.height })
@@ -164,7 +249,7 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
       }
       pages = [{ page: 1, width: info.width, height: info.height, bytes: data }]
     }
-    return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, pages }
+    return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, pages: await rendered(pages) }
   } catch (error) {
     if (error instanceof LimitError || error instanceof RotatedRegionLimitError) {
       return { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN, pages: [] }

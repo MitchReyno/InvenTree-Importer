@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -10,12 +11,36 @@ import { BlobStore, MAX_UPLOAD_BYTES } from './blob-store.ts'
 import { mediaRepository } from './repository.ts'
 import { mediaContent } from './content.ts'
 import { editMedia } from './edit.ts'
+import { MEDIA_RENDITION_SIZE_NAMES, type MediaRenditionSize } from '@invimport/contracts/media'
 
 function identifier(value: unknown) {
   if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value)) {
     fail('invalid_id', 400)
   }
   return value
+}
+
+/** RFC 9110 weak comparison for GET: `*`, a list, or a `W/` tag all match the current digest. */
+export function matchesEntityTag(header: string | undefined, etag: string) {
+  if (!header) {
+    return false
+  }
+  return header
+    .split(',')
+    .map((value) => value.trim())
+    .some((value) => value === '*' || value.replace(/^W\//, '') === etag)
+}
+
+/** The optional display size; anything else is refused rather than silently served full. */
+function renditionSize(request: FastifyRequest): MediaRenditionSize | 'full' {
+  const size = (request.query as Record<string, unknown> | undefined)?.size
+  if (size === undefined) {
+    return 'full'
+  }
+  if (size === 'full' || MEDIA_RENDITION_SIZE_NAMES.includes(size as MediaRenditionSize)) {
+    return size as MediaRenditionSize | 'full'
+  }
+  return fail('invalid_size', 400)
 }
 
 function parameters(request: FastifyRequest) {
@@ -124,13 +149,23 @@ export function registerMediaRoutes(
     scope.get('/api/v1/batches/:batchId/media/previews/:resourceId', async (request, reply) => {
       const { batchId, resourceId } = parameters(request)
       const previewId = identifier(resourceId)
-      const bytes = await content.preview(batchId, previewId)
+      const size = renditionSize(request)
+      // Authorization runs on every request, so a 304 is only ever sent to an authorized reader.
+      const preview = await content.preview(batchId, previewId, size)
+      const etag = `"${preview.digest}"`
+      const type = preview.rendition ? 'webp' : 'png'
       reply
         .header('content-security-policy', "default-src 'none'; sandbox")
         .header('cross-origin-resource-policy', 'same-origin')
-        .header('content-type', 'image/png')
-        .header('content-disposition', `inline; filename="${previewId}.png"`)
-      return reply.send(bytes)
+        .header('cache-control', 'private, no-cache')
+        .header('etag', etag)
+      if (matchesEntityTag(request.headers['if-none-match'], etag)) {
+        return reply.code(304).send()
+      }
+      reply
+        .header('content-type', `image/${type}`)
+        .header('content-disposition', `inline; filename="${previewId}-${size}.${type}"`)
+      return reply.send(preview.bytes)
     })
 
     scope.get(
@@ -138,13 +173,36 @@ export function registerMediaRoutes(
       async (request, reply) => {
         const { batchId, resourceId } = parameters(request)
         const observationId = identifier(resourceId)
-        const bytes = await content.observationCrop(batchId, observationId, cropCacheDir)
+        const size = renditionSize(request)
+        const rev = (request.query as Record<string, unknown> | undefined)?.rev
+        if (
+          rev !== undefined &&
+          (typeof rev !== 'string' || !/^[a-f0-9-]{36}(-\d{1,9}){5}$/.test(rev))
+        ) {
+          fail('invalid_revision', 400)
+        }
+        // Authorized on every request; the ETag follows the crop bytes, so an edit revalidates.
+        const crop = await content.observationCrop(
+          batchId,
+          observationId,
+          cropCacheDir,
+          size,
+          rev as string | undefined,
+        )
+        const etag = `"${createHash('sha256').update(crop.bytes).digest('hex')}"`
         reply
           .header('content-security-policy', "default-src 'none'; sandbox")
           .header('cross-origin-resource-policy', 'same-origin')
-          .header('content-type', 'image/png')
-          .header('content-disposition', `inline; filename="${observationId}.png"`)
-        return reply.send(bytes)
+          .header('cache-control', 'private, no-cache')
+          .header('etag', etag)
+        if (matchesEntityTag(request.headers['if-none-match'], etag)) {
+          return reply.code(304).send()
+        }
+        const type = crop.mediaType === 'image/webp' ? 'webp' : 'png'
+        reply
+          .header('content-type', crop.mediaType)
+          .header('content-disposition', `inline; filename="${observationId}-${size}.${type}"`)
+        return reply.send(crop.bytes)
       },
     )
   })

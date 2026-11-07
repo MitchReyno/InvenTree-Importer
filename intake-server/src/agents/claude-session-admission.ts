@@ -27,8 +27,13 @@ async function control(child: AgentChild, subtype: string) {
   return record(response.response)
 }
 
+const BUILTIN_AGENTS = ['claude', 'Explore', 'general-purpose', 'Plan', 'statusline-setup']
+/** Subscription sessions also list web-fetch, inert because no Agent tool is offered. */
+const ADMITTED_AGENT_SETS = [BUILTIN_AGENTS, [...BUILTIN_AGENTS, 'web-fetch']].map((set) =>
+  JSON.stringify([...set].sort()),
+)
+
 function requireConfiguration(config: Record<string, unknown>) {
-  const agents = ['claude', 'Explore', 'general-purpose', 'Plan', 'statusline-setup'].sort()
   const actualAgents = Array.isArray(config.agents)
     ? config.agents.map((agent) => record(agent).name).sort()
     : []
@@ -39,7 +44,7 @@ function requireConfiguration(config: Record<string, unknown>) {
     config.session_state !== 'idle' ||
     !Array.isArray(config.commands) ||
     config.commands.length !== 0 ||
-    JSON.stringify(actualAgents) !== JSON.stringify(agents)
+    !ADMITTED_AGENT_SETS.includes(JSON.stringify(actualAgents))
   ) {
     throw new NativeSessionError('agent_policy_refused')
   }

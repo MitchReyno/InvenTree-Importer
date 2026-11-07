@@ -67,14 +67,29 @@ describe('proposedLots for lead-session lots', () => {
         { id: 'l2', label: 'Packet A', operator_edited: true },
       ],
       evidence_observations: [
-        { id: 'o1', region: { kind: 'pixels' }, suggested_lot_ids: [] },
+        {
+          id: 'o1',
+          evidence_version_id: 'v',
+          page: 1,
+          region: { kind: 'pixels', x: 0, y: 0, width: 800, height: 600 },
+          suggested_lot_ids: [],
+        },
         { id: 'o2', region: { kind: 'lines' }, suggested_lot_ids: [] },
         { id: 'o3', region: { kind: 'pixels' }, suggested_lot_ids: ['l1'] },
       ],
     } as unknown as Parameters<typeof proposedLots>[0]
     const [led, packet] = proposedLots(batch, undefined, new Set())
     expect(led).toMatchObject({ origin: 'agent', edited: false, suggestions: 1 })
-    expect(led.crops).toEqual(['/api/v1/batches/b/media/observations/o1/crop'])
+    const crop = '/api/v1/batches/b/media/observations/o1/crop'
+    expect(led.crops).toEqual([
+      {
+        src: `${crop}?rev=v-1-0-0-800-600`,
+        srcSet: `${crop}?size=thumb&rev=v-1-0-0-800-600 320w, ${crop}?rev=v-1-0-0-800-600 800w`,
+        sizes: '46px', // an 800 × 600 crop covering the glance's 44 × 34 thumbnail
+        width: 800,
+        height: 600,
+      },
+    ])
     expect(packet).toEqual({
       id: 'l2',
       label: 'Packet A',

@@ -13,7 +13,7 @@ import type {
 import { Heading, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { DialogSurface } from '../ui/Dialog'
-import { mediaResource } from '../../media/types'
+import { previewImage } from '../../media/images'
 import {
   cropRecipe,
   sameRotatedRecipe,
@@ -177,7 +177,7 @@ export function MediaCropDialog({
             control={control}
             render={({ field }) => (
               <RotatedCropSelection
-                source={mediaResource(batchId, 'previews', page.preview_id)}
+                source={previewImage(batchId, page, 'viewer')}
                 sourceWidth={page.width}
                 sourceHeight={page.height}
                 frame={field.value}
@@ -240,7 +240,8 @@ export function MediaCropDialog({
           <Heading id="crop-output-title">Prepared output</Heading>
           {outputPage ? (
             <img
-              src={mediaResource(batchId, 'previews', outputPage.preview_id)}
+              {...previewImage(batchId, outputPage, 'card')}
+              decoding="async"
               alt="Retained output for this exact rotated crop"
             />
           ) : (
@@ -299,6 +300,9 @@ const Output = styled.section`
   }
   img {
     display: block;
+    /* Auto sizes keep the output's own ratio; its width and height attributes only reserve space. */
+    width: auto;
+    height: auto;
     max-width: 100%;
     max-height: 360px;
     margin-bottom: ${space[6]};

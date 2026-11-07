@@ -1,6 +1,6 @@
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { batchHref } from '../navigation/batch-route'
-import { observationCrop } from '../media/types'
+import { coverSizes, observationImage, type ImageAttributes } from '../media/images'
 
 export type ProposedLotState = 'approved' | 'ready' | 'to_review' | 'changed' | 'blocked'
 
@@ -13,8 +13,8 @@ export type ProposedLot = {
   origin?: 'agent' | 'operator'
   /** An AI lot the operator has changed; the lead session now only suggests for it. */
   edited?: boolean
-  /** Crop URLs of the lot's pixel observations. */
-  crops?: string[]
+  /** Observation crops, sized for the glance's 44 × 34 cover thumbnail. */
+  crops?: ImageAttributes[]
   /** The lot's active observations of any kind, pixel regions and document lines alike. */
   observations?: number
   /** Observations the lead session suggested for this lot, awaiting the operator. */
@@ -56,7 +56,17 @@ export function proposedLots(
         .filter(
           (observation) => members.has(observation.id) && observation.region.kind === 'pixels',
         )
-        .map((observation) => observationCrop(batch.id, observation.id))
+        .map((observation) =>
+          observation.region.kind === 'pixels'
+            ? observationImage(
+                batch.id,
+                { ...observation, region: observation.region },
+                'thumbnail',
+                coverSizes({ width: 44, height: 34 }, observation.region),
+              )
+            : null,
+        )
+        .filter((image): image is ImageAttributes => image !== null)
       const suggestions = observations.filter((observation) =>
         observation.suggested_lot_ids.includes(lot.id),
       ).length

@@ -10,6 +10,7 @@ import {
   mediaDecodeCommands,
   mediaDecodeResults,
   mediaPreviews,
+  mediaPreviewRenditions,
   mediaVersions,
   mediaDerivations,
 } from './schema.ts'
@@ -156,7 +157,11 @@ async function publishDecoded(
     await prepareMediaTransaction(client)
     const capture = await captureInTransaction(client, binding, command.batch_id)
     await lockMediaRevision(client, command.batch_id)
-    const digests = decoded.pages.map((page) => sha256(page.bytes).toString('hex'))
+    const digests = decoded.pages.flatMap((page) =>
+      [page.bytes, ...page.renditions.map((item) => item.bytes)].map((bytes) =>
+        sha256(bytes).toString('hex'),
+      ),
+    )
     for (const digest of [...new Set(digests)].sort()) {
       await lockBlob(client, digest)
     }
@@ -175,11 +180,12 @@ async function publishDecoded(
       for (const page of decoded.pages) {
         const blob = await store.publish(client, page.bytes)
         await retainBlob(client, blob)
+        const previewId = randomUUID()
         await executeDatabaseQuery(
           queryDatabase(client)
             .insert(mediaPreviews)
             .values({
-              id: randomUUID(),
+              id: previewId,
               batchId: command.batch_id,
               versionId,
               commandId: command.id,
@@ -189,6 +195,23 @@ async function publishDecoded(
               blobDigest: Buffer.from(blob.digest, 'hex'),
             }),
         )
+        // Committed with the page in this transaction, so a page never exposes a partial set.
+        for (const item of page.renditions) {
+          const rendition = await store.publish(client, item.bytes)
+          await retainBlob(client, rendition)
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .insert(mediaPreviewRenditions)
+              .values({
+                previewId,
+                batchId: command.batch_id,
+                size: item.size,
+                width: item.width,
+                height: item.height,
+                blobDigest: Buffer.from(rendition.digest, 'hex'),
+              }),
+          )
+        }
       }
     }
     await appendEvent(client, capture.streamId, 'media_prepared', {

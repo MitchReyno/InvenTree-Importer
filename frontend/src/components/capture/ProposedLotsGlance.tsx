@@ -81,7 +81,7 @@ export function ProposedLotsGlance({
               <Row key={lot.id} aria-label={lot.label}>
                 <Thumb>
                   {lot.crops?.[0] ? (
-                    <img src={lot.crops[0]} alt={lot.label} />
+                    <img {...lot.crops[0]} loading="lazy" decoding="async" alt={lot.label} />
                   ) : (
                     <span aria-hidden="true">▧</span>
                   )}

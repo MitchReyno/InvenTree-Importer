@@ -65,7 +65,8 @@ it('shows the lot’s observations as crops and resolves suggestions as operator
   ).toBeInTheDocument()
   expect(container.querySelector('img')).toHaveAttribute(
     'src',
-    '/api/v1/batches/b/media/observations/o1/crop',
+    // A 10 × 10 region is no larger than any size, so it is served unscaled under its revision.
+    '/api/v1/batches/b/media/observations/o1/crop?rev=v-1-0-0-10-10',
   )
   const suggestion = screen.getByRole('listitem', { name: 'Suggested observation' })
   await userEvent.click(
@@ -122,4 +123,30 @@ it('offers the lead session’s revision of an edited observation to accept or d
     observation_id: 'o3',
     decision: 'accept',
   })
+})
+
+it('requests the new crop when a mounted observation’s region is edited', () => {
+  const large = { ...region, width: 1800, height: 1200, source_width: 4000, source_height: 3000 }
+
+  const shown = (x: number) =>
+    ({
+      ...batch,
+      evidence_observations: [
+        { ...observation('o1', 'LED 0603 red', 'l1'), region: { ...large, x } },
+      ],
+    }) as unknown as CaptureSnapshotDto
+
+  const view = render(
+    <LotObservations batch={shown(0)} lot={lot} edit={vi.fn()} disabled={false} />,
+  )
+  const image = view.container.querySelector('img')!
+  expect(image.getAttribute('src')).toContain('rev=v-1-0-0-1800-1200')
+  view.rerender(<LotObservations batch={shown(40)} lot={lot} edit={vi.fn()} disabled={false} />)
+  const moved = view.container.querySelector('img')!
+  expect(moved.getAttribute('src')).toContain('rev=v-1-40-0-1800-1200')
+  const candidates = moved.getAttribute('srcset')!.split(', ')
+  expect(candidates.length).toBeGreaterThan(1)
+  for (const candidate of candidates) {
+    expect(candidate).toContain('rev=v-1-40-0-1800-1200')
+  }
 })

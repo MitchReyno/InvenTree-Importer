@@ -24,6 +24,8 @@ async function main() {
   const suite = process.argv[3] ?? 'retention'
   const suites = {
     retention: 'tests/pg/media.test.ts',
+    renditions: 'tests/pg/media-renditions.test.ts',
+    backfill: 'tests/pg/media-backfill.test.ts',
     inputs: 'tests/pg/media-input-scopes.test.ts',
     research: 'tests/pg/research.test.ts',
     'research-processing': 'tests/process/research-processing.test.ts',

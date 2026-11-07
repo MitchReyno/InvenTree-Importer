@@ -1,24 +1,44 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { parseDecoderOutput } from './decoder-output.ts'
+import { parseDecoderOutput, parseRenditionOutput } from './decoder-output.ts'
+import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
 import {
   checkedInput,
+  checkedRenditionInput,
   MEDIA_LIMITS,
   type DecodeInput,
   type DecodedMedia,
+  type RenditionInput,
+  type RenditionResult,
 } from './decoder-protocol.ts'
 
 /** Requires an operator-built immutable image, never a browser-selected image/command. */
 export async function decodeIsolated(image: string, input: DecodeInput): Promise<DecodedMedia> {
   checkedInput(input)
+  const header = { version: input.version, digest: input.digest, recipe: input.recipe ?? null }
+  return parseDecoderOutput(await runIsolated(image, header, input.bytes))
+}
+
+/** Renditions of one retained page PNG, rendered in the same bounded container. */
+export async function renderIsolated(
+  image: string,
+  input: RenditionInput,
+): Promise<RenditionResult> {
+  checkedRenditionInput(input)
+  const header = {
+    version: input.version,
+    digest: input.digest,
+    width: input.width,
+    height: input.height,
+  }
+  return parseRenditionOutput(await runIsolated(image, header, input.bytes), input)
+}
+
+async function runIsolated(image: string, header: object, bytes: Buffer): Promise<Buffer> {
   if (image.length !== 71 || !/^sha256:[a-f0-9]{64}$/.test(image)) {
     throw new Error('immutable_decoder_image_required')
   }
-  const protocolBytes = JSON.stringify({
-    version: input.version,
-    digest: input.digest,
-    recipe: input.recipe ?? null,
-  })
+  const protocolBytes = JSON.stringify(header)
   const name = `bench-media-${randomUUID()}`
   const child = spawn(
     'docker',
@@ -86,7 +106,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
   const timer = setTimeout(discard, MEDIA_LIMITS.wallMilliseconds)
   child.stdout.on('data', (chunk: Buffer) => {
     length += chunk.length
-    if (length > MEDIA_LIMITS.totalOutputBytes + 8192) {
+    if (length > MEDIA_LIMITS.totalOutputBytes + MEDIA_DECODER_HEADER_MAX_BYTES) {
       exceeded = true
       discard()
     } else {
@@ -95,7 +115,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
   })
   child.stderr.resume()
   child.stdin.on('error', () => undefined)
-  child.stdin.end(Buffer.concat([Buffer.from(protocolBytes + '\n'), input.bytes]))
+  child.stdin.end(Buffer.concat([Buffer.from(protocolBytes + '\n'), bytes]))
   const code = await new Promise<number | null>((resolve, reject) => {
     child.once('error', reject)
     child.once('close', resolve)
@@ -107,5 +127,5 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
     }
     throw new Error('decoder_interrupted')
   }
-  return parseDecoderOutput(Buffer.concat(chunks))
+  return Buffer.concat(chunks)
 }

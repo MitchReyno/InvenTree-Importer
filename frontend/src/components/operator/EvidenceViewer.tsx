@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -7,7 +7,7 @@ import {
   withEvidence,
   type EvidenceSelection,
 } from '../../operator/evidence-location'
-import { mediaResource } from '../../media/types'
+import { fullPreview, needsFullResolution, previewImage } from '../../media/images'
 import {
   mediaDisplayLabels,
   mediaIdentityLabels,
@@ -73,6 +73,36 @@ export function EvidenceViewer({
     return null
   })
   const [zoom, setZoom] = useState(1)
+  // The image's rendered width at zoom 1, which decides when the view size runs out of detail.
+  const stage = useRef<HTMLDivElement>(null)
+  // Measured before paint; the image waits for it so its first request is already the right size.
+  const [stageWidth, setStageWidth] = useState<number | null>(null)
+  // Moving between displays changes density without resizing, so it re-renders on its own.
+  const [density, setDensity] = useState(() => globalThis.devicePixelRatio ?? 1)
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') {
+      return
+    }
+    const query = matchMedia(`(resolution: ${density}dppx)`)
+
+    const changed = () => setDensity(globalThis.devicePixelRatio ?? 1)
+
+    query.addEventListener('change', changed)
+    return () => query.removeEventListener('change', changed)
+  }, [density])
+  useLayoutEffect(() => {
+    const element = stage.current
+    if (!element) {
+      return
+    }
+    setStageWidth(element.clientWidth)
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+    const observer = new ResizeObserver(() => setStageWidth(element.clientWidth))
+    observer.observe(element)
+    return () => observer.disconnect()
+  })
   const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const labels = snapshotLabels ?? mediaDisplayLabels(evidence)
@@ -188,15 +218,28 @@ export function EvidenceViewer({
       )}
       {available && source && version && page ? (
         <>
-          <Preview tabIndex={0} aria-label="Evidence image; scroll to inspect when zoomed">
-            <PreviewImage
-              loading="lazy"
-              key={`${page.preview_id}:${loadAttempt}`}
-              $zoom={zoom}
-              src={mediaResource(batchId, 'previews', page.preview_id)}
-              alt={`${labels.versions.get(version.id) ?? source.label} · page ${page.page}`}
-              onError={() => setFailedPreview(page.preview_id)}
-            />
+          <Preview
+            ref={stage}
+            tabIndex={0}
+            aria-label="Evidence image; scroll to inspect when zoomed"
+          >
+            {stageWidth !== null && (
+              <PreviewImage
+                key={`${page.preview_id}:${loadAttempt}`}
+                $zoom={zoom}
+                decoding="async"
+                {...(needsFullResolution(page, stageWidth, zoom, density)
+                  ? fullPreview(batchId, page)
+                  : previewImage(
+                      batchId,
+                      page,
+                      'viewer',
+                      stageWidth ? `${Math.ceil(stageWidth * zoom)}px` : undefined,
+                    ))}
+                alt={`${labels.versions.get(version.id) ?? source.label} · page ${page.page}`}
+                onError={() => setFailedPreview(page.preview_id)}
+              />
+            )}
           </Preview>
           {failed && (
             <div role="alert">

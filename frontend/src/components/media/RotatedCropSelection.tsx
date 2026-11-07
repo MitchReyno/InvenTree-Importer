@@ -3,15 +3,37 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color, space } from '../../theme/generated/tokens'
 import { cropAspect, type CropAspect, type CropFrame } from '../../media/crop-model'
+import type { ImageAttributes } from '../../media/images'
 
 interface Props {
-  source: string
+  /** The page image to select over; any size, since the selection maps through the source size. */
+  source: ImageAttributes
   sourceWidth: number
   sourceHeight: number
   frame: CropFrame
   aspect: CropAspect
   disabled: boolean
   change: (frame: CropFrame) => void
+}
+
+/**
+ * A gesture's on-screen box in source pixels. It depends only on the surface's scale (surface
+ * width ÷ source width), never on which image size is displayed.
+ */
+export function sourceFrame(
+  translation: number[],
+  width: number,
+  height: number,
+  degrees: number,
+  scale: number,
+): CropFrame {
+  return {
+    centerX: Math.round(((translation[0] + width / 2) / scale) * 1000000) / 1000000,
+    centerY: Math.round(((translation[1] + height / 2) / scale) * 1000000) / 1000000,
+    width: Math.round((width / scale) * 1000000) / 1000000,
+    height: Math.round((height / scale) * 1000000) / 1000000,
+    degrees: Math.round(degrees * 1000) / 1000,
+  }
 }
 
 /** Moveable owns gestures on this overlay only. The normalized source image stays fixed. */
@@ -51,13 +73,7 @@ export function RotatedCropSelection({
     height: number,
     degrees: number,
   ): CropFrame {
-    return {
-      centerX: Math.round(((translation[0] + width / 2) / scale) * 1000000) / 1000000,
-      centerY: Math.round(((translation[1] + height / 2) / scale) * 1000000) / 1000000,
-      width: Math.round((width / scale) * 1000000) / 1000000,
-      height: Math.round((height / scale) * 1000000) / 1000000,
-      degrees: Math.round(degrees * 1000) / 1000,
-    }
+    return sourceFrame(translation, width, height, degrees, scale)
   }
 
   const width = frame.width * scale
@@ -67,7 +83,7 @@ export function RotatedCropSelection({
 
   return (
     <SourceSurface ref={surface} $ratio={sourceWidth / sourceHeight}>
-      <SourceImage src={source} alt="Fixed orientation-normalized source" draggable={false} />
+      <SourceImage {...source} alt="Fixed orientation-normalized source" draggable={false} />
       <CropTarget
         ref={selection}
         aria-label="Rotating crop selection"
@@ -133,7 +149,8 @@ const SourceImage = styled.img`
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  /* Fill, not contain: a rendition's rounded aspect ratio must not letterbox the mapped area. */
+  object-fit: fill;
   pointer-events: none;
   user-select: none;
 `

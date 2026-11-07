@@ -300,3 +300,105 @@ mediaTest(
     )
   },
 )
+
+function pagedPdf(pages: number, width: number, height: number) {
+  const kids = Array.from({ length: pages }, (_, index) => `${3 + index * 2} 0 R`).join(' ')
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages} >>`,
+  ]
+  for (let index = 0; index < pages; index++) {
+    const content = `0 0 1 rg 0 0 ${width / 2} ${height} re f\n`
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Resources << >> /Contents ${4 + index * 2} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+    )
+  }
+  let bytes = '%PDF-1.4\n'
+  const offsets: number[] = []
+  for (const [index, object] of objects.entries()) {
+    offsets.push(Buffer.byteLength(bytes))
+    bytes += `${index + 1} 0 obj\n${object}\nendobj\n`
+  }
+  const xref = Buffer.byteLength(bytes)
+  bytes += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  for (const offset of offsets) {
+    bytes += `${String(offset).padStart(10, '0')} 00000 n \n`
+  }
+  bytes += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return Buffer.from(bytes)
+}
+
+mediaTest('the real decoder returns exact WebP renditions beside the unchanged page', async () => {
+  const bytes = await sharp({
+    create: { width: 2400, height: 1600, channels: 3, background: '#406080' },
+  })
+    .jpeg()
+    .toBuffer()
+  const result = await decodeIsolated(decoderImage(), input(bytes))
+  assert.equal(result.state, 'ready')
+  const [page] = result.pages
+  assert.deepEqual([page.width, page.height], [2400, 1600])
+  assert.deepEqual(
+    page.renditions.map((item) => [item.size, item.width, item.height]),
+    [
+      ['thumb', 320, 213],
+      ['card', 960, 640],
+      ['view', 2048, 1365],
+    ],
+  )
+  for (const item of page.renditions) {
+    const metadata = await sharp(item.bytes).metadata()
+    assert.deepEqual(
+      [metadata.format, metadata.width, metadata.height],
+      ['webp', item.width, item.height],
+    )
+  }
+})
+
+mediaTest('a 30-page result with every rendition passes the real framing', async () => {
+  const result = await decodeIsolated(decoderImage(), input(pagedPdf(30, 1600, 2100)))
+  assert.equal(result.state, 'ready')
+  assert.equal(result.pages.length, 30)
+  assert.ok(result.pages.every((page) => page.renditions.length === 3))
+})
+
+mediaTest(
+  'the real decoder renders a large retained page and refuses a mismatched one',
+  async () => {
+    const { renderIsolated } = await import('../../src/media/decoder-runner.ts')
+    // Random pixels keep the lossless page above the 20 MiB upload bound, as large photos are.
+    const { randomBytes } = await import('node:crypto')
+    const pixels = randomBytes(3200 * 2400 * 3)
+    const page = await sharp(pixels, { raw: { width: 3200, height: 2400, channels: 3 } })
+      .png({ compressionLevel: 1 })
+      .toBuffer()
+    assert.ok(page.length > 20 * 1024 * 1024, `page is ${page.length} bytes`)
+    const digest = createHash('sha256').update(page).digest('hex')
+    const ready = await renderIsolated(decoderImage(), {
+      version: 'media-renditions/1',
+      digest,
+      bytes: page,
+      width: 3200,
+      height: 2400,
+    })
+    assert.equal(ready.state, 'ready')
+    assert.deepEqual(
+      ready.renditions.map((item) => [item.size, item.width, item.height]),
+      [
+        ['thumb', 320, 240],
+        ['card', 960, 720],
+        ['view', 2048, 1536],
+      ],
+    )
+    const mismatched = await renderIsolated(decoderImage(), {
+      version: 'media-renditions/1',
+      digest,
+      bytes: page,
+      width: 3199,
+      height: 2400,
+    })
+    assert.equal(mismatched.state, 'malformed')
+    assert.deepEqual(mismatched.renditions, [])
+  },
+)

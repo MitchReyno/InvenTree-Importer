@@ -4,6 +4,7 @@ import {
   MEDIA_PREVIEW_MAX_BYTES,
   MEDIA_SOURCE_MAX_BYTES,
   type MediaRecipeDto,
+  type MediaRenditionSize,
 } from '@invimport/contracts/media'
 
 export const MEDIA_LIMITS = Object.freeze({
@@ -33,9 +34,47 @@ export interface DecodedPage {
   height: number
   bytes: Buffer
 }
+export interface DecodedRendition {
+  size: MediaRenditionSize
+  width: number
+  height: number
+  bytes: Buffer
+}
+/** A ready page with its display renditions; the page bytes stay the full-resolution PNG. */
+export interface RenderedPage extends DecodedPage {
+  renditions: DecodedRendition[]
+}
 export type DecodedMedia =
-  | { state: 'ready'; toolchain: string; pages: DecodedPage[] }
+  | { state: 'ready'; toolchain: string; pages: RenderedPage[] }
   | { state: DecodeFailure; toolchain: string; pages: [] }
+
+/** One retained page PNG; bounded by the preview size, not the upload size. */
+export interface RenditionInput {
+  version: 'media-renditions/1'
+  digest: string
+  bytes: Buffer
+  width: number
+  height: number
+}
+export type RenditionResult =
+  | { state: 'ready'; toolchain: string; renditions: DecodedRendition[] }
+  | { state: 'malformed'; toolchain: string; renditions: [] }
+
+export function checkedRenditionInput(input: RenditionInput) {
+  if (
+    input.version !== 'media-renditions/1' ||
+    input.bytes.length === 0 ||
+    input.bytes.length > MEDIA_PREVIEW_MAX_BYTES ||
+    !Number.isInteger(input.width) ||
+    !Number.isInteger(input.height) ||
+    input.width < 1 ||
+    input.height < 1 ||
+    input.width * input.height > MEDIA_LIMITS.pixels ||
+    createHash('sha256').update(input.bytes).digest('hex') !== input.digest
+  ) {
+    throw new Error('invalid_decode_input')
+  }
+}
 
 export function checkedInput(input: DecodeInput) {
   if (
