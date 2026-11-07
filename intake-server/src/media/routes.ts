@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -172,13 +173,36 @@ export function registerMediaRoutes(
       async (request, reply) => {
         const { batchId, resourceId } = parameters(request)
         const observationId = identifier(resourceId)
-        const bytes = await content.observationCrop(batchId, observationId, cropCacheDir)
+        const size = renditionSize(request)
+        const rev = (request.query as Record<string, unknown> | undefined)?.rev
+        if (
+          rev !== undefined &&
+          (typeof rev !== 'string' || !/^[a-f0-9-]{36}(-\d{1,9}){5}$/.test(rev))
+        ) {
+          fail('invalid_revision', 400)
+        }
+        // Authorized on every request; the ETag follows the crop bytes, so an edit revalidates.
+        const crop = await content.observationCrop(
+          batchId,
+          observationId,
+          cropCacheDir,
+          size,
+          rev as string | undefined,
+        )
+        const etag = `"${createHash('sha256').update(crop.bytes).digest('hex')}"`
         reply
           .header('content-security-policy', "default-src 'none'; sandbox")
           .header('cross-origin-resource-policy', 'same-origin')
-          .header('content-type', 'image/png')
-          .header('content-disposition', `inline; filename="${observationId}.png"`)
-        return reply.send(bytes)
+          .header('cache-control', 'private, no-cache')
+          .header('etag', etag)
+        if (matchesEntityTag(request.headers['if-none-match'], etag)) {
+          return reply.code(304).send()
+        }
+        const type = crop.mediaType === 'image/webp' ? 'webp' : 'png'
+        reply
+          .header('content-type', crop.mediaType)
+          .header('content-disposition', `inline; filename="${observationId}-${size}.${type}"`)
+        return reply.send(crop.bytes)
       },
     )
   })

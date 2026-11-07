@@ -82,9 +82,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("Observation crops are cut full, then downscaled").
 - **Verification:** HTTP tests.
 
-- [ ] 4.1 RED: add tests for `thumb` dimensions, a `rev` that no longer matches refused with 409, a small region left unscaled, 400 on an unknown size, the default `full`, ETag/304, and a region change returning new bytes.
-- [ ] 4.2 GREEN: implement the sized cut, the per-size cache key and the headers.
-- [ ] 4.3 Update `contracts/scripts/generate.cjs` for the observation-crop route's `size` and `rev` parameters, WebP output and ETag/304 behavior, regenerate, and confirm with `contracts:check` that only that route's declaration changed.
+- [x] 4.1 RED: add tests for `thumb` dimensions, a `rev` that no longer matches refused with 409, a small region left unscaled, 400 on an unknown size, the default `full`, ETag/304, and a region change returning new bytes.
+- [x] 4.2 GREEN: implement the sized cut, the per-size cache key and the headers.
+- [x] 4.3 Update `contracts/scripts/generate.cjs` for the observation-crop route's `size` and `rev` parameters, WebP output and ETag/304 behavior, regenerate, and confirm with `contracts:check` that only that route's declaration changed.
 
 ## 5. Rendition backfill
 
@@ -141,7 +141,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Reviewed `e9adfbd`, merged as `24193c7` in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140).
 - [ ] D.2 PR-B: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
 - [ ] D.3 PR-C: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
 - [ ] D.4 After all PRs merge with acceptance evidence, update BI-013's status in the index. Archive only when authorized, after `pnpm openspec:overlap --change add-preview-renditions`.

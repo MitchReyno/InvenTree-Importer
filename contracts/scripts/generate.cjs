@@ -311,6 +311,26 @@ async function main() {
           { parameters: [renditionSize], revalidated: true },
         ),
       },
+      '/api/v1/batches/{batchId}/media/observations/{resourceId}/crop': {
+        get: browserResource(
+          ['image/png', 'image/webp'],
+          "An observation's region, cut at full resolution and sized; use a browser resource URL.",
+          {
+            parameters: [
+              renditionSize,
+              {
+                name: 'rev',
+                in: 'query',
+                required: false,
+                description:
+                  'Region revision; a revision other than the current region is refused.',
+                schema: { type: 'string', pattern: '^[a-f0-9-]{36}(-\\d{1,9}){5}$' },
+              },
+            ],
+            revalidated: true,
+          },
+        ),
+      },
       '/api/v1/activity': { get: get('ManualActivity') },
       '/api/v1/batches/{id}/manual': { get: get('ManualWorkspace') },
       '/api/v1/batches/{id}/reviews': { post: post('ManualScope', 'ManualReviewResult') },

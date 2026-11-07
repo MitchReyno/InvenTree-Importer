@@ -37,6 +37,18 @@ export function renditionDimensions(
   return width >= height ? { width: bound, height: short } : { width: short, height: bound }
 }
 
+/**
+ * The revision in an observation crop URL. It changes whenever the cropped pixels would, so an
+ * edited region gets a new URL even though the observation ID is unchanged.
+ */
+export function observationCropRevision(
+  versionId: string,
+  page: number,
+  region: { x: number; y: number; width: number; height: number },
+) {
+  return `${versionId}-${page}-${region.x}-${region.y}-${region.width}-${region.height}`
+}
+
 /** The sizes a source of these dimensions has, smallest first. */
 export function expectedRenditionSizes(width: number, height: number): MediaRenditionSize[] {
   return MEDIA_RENDITION_SIZE_NAMES.filter((size) => renditionDimensions(width, height, size))
