@@ -1,6 +1,6 @@
 # Implementation notes
 
-Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Importer/pull/97)), Examine lot forming (PR-B, [#107](https://github.com/MitchReyno/InvenTree-Importer/pull/107)) and the per-lot pipeline with selective rework (PR-C, [#112](https://github.com/MitchReyno/InvenTree-Importer/pull/112)) are merged into `interactive-app`. PR-D, the live provider qualification (task 13), ran on 2026-11-07 under Mitch's authorization; its evidence is in the PR-D description. `native-agent/2` keeps `native_unverified`, and BI-006 moves to Done once PR-D merges.
+Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Importer/pull/97)), Examine lot forming (PR-B, [#107](https://github.com/MitchReyno/InvenTree-Importer/pull/107)) and the per-lot pipeline with selective rework (PR-C, [#112](https://github.com/MitchReyno/InvenTree-Importer/pull/112)) are merged into `interactive-app`. PR-D, the live provider qualification (task 13, [#118](https://github.com/MitchReyno/InvenTree-Importer/pull/118)), ran on 2026-11-07 under Mitch's authorization and is merged; its evidence is in the PR description. `native-agent/2` keeps `native_unverified`, and BI-006 is Done.
 
 ## Changes to the plan
 

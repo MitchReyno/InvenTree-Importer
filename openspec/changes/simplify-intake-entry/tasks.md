@@ -388,6 +388,6 @@ CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage).
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`.
 - [x] D.2 PR-B: same gates. Review clear at `0948449` (rounds 9–10 covered the two `interactive-app` merges); CI green; merged as `776c302` (#107).
 - [x] D.3 PR-C: same gates; BI-006 is updated to Done only after acceptance and merge are evidenced. Review clear at `37bfd82` (round 6, after the `interactive-app` merge); CI green; merged as `236a165` (#112). BI-006 stays In progress until PR-D.
-- [ ] D.4 PR-D: authorized and run on 2026-11-07; same gates.
+- [x] D.4 PR-D: authorized and run on 2026-11-07; same gates. Review clear at `0ad78fe` (round 6); CI green; merged as `6952c6c` (#118). BI-006 is Done.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.
