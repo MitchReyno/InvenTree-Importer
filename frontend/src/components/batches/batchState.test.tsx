@@ -71,3 +71,17 @@ describe('BatchThumbnail', () => {
     expect(await screen.findByRole('img', { name: 'Preview unavailable' })).toBeInTheDocument()
   })
 })
+
+describe('BatchState before any lot exists', () => {
+  it('shows work or questions on a batch with no lots ahead of Draft', () => {
+    const empty = { ...approved, lots: 0, approved: 0 }
+    const { rerender } = render(<BatchState workflow={{ ...empty, active_jobs: 1 }} />)
+    expect(screen.getByText('Processing')).toBeInTheDocument()
+
+    rerender(<BatchState workflow={{ ...empty, open_questions: 2 }} />)
+    expect(screen.getByText('2 need you')).toBeInTheDocument()
+
+    rerender(<BatchState workflow={empty} />)
+    expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+})

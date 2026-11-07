@@ -388,6 +388,9 @@ export function Batch({
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
+  // A refresh that failed keeps the old data; it is withheld, so nothing old reads as current.
+  const attentionUnavailable = attentionQuery.isError || attentionQuery.fetchStatus === 'paused'
+  const attentionCurrent = attentionUnavailable ? undefined : attentionQuery.data
   // Capture, the Map, Lots and Images own the media read and its polling. This disabled observer
   // only keeps their snapshot while other tabs show, with the same fetch function so their refreshes
   // still work; the counts come from `useCachedData`, which drops it once invalidated and unrefreshed.
@@ -443,7 +446,7 @@ export function Batch({
         reload={reloadForStage}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
-        attention={attentionQuery.data}
+        attention={attentionCurrent}
         instructions={{
           // Undefined until the review projection for this revision is read.
           text: currentOperatorReview
@@ -552,8 +555,8 @@ export function Batch({
         <BatchHeader
           batch={batch}
           route={batchRoute}
-          attention={attentionQuery.data}
-          attentionUnavailable={attentionQuery.isError}
+          attention={attentionCurrent}
+          attentionUnavailable={attentionUnavailable}
           evidence={evidence}
           activeLotCount={batch.lots.length - retired.size}
           retiredLotCount={retired.size}

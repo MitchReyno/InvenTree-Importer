@@ -92,6 +92,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-07, PR-I review round 3:** "+N" counts a job that still holds its slot whatever its logical state. The pill's spinner follows only steps that are actually running, not queued or waiting ones, and on phones a held slot's "Slot held" takes the pill's one mark ahead of the spinner. `BatchThumbnail` again marks a batch with no photos ("No photos yet", ✎) apart from one whose preview failed ("Preview unavailable", ⊘), as a quiet glyph with that label instead of the old text.
 - **2026-11-07, PR-I review round 4:** A tab with a running spinner now says "running" in its accessible name, since the spinner is decorative, and each agent session's status in the activity panel's Details keeps its own time.
 - **2026-11-07, PR-I review round 5:** A batch with active jobs reads "Processing", not "Agents working", on Batches and its Continue card, because the inbox's `active_jobs` counts queued jobs as well as running ones.
+- **2026-11-07, PR-I review round 6:** `Batch` withholds the attention read's data once a refresh fails or pauses, as the header already did, so the batch header says "Needs you unavailable" instead of keeping old spinners, counts and "agents working" as if current; Processing gets the same withheld data. A batch with no lots shows its Processing work or questions ahead of "Draft", because the batch-level Examine can run or ask before any lot exists.
 
 ## Open items
 

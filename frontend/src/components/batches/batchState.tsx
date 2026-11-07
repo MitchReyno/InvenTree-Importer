@@ -21,15 +21,16 @@ export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {
   if (!workflow) {
     return null
   }
-  if (workflow.lots === 0) {
-    return <Pill status="draft">Draft</Pill>
-  }
+  // The batch-level Examine can run or ask before any lot exists, so work outranks Draft.
   if (workflow.active_jobs > 0) {
     // `active_jobs` counts queued jobs too, so this does not claim an agent has started.
     return <Pill status="processing">Processing</Pill>
   }
   if (workflow.open_questions > 0) {
     return <Pill status="needs-answer">{workflow.open_questions} need you</Pill>
+  }
+  if (workflow.lots === 0) {
+    return <Pill status="draft">Draft</Pill>
   }
   const round = workflow.latest_round
   if (round && RECOVERY.has(round.state)) {
