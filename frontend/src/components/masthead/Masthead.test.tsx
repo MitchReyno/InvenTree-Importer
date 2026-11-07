@@ -103,6 +103,10 @@ test('hides only the breadcrumb at phone width', () => {
     'data-compact',
     'hidden',
   )
+  // The trail opens with a separator after the Dev badge, as on the canvas.
+  const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' }).parentElement!
+  expect(crumbs.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+  expect(crumbs.firstElementChild).toHaveTextContent('/')
   expect(screen.getByText('Status slot').closest('[data-compact="hidden"]')).toBeNull()
   expect(screen.getByRole('button', { name: 'More' }).closest('[data-compact="hidden"]')).toBeNull()
 })

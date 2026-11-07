@@ -11,6 +11,7 @@ import { Button } from '../ui/Button'
 import { media } from '../ui/media'
 import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
 import { Pill } from '../ui/Pill'
+import { linkTouchArea } from '../ui/primitives'
 import { NeedsYouPanel } from './NeedsYouPanel'
 
 export type EvidenceCounts = { files: number; unused: number }
@@ -278,6 +279,9 @@ export function BatchHeader({
     <Band>
       <Inner $width={width}>
         <Lead>
+          <BackLink href="#">
+            <span aria-hidden="true">←</span> Batches
+          </BackLink>
           <TitleLine>
             <Title>{batch.title}</Title>
             {attention && <NeedsYouPanel attention={attention} />}
@@ -345,6 +349,21 @@ const Lead = styled.div`
   gap: ${space[3]};
   min-width: 0;
   padding-bottom: ${space[5]};
+`
+
+/** At phone width the masthead drops its trail, so the way back sits above the title. */
+const BackLink = styled.a`
+  display: none;
+  align-self: flex-start;
+  font-size: ${typeVar.small.size};
+  color: ${color.accent};
+  text-decoration: none;
+  ${linkTouchArea}
+  ${media.compact} {
+    display: inline-flex;
+    align-items: center;
+    gap: ${space[2]};
+  }
 `
 
 const TitleLine = styled.div`

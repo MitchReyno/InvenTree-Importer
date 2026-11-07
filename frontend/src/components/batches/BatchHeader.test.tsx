@@ -207,4 +207,15 @@ describe('BatchHeader', () => {
       }),
     ).toBeInTheDocument()
   })
+
+  it('offers a way back to Batches above the title at phone width, where the masthead drops its trail', () => {
+    header({ tab: 'capture' })
+
+    // Shown only below bp-compact, which jsdom cannot match, so it has no computed name here.
+    const back = screen.getByText('Batches', { exact: false, selector: 'a' })
+    expect(back).toHaveAttribute('href', '#')
+    expect(back.compareDocumentPosition(screen.getByRole('heading', { level: 1 }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
 })

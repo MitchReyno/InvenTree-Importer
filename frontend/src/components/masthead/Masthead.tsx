@@ -48,6 +48,7 @@ export function Masthead({ breadcrumb, status, themeController }: MastheadProps)
           </DevBadge>
           {breadcrumb && breadcrumb.length > 0 && (
             <Crumbs data-compact="hidden">
+              <span aria-hidden="true">/</span>
               <Breadcrumb items={breadcrumb} />
             </Crumbs>
           )}
@@ -162,9 +163,14 @@ const DevBadge = styled.span`
   white-space: nowrap;
 `
 
+/** The trail follows the Dev badge after a separator; the current crumb stays `fg`, as on the canvas. */
 const Crumbs = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[3]};
   min-width: 0;
   flex: 0 1 auto;
+  color: ${color.muted};
   overflow: hidden;
   /* Room for the link's focus ring inside the clipped box. */
   margin: -4px;
