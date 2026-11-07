@@ -34,6 +34,8 @@ interface Claim extends Candidate {
 export interface BackfillOptions {
   /** The clock for claims, expiry and backoff; tests step it past a backoff window. */
   now?: () => Date
+  /** Test seam: runs after candidates are selected and before each claim. */
+  beforeClaim?: () => Promise<void>
 }
 
 // Previews in the worker's scope whose dimensions call for a rendition they lack, with no
@@ -188,6 +190,7 @@ export async function backfillRenditions(
     scope(binding, now()),
   )
   for (const candidate of candidates.rows) {
+    await options.beforeClaim?.()
     const held = await claim(pool, binding, candidate.id, ownerId, now())
     if (held) {
       return run(pool, store, binding, image, held, ownerId, now)

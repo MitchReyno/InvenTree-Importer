@@ -9,7 +9,6 @@ import type { PoolClient } from 'pg'
 import { sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 
-
 /** Bytes on disk that no longer match their digest: a positive, permanent mismatch. */
 export class BlobCorruptError extends Error {}
 

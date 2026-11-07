@@ -544,3 +544,41 @@ test(
     }
   },
 )
+
+test(
+  'a worker holding a stale candidate list claims nothing after another settles the page',
+  { skip },
+  async () => {
+    for (const [label, other] of [
+      ['completed', image!],
+      ['interrupted', missingImage],
+    ] as const) {
+      const fixture = await retainedFixture()
+      try {
+        await fixture.upload('Photo', await jpeg(2400, 1600))
+        await fixture.forgetRenditions()
+        let release!: () => void
+        let selected!: () => void
+        const gate = new Promise<void>((done) => (release = done))
+        const picked = new Promise<void>((done) => (selected = done))
+        // The stale worker selects the page, then waits before claiming it.
+        const stale = backfillRenditions(fixture.decoder, fixture.store, fixture.binding, image!, {
+          beforeClaim: async () => {
+            selected()
+            await gate
+          },
+        })
+        await picked
+        assert.equal(
+          await backfillRenditions(fixture.decoder, fixture.store, fixture.binding, other),
+          label,
+        )
+        release()
+        assert.equal(await stale, null, `stale worker after ${label}`)
+        assert.equal((await fixture.attempts()).length, 1, `one attempt after ${label}`)
+      } finally {
+        await fixture.dispose()
+      }
+    }
+  },
+)
