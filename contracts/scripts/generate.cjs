@@ -143,14 +143,11 @@ async function main() {
     responses: {
       200: {
         description,
-        ...(extra.revalidated
-          ? { headers: { ETag: { schema: { type: 'string' } } } }
-          : {}),
+        ...(extra.revalidated ? { headers: { ETag: { schema: { type: 'string' } } } } : {}),
         content: Object.fromEntries(
-          [mediaTypes].flat().map((mediaType) => [
-            mediaType,
-            { schema: { type: 'string', format: 'binary' } },
-          ]),
+          [mediaTypes]
+            .flat()
+            .map((mediaType) => [mediaType, { schema: { type: 'string', format: 'binary' } }]),
         ),
       },
       ...(extra.revalidated

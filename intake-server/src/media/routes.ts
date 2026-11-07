@@ -19,6 +19,17 @@ function identifier(value: unknown) {
   return value
 }
 
+/** RFC 9110 weak comparison for GET: `*`, a list, or a `W/` tag all match the current digest. */
+export function matchesEntityTag(header: string | undefined, etag: string) {
+  if (!header) {
+    return false
+  }
+  return header
+    .split(',')
+    .map((value) => value.trim())
+    .some((value) => value === '*' || value.replace(/^W\//, '') === etag)
+}
+
 /** The optional display size; anything else is refused rather than silently served full. */
 function renditionSize(request: FastifyRequest): MediaRenditionSize | 'full' {
   const size = (request.query as Record<string, unknown> | undefined)?.size
@@ -147,7 +158,7 @@ export function registerMediaRoutes(
         .header('cross-origin-resource-policy', 'same-origin')
         .header('cache-control', 'private, no-cache')
         .header('etag', etag)
-      if (request.headers['if-none-match'] === etag) {
+      if (matchesEntityTag(request.headers['if-none-match'], etag)) {
         return reply.code(304).send()
       }
       reply

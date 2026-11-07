@@ -258,3 +258,14 @@ test('decoder output with missing, extra or mis-sized renditions is refused', ()
     /invalid_decoder_rendition/,
   )
 })
+
+test('conditional requests use weak comparison over the whole If-None-Match list', async () => {
+  const { matchesEntityTag } = await import('../src/media/routes.ts')
+  const etag = '"' + 'a'.repeat(64) + '"'
+  assert.equal(matchesEntityTag(undefined, etag), false)
+  assert.equal(matchesEntityTag(etag, etag), true)
+  assert.equal(matchesEntityTag(`W/${etag}`, etag), true)
+  assert.equal(matchesEntityTag(`"other", ${etag}`, etag), true)
+  assert.equal(matchesEntityTag('*', etag), true)
+  assert.equal(matchesEntityTag('"other"', etag), false)
+})

@@ -261,6 +261,7 @@ test(
         assert.match(response.headers.get('etag')!, /^"[a-f0-9]{64}"$/)
       }
       const full = await fetch(url(batch.id, large.preview_id))
+      const fullEtag = (response: Response) => response.headers.get('etag')!
       assert.equal(full.headers.get('content-type'), 'image/png')
       assert.equal((await sharp(Buffer.from(await full.arrayBuffer())).metadata()).width, 2400)
       assert.equal(
@@ -273,6 +274,13 @@ test(
       assert.equal(fallback.headers.get('content-type'), 'image/png')
       assert.equal(fallback.headers.get('cache-control'), 'private, no-cache')
       assert.equal((await sharp(Buffer.from(await fallback.arrayBuffer())).metadata()).width, 300)
+
+      for (const header of [`W/${fullEtag(full)}`, `"other", ${fullEtag(full)}`, '*']) {
+        const conditional = await fetch(url(batch.id, large.preview_id), {
+          headers: { 'if-none-match': header },
+        })
+        assert.equal(conditional.status, 304)
+      }
 
       // A repeat with the validator is authorized again, then answered 304 without bytes.
       const thumb = await fetch(url(batch.id, large.preview_id, 'thumb'))
@@ -303,6 +311,86 @@ test(
         await db.pool.query(`DROP OWNED BY ${value.name}`)
         await db.pool.query(`DROP ROLE ${value.name}`)
       }
+      await db.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
+  'a failure part-way through rendition publication commits no page, rendition or result',
+  { skip: image ? false : 'Explicit decoder image needed for PG/decoder boundary' },
+  async () => {
+    const db = await isolatedDatabase()
+    const identity = await seedAuthority(db.pool)
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-renditions-rollback-')))
+    const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
+    const binding = {
+      actorId: identity.actor,
+      targetId: identity.target,
+      targetContextId: identity.context,
+    }
+    const decoderRole = await role(db, 'decoder')
+    const decoder = database(decoderRole.url)
+    try {
+      const batch = (await captureRepository(db.pool, binding).create(randomUUID(), {
+        title: 'Rollback',
+        note: '',
+      })) as CaptureSnapshotDto
+      const photo = await sharp({
+        create: { width: 2400, height: 1600, channels: 3, background: '#406080' },
+      })
+        .jpeg()
+        .toBuffer()
+      await mediaRepository(db.pool, binding, store).upload(
+        batch.id,
+        randomUUID(),
+        '1',
+        'Photo',
+        photo,
+      )
+      // The page and its first rendition are published; the second rendition fails.
+      const published: string[] = []
+      const failing = new Proxy(store, {
+        get(target, property) {
+          if (property === 'publish') {
+            return async (...args: Parameters<BlobStore['publish']>) => {
+              if (published.length === 2) {
+                throw new Error('injected_publication_failure')
+              }
+              const blob = await target.publish(...args)
+              published.push(blob.digest)
+              return blob
+            }
+          }
+          const value = Reflect.get(target, property, target)
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+      await assert.rejects(
+        processMediaCommand(decoder.pool, failing, binding, image!),
+        /injected_publication_failure/,
+      )
+      const counts = await db.pool.query<{ results: number; previews: number; renditions: number }>(
+        `SELECT (SELECT count(*)::int FROM media_decode_result) AS results,
+                (SELECT count(*)::int FROM media_preview) AS previews,
+                (SELECT count(*)::int FROM media_preview_rendition) AS renditions`,
+      )
+      assert.deepEqual(counts.rows[0], { results: 0, previews: 0, renditions: 0 })
+      assert.equal(published.length, 2)
+      const client = await db.pool.connect()
+      try {
+        for (const digest of published) {
+          // Written bytes are unreferenced orphans for the collector, never half-published rows.
+          assert.equal(await blobReferenced(client, digest), false)
+        }
+      } finally {
+        client.release()
+      }
+    } finally {
+      await decoder.pool.end()
+      await db.pool.query(`DROP OWNED BY ${decoderRole.name}`)
+      await db.pool.query(`DROP ROLE ${decoderRole.name}`)
       await db.dispose()
       await rm(root, { recursive: true, force: true })
     }
