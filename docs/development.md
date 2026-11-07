@@ -8,13 +8,14 @@ Install the pinned Node 24/pnpm versions and run `pnpm install --frozen-lockfile
 pnpm dev       # full local app, synthetic Processing by default
 pnpm dev:ui    # standalone Vite UI; no API proxy or provisioning
 pnpm dev:intake # standalone API with explicit server configuration
+pnpm codex:login # Codex subscription login for this app's private Codex home
 ```
 
 The full app forwards `/api` HTTP and WebSocket requests from Vite to its private API listener. Browser origin and CSRF checks remain authoritative. Standalone commands do not provision an app or start workers. `dev:intake` serves built frontend assets when present; use `pnpm build` for that standalone mode.
 
 ## Environment files and InvenTree targets
 
-`pnpm dev` and `pnpm dev:intake` load the **current checkout's root `.env`** once at startup. Existing shell environment values take precedence, including explicitly empty values. Use `INTAKE_ENV_FILE=.env.local pnpm dev` to select a caller-relative or absolute file; set `INTAKE_ENV_FILE=''` to disable file loading. A missing default `.env` is fine; an explicitly selected missing, symlinked, oversized or invalid UTF-8 file is refused. Inside the checkout, selected files must be root-level `.env` or `.env.*` names, which Vite already denies. Other filenames belong outside the checkout so source/static serving cannot expose their contents. No other checkout’s environment file is discovered.
+`pnpm dev`, `pnpm dev:intake` and `pnpm codex:login` load the **current checkout's root `.env`** once at startup. Existing shell environment values take precedence, including explicitly empty values. Use `INTAKE_ENV_FILE=.env.local pnpm dev` to select a caller-relative or absolute file; set `INTAKE_ENV_FILE=''` to disable file loading. A missing default `.env` is fine; an explicitly selected missing, symlinked, oversized or invalid UTF-8 file is refused. Inside the checkout, selected files must be root-level `.env` or `.env.*` names, which Vite already denies. Other filenames belong outside the checkout so source/static serving cannot expose their contents. No other checkout’s environment file is discovered.
 
 Start with the documented template in `.env.intake.example`. Create a new file only when the checkout has no `.env`; merge the relevant settings yourself if one already exists, and keep it private. `.env` and `.env.*` variants are gitignored; only the documented example templates are excepted. Values are parsed as dotenv data using Node24's built-in parser, never sourced as shell code. No variable expansion is performed. File changes require restarting the command and do not trigger live reload.
 
@@ -84,28 +85,26 @@ An exclusive `supervisor.lock` prevents overlapping owners. If a hard kill leave
 
 Default Processing produces visibly **synthetic** source-bound proposals in either target profile. It performs no inference, image inspection or inventory research. The fake inventory supports local lookup and supervised apply; this is not a connection to a real inventory server.
 
-To explicitly select the existing native-agent integration for new work:
+To explicitly select a native-agent profile for new work:
 
 ```bash
-INTAKE_PROCESSING_PROFILE=native-agent/1 pnpm dev
+INTAKE_PROCESSING_PROFILE=native-agent/2 pnpm dev   # sessions; Examine proposes lots from photos
+INTAKE_PROCESSING_PROFILE=native-agent/1 pnpm dev   # one queued result for a saved lot or part
 ```
+
+`native-agent/2` starts the session supervisor. Setup provisions a dedicated, namespace-bound writer for intake capture changes and stores its credentials privately in `agent-writer.json`. Reuse verifies the server endpoint, role binding and login before reapplying grants; an unbound legacy or misplaced credential file is refused rather than upgrading another role. This grants no inventory-target write access. After a provider, authentication route and model are saved, ready photos queue one Examine session for the batch. `native-agent/1` starts the single-result supervisor and waits for a queued attempt.
 
 Then select the global provider, authentication route and model in Settings before starting an agent. Claude subscription authentication uses the signed-in CLI account under the host `HOME`. Codex subscription mode uses the worker's isolated `$INTAKE_APP_STATE/agents/codex` as `CODEX_HOME`; the default host Codex login is not automatically reused.
 
-Use the exact private app-state directory belonging to your target. A value loaded from `.env` is not exported back into the shell: export the same resolved `INTAKE_APP_STATE` path before logging in. Automatic read-only and local namespaces use `read-only-<hash>` and `local-inventree-<hash>` directories, so the fake profile's `app-<server id>` directory is not a substitute. If your app already has retained data, use its existing directory.
-
-For a new namespace, select an explicit private path before first startup, and keep the same exported value for login and later launches:
+Sign in with the checkout's own login command. It reads the same environment file as `pnpm dev` (shell values still win), resolves that app's private state, creates `agents/codex` so only your user can read it, and runs `codex login` with `CODEX_HOME` pointed there:
 
 ```bash
-export INTAKE_APP_STATE="$HOME/.local/state/bench-intake/my-development-target"
-INTAKE_PROCESSING_PROFILE=synthetic-research/2 pnpm dev
-# Once ready, stop with Ctrl-C before continuing in the same shell.
-mkdir -p -m 700 "$INTAKE_APP_STATE/agents"
-mkdir -p -m 700 "$INTAKE_APP_STATE/agents/codex"
-CODEX_HOME="$INTAKE_APP_STATE/agents/codex" codex login
+pnpm codex:login
 ```
 
-Use the CLI login flow; do not copy an authentication store. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the default synthetic profile.
+You can run it while `pnpm dev` is already up. Automatic read-only and local namespaces use `read-only-<hash>` and `local-inventree-<hash>` directories, so the fake profile's `app-<server id>` directory is not a substitute. A default namespace needs the shared database identity (`pnpm dev` or `pnpm db:intake start` creates it). A local InvenTree namespace also needs `pnpm inventree:dev up`, which records the instance id. An explicit `INTAKE_APP_STATE` is used as given and does not need those files; choose it before the first launch and keep it for later launches. `INTAKE_CODEX_EXECUTABLE` selects the binary when `codex` is not on `PATH`.
+
+Use the CLI login flow; do not copy an authentication store. The dedicated directory must contain no `config.toml`, hooks, plugins or skills. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the default synthetic profile.
 
 ## Verification
 

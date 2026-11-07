@@ -16,6 +16,7 @@ const { createServer: netServer } = require('node:net')
 const { spawn } = require('node:child_process')
 const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
+const { developmentProfile, processingWorker } = require('./dev/profile.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
@@ -277,9 +278,17 @@ async function main() {
       INTAKE_PROCESSING_CHANNEL_SECRET: state.channelSecret,
       INTAKE_BLOB_ROOT: state.blobRoot,
     }
-    const profile = settings.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
-    if (!['synthetic-research/2', 'native-agent/1'].includes(profile)) {
-      throw new Error('unsupported_development_profile')
+    const profile = developmentProfile(settings)
+    const worker = processingWorker(profile)
+    let writerUrl
+    if (worker?.entry.endsWith('session-worker-main.ts')) {
+      const { readAgentWriterUrl } = await import(
+        pathToFileURL(join(intake, 'src/dev/agent-writer.ts')).href
+      )
+      writerUrl = await readAgentWriterUrl(root, state.databaseName)
+      if (!writerUrl) {
+        throw new Error('agent_writer_required')
+      }
     }
 
     let starting = false
@@ -343,7 +352,7 @@ async function main() {
       await child('media', 'src/dev/media-main.ts', { INTAKE_MEDIA_DECODER_IMAGE: image }, (text) =>
         text.includes('DEV_MEDIA_READY'),
       ).ready()
-      if (profile === 'native-agent/1') {
+      if (worker) {
         const providerEnv = Object.fromEntries(
           [
             'OPENAI_API_KEY',
@@ -356,7 +365,7 @@ async function main() {
         )
         await child(
           'agents',
-          'src/agents/worker-main.ts',
+          worker.entry,
           {
             ...providerEnv,
             INTAKE_PROCESSING_PROFILE: profile,
@@ -364,8 +373,9 @@ async function main() {
             INTAKE_AGENT_DATABASE_URL: state.processingUrl,
             INTAKE_AGENT_SCHEDULER_DATABASE_URL:
               state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl,
+            ...(writerUrl ? { INTAKE_AGENT_WRITER_DATABASE_URL: writerUrl } : {}),
           },
-          (text) => text.includes('supervisor ready'),
+          (text) => text.includes(worker.ready),
         ).ready()
       } else {
         await child('processing', 'src/dev/processing-main.ts', {}, (text) =>

@@ -33,6 +33,7 @@ After installing the application toolchains/dependencies as described in their R
 
 ```sh
 pnpm dev                  # full retained local app at 127.0.0.1:4330
+pnpm codex:login          # Codex subscription login for this dev app's private home
 pnpm dev:ui               # standalone frontend development server
 pnpm build                # frontend production assets
 pnpm typecheck

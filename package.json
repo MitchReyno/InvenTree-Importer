@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "node tooling/dev.cjs",
+    "codex:login": "node tooling/codex-login.cjs",
     "build": "pnpm --filter @invimport/frontend build",
     "typecheck": "pnpm --filter @invimport/frontend typecheck && pnpm run typecheck:intake",
     "typecheck:intake": "pnpm --filter @invimport/contracts typecheck && pnpm --filter @invimport/intake-server typecheck",
@@ -44,7 +45,7 @@
     "dev:ui": "pnpm --filter @invimport/frontend dev",
     "test:openspec": "node --test tooling/tests/openspec-overlap.test.mjs",
     "openspec:overlap": "node tooling/openspec/overlap.mjs",
-    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs"
+    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/dev-profile.test.cjs tooling/tests/codex-login.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",
