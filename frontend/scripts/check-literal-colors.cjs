@@ -189,6 +189,15 @@ function templateText(source) {
       if (top.depth === 0) stack.pop()
       else top.depth--
       out += ' '
+    } else if (inTemplate && typeof top === 'object' && /[?:]\s*$/.test(source.slice(0, index))) {
+      // A number a conditional returns, such as `p.$on ? 0.6 : 1`, is a literal value too.
+      const number = source.slice(index).match(/^-?\d+(?:\.\d+)?(?:px|em|rem|%|ms|s)?(?![\w.])/)
+      if (number) {
+        out += number[0]
+        index += number[0].length - 1
+      } else {
+        out += ' '
+      }
     } else {
       out += ' '
     }
@@ -306,11 +315,12 @@ function declarations(text) {
 // The font shorthand's weight, size and line height, checked as their own properties.
 function longhands({ property, value }) {
   if (property !== 'font') return [{ property, value }]
-  // The size is the part carrying '/line-height', or else the first px length; a unitless number
+  // The size is the part carrying '/line-height', or else the first px length or token; a number
   // before it is the weight. Keywords may sit anywhere before the size. Only literals are checked.
   const parts = value.replace(/\s*\/\s*/g, '/').split(/\s+/)
   let sizeAt = parts.findIndex((part) => part.includes('/'))
   if (sizeAt < 0) sizeAt = parts.findIndex((part) => /^\d+(?:\.\d+)?px$/.test(part))
+  if (sizeAt < 0) sizeAt = parts.findIndex((part) => /^(?:[§¤]|var\()/.test(part))
   if (sizeAt < 0) return []
   const [size, lineHeight] = parts[sizeAt].split('/')
   const literal = /^\d+(?:\.\d+)?(?:px)?$/

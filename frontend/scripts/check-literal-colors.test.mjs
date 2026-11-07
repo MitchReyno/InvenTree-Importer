@@ -99,6 +99,9 @@ describe('literal value check', () => {
       '  font: 600 12px/normal sans-serif;',
       '  font: 12px/120% sans-serif;',
       '  font: 600 italic 12px / 18px sans-serif;',
+      '  font: 600 ${typeVar.small.size} ${font.sans};',
+      '  opacity: ${({ $off }) => ($off ? 0.5 : 1)};',
+      '  font-weight: ${({ $on }) => ($on ? 600 : 400)};',
       '  @media (',
       '    min-width: 760px) {',
       '  }',
@@ -117,7 +120,11 @@ describe('literal value check', () => {
       '6 | font-weight | 600 | type-body-strong-weight type-pill-weight type-label-weight',
       '6 | font-size | 12px | type-pill-size',
       '6 | line-height | 18px | type-small-line-height type-pill-line-height type-button-lg-line-height type-mono-line-height type-mono-strong-line-height',
-      '7 | @media | 760px | bp-compact',
+      '7 | font-weight | 600 | type-body-strong-weight type-pill-weight type-label-weight',
+      '8 | opacity | 0.5 | opacity-disabled',
+      '9 | font-weight | 600 | type-body-strong-weight type-pill-weight type-label-weight',
+      '9 | font-weight | 400 | type-body-weight type-small-weight type-mono-weight',
+      '10 | @media | 760px | bp-compact',
     ])
   })
 
