@@ -146,6 +146,9 @@ test('waiting sessions do not count as running: 3 of 3 slots, 2 waiting, each ho
   expect(await within(summary).findByText(/^3 of 3 slots in use/)).toBeInTheDocument()
   expect(within(summary).getByText('2 waiting for you')).toBeInTheDocument()
   expect(screen.getAllByText(/holds no slot/)).toHaveLength(2)
+  // The batch's own heading says how many of its sessions wait for an answer.
+  const group = await screen.findByRole('region', { name: 'Mouser order' })
+  expect(within(group).getByText('2 need you')).toBeInTheDocument()
 })
 
 test('filters show running, waiting, queued and finished-today sessions', async () => {

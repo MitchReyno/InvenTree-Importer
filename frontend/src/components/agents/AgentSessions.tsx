@@ -204,6 +204,11 @@ export function AgentSessions({ client, batches }: Props) {
             .filter((batchId) => shown.some((session) => session.batch_id === batchId))
             .map((batchId) => {
               const named = nameOf(batchId)
+
+              // Counted over the page's sessions, so the filter does not hide who is waiting.
+              const waitingIn = (id: string) =>
+                sessions.filter((session) => session.batch_id === id && isWaiting(session)).length
+
               const title = named?.title ?? 'Batch'
               const rows = shown
                 .filter((session) => session.batch_id === batchId)
@@ -260,6 +265,9 @@ export function AgentSessions({ client, batches }: Props) {
                 <Group key={batchId} aria-label={title}>
                   <GroupHead>
                     <h2>{title}</h2>
+                    {waitingIn(batchId) > 0 && (
+                      <Pill status="needs-answer">{waitingIn(batchId)} need you</Pill>
+                    )}
                     <a href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>
                       Open Processing
                     </a>
@@ -378,8 +386,7 @@ const Group = styled.section`
 const GroupHead = styled.div`
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: ${space[4]};
   padding: ${space[5]} ${space[7]};
   border-bottom: 1px solid ${color.line};
@@ -388,6 +395,7 @@ const GroupHead = styled.div`
     ${type.h3}
   }
   a {
+    margin-left: auto;
     color: ${color.accent};
     ${linkTouchArea}
   }
