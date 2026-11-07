@@ -18,6 +18,19 @@ pnpm build                # ignored frontend/dist production assets
 pnpm dev:intake           # same-origin built UI + API; explicit capture DB setup required
 ```
 
+### Screenshot diff
+
+`pnpm screenshots:frontend` captures every page in `tests/fixtures/` in headless Chrome, in light and dark at 1440 and 390 px wide, and fails when any pixel differs from the recorded baseline. It proves that a change, such as swapping literal values for equal tokens, leaves every screen pixel-identical.
+
+```sh
+pnpm screenshots:frontend -- --update        # record the baseline before the change
+pnpm screenshots:frontend                     # compare after it; lists each changed shot
+pnpm screenshots:frontend -- --out <dir>      # also write the shots and a .diff.png for each change
+pnpm screenshots:frontend -- --only records   # limit to fixture pages whose name contains "records"
+```
+
+The script starts its own Vite server and needs Chrome (`CHROME_PATH` overrides its location). The baseline is local, in the gitignored `frontend/.screenshots/baseline`, so record it on the base commit before changing anything. Captures freeze animations and transitions, hide the decorative masthead scene, and use CPU rasterisation, so an unchanged page is identical from run to run. Screenshots are evidence for the PR description, not committed files.
+
 The root `pnpm lint`/`pnpm test` also run backend checks, which need the Python/uv setup in the [backend README](../backend/README.md). Capture development needs no Python execution or real inventory services; see [explicit server setup and service ownership](../intake-server/README.md). No production deployment is configured; a successful build does not deploy the application.
 
 ## Current and future scope

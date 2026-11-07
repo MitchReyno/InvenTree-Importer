@@ -33,6 +33,7 @@
     "test:intake:pg": "pnpm --filter @invimport/intake-server test:pg",
     "test:intake:process": "pnpm --filter @invimport/intake-server test:process",
     "test:frontend": "pnpm --filter @invimport/frontend test",
+    "screenshots:frontend": "pnpm --filter @invimport/frontend screenshots",
     "test:backend": "uv run --directory backend pytest -m \"not tui\"",
     "backend": "uv run --project backend invimport",
     "demo": "uv run --project backend invimport demo",
