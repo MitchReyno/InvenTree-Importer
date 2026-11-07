@@ -41,8 +41,8 @@ Notes on the counts:
 
 - One row per literal per declaration, so `padding: 7px 9px` is two rows. `0`, `100%`, `auto`, `fr`, `transparent`, `currentColor` and 1px border widths are not counted.
 - `type` EXACT means the **size, weight or line-height alone** matches a `type.*` style. A single matching property swaps through that property's own type variable (design D11). Moving to the full style when the line-height or weight differs is a NEAR, visible change.
-- `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps, `outline-offset: 2px`) and 20/24px; see proposed `space-0-5`, `space-5`, `space-6`.
-- `sizing` (min-height 44/32px, icon boxes, grid column widths) has no token group at all; it is listed for completeness. Only touch-target and control heights warrant tokens.
+- `spacing` NONE is mostly 1–3px hairline nudges (1px/2px gaps, `outline-offset: 2px`) and 20/24px, which tokens v2 covers with `space-0-5`, `space-5` and `space-6`.
+- `sizing` (min-height 44/32px, icon boxes, grid column widths) had no token group under v1. Tokens v2's `size` family covers control and touch heights, icon sizes, rings, offsets and content widths; grid track widths stay literals.
 
 | Area | EXACT | NEAR | NONE | Files |
 |---|---:|---:|---:|---:|
@@ -130,7 +130,7 @@ These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, Restructure
 - `inset 2px accent + inset 4px bg` (SegmentedControl)
 - `Tabs` `outline-offset: -2px`
 
-**Recommend:** keep the global 2px/2px ring as the one focus style; drop ReviewTable's 3px. Treat the `accentWeak` halos as a separate `ring-halo` (3px). StatusTimeline's 4px becomes 3px.
+**Recommend:** keep the global 2px/2px ring as the one focus style; drop ReviewTable's 3px. Superseded by tokens v2: the `accentWeak` halos fold into the 2px ring (`ring-width`, `ring-offset`), and StatusTimeline's 4px moves to it too.
 
 ### C10. Uppercase eyebrows outside `type.label`
 These eyebrows hand-roll the style instead of using `type.label` or `primitives.Eyebrow` (`11px / 600 / 0.06em`): `ReviewQueue.tsx:174` GroupTitle (12px, 1.2px), `FactRow.tsx:51` dt (12px, 1px), the `ReviewTable.tsx:187` and `CompareMatches.tsx:222` headers (12px, 1px), `RecordChain.tsx:114` Kind (10.5px, 0.04em) and `DisabledFeature.tsx:62` Soon (11px, 0.04em). `DataTable.tsx:158` uses `type.label` but overrides it to 0.05em.
