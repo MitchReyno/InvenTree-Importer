@@ -109,6 +109,7 @@ const Link = styled.a<{ $state: RecordState }>`
   ${media.compact} {
     justify-content: center;
     min-height: ${size.touch};
+    flex-shrink: 0;
     min-width: ${size.touch};
   }
 `

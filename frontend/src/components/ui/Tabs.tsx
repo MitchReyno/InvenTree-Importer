@@ -132,6 +132,8 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   }
   ${media.compact} {
     min-height: ${size.touch};
+    /* An explicit minimum would otherwise let the tab shrink below its label. */
+    flex-shrink: 0;
     min-width: ${size.touch};
     justify-content: center;
   }
