@@ -24,8 +24,10 @@ Linked item: [BI-013 — Preview renditions for media](../../../docs/PLANNED_FUN
 - **Observation crops.** `media/region-crops.ts` cuts an observation's pixel region from the full page preview and caches the PNG under `cropCacheDir`. Untrusted originals deliberately never leave the decoder. Region coordinates are measured against the full page's width and height and are refused with `region_preview_mismatch` when those differ.
 - **Serving.** `/media/previews/:id` and `/media/observations/:id/crop` return `image/png`. The API's global hook sets `cache-control: no-store` (`api/server.ts`), so immutable preview bytes are downloaded again on every render.
 - **Frontend.** `mediaResource(…, 'previews', page.preview_id)` and `observationCrop(…)` are the only image URLs (`frontend/src/media/types.ts`). They are used at full resolution in:
-  - small thumbnails: `BatchThumbnail`, `NeedsYou` (44 × 34 px), `ExamineView` (56 px), `LotObservations` and `UnassignedObservations` (64 px);
-  - cards: `MediaEvidenceCard` (at most 280 px tall), `EvidenceFileTile`, `QuestionCard`;
+  - small thumbnails: `BatchThumbnail`, `ExamineView` (56 px), `LotObservations` and `UnassignedObservations` (64 px);
+  - cards: `MediaEvidenceCard` (at most 280 px tall), `EvidenceFileTile`.
+
+  `NeedsYou` thumbnails and `QuestionCard` close-ups take plain image URLs, but no production code supplies them media today: `QuestionCard` is used only in the component gallery. They are out of scope until real media reaches them.
   - the zoomable `EvidenceViewer` (up to 460 px tall);
   - `MediaCropDialog` (selection and output check);
   - the `ProcessingImages` open link.
@@ -39,7 +41,7 @@ In scope:
 
 - **Image renditions.** The bounded decoder produces downscaled WebP renditions for every ready page, original or derived, in the same decode command, never upscaling. The full-resolution PNG page stays as it is: same row, identity, dimensions and role as the coordinate and crop source.
 - **Crop renditions.** Observation crops are served at a requested rendition size, cut from the full page and then downscaled.
-- **Contracts and routes.** Snapshot contracts list each page's available renditions. The preview route serves a requested size. Immutable preview and rendition bytes get private long-lived caching, and observation crops are validated by digest.
+- **Contracts and routes.** No API response changes shape. Clients derive rendition sizes from the page dimensions they already receive, and the preview and observation-crop routes gain optional `size` (and, for crops, `rev`) query parameters. Immutable preview and rendition bytes get private long-lived caching, and observation crops are validated by digest.
 - **Existing data.** Retained versions decoded before this change get renditions through a bounded backfill. Until then, the frontend falls back to the full page.
 - **Frontend.** A shared helper picks the rendition per surface with `srcset`/`sizes`. The viewer switches to the full page when zoomed beyond the largest rendition.
 

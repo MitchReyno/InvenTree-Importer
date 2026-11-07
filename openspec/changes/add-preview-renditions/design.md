@@ -102,7 +102,13 @@ Attempts are tracked per preview in a `media_rendition_backfill` table, with the
 
 How attempts are claimed and published:
 
-- **Claiming.** A claim is an insert, not a row lock. The worker selects eligible previews, reading `media_preview`, its renditions and earlier attempts, which it can already read. For each candidate in turn it runs `INSERT … (outcome 'claimed', owner_id, attempt = prior attempts + 1) ON CONFLICT DO NOTHING RETURNING id`. A partial unique index on `preview_id WHERE outcome = 'claimed'` makes a second concurrent claim on the same preview insert nothing, so that worker moves to the next candidate. No lock on `media_preview` is needed, and the worker role needs only `INSERT`/`UPDATE` on the attempt table. A unique index on (`preview_id`, `attempt`) also stops two workers recording the same attempt number.
+- **Authority scope.** Selection, abandoned-claim recovery and publication join each preview to its batch's capture binding and keep only the worker's configured actor, target and target context, the same filters `claimCommand()` applies in `worker.ts`. The decoder role's broad table reads don't limit the scope, so these filters do.
+- **Claiming.** Each claim is one transaction that serializes on the preview:
+  1. Select candidate previews in scope.
+  2. For each, take `pg_advisory_xact_lock` on the preview ID, then re-check eligibility under the lock: no `completed` or `skipped_mismatch` attempt, no `claimed` attempt, `retry_after` passed, fewer than three attempts, and renditions still missing.
+  3. If it still qualifies, insert the attempt as `claimed` with `owner_id` and `attempt = prior attempts + 1`, and commit. If not, release the lock and move to the next candidate.
+
+  Abandoned-claim recovery and publication take the same lock. A worker that read a stale candidate list therefore cannot claim a preview another worker has since completed or interrupted, or skip its backoff. The partial unique index on `preview_id WHERE outcome = 'claimed'` and the unique (`preview_id`, `attempt`) index remain as a second fence.
 - **Retry schedule.** Marking an attempt `interrupted` sets `retry_after` to now plus a backoff (10 minutes, then 1 hour), and a preview is eligible again only after its latest attempt's `retry_after` has passed. A temporary failure can't use up all three attempts in one polling burst.
 - **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
 - **Priority.** The worker claims a backfill only when no decode command is waiting, and does one page per claim. The worker runs commands one at a time, so an upload arriving during a backfill waits for at most that one in-flight page, which the decoder's 25 s bound limits, and is decoded before any further backfill.
@@ -125,8 +131,8 @@ Usage profiles:
 
 | Usage | Surfaces | `sizes` / sizes offered |
 | --- | --- | --- |
-| `thumbnail` | `BatchThumbnail`, `NeedsYou`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, then card for 3× density |
-| `card` | `MediaEvidenceCard`, `EvidenceFileTile`, `QuestionCard` close-ups, crop output check | thumb and card, with `sizes` from the card width |
+| `thumbnail` | `BatchThumbnail`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `ProposedLotsGlance` crops | thumb, then card for 3× density |
+| `card` | `MediaEvidenceCard`, `EvidenceFileTile`, crop output check | thumb and card, with `sizes` from the card width |
 | `viewer` | `EvidenceViewer`, `MediaCropDialog` selection | thumb, card and view; the viewer replaces `src` and `srcSet` with the full page once zoom × displayed width exceeds the view width |
 | `full` | `ProcessingImages` open link | full page (the original download link keeps using the version route) |
 

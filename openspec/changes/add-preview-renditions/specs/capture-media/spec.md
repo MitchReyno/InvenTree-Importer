@@ -174,6 +174,12 @@ Ready versions decoded before renditions existed SHALL gain renditions rendered 
 - **WHEN** both look for backfill work
 - **THEN** each page is upgraded at most once, and neither worker's attempt is counted against the other.
 
+#### Scenario: Other workspaces untouched
+
+- **GIVEN** a media worker configured for one actor, target and target context, and a ready version in a batch bound to another
+- **WHEN** the worker looks for backfill work
+- **THEN** it never claims, recovers or publishes renditions for that version.
+
 #### Scenario: Worker killed after claiming
 
 - **GIVEN** a worker killed after claiming a page's backfill
@@ -187,7 +193,7 @@ The frontend SHALL request the smallest suitable rendition for each image surfac
 #### Scenario: Thumbnail surfaces
 
 - **GIVEN** a batch with decoded photos and observations
-- **WHEN** the batch list, needs-you panel or observation thumbnails are shown
+- **WHEN** the batch list, observation thumbnails or proposed-lot crops are shown
 - **THEN** they load `thumb` renditions or `thumb` crops, not full-resolution pages.
 
 #### Scenario: Evidence cards

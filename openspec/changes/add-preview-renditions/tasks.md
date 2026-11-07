@@ -106,7 +106,8 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - small pages never selected;
   - a mixed-size PDF;
   - an interrupted attempt retried only on a later run and capped;
-  - two concurrent workers never claiming one preview;
+  - two concurrent workers never claiming one preview, including when one worker pauses between candidate selection and insertion while the other completes or interrupts that preview;
+  - a foreign-context batch never claimed, recovered or published, under the restricted worker role;
   - an abandoned claim recovered after expiry, and a stale owner refused at publication;
   - a retained page whose bytes don't match its recorded digest, skipped;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
@@ -124,7 +125,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - **PR delivery:** PR-C.
 - **Outcome:** each image surface uses its usage profile (thumbnail, card, viewer, full) through one helper. Images declare their size and load lazily where offscreen, the viewer switches to full past the `view` resolution, the crop dialog keeps full-resolution coordinates, and missing sizes fall back.
-- **Scope:** `frontend/src/media/types.ts`, which adopts task 1's `renditionDimensions()`, plus crop URLs carrying the region revision; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `NeedsYou`, `QuestionCard`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
+- **Scope:** `frontend/src/media/types.ts`, which adopts task 1's `renditionDimensions()`, plus crop URLs carrying the region revision; the image interfaces of `EvidenceTile`, `RotatedCropSelection` and `ProposedLotsGlance` (`proposed-lots.ts` crop data), which change from URLs to image attributes; `BatchThumbnail`'s inbox thumbnail data; and the surfaces in the design's usage table: `BatchThumbnail`, `ExamineView`, `LotObservations`, `UnassignedObservations`, `proposed-lots.ts`, `MediaEvidenceCard`, `EvidenceFileTile`, `EvidenceViewer`, `MediaCropDialog`, `ProcessingImages`.
 - **Prerequisites:** tasks 3 and 4.
 - **Acceptance:** Media previews fit their surface (all scenarios).
 - **Approach:** as in design ("The frontend picks a size per surface"). Touch only image elements, to limit overlap with `redesign-batch-workspace` restyling.
