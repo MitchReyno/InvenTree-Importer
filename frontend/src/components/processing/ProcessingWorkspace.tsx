@@ -29,6 +29,7 @@ import { Dialog } from '../ui/Dialog'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
+import { openQuestionsByLot } from '../../operator/review-model'
 import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
 
 const ACTIVITY_LIMIT = 6
@@ -565,13 +566,8 @@ export function ProcessingWorkspace({
                       batch={batch}
                       lead={jobs.find((job) => job.stage === 'examine' && job.subject_id === null)}
                       media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
-                      questionedLots={
-                        new Set(
-                          source.questions.flatMap((question) =>
-                            question.lotId ? [question.lotId] : [],
-                          ),
-                        )
-                      }
+                      // A question on a shared Part questions every lot that uses it, as in Review.
+                      questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
                     />
                   )}
                   {jobCards}

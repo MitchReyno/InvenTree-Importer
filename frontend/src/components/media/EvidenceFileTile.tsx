@@ -9,7 +9,7 @@ type EvidenceFileTileProps = {
   /** The file's distinguishing name when two files share a label. */
   name: string
   /** What the file supports, such as "2 lots". */
-  support: string
+  support?: string
   selectable: boolean
   selected: boolean
   onSelect: (selected: boolean) => void

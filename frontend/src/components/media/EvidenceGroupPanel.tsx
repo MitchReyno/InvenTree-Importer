@@ -94,8 +94,14 @@ export function EvidenceGroupPanel({
   )
   const lotsOf = new Map(map.files.map((file) => [file.id, file.lotIds]))
   const groupLots = new Set(evidence.flatMap((item) => lotsOf.get(item.id) ?? []))
+  // Without the review's lineage, links to a split or merged lot's predecessors can't be followed,
+  // so counts are withheld rather than shown as zero, as the Map holds its conclusions.
+  const lineageKnown = review !== undefined || !batch.lots.some((lot) => lot.retired)
 
   function supportedLots(item: MediaSnapshotDto['evidence'][number]) {
+    if (!lineageKnown) {
+      return undefined
+    }
     const count = lotsOf.get(item.id)?.length ?? 0
     return count === 1 ? '1 lot' : `${count} lots`
   }
@@ -137,7 +143,7 @@ export function EvidenceGroupPanel({
       dropState={drop.dropState}
       name={name}
       count={evidence.length}
-      meta={groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`}
+      meta={!lineageKnown ? undefined : groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`}
       ungrouped={!group}
       label={label}
       nameLabel={`Name for ${name}`}

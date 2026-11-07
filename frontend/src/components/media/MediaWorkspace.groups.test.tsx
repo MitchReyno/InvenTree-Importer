@@ -610,16 +610,21 @@ test('a retired lot no longer counts among the lots a group feeds', async () => 
     ...initial,
     evidence: initial.evidence.map((item) => ({ ...item, linked_subject_ids: ['old', 'new'] })),
   })
-  render(
+  const props = {
+    batch: { ...batch, lots: [lot('old', true), lot('new', false)] },
+    client,
+    disabled: false,
+    selectedSubject: 'defaults',
+    onDirtyChange: vi.fn(),
+  }
+  const view = render(<MediaWorkspace {...props} />)
+  // Until the review's lineage is read, the count is withheld rather than shown as zero.
+  expect(await screen.findByRole('region', { name: /Packet A/ })).not.toHaveTextContent('lot')
+  view.rerender(
     <MediaWorkspace
-      batch={{ ...batch, lots: [lot('old', true), lot('new', false)] }}
-      client={client}
-      disabled={false}
-      selectedSubject="defaults"
-      onDirtyChange={vi.fn()}
+      {...props}
+      review={{ retired_lots: [{ lot_id: 'old', successor_lot_ids: ['new'] }] } as never}
     />,
   )
-  expect(await screen.findByRole('region', { name: /Packet A/ })).toHaveTextContent(
-    '2 files · 1 lot',
-  )
+  expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 1 lot')
 })

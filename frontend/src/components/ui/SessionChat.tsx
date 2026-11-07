@@ -49,8 +49,9 @@ export function SessionChat({
       </Log>
       <Compose onSubmit={handleSubmit}>
         <label htmlFor={inputId}>{label}</label>
-        <input
+        <textarea
           id={inputId}
+          rows={2}
           value={draft}
           maxLength={maxLength}
           disabled={disabled}
@@ -109,7 +110,9 @@ const Compose = styled.form`
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  input {
+  textarea {
+    font: inherit;
+    resize: vertical;
     flex: 1;
     min-width: 0;
     padding: calc(${space[4]} - 1px) calc(${space[5]} - 1px);
