@@ -2,16 +2,9 @@ import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
 import type { TreeItem } from '../../changes/model'
 import { STATE_LABELS } from '../../changes/model'
+import { RecordStatePill } from '../ui/RecordStatePill'
 import { color, radius, space } from '../../theme/generated/tokens'
-import { Pill, type PillTone } from '../ui/Pill'
 import { Small } from '../ui/primitives'
-
-export const STATE_TONE: Record<keyof typeof STATE_LABELS, PillTone> = {
-  new: 'acc',
-  update: 'info',
-  exists: 'neutral',
-  choose: 'warn',
-}
 
 type Visible = {
   item: TreeItem
@@ -138,7 +131,7 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
               {node.label}
               {node.detail && <Small>{node.detail}</Small>}
             </Label>
-            <Pill tone={STATE_TONE[node.state]}>{STATE_LABELS[node.state]}</Pill>
+            <RecordStatePill state={node.state}>{STATE_LABELS[node.state]}</RecordStatePill>
           </Row>
         )
       })}

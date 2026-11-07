@@ -22,25 +22,18 @@ import { MAX_SELECTED_LOTS } from '../../manual/types'
 import { batchHref } from '../../navigation/batch-route'
 import { reviewHash } from '../../operator/review-model'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { space } from '../../theme/generated/tokens'
+import { color, radius, size, space } from '../../theme/generated/tokens'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { ChangeSummary } from '../ui/ChangeSummary'
 import { Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { StickyFooter } from '../ui/StickyFooter'
-import {
-  CheckboxLabel,
-  Heading,
-  Label,
-  Link,
-  Panel,
-  Paragraph,
-  Select,
-  Small,
-  Summary,
-} from '../ui/primitives'
-import { PreparationTreeView, STATE_TONE } from './PreparationTreeView'
+import { Heading, Label, Link, Panel, Paragraph, Select, Small, Summary } from '../ui/primitives'
+import { PreparationTreeView } from './PreparationTreeView'
+import { RecordStatePill } from '../ui/RecordStatePill'
+import { media } from '../ui/media'
+import { lotCrops } from '../../processing/proposed-lots'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -134,7 +127,7 @@ export function ReadyToAdd({
   const lots = preview?.effects.length ?? 0
 
   return (
-    <Layout>
+    <Layout data-columns="two">
       {pinnedPreparationId && !current && (
         <Banner tone="warn">
           This preparation is no longer current: it is stale or already approved, and no other has
@@ -150,17 +143,41 @@ export function ReadyToAdd({
             <Small>
               Up to {MAX_SELECTED_LOTS} lots at a time. Changing the lots prepares them again.
             </Small>
-            {ready.map((id) => (
-              <CheckboxLabel key={id}>
-                <input
-                  type="checkbox"
-                  checked={ticked.includes(id)}
-                  disabled={busy || (!ticked.includes(id) && ticked.length >= MAX_SELECTED_LOTS)}
-                  onChange={() => toggle(id)}
-                />
-                {lotLabel(id)}
-              </CheckboxLabel>
-            ))}
+            <LotRows>
+              {ready.map((id) => {
+                const lot = batch.lots.find((value) => value.id === id)
+                const cover = lot ? lotCrops(batch, lot, { width: 34, height: 34 })[0] : undefined
+                const effect = preview?.effects.find((value) => value.lot_id === id)
+                return (
+                  <LotRow key={id}>
+                    <input
+                      type="checkbox"
+                      aria-label={lotLabel(id)}
+                      checked={ticked.includes(id)}
+                      disabled={
+                        busy || (!ticked.includes(id) && ticked.length >= MAX_SELECTED_LOTS)
+                      }
+                      onChange={() => toggle(id)}
+                    />
+                    <Thumb data-thumb aria-hidden="true">
+                      {cover ? (
+                        <img {...cover} loading="lazy" decoding="async" alt="" />
+                      ) : (
+                        <span>▧</span>
+                      )}
+                    </Thumb>
+                    <LotText>
+                      <strong>{lotLabel(id)}</strong>
+                      {effect && (
+                        <Small>
+                          {effect.quantity} pcs · {effect.location_label ?? 'No location'}
+                        </Small>
+                      )}
+                    </LotText>
+                  </LotRow>
+                )
+              })}
+            </LotRows>
             {untickedAll && <Small role="status">Tick at least one lot to add.</Small>}
             {(!matches || !current) && ticked.length > 0 && (preview === null || !busy) && (
               <Button disabled={busy} onClick={() => prepareLots(ticked)}>
@@ -262,7 +279,9 @@ export function ReadyToAdd({
                     href: hrefFor(node),
                     pill: (
                       <>
-                        <Pill tone={STATE_TONE[node.state]}>{STATE_LABELS[node.state]}</Pill>
+                        <RecordStatePill state={node.state}>
+                          {STATE_LABELS[node.state]}
+                        </RecordStatePill>
                         {node.detail && <Small>{node.detail}</Small>}
                       </>
                     ),
@@ -307,9 +326,57 @@ export function ReadyToAdd({
   )
 }
 
+/** Lots beside what will change; one column below bp-stacked. */
 const Layout = styled.div`
   display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: ${space[6]};
+  align-items: start;
+  > :not(section) {
+    grid-column: 1 / -1;
+  }
+  ${media.stacked} {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`
+const LotRows = styled.div`
+  display: grid;
+  margin: ${space[4]} 0;
+`
+const LotRow = styled.label`
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: ${space[5]};
+  padding: ${space[6]} 0;
+  border-top: 1px solid ${color.line};
+  cursor: pointer;
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
+`
+const Thumb = styled.span`
+  display: grid;
+  place-items: center;
+  /* literal-allowed: the canvas's 34px lot-row thumbnail; no thumbnail size token */
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid ${color.line};
+  border-radius: ${radius.thumb};
+  background: ${color.photoStage};
+  color: ${color.photoFg};
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`
+const LotText = styled.span`
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
 `
 const SectionHeading = styled(Heading)`
   margin-top: ${space[6]};

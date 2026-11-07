@@ -154,3 +154,26 @@ describe('BulkBar with several fields', () => {
     )
   })
 })
+
+describe('DataTable row names', () => {
+  it('names a row when it is given one', () => {
+    render(
+      <DataTable
+        caption="Saved values"
+        columns={[
+          { id: 'field', header: 'Field' },
+          { id: 'value', header: 'Value' },
+        ]}
+        rows={[
+          {
+            id: 'q',
+            label: 'Quantity',
+            name: 'Quantity as saved',
+            cells: { field: { value: 'Quantity' }, value: { value: '12' } },
+          },
+        ]}
+      />,
+    )
+    expect(screen.getByRole('row', { name: 'Quantity as saved' })).toHaveTextContent('12')
+  })
+})

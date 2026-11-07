@@ -18,7 +18,8 @@ export type DataColumn = {
 /** `content` shows in place of the plain value, e.g. a status pill. */
 export type DataCell = { value: string; content?: ReactNode; override?: boolean; edited?: boolean }
 
-export type DataRow = { id: string; label: string; cells: Record<string, DataCell> }
+/** `label` names the row's checkbox; `name` names the row itself, where a screen needs it. */
+export type DataRow = { id: string; label: string; name?: string; cells: Record<string, DataCell> }
 
 export type TableSelection = {
   selected: ReadonlySet<string>
@@ -113,6 +114,7 @@ export function DataTable({
             return (
               <tr
                 key={row.id}
+                aria-label={row.name}
                 data-selected={selected}
                 data-opens={onRowOpen ? true : undefined}
                 onClick={

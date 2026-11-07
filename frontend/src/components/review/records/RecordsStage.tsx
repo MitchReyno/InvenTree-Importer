@@ -17,14 +17,16 @@ import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
 import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
-import { color, radius, space, type } from '../../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../../theme/generated/tokens'
 import { media } from '../../ui/media'
 import { Banner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
-import { Small } from '../../ui/primitives'
+import { Small, Summary } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
-import { RecordDetail, STATE_TONE } from './RecordDetail'
+import { RecordDetail } from './RecordDetail'
+import { RecordStatePill } from '../../ui/RecordStatePill'
+import { VisuallyHidden } from '../../ui/VisuallyHidden'
 import { ReloadContext, SavingContext, type Save } from './draft'
 
 type Props = {
@@ -192,10 +194,19 @@ export function RecordsStage({
                 onClick={() => choose(count.type, null)}
               >
                 <strong>{TYPE_LABELS[count.type]}</strong>
-                <Small>
-                  {count.new} new · {count.existing} existing
-                </Small>
-                {count.decide > 0 && <Pill tone="warn">{count.decide} to decide</Pill>}
+                {count.decide > 0 ? (
+                  <Counts>
+                    <VisuallyHidden>
+                      {count.new} new · {count.existing} existing,{' '}
+                    </VisuallyHidden>
+                    <Pill tone="warn">{count.decide} to decide</Pill>
+                  </Counts>
+                ) : (
+                  <Counts>
+                    {count.new} new · {count.existing}
+                    <VisuallyHidden> existing</VisuallyHidden>
+                  </Counts>
+                )}
               </TypeButton>
             ))}
           </Rail>
@@ -212,9 +223,9 @@ export function RecordsStage({
                 aria-current={record.key === selected?.key ? 'true' : undefined}
                 onClick={() => choose(type, record.key)}
               >
-                <span>{record.label}</span>
-                <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
-                <Small>{lotsText(record)}</Small>
+                <strong>{record.label}</strong>
+                <RecordStatePill state={record.state}>{STATE_LABELS[record.state]}</RecordStatePill>
+                {lotsText(record) && <RowDetail>{lotsText(record)}</RowDetail>}
               </RecordButton>
             ))}
           </List>
@@ -276,10 +287,10 @@ export function RecordsStage({
                 ask={askFor(selected)}
               />
             ) : (
-              <Small>Choose a record to see its values and who set them.</Small>
+              <Empty>Choose a record to see its values and who set them.</Empty>
             )}
             <details>
-              <summary>Read another existing record</summary>
+              <Summary>Read another existing record</Summary>
               <MappingReader observe={observe} />
             </details>
           </Detail>
@@ -296,7 +307,7 @@ function lotsText(record: BatchRecordDto) {
 
 const Layout = styled.div`
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(220px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 240px) minmax(220px, 320px) minmax(0, 1fr);
   gap: ${space[6]};
   align-items: start;
   ${media.stacked} {
@@ -322,25 +333,68 @@ const Detail = styled.div`
   gap: ${space[4]};
   min-width: 0;
 `
+/** A selectable row: name left, counts or state right; the current row is accent-weak. */
 const choice = `
   display: grid;
-  gap: ${space[1]};
-  justify-items: start;
-  padding: ${space[4]};
-  border: 0;
-  border-radius: ${radius.card};
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${space[1]} ${space[4]};
+  padding: ${space[4]} ${space[7]};
+  border: 1px solid transparent;
+  border-radius: ${radius.btn};
   background: none;
   color: ${color.fg};
   text-align: left;
   cursor: pointer;
-  &[aria-current='true'] {
+  &:hover {
     background: ${color.surface2};
+  }
+  &[aria-current='true'] {
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
   }
 `
 const TypeButton = styled.button`
   ${choice}
   ${type.body}
 `
+const Counts = styled.span`
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: ${space[3]};
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+  white-space: nowrap;
+`
 const RecordButton = styled.button`
   ${choice}
+  ${type.body}
+  border-top-color: ${color.line};
+  border-radius: 0;
+  &:first-of-type {
+    border-top-color: transparent;
+  }
+  &[aria-current='true'] {
+    border-radius: ${radius.btn};
+  }
+`
+/** An empty state sits in a muted card, never as bare text beside the columns. */
+const Empty = styled.p`
+  margin: 0;
+  padding: ${space[7]} ${space[8]};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+`
+const RowDetail = styled.span`
+  grid-column: 1 / -1;
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
 `

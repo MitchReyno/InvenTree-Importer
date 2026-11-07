@@ -125,6 +125,17 @@ function setup(
 }
 
 describe('ReadyToAdd', () => {
+  it('lists each lot as a row with its thumbnail and what it adds', () => {
+    setup()
+    const row = screen.getByRole('checkbox', { name: 'Packet B' }).closest('label')!
+    expect(row.querySelector('[data-thumb]')).not.toBeNull()
+    expect(row).toHaveTextContent('10 pcs · Bin 43')
+    expect(screen.getByRole('region', { name: 'Lots to add' }).parentElement).toHaveAttribute(
+      'data-columns',
+      'two',
+    )
+  })
+
   it('unticking a lot prepares the rest, and approval waits for that preparation', async () => {
     const user = userEvent.setup()
     const { prepareLots, props, rerender } = setup()
