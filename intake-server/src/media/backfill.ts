@@ -285,5 +285,17 @@ export async function mediaWorkerStep(
   if (await processMediaCommand(pool, store, binding, image)) {
     return 'decoded'
   }
-  return (await backfillRenditions(pool, store, binding, image, options)) ?? 'idle'
+  // A failing backfill never stops decoding; a decode failure still stops the worker, as before.
+  const outcome = await backfillRenditions(pool, store, binding, image, options).catch(
+    () => 'interrupted' as const,
+  )
+  return outcome ?? 'idle'
+}
+
+/**
+ * Whether the worker loop pauses before its next pass. A decode always pauses, as before, because
+ * an interrupted decode still reports as decoded; only backfill progress runs straight on.
+ */
+export function pauseAfter(step: WorkerStep) {
+  return step !== 'completed' && step !== 'skipped_mismatch'
 }

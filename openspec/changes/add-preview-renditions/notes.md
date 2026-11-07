@@ -21,6 +21,7 @@ PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Impo
 - **2026-11-08T00:22+11:00, task 4 (PR-B):** Agent evidence delivery keeps receiving the full-size PNG region crop; it reads `.bytes` from the crop cache's new `{ bytes, mediaType }` result. Sized crops are for display only.
 - **2026-11-08T00:22+11:00, task 5 (PR-B):** The worker loop's single pass became `mediaWorkerStep()`, so "a waiting decode runs before a backfill" is tested directly rather than only through `media-main`. The backfill tests reproduce media decoded before renditions existed by clearing the rendition rows as the owner, with the immutability trigger disabled for that statement only.
 - **2026-11-08T00:22+11:00, task 5 (PR-B):** "One worker pauses between selection and insertion" is covered two ways: concurrent workers racing for one page, and a worker paused mid-attempt whose claim another worker recovers. The paused worker then publishes nothing. The per-preview advisory lock with an eligibility recheck is what makes a stale candidate list harmless.
+- **2026-11-08T00:39+11:00, PR-B review:** The worker keeps its 500 ms pause after every decode, because an interrupted decode still reports as handled; only a backfill that made progress runs straight on (`pauseAfter()`). Backfill failures are contained in `mediaWorkerStep()`, while a thrown decode still stops the media worker as it did before.
 
 ## Open items
 

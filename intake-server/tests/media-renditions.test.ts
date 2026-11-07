@@ -375,3 +375,12 @@ test('a retained page is malformed only on positive evidence; other failures pro
     /vips_out_of_memory/,
   )
 })
+
+test('the worker pauses after every decode and after interruptions; only backfill progress runs on', async () => {
+  const { pauseAfter } = await import('../src/media/backfill.ts')
+  assert.equal(pauseAfter('decoded'), true)
+  assert.equal(pauseAfter('interrupted'), true)
+  assert.equal(pauseAfter('idle'), true)
+  assert.equal(pauseAfter('completed'), false)
+  assert.equal(pauseAfter('skipped_mismatch'), false)
+})

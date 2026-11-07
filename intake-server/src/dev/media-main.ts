@@ -2,7 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '../db/database.ts'
 import { BlobStore } from '../media/blob-store.ts'
 import { readMediaStoreIdentity } from '../media/store-identity.ts'
-import { mediaWorkerStep } from '../media/backfill.ts'
+import { mediaWorkerStep, pauseAfter } from '../media/backfill.ts'
 import { readDevState } from './state.ts'
 
 async function main() {
@@ -25,16 +25,12 @@ async function main() {
       targetContextId: state.identity.context,
     }
     while (!stop.signal.aborted) {
-      const step = await mediaWorkerStep(db.pool, store, binding, image).catch(
-        () => 'interrupted' as const,
-      )
-      // Only real progress skips the pause; an interruption or error waits, never spins.
-      if (step === 'decoded') {
-        continue
-      }
+      const step = await mediaWorkerStep(db.pool, store, binding, image)
       if (step === 'completed' || step === 'skipped_mismatch') {
         const event = step === 'completed' ? 'renditions_backfilled' : 'renditions_skipped_mismatch'
         process.stdout.write(JSON.stringify({ event }) + '\n')
+      }
+      if (!pauseAfter(step)) {
         continue
       }
       await delay(500, undefined, { signal: stop.signal }).catch(() => undefined)
