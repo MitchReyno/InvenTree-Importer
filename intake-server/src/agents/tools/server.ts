@@ -40,7 +40,8 @@ const TOOLS = {
   },
   propose: {
     schema: 'SessionProposeArgs',
-    description: 'Publish a proposal for this lot, citing only delivered evidence and notes.',
+    description:
+      'Publish a proposal for this lot, citing only delivered evidence and notes. Correct any returned field issues before retrying.',
   },
   ask: {
     schema: 'SessionAskArgs',
@@ -53,7 +54,8 @@ const TOOLS = {
   },
   fetch_evidence: {
     schema: 'SessionFetchEvidenceArgs',
-    description: 'Fetch a delivered evidence image within the per-run image budget.',
+    description:
+      'Fetch a delivered evidence image within the per-run image budget. Successful byte delivery includes source: copy that complete reference unchanged into citations.',
   },
   read_inbox: {
     schema: 'SessionReadInboxArgs',

@@ -1,6 +1,6 @@
 # Implementation notes
 
-The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131) is merged into interactive-app. Offline investigation and confinement implementation are underway. No live inference has run.
+The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131) is merged into interactive-app. Confinement [PR-A](https://github.com/MitchReyno/InvenTree-Importer/pull/133) is merged; correctable tool results [PR-B](https://github.com/MitchReyno/InvenTree-Importer/pull/134) are ready for integration. No live inference has run.
 
 ## Changes to the plan
 
@@ -16,7 +16,7 @@ The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131) is 
 
 ## Open items
 
-- Complete adapter/replacement verification and independent review. Correctable tool diagnostics, citation references and retained failure details remain pending.
+- Retained failure details and integrated qualification remain pending.
 - Live provider qualification still needs explicit authorization. Keep native_unverified.
 
 - **2026-11-07T17:39+11:00, task 1:** Adding skills.include_instructions=false alongside disabled code mode removed the planted skill marker on fresh and resumed clean conversations. A private HOME alone did not remove the ancestor-discovered marker. The supported candidate therefore uses both explicit controls rather than relocating authentication storage.
@@ -28,3 +28,11 @@ The [planning PR](https://github.com/MitchReyno/InvenTree-Importer/pull/131) is 
 - **2026-11-07T18:13:03+11:00, task 2:** Found that Claude's ordinary system/init frame requires the initial user message, so it is insufficient as a pre-inference configuration gate. Its control initialize and mcp_status requests work before user input; admission now checks those responses and waits boundedly for connected MCP tools before sending text. Later init metadata remains defense in depth. The continuation design is expanded in this same change.
 
 - **2026-11-07T18:19:57+11:00, task 2 review:** Independent review identified that explicit replacement dropped a successor's pinned identity proposal IDs. A regression using the actual lot pipeline reproduced the empty pin set. Replacement now decodes the prior sealed input, retains its pins and refuses a stale identity; the new attempt still undergoes claim-time currentness checks.
+## Decisions made during implementation
+
+- **2026-11-07T18:26:23+11:00, task 3:** Reuse the compiled Ajv validators and copy their issues immediately. Public paths contain only schema-owned field names and array indexes, with fixed rule descriptions and an aggregate 2 KiB limit. Existing validate callers retain invalid_contract behavior.
+- **2026-11-07T18:26:23+11:00, task 4:** Return the existing media-version source shape only with successful byte delivery. Preview/crop fetches obtain the original version digest from a batch/evidence-scoped read; preview and crop hashes do not become citation digests. Recheck the capability after preview generation before granting delivery.
+
+## Changes to the plan
+
+- **2026-11-07T18:28:13+11:00, task 4:** Wrong preview digests were already refused by proposal authorization. Preserve that behavior as characterization rather than claiming a new fix. The missing source reference is the defect addressed by this slice; the task wording now distinguishes the two.

@@ -249,9 +249,17 @@ export const ProcessingProposalV1 = object({
   summary: text,
   source_note_ids: Type.Array(Id, { minItems: 1, maxItems: 100, uniqueItems: true }),
 })
+export const ProcessingMediaSource = object({
+  kind: Type.Literal('media_version'),
+  evidence_id: Id,
+  version_id: Id,
+  sha256: Digest,
+})
+export type ProcessingMediaSourceDto = Static<typeof ProcessingMediaSource>
+
 export const ProcessingSource = Type.Union([
   object({ kind: Type.Literal('note'), note_id: Id, text_sha256: Digest }),
-  object({ kind: Type.Literal('media_version'), evidence_id: Id, version_id: Id, sha256: Digest }),
+  ProcessingMediaSource,
 ])
 export const ProcessingProposalV2 = object({
   schema_version: Type.Literal('bench-intake-proposal/2'),

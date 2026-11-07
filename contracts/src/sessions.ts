@@ -2,6 +2,7 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Id, Revision } from './scalars.ts'
 import {
   ProcessingFields,
+  ProcessingMediaSource,
   SessionState,
   ProcessingProposalV5,
   ProcessingQuestionSpec,
@@ -9,6 +10,7 @@ import {
   STATUS_LINE_MAX_CHARACTERS,
   statusLine,
 } from './processing.ts'
+import { ContractValidationIssue } from './validation-issues.ts'
 import { LeadBatchView, LotFormingConflict } from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -116,6 +118,8 @@ export const SessionToolResult = Type.Union([
     ok: Type.Literal(true),
     pending_inbox: Type.Integer({ minimum: 0 }),
     revision: Type.Optional(Revision),
+    /** Exact source to cite, present only with successful evidence byte delivery. */
+    source: Type.Optional(ProcessingMediaSource),
     /** The proposal, question or outbox item a write created. */
     id: Type.Optional(Id),
     items: Type.Optional(Type.Array(SessionInboxItem, { maxItems: 20 })),
@@ -143,6 +147,7 @@ export const SessionToolResult = Type.Union([
   object({
     ok: Type.Literal(false),
     error: SessionToolError,
+    issues: Type.Optional(Type.Array(ContractValidationIssue, { maxItems: 8 })),
     message: Type.String({ minLength: 1, maxLength: 1024 }),
     pending_inbox: Type.Integer({ minimum: 0 }),
     revision: Type.Optional(Revision),

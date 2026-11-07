@@ -3,6 +3,9 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
+  validationIssues,
+  type ValidationIssue,
+  type ProcessingMediaSourceDto,
   type ProposeLotArgsDto,
   type RecordObservationArgsDto,
   type RegroupArgsDto,
@@ -105,6 +108,7 @@ async function previewFetchEvidence(
         batchId: string
         jobId: string
         versionId: string
+        source: ProcessingMediaSourceDto
         preview: { id: string; page: number; width: number; height: number; digest: string }
         region?: {
           x: number
@@ -168,7 +172,21 @@ async function previewFetchEvidence(
       ) {
         refuse('validation_failed', 'The region must lie within the page preview it names.')
       }
+      const sources = await client.query<{ sha256: string }>(
+        "SELECT encode(blob_digest,'hex') AS sha256 FROM media_version WHERE batch_id=$1 AND id=$2 AND evidence_id=$3",
+        [principal.batchId, version!.version_id, request.evidence_id],
+      )
+      const original = sources.rows[0]
+      if (!original) {
+        refuse('source_not_delivered', 'That evidence version is outside this session.')
+      }
       plan = {
+        source: {
+          kind: 'media_version',
+          evidence_id: request.evidence_id,
+          version_id: version!.version_id,
+          sha256: original!.sha256,
+        },
         batchId: principal.batchId,
         jobId: principal.jobId,
         versionId: version!.version_id,
@@ -218,6 +236,16 @@ async function previewFetchEvidence(
         })
         .png()
         .toBuffer()
+  if (!(await resolveSessionCapability(context.pool, token))) {
+    return {
+      result: {
+        ok: false,
+        error: 'capability_refused',
+        message: 'This session capability is not valid.',
+        pending_inbox: 0,
+      },
+    }
+  }
   // The image budget counts what reaches the agent, reserved for this provider run.
   const used = context.imageBudget.get(run) ?? 0
   if (bytes.length > SESSION_IMAGE_BUDGET_BYTES - used) {
@@ -228,7 +256,7 @@ async function previewFetchEvidence(
   fetched.add(plan.versionId)
   context.deliveredMedia.set(plan.jobId, fetched)
   return {
-    result: authorized.result,
+    result: { ...authorized.result, source: plan.source },
     images: [{ mediaType: 'image/png', base64: bytes.toString('base64') }],
   }
 }
@@ -242,6 +270,7 @@ class ToolRefusal extends Error {
   constructor(
     readonly code: SessionToolErrorDto,
     message: string,
+    readonly issues?: ValidationIssue[],
   ) {
     super(message)
   }
@@ -252,12 +281,12 @@ const refuse = (code: SessionToolErrorDto, message: string): never => {
 }
 
 function validated<T>(name: Parameters<typeof validate>[0], value: unknown): T {
-  try {
-    validate(name, value)
-  } catch (error) {
-    refuse(
+  const issues = validationIssues(name, value)
+  if (issues.length) {
+    throw new ToolRefusal(
       'validation_failed',
-      `Arguments do not match ${name}: ${String((error as Error).message).slice(0, 400)}`,
+      `Arguments do not match ${name}. Correct the listed fields and retry.`,
+      issues,
     )
   }
   return value as T
@@ -339,7 +368,13 @@ async function withSession(
       return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
     })
     return {
-      result: { ok: false, error: error.code, message: error.message, pending_inbox: pending },
+      result: {
+        ok: false,
+        error: error.code,
+        message: error.message,
+        pending_inbox: pending,
+        ...(error.issues ? { issues: error.issues } : {}),
+      },
     }
   }
 }
@@ -434,7 +469,13 @@ async function withLeadSession(
       return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
     })
     return {
-      result: { ok: false, error: error.code, message: error.message, pending_inbox: pending },
+      result: {
+        ok: false,
+        error: error.code,
+        message: error.message,
+        pending_inbox: pending,
+        ...(error.issues ? { issues: error.issues } : {}),
+      },
     }
   }
 }
@@ -1002,7 +1043,15 @@ export function sessionTools(context: SessionToolContext) {
       fetched.add(version.versionId)
       context.deliveredMedia.set(jobId, fetched)
       return {
-        result: authorized.result,
+        result: {
+          ...authorized.result,
+          source: {
+            kind: 'media_version',
+            evidence_id: version.evidenceId,
+            version_id: version.versionId,
+            sha256: version.digest,
+          },
+        },
         images: [{ mediaType: version.mediaType, base64: bytes.toString('base64') }],
       }
     },
