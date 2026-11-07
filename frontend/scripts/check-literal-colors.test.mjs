@@ -68,3 +68,134 @@ describe('literal colour check', () => {
     ])
   })
 })
+
+const { literalValues, compareBaseline, scanValues } = check
+
+function values(source) {
+  return literalValues(source).map(({ line, property, literal, tokens }) =>
+    [line, property, literal, tokens.join(' ')].join(' | '),
+  )
+}
+
+describe('literal value check', () => {
+  it('compares a length only with the tokens meant for its property', () => {
+    const source = [
+      'const A = styled.div`',
+      '  padding: 8px 14px;',
+      '  gap: 2px;',
+      '  border-radius: 6px;',
+      '  min-height: 44px;',
+      '  max-width: 1240px;',
+      '  width: 20px;',
+      '  height: 13px;',
+      '  margin: 0 3px;',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual([
+      '2 | padding | 8px | space-4',
+      '2 | padding | 14px | space-7',
+      '3 | gap | 2px | space-1',
+      '4 | border-radius | 6px | radius-input',
+      '5 | min-height | 44px | size-touch',
+      '6 | max-width | 1240px | width-content',
+      '7 | width | 20px | icon-md',
+    ])
+  })
+
+  it('checks type, motion, layers, opacity, rings, offsets and media widths', () => {
+    const source = [
+      'const A = styled.div`',
+      '  font-size: 12.5px;',
+      '  line-height: 20px;',
+      '  font-weight: 650;',
+      '  letter-spacing: 0.06em;',
+      '  transition: background 80ms linear;',
+      '  animation: ${enter} 150ms ease-out;',
+      '  z-index: 1000;',
+      '  opacity: 0.5;',
+      '  outline-offset: 2px;',
+      '  box-shadow: 0 0 0 2px ${color.accent};',
+      '  from { opacity: 0; transform: translate(-50%, 8px); }',
+      '  @media (max-width: 760px) {',
+      '  @media (max-width: 700px) {',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual([
+      '2 | font-size | 12.5px | type-small-size type-mono-size type-mono-strong-size',
+      '3 | line-height | 20px | type-body-line-height type-body-strong-line-height',
+      '4 | font-weight | 650 | type-h1-weight type-h2-weight type-h3-weight',
+      '5 | letter-spacing | 0.06em | type-label-letter-spacing',
+      '6 | transition | 80ms | duration-fast',
+      '6 | transition | linear | ease-linear',
+      '7 | animation | 150ms | duration-toast',
+      '7 | animation | ease-out | ease-enter',
+      '8 | z-index | 1000 | z-popover',
+      '9 | opacity | 0.5 | opacity-disabled',
+      '10 | outline-offset | 2px | ring-width ring-offset',
+      '11 | box-shadow | 2px | ring-width ring-offset',
+      '12 | transform | 8px | offset-toast',
+      '13 | @media | 760px | bp-compact',
+    ])
+  })
+
+  it('reads quoted values inside interpolations and skips token references', () => {
+    const source = [
+      'const A = styled.div`',
+      "  height: ${({ $size }) => ($size === 'lg' ? '20px' : '14px')};",
+      '  padding: ${space[6]} ${space[8]};',
+      '  border-radius: ${radius.card};',
+      'const label = `${count} items`',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual(['2 | height | 20px | icon-md', '2 | height | 14px | icon-sm'])
+  })
+
+  it('allows calc adjustments of a token, grid tracks and annotated literals', () => {
+    const source = [
+      'const A = styled.div`',
+      '  padding: calc(${space[6]} - 1px) calc(var(--space-4) - 2px);',
+      '  grid-template-columns: 20px 1fr;',
+      '  width: 32px; /* literal-allowed: image thumbnail, no token for its role */',
+      '  // literal-allowed: matches the photo frame',
+      '  height: 24px;',
+      '  bottom: calc(16px + env(safe-area-inset-bottom));',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual(['7 | bottom | 16px | space-8'])
+  })
+
+  it('scans source files but skips the masthead scene, theme, tests and fixtures', () => {
+    const root = tree({
+      'components/Card.tsx': 'const A = styled.div`\n  gap: 8px;\n`',
+      'components/Card.test.tsx': 'const A = styled.div`\n  gap: 8px;\n`',
+      'electronics-current/scene.ts': 'const A = styled.div`\n  gap: 8px;\n`',
+      'components/masthead/fixtures/Proof.tsx': 'const A = styled.div`\n  gap: 8px;\n`',
+    })
+
+    expect(scanValues(root).map(({ file, line, literal }) => `${file}:${line} ${literal}`)).toEqual(
+      ['components/Card.tsx:2 8px'],
+    )
+  })
+
+  it('lets the baseline only shrink', () => {
+    const finding = (file, property, literal) => ({ file, line: 1, property, literal, tokens: [] })
+    const baseline = { 'a.tsx | gap | 8px': 2, 'b.tsx | padding | 12px': 1 }
+
+    expect(
+      compareBaseline(baseline, [finding('a.tsx', 'gap', '8px'), finding('a.tsx', 'gap', '8px')]),
+    ).toEqual({ grown: [], shrunk: ['b.tsx | padding | 12px'] })
+    expect(
+      compareBaseline(baseline, [
+        finding('a.tsx', 'gap', '8px'),
+        finding('a.tsx', 'gap', '8px'),
+        finding('a.tsx', 'gap', '8px'),
+        finding('b.tsx', 'padding', '12px'),
+        finding('c.tsx', 'gap', '4px'),
+      ]),
+    ).toEqual({ grown: ['a.tsx | gap | 8px', 'c.tsx | gap | 4px'], shrunk: [] })
+  })
+})
