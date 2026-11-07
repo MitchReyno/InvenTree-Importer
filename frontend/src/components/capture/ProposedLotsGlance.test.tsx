@@ -139,3 +139,11 @@ describe('ProposedLotsGlance while sorting and on a phone', () => {
     )
   })
 })
+
+it('keeps a stopped lead session’s last line without a spinner', () => {
+  const { container } = render(
+    <ProposedLotsGlance batchId="b" lots={[]} leadStatus="Grouped the reels" />,
+  )
+  expect(screen.getByRole('status')).toHaveTextContent('Grouped the reels')
+  expect(container.querySelector('[aria-hidden="true"][style]')).toBeNull()
+})

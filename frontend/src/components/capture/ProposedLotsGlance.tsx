@@ -65,7 +65,8 @@ export function ProposedLotsGlance({
         </Title>
         {leadStatus && (
           <Lead role="status">
-            <Spinner />
+            {/* A stopped session's last line stays as text; only running work spins. */}
+            {leadRunning && <Spinner />}
             Examine · {leadStatus}
           </Lead>
         )}

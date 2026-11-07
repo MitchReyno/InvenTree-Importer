@@ -40,6 +40,8 @@ type Props = {
   onOpenSession: (jobId: string) => void
 }
 
+const RUNNING_MINIMUM = 0.08
+
 /** A step's bar: done once every attempt is ready, running only while work runs. */
 function segment(step: StepProgress): ProgressStep {
   if (step.jobs === 0) {
@@ -49,7 +51,12 @@ function segment(step: StepProgress): ProgressStep {
     return { label: step.label, state: 'done' }
   }
   if (step.running > 0) {
-    return { label: step.label, state: 'running', fraction: step.ready / step.jobs }
+    // A sliver stays visible while nothing is ready yet, so running work never draws empty.
+    return {
+      label: step.label,
+      state: 'running',
+      fraction: Math.max(step.ready / step.jobs, RUNNING_MINIMUM),
+    }
   }
   if (step.failed > 0 && step.queued + step.waiting === 0) {
     return { label: step.label, state: 'failed' }

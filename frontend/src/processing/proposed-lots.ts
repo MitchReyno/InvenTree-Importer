@@ -60,6 +60,9 @@ export function proposedLots(
       const suggestions = observations.filter((observation) =>
         observation.suggested_lot_ids.includes(lot.id),
       ).length
+      const active = observations.filter(
+        (observation) => members.has(observation.id) && observation.status === 'active',
+      ).length
       const base = {
         id: lot.id,
         label: lot.label,
@@ -67,7 +70,7 @@ export function proposedLots(
         href: batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id }),
       }
       // Operator lots without observations keep their earlier shape.
-      if (lot.origin !== 'agent' && !crops.length && !suggestions) {
+      if (lot.origin !== 'agent' && !active && !crops.length && !suggestions) {
         return base
       }
       return {
@@ -75,9 +78,7 @@ export function proposedLots(
         origin: lot.origin === 'agent' ? ('agent' as const) : ('operator' as const),
         edited: lot.operator_edited === true,
         crops,
-        observations: observations.filter(
-          (observation) => members.has(observation.id) && observation.status === 'active',
-        ).length,
+        observations: active,
         suggestions,
       }
     })

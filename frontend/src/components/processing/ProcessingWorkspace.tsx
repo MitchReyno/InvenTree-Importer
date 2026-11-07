@@ -12,7 +12,7 @@ import type {
   ProcessingStartDto,
 } from '@invimport/contracts'
 import type { AgentsRead, ProcessingClient, ProcessingView } from '../../processing/types'
-import { Heading, Panel, Small, Summary } from '../ui/primitives'
+import { Heading, Link, Panel, Small, Summary } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import type { MediaClient } from '../../media/types'
@@ -586,7 +586,7 @@ export function ProcessingWorkspace({
               {sessionJob.questions
                 .filter((question) => question.state === 'open')
                 .map((question) => (
-                  <a
+                  <Link
                     key={question.id}
                     onClick={() => {
                       // On this question's own step page the link changes no route.
@@ -604,7 +604,7 @@ export function ProcessingWorkspace({
                     })}
                   >
                     {question.spec.prompt}
-                  </a>
+                  </Link>
                 ))}
               <SessionPanel
                 batchId={batch.id}
