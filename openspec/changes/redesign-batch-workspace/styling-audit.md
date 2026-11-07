@@ -5,9 +5,9 @@ Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-
 - **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value and a fitting role exists in the property's own family; a value equal to a token of the wrong role, or sharing only a role, is NEAR), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in the change's [notes](notes.md) are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
 
-Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-1`, `space-10` and `space-12`, are EXACT under v2.
-
 **Token names** in this file use tokens v3's 2px spacing scale (`space-N` is N×2px), though the audit ran against v1's names.
+
+Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-1`, `space-10` and `space-12`, are EXACT under v2.
 
 **The design system decides values.** Where a cluster's recommendation differs from tokens v3, tokens v3 wins:
 
