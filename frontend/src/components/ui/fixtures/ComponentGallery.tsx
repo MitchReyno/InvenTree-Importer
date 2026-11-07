@@ -11,6 +11,7 @@ import { BulkBar } from '../BulkBar'
 import { Button } from '../Button'
 import { ChangeSummary } from '../ChangeSummary'
 import { DataTable } from '../DataTable'
+import { Dialog } from '../Dialog'
 import { DisabledFeature } from '../DisabledFeature'
 import { EvidenceGroup } from '../EvidenceGroup'
 import { EvidenceGrid, EvidenceTile } from '../EvidenceTile'
@@ -20,9 +21,11 @@ import { Kbd } from '../Kbd'
 import { NeedsYou } from '../NeedsYou'
 import { OptionRow } from '../OptionRow'
 import { PhaseRow } from '../PhaseRow'
-import { Count, Pill, type PillTone } from '../Pill'
+import { Popover } from '../Popover'
+import { Count, Pill, type PillStatus, type PillTone } from '../Pill'
 import { ProblemList } from '../ProblemCard'
-import { ProgressSegments, Skeleton, Spinner } from '../Progress'
+import { ProgressSegments } from '../ProgressSegments'
+import { Skeleton, Spinner } from '../Loading'
 import { QuestionCard } from '../QuestionCard'
 import { RecordChain } from '../RecordChain'
 import { SegmentedControl } from '../SegmentedControl'
@@ -32,6 +35,7 @@ import { SourceChip } from '../SourceChip'
 import { StatusTimeline } from '../StatusTimeline'
 import { StickyFooter } from '../StickyFooter'
 import { SubTabs, Tabs } from '../Tabs'
+import { TextField } from '../TextField'
 import { Toast } from '../Toast'
 import { Input, Label, Notice, Panel } from '../primitives'
 
@@ -40,10 +44,31 @@ const WHITE_PREVIEW =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='white'/%3E%3C/svg%3E"
 
 /** Owned browser fixture: every design-system component with synthetic data, no API. */
+const statuses: [PillStatus, string][] = [
+  ['ready', 'Ready'],
+  ['exists', 'Exists'],
+  ['needs-answer', 'Needs answer'],
+  ['warning', '1 warning'],
+  ['duplicate', 'Possible duplicate'],
+  ['blocking', '2 blocking'],
+  ['failed', 'Failed'],
+  ['new', 'New'],
+  ['processing', 'Processing'],
+  ['ai-proposed', 'AI-proposed'],
+  ['update', 'Update'],
+  ['running', 'Running'],
+  ['excluded', 'Excluded'],
+  ['queued', 'Queued'],
+  ['deferred', 'Deferred'],
+  ['draft', 'Draft'],
+  ['edited', 'Edited'],
+]
+
 export function ComponentGallery() {
   const [view, setView] = useState('workspace')
   const [filter, setFilter] = useState('all')
   const [phaseOpen, setPhaseOpen] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [answer, setAnswer] = useState<string | undefined>()
   const [auto, setAuto] = useState<AutoValue>({ mode: 'auto' })
   const [tags, setTags] = useState<SharedTags>({ manual: ['bench bag', 'SMD'], auto: true })
@@ -88,6 +113,17 @@ export function ComponentGallery() {
               Press <Kbd>J</Kbd> for next
             </span>
           </Row>
+          <Row>
+            <Popover label="Needs you" align="start" trigger={<Button>2 need you</Button>}>
+              <p>Is the loose bag 1N4148 diodes?</p>
+            </Popover>
+            <Button onClick={() => setDialogOpen(true)}>Merge lots…</Button>
+            {dialogOpen && (
+              <Dialog title="Merge 2 lots" onClose={() => setDialogOpen(false)}>
+                <p>10 kΩ resistor packets A and B become one lot of 880. Their evidence stays linked.</p>
+              </Dialog>
+            )}
+          </Row>
         </Section>
 
         <Section title="Status">
@@ -101,6 +137,13 @@ export function ComponentGallery() {
             <Count value={8} tone="warn" />
             <Count value={12} tone="ok" />
             <Count value={1200} tone="bad" />
+          </Row>
+          <Row>
+            {statuses.map(([status, word]) => (
+              <Pill key={status} status={status}>
+                {word}
+              </Pill>
+            ))}
           </Row>
           <Row>
             <SourceChip source="Packet label" certainty="Label and slip agree" onOpen={() => {}} />
@@ -415,6 +458,16 @@ export function ComponentGallery() {
         </Section>
 
         <Section title="Forms and existing controls">
+          <Row>
+            <TextField label="Supplier order or receipt number" defaultValue="3381-22" />
+            <TextField label="Quantity" placeholder="e.g. 500" error="Enter a whole number of parts." />
+            <TextField
+              label="Purchase order"
+              defaultValue="Created automatically"
+              help="Purchase orders aren't supported yet."
+              disabled
+            />
+          </Row>
           <Grid>
             <Label>
               Title
@@ -476,34 +529,34 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 const Page = styled.main`
   display: flex;
   flex-direction: column;
-  gap: ${space['4-5']};
+  gap: ${space[9]};
   max-width: 1240px;
   margin: 0 auto;
-  padding: ${space['4-5']} ${space[4]} ${space[10]};
+  padding: ${space[9]} ${space[8]} ${space[20]};
 `
 
 const Heading = styled.h2`
-  margin: 0 0 ${space[3]};
+  margin: 0 0 ${space[6]};
   ${type.h2}
 `
 
 const Stack = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Row = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Card = styled.div`

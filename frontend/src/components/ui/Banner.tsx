@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, icon, radius, space, typeVar } from '../../theme/generated/tokens'
+import { linkTouchArea } from './primitives'
 
 export type BannerTone = 'info' | 'warn' | 'bad' | 'ok' | 'plain'
 
@@ -46,13 +47,14 @@ const inks = {
 const Body = styled.div<{ $tone: BannerTone }>`
   display: flex;
   align-items: flex-start;
-  gap: ${space['2-5']};
-  padding: ${space['2-5']} ${space['3-5']};
+  gap: ${space[5]};
+  padding: ${space[5]} ${space[7]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   a {
     color: inherit;
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
+    ${linkTouchArea}
   }
   ${({ $tone }) => css`
     background: ${grounds[$tone]};
@@ -62,7 +64,7 @@ const Body = styled.div<{ $tone: BannerTone }>`
 
 const Icon = styled.span<{ $tone: BannerTone }>`
   flex: none;
-  width: 20px;
+  width: ${icon.md};
   font-weight: 700;
   text-align: center;
   color: ${({ $tone }) => inks[$tone]};

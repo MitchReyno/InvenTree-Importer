@@ -1,4 +1,5 @@
-import { Button, Fieldset, Form, Input, Label, Select, Small, TextArea } from '../ui/primitives'
+import { Fieldset, Form, Input, Label, Select, Small, TextArea } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { Controller, useForm } from 'react-hook-form'
 import type { Snapshot, CaptureWorkspaceProps } from '../../capture/types'
 import {
@@ -180,7 +181,7 @@ export function CaptureEditor({
             <TextArea maxLength={8192} {...register('text')} />
           </Label>
         )}
-        <Button disabled={frozen || (!dirty && !selected.startsWith('add_'))}>
+        <Button type="submit" disabled={frozen || (!dirty && !selected.startsWith('add_'))}>
           Save human changes
         </Button>
         {!dirty && !frozen && !selected.startsWith('add_') && (

@@ -1,5 +1,6 @@
 import type { SupportedEffectResultDto } from '@invimport/contracts'
-import { Button, Field, Link, Paragraph, Small } from '../ui/primitives'
+import { Field, Link, Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 interface Props {
   effect: SupportedEffectResultDto

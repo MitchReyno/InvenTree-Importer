@@ -11,7 +11,8 @@ import type {
 import type { OperatorReviewClient } from '../../operator/types'
 import { mediaDisplayLabels, type MediaIdentityLabels } from '../../media/identity-labels'
 import type { EditMedia } from '../../media/types'
-import { Button, Paragraph } from '../ui/primitives'
+import { Paragraph } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { color, space, type } from '../../theme/generated/tokens'
 import { EvidenceDropZone } from './EvidenceDropZone'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
@@ -288,7 +289,7 @@ export function EvidenceGroupPanel({
 const GroupHead = styled.div`
   display: flex;
   align-items: baseline;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const GroupName = styled.h3`
@@ -304,5 +305,5 @@ const FileCount = styled.span`
 const GroupActions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
 `

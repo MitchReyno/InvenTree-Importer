@@ -1,7 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 type EvidenceGroupProps = {
   name: string
@@ -89,8 +90,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
 const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
   display: flex;
   flex-direction: column;
-  gap: ${space[2]};
-  padding: ${space['2-5']};
+  gap: ${space[4]};
+  padding: ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -104,7 +105,7 @@ const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
     $over &&
     css`
       border-color: ${color.accent};
-      box-shadow: 0 0 0 3px ${color.accentWeak};
+      box-shadow: 0 0 0 ${ring.width} ${color.accentWeak};
     `}
 `
 
@@ -112,40 +113,41 @@ const Header = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const NameField = styled.input`
   min-width: 0;
   flex: 1;
-  padding: ${space[1]} ${space['1-5']};
+  padding: ${space[2]} ${space[3]};
   margin-left: -6px;
   border: 1px solid transparent;
   border-radius: ${radius.input};
   background: transparent;
-  font-weight: 650;
+  font-weight: ${typeVar.h3.weight};
+  ${hoverTransition}
   &:hover,
   &:focus {
     border-color: ${color.lineStrong};
     background: ${color.surface};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
 const StaticName = styled.span`
   flex: 1;
-  font-weight: 650;
+  font-weight: ${typeVar.h3.weight};
 `
 
 const Count = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
 const Note = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

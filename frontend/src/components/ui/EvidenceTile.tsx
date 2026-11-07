@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
-import { Skeleton } from './Progress'
+import { Skeleton } from './Loading'
 
 export type EvidenceKind = 'photo' | 'document'
 export type PreviewState = 'ready' | 'preparing' | 'failed'
@@ -92,7 +92,7 @@ export function EvidenceTile(props: EvidenceTileProps) {
 export const EvidenceGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Tile = styled.div<{ $selected: boolean }>`
@@ -106,8 +106,8 @@ const Tile = styled.div<{ $selected: boolean }>`
   ${({ $selected }) =>
     $selected &&
     css`
-      outline: 2px solid ${color.accent};
-      outline-offset: 1px;
+      outline: ${ring.width} solid ${color.accent};
+      outline-offset: ${ring.offset};
     `}
 `
 
@@ -126,12 +126,12 @@ const Preview = styled.button`
   &:focus-visible::after {
     content: '';
     position: absolute;
-    inset: 4px;
+    inset: ${space[2]};
     border: 2px solid ${color.photoFg};
     border-radius: ${radius.sm};
     box-shadow:
-      0 0 0 2px ${color.photoStage},
-      inset 0 0 0 2px ${color.photoStage};
+      0 0 0 ${ring.width} ${color.photoStage},
+      inset 0 0 0 ${ring.width} ${color.photoStage};
     pointer-events: none;
   }
 `
@@ -149,10 +149,10 @@ const Placeholder = styled.span`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   width: 100%;
   height: 100%;
-  padding: ${space[2]};
+  padding: ${space[4]};
   & > span:first-child[aria-hidden='true']:not(:only-child) {
     position: absolute;
     inset: 0;
@@ -170,14 +170,14 @@ const PhotoText = styled.span`
 `
 
 const ScrimText = styled(PhotoText)`
-  padding: 1px ${space['1-5']};
+  padding: 1px ${space[3]};
   border-radius: ${radius.sm};
   background: ${color.photoScrim};
 `
 
 const overlay = css`
   position: absolute;
-  top: ${space[1]};
+  top: ${space[2]};
   border-radius: ${radius.sm};
   background: ${color.photoScrim};
   color: ${color.photoFg};
@@ -185,14 +185,14 @@ const overlay = css`
 
 const Tag = styled.span`
   ${overlay}
-  left: ${space[1]};
+  left: ${space[2]};
   padding: 1px 5px;
   font-size: 10.5px;
 `
 
 const Tick = styled.label`
   ${overlay}
-  right: ${space[1]};
+  right: ${space[2]};
   display: flex;
   /* On the photo scrim the accent ring would vanish; photo-fg keeps focus visible. */
   input:focus-visible {
@@ -203,8 +203,8 @@ const Tick = styled.label`
   padding: 3px 5px;
   cursor: pointer;
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
     top: 0;
     right: 0;
   }
@@ -213,8 +213,8 @@ const Tick = styled.label`
 const Caption = styled.span`
   display: flex;
   justify-content: space-between;
-  gap: ${space[1]};
-  padding: ${space[1]} ${space['1-5']};
+  gap: ${space[2]};
+  padding: ${space[2]} ${space[3]};
   font-size: 11.5px;
   span:first-child {
     overflow: hidden;
@@ -230,7 +230,7 @@ const Support = styled.span`
 
 const Retry = styled.button`
   align-self: flex-start;
-  margin: 0 ${space['1-5']} ${space['1-5']};
+  margin: 0 ${space[3]} ${space[3]};
   padding: 0;
   border: 0;
   background: none;
@@ -239,13 +239,13 @@ const Retry = styled.button`
   text-decoration: underline;
   cursor: pointer;
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `
 
 const Note = styled.p`
   margin: 0;
-  padding: 0 ${space['1-5']} ${space['1-5']};
+  padding: 0 ${space[3]} ${space[3]};
   font-size: 12px;
 `

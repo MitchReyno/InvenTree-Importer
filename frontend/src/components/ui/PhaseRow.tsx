@@ -1,9 +1,9 @@
 import { useId, type ReactNode } from 'react'
-import styled, { css, keyframes } from 'styled-components'
+import styled, { css } from 'styled-components'
 import { color, space, type } from '../../theme/generated/tokens'
-import { media } from './media'
-import type { StepState } from './Progress'
-import { VisuallyHidden } from './Progress'
+import { hoverTransition, motion, stillWhenReduced } from './motion'
+import type { StepState } from './ProgressSegments'
+import { VisuallyHidden } from './VisuallyHidden'
 
 type PhaseRowProps = {
   state: StepState
@@ -54,23 +54,19 @@ export function PhaseRow({
   )
 }
 
-const pulse = keyframes`
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-`
-
 const Header = styled.button`
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto 14px;
   align-items: center;
-  gap: ${space['2-5']};
+  gap: ${space[5]};
   width: 100%;
-  padding: ${space[3]} ${space[4]};
+  padding: ${space[6]} ${space[8]};
   border: 0;
   border-top: 1px solid ${color.line};
   background: none;
   text-align: left;
   cursor: pointer;
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }
@@ -86,7 +82,7 @@ const discs = {
     background: ${color.accentWeak};
     color: ${color.accent};
     border-color: ${color.accent};
-    animation: ${pulse} 1600ms ease-in-out infinite alternate;
+    ${motion.pulse}
   `,
   waiting: css`
     background: transparent;
@@ -105,9 +101,7 @@ const Disc = styled.span<{ $state: StepState }>`
   font-size: 12px;
   font-weight: 700;
   ${({ $state }) => discs[$state]}
-  ${media.reducedMotion} {
-    animation: none;
-  }
+  ${stillWhenReduced}
 `
 
 const Title = styled.span`
@@ -115,7 +109,7 @@ const Title = styled.span`
 `
 
 const State = styled.span`
-  margin-left: ${space[2]};
+  margin-left: ${space[4]};
   font-size: 12px;
   font-weight: 600;
   color: ${color.muted};
@@ -132,7 +126,7 @@ const Badges = styled.span`
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Caret = styled.span`
@@ -140,5 +134,5 @@ const Caret = styled.span`
 `
 
 const Panel = styled.div`
-  padding: 0 ${space[4]} ${space[3]};
+  padding: 0 ${space[8]} ${space[6]};
 `

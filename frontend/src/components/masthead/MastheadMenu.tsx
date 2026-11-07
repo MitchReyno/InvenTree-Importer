@@ -81,9 +81,9 @@ const Trigger = styled.button`
 const Content = styled(Popover.Content)`
   z-index: 1000;
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   width: 220px;
-  padding: ${space[1]};
+  padding: ${space[2]};
   border: 1px solid ${color.line};
   border-radius: ${radius.popover};
   background: ${color.surface};
@@ -98,7 +98,7 @@ const Content = styled(Popover.Content)`
 const Links = styled.nav`
   display: grid;
   a {
-    padding: ${space['1-5']} ${space[2]};
+    padding: ${space[3]} ${space[4]};
     border-radius: ${radius.input};
     color: ${color.fg};
     text-decoration: none;
@@ -118,7 +118,7 @@ const Links = styled.nav`
 const Theme = styled.div`
   display: grid;
   gap: 2px;
-  padding: ${space[2]} ${space[2]} ${space[1]};
+  padding: ${space[4]} ${space[4]} ${space[2]};
   border-top: 1px solid ${color.line};
 `
 
@@ -130,7 +130,7 @@ const Label = styled.span`
 const Choice = styled.label`
   display: flex;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-height: 28px;
   cursor: pointer;
   ${media.compact} {

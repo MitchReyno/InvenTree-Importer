@@ -2,7 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
-import { Button, HeadingRow, Subheading } from '../ui/primitives'
+import { HeadingRow, Subheading } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 interface Props {
   title: string

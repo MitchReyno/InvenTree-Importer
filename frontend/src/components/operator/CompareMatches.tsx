@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { Button, Paragraph, Small } from '../ui/primitives'
+import { Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { Modal } from './Modal'
 
 type Part = CaptureSnapshotDto['parts'][number]

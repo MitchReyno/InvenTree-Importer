@@ -9,7 +9,8 @@ import type {
   MediaVersionDto,
   RotatedMediaRecipeDto,
 } from '@invimport/contracts'
-import { Button, Heading, Paragraph, Small } from '../ui/primitives'
+import { Heading, Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { mediaResource } from '../../media/types'
 import {
   cropRecipe,
@@ -208,7 +209,7 @@ export function MediaCropDialog({
                 {submitted ? 'Close prepared crop' : 'Discard and close'}
               </Button>
               {!submitted && (
-                <Button disabled={busy || readUnavailable || !currentRecipe}>
+                <Button type="submit" disabled={busy || readUnavailable || !currentRecipe}>
                   {busy
                     ? 'Retaining crop request…'
                     : locked

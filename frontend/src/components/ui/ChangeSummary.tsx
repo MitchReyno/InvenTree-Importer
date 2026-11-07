@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, font, space, type } from '../../theme/generated/tokens'
+import { color, font, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 
 export type ChangeItem = { id: string; label: string; href?: string; pill?: ReactNode }
@@ -31,7 +31,7 @@ export function ChangeSummary({ sections }: { sections: ChangeSection[] }) {
 }
 
 const Section = styled.section`
-  padding: ${space[3]} ${space[4]};
+  padding: ${space[6]} ${space[8]};
   border-top: 1px solid ${color.line};
   &:first-child {
     border-top: 0;
@@ -39,7 +39,7 @@ const Section = styled.section`
   h3 {
     display: flex;
     align-items: baseline;
-    gap: ${space[2]};
+    gap: ${space[4]};
     margin: 0;
     ${type.h3}
   }
@@ -47,7 +47,7 @@ const Section = styled.section`
     display: flex;
     flex-direction: column;
     gap: 5px;
-    margin: ${space[2]} 0 0;
+    margin: ${space[4]} 0 0;
     padding: 0;
     list-style: none;
   }
@@ -55,7 +55,7 @@ const Section = styled.section`
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: ${space[2]};
+    gap: ${space[4]};
     overflow-wrap: anywhere;
   }
   a {
@@ -63,7 +63,8 @@ const Section = styled.section`
     ${media.compact} {
       display: inline-flex;
       align-items: center;
-      min-height: 44px;
+      min-height: ${size.touch};
+      min-width: ${size.touch};
     }
   }
 `
@@ -71,6 +72,6 @@ const Section = styled.section`
 const Total = styled.span`
   font-family: ${font.mono};
   font-size: 13px;
-  font-weight: 400;
+  font-weight: ${typeVar.mono.weight};
   color: ${color.muted};
 `

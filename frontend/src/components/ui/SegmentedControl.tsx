@@ -1,7 +1,8 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
+import { hoverTransition } from './motion'
 
 export type SegmentOption = { id: string; label: string }
 
@@ -44,12 +45,12 @@ const Group = styled.div`
 `
 
 const Segment = styled.button`
-  padding: ${space['1-5']} 11px;
+  padding: ${space[3]} 11px;
   border: 0;
   background: ${color.surface};
-  font-weight: 500;
+  font-weight: ${typeVar.buttonLg.weight};
   cursor: pointer;
-  transition: background-color 80ms linear;
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }
@@ -61,11 +62,11 @@ const Segment = styled.button`
   &:focus-visible {
     outline: none;
     box-shadow:
-      inset 0 0 0 2px ${color.accent},
-      inset 0 0 0 4px ${color.bg};
+      inset 0 0 0 ${ring.width} ${color.accent},
+      inset 0 0 0 calc(${ring.width} + ${ring.offset}) ${color.bg};
   }
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `

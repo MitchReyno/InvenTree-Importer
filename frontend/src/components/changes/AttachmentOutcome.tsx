@@ -1,7 +1,8 @@
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { ManualRunDto } from '@invimport/contracts'
-import { Button, Paragraph, Small } from '../ui/primitives'
+import { Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type Attachment = NonNullable<ManualRunDto['attachments']>[number]
 

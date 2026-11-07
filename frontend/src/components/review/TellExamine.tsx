@@ -121,11 +121,11 @@ export function TellExamine({
 
 const Form = styled.form`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 const Row = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `

@@ -3,12 +3,15 @@ import {
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type MouseEvent,
+  type Ref,
   type ReactNode,
 } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, opacity, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
-import { Spinner } from './Progress'
+import { hoverTransition } from './motion'
+import { Spinner } from './Loading'
+import { linkTouchArea } from './primitives'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'warn' | 'link'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -24,6 +27,7 @@ type CommonProps = {
 type AsButton = CommonProps &
   ButtonHTMLAttributes<HTMLButtonElement> & {
     as?: 'button'
+    ref?: Ref<HTMLButtonElement>
     busy?: boolean
     /** Shown beside a disabled button and linked as its description. */
     disabledReason?: string
@@ -165,14 +169,14 @@ const variants = {
 
 const sizes = {
   sm: css`
-    padding: ${space[1]} 9px;
-    font-size: 12.5px;
+    padding: ${space[2]} calc(${space[5]} - 1px);
+    font-size: ${typeVar.small.size};
   `,
   md: css`
-    padding: 7px ${space[3]};
+    padding: calc(${space[4]} - 1px) ${space[6]};
   `,
   lg: css`
-    padding: ${space[3]} ${space[4]};
+    padding: ${space[6]} ${space[8]};
     ${type.buttonLg}
   `,
 }
@@ -181,34 +185,33 @@ const Control = styled.button<{ $variant: ButtonVariant; $size: ButtonSize }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: ${space['1-5']};
-  min-height: 32px;
+  gap: ${space[3]};
+  min-height: ${size.control};
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   background: ${color.surface};
   color: ${color.fg};
-  font-weight: 500;
+  font-weight: ${typeVar.buttonLg.weight};
   line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background-color 80ms linear;
+  ${hoverTransition}
   ${({ $size }) => sizes[$size]}
   ${({ $variant }) => variants[$variant]}
   ${({ $variant }) => ($variant === 'link' ? 'min-height: 0;' : '')}
   &:disabled {
-    opacity: 0.5;
+    opacity: ${opacity.disabled};
     cursor: not-allowed;
   }
   &[aria-busy='true'] {
     cursor: progress;
   }
   ${media.compact} {
-    min-height: ${({ $variant }) => ($variant === 'link' ? '0' : '44px')};
+    min-height: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
+    min-width: ${({ $variant }) => ($variant === 'link' ? '0' : size.touch)};
   }
-  ${media.reducedMotion} {
-    transition: none;
-  }
+  ${({ $variant }) => $variant === 'link' && linkTouchArea}
 `
 
 const Glyph = styled.span`
@@ -217,7 +220,7 @@ const Glyph = styled.span`
 `
 
 const Reason = styled.span`
-  margin-left: ${space[2]};
-  font-size: 12.5px;
+  margin-left: ${space[4]};
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

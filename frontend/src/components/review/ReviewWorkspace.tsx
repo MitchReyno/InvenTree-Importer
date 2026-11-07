@@ -10,7 +10,8 @@ import type {
   OperatorReviewDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Button, Panel, Paragraph, Small, Notice } from '../ui/primitives'
+import { Panel, Paragraph, Small, Notice } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { CaptureContextSummary } from '../capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {

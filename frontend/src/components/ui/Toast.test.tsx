@@ -12,14 +12,17 @@ describe('Toast', () => {
     vi.useRealTimers()
   })
 
-  it('announces politely and dismisses after its duration', () => {
+  it('announces politely, then fades out before it is dismissed', () => {
     const onDismiss = vi.fn()
     render(<Toast message="Lot moved" onDismiss={onDismiss} />)
 
     expect(screen.getByRole('status')).toHaveTextContent('Lot moved')
     act(() => vi.advanceTimersByTime(4999))
-    expect(onDismiss).not.toHaveBeenCalled()
+    expect(screen.getByRole('status')).toHaveAttribute('data-state', 'open')
     act(() => vi.advanceTimersByTime(1))
+    expect(screen.getByRole('status')).toHaveAttribute('data-state', 'leaving')
+    expect(onDismiss).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(120))
     expect(onDismiss).toHaveBeenCalledTimes(1)
   })
 
@@ -34,6 +37,7 @@ describe('Toast', () => {
 
     fireEvent.mouseLeave(toast)
     act(() => vi.advanceTimersByTime(1000))
+    act(() => vi.advanceTimersByTime(120))
     expect(onDismiss).toHaveBeenCalledTimes(1)
   })
 
@@ -57,6 +61,7 @@ describe('Toast', () => {
 
     fireEvent.blur(screen.getByRole('button', { name: 'Undo' }))
     act(() => vi.advanceTimersByTime(1000))
+    act(() => vi.advanceTimersByTime(120))
     expect(onDismiss).toHaveBeenCalledTimes(1)
   })
 

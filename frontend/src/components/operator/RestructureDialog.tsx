@@ -7,7 +7,6 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import {
-  Button,
   CheckboxLabel,
   ErrorNotice,
   Fieldset,
@@ -18,6 +17,7 @@ import {
   Select,
   Small,
 } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
 import { Modal } from './Modal'
 import { observationNames } from './observation-names'

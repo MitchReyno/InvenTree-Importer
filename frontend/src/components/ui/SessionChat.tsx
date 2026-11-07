@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from 'react'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from './Button'
 
 export type ChatMessage = { id: string; who: string; text: string; mine: boolean }
@@ -56,19 +56,19 @@ export function SessionChat({ messages, onSend, disabled = false }: SessionChatP
 const Chat = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Log = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const Message = styled.p<{ $mine: boolean }>`
   max-width: 85%;
   margin: 0;
-  padding: ${space[2]} ${space['2-5']};
+  padding: ${space[4]} ${space[5]};
   border-radius: ${radius.card};
   align-self: ${({ $mine }) => ($mine ? 'flex-end' : 'flex-start')};
   background: ${({ $mine }) => ($mine ? color.accentWeak : color.surface2)};
@@ -76,15 +76,15 @@ const Message = styled.p<{ $mine: boolean }>`
 
 const Who = styled.span`
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: ${space[1]};
   font-size: 11px;
-  font-weight: 600;
+  font-weight: ${typeVar.bodyStrong.weight};
   color: ${color.muted};
 `
 
 const Compose = styled.form`
   display: flex;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   label {
     position: absolute;
     width: 1px;
@@ -95,7 +95,7 @@ const Compose = styled.form`
   input {
     flex: 1;
     min-width: 0;
-    padding: 7px 9px;
+    padding: calc(${space[4]} - 1px) calc(${space[5]} - 1px);
     border: 1px solid ${color.lineStrong};
     border-radius: ${radius.input};
     background: ${color.surface};
@@ -104,6 +104,6 @@ const Compose = styled.form`
 
 const Closed = styled.p`
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

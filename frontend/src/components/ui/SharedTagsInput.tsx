@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { CheckboxLabel, Input, Label, Small } from './primitives'
 
@@ -132,17 +132,17 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
 
 const Tags = styled.div`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
 `
 const Title = styled.span`
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 const Chips = styled.ul`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   margin: 0;
   padding: 0;
   list-style: none;
@@ -150,20 +150,20 @@ const Chips = styled.ul`
 const Chip = styled.li`
   display: inline-flex;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   max-width: 100%;
-  padding: 2px 2px 2px 9px;
+  padding: ${space[1]} ${space[1]} ${space[1]} 9px;
   border-radius: ${radius.pill};
   background: ${color.surface2};
   color: ${color.fg};
-  font-size: 12px;
+  font-size: ${typeVar.pill.size};
   overflow-wrap: anywhere;
   button {
-    min-width: 32px;
-    min-height: 32px;
+    min-width: ${size.control};
+    min-height: ${size.control};
     ${media.compact} {
-      min-width: 44px;
-      min-height: 44px;
+      min-width: ${size.touch};
+      min-height: ${size.touch};
     }
     border: none;
     border-radius: ${radius.pill};

@@ -1,6 +1,8 @@
-import styled, { keyframes } from 'styled-components'
-import { color, radius } from '../../theme/generated/tokens'
+import styled from 'styled-components'
+import { color, space } from '../../theme/generated/tokens'
 import { media } from './media'
+import { motion } from './motion'
+import { VisuallyHidden } from './VisuallyHidden'
 
 export type StepState = 'done' | 'running' | 'waiting'
 
@@ -41,48 +43,16 @@ export function ProgressSegments({ steps, size = 'sm' }: ProgressSegmentsProps) 
   )
 }
 
-export function Spinner({ size = 12 }: { size?: number }) {
-  return <SpinnerRing aria-hidden="true" style={{ width: size, height: size }} />
-}
-
-export function Skeleton({ width, height }: { width: string; height: string }) {
-  return <SkeletonBlock aria-hidden="true" style={{ width, height }} />
-}
-
-export const VisuallyHidden = styled.span`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-`
-
-const pulse = keyframes`
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-`
-
-const rotate = keyframes`
-  to { transform: rotate(360deg); }
-`
-
-const sweep = keyframes`
-  to { background-position: -200% 0; }
-`
-
 const Segments = styled.span<{ $size: 'sm' | 'lg' }>`
   display: flex;
-  gap: 2px;
+  gap: ${space[1]};
   flex: none;
   width: ${({ $size }) => ($size === 'lg' ? '100%' : 'auto')};
 `
 
 const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
   display: block;
+  /* literal-allowed: a small segment's width, not a glyph box; no token has this role */
   width: ${({ $size }) => ($size === 'lg' ? 'auto' : '14px')};
   flex: ${({ $size }) => ($size === 'lg' ? '1' : 'none')};
   height: ${({ $size }) => ($size === 'lg' ? '8px' : '6px')};
@@ -98,7 +68,7 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
     background: ${color.ok};
   }
   &[data-state='running'] i {
-    animation: ${pulse} 1600ms ease-in-out infinite alternate;
+    ${motion.pulse}
   }
   &[data-state='waiting'] {
     opacity: 0.45;
@@ -107,28 +77,5 @@ const Segment = styled.span<{ $size: 'sm' | 'lg' }>`
     &[data-state='running'] i {
       animation: none;
     }
-  }
-`
-
-const SpinnerRing = styled.span`
-  display: inline-block;
-  flex: none;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: ${rotate} 800ms linear infinite;
-  ${media.reducedMotion} {
-    animation: none;
-  }
-`
-
-const SkeletonBlock = styled.span`
-  display: block;
-  border-radius: ${radius.thumb};
-  background: linear-gradient(90deg, ${color.surface2}, ${color.line}, ${color.surface2});
-  background-size: 200% 100%;
-  animation: ${sweep} 1300ms linear infinite;
-  ${media.reducedMotion} {
-    animation: none;
   }
 `

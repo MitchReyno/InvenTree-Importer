@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import { Button, ErrorNotice, Form, Label, Small, TextArea } from '../ui/primitives'
+import { ErrorNotice, Form, Label, Small, TextArea } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 const MAX_INSTRUCTION_LENGTH = 8192
 

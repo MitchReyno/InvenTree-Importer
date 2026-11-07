@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
-import { Button, Paragraph } from '../ui/primitives'
+import { Paragraph } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type Props = {
   mediaDisabled: boolean

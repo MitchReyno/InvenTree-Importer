@@ -2,7 +2,8 @@ import type { Control, UseFormRegister } from 'react-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import type { CaptureEditorValues } from '../../capture/editor-model'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
-import { Button, Input, Label, Select, Field, Small } from '../ui/primitives'
+import { Input, Label, Select, Field, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { MappingReader } from './MappingReader'
 
 interface Props {

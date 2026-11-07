@@ -1,6 +1,7 @@
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 export type RecordState = 'exists' | 'new' | 'update' | 'choose' | 'none'
 
@@ -69,11 +70,11 @@ const Chain = styled.ol`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   max-width: 100%;
   margin: -4px;
   /* Room for focus rings inside the scroll container. */
-  padding: 4px;
+  padding: ${space[2]};
   overflow-x: auto;
   list-style: none;
 `
@@ -81,7 +82,7 @@ const Chain = styled.ol`
 const Item = styled.li`
   display: flex;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Arrow = styled.span`
@@ -93,7 +94,7 @@ const Link = styled.a<{ $state: RecordState }>`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 3px 7px;
+  padding: 3px calc(${space[4]} - 1px);
   border: 1px solid ${color.line};
   border-radius: ${radius.input};
   background: ${color.surface};
@@ -101,18 +102,21 @@ const Link = styled.a<{ $state: RecordState }>`
   line-height: 1.3;
   text-decoration: none;
   ${({ $state }) => states[$state]}
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }
   ${media.compact} {
     justify-content: center;
-    min-height: 44px;
+    min-height: ${size.touch};
+    flex-shrink: 0;
+    min-width: ${size.touch};
   }
 `
 
 const Kind = styled.span`
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: ${typeVar.label.weight};
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: ${color.muted};
@@ -122,8 +126,8 @@ const Status = styled.span`
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: ${typeVar.pill.size};
+  font-weight: ${typeVar.pill.weight};
   white-space: nowrap;
   color: var(--chain-ink);
 `

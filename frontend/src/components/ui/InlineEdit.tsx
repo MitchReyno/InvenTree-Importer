@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, font, radius } from '../../theme/generated/tokens'
+import { color, font, radius, size, space } from '../../theme/generated/tokens'
 import { media } from './media'
+import { hoverTransition } from './motion'
 
 type InlineEditProps = {
   label: string
@@ -75,33 +76,34 @@ const Trigger = styled.button`
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 8px;
+  gap: ${space[2]} ${space[4]};
   width: 100%;
-  padding: 3px 6px;
+  padding: 3px ${space[3]};
   margin: 0 -6px;
   border: 1px solid transparent;
   border-radius: 5px;
   background: none;
   text-align: left;
   cursor: text;
+  ${hoverTransition}
   &:hover {
     border-color: ${color.line};
     background: ${color.surface2};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
 const Field = styled.input<{ $mono: boolean }>`
   width: 100%;
   min-width: 0;
-  padding: 3px 6px;
+  padding: 3px ${space[3]};
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.input};
   background: ${color.surface};
   font-family: ${({ $mono }) => ($mono ? font.mono : 'inherit')};
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `

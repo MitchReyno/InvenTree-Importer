@@ -62,10 +62,9 @@ describe('NeedYouPanel', () => {
         .getAllByRole('heading')
         .map((heading) => heading.textContent),
     ).toEqual(['Processing', 'Review', 'Changes'])
-    expect(within(panel).getByRole('link', { name: 'A run needs recovery' })).toHaveAttribute(
-      'href',
-      `#${b}/changes/added/${run}`,
-    )
+    expect(
+      within(panel).getByRole('link', { name: 'Answer: A run needs recovery' }),
+    ).toHaveAttribute('href', `#${b}/changes/added/${run}`)
     expect(within(panel).getByText('Assuming 10kΩ')).toBeVisible()
   })
 
@@ -74,7 +73,7 @@ describe('NeedYouPanel', () => {
     render(<NeedYouPanel attention={attention} />)
 
     await user.click(screen.getByRole('button', { name: '3 need you' }))
-    await user.click(screen.getByRole('link', { name: 'A run needs recovery' }))
+    await user.click(screen.getByRole('link', { name: 'Answer: A run needs recovery' }))
 
     expect(screen.queryByRole('dialog', { name: 'Needs you' })).not.toBeInTheDocument()
   })

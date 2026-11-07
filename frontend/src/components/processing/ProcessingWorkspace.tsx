@@ -12,16 +12,8 @@ import type {
   ProcessingStartDto,
 } from '@invimport/contracts'
 import type { ProcessingClient, ProcessingView } from '../../processing/types'
-import {
-  Button,
-  ErrorNotice,
-  Heading,
-  Notice,
-  Paragraph,
-  Panel,
-  Small,
-  Summary,
-} from '../ui/primitives'
+import { ErrorNotice, Heading, Notice, Paragraph, Panel, Small, Summary } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import type { MediaClient } from '../../media/types'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingJobCard } from './ProcessingJobCard'

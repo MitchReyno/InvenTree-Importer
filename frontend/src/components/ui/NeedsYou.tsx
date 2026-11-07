@@ -1,7 +1,6 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
-import { media } from './media'
-import { Pill } from './Pill'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { Button } from './Button'
 
 export type NeedsYouItem = {
   id: string
@@ -24,10 +23,19 @@ export function NeedsYou({ items }: { items: NeedsYouItem[] }) {
         <li key={item.id}>
           <Thumb aria-hidden="true">{item.thumb && <img src={item.thumb} alt="" />}</Thumb>
           <span>
-            <a href={item.href}>{item.title}</a>
+            {item.step && <StepChip>{item.step}</StepChip>}
+            <Title>{item.title}</Title>
             <Assumption>{item.assumption}</Assumption>
           </span>
-          {item.step ? <Pill tone="warn">{item.step}</Pill> : <span />}
+          <Button
+            as="a"
+            href={item.href}
+            size="sm"
+            variant="primary"
+            aria-label={`Answer: ${item.title}`}
+          >
+            Answer
+          </Button>
         </li>
       ))}
     </List>
@@ -44,21 +52,12 @@ const List = styled.ul`
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr) auto;
     align-items: center;
-    gap: ${space['2-5']};
-    padding: ${space['2-5']} ${space[3]};
+    gap: ${space[5]};
+    padding: ${space[5]} ${space[6]};
     border-top: 1px solid ${color.line};
   }
   li:first-child {
     border-top: 0;
-  }
-  a {
-    font-weight: 600;
-    color: ${color.fg};
-    ${media.compact} {
-      display: inline-flex;
-      align-items: center;
-      min-height: 44px;
-    }
   }
 `
 
@@ -77,6 +76,20 @@ const Thumb = styled.span`
   }
 `
 
+const StepChip = styled.span`
+  display: inline-flex;
+  margin-right: ${space[3]};
+  padding: ${space[1]} calc(${space[5]} - 1px);
+  border-radius: ${radius.pill};
+  background: ${color.surface2};
+  color: ${color.muted};
+  font-size: ${typeVar.pill.size};
+`
+
+const Title = styled.b`
+  font-weight: ${typeVar.bodyStrong.weight};
+`
+
 const Assumption = styled.span`
   display: block;
   font-size: 12px;
@@ -85,6 +98,6 @@ const Assumption = styled.span`
 
 const Empty = styled.p`
   margin: 0;
-  padding: ${space['2-5']} ${space[3]};
+  padding: ${space[5]} ${space[6]};
   color: ${color.muted};
 `

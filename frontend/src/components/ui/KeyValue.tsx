@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, font, space } from '../../theme/generated/tokens'
+import { color, font, size, space, typeVar } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
 import { media } from './media'
 
@@ -66,7 +66,7 @@ export function KeyValue({ rows }: { rows: KeyValueRow[] }) {
 const List = styled.dl`
   display: grid;
   grid-template-columns: 118px minmax(0, 1fr);
-  gap: ${space[1]} ${space['2-5']};
+  gap: ${space[2]} ${space[5]};
   align-items: start;
   margin: 0;
   ${media.compact} {
@@ -78,7 +78,7 @@ const Row = styled.div`
   display: contents;
   dt {
     padding-top: 5px;
-    font-size: 12.5px;
+    font-size: ${typeVar.small.size};
     color: ${color.muted};
   }
   dd {
@@ -91,8 +91,8 @@ const Static = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: ${space[1]} ${space[2]};
-  padding: 3px ${space['1-5']};
+  gap: ${space[2]} ${space[4]};
+  padding: 3px ${space[3]};
   margin: 0 -6px;
 `
 
@@ -100,11 +100,14 @@ const Static = styled.div`
 const Editable = styled.div`
   display: flex;
   align-items: baseline;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
   & > button:first-child {
     flex: 0 1 auto;
     width: auto;
+    ${media.compact} {
+      min-width: ${size.touch};
+    }
   }
 `
 
@@ -115,7 +118,7 @@ const ValueText = styled.span<{ $state: ValueState; $mono: boolean }>`
     $mono &&
     css`
       font-family: ${font.mono};
-      font-size: 12.5px;
+      font-size: ${typeVar.mono.size};
     `}
   ${({ $state }) =>
     $state === 'edited' &&

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
 
 export type ProblemSeverity = 'blocking' | 'warning'
 
@@ -71,12 +71,12 @@ const Header = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: ${space[1]} ${space[2]};
-  padding: ${space[2]} ${space[3]};
+  gap: ${space[2]} ${space[4]};
+  padding: ${space[4]} ${space[6]};
 `
 
 const Icon = styled.span<{ $severity: ProblemSeverity }>`
-  width: 14px;
+  width: ${icon.sm};
   font-weight: 700;
   text-align: center;
   color: ${({ $severity }) => ($severity === 'blocking' ? color.bad : color.warn)};
@@ -88,20 +88,20 @@ const Title = styled.h3`
 `
 
 const Severity = styled.span`
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 
 const Summary = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
 const Issue = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space['1-5']};
-  padding: ${space[2]} ${space[3]};
+  gap: ${space[3]};
+  padding: ${space[4]} ${space[6]};
   border-top: 1px solid ${color.line};
   background: ${color.surface};
 `
@@ -109,11 +109,11 @@ const Issue = styled.div`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
 `
 
 const List = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space['2-5']};
+  gap: ${space[5]};
 `

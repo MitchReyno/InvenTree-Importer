@@ -145,10 +145,10 @@ export function AskControl({
 
 const Form = styled.form`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 const Row = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `

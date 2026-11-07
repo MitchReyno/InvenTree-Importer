@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { CaptureLotContextDto } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
-import { Button, Field, Input, Label, Select, Small, TextArea } from '../ui/primitives'
+import { Field, Input, Label, Select, Small, TextArea } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 type Props = {
   value: CaptureLotContextDto

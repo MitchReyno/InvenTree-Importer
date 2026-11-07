@@ -29,7 +29,7 @@ test('a conflict offers explicit reload and keeps local edits', async () => {
   expect(screen.getByRole('alert')).toHaveTextContent(
     'Settings: Not saved · another change was saved first. Your edits are kept here.',
   )
-  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   expect(reload).toHaveBeenCalledOnce()
 })
 
@@ -51,6 +51,6 @@ test('an unconfirmed save offers only the exact retry or an explicit discard', a
   )
   await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
   expect(retry).toHaveBeenCalledOnce()
-  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Reload saved values and discard my edits' }))
   expect(reload).toHaveBeenCalledOnce()
 })

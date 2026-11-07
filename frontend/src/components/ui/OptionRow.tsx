@@ -1,5 +1,6 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { media } from './media'
 
 export type Option = { id: string; title: string; detail: string }
 
@@ -38,15 +39,15 @@ export function OptionRow({ name, legend, options, escape, value, onChange }: Op
 const Options = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
 `
 
 const Choice = styled.label`
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: start;
-  gap: ${space['2-5']};
-  padding: 9px 11px;
+  gap: ${space[5]};
+  padding: calc(${space[5]} - 1px) calc(${space[6]} - 1px);
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
   background: ${color.surface};
@@ -58,10 +59,13 @@ const Choice = styled.label`
     border-color: ${color.accent};
     background: ${color.accentWeak};
   }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
 `
 
 const Detail = styled.span`
   display: block;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

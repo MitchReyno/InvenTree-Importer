@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
-import { color, font, radius, space, type } from '../../theme/generated/tokens'
+import { color, font, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
 import { media } from './media'
-import { VisuallyHidden } from './Progress'
+import { VisuallyHidden } from './VisuallyHidden'
+import { hoverTransition } from './motion'
 
 export type DataColumn = { id: string; header: string; editable?: boolean; mono?: boolean }
 
@@ -136,8 +137,8 @@ const Hit = styled.label`
   justify-content: center;
   cursor: pointer;
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `
 
@@ -156,7 +157,7 @@ const Table = styled.table`
   th {
     ${type.label}
     letter-spacing: 0.05em;
-    padding: ${space[2]} ${space['2-5']};
+    padding: ${space[4]} ${space[5]};
     border-bottom: 1px solid ${color.line};
     background: ${color.surface2};
     color: ${color.muted};
@@ -164,9 +165,10 @@ const Table = styled.table`
     white-space: nowrap;
   }
   td {
-    padding: ${space['1-5']} ${space['2-5']};
+    padding: ${space[3]} ${space[5]};
     border-bottom: 1px solid ${color.line};
     vertical-align: middle;
+    ${hoverTransition}
   }
   tbody tr:hover td {
     background: ${color.surface2};
@@ -182,7 +184,7 @@ const CellText = styled.span<{ $override: boolean; $edited: boolean; $mono: bool
     $mono &&
     css`
       font-family: ${font.mono};
-      font-size: 12.5px;
+      font-size: ${typeVar.mono.size};
     `}
   ${({ $override }) =>
     $override &&

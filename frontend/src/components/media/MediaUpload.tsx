@@ -1,7 +1,8 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react'
 import styled from 'styled-components'
 import type { MediaReceiptDto } from '@invimport/contracts'
-import { Button, Paragraph, Small } from '../ui/primitives'
+import { Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 import { EvidenceActions } from './EvidenceActions'
 
 export type EvidenceUploadHandle = {

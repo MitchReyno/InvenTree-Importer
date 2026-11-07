@@ -49,19 +49,19 @@ export function CompanyDecision({
 
 const Card = styled.section`
   display: grid;
-  gap: ${space[2]};
-  padding: ${space[3]};
+  gap: ${space[4]};
+  padding: ${space[6]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
 `
 const Head = styled.div`
   display: flex;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 const Option = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `

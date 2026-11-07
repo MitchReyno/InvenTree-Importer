@@ -1,7 +1,8 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, opacity, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { useRovingFocus } from './useRovingFocus'
+import { hoverTransition } from './motion'
 
 export type FilterOption = { id: string; label: string; count: number }
 
@@ -40,16 +41,17 @@ export function FilterChips({ label, options, value, onChange }: FilterChipsProp
 const Group = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[1]};
+  gap: ${space[2]};
 `
 
 const Chip = styled.button`
-  padding: 3px ${space['2-5']};
+  padding: 3px ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   cursor: pointer;
+  ${hoverTransition}
   &:hover {
     background: ${color.surface2};
   }
@@ -59,12 +61,12 @@ const Chip = styled.button`
     color: ${color.bg};
   }
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `
 
 const ChipCount = styled.span`
   font-variant-numeric: tabular-nums;
-  opacity: 0.75;
+  opacity: ${opacity.muted};
 `

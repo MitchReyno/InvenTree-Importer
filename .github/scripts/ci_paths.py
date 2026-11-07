@@ -52,10 +52,17 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             or path in WORKSPACE_INPUTS
         ):
             selected["frontend"] = True
-        # Shared readability configuration is consumed by both application checks.
+        # Shared readability and unused-code tooling run in the TypeScript job for both apps.
         if not markdown and (
-            path == "eslint.config.mjs"
-            or path.startswith(("tooling/eslint/", "tooling/tests/readability"))
+            path in ("eslint.config.mjs", "knip.json")
+            or path.startswith(
+                (
+                    "tooling/eslint/",
+                    "tooling/tests/readability",
+                    "tooling/unused-code/",
+                    "tooling/tests/unused-code",
+                )
+            )
         ):
             selected["frontend"] = True
             selected["intake"] = True

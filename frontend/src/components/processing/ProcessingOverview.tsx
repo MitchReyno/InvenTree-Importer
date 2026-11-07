@@ -93,20 +93,20 @@ export function ProcessingOverview({
 
 const Layout = styled.div`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Steps = styled.ul`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: ${space[2]};
+  gap: ${space[4]};
   margin: 0;
   padding: 0;
   list-style: none;
   li {
     display: grid;
-    gap: ${space[1]};
-    padding: ${space['2-5']};
+    gap: ${space[2]};
+    padding: ${space[5]};
     border: 1px solid ${color.line};
     border-radius: ${radius.card};
   }
@@ -123,9 +123,9 @@ const Steps = styled.ul`
 const Glances = styled.nav`
   display: flex;
   flex-wrap: wrap;
-  gap: ${space[2]};
+  gap: ${space[4]};
   a {
-    padding: ${space[2]} ${space[3]};
+    padding: ${space[4]} ${space[6]};
     border: 1px solid ${color.line};
     border-radius: ${radius.card};
     background: ${color.surface};

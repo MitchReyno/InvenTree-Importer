@@ -51,7 +51,7 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
 
 const Page = styled.div`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
   min-width: 0;
 `
 
@@ -59,7 +59,7 @@ const Head = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: ${space[2]} ${space[3]};
+  gap: ${space[4]} ${space[6]};
   a {
     margin-left: auto;
     color: ${color.accent};
@@ -73,6 +73,6 @@ const Title = styled.h2`
 
 const Outputs = styled.section`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
 `

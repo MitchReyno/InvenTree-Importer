@@ -1,85 +1,53 @@
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import styled from 'styled-components'
-import { color, radius, shadow, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 
 type Props = { label: string; explanation: string }
 
-/**
- * A disabled checkbox cannot take focus, so a focusable group carries the explanation as its
- * description and shows it as a tooltip on focus or hover.
- */
+/** A disabled checkbox cannot take focus, so the focusable box carries the explanation instead. */
 export function DisabledFeature({ label, explanation }: Props) {
   const id = useId()
-  const [shown, setShown] = useState(false)
   return (
     <Wrapper
       role="group"
       tabIndex={0}
       aria-labelledby={`${id}-label`}
-      aria-describedby={`${id}-tip`}
-      onFocus={() => setShown(true)}
-      onBlur={() => setShown(false)}
-      onMouseEnter={() => setShown(true)}
-      onMouseLeave={() => setShown(false)}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          setShown(false)
-        }
-      }}
+      aria-describedby={`${id}-explanation`}
     >
-      <Soon>Coming later</Soon>
       <label>
         <input type="checkbox" disabled tabIndex={-1} />
         <span id={`${id}-label`}>{label}</span>
       </label>
-      <Tip id={`${id}-tip`} role="tooltip" hidden={!shown}>
-        {explanation}
-      </Tip>
+      <Soon>Coming later</Soon>
+      <Explanation id={`${id}-explanation`}>{explanation}</Explanation>
     </Wrapper>
   )
 }
 
 const Wrapper = styled.div`
-  position: relative;
   display: inline-flex;
   flex-direction: column;
-  gap: ${space[1]};
-  min-height: 44px;
-  padding: ${space['2-5']} ${space[3]};
+  gap: ${space[2]};
+  padding: ${space[5]} ${space[6]};
   border: 1px dashed ${color.lineStrong};
   border-radius: ${radius.card};
   color: ${color.muted};
   label {
     display: inline-flex;
-    gap: ${space[2]};
+    gap: ${space[4]};
     align-items: center;
     cursor: not-allowed;
   }
 `
 
 const Soon = styled.span`
-  font-size: 11px;
-  font-weight: 600;
+  font-size: ${typeVar.label.size};
+  font-weight: ${typeVar.label.weight};
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: ${color.info};
 `
 
-const Tip = styled.span`
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 10;
-  width: max-content;
-  max-width: min(280px, calc(100vw - 32px));
-  padding: ${space['1-5']} ${space[2]};
-  border-radius: ${radius.sm};
-  background: ${color.fg};
-  color: ${color.bg};
-  box-shadow: ${shadow};
-  font-size: 12.5px;
-  line-height: 1.4;
-  &[hidden] {
-    display: none;
-  }
+const Explanation = styled.span`
+  font-size: ${typeVar.small.size};
 `

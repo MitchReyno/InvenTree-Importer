@@ -1,7 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type { SessionStateDto } from '@invimport/contracts'
-import { Button, Paragraph, Small } from '../ui/primitives'
+import { Paragraph, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 interface Props {
   /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */

@@ -247,7 +247,7 @@ export function Batches({ client, onDirtyChange }: Props) {
 
 const Inbox = styled.section`
   display: grid;
-  gap: ${space['4-5']};
+  gap: ${space[9]};
   max-width: 1240px;
   margin: 0 auto;
 `
@@ -257,7 +257,7 @@ const PageHead = styled.div`
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 
 const Title = styled.h1`
@@ -266,12 +266,12 @@ const Title = styled.h1`
 `
 
 const Lead = styled.p`
-  margin: ${space[1]} 0 0;
+  margin: ${space[2]} 0 0;
   color: ${color.muted};
 `
 
 const Card = styled.section`
-  padding: ${space['3-5']} ${space[4]};
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -288,18 +288,18 @@ const ContinueCard = styled(Card)`
   --thumbnail-size: 200px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: ${space['4-5']};
+  gap: ${space[9]};
   align-items: center;
   ${media.compact} {
     --thumbnail-size: 76px;
-    gap: ${space[3]};
+    gap: ${space[6]};
     align-items: start;
   }
 `
 
 const ContinueBody = styled.div`
   display: grid;
-  gap: ${space['2-5']};
+  gap: ${space[5]};
   min-width: 0;
 `
 
@@ -317,15 +317,15 @@ const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]};
+  gap: ${space[4]};
 `
 
 const ListHead = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[2]} ${space[3]};
-  margin-bottom: ${space[2]};
+  gap: ${space[4]} ${space[6]};
+  margin-bottom: ${space[4]};
   ${CardTitle} {
     margin-right: auto;
   }
@@ -335,7 +335,7 @@ const SearchForm = styled.form`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   label {
     min-width: 200px;
   }
@@ -348,7 +348,7 @@ const SearchInput = styled(Input)`
 const ArchiveToggle = styled.label`
   display: inline-flex;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   font-size: 12.5px;
   color: ${color.muted};
   ${media.compact} {
@@ -365,8 +365,8 @@ const BatchList = styled.ul`
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: ${space['3-5']};
-    padding: ${space[3]} 0;
+    gap: ${space[7]};
+    padding: ${space[6]} 0;
     border-top: 1px solid ${color.line};
   }
   ${media.compact} {
@@ -397,18 +397,18 @@ const Pagination = styled.nav`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: ${space[2]};
-  padding-top: ${space[3]};
+  gap: ${space[4]};
+  padding-top: ${space[6]};
   border-top: 1px solid ${color.line};
 `
 
 const Note = styled.p`
-  margin: ${space[3]} 0;
+  margin: ${space[6]} 0;
   color: ${color.muted};
 `
 
 const Footnote = styled.p`
-  margin: ${space[3]} 0 0;
+  margin: ${space[6]} 0 0;
   font-size: 12.5px;
   color: ${color.muted};
 `

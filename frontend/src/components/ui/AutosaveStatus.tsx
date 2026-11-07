@@ -1,6 +1,6 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
-import { Button } from './primitives'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { Button } from './Button'
 
 export type AutosaveState =
   | 'saved'
@@ -36,19 +36,26 @@ export function AutosaveStatus({ label, state, revision, onRetry, onReload }: Pr
   const message = `${label}: ${text[state](revision)}`
   if (state === 'conflict' || state === 'unconfirmed') {
     return (
-      <Problem role="alert" data-state={state}>
-        <span>{message}</span>
-        {state === 'unconfirmed' && onRetry && (
-          <Button type="button" onClick={onRetry}>
-            Retry the same save
-          </Button>
-        )}
-        {onReload && (
-          <Button type="button" onClick={onReload}>
-            Discard my edits and load saved values
-          </Button>
-        )}
-      </Problem>
+      <Status role="alert" data-state={state}>
+        <Message>
+          {message}
+          {state === 'unconfirmed' && onRetry && (
+            <Button type="button" size="sm" onClick={onRetry} aria-label="Retry the same save">
+              Retry
+            </Button>
+          )}
+          {onReload && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onReload}
+              aria-label="Reload saved values and discard my edits"
+            >
+              Reload
+            </Button>
+          )}
+        </Message>
+      </Status>
     )
   }
   return (
@@ -72,36 +79,33 @@ const dotTone: Record<AutosaveState, string> = {
 const Status = styled.p<{ 'data-state': AutosaveState }>`
   display: inline-flex;
   align-items: center;
-  gap: ${space['1-5']};
+  gap: ${space[3]};
   margin: 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
   &::before {
     content: '';
     flex: none;
     width: 7px;
     height: 7px;
-    border-radius: 50%;
+    border-radius: ${radius.round};
     background: ${(props) => dotTone[props['data-state']]};
   }
   &[data-state='invalid'],
   &[data-state='rejected'],
-  &[data-state='disconnected'] {
+  &[data-state='disconnected'],
+  &[data-state='unconfirmed'] {
     color: ${color.warn};
+  }
+  &[data-state='conflict'] {
+    color: ${color.bad};
   }
 `
 
-const Problem = styled.div<{ 'data-state': 'conflict' | 'unconfirmed' }>`
-  display: grid;
-  gap: ${space[2]};
-  padding: ${space['2-5']} ${space[3]};
-  border: 1px solid ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
-  border-radius: ${radius.input};
-  background: ${(props) => (props['data-state'] === 'conflict' ? color.badWeak : color.warnWeak)};
-  color: ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
-  font-size: 12.5px;
-  ${Button} {
-    justify-self: start;
-    color: ${color.fg};
+/** Text and recovery buttons share one line that wraps as prose, as in the design system. */
+const Message = styled.span`
+  min-width: 0;
+  button {
+    margin-left: ${space[3]};
   }
 `

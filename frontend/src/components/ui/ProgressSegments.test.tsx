@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ProgressSegments, Skeleton, Spinner } from './Progress'
+import { ProgressSegments } from './ProgressSegments'
 
 describe('ProgressSegments', () => {
   it('hides the bars and lists every step and state as text', () => {
@@ -26,18 +26,5 @@ describe('ProgressSegments', () => {
     )
 
     expect(container.querySelector('[data-state="running"] i')).toHaveStyle({ width: '50%' })
-  })
-})
-
-describe('Spinner and Skeleton', () => {
-  it('are decorative', () => {
-    const { container } = render(
-      <>
-        <Spinner />
-        <Skeleton width="100%" height="80px" />
-      </>,
-    )
-
-    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(2)
   })
 })

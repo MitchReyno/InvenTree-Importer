@@ -8,7 +8,6 @@ import {
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
 import {
-  Button,
   ErrorNotice,
   Fieldset,
   Input,
@@ -19,6 +18,7 @@ import {
   Small,
   TextArea,
 } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 interface Props {
   question: ProcessingQuestionDto

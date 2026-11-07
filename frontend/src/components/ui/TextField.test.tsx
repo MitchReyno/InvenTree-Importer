@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { expect, test, vi } from 'vitest'
-import { OptionalNotesField } from './OptionalNotesField'
+import { NotesField, TextField } from './TextField'
 
 function Harness({
   initial = null,
@@ -15,7 +15,7 @@ function Harness({
   const [order, setOrder] = useState<string | null>('Deliver to bench')
   return (
     <>
-      <OptionalNotesField
+      <NotesField
         toggleLabel="Add batch notes"
         label="Batch notes"
         value={batch}
@@ -24,7 +24,7 @@ function Harness({
           onChange(next)
         }}
       />
-      <OptionalNotesField
+      <NotesField
         toggleLabel="Add order notes"
         label="Order notes"
         value={order}
@@ -71,4 +71,58 @@ test('separate scopes keep independent text', async () => {
   render(<Harness initial="Batch text" />)
   await user.click(screen.getByRole('button', { name: 'Remove batch notes' }))
   expect(screen.getByRole('textbox', { name: 'Order notes' })).toHaveValue('Deliver to bench')
+})
+
+test('labels its control and describes it with the help text', () => {
+  render(<TextField label="Quantity" help="Count or weigh." placeholder="e.g. 500" />)
+  const input = screen.getByRole('textbox', { name: 'Quantity' })
+
+  expect(input).toHaveAccessibleDescription('Count or weigh.')
+  expect(input).not.toHaveAttribute('aria-invalid')
+})
+
+test('shows an error in place of the help and marks the control invalid', () => {
+  render(
+    <TextField label="Quantity" help="Count or weigh." error="Enter a whole number of parts." />,
+  )
+  const input = screen.getByRole('textbox', { name: 'Quantity' })
+
+  expect(input).toHaveAttribute('aria-invalid', 'true')
+  expect(input).toHaveAccessibleDescription('Enter a whole number of parts.')
+  expect(screen.queryByText('Count or weigh.')).not.toBeInTheDocument()
+})
+
+test('renders a select or a textarea with the same label and help', () => {
+  render(
+    <>
+      <TextField as="select" label="Location" help="Where the stock goes." defaultValue="b3">
+        <option value="b3">Bench bin B3</option>
+      </TextField>
+      <TextField as="textarea" label="Notes for the whole batch" />
+    </>,
+  )
+
+  expect(screen.getByRole('combobox', { name: 'Location' })).toHaveAccessibleDescription(
+    'Where the stock goes.',
+  )
+  expect(screen.getByRole('textbox', { name: 'Notes for the whole batch' })).toBeInTheDocument()
+})
+
+test('a caller’s invalid state and description are kept, with the help added', () => {
+  render(
+    <>
+      <p id="server-error">The server refused this title.</p>
+      <TextField
+        label="Title"
+        help="Shown on the batch list."
+        aria-invalid={true}
+        aria-describedby="server-error"
+      />
+    </>,
+  )
+  const field = screen.getByRole('textbox', { name: 'Title' })
+  expect(field).toHaveAttribute('aria-invalid', 'true')
+  expect(field).toHaveAccessibleDescription(
+    'The server refused this title. Shown on the batch list.',
+  )
 })

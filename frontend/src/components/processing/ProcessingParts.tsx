@@ -128,9 +128,9 @@ export function QuestionRows({
 
 export const Card = styled.section`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   min-width: 0;
-  padding: ${space['3-5']} ${space[4]};
+  padding: ${space[7]} ${space[8]};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
@@ -155,8 +155,8 @@ const Rows = styled.ul`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: ${space[2]};
-    padding: ${space[2]} 0;
+    gap: ${space[4]};
+    padding: ${space[4]} 0;
     border-top: 1px solid ${color.line};
   }
   li:first-child {
@@ -237,15 +237,15 @@ export function PipelineRows({ pipeline }: { pipeline: ProcessingSource['pipelin
 
 const Pipeline = styled.ul`
   display: grid;
-  gap: ${space[2]};
+  gap: ${space[4]};
   margin: 0;
   padding: 0;
   list-style: none;
   li {
     display: grid;
     justify-items: start;
-    gap: ${space[1]};
-    padding: ${space[2]} 0;
+    gap: ${space[2]};
+    padding: ${space[4]} 0;
     border-top: 1px solid ${color.line};
   }
   li:first-child {
@@ -257,14 +257,14 @@ const Lanes = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[1]} ${space[2]};
+  gap: ${space[2]} ${space[4]};
 `
 
 const Step = styled.span`
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[1]};
+  gap: ${space[2]};
   font-size: 13px;
   > span:first-child {
     color: ${color.muted};

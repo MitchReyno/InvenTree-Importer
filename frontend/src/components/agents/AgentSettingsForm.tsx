@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
-import { Button, Notice, Paragraph } from '../ui/primitives'
+import { Notice, Paragraph } from '../ui/primitives'
+import { Button } from '../ui/Button'
 
 interface Props {
   initial: AgentSettingsDto

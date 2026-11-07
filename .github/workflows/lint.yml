@@ -48,6 +48,10 @@ jobs:
         run: pnpm lint:readability
       - name: Test readability checks
         run: pnpm test:readability
+      - name: Check for unused code
+        run: pnpm lint:unused
+      - name: Test the unused-code check
+        run: pnpm test:unused
       - name: Lint frontend
         if: ${{ inputs.frontend }}
         run: pnpm --filter @invimport/frontend lint

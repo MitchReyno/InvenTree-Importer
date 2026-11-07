@@ -1,73 +1,63 @@
 import styled, { css } from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
-export const Button = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${space['1-5']};
-  cursor: pointer;
-  min-height: 32px;
-  padding: 7px ${space[3]};
-  color: ${color.fg};
-  background: ${color.surface};
-  border: 1px solid ${color.lineStrong};
-  border-radius: ${radius.btn};
-  font-weight: 500;
-  line-height: 1.2;
-  touch-action: manipulation;
-  transition: background-color 80ms linear;
-  &:hover:not(:disabled) {
-    background: ${color.surface2};
-  }
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
+/** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
+export const linkTouchArea = css`
   ${media.compact} {
-    min-height: 44px;
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, ${size.touch});
+      height: ${size.touch};
+      transform: translate(-50%, -50%);
+    }
   }
 `
+
 export const Link = styled.a`
   color: ${color.accent};
   touch-action: manipulation;
+  ${linkTouchArea}
 `
 export const Panel = styled.section`
-  padding: ${space['3-5']} ${space[4]};
+  padding: ${space[7]} ${space[8]};
   background: ${color.surface};
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
-  margin-bottom: ${space[3]};
+  margin-bottom: ${space[6]};
   min-width: 0;
 `
 export const PageTitle = styled.h1`
   ${type.h1}
-  margin: ${space[3]} 0;
+  margin: ${space[6]} 0;
   overflow-wrap: anywhere;
 `
 export const Heading = styled.h2`
   ${type.h2}
-  margin: 0 0 ${space[3]};
+  margin: 0 0 ${space[6]};
 `
 export const Subheading = styled.h3`
   ${type.h3}
-  margin: 0 0 ${space['2-5']};
+  margin: 0 0 ${space[5]};
 `
 export const Paragraph = styled.p`
   line-height: 1.45;
 `
 export const Small = styled.small`
   display: block;
-  font-size: 12.5px;
-  font-weight: 400;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.small.weight};
   color: ${color.muted};
-  line-height: 18px;
+  line-height: ${typeVar.small.lineHeight};
   overflow-wrap: anywhere;
 `
 export const Form = styled.form`
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
 `
 export const Fieldset = styled.fieldset`
   border: none;
@@ -75,7 +65,7 @@ export const Fieldset = styled.fieldset`
   margin: 0;
   min-width: 0;
   display: grid;
-  gap: ${space[3]};
+  gap: ${space[6]};
   &:disabled input,
   &:disabled textarea,
   &:disabled select {
@@ -87,26 +77,32 @@ export const Fieldset = styled.fieldset`
 `
 export const Label = styled.label`
   display: grid;
-  gap: ${space[1]};
-  font-size: 12.5px;
-  font-weight: 600;
+  gap: ${space[2]};
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 const control = css`
   width: 100%;
   min-width: 0;
-  min-height: 32px;
-  padding: 7px 9px;
+  min-height: ${size.control};
+  padding: calc(${space[4]} - 1px) calc(${space[5]} - 1px);
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.input};
   background: ${color.surface};
   color: ${color.fg};
-  font-size: 14px;
-  font-weight: 400;
+  font-size: ${typeVar.body.size};
+  font-weight: ${typeVar.body.weight};
   &[aria-invalid='true'] {
     border-color: ${color.bad};
   }
+  &:disabled {
+    border-style: dashed;
+    background: ${color.surface2};
+    color: ${color.muted};
+    cursor: not-allowed;
+  }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 export const Input = styled.input`
@@ -123,26 +119,26 @@ export const TextArea = styled.textarea`
 `
 export const Summary = styled.summary`
   cursor: pointer;
-  min-height: 32px;
-  padding: ${space[2]} 0;
+  min-height: ${size.control};
+  padding: ${space[4]} 0;
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 export const HeadingRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: ${space[3]};
+  gap: ${space[6]};
   flex-wrap: wrap;
   ${Heading} {
-    margin-bottom: ${space[2]};
+    margin-bottom: ${space[4]};
   }
 `
 export const Caption = styled(Paragraph)`
   color: ${color.muted};
-  font-size: 12.5px;
-  margin: ${space[2]} 0 ${space[4]};
+  font-size: ${typeVar.small.size};
+  margin: ${space[4]} 0 ${space[8]};
 `
 export const Eyebrow = styled(Paragraph)`
   ${type.label}
@@ -159,26 +155,29 @@ export const CheckboxLabel = styled(Label)`
   ${Input} {
     width: 20px;
   }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
 `
 export const Field = styled.div`
   display: grid;
-  gap: ${space['2-5']};
-  padding: ${space[3]};
+  gap: ${space[5]};
+  padding: ${space[6]};
   border: 1px solid ${color.line};
   background: ${color.surface2};
   border-radius: ${radius.card};
 `
 export const Notice = styled(Paragraph)`
-  padding: ${space['2-5']} ${space['3-5']};
+  padding: ${space[5]} ${space[7]};
   border: 1px solid transparent;
   background: ${color.warnWeak};
   border-radius: ${radius.card};
-  margin-bottom: ${space['4-5']};
+  margin-bottom: ${space[9]};
 `
 export const ErrorNotice = styled.div`
-  padding: ${space['2-5']} ${space['3-5']};
+  padding: ${space[5]} ${space[7]};
   border: 1px solid ${color.bad};
   background: ${color.badWeak};
   border-radius: ${radius.card};
-  margin-bottom: ${space['4-5']};
+  margin-bottom: ${space[9]};
 `

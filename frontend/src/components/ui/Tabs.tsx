@@ -1,8 +1,9 @@
 import styled, { css } from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
-import { Spinner } from './Progress'
+import { Spinner } from './Loading'
+import { hoverTransition } from './motion'
 
 export type TabBadge = { label: string; tone: 'warn' | 'bad' | 'ok' }
 
@@ -81,7 +82,7 @@ export function SubTabs(props: TabsProps) {
 
 const Row = styled.nav`
   display: flex;
-  gap: 2px;
+  gap: ${space[1]};
   overflow-x: auto;
   scrollbar-width: none;
   border-bottom: 1px solid ${color.line};
@@ -92,12 +93,12 @@ const Row = styled.nav`
 
 const levels = {
   primary: css`
-    padding: 9px ${space[3]} ${space['2-5']};
-    gap: ${space[1]};
+    padding: 9px ${space[6]} ${space[5]};
+    gap: ${space[2]};
   `,
   secondary: css`
-    padding: 7px ${space['2-5']} 9px;
-    gap: ${space['1-5']};
+    padding: calc(${space[4]} - 1px) ${space[5]} calc(${space[5]} - 1px);
+    gap: ${space[3]};
     font-size: 13px;
   `,
 }
@@ -113,6 +114,7 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   text-decoration: none;
   cursor: pointer;
   ${({ $level }) => levels[$level]}
+  ${hoverTransition}
   &:hover {
     color: ${color.fg};
   }
@@ -129,7 +131,11 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
     cursor: not-allowed;
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
+    /* An explicit minimum would otherwise let the tab shrink below its label. */
+    flex-shrink: 0;
+    min-width: ${size.touch};
+    justify-content: center;
   }
 `
 

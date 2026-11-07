@@ -1,6 +1,7 @@
 import { AgentSettings } from './components/agents/AgentSettings'
 import { AgentSessions } from './components/agents/AgentSessions'
-import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
+import { PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
+import { Button } from './components/ui/Button'
 import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {

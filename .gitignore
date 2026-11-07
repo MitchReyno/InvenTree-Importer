@@ -57,3 +57,6 @@ frontend/dist/
 *.tsbuildinfo
 pnpm-debug.log*
 .ruff_cache/
+
+# Local screenshot-diff baseline and output (frontend/scripts/check-screenshots.cjs)
+frontend/.screenshots/
