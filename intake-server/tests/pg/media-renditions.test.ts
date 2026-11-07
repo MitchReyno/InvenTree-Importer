@@ -169,3 +169,142 @@ test(
     }
   },
 )
+
+test(
+  'the preview route serves each size privately, revalidates by digest and falls back to the page',
+  { skip: image ? false : 'Explicit decoder image needed for PG/decoder boundary' },
+  async () => {
+    const { createServer } = await import('../../src/api/server.ts')
+    const { registerCapture } = await import('../../src/capture/routes.ts')
+    const { registerMediaRoutes } = await import('../../src/media/routes.ts')
+    const { grantFoundation } = await import('../../src/operations/grants.ts')
+    const { grantCapture } = await import('../../src/capture/grants.ts')
+    const db = await isolatedDatabase()
+    const identity = await seedAuthority(db.pool)
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-renditions-http-')))
+    const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
+    const binding = {
+      actorId: identity.actor,
+      targetId: identity.target,
+      targetContextId: identity.context,
+    }
+    const api = await role(db, 'api')
+    await grantFoundation(db.pool, api.name)
+    await grantCapture(db.pool, api.name)
+    const decoderRole = await role(db, 'decoder')
+    const runtime = database(api.url)
+    const decoder = database(decoderRole.url)
+    const apps: { close: () => Promise<unknown> }[] = []
+    async function serve(context: string) {
+      const config = {
+        origin: 'http://127.0.0.1:1',
+        actorId: identity.actor,
+        targetId: identity.target,
+        targetContextId: context,
+        credentialRef: 'owned_media_fixture',
+        apiKey: 'fake-only',
+      }
+      const app = createServer(config, { mediaEnabled: true })
+      registerCapture(app, runtime.pool, config)
+      registerMediaRoutes(app, runtime.pool, config, store)
+      config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
+      apps.push(app)
+      return config.origin
+    }
+    try {
+      const repository = mediaRepository(db.pool, binding, store)
+      const capture = captureRepository(db.pool, binding)
+      const batch = (await capture.create(randomUUID(), {
+        title: 'Sized',
+        note: '',
+      })) as CaptureSnapshotDto
+      const other = (await capture.create(randomUUID(), {
+        title: 'Other',
+        note: '',
+      })) as CaptureSnapshotDto
+      const photo = await sharp({
+        create: { width: 2400, height: 1600, channels: 3, background: '#406080' },
+      })
+        .jpeg()
+        .toBuffer()
+      const small = await sharp({
+        create: { width: 300, height: 200, channels: 3, background: '#ffffff' },
+      })
+        .png()
+        .toBuffer()
+      await repository.upload(batch.id, randomUUID(), '1', 'Photo', photo)
+      await repository.upload(batch.id, randomUUID(), '2', 'Small', small)
+      assert.equal(await processMediaCommand(decoder.pool, store, binding, image!), true)
+      assert.equal(await processMediaCommand(decoder.pool, store, binding, image!), true)
+      const snapshot = await repository.snapshot(batch.id)
+      // JSON responses keep their shape: the snapshot still validates against the strict schema.
+      validate('MediaSnapshot', snapshot)
+      const pageOf = (label: string) =>
+        snapshot.evidence.find((item) => item.label === label)!.versions[0].pages[0]
+      const large = pageOf('Photo')
+      const tiny = pageOf('Small')
+      const origin = await serve(identity.context)
+      const url = (batchId: string, previewId: string, size?: string) =>
+        `${origin}/api/v1/batches/${batchId}/media/previews/${previewId}${size ? `?size=${size}` : ''}`
+
+      for (const [size, width] of [
+        ['thumb', 320],
+        ['card', 960],
+        ['view', 2048],
+      ] as const) {
+        const response = await fetch(url(batch.id, large.preview_id, size))
+        assert.equal(response.status, 200)
+        assert.equal(response.headers.get('content-type'), 'image/webp')
+        assert.equal(response.headers.get('cache-control'), 'private, no-cache')
+        const bytes = Buffer.from(await response.arrayBuffer())
+        assert.equal((await sharp(bytes).metadata()).width, width)
+        assert.match(response.headers.get('etag')!, /^"[a-f0-9]{64}"$/)
+      }
+      const full = await fetch(url(batch.id, large.preview_id))
+      assert.equal(full.headers.get('content-type'), 'image/png')
+      assert.equal((await sharp(Buffer.from(await full.arrayBuffer())).metadata()).width, 2400)
+      assert.equal(
+        (await fetch(url(batch.id, large.preview_id, 'full'))).headers.get('etag'),
+        full.headers.get('etag'),
+      )
+
+      // A size the page has no rendition for is the full page, still revalidated.
+      const fallback = await fetch(url(batch.id, tiny.preview_id, 'card'))
+      assert.equal(fallback.headers.get('content-type'), 'image/png')
+      assert.equal(fallback.headers.get('cache-control'), 'private, no-cache')
+      assert.equal((await sharp(Buffer.from(await fallback.arrayBuffer())).metadata()).width, 300)
+
+      // A repeat with the validator is authorized again, then answered 304 without bytes.
+      const thumb = await fetch(url(batch.id, large.preview_id, 'thumb'))
+      const etag = thumb.headers.get('etag')!
+      const unchanged = await fetch(url(batch.id, large.preview_id, 'thumb'), {
+        headers: { 'if-none-match': etag },
+      })
+      assert.equal(unchanged.status, 304)
+      assert.equal((await unchanged.arrayBuffer()).byteLength, 0)
+
+      assert.equal((await fetch(url(batch.id, large.preview_id, 'huge'))).status, 400)
+      assert.equal((await fetch(url(other.id, large.preview_id, 'thumb'))).status, 404)
+      // The same URL and validator under another target context never reach the cached bytes.
+      const foreign = await serve(randomUUID())
+      const elsewhere = await fetch(
+        `${foreign}/api/v1/batches/${batch.id}/media/previews/${large.preview_id}?size=thumb`,
+        { headers: { 'if-none-match': etag } },
+      )
+      assert.notEqual(elsewhere.status, 200)
+      assert.notEqual(elsewhere.status, 304)
+    } finally {
+      for (const app of apps) {
+        await app.close()
+      }
+      await runtime.pool.end()
+      await decoder.pool.end()
+      for (const value of [api, decoderRole]) {
+        await db.pool.query(`DROP OWNED BY ${value.name}`)
+        await db.pool.query(`DROP ROLE ${value.name}`)
+      }
+      await db.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)

@@ -1879,10 +1879,13 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Private image preview; use a browser resource URL. */
+        /** @description Private image preview, revalidated by digest; use a browser resource URL. */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Display rendition; a size not yet rendered is served by the full page. */
+                    size?: "thumb" | "card" | "view" | "full";
+                };
                 header?: never;
                 path: {
                     batchId: string;
@@ -1892,14 +1895,23 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Private image preview; use a browser resource URL. */
+                /** @description Private image preview, revalidated by digest; use a browser resource URL. */
                 200: {
                     headers: {
+                        ETag?: string;
                         [name: string]: unknown;
                     };
                     content: {
                         "image/png": Blob;
+                        "image/webp": Blob;
                     };
+                };
+                /** @description Unchanged since the If-None-Match validator. */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
                 /** @description ErrorDto */
                 default: {

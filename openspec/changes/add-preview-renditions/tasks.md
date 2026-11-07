@@ -68,9 +68,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("The route takes a size…"). Override the global `no-store` only on these routes.
 - **Verification:** HTTP tests; regenerate and run `pnpm contracts:check`; `pnpm test:intake`.
 
-- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
-- [ ] 3.2 GREEN: implement the sized read, route and headers.
-- [ ] 3.3 Update `contracts/scripts/generate.cjs` for the preview route's media types, `size` parameter and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
+- [x] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
+- [x] 3.2 GREEN: implement the sized read, route and headers.
+- [x] 3.3 Update `contracts/scripts/generate.cjs` for the preview route's media types, `size` parameter and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
 
 ## 4. Sized observation crops
 

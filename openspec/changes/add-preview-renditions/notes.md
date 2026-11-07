@@ -4,7 +4,8 @@ PR-A (tasks 1–3) is in progress on `feat/add-preview-renditions-server`; PR-B 
 
 ## Changes to the plan
 
-None.
+- **2026-11-08T00:20+11:00, task 3 (PR-A):** The "same URL returns WebP once renditions exist" check moved to task 5. Only the backfill can add renditions to a page that already has a full preview, because renditions are otherwise written in the same decode. PR-A tests the fallback on a small page and WebP on a large one.
+- **2026-11-08T00:20+11:00, task 3 (PR-A):** The observation-crop route has no declaration in `contracts/scripts/generate.cjs` today. Task 4.3 will add one rather than edit one; `tasks.md` is unchanged because its check ("only that route's declaration changed") still holds.
 
 ## Unexpected challenges
 

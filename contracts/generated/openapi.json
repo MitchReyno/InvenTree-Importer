@@ -1914,18 +1914,51 @@
     "/api/v1/batches/{batchId}/media/previews/{resourceId}": {
       "get": {
         "x-intake-browser-resource": true,
-        "description": "Private image preview; use a browser resource URL.",
+        "description": "Private image preview, revalidated by digest; use a browser resource URL.",
+        "parameters": [
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Display rendition; a size not yet rendered is served by the full page.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "thumb",
+                "card",
+                "view",
+                "full"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Private image preview; use a browser resource URL.",
+            "description": "Private image preview, revalidated by digest; use a browser resource URL.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "image/png": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
                 }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
+          },
+          "304": {
+            "description": "Unchanged since the If-None-Match validator."
           },
           "default": {
             "description": "ErrorDto",

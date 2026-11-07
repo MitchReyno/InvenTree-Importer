@@ -45,10 +45,15 @@ function clientPolicies(paths) {
           method !== 'get' ||
           operation.requestBody ||
           successStatus !== '200' ||
-          representations.length !== 1 ||
-          !['application/octet-stream', 'image/png'].includes(mediaType) ||
-          representation?.schema?.type !== 'string' ||
-          representation.schema.format !== 'binary'
+          representations.length < 1 ||
+          !representations.every(
+            ([type, value]) =>
+              ['application/octet-stream', 'image/png', 'image/webp'].includes(type) &&
+              value?.schema?.type === 'string' &&
+              value.schema.format === 'binary',
+          ) ||
+          !mediaType ||
+          !representation
         ) {
           throw new Error('invalid_browser_resource_representation')
         }
@@ -131,17 +136,36 @@ async function main() {
     },
     responses: commandResponses(output, status),
   })
-  const browserResource = (mediaType, description) => ({
+  const browserResource = (mediaTypes, description, extra = {}) => ({
     'x-intake-browser-resource': true,
     description,
+    ...(extra.parameters ? { parameters: extra.parameters } : {}),
     responses: {
       200: {
         description,
-        content: { [mediaType]: { schema: { type: 'string', format: 'binary' } } },
+        ...(extra.revalidated
+          ? { headers: { ETag: { schema: { type: 'string' } } } }
+          : {}),
+        content: Object.fromEntries(
+          [mediaTypes].flat().map((mediaType) => [
+            mediaType,
+            { schema: { type: 'string', format: 'binary' } },
+          ]),
+        ),
       },
+      ...(extra.revalidated
+        ? { 304: { description: 'Unchanged since the If-None-Match validator.' } }
+        : {}),
       default: response('ErrorDto'),
     },
   })
+  const renditionSize = {
+    name: 'size',
+    in: 'query',
+    required: false,
+    description: 'Display rendition; a size not yet rendered is served by the full page.',
+    schema: { type: 'string', enum: ['thumb', 'card', 'view', 'full'] },
+  }
   const document = {
     openapi: '3.1.0',
     info: { title: 'Bench Intake foundation', version: 'bench-intake-app/1' },
@@ -284,7 +308,11 @@ async function main() {
         ),
       },
       '/api/v1/batches/{batchId}/media/previews/{resourceId}': {
-        get: browserResource('image/png', 'Private image preview; use a browser resource URL.'),
+        get: browserResource(
+          ['image/png', 'image/webp'],
+          'Private image preview, revalidated by digest; use a browser resource URL.',
+          { parameters: [renditionSize], revalidated: true },
+        ),
       },
       '/api/v1/activity': { get: get('ManualActivity') },
       '/api/v1/batches/{id}/manual': { get: get('ManualWorkspace') },
