@@ -6,10 +6,20 @@ import Select, {
   type StylesConfig,
 } from 'react-select'
 import styled from 'styled-components'
-import { color, duration, easing, radius, shadow, typeVar } from '../../theme/generated/tokens'
+import {
+  color,
+  duration,
+  easing,
+  radius,
+  shadow,
+  size,
+  space,
+  typeVar,
+} from '../../theme/generated/tokens'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
 import { rankReferences, type RankTier } from '../../capture/reference-rank'
 import { Label, Small } from './primitives'
+import { media } from './media'
 
 export type PickerSearch = (
   query: string,
@@ -247,7 +257,7 @@ const styles: StylesConfig<Option, false> = {
     boxShadow: state.isFocused ? `0 0 0 2px ${color.accent}` : 'none',
     '&:hover': { borderColor: state.isFocused ? color.accent : color.lineStrong },
     transition: `border-color ${duration.fast} ${easing.linear}`,
-    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+    [media.reducedMotion]: { transition: 'none' },
     background: state.isDisabled ? color.surface2 : color.surface,
   }),
   singleValue: (base, state) => ({
@@ -268,12 +278,15 @@ const styles: StylesConfig<Option, false> = {
   }),
   option: (base, state) => ({
     ...base,
-    padding: '6px 8px',
+    padding: `${space[3]} ${space[4]}`,
     borderRadius: radius.input,
     overflowWrap: 'anywhere',
     color: color.fg,
     background: state.isSelected || state.isFocused ? color.accentWeak : 'transparent',
+    transition: `background-color ${duration.fast} ${easing.linear}`,
     ':active': { backgroundColor: color.accentWeak, color: color.fg },
+    [media.compact]: { display: 'flex', alignItems: 'center', minHeight: size.touch },
+    [media.reducedMotion]: { transition: 'none' },
   }),
   noOptionsMessage: (base) => ({ ...base, color: color.muted }),
 }

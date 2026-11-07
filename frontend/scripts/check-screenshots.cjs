@@ -248,6 +248,22 @@ function findChrome() {
   return found
 }
 
+// Ends a child process; one that has already exited, or ignores SIGTERM for 5s, is not awaited.
+async function stop(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  await new Promise((resolve) => {
+    const force = setTimeout(() => {
+      child.kill('SIGKILL')
+      resolve()
+    }, 5000)
+    child.once('exit', () => {
+      clearTimeout(force)
+      resolve()
+    })
+    child.kill()
+  })
+}
+
 function launchChrome(binary, profile) {
   return spawn(
     binary,
@@ -461,11 +477,7 @@ async function main(argv) {
     }
     return changedShots === 0 ? 0 : 1
   } finally {
-    for (const child of [chrome, vite]) {
-      const exited = new Promise((resolve) => child.once('exit', resolve))
-      child.kill()
-      await exited
-    }
+    await Promise.all([stop(chrome), stop(vite)])
     rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 }
