@@ -16,6 +16,26 @@ interface Props {
   change: (frame: CropFrame) => void
 }
 
+/**
+ * A gesture's on-screen box in source pixels. It depends only on the surface's scale (surface
+ * width ÷ source width), never on which image size is displayed.
+ */
+export function sourceFrame(
+  translation: number[],
+  width: number,
+  height: number,
+  degrees: number,
+  scale: number,
+): CropFrame {
+  return {
+    centerX: Math.round(((translation[0] + width / 2) / scale) * 1000000) / 1000000,
+    centerY: Math.round(((translation[1] + height / 2) / scale) * 1000000) / 1000000,
+    width: Math.round((width / scale) * 1000000) / 1000000,
+    height: Math.round((height / scale) * 1000000) / 1000000,
+    degrees: Math.round(degrees * 1000) / 1000,
+  }
+}
+
 /** Moveable owns gestures on this overlay only. The normalized source image stays fixed. */
 export function RotatedCropSelection({
   source,
@@ -53,13 +73,7 @@ export function RotatedCropSelection({
     height: number,
     degrees: number,
   ): CropFrame {
-    return {
-      centerX: Math.round(((translation[0] + width / 2) / scale) * 1000000) / 1000000,
-      centerY: Math.round(((translation[1] + height / 2) / scale) * 1000000) / 1000000,
-      width: Math.round((width / scale) * 1000000) / 1000000,
-      height: Math.round((height / scale) * 1000000) / 1000000,
-      degrees: Math.round(degrees * 1000) / 1000,
-    }
+    return sourceFrame(translation, width, height, degrees, scale)
   }
 
   const width = frame.width * scale

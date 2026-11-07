@@ -309,6 +309,9 @@ const Output = styled.section`
   }
   img {
     display: block;
+    /* Auto sizes keep the output's own ratio; its width and height attributes only reserve space. */
+    width: auto;
+    height: auto;
     max-width: 100%;
     max-height: 360px;
     margin-bottom: 12px;
