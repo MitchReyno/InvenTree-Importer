@@ -3,6 +3,7 @@ import type { AttentionItemDto, BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
 import { NeedsYou } from '../ui/NeedsYou'
 import { Pill } from '../ui/Pill'
 import { Popover } from '../ui/Popover'
@@ -39,8 +40,9 @@ export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
       onOpenChange={setOpen}
       trigger={
         <Trigger type="button">
-          <span aria-hidden="true">!</span>
+          <i aria-hidden="true">?</i>
           {label}
+          <span aria-hidden="true">▾</span>
         </Trigger>
       }
     >
@@ -76,19 +78,26 @@ export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
   )
 }
 
+/** The design's warn pill: a question glyph, the count and a caret, with no border. */
 const Trigger = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: ${space[3]};
-  min-height: ${size.control};
-  padding: 3px ${space[6]};
-  border: 1px solid ${color.warn};
+  gap: ${space[2]};
+  padding: ${space[1]} ${space[5]} ${space[1]} ${space[4]};
+  border: 0;
   border-radius: ${radius.pill};
   background: ${color.warnWeak};
   color: ${color.warn};
-  font-size: ${typeVar.small.size};
-  font-weight: ${typeVar.bodyStrong.weight};
+  ${type.pill}
   cursor: pointer;
+  ${hoverTransition}
+  i {
+    font-style: normal;
+  }
+  &:hover,
+  &[data-state='open'] {
+    filter: brightness(0.96);
+  }
   ${media.compact} {
     min-height: ${size.touch};
   }

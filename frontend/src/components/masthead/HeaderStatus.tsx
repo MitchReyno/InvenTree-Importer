@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { visuallyHidden } from '../ui/VisuallyHidden'
+import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Loading'
 import type { HeaderClient } from '../../header/types'
 import { useHeaderObservations } from '../../header/useHeaderObservations'
@@ -48,14 +49,17 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
   const workActive =
     workFresh && !!preferred && preferred.steps.some((step) => stepTone(step.state) === 'running')
   const inventreeLink = navigation ? (
-    <TargetLink
+    <Button
+      as="a"
+      variant="ghost"
+      size="sm"
       aria-label="Open InvenTree"
       href={navigation}
       target="_blank"
       rel="noopener noreferrer"
     >
       Open InvenTree ↗
-    </TargetLink>
+    </Button>
   ) : (
     <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
   )
@@ -281,25 +285,6 @@ const Segment = styled.span<{ 'data-tone': StepTone }>`
   height: 6px;
   border-radius: 2px;
   background: ${(props) => segmentTone[props['data-tone']]};
-`
-
-const TargetLink = styled.a`
-  display: inline-flex;
-  align-items: center;
-  min-height: ${size.control};
-  padding: ${space[2]} 9px;
-  border: 1px solid transparent;
-  border-radius: ${radius.btn};
-  color: ${color.fg};
-  font-size: ${typeVar.small.size};
-  font-weight: 500;
-  text-decoration: none;
-  &:hover {
-    background: ${color.surface2};
-  }
-  ${media.compact} {
-    min-height: ${size.touch};
-  }
 `
 
 const UnavailableLink = styled.span`

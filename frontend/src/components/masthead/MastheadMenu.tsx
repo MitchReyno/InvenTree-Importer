@@ -8,6 +8,7 @@ import {
   type ThemeController,
 } from '../../theme/theme'
 import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
 import { Popover } from '../ui/Popover'
 
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
@@ -87,6 +88,7 @@ const Links = styled.nav`
     border-radius: ${radius.input};
     color: ${color.fg};
     text-decoration: none;
+    ${hoverTransition}
   }
   a:hover {
     background: ${color.surface2};

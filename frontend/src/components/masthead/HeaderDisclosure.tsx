@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
 import { Popover } from '../ui/Popover'
 
 interface HeaderDisclosureProps {
@@ -63,6 +64,7 @@ const Trigger = styled.button`
   color: ${color.fg};
   font-size: ${typeVar.small.size};
   cursor: pointer;
+  ${hoverTransition}
   &[data-active='true'] {
     border-color: ${color.accent};
     background: ${color.accentWeak};

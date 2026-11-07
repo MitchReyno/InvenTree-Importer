@@ -29,7 +29,6 @@
   "components/changes/PreparationTreeView.tsx | gap | 2px": 2,
   "components/masthead/HeaderStatus.tsx | font-size | 11px": 1,
   "components/masthead/HeaderStatus.tsx | font-size | 12px": 1,
-  "components/masthead/HeaderStatus.tsx | font-weight | 500": 1,
   "components/masthead/HeaderStatus.tsx | width | 14px": 1,
   "components/masthead/Masthead.tsx | font-size | 11px": 1,
   "components/masthead/Masthead.tsx | font-weight | 600": 1,

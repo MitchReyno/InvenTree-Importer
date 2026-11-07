@@ -131,6 +131,12 @@ const levels = {
     padding: calc(${space[4]} - 1px) ${space[5]} calc(${space[5]} - 1px);
     gap: ${space[3]};
     font-size: 13px;
+    &:hover {
+      background: ${color.surface2};
+    }
+    &[aria-current='page'] {
+      font-weight: ${typeVar.bodyStrong.weight};
+    }
   `,
 }
 

@@ -182,15 +182,12 @@ const Spacer = styled.span`
   flex: 1;
 `
 
+/** Without a status the bar says which workflow runs, as quiet text rather than a control. */
 const WorkflowLabel = styled.span`
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 3px ${space[5]};
-  border: 1px solid ${color.line};
-  border-radius: ${radius.pill};
-  background: ${color.surface};
   color: ${color.muted};
   font-size: ${typeVar.small.size};
 `

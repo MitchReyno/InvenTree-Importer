@@ -230,10 +230,17 @@ export function BatchHeader({
             </Button>
           </TitleLine>
           <Meta>
-            {activeLotCount} {plural(activeLotCount, 'lot', 'lots')}
-            {retiredLotCount > 0 && ` (${retiredLotCount} retired)`} · {batch.parts.length}{' '}
-            {plural(batch.parts.length, 'Part proposal', 'Part proposals')}
-            {batch.archived && ' · Archived'}
+            {[
+              `${activeLotCount} ${plural(activeLotCount, 'lot', 'lots')}${retiredLotCount > 0 ? ` (${retiredLotCount} retired)` : ''}`,
+              attention && `${attention.review.to_check} ready to check`,
+              attention && `${attention.changes.ready} ready to add`,
+              attention &&
+                attention.processing.running > 0 &&
+                `${attention.processing.running} ${plural(attention.processing.running, 'agent', 'agents')} working`,
+              batch.archived && 'Archived',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </Meta>
         </Lead>
         <TabSlot>
