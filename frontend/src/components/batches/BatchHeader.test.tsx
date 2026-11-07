@@ -110,7 +110,7 @@ describe('BatchHeader', () => {
     const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
 
     expect(steps.getByRole('link', { name: 'Examine, done' })).toBeInTheDocument()
-    expect(steps.getByRole('link', { name: 'Research, 7 of 12 ready' })).toHaveTextContent(
+    expect(steps.getByRole('link', { name: 'Research, running, 7 of 12 ready' })).toHaveTextContent(
       '7 of 12',
     )
     expect(steps.getByRole('link', { name: 'Images' })).toBeInTheDocument()

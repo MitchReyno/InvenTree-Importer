@@ -55,7 +55,8 @@ describe('SubTabs', () => {
 
     expect(screen.getByRole('link', { name: 'Lots, 12' })).toHaveAttribute('aria-current', 'page')
     expect(
-      screen.getByRole('link', { name: 'Records' }).querySelector('[aria-hidden="true"]'),
+      // The spinner itself is decorative; the name says the work is running.
+      screen.getByRole('link', { name: 'Records, running' }).querySelector('[aria-hidden="true"]'),
     ).not.toBeNull()
   })
 })

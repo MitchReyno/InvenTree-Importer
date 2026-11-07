@@ -307,8 +307,14 @@ function SessionFacts({ session }: { session: Session }) {
           : session.progress === 'queued'
             ? 'Queued; physical lane not held by this session'
             : 'No physical occupancy reported'}
-      {session.latest_status ? ` · ${session.latest_status.text}` : ''} · attempt{' '}
-      {session.attempt_id}
+      {session.latest_status && (
+        <>
+          {' · '}
+          {session.latest_status.text} ·{' '}
+          <time dateTime={session.latest_status.at}>{shortTime(session.latest_status.at)}</time>
+        </>
+      )}{' '}
+      · attempt {session.attempt_id}
     </p>
   )
 }

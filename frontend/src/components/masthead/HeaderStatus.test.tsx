@@ -472,6 +472,10 @@ test('a session shows its latest status line, and a waiting session holds no slo
   expect(panel).toHaveTextContent('Physical lane occupied')
   expect(panel).toHaveTextContent('Asked how many reels there are')
   expect(panel).toHaveTextContent('Waiting for your input · holds no slot')
+  // Each session's own status keeps its time, not only the newest one.
+  for (const at of ['2026-11-06T01:02:03.000Z', '2026-11-06T01:03:00.000Z']) {
+    expect(panel.querySelector(`time[datetime="${at}"]`)).not.toBeNull()
+  }
 })
 
 test('the connection panel also offers Open InvenTree, for phone width where the bar has no room', async () => {

@@ -27,7 +27,8 @@ export type TabItem = {
 type TabsProps = { label: string; items: TabItem[]; current: string }
 
 function accessibleName(item: TabItem) {
-  const parts = [item.label]
+  // The spinner is decorative, so its meaning is read here.
+  const parts = [item.label, ...(item.spinner ? ['running'] : [])]
   if (item.count !== undefined) {
     parts.push([formatCount(item.count), item.countLabel].filter(Boolean).join(' '))
   }
