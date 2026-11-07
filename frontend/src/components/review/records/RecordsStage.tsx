@@ -18,6 +18,7 @@ import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
 import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
+import { media } from '../../ui/media'
 import { Banner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
@@ -298,7 +299,7 @@ const Layout = styled.div`
   grid-template-columns: minmax(180px, 220px) minmax(220px, 320px) minmax(0, 1fr);
   gap: ${space[6]};
   align-items: start;
-  @media (max-width: 860px) {
+  ${media.stacked} {
     grid-template-columns: 1fr;
   }
 `
@@ -323,7 +324,7 @@ const Detail = styled.div`
 `
 const choice = `
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   justify-items: start;
   padding: ${space[4]};
   border: 0;

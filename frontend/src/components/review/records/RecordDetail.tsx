@@ -281,6 +281,6 @@ const Unsupported = styled.section`
   border-radius: ${radius.card};
   div {
     display: grid;
-    gap: 2px;
+    gap: ${space[1]};
   }
 `

@@ -148,11 +148,11 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
 
 const Label = styled.span`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
 `
 const Tree = styled.ul`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   margin: 0;
   padding: ${space[2]};
   list-style: none;
