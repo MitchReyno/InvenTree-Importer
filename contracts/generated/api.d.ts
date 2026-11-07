@@ -6004,11 +6004,13 @@ export interface components {
                 to_check: number;
                 changed_after_review: number;
                 to_decide: number;
+                records: number;
             };
             changes: {
                 ready: number;
                 failed: number;
                 uncertain: number;
+                runs: number;
             };
             items: {
                 key: string;

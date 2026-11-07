@@ -61,8 +61,15 @@ export const BatchAttention = object({
       inventory: stepWork,
     }),
   }),
-  review: object({ to_check: count, changed_after_review: count, to_decide: count }),
-  changes: object({ ready: count, failed: count, uncertain: count }),
+  /** `records` is every record Review › Records lists, for its sub-tab's total. */
+  review: object({
+    to_check: count,
+    changed_after_review: count,
+    to_decide: count,
+    records: count,
+  }),
+  /** `runs` is every import run Changes › Added lists. */
+  changes: object({ ready: count, failed: count, uncertain: count, runs: count }),
   items: Type.Array(AttentionItem, { maxItems: MAX_ATTENTION_ITEMS }),
   items_truncated: Type.Boolean(),
 })

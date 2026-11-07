@@ -55,8 +55,8 @@ const attention = {
     running: 0,
     steps: { examine: none, research: none, images: none, inventory: none },
   },
-  review: { to_check: 8, changed_after_review: 0, to_decide: 2 },
-  changes: { ready: 3, failed: 0, uncertain: 0 },
+  review: { to_check: 8, changed_after_review: 0, to_decide: 2, records: 0 },
+  changes: { ready: 3, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 } as BatchAttentionDto

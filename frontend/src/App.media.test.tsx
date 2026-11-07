@@ -77,6 +77,8 @@ test.each([true, false, undefined])(
         timeout: 3000,
       })
       expect(mediaReads).toHaveBeenCalledTimes(1)
+      // The header counts from Capture's media read without a request of its own.
+      expect(screen.getByRole('link', { name: 'Capture, 0 files' })).toBeInTheDocument()
     } else {
       expect(screen.queryByLabelText('Choose photos')).not.toBeInTheDocument()
       expect(mediaReads).not.toHaveBeenCalled()

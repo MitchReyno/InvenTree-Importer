@@ -481,11 +481,12 @@ const attention = async (): Promise<BatchAttentionDto> => ({
     running: 0,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
-  review: { to_check: 1, changed_after_review: 0, to_decide: 1 },
+  review: { to_check: 1, changed_after_review: 0, to_decide: 1, records: 0 },
   changes: {
     ready: preparations.length ? preparations[0].selected_lot_ids.length : 0,
     failed: 0,
     uncertain: runs.filter((run) => run.effect_certainty === 'unknown').length,
+    runs: runs.length,
   },
   items: [],
   items_truncated: false,

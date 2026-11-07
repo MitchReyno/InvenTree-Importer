@@ -17320,7 +17320,8 @@
             "required": [
               "to_check",
               "changed_after_review",
-              "to_decide"
+              "to_decide",
+              "records"
             ],
             "properties": {
               "to_check": {
@@ -17337,6 +17338,11 @@
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"
+              },
+              "records": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
               }
             }
           },
@@ -17346,7 +17352,8 @@
             "required": [
               "ready",
               "failed",
-              "uncertain"
+              "uncertain",
+              "runs"
             ],
             "properties": {
               "ready": {
@@ -17360,6 +17367,11 @@
                 "type": "integer"
               },
               "uncertain": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "runs": {
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"

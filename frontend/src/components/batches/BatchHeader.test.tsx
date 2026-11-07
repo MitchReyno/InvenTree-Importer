@@ -23,18 +23,22 @@ const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '3',
   processing: { questions: 3, failed: 0, running: 0, steps: noSteps },
-  review: { to_check: 8, changed_after_review: 0, to_decide: 3 },
-  changes: { ready: 6, failed: 0, uncertain: 0 },
+  review: { to_check: 8, changed_after_review: 0, to_decide: 3, records: 46 },
+  changes: { ready: 6, failed: 1, uncertain: 1, runs: 1 },
   items: [],
   items_truncated: false,
 }
 
-function header(route: Parameters<typeof BatchHeader>[0]['route']) {
+function header(
+  route: Parameters<typeof BatchHeader>[0]['route'],
+  evidence?: { files: number; unused: number },
+) {
   return render(
     <BatchHeader
       batch={batch}
       route={route}
       attention={attention}
+      evidence={evidence}
       activeLotCount={8}
       retiredLotCount={0}
       busy={false}
@@ -139,7 +143,7 @@ describe('BatchHeader', () => {
       `#${batchId}/processing/overview`,
     )
     expect(tabs.getByRole('link', { name: 'Review, 8 to check, 3 to decide' })).toBeInTheDocument()
-    expect(tabs.getByRole('link', { name: 'Changes, 6 ready' })).toHaveAttribute(
+    expect(tabs.getByRole('link', { name: 'Changes, 6 ready, 2 to check' })).toHaveAttribute(
       'href',
       `#${batchId}/changes/ready`,
     )
@@ -151,14 +155,15 @@ describe('BatchHeader', () => {
     header({ tab: 'review', view: 'lots' })
     const views = within(screen.getByRole('navigation', { name: 'Review views' }))
 
-    expect(views.getByRole('link', { name: 'Lots, 8 to check' })).toHaveAttribute(
+    expect(views.getByRole('link', { name: 'Lots, 8 lots, 8 to check' })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    expect(views.getByRole('link', { name: 'Records, 3 to decide' })).toHaveAttribute(
+    expect(views.getByRole('link', { name: 'Records, 46 records, 3 to decide' })).toHaveAttribute(
       'href',
       `#${batchId}/review/records`,
     )
+    // The Map's count needs the media read, which this render does not give.
     expect(views.getByRole('link', { name: 'Map' })).toHaveAttribute(
       'href',
       `#${batchId}/review/map`,
@@ -176,7 +181,30 @@ describe('BatchHeader', () => {
 
     header({ tab: 'changes', view: 'added' })
     const views = within(screen.getByRole('navigation', { name: 'Changes views' }))
-    expect(views.getByRole('link', { name: 'Added' })).toHaveAttribute('aria-current', 'page')
-    expect(views.getByRole('link', { name: 'Ready to add, 6 ready' })).toBeInTheDocument()
+    expect(views.getByRole('link', { name: 'Added, 1 run, 2 need attention' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(views.getByRole('link', { name: 'Ready to add, 6 lots' })).toBeInTheDocument()
+  })
+
+  it('counts Capture files and the Map unused photos from the media read', () => {
+    const { unmount } = header({ tab: 'review', view: 'map' }, { files: 9, unused: 1 })
+    const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
+    const views = within(screen.getByRole('navigation', { name: 'Review views' }))
+
+    expect(tabs.getByRole('link', { name: 'Capture, 9 files' })).toBeInTheDocument()
+    expect(views.getByRole('link', { name: 'Map, 1 unused photo' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    unmount()
+
+    header({ tab: 'review', view: 'map' }, { files: 9, unused: 0 })
+    expect(
+      within(screen.getByRole('navigation', { name: 'Review views' })).getByRole('link', {
+        name: 'Map',
+      }),
+    ).toBeInTheDocument()
   })
 })

@@ -18,8 +18,8 @@ const attention: BatchAttentionDto = {
   batch_id: b,
   revision: '3',
   processing: { questions: 1, failed: 0, running: 0, steps: noSteps },
-  review: { to_check: 1, changed_after_review: 1, to_decide: 0 },
-  changes: { ready: 0, failed: 1, uncertain: 0 },
+  review: { to_check: 1, changed_after_review: 1, to_decide: 0, records: 0 },
+  changes: { ready: 0, failed: 1, uncertain: 0, runs: 0 },
   items: [
     {
       key: 'question:q',

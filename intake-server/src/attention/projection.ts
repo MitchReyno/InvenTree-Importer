@@ -173,6 +173,7 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,
       changed_after_review: changed.length,
       to_decide: decisions.length,
+      records: sources.records.records.length,
     },
     changes: {
       ready: sources.manual.lots.filter(
@@ -180,6 +181,7 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
       ).length,
       failed,
       uncertain: results.length - failed,
+      runs: sources.manual.runs.length,
     },
     items: items.slice(0, MAX_ATTENTION_ITEMS),
     items_truncated: items.length > MAX_ATTENTION_ITEMS,

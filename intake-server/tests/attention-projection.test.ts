@@ -166,8 +166,13 @@ test('counts each tab from the same reads the screens use', () => {
       inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
     },
   })
-  assert.deepEqual(attention.review, { to_check: 2, changed_after_review: 1, to_decide: 2 })
-  assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1 })
+  assert.deepEqual(attention.review, {
+    to_check: 2,
+    changed_after_review: 1,
+    to_decide: 2,
+    records: 3,
+  })
+  assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1, runs: 3 })
   assert.equal(attention.revision, '7')
 })
 

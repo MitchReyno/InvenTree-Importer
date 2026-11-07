@@ -13,12 +13,16 @@ import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
 import { Pill } from '../ui/Pill'
 import { NeedsYouPanel } from './NeedsYouPanel'
 
+export type EvidenceCounts = { files: number; unused: number }
+
 type BatchHeaderProps = {
   batch: CaptureSnapshotDto
   route: BatchRoute
   attention: BatchAttentionDto | undefined
   /** The attention read failed, so the header cannot say what needs the operator. */
   attentionUnavailable?: boolean
+  /** Capture's file count and the Map's unused photos, from the media read when it is loaded. */
+  evidence?: EvidenceCounts
   /** Lots retired by a split or merge stay in the snapshot; counts show active lots. */
   activeLotCount: number
   retiredLotCount: number
@@ -60,13 +64,26 @@ function processingBadge({ questions, failed }: StepWork): Pick<TabItem, 'badge'
   }
 }
 
-function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
+type Counts = {
+  attention: BatchAttentionDto | undefined
+  evidence: EvidenceCounts | undefined
+  activeLotCount: number
+}
+
+function primaryTabs(batchId: string, { attention, evidence }: Counts): TabItem[] {
   const review = attention?.review
   const changes = attention?.changes
   const changeProblems = (changes?.failed ?? 0) + (changes?.uncertain ?? 0)
 
   return [
-    { id: 'capture', label: 'Capture', href: batchHref(batchId, { tab: 'capture' }) },
+    {
+      id: 'capture',
+      label: 'Capture',
+      href: batchHref(batchId, { tab: 'capture' }),
+      ...(evidence
+        ? { count: evidence.files, countLabel: plural(evidence.files, 'file', 'files') }
+        : {}),
+    },
     {
       id: 'processing',
       label: 'Processing',
@@ -133,7 +150,8 @@ function processingRow(batchId: string, attention: BatchAttentionDto | undefined
   })
 }
 
-function reviewRow(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
+/** Each view's own count, with what needs the operator there as its badge. */
+function reviewRow(batchId: string, { attention, evidence, activeLotCount }: Counts): TabItem[] {
   const review = attention?.review
 
   return [
@@ -141,13 +159,39 @@ function reviewRow(batchId: string, attention: BatchAttentionDto | undefined): T
       id: 'lots',
       label: 'Lots',
       href: batchHref(batchId, { tab: 'review', view: 'lots' }),
-      ...(review ? { count: review.to_check, countLabel: 'to check' } : {}),
+      count: activeLotCount,
+      countLabel: plural(activeLotCount, 'lot', 'lots'),
+      ...(review && review.to_check > 0
+        ? {
+            badge: {
+              label: `${review.to_check} to check`,
+              short: String(review.to_check),
+              tone: 'warn',
+            },
+          }
+        : {}),
     },
-    { id: 'map', label: 'Map', href: batchHref(batchId, { tab: 'review', view: 'map' }) },
+    {
+      id: 'map',
+      label: 'Map',
+      href: batchHref(batchId, { tab: 'review', view: 'map' }),
+      ...(evidence && evidence.unused > 0
+        ? {
+            badge: {
+              label: `${evidence.unused} unused ${plural(evidence.unused, 'photo', 'photos')}`,
+              short: String(evidence.unused),
+              tone: 'warn',
+            },
+          }
+        : {}),
+    },
     {
       id: 'records',
       label: 'Records',
       href: batchHref(batchId, { tab: 'review', view: 'records' }),
+      ...(review
+        ? { count: review.records, countLabel: plural(review.records, 'record', 'records') }
+        : {}),
       ...(review && review.to_decide > 0
         ? {
             badge: {
@@ -161,7 +205,7 @@ function reviewRow(batchId: string, attention: BatchAttentionDto | undefined): T
   ]
 }
 
-function changesRow(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
+function changesRow(batchId: string, { attention }: Counts): TabItem[] {
   const changes = attention?.changes
   const problems = (changes?.failed ?? 0) + (changes?.uncertain ?? 0)
 
@@ -170,31 +214,44 @@ function changesRow(batchId: string, attention: BatchAttentionDto | undefined): 
       id: 'ready',
       label: 'Ready to add',
       href: batchHref(batchId, { tab: 'changes', view: 'ready' }),
-      ...(changes ? { count: changes.ready, countLabel: 'ready' } : {}),
+      ...(changes
+        ? {
+            count: changes.ready,
+            countLabel: plural(changes.ready, 'lot', 'lots'),
+            countTone: 'ok',
+          }
+        : {}),
     },
     {
       id: 'added',
       label: 'Added',
       href: batchHref(batchId, { tab: 'changes', view: 'added' }),
+      ...(changes ? { count: changes.runs, countLabel: plural(changes.runs, 'run', 'runs') } : {}),
       ...(problems > 0
-        ? { badge: { label: `${problems} to check`, short: String(problems), tone: 'bad' } }
+        ? {
+            badge: {
+              label: `${problems} ${plural(problems, 'needs', 'need')} attention`,
+              short: String(problems),
+              tone: 'bad',
+            },
+          }
         : {}),
     },
   ]
 }
 
-function secondRow(batchId: string, route: BatchRoute, attention: BatchAttentionDto | undefined) {
+function secondRow(batchId: string, route: BatchRoute, counts: Counts) {
   switch (route.tab) {
     case 'processing':
       return {
         label: 'Processing steps',
-        items: processingRow(batchId, attention),
+        items: processingRow(batchId, counts.attention),
         current: route.step,
       }
     case 'review':
-      return { label: 'Review views', items: reviewRow(batchId, attention), current: route.view }
+      return { label: 'Review views', items: reviewRow(batchId, counts), current: route.view }
     case 'changes':
-      return { label: 'Changes views', items: changesRow(batchId, attention), current: route.view }
+      return { label: 'Changes views', items: changesRow(batchId, counts), current: route.view }
     default:
       return null
   }
@@ -206,13 +263,15 @@ export function BatchHeader({
   route,
   attention,
   attentionUnavailable = false,
+  evidence,
   activeLotCount,
   retiredLotCount,
   busy,
   onArchive,
 }: BatchHeaderProps) {
   const current: BatchTab = route.tab
-  const row = secondRow(batch.id, route, attention)
+  const counts: Counts = { attention, evidence, activeLotCount }
+  const row = secondRow(batch.id, route, counts)
   const width = route.tab === 'review' ? 'review' : 'content'
 
   return (
@@ -244,7 +303,7 @@ export function BatchHeader({
           </Meta>
         </Lead>
         <TabSlot>
-          <Tabs label="Batch" items={primaryTabs(batch.id, attention)} current={current} />
+          <Tabs label="Batch" items={primaryTabs(batch.id, counts)} current={current} />
         </TabSlot>
       </Inner>
       {row && (

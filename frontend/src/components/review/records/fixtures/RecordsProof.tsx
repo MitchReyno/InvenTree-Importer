@@ -303,8 +303,13 @@ const attention: BatchAttentionDto = {
     running: 0,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
-  review: { to_check: 5, changed_after_review: 0, to_decide: 1 },
-  changes: { ready: 0, failed: 0, uncertain: 0 },
+  review: {
+    to_check: 5,
+    changed_after_review: 0,
+    to_decide: 1,
+    records: projectRecords({ capture: current, processing, lotGroups: null }).records.length,
+  },
+  changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 }

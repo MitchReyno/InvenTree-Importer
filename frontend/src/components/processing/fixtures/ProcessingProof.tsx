@@ -136,8 +136,8 @@ const attention = {
       inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
     },
   },
-  review: { to_check: 2, changed_after_review: 0, to_decide: 1 },
-  changes: { ready: 1, failed: 0, uncertain: 0 },
+  review: { to_check: 2, changed_after_review: 0, to_decide: 1, records: 0 },
+  changes: { ready: 1, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 } as BatchAttentionDto

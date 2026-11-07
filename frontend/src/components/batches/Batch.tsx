@@ -2,17 +2,19 @@ import { ErrorNotice } from '../ui/primitives'
 import { Paragraph, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '../../operator/review-model'
+import { unusedEvidenceCount } from '../../operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { validate } from '@invimport/contracts'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
+  MediaSnapshotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
@@ -385,6 +387,24 @@ export function Batch({
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
+  // Never fetches: the header reads the media snapshot Capture, the Map, Lots and Images hold,
+  // so its counts match theirs and add no request.
+  const mediaQuery = useQuery<MediaSnapshotDto>({
+    queryKey: serverQueryKey(scope, 'media', id),
+    queryFn: skipToken,
+  })
+  const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
+  const evidence = useMemo(
+    () =>
+      batch && mediaQuery.data
+        ? {
+            files: mediaQuery.data.evidence.length,
+            unused: unusedEvidenceCount(batch, mediaQuery.data.evidence, retired, predecessors),
+          }
+        : undefined,
+    // `retired` and `predecessors` follow the operator review.
+    [batch, mediaQuery.data, currentOperatorReview, acceptedOperatorReview, operatorReview],
+  )
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
   const visibleError =
@@ -462,7 +482,7 @@ export function Batch({
         edit={edit}
         operator={operator}
         retiredLotIds={retired}
-        predecessors={predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)}
+        predecessors={predecessors}
         restructureUnavailable={operatorUnavailable}
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
         reload={reloadForStage}
@@ -533,6 +553,7 @@ export function Batch({
           route={batchRoute}
           attention={attentionQuery.data}
           attentionUnavailable={attentionQuery.isError}
+          evidence={evidence}
           activeLotCount={batch.lots.length - retired.size}
           retiredLotCount={retired.size}
           busy={readOrCommandBusy || readUnavailable || draftDirty}

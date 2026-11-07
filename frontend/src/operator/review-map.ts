@@ -119,3 +119,14 @@ export function reviewMap(
 
   return { files, lots: mapLots }
 }
+
+/** The Map's unused files, counted the way the Map marks them, for the batch header's badge. */
+export function unusedEvidenceCount(
+  batch: CaptureSnapshotDto,
+  evidence: MediaSnapshotDto['evidence'],
+  retiredLotIds: ReadonlySet<string>,
+  predecessors: ReadonlyMap<string, readonly string[]>,
+) {
+  return reviewMap(batch, evidence, retiredLotIds, predecessors).files.filter((file) => file.unused)
+    .length
+}
