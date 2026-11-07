@@ -360,7 +360,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 16.5 Close the V3 and V6 gaps (B1–B7, A1–A4) on Batches, Agents and Agent settings (`components/agents/AgentSettings*`).
 - [x] 16.6 Apply the hover-transition mixin to G7's Batches, HeaderStatus and MastheadMenu rows, move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
 - [x] 16.7 Extract `ActivityIndicator` with `ActivityPopover` and `ConnectionStatus` from `HeaderStatus`, rename `NeedYouPanel` to `NeedsYouPanel`, and extract `BatchRow` and `ContinueCard` (design D12); close M12 (each Review and Changes sub-tab's own count and badge, with the Map's unused-evidence count and the Capture tab's file count added to the attention read or taken from the media snapshot), M13–M19 (M16 without step counts, task 23.9; M18 without the server version, task 23.8), B9, A5 and A7. A2's "Pause all agents" stays disabled with its reason until task 23.6.
-- [ ] 16.8 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 16.8 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 17. Capture
 
