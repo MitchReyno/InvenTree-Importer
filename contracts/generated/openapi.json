@@ -855,6 +855,56 @@
         }
       }
     },
+    "/api/v1/agent-sessions/{attemptId}/failures/{failureId}": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "SessionFailure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailure"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "attemptId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "failureId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/agent-sessions": {
       "get": {
         "x-intake-client": {
@@ -63478,6 +63528,69 @@
                     }
                   ]
                 },
+                "failure": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "category",
+                    "summary",
+                    "details_available"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "category": {
+                      "anyOf": [
+                        {
+                          "const": "authentication",
+                          "type": "string"
+                        },
+                        {
+                          "const": "configuration",
+                          "type": "string"
+                        },
+                        {
+                          "const": "tool_policy",
+                          "type": "string"
+                        },
+                        {
+                          "const": "validation",
+                          "type": "string"
+                        },
+                        {
+                          "const": "evidence",
+                          "type": "string"
+                        },
+                        {
+                          "const": "provider_network",
+                          "type": "string"
+                        },
+                        {
+                          "const": "timeout",
+                          "type": "string"
+                        },
+                        {
+                          "const": "interrupted",
+                          "type": "string"
+                        },
+                        {
+                          "const": "internal",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "summary": {
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "details_available": {
+                      "type": "boolean"
+                    }
+                  }
+                },
                 "latest_status": {
                   "anyOf": [
                     {
@@ -63581,6 +63694,69 @@
           "truncated"
         ],
         "properties": {
+          "failure": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "category",
+              "summary",
+              "details_available"
+            ],
+            "properties": {
+              "id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "const": "authentication",
+                    "type": "string"
+                  },
+                  {
+                    "const": "configuration",
+                    "type": "string"
+                  },
+                  {
+                    "const": "tool_policy",
+                    "type": "string"
+                  },
+                  {
+                    "const": "validation",
+                    "type": "string"
+                  },
+                  {
+                    "const": "evidence",
+                    "type": "string"
+                  },
+                  {
+                    "const": "provider_network",
+                    "type": "string"
+                  },
+                  {
+                    "const": "timeout",
+                    "type": "string"
+                  },
+                  {
+                    "const": "interrupted",
+                    "type": "string"
+                  },
+                  {
+                    "const": "internal",
+                    "type": "string"
+                  }
+                ]
+              },
+              "summary": {
+                "maxLength": 256,
+                "type": "string"
+              },
+              "details_available": {
+                "type": "boolean"
+              }
+            }
+          },
           "job_id": {
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
             "type": "string"
@@ -68916,6 +69092,264 @@
             "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
             "format": "int64",
             "type": "string"
+          }
+        }
+      },
+      "SessionFailure": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "summary",
+          "details_available",
+          "attempt_id",
+          "lineage_id",
+          "turn",
+          "timestamp",
+          "correlation_id",
+          "code",
+          "stage",
+          "provider",
+          "model",
+          "cli_version",
+          "provider_session_id",
+          "causes",
+          "recovery",
+          "truncated"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "const": "authentication",
+                "type": "string"
+              },
+              {
+                "const": "configuration",
+                "type": "string"
+              },
+              {
+                "const": "tool_policy",
+                "type": "string"
+              },
+              {
+                "const": "validation",
+                "type": "string"
+              },
+              {
+                "const": "evidence",
+                "type": "string"
+              },
+              {
+                "const": "provider_network",
+                "type": "string"
+              },
+              {
+                "const": "timeout",
+                "type": "string"
+              },
+              {
+                "const": "interrupted",
+                "type": "string"
+              },
+              {
+                "const": "internal",
+                "type": "string"
+              }
+            ]
+          },
+          "summary": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "details_available": {
+            "type": "boolean"
+          },
+          "attempt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "lineage_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "turn": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "timestamp": {
+            "maxLength": 40,
+            "type": "string"
+          },
+          "correlation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "const": "startup",
+                "type": "string"
+              },
+              {
+                "const": "turn",
+                "type": "string"
+              },
+              {
+                "const": "reap",
+                "type": "string"
+              }
+            ]
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "const": "codex",
+                "type": "string"
+              },
+              {
+                "const": "claude",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cli_version": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider_session_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "causes": {
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "code",
+                "summary"
+              ],
+              "properties": {
+                "code": {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                "summary": {
+                  "maxLength": 256,
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recovery": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SessionFailureSummary": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "summary",
+          "details_available"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "const": "authentication",
+                "type": "string"
+              },
+              {
+                "const": "configuration",
+                "type": "string"
+              },
+              {
+                "const": "tool_policy",
+                "type": "string"
+              },
+              {
+                "const": "validation",
+                "type": "string"
+              },
+              {
+                "const": "evidence",
+                "type": "string"
+              },
+              {
+                "const": "provider_network",
+                "type": "string"
+              },
+              {
+                "const": "timeout",
+                "type": "string"
+              },
+              {
+                "const": "interrupted",
+                "type": "string"
+              },
+              {
+                "const": "internal",
+                "type": "string"
+              }
+            ]
+          },
+          "summary": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "details_available": {
+            "type": "boolean"
           }
         }
       },

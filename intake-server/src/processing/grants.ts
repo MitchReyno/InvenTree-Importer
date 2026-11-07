@@ -11,7 +11,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
   }
   await grantResearch(pool, role, purpose)
   await pool.query(`GRANT SELECT ON schema_migration,agent_settings,agent_session,
-    agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_slot,processing_proposal_stale TO ${role};`)
+    agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_slot,agent_session_failure,processing_proposal_stale TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
@@ -22,7 +22,7 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     await pool.query(
       `GRANT UPDATE(started_at,finished_at,native_session_id,actual_model,progress,
         session_state,session_lineage_id,capability_sha256,turn_count,queued_since) ON agent_session TO ${role};
-      GRANT INSERT ON agent_session_outbox,processing_proposal_stale TO ${role};
+      GRANT INSERT ON agent_session_failure,agent_session_outbox,processing_proposal_stale TO ${role};
       -- Without actor_id the runner can write system notices only, never operator chat or answers.
       GRANT INSERT(id,session_lineage_id,seq,kind,payload,idempotency_key) ON agent_session_inbox TO ${role};
       GRANT INSERT, UPDATE(acked_seq,acked_at) ON agent_session_cursor TO ${role};

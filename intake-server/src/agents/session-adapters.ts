@@ -1,3 +1,4 @@
+import { NativeSessionError } from './failure-model.ts'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -21,6 +22,7 @@ export const SESSION_CAPABILITY_VARIABLE = 'INTAKE_TOOL_CAPABILITY'
 const DELIVERY_POLL_MS = 500
 
 export interface SessionTurn {
+  onCliVersion?: (version: string) => void
   instructions: string
   text: string
   /** The provider conversation to resume; omitted for a fresh session. */
@@ -35,7 +37,7 @@ export interface SessionTurn {
   onStarted: (started: { providerSessionId: string; actualModel: string }) => Promise<void>
 }
 
-export class SessionResumeUnavailable extends Error {
+export class SessionResumeUnavailable extends NativeSessionError {
   constructor() {
     super('resume_unavailable')
   }
@@ -92,7 +94,7 @@ export async function runClaudeSession(
   if (turn.resume && !(await hasAdmission(cwd, selection, turn.resume))) {
     throw new SessionResumeUnavailable()
   }
-  await requireClaudeSessionVersion(host.claudeExecutable, cwd, env, signal)
+  await requireClaudeSessionVersion(host.claudeExecutable, cwd, env, signal, turn.onCliVersion)
   const mcpConfig = join(cwd, 'mcp.json')
   // The file names the variable, never the capability; the CLI expands it from the environment.
   await writeFile(
@@ -183,10 +185,13 @@ export async function runClaudeSession(
           servers[0].name === SESSION_MCP_SERVER &&
           servers[0].status === 'connected'
         if (initialized || message.session_id !== sessionId || typeof message.model !== 'string') {
-          throw new Error('agent_protocol_invalid')
+          throw new NativeSessionError('agent_protocol_invalid')
         }
         if (!onlyAppTools) {
-          throw new Error('agent_tool_refused')
+          throw new NativeSessionError('agent_tool_refused')
+        }
+        if (typeof message.claude_code_version === 'string') {
+          turn.onCliVersion?.(message.claude_code_version)
         }
         initialized = true
         await rememberAdmission(cwd, selection, sessionId)
@@ -204,7 +209,7 @@ export async function runClaudeSession(
       if (message.type === 'assistant') {
         const content = record(message.message).content
         if (!Array.isArray(content)) {
-          throw new Error('agent_protocol_invalid')
+          throw new NativeSessionError('agent_protocol_invalid')
         }
         for (const block of content.map(record)) {
           const appTool =
@@ -212,16 +217,16 @@ export async function runClaudeSession(
             typeof block.name === 'string' &&
             expectedTools.includes(block.name)
           if (!appTool && !['text', 'thinking', 'redacted_thinking'].includes(String(block.type))) {
-            throw new Error('agent_tool_refused')
+            throw new NativeSessionError('agent_tool_refused')
           }
         }
       }
       if (message.type === 'result') {
         if (!initialized || message.session_id !== sessionId) {
-          throw new Error('agent_protocol_invalid')
+          throw new NativeSessionError('agent_protocol_invalid')
         }
         if (message.is_error !== false || message.subtype !== 'success') {
-          throw new Error('agent_turn_failed')
+          throw new NativeSessionError('agent_turn_failed')
         }
         finished = true
         await stopDelivery?.()
@@ -232,11 +237,11 @@ export async function runClaudeSession(
       throw new SessionResumeUnavailable()
     }
     if (!finished) {
-      throw new Error('agent_result_missing')
+      throw new NativeSessionError('agent_result_missing')
     }
   } catch (error) {
     if (deliveryFailure) {
-      throw new Error('agent_delivery_failed')
+      throw new NativeSessionError('agent_delivery_failed')
     }
     // A resume the CLI cannot honour exits before init, for example with a missing transcript.
     const exitedBeforeInit = error instanceof Error && error.message === 'agent_process_failed'
@@ -327,7 +332,7 @@ export async function runCodexSession(
     }
     const message = record(value)
     if ('method' in message && 'id' in message) {
-      throw new Error('agent_tool_refused')
+      throw new NativeSessionError('agent_tool_refused')
     }
     if (message.method === 'item/started' || message.method === 'item/completed') {
       requireAppItem(record(record(message.params).item), turn.tools)
@@ -335,7 +340,7 @@ export async function runCodexSession(
     if ('id' in message) {
       const resolve = pending.get(Number(message.id))
       if (!resolve) {
-        throw new Error('agent_protocol_invalid')
+        throw new NativeSessionError('agent_protocol_invalid')
       }
       pending.delete(Number(message.id))
       resolve(message)
@@ -352,12 +357,12 @@ export async function runCodexSession(
     while (!result) {
       signal.throwIfAborted()
       if (!(await pump())) {
-        throw new Error('agent_protocol_invalid')
+        throw new NativeSessionError('agent_protocol_invalid')
       }
       await Promise.resolve()
     }
     if ('error' in result) {
-      throw new Error(`agent_request_refused:${method}`)
+      throw new NativeSessionError('agent_request_refused')
     }
     return record(result.result)
   }
@@ -368,12 +373,19 @@ export async function runCodexSession(
       clientInfo: { name: 'bench_intake', version: '1' },
       capabilities: { experimentalApi: true },
     })
+    const version =
+      typeof initialized.userAgent === 'string'
+        ? /^bench_intake\/(\d+\.\d+\.\d+)(?: |$)/.exec(initialized.userAgent)?.[1]
+        : undefined
+    if (version) {
+      turn.onCliVersion?.(version)
+    }
     requireCodexSessionVersion(initialized.userAgent)
     await child.send({ method: 'initialized' })
     if (selection.authentication === 'subscription') {
       const account = await request('account/read', { refreshToken: false })
       if (!account.account || record(account.account).type !== 'chatgpt') {
-        throw new Error('agent_login_required')
+        throw new NativeSessionError('agent_login_required')
       }
     }
     let thread: Record<string, unknown>
@@ -396,7 +408,7 @@ export async function runCodexSession(
     }
     const threadId = record(thread.thread).id
     if (typeof threadId !== 'string' || typeof thread.model !== 'string') {
-      throw new Error('agent_protocol_invalid')
+      throw new NativeSessionError('agent_protocol_invalid')
     }
     // The effective policy, as for earlier profiles: no approvals, read-only, the chosen provider.
     if (
@@ -404,7 +416,7 @@ export async function runCodexSession(
       record(thread.sandbox).type !== 'readOnly' ||
       thread.modelProvider !== (selection.authentication === 'api_key' ? 'bench_openai' : 'openai')
     ) {
-      throw new Error('agent_policy_refused')
+      throw new NativeSessionError('agent_policy_refused')
     }
     const effective = record((await request('config/read', { includeLayers: false, cwd })).config)
     requireCodexSessionConfig(effective)
@@ -419,7 +431,7 @@ export async function runCodexSession(
       listed.length !== 1 ||
       JSON.stringify(tools) !== JSON.stringify([...turn.tools].sort())
     ) {
-      throw new Error('agent_tool_refused')
+      throw new NativeSessionError('agent_tool_refused')
     }
     if (turn.resume && threadId !== turn.resume) {
       throw new SessionResumeUnavailable()
@@ -432,7 +444,7 @@ export async function runCodexSession(
     })
     const turnId = record(started.turn).id
     if (typeof turnId !== 'string') {
-      throw new Error('agent_protocol_invalid')
+      throw new NativeSessionError('agent_protocol_invalid')
     }
     // A steer that misses the active turn leaves the item pending for read_inbox or resume.
     stopDelivery = deliveryLoop(
@@ -455,21 +467,21 @@ export async function runCodexSession(
       if (completed) {
         const state = record(record(completed.params).turn).status
         if (state !== 'completed') {
-          throw new Error('agent_turn_failed')
+          throw new NativeSessionError('agent_turn_failed')
         }
         break
       }
       const failure = notifications.find((item) => item.method === 'error')
       if (failure) {
-        throw new Error('agent_turn_failed')
+        throw new NativeSessionError('agent_turn_failed')
       }
       if (!(await pump())) {
-        throw new Error('agent_result_missing')
+        throw new NativeSessionError('agent_result_missing')
       }
     }
   } catch (error) {
     if (deliveryFailure) {
-      throw new Error('agent_delivery_failed')
+      throw new NativeSessionError('agent_delivery_failed')
     }
     throw error
   } finally {
@@ -497,6 +509,6 @@ function requireAppItem(item: Record<string, unknown>, tools: readonly string[])
     typeof item.tool === 'string' &&
     tools.includes(item.tool)
   if (!appCall) {
-    throw new Error('agent_tool_refused')
+    throw new NativeSessionError('agent_tool_refused')
   }
 }

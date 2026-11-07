@@ -859,6 +859,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent-sessions/{attemptId}/failures/{failureId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: string;
+                failureId: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    attemptId: string;
+                    failureId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SessionFailure */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionFailure"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent-sessions": {
         parameters: {
             query?: never;
@@ -14754,6 +14804,12 @@ export interface components {
                 progress: "queued" | "starting" | "responding" | "settled";
                 occupies_lane: boolean;
                 session_state: ("queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable") | null;
+                failure?: {
+                    id: string;
+                    category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
+                    summary: string;
+                    details_available: boolean;
+                };
                 latest_status: {
                     text: string;
                     at: string;
@@ -14774,6 +14830,12 @@ export interface components {
             at: string;
         };
         SessionTimeline: {
+            failure?: {
+                id: string;
+                category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
+                summary: string;
+                details_available: boolean;
+            };
             job_id: string;
             attempt_id: string;
             session_state: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
@@ -15783,6 +15845,36 @@ export interface components {
             /** Format: int64 */
             seq: string;
         };
+        SessionFailure: {
+            id: string;
+            category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
+            summary: string;
+            details_available: boolean;
+            attempt_id: string;
+            lineage_id: string;
+            /** Format: int64 */
+            turn: string;
+            timestamp: string;
+            correlation_id: string;
+            code: string;
+            stage: "startup" | "turn" | "reap";
+            provider: "codex" | "claude" | null;
+            model: string | null;
+            cli_version: string | null;
+            provider_session_id: string | null;
+            causes: {
+                code: string;
+                summary: string;
+            }[];
+            recovery: string;
+            truncated: boolean;
+        };
+        SessionFailureSummary: {
+            id: string;
+            category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
+            summary: string;
+            details_available: boolean;
+        };
         EvidenceRegion: {
             /** @constant */
             kind: "pixels";
@@ -16135,6 +16227,8 @@ export type SessionOutboxItem = components['schemas']['SessionOutboxItem']
 export type SessionInboxItem = components['schemas']['SessionInboxItem']
 export type SessionInboxSubmission = components['schemas']['SessionInboxSubmission']
 export type SessionInboxReceipt = components['schemas']['SessionInboxReceipt']
+export type SessionFailure = components['schemas']['SessionFailure']
+export type SessionFailureSummary = components['schemas']['SessionFailureSummary']
 export type EvidenceRegion = components['schemas']['EvidenceRegion']
 export type EvidenceReadings = components['schemas']['EvidenceReadings']
 export type CaptureEvidenceObservation = components['schemas']['CaptureEvidenceObservation']

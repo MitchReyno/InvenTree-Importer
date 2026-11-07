@@ -527,7 +527,7 @@ export function ProcessingWorkspace({
               <SessionPanel
                 batchId={batch.id}
                 job={sessionJob}
-                client={{ session: client.session, chat: client.chat }}
+                client={{ session: client.session, chat: client.chat, failure: client.failure }}
                 startFresh={() => restart(sessionJob)}
                 freshDisabled={runnerDisabled || !client.replaceSession}
               />

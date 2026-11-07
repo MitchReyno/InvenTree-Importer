@@ -1,3 +1,4 @@
+import { SessionFailureSummary } from './session-failures.ts'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id, Revision, CursorSequence } from './scalars.ts'
 import {
@@ -54,6 +55,7 @@ export const AgentSessionList = object({
       occupies_lane: Type.Boolean(),
       /** Session profiles only. */
       session_state: Type.Union([SessionState, Type.Null()]),
+      failure: Type.Optional(SessionFailureSummary),
       latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
     }),
     { maxItems: 50 },

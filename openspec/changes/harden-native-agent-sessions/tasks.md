@@ -96,10 +96,10 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - TDD or equivalent verification: Baseline current failure rendering; RED for missing category/details and lost diagnostics after reload. Add negative redaction/scope fixtures before implementing; GREEN passes persistence and UI behavior together.
 - Verification and risks: Run migration/PG recovery and scoped-read tests, frontend component tests and browser walkthrough; verify secrets never reach DB or UI and disclosure never retries work. Preserve drafts and selection; update server/frontend architecture.
 
-- [ ] 5.1 Confirm the scoped baseline and prerequisites for retain categorized failures and expose debug details.
-- [ ] 5.2 Baseline current failure rendering; RED for missing category/details and lost diagnostics after reload. Add negative redaction/scope fixtures before implementing; GREEN passes persistence and UI behavior together.
-- [ ] 5.3 Add bounded sanitized diagnostic persistence and scoped details reads. Classify stable codes; implement a reusable accessible Show details disclosure with safe technical context, recovery guidance and legacy/unavailable states.
-- [ ] 5.4 Run migration/PG recovery and scoped-read tests, frontend component tests and browser walkthrough; verify secrets never reach DB or UI and disclosure never retries work. Preserve drafts and selection; update server/frontend architecture.
+- [x] 5.1 Confirm the scoped baseline and prerequisites for retain categorized failures and expose debug details.
+- [x] 5.2 Baseline current failure rendering; RED for missing category/details and lost diagnostics after reload. Add negative redaction/scope fixtures before implementing; GREEN passes persistence and UI behavior together.
+- [x] 5.3 Add bounded sanitized diagnostic persistence and scoped details reads. Classify stable codes; implement a reusable accessible Show details disclosure with safe technical context, recovery guidance and legacy/unavailable states.
+- [x] 5.4 Run migration/PG recovery and scoped-read tests, frontend component tests and browser walkthrough; verify secrets never reach DB or UI and disclosure never retries work. Preserve drafts and selection; update server/frontend architecture.
 
 ## 6. Repair and execute qualification matrix
 

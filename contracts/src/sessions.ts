@@ -1,3 +1,4 @@
+import { SessionFailureSummary } from './session-failures.ts'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Id, Revision } from './scalars.ts'
 import {
@@ -183,6 +184,7 @@ export const SessionLatestStatus = object({
 })
 /** One Processing job's session history: every outbox item across its attempts, and its inbox. */
 export const SessionTimeline = object({
+  failure: Type.Optional(SessionFailureSummary),
   job_id: Id,
   attempt_id: Id,
   session_state: SessionState,

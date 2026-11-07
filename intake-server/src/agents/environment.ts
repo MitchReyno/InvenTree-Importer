@@ -1,3 +1,4 @@
+import { NativeSessionError } from './failure-model.ts'
 import { isAbsolute, join, resolve } from 'node:path'
 import { lstat, mkdir } from 'node:fs/promises'
 import type { AgentSelectionDto } from '@invimport/contracts'
@@ -59,7 +60,7 @@ export function agentEnvironment(
     const keyName = selection.provider === 'codex' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'
     const key = host.env[keyName]
     if (!key?.trim()) {
-      throw new Error('agent_login_required')
+      throw new NativeSessionError('agent_login_required')
     }
     env[keyName] = key
   }

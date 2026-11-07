@@ -74,3 +74,10 @@ The session profiles run long-lived, resumable sessions instead of one structure
 Tool contract failures retain validation_failed and include bounded copied Ajv issues with schema-owned JSON Pointer paths, stable rules and fixed reasons; submitted values and unknown field names are excluded. Existing contracts validate callers retain their error behavior. Validation refusals publish no result and permit a corrected call under the same authority checks.
 
 Successful fetch_evidence byte delivery includes the complete media-version source reference accepted by proposal validation. The digest identifies the retained version, including when delivered bytes are a page preview or region crop. Metadata-only responses, exhausted budgets and failed/revoked reads carry no source or delivery grant. A worker restart still requires refetching; knowing a digest does not grant access.
+
+### Retained failure diagnostics
+
+Session failures use typed application codes to construct a bounded diagnostic before persistence. The immutable `agent_session_failure` table associates each record with an exact attempt and turn; the API role can read, and only the runner can insert. Settlement uses a savepoint so a rejected diagnostic write cannot suppress the original failure or prevent capacity release after confirmed reap. Unconfirmed reap retains its slot. Worker recovery records interruption without inventing provider metadata.
+
+History and Processing timeline reads expose only the current turn's category, summary and detail availability. The details endpoint checks the retained command's actor, target and target context. Legacy records have unavailable details. Causes are bounded to four and the stored object to 16 KiB; raw exception messages, stacks, stderr, prompts, capability values, SQL and private paths are never serialized. A persistence failure emits only a correlation ID and a fixed operational event name.
+

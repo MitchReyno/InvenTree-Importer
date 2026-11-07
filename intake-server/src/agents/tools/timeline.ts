@@ -11,6 +11,7 @@ import { commands } from '../../db/schema.ts'
 import type { ProcessingConfig } from '../../processing/attempts.ts'
 import { fail } from '../../processing/model.ts'
 import { processingAttempts, processingJobs } from '../../processing/schema.ts'
+import { latestSessionFailures } from '../failures.ts'
 import { agentSessionInbox, agentSessionOutbox, agentSessions } from '../schema.ts'
 
 const TIMELINE_LIMIT = 500
@@ -75,7 +76,10 @@ export async function readSessionTimeline(
   inbox.splice(TIMELINE_LIMIT)
   outbox.reverse()
   inbox.reverse()
+  const failures = await latestSessionFailures(pool, [latest!.attemptId])
+  const failure = failures.get(latest!.attemptId)
   const timeline = {
+    ...(failure ? { failure } : {}),
     job_id: jobId,
     attempt_id: latest!.attemptId,
     session_state: latest!.state!,

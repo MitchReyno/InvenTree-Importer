@@ -1,3 +1,8 @@
+import {
+  SessionFailureDetails,
+  FAILED_SESSION_STATES,
+  type FailureLoader,
+} from './SessionFailureDetails'
 import { useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
@@ -20,6 +25,7 @@ export type BatchNames = { title: string; subjects: ReadonlyMap<string, string> 
 type Props = {
   client: {
     sessions: (before?: string) => Promise<AgentSessionListDto>
+    failure?: FailureLoader
     settings: () => Promise<AgentSettingsDto>
   }
   /** Names a batch and its subjects; sessions carry only identifiers. */
@@ -192,6 +198,17 @@ export function AgentSessions({ client, batches }: Props) {
                               </Muted>
                             </div>
                             <Pill tone={state.tone}>{state.word}</Pill>
+                            {(session.failure ||
+                              FAILED_SESSION_STATES.has(
+                                session.session_state ?? session.state,
+                              )) && (
+                              <SessionFailureDetails
+                                key={`${session.attempt_id}:${session.failure?.id ?? 'legacy'}`}
+                                attemptId={session.attempt_id}
+                                failure={session.failure}
+                                load={client.failure}
+                              />
+                            )}
                             {session.occupies_lane && FINISHED.has(session.state) && (
                               <Muted>
                                 Still holds its slot until the command is confirmed stopped.
@@ -281,7 +298,7 @@ const Rows = styled.ul`
   margin: 0;
   padding: 0;
   list-style: none;
-  li {
+  > li {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -290,10 +307,10 @@ const Rows = styled.ul`
     border-top: 1px solid ${color.line};
     overflow-wrap: anywhere;
   }
-  li:first-child {
+  > li:first-child {
     border-top: 0;
   }
-  li > div {
+  > li > div {
     display: grid;
     flex: 1;
     min-width: 0;

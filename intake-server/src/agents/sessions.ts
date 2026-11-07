@@ -15,6 +15,7 @@ import type { ProcessingConfig } from '../processing/attempts.ts'
 import { fail, mediaProfileId } from '../processing/model.ts'
 import { decodeJobInput } from '../processing/session-input.ts'
 import { latestStatuses } from './tools/outbox.ts'
+import { latestSessionFailures } from './failures.ts'
 import { agentSessions, agentSlots } from './schema.ts'
 import { isSessionProfile } from '../processing/session-policy.ts'
 
@@ -91,6 +92,10 @@ export async function listAgentSessions(
         .orderBy(desc(agentSessions.queuedAt), desc(agentSessions.attemptId))
         .limit(SESSION_PAGE_SIZE + 1),
     )
+    const failures = await latestSessionFailures(
+      client,
+      rows.slice(0, SESSION_PAGE_SIZE).map((row) => row.attempt.id),
+    )
     const statuses = await latestStatuses(
       client,
       rows.slice(0, SESSION_PAGE_SIZE).map((row) => row.attempt.id),
@@ -106,6 +111,7 @@ export async function listAgentSessions(
       }
       sessions.push({
         attempt_id: row.attempt.id,
+        ...(failures.has(row.attempt.id) ? { failure: failures.get(row.attempt.id)! } : {}),
         batch_id: row.attempt.batchId,
         job_id: row.attempt.jobId,
         subject_id: row.subjectId,

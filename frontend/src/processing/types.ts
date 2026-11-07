@@ -1,4 +1,5 @@
 import type {
+  SessionFailureDto,
   ProcessingAnswerDto,
   ProcessingAnswerReceiptDto,
   ProcessingCancellationDto,
@@ -12,6 +13,7 @@ import type {
 } from '@invimport/contracts'
 
 export interface ProcessingClient {
+  failure?(attemptId: string, failureId: string): Promise<SessionFailureDto>
   read(batchId: string): Promise<ProcessingSnapshotDto>
   start(batchId: string, input: ProcessingStartDto, key: string): Promise<ProcessingReceiptDto>
   cancel(

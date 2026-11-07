@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type {
+  SessionFailureDto,
   AgentSessionListDto,
   BatchAttentionDto,
   CaptureSnapshotDto,
@@ -116,7 +117,7 @@ const snapshot = (withSessions: boolean) =>
             }
           : {},
       ),
-      job(4, 'images', 'failed', lot(1)),
+      job(4, 'images', 'failed', lot(1), withSessions ? { session_state: 'failed' } : {}),
     ],
   }) as unknown as ProcessingSnapshotDto
 
@@ -169,10 +170,18 @@ function session(n: number, stage: string, subject: string | null, extra: object
   }
 }
 
+const failure: SessionFailureDto = {
+  id: id(90), category: 'tool_policy', summary: 'The provider attempted an operation outside the allowed tool policy.', details_available: true,
+  attempt_id: id(24), lineage_id: id(4), turn: '2', timestamp: '2026-11-07T01:42:00.000Z', correlation_id: id(91),
+  code: 'agent_tool_refused', stage: 'turn', provider: 'claude', model: 'claude-opus-5-5', cli_version: '2.1.319',
+  provider_session_id: null, causes: [], recovery: 'Check the supported CLI configuration. Keep this conversation stopped and start a fresh session after correcting it.', truncated: false,
+}
+
 const sessionList = (supported: boolean) =>
   ({
     sessions: supported
       ? [
+          session(4, 'images', lot(1), { state: 'failed', session_state: 'failed', occupies_lane: false, progress: 'settled', finished_at: failure.timestamp, failure }),
           session(3, 'research', lot(3), {
             latest_status: {
               text: 'Comparing two supplier listings',
@@ -208,6 +217,7 @@ export function ProcessingProof() {
   const page = view.replace('-fixture', '')
   const client = {
     read: async () => snapshot(sessions),
+    failure: async () => failure,
     start: async () => {
       throw new Error('fixture commands are disabled')
     },
@@ -219,8 +229,10 @@ export function ProcessingProof() {
     },
     session: async (_batch: string, jobId: string) => ({
       job_id: jobId,
-      attempt_id: id(42),
-      session_state: 'waiting_input',
+      attempt_id: jobId === id(4) ? id(24) : id(42),
+      session_state: jobId === id(4) ? 'failed' : 'waiting_input',
+      ...(jobId === id(4) ? { failure } : {}),
+      truncated: false,
       outbox: [],
       inbox: [],
     }),
@@ -239,6 +251,7 @@ export function ProcessingProof() {
             key={view}
             client={{
               sessions: async () => sessionList(sessions),
+              failure: async () => failure,
               settings: async () => ({ revision: '2', selection, session_concurrency: 3 }),
             }}
             batches={async () => ({

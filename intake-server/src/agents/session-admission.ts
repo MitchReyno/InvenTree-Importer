@@ -1,3 +1,4 @@
+import { NativeSessionError } from './failure-model.ts'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
@@ -11,14 +12,14 @@ const ADMISSION_POLICY = 'native-session-direct-tools/1'
 
 function policyRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('agent_policy_refused')
+    throw new NativeSessionError('agent_policy_refused')
   }
   return value as Record<string, unknown>
 }
 
 export function requireCodexSessionVersion(value: unknown) {
   if (typeof value !== 'string' || !/^bench_intake\/0\.166\.0(?:\s|$)/u.test(value)) {
-    throw new Error('agent_version_unqualified')
+    throw new NativeSessionError('agent_version_unqualified')
   }
 }
 
@@ -46,7 +47,7 @@ export function requireCodexSessionConfig(value: unknown) {
     policyRecord(skills.bundled).enabled !== false ||
     skills.include_instructions !== false
   ) {
-    throw new Error('agent_policy_refused')
+    throw new NativeSessionError('agent_policy_refused')
   }
 }
 
@@ -77,7 +78,7 @@ export async function hasAdmission(
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       return false
     }
-    throw new Error('agent_admission_unavailable')
+    throw new NativeSessionError('agent_admission_unavailable')
   }
   try {
     const info = await file.stat()
@@ -113,6 +114,7 @@ export async function requireClaudeSessionVersion(
   cwd: string,
   env: NodeJS.ProcessEnv,
   signal: AbortSignal,
+  onVersion?: (version: string) => void,
 ) {
   let version: string
   try {
@@ -127,10 +129,14 @@ export async function requireClaudeSessionVersion(
     })
     version = result.stdout.trim()
   } catch {
-    throw new Error('agent_version_unavailable')
+    throw new NativeSessionError('agent_version_unavailable')
+  }
+  const number = /^(\d+\.\d+\.\d+) \(Claude Code\)$/.exec(version)?.[1]
+  if (number) {
+    onVersion?.(number)
   }
   if (version !== '2.1.319 (Claude Code)') {
-    throw new Error('agent_version_unqualified')
+    throw new NativeSessionError('agent_version_unqualified')
   }
 }
 
@@ -147,7 +153,7 @@ export function requireClaudeSessionConfig(value: unknown) {
     !Array.isArray(config.plugins) ||
     config.plugins.length !== builtinPlugins.length
   ) {
-    throw new Error('agent_policy_refused')
+    throw new NativeSessionError('agent_policy_refused')
   }
   const names = new Set<string>()
   for (const value of config.plugins) {
@@ -158,11 +164,11 @@ export function requireClaudeSessionConfig(value: unknown) {
       plugin.path !== 'builtin' ||
       plugin.source !== `${plugin.name}@builtin`
     ) {
-      throw new Error('agent_policy_refused')
+      throw new NativeSessionError('agent_policy_refused')
     }
     names.add(plugin.name)
   }
   if (names.size !== builtinPlugins.length) {
-    throw new Error('agent_policy_refused')
+    throw new NativeSessionError('agent_policy_refused')
   }
 }

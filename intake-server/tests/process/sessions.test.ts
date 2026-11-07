@@ -547,6 +547,17 @@ for (const provider of ['claude', 'codex'] as const) {
           (await h.events()).some((event) => event.event === 'opening'),
           false,
         )
+        const retained = await h.fixture.db.pool.query(
+          'SELECT diagnostic FROM agent_session_failure WHERE attempt_id=$1',
+          [h.session.attempt],
+        )
+        assert.equal(retained.rows[0].diagnostic.category, 'configuration')
+        assert.equal(retained.rows[0].diagnostic.code, 'agent_version_unqualified')
+        assert.equal(
+          retained.rows[0].diagnostic.cli_version,
+          provider === 'claude' ? '2.1.320' : '0.166.1',
+        )
+        assert.equal(retained.rows[0].diagnostic.stage, 'startup')
       } finally {
         await h.dispose()
       }

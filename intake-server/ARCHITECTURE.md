@@ -232,3 +232,6 @@ The development launcher selects the single-result or session supervisor from th
 ## Explicit native conversation replacement
 
 `processing/session-replacement.ts` owns the revision-checked replacement command for terminal or non-resumable session attempts, including the Examine lead. It locks current capture/media and the processing lane/job/attempt, verifies the session state and absence of a held agent slot, then creates a fresh scoped attempt while retaining lineage history and pending input. Adapter policy and private conversation provenance are owned by [agents](src/agents/ARCHITECTURE.md). Replacement never grants inventory effects or live qualification.
+
+Session failure diagnostics are owned by the [agents runtime](src/agents/ARCHITECTURE.md#retained-failure-diagnostics). The additive diagnostic migration must precede runtime deployment; historical rows are retained without rewriting legacy sessions.
+

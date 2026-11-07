@@ -126,6 +126,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/agent-sessions/{attemptId}/failures/{failureId}",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "SessionFailure"
+    }
+  ],
+  [
     "GET /api/v1/agent-sessions",
     {
       "timeoutMs": 10000,

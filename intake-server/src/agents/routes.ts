@@ -1,3 +1,4 @@
+import { readSessionFailure } from './failures.ts'
 import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
 import { Id, schemas, type AgentSettingsUpdateDto } from '@invimport/contracts'
@@ -28,6 +29,24 @@ export function registerAgents(app: FastifyInstance, pool: Pool, config: Process
       '/api/v1/agent-settings',
       { schema: { body: schemas.AgentSettingsUpdate, response: { 200: schemas.AgentSettings } } },
       (request) => saveAgentSettings(pool, config, request.body),
+    )
+    scope.get<{ Params: { attemptId: string; failureId: string } }>(
+      '/api/v1/agent-sessions/:attemptId/failures/:failureId',
+      {
+        schema: {
+          response: { 200: schemas.SessionFailure },
+        },
+      },
+      (request) => {
+        if (
+          ![request.params.attemptId, request.params.failureId].every((value) =>
+            new RegExp(Id.pattern!).test(value),
+          )
+        ) {
+          throw new ProcessingError('invalid_session_failure_id', 400)
+        }
+        return readSessionFailure(pool, config, request.params.attemptId, request.params.failureId)
+      },
     )
     scope.get<{ Querystring: { before?: string } }>(
       '/api/v1/agent-sessions',
