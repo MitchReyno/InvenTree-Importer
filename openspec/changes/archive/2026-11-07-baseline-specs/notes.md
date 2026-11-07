@@ -26,4 +26,4 @@ Delivered in PR-A on `docs/baseline-specs`: 15 new capabilities (159 requirement
 - Unbuilt intent recorded in the design is not registered in the functionality index: the T11 identity gate, T12 release qualification, lot exclusion, enriching previously confirmed stock, and the deployment baseline.
 - Three code-enforced checks have no dedicated test: `processing_channel_unconfigured`, `processing_capacity` and `agent_home_customizations_refused`.
 - `openspec validate --specs --strict` warns about two over-long requirement descriptions in the existing `capture-batch-settings` spec. They predate this change, and `redesign-batch-workspace` owns that capability, so they are left to it.
-- Archiving this change is a separate decision.
+- None further. Archived after #123 merged, with the specs already synced (the overlap check reported all 159 operations applied).

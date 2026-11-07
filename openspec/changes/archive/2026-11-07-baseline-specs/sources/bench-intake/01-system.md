@@ -113,4 +113,4 @@ The inventory adapter exposes typed, allowlisted target operations and read-only
 
 The application model is native batches/lots/evidence, not every legacy interchange format. Expose only supported target operations and a narrow set of recovery actions. Defer PO booking/receiving, scanner/TUI, arbitrary overwrites and automatic global configuration learning. Preserve old CLI/data behavior without requiring it in the UI. Delivery speed comes from narrower scope and shared language/contracts, not removing approval or uncertain-write protections or claiming a rewrite inherits Python's test results.
 
-Read [current backend architecture](../../../../../backend/ARCHITECTURE.md), [shared contracts](../../spikes/shared/README.md), [prior reconciled decisions](../intake/design.md) and [delivery scope](07-delivery.md) for the owning contracts and limits.
+Read [current backend architecture](../../../../../../backend/ARCHITECTURE.md), [shared contracts](../../spikes/shared/README.md), [prior reconciled decisions](../intake/design.md) and [delivery scope](07-delivery.md) for the owning contracts and limits.

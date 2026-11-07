@@ -88,6 +88,6 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Seven Codex review rounds; round 7 clear at `b3e9364`; rebased onto `df1be70` with `git range-diff` showing all eight patches unchanged (head `affbc75`); selected CI green; merged as `5698e90` (#123).
 
 Archiving this change is a separate decision. Its synced specs and preserved sources stay valid either way.
