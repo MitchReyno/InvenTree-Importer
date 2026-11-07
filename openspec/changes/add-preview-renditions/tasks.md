@@ -38,10 +38,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Verification:** decoder unit tests; real decoder-image timing for a 50 MP JPEG and a 30-page PDF.
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
-- [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
-- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
-- [ ] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
-- [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
+- [x] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
+- [x] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
+- [x] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
+- [x] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
 ## 2. Rendition storage and publication
 

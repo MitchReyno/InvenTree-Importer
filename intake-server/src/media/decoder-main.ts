@@ -30,6 +30,9 @@ const result = await decode({
   bytes: protocol.subarray(headerEnd + 1),
   recipe: value.recipe ?? undefined,
 })
+
+const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
+
 const resultHeader = JSON.stringify({
   state: result.state,
   toolchain: result.toolchain,
@@ -38,10 +41,21 @@ const resultHeader = JSON.stringify({
     width: page.width,
     height: page.height,
     byte_size: page.bytes.length,
-    digest: createHash('sha256').update(page.bytes).digest('hex'),
+    digest: digest(page.bytes),
+    renditions: page.renditions.map((item) => ({
+      size: item.size,
+      width: item.width,
+      height: item.height,
+      byte_size: item.bytes.length,
+      digest: digest(item.bytes),
+    })),
   })),
 })
 process.stdout.write(resultHeader + '\n')
+// Each page's bytes are followed by its renditions, in header order.
 for (const page of result.pages) {
   process.stdout.write(page.bytes)
+  for (const item of page.renditions) {
+    process.stdout.write(item.bytes)
+  }
 }

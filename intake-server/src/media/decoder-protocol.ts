@@ -4,6 +4,7 @@ import {
   MEDIA_PREVIEW_MAX_BYTES,
   MEDIA_SOURCE_MAX_BYTES,
   type MediaRecipeDto,
+  type MediaRenditionSize,
 } from '@invimport/contracts/media'
 
 export const MEDIA_LIMITS = Object.freeze({
@@ -33,8 +34,18 @@ export interface DecodedPage {
   height: number
   bytes: Buffer
 }
+export interface DecodedRendition {
+  size: MediaRenditionSize
+  width: number
+  height: number
+  bytes: Buffer
+}
+/** A ready page with its display renditions; the page bytes stay the full-resolution PNG. */
+export interface RenderedPage extends DecodedPage {
+  renditions: DecodedRendition[]
+}
 export type DecodedMedia =
-  | { state: 'ready'; toolchain: string; pages: DecodedPage[] }
+  | { state: 'ready'; toolchain: string; pages: RenderedPage[] }
   | { state: DecodeFailure; toolchain: string; pages: [] }
 
 export function checkedInput(input: DecodeInput) {
