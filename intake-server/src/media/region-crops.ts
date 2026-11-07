@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 import type { EvidenceRegionDto } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
+import { renditionDimensions, type MediaRenditionSize } from '@invimport/contracts/media'
 import { CaptureError } from '../capture/repository.ts'
 
 type PixelRegion = Extract<EvidenceRegionDto, { kind: 'pixels' }>
@@ -15,15 +16,23 @@ type PixelRegion = Extract<EvidenceRegionDto, { kind: 'pixels' }>
  */
 export function regionCropCache(directory: string) {
   return {
+    /**
+     * The region cut from the full-resolution page, then resized to the size's exact dimensions.
+     * A region no larger than the size is returned unscaled, as PNG.
+     */
     async crop(
       key: { versionId: string; page: number },
       region: PixelRegion,
       preview: () => Promise<Buffer>,
-    ): Promise<Buffer> {
+      size: MediaRenditionSize | 'full' = 'full',
+    ): Promise<{ bytes: Buffer; mediaType: 'image/png' | 'image/webp' }> {
+      const target = size === 'full' ? null : renditionDimensions(region.width, region.height, size)
+      const mediaType = target ? 'image/webp' : 'image/png'
       const digest = createHash('sha256').update(canonicalRecord(region)).digest('hex')
-      const path = join(directory, `${key.versionId}-${key.page}-${digest}.png`)
+      const name = `${key.versionId}-${key.page}-${digest}-${target ? size : 'full'}`
+      const path = join(directory, `${name}.${target ? 'webp' : 'png'}`)
       try {
-        return await readFile(path)
+        return { bytes: await readFile(path), mediaType }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
           throw error
@@ -35,16 +44,25 @@ export function regionCropCache(directory: string) {
         // The page was re-rendered at another size; the region no longer applies.
         throw new CaptureError(409, 'region_preview_mismatch')
       }
-      const bytes = await source
-        .extract({ left: region.x, top: region.y, width: region.width, height: region.height })
-        .png()
-        .toBuffer()
+      const cut = source.extract({
+        left: region.x,
+        top: region.y,
+        width: region.width,
+        height: region.height,
+      })
+      const bytes = await (
+        target
+          ? cut
+              .resize({ width: target.width, height: target.height, fit: 'fill' })
+              .webp({ quality: 80, effort: 4 })
+          : cut.png()
+      ).toBuffer()
       await mkdir(directory, { recursive: true, mode: 0o700 })
       // A unique staging name, so concurrent crops of one region cannot rename each other's file.
       const staging = `${path}.${randomUUID()}.tmp`
       await writeFile(staging, bytes, { mode: 0o600 })
       await rename(staging, path)
-      return bytes
+      return { bytes, mediaType }
     },
   }
 }

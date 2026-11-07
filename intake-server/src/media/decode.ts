@@ -17,6 +17,9 @@ import {
   type DecodedPage,
   type DecodedRendition,
   type RenderedPage,
+  type RenditionInput,
+  type RenditionResult,
+  checkedRenditionInput,
 } from './decoder-protocol.ts'
 
 sharp.cache(false)
@@ -165,6 +168,41 @@ export async function rendered(
     output.push({ ...page, renditions: sized })
   }
   return output
+}
+
+/**
+ * Renditions of a retained page PNG for the backfill. Only bytes that are a single PNG of exactly
+ * the recorded dimensions are rendered; anything else is `malformed`, a positive mismatch.
+ */
+export async function renderRetained(
+  input: RenditionInput,
+  inspect: (bytes: Buffer) => Promise<{ format?: string; pages?: number }> = (bytes) =>
+    sharp(bytes, { limitInputPixels: MEDIA_LIMITS.pixels }).metadata(),
+): Promise<RenditionResult> {
+  checkedRenditionInput(input)
+  const malformed: RenditionResult = {
+    state: 'malformed',
+    toolchain: MEDIA_TOOLCHAIN,
+    renditions: [],
+  }
+  // A mismatch is identified from the bytes themselves: the PNG signature and IHDR dimensions.
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  if (
+    input.bytes.length < 24 ||
+    !input.bytes.subarray(0, 8).equals(signature) ||
+    !input.bytes.subarray(12, 16).equals(Buffer.from('IHDR')) ||
+    input.bytes.readUInt32BE(16) !== input.width ||
+    input.bytes.readUInt32BE(20) !== input.height
+  ) {
+    return malformed
+  }
+  // Any library failure from here is not a claim about the bytes, so it propagates as interrupted.
+  const metadata = await inspect(input.bytes)
+  if (metadata.format !== 'png' || (metadata.pages ?? 1) !== 1) {
+    return malformed
+  }
+  const page = { page: 1, width: input.width, height: input.height, bytes: input.bytes }
+  return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions: await renditions(page) }
 }
 
 /** Called only inside the bounded decoder image; never from an HTTP route. */

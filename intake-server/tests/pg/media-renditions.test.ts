@@ -396,3 +396,128 @@ test(
     }
   },
 )
+
+test(
+  'observation crops are served per size, revalidated, and refused under a stale region revision',
+  { skip: image ? false : 'Explicit decoder image needed for PG/decoder boundary' },
+  async () => {
+    const { createServer } = await import('../../src/api/server.ts')
+    const { registerCapture } = await import('../../src/capture/routes.ts')
+    const { registerMediaRoutes } = await import('../../src/media/routes.ts')
+    const { grantFoundation } = await import('../../src/operations/grants.ts')
+    const { grantCapture } = await import('../../src/capture/grants.ts')
+    const { observationCropRevision } = await import('@invimport/contracts/media')
+    const db = await isolatedDatabase()
+    const identity = await seedAuthority(db.pool)
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-crops-http-')))
+    const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
+    const binding = {
+      actorId: identity.actor,
+      targetId: identity.target,
+      targetContextId: identity.context,
+    }
+    const api = await role(db, 'api')
+    await grantFoundation(db.pool, api.name)
+    await grantCapture(db.pool, api.name)
+    const decoderRole = await role(db, 'decoder')
+    const runtime = database(api.url)
+    const decoder = database(decoderRole.url)
+    const config = {
+      origin: 'http://127.0.0.1:1',
+      actorId: identity.actor,
+      targetId: identity.target,
+      targetContextId: identity.context,
+      credentialRef: 'owned_media_fixture',
+      apiKey: 'fake-only',
+    }
+    const app = createServer(config, { mediaEnabled: true })
+    registerCapture(app, runtime.pool, config)
+    registerMediaRoutes(app, runtime.pool, config, store, join(root, 'crop-cache'))
+    try {
+      const batch = (await captureRepository(db.pool, binding).create(randomUUID(), {
+        title: 'Crops',
+        note: '',
+      })) as CaptureSnapshotDto
+      const photo = await sharp({
+        create: { width: 4000, height: 3000, channels: 3, background: '#406080' },
+      })
+        .jpeg()
+        .toBuffer()
+      const repository = mediaRepository(db.pool, binding, store)
+      await repository.upload(batch.id, randomUUID(), '1', 'Photo', photo)
+      assert.equal(await processMediaCommand(decoder.pool, store, binding, image!), true)
+      const version = (await repository.snapshot(batch.id)).evidence[0].versions[0]
+      const region = {
+        kind: 'pixels',
+        x: 100,
+        y: 200,
+        width: 1800,
+        height: 1200,
+        source_width: 4000,
+        source_height: 3000,
+      }
+      const observation = randomUUID()
+      await db.pool.query(
+        `INSERT INTO capture_evidence_observation(id,batch_id,evidence_version_id,page,region,readings,origin,revision)
+         VALUES($1,$2,$3,1,$4,'{"markings":["R1"]}','operator',1)`,
+        [observation, batch.id, version.id, JSON.stringify(region)],
+      )
+      config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
+      const url = (query: string) =>
+        `${config.origin}/api/v1/batches/${batch.id}/media/observations/${observation}/crop${query}`
+      const rev = observationCropRevision(version.id, 1, region)
+
+      const thumb = await fetch(url(`?size=thumb&rev=${rev}`))
+      assert.equal(thumb.status, 200)
+      assert.equal(thumb.headers.get('content-type'), 'image/webp')
+      assert.equal(thumb.headers.get('cache-control'), 'private, no-cache')
+      const thumbMeta = await sharp(Buffer.from(await thumb.arrayBuffer())).metadata()
+      assert.deepEqual([thumbMeta.width, thumbMeta.height], [320, 213])
+      const full = await fetch(url(''))
+      assert.equal(full.headers.get('content-type'), 'image/png')
+      assert.equal((await sharp(Buffer.from(await full.arrayBuffer())).metadata()).width, 1800)
+
+      const etag = thumb.headers.get('etag')!
+      assert.equal(
+        (await fetch(url(`?size=thumb&rev=${rev}`), { headers: { 'if-none-match': `W/${etag}` } }))
+          .status,
+        304,
+      )
+      assert.equal((await fetch(url('?size=huge'))).status, 400)
+      assert.equal((await fetch(url('?rev=not-a-revision'))).status, 400)
+      assert.equal(
+        (
+          await fetch(
+            url(`?size=thumb&rev=${observationCropRevision(version.id, 1, { ...region, x: 1 })}`),
+          )
+        ).status,
+        409,
+      )
+
+      // An edited region has a new revision and new bytes; the old revision is refused.
+      const moved = { ...region, x: 2000, width: 1000, height: 1000 }
+      await db.pool.query('UPDATE capture_evidence_observation SET region=$2 WHERE id=$1', [
+        observation,
+        JSON.stringify(moved),
+      ])
+      assert.equal((await fetch(url(`?size=thumb&rev=${rev}`))).status, 409)
+      const edited = await fetch(
+        url(`?size=thumb&rev=${observationCropRevision(version.id, 1, moved)}`),
+      )
+      assert.equal(edited.status, 200)
+      assert.notEqual(edited.headers.get('etag'), etag)
+      const editedMeta = await sharp(Buffer.from(await edited.arrayBuffer())).metadata()
+      assert.deepEqual([editedMeta.width, editedMeta.height], [320, 320])
+    } finally {
+      await app.close()
+      await runtime.pool.end()
+      await decoder.pool.end()
+      for (const value of [api, decoderRole]) {
+        await db.pool.query(`DROP OWNED BY ${value.name}`)
+        await db.pool.query(`DROP ROLE ${value.name}`)
+      }
+      await db.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)

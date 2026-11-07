@@ -37,6 +37,18 @@ export function renditionDimensions(
   return width >= height ? { width: bound, height: short } : { width: short, height: bound }
 }
 
+/**
+ * The revision in an observation crop URL. It changes whenever the cropped pixels would, so an
+ * edited region gets a new URL even though the observation ID is unchanged.
+ */
+export function observationCropRevision(
+  versionId: string,
+  page: number,
+  region: { x: number; y: number; width: number; height: number },
+) {
+  return `${versionId}-${page}-${region.x}-${region.y}-${region.width}-${region.height}`
+}
+
 /** The sizes a source of these dimensions has, smallest first. */
 export function expectedRenditionSizes(width: number, height: number): MediaRenditionSize[] {
   return MEDIA_RENDITION_SIZE_NAMES.filter((size) => renditionDimensions(width, height, size))
@@ -253,6 +265,29 @@ const MediaOutputHeader = Type.Union([
   }),
 ])
 
+/** A renditions-only result; `malformed` means the bytes are not the recorded PNG. */
+const MediaRenditionOutputHeader = Type.Union([
+  object({
+    state: Type.Literal('ready'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    renditions: Type.Array(MediaOutputRendition, { maxItems: MEDIA_RENDITION_SIZE_NAMES.length }),
+  }),
+  object({
+    state: Type.Literal('malformed'),
+    toolchain: Type.Literal(MEDIA_TOOLCHAIN),
+    renditions: Type.Array(MediaOutputRendition, { maxItems: 0 }),
+  }),
+])
+export type MediaRenditionOutputHeaderDto = Static<typeof MediaRenditionOutputHeader>
+
+export function assertMediaRenditionOutputHeader(
+  value: unknown,
+): asserts value is MediaRenditionOutputHeaderDto {
+  if (!Value.Check(MediaRenditionOutputHeader, value)) {
+    throw new Error('invalid_decoder_output')
+  }
+}
+
 export type MediaOutputPageDto = Static<typeof MediaOutputPage>
 export type MediaOutputRenditionDto = Static<typeof MediaOutputRendition>
 export type MediaOutputHeaderDto = Static<typeof MediaOutputHeader>
@@ -365,11 +400,20 @@ export {
   requireMediaRecipeBounds,
 } from './media-geometry.ts'
 
-const MediaDecoderInputHeader = object({
-  version: Type.Literal('media-decode/1'),
-  digest: Digest,
-  recipe: Type.Union([MediaRecipe, Type.Null()]),
-})
+const MediaDecoderInputHeader = Type.Union([
+  object({
+    version: Type.Literal('media-decode/1'),
+    digest: Digest,
+    recipe: Type.Union([MediaRecipe, Type.Null()]),
+  }),
+  /** One retained page PNG, rendered into its renditions only. */
+  object({
+    version: Type.Literal('media-renditions/1'),
+    digest: Digest,
+    width: dimension,
+    height: dimension,
+  }),
+])
 type MediaDecoderInputHeaderDto = Static<typeof MediaDecoderInputHeader>
 
 export function assertMediaDecoderInputHeader(

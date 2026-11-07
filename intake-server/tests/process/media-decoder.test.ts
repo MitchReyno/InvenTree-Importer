@@ -362,3 +362,43 @@ mediaTest('a 30-page result with every rendition passes the real framing', async
   assert.equal(result.pages.length, 30)
   assert.ok(result.pages.every((page) => page.renditions.length === 3))
 })
+
+mediaTest(
+  'the real decoder renders a large retained page and refuses a mismatched one',
+  async () => {
+    const { renderIsolated } = await import('../../src/media/decoder-runner.ts')
+    // Random pixels keep the lossless page above the 20 MiB upload bound, as large photos are.
+    const { randomBytes } = await import('node:crypto')
+    const pixels = randomBytes(3200 * 2400 * 3)
+    const page = await sharp(pixels, { raw: { width: 3200, height: 2400, channels: 3 } })
+      .png({ compressionLevel: 1 })
+      .toBuffer()
+    assert.ok(page.length > 20 * 1024 * 1024, `page is ${page.length} bytes`)
+    const digest = createHash('sha256').update(page).digest('hex')
+    const ready = await renderIsolated(decoderImage(), {
+      version: 'media-renditions/1',
+      digest,
+      bytes: page,
+      width: 3200,
+      height: 2400,
+    })
+    assert.equal(ready.state, 'ready')
+    assert.deepEqual(
+      ready.renditions.map((item) => [item.size, item.width, item.height]),
+      [
+        ['thumb', 320, 240],
+        ['card', 960, 720],
+        ['view', 2048, 1536],
+      ],
+    )
+    const mismatched = await renderIsolated(decoderImage(), {
+      version: 'media-renditions/1',
+      digest,
+      bytes: page,
+      width: 3199,
+      height: 2400,
+    })
+    assert.equal(mismatched.state, 'malformed')
+    assert.deepEqual(mismatched.renditions, [])
+  },
+)

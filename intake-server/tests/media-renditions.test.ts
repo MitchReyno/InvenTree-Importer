@@ -7,7 +7,7 @@ import {
   MEDIA_TOOLCHAIN,
   renditionDimensions,
 } from '@invimport/contracts/media'
-import { decode, LimitError, rendered } from '../src/media/decode.ts'
+import { decode, LimitError, rendered, renderRetained } from '../src/media/decode.ts'
 import { parseDecoderOutput, webpDimensions } from '../src/media/decoder-output.ts'
 import type { DecodeInput } from '../src/media/decoder-protocol.ts'
 
@@ -344,4 +344,43 @@ test('each rendition integrity guard refuses its own corruption', () => {
       ),
     /invalid_decoder_rendition|decoder_output_trailing_bytes|decoder_output_digest_mismatch/,
   )
+})
+
+test('a retained page is malformed only on positive evidence; other failures propagate', async () => {
+  const page = await sharp({
+    create: { width: 1200, height: 800, channels: 3, background: '#123456' },
+  })
+    .png()
+    .toBuffer()
+  const input = (bytes: Buffer, width = 1200, height = 800) => ({
+    version: 'media-renditions/1' as const,
+    digest: sha(bytes),
+    bytes,
+    width,
+    height,
+  })
+  const ready = await renderRetained(input(page))
+  assert.deepEqual(
+    ready.renditions.map((item) => item.size),
+    ['thumb', 'card'],
+  )
+  assert.equal((await renderRetained(input(page, 1199))).state, 'malformed')
+  const notPng = await sharp(page).jpeg().toBuffer()
+  assert.equal((await renderRetained(input(notPng))).state, 'malformed')
+  // An unexpected inspection failure is not evidence about the bytes.
+  await assert.rejects(
+    renderRetained(input(page), async () => {
+      throw new Error('vips_out_of_memory')
+    }),
+    /vips_out_of_memory/,
+  )
+})
+
+test('the worker pauses after every decode and after interruptions; only backfill progress runs on', async () => {
+  const { pauseAfter } = await import('../src/media/backfill.ts')
+  assert.equal(pauseAfter('decoded'), true)
+  assert.equal(pauseAfter('interrupted'), true)
+  assert.equal(pauseAfter('idle'), true)
+  assert.equal(pauseAfter('completed'), false)
+  assert.equal(pauseAfter('skipped_mismatch'), false)
 })

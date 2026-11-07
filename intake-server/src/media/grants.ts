@@ -47,5 +47,8 @@ export async function grantMedia(
       media_preview,media_preview_rendition TO ${role}`)
     // PostgreSQL requires UPDATE privilege for FOR UPDATE; immutable trigger rejects changes.
     await pool.query(`GRANT UPDATE(id) ON media_decode_command TO ${role}`)
+    // The backfill settles its own attempts; the trigger allows only claimed to an outcome.
+    await pool.query(`GRANT SELECT,INSERT ON media_rendition_backfill TO ${role};
+      GRANT UPDATE(outcome,retry_after) ON media_rendition_backfill TO ${role}`)
   }
 }

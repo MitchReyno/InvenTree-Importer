@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { strictJson } from '@invimport/contracts/json'
 import {
   assertMediaOutputHeader,
+  assertMediaRenditionOutputHeader,
   expectedRenditionSizes,
   MEDIA_DECODER_HEADER_MAX_BYTES,
   renditionDimensions,
@@ -15,6 +16,7 @@ import {
   type DecodedPage,
   type DecodedRendition,
   type RenderedPage,
+  type RenditionResult,
 } from './decoder-protocol.ts'
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 
@@ -63,7 +65,7 @@ export function webpDimensions(bytes: Buffer): { width: number; height: number }
 }
 
 function decodedRendition(
-  page: MediaOutputPageDto,
+  page: { width: number; height: number },
   item: MediaOutputRenditionDto,
   bytes: Buffer,
 ): DecodedRendition {
@@ -130,4 +132,38 @@ export function parseDecoderOutput(bytes: Buffer): DecodedMedia {
     throw new Error('decoder_output_trailing_bytes')
   }
   return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, pages }
+}
+
+/** A renditions-only result for one retained page of the given dimensions. */
+export function parseRenditionOutput(
+  bytes: Buffer,
+  page: { width: number; height: number },
+): RenditionResult {
+  const headerEnd = bytes.indexOf(10)
+  if (headerEnd < 0 || headerEnd > MEDIA_DECODER_HEADER_MAX_BYTES) {
+    throw new Error('invalid_decoder_header')
+  }
+  const header = strictJson(bytes.subarray(0, headerEnd).toString('utf8'))
+  assertMediaRenditionOutputHeader(header)
+  const payload = bytes.subarray(headerEnd + 1)
+  if (header.state !== 'ready') {
+    if (payload.length) {
+      throw new Error('decoder_output_trailing_bytes')
+    }
+    return { state: 'malformed', toolchain: MEDIA_TOOLCHAIN, renditions: [] }
+  }
+  const sizes = header.renditions.map((item) => item.size)
+  if (sizes.join() !== expectedRenditionSizes(page.width, page.height).join()) {
+    throw new Error('invalid_decoder_rendition')
+  }
+  let offset = 0
+  const renditions = header.renditions.map((item) => {
+    const slice = payload.subarray(offset, offset + item.byte_size)
+    offset += item.byte_size
+    return decodedRendition({ width: page.width, height: page.height }, item, slice)
+  })
+  if (offset !== payload.length) {
+    throw new Error('decoder_output_trailing_bytes')
+  }
+  return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, renditions }
 }

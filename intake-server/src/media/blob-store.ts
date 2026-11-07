@@ -9,6 +9,9 @@ import type { PoolClient } from 'pg'
 import { sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 
+/** Bytes on disk that no longer match their digest: a positive, permanent mismatch. */
+export class BlobCorruptError extends Error {}
+
 export const MAX_UPLOAD_BYTES = MEDIA_SOURCE_MAX_BYTES
 /** Uploads are bounded at the route; decoded previews may be larger than any upload. */
 export const MAX_BLOB_BYTES = Math.max(MAX_UPLOAD_BYTES, MEDIA_LIMITS.outputBytes)
@@ -166,7 +169,7 @@ export class BlobStore {
       }
       const bytes = await file.readFile()
       if (createHash('sha256').update(bytes).digest('hex') !== digest) {
-        throw new Error('blob_corrupt')
+        throw new BlobCorruptError('blob_corrupt')
       }
       return bytes
     } finally {

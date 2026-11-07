@@ -1932,6 +1932,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{batchId}/media/observations/{resourceId}/crop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                resourceId: string;
+            };
+            cookie?: never;
+        };
+        /** @description An observation's region, cut at full resolution and sized; use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Display rendition; a size not yet rendered is served by the full page. */
+                    size?: "thumb" | "card" | "view" | "full";
+                    /** @description Region revision; a revision other than the current region is refused. */
+                    rev?: string;
+                };
+                header?: never;
+                path: {
+                    batchId: string;
+                    resourceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description An observation's region, cut at full resolution and sized; use a browser resource URL. */
+                200: {
+                    headers: {
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": Blob;
+                        "image/webp": Blob;
+                    };
+                };
+                /** @description Unchanged since the If-None-Match validator. */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activity": {
         parameters: {
             query?: never;

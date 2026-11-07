@@ -2,7 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '../db/database.ts'
 import { BlobStore } from '../media/blob-store.ts'
 import { readMediaStoreIdentity } from '../media/store-identity.ts'
-import { processMediaCommand } from '../media/worker.ts'
+import { mediaWorkerStep, pauseAfter } from '../media/backfill.ts'
 import { readDevState } from './state.ts'
 
 async function main() {
@@ -19,17 +19,20 @@ async function main() {
   try {
     const store = await BlobStore.initialize(state.blobRoot, await readMediaStoreIdentity(db.pool))
     process.stdout.write('DEV_MEDIA_READY\n')
+    const binding = {
+      actorId: state.identity.actor,
+      targetId: state.identity.target,
+      targetContextId: state.identity.context,
+    }
     while (!stop.signal.aborted) {
-      await processMediaCommand(
-        db.pool,
-        store,
-        {
-          actorId: state.identity.actor,
-          targetId: state.identity.target,
-          targetContextId: state.identity.context,
-        },
-        image,
-      )
+      const step = await mediaWorkerStep(db.pool, store, binding, image)
+      if (step === 'completed' || step === 'skipped_mismatch') {
+        const event = step === 'completed' ? 'renditions_backfilled' : 'renditions_skipped_mismatch'
+        process.stdout.write(JSON.stringify({ event }) + '\n')
+      }
+      if (!pauseAfter(step)) {
+        continue
+      }
       await delay(500, undefined, { signal: stop.signal }).catch(() => undefined)
     }
   } finally {
