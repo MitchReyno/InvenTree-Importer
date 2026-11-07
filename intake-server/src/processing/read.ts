@@ -38,6 +38,7 @@ import {
 } from './retained.ts'
 import { decodeJobInput } from './session-input.ts'
 import { agentSessions } from '../agents/schema.ts'
+import { mediaVersions } from '../media/schema.ts'
 import { latestStatuses } from '../agents/tools/outbox.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
@@ -180,12 +181,32 @@ async function proposalsForJob(
     fail('processing_capacity')
   }
   const projected: ProcessingJobDto['proposals'] = []
+  let batchVersions: Parameters<typeof retainedSessionProposal>[4] | undefined
   for (const proposal of proposals) {
     if (isSessionMessage(proposal)) {
       if (manifest.schema_version !== 'bench-intake-input/6') {
         fail('retained_proposal_binding_invalid')
       }
-      const value = retainedSessionProposal(proposal, job.subjectId, manifest, batchLots)
+      // The propose tool checked delivery; a citation still names a real version of this batch.
+      batchVersions ??= (
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({
+              versionId: mediaVersions.id,
+              evidenceId: mediaVersions.evidenceId,
+              blobDigest: mediaVersions.blobDigest,
+            })
+            .from(mediaVersions)
+            .where(eq(mediaVersions.batchId, manifest.batch_id)),
+        )
+      ).map(({ blobDigest, ...version }) => ({ ...version, digest: blobDigest.toString('hex') }))
+      const value = retainedSessionProposal(
+        proposal,
+        job.subjectId,
+        manifest,
+        batchLots,
+        batchVersions,
+      )
       projected.push({ id: proposal.id, message_id: proposal.messageId, value })
       continue
     }

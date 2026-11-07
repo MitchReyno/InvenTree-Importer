@@ -138,6 +138,8 @@ export function retainedSessionProposal(
   manifest: ProcessingInputV6Dto,
   /** For the lead job (no subject): the batch's lots a proposal may be about. */
   batchLots: ReadonlySet<string> = new Set(),
+  /** Batch versions a session may have been delivered after opening, through an evidence notice. */
+  batchVersions: Parameters<typeof deliveredSourceCheck>[1] = [],
 ): ProcessingProposalV5Dto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.valueBytes, seal.valueDigest)
@@ -150,11 +152,10 @@ export function retainedSessionProposal(
   ) {
     fail('retained_proposal_binding_invalid')
   }
-  const delivered = deliveredSourceCheck({
-    batchId: manifest.batch_id,
-    notes: manifest.notes,
-    media: manifest.media,
-  })
+  const delivered = deliveredSourceCheck(
+    { batchId: manifest.batch_id, notes: manifest.notes, media: manifest.media },
+    batchVersions,
+  )
   if (![...proposal.sources, ...catalogueSources(proposal)].every(delivered)) {
     fail('retained_proposal_binding_invalid')
   }
