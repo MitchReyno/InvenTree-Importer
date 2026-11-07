@@ -78,6 +78,17 @@ function values(source) {
 }
 
 describe('literal value check', () => {
+  it('is not thrown by an apostrophe in JSX text before the styles', () => {
+    const source = [
+      "const View = () => <p>Sign in as the worker's user.</p>",
+      'const A = styled.div`',
+      '  gap: 16px;',
+      '`',
+    ].join('\n')
+
+    expect(values(source)).toEqual(['3 | gap | 16px | space-8'])
+  })
+
   it('exempts a calc() that adjusts a token, not one that adds a prop', () => {
     const source = [
       'const A = styled.div`',

@@ -125,7 +125,8 @@ function templateText(source) {
     const inTemplate = stack.includes('tpl')
     if (char === '\n') {
       out += '\n'
-      if (top === 'line-comment') stack.pop()
+      // Quoted strings cannot span lines, so an apostrophe in JSX text ends with its line.
+      if (top === 'line-comment' || top === "'" || top === '"') stack.pop()
       continue
     }
     if (top === 'line-comment' || top === 'block-comment') {

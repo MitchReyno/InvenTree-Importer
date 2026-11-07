@@ -26,7 +26,7 @@
         "src/main.ts",
         "src/**/*-main.ts",
         "src/dev/setup.ts",
-        "scripts/*.{cjs,mjs}",
+        "scripts/**/*.{cjs,mjs}",
         "tests/**/*.ts",
         "tests/fixtures/**/*.{cjs,mjs}"
       ],
