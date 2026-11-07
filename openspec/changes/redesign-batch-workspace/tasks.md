@@ -16,7 +16,7 @@
 - **Change name.** `redesign-batch-workspace`, delivering [BI-008](../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign).
 - **Branches and subjects.** Branches are `feat/redesign-batch-workspace-<bundle>`, targeting `interactive-app`. Subjects are `type(redesign-batch-workspace): …`.
 - **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`, merged in #95). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). BI-006 supplies only data and contracts (its design D11). This change's `ProcessingSource` gains the session and observation adapter whenever those contracts exist: in task 14: one conditional PR (PR-G) after PR-C, PR-D and PR-E, which doesn't block any task, PR or BI-008.
-- **Styling uplift.** Tasks 15–20 move the remaining styling onto the design system's tokens (version 2) and shared components, and close the visual gaps against the canvas (design D11). Their evidence is [styling-audit.md](styling-audit.md): clusters `C1`–`C18` and visual gaps by area `V1`–`V8`. Where the audit's recommendation differs from tokens v2, tokens v2 wins. Each area task's first step swaps only that area's exact values, leaving the screenshot diff unchanged. Its later steps take the visible changes: near values and the visible cluster changes (C3, C4, C9, C10, C15–C17), shared components and the area's gaps, each with before-and-after screenshots. Every area task also gives its controls a 44px hit area at phone width (G15).
+- **Styling uplift.** Tasks 15–20 move the remaining styling onto the design system's tokens (version 2) and shared components, and close the visual gaps against the canvas (design D11). Their evidence is [styling-audit.md](styling-audit.md): clusters `C1`–`C18` and visual gaps by area `V1`–`V8`. Where the audit's recommendation differs from tokens v2, tokens v2 wins. Each area task's first step swaps only that area's exact values, leaving the screenshot diff unchanged. Its later steps take the visible changes: near values and the visible cluster changes (C1, C3, C4, C8, C9, C10, C15–C17), shared components and the area's gaps, each with before-and-after screenshots. Every area task also gives its controls a 44px hit area at phone width (G15).
 
 ## Completion and commit ordering
 
@@ -324,20 +324,20 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them. The generator's contract test and the lint's tests fail first on the new families.
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes), recorded in the handover; a demo video on the PR.
 
-- [ ] 15.1 Copy the design system's tokens v2 into `frontend/src/theme/tokens.json`; write failing generator contract tests for the `duration`, `easing`, `zIndex`, `breakpoint`, `opacity` and `size` families and the new spacing and radius steps (RED), then generate them as CSS custom properties and typed constants (GREEN).
+- [ ] 15.1 Copy the design system's tokens v2 into `frontend/src/theme/tokens.json`; write failing generator contract tests for the `duration`, `easing`, `zIndex`, `breakpoint`, `opacity` and `size` families and the new spacing and radius steps (RED), then generate them as CSS custom properties and typed constants (GREEN), with each type style's size, line-height, weight and letter-spacing also emitted as its own variable.
 - [ ] 15.2 Make `ui/media.ts` use the generated breakpoints and add a shared motion module (keyframes, durations, easings, reduced-motion guard) in place of the copied keyframes.
 - [ ] 15.3 Add the screenshot-diff check over every owned fixture page in light and dark at 1440 and 390 px, with a `pnpm` command and its use documented in `frontend/README.md`.
-- [ ] 15.4 Extend the literal-colour lint to spacing, radius, shadow, type, z-index, duration, easing, breakpoint, opacity and size values in components that equal a token, allowing values with no token, `calc()` adjustments of a token, the scene palette and photo masks (design D11), with a recorded baseline that a change may only shrink.
+- [ ] 15.4 Extend the literal-colour lint to spacing, radius, shadow, type, z-index, duration, easing, breakpoint, opacity and size values in components that equal a token, allowing values with no token, `calc()` adjustments of a token, the scene palette and photo masks (design D11), and counting a type property as token-equal when it matches that property's variable, with a recorded baseline that a change may only shrink.
 - [ ] 15.5 Swap exact values for tokens in `components/ui/` and `primitives.tsx`, with the screenshot diff unchanged.
 - [ ] 15.6 Make `primitives.Button` the shared `ui/Button`, and add `Dialog` and `Popover` surfaces (radius, padding, shadow, layer and motion from tokens).
-- [ ] 15.7 Close the library's V1 gaps: G3 (each status's glyph and colour), G7 and G11 (hover transitions on every hover rule), G8 (table row hover), G10 (toast exit) and the `Banner` component's part of G12; and move the library's near values and visible cluster changes onto tokens (C2, C9, C10, C15, C16), with before-and-after screenshots. The other V1 gaps belong to the area task that owns their files: G1 and G9 to task 16, G2 to tasks 16 and 19, G4 to task 20, G5 and G16 (Processing) to task 18, G6 to tasks 17 and 19, G12's screens to tasks 17, 18 and 20, G13, G14 and G17 to task 19, G15 to every area task, and G16 (Records) to task 20.
+- [ ] 15.7 Close the library's V1 gaps: G3 (each status's glyph and colour), G7 and G11 (hover transitions on every hover rule), G8 (table row hover), G10 (toast exit) and the `Banner` component's part of G12; and move the library's near values and visible cluster changes onto tokens (C2, C3, C9, C10, C15, C16, and C18's control heights and icon sizes), with before-and-after screenshots. The other V1 gaps belong to the area task that owns their files: G1 and G9 to task 16, G2 to tasks 16 and 19, G4 to task 20, G5 and G16 (Processing) to task 18, G6 to tasks 17 and 19, G12's screens to tasks 17, 18 and 20, G13, G14 and G17 to task 19, G15 to every area task, and G16 (Records) to task 20.
 - [ ] 15.8 Record the screenshots, the shrunk baseline and the results in the handover.
 
 ## 16. App shell, masthead, Batches and Agents
 
 - **PR delivery:** PR-I.
 - **Outcome:** pages sit at the design's content widths, the masthead stays one row at phone width, the batch header is the design's full-width band with tab counts, and Batches, Agents and settings match the canvas.
-- **Scope:** `App.tsx` and global CSS, `components/masthead/` and the header popovers (`NeedYouPanel`, `MastheadMenu`, `HeaderDisclosure`), `BatchHeader`, `components/batches/`, `components/agents/`, settings and operations. Clusters C3, C4, C8 (the app shell's 700px) and C17, and gaps V2, V3 and V6, plus G1, G2 (the app shell), G9 and G15 for these screens.
+- **Scope:** `App.tsx` and global CSS, `components/masthead/` and the header popovers (`NeedYouPanel`, `MastheadMenu`, `HeaderDisclosure`), `BatchHeader`, `components/batches/`, `components/agents/`, settings and operations. Clusters C1, C3, C4, C8 (the app shell's 700px), C9, C10 and C15–C17, and gaps V2, V3 and V6, plus G1, G2 (the app shell), G9 and G15 for these screens.
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: Layout follows the design's widths and breakpoints (Wide screen; Phone width for the masthead).
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
@@ -348,14 +348,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 16.3 Move the three header popovers onto `Popover` (closing G9), keep the masthead to one row at phone width, and give these screens' controls a 44px hit area at phone width.
 - [ ] 16.4 Make the batch header a full-width band with the tabs on the title row, the second tab row as its own band, tab counts and the Processing step icons.
 - [ ] 16.5 Close the V3 and V6 gaps on Batches, Agents and settings.
-- [ ] 16.6 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
+- [ ] 16.6 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17), local button look-alikes onto `Button` (C1) onto tokens, with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
 - [ ] 16.7 Record the screenshots and results in the handover.
 
 ## 17. Capture
 
 - **PR delivery:** PR-J.
 - **Outcome:** Capture matches the canvas: outlined capture-action tiles with a glyph and a subline, groups with an inline name and small actions, the move handle on the tile, and the Proposed lots glance as thumbnail rows with a footer band.
-- **Scope:** `components/capture/` and `components/media/`, including `MediaCropDialog` onto `Dialog`. Gaps V4 (K1–K10), G6 and G12 for Capture, and the Capture rows of clusters C3, C4, C8 and C18.
+- **Scope:** `components/capture/` and `components/media/`, including `MediaCropDialog` onto `Dialog`. Gaps V4 (K1–K10), G6 and G12 for Capture, and the Capture rows of clusters C1, C3, C4, C8 (430px), C9, C10 and C15–C17.
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: Phone width (the Capture actions); Screens use the shared components on Capture.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
@@ -365,14 +365,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 17.2 Restyle the capture actions as the design's tiles, and give every Capture control a 44px hit area at phone width.
 - [ ] 17.3 Restyle evidence groups and tiles: inline group name, small and ghost actions, the move handle on the tile.
 - [ ] 17.4 Restyle the Proposed lots glance, and move `MediaCropDialog` onto `Dialog`.
-- [ ] 17.5 Move Capture's notices onto `Banner` (G12), move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
+- [ ] 17.5 Move Capture's notices onto `Banner` (G12), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17), local button look-alikes onto `Button` (C1) onto tokens, with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
 - [ ] 17.6 Record the screenshots and results in the handover.
 
 ## 18. Processing
 
 - **PR delivery:** PR-J.
 - **Outcome:** the Processing overview is the canvas's two-column layout with a step progress bar, Needs-you items as cards and activity as a timeline; the session drawer docks on the right with its timeline and chat; running states use the accent colour.
-- **Scope:** `components/processing/`, the session drawer and `ui/PhaseRow.tsx` (P10, P11). Gaps V5, G5, G12 and G16 for Processing and the drawer, and G15, plus the Processing rows of clusters C3 and C8.
+- **Scope:** `components/processing/`, the session drawer and `ui/PhaseRow.tsx` (P10, P11). Gaps V5, G5, G12 and G16 for Processing and the drawer, and G15, plus the Processing rows of clusters C1, C3, C4, C8 (480px), C9, C10 and C15–C17.
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: One status vocabulary (the running step); processing-workspace: Overview with running agents and Session drawer, as laid out in the canvas.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
@@ -381,14 +381,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged.
 - [ ] 18.2 Lay out the overview in two columns with the step progress bar, Needs-you cards and the activity timeline.
 - [ ] 18.3 Dock the session drawer on the right with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
-- [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7, P8, P10 and P11 (P10 and P11 in `ui/PhaseRow.tsx`).
+- [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C8: 480px to `bp-phone`, C9, C10, C15–C17), local button look-alikes onto `Button` (C1) onto tokens, with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7, P8, P10 and P11 (P10 and P11 in `ui/PhaseRow.tsx`).
 - [ ] 18.5 Record the screenshots and results in the handover.
 
 ## 19. Review Lots and Map
 
 - **PR delivery:** PR-K.
 - **Outcome:** Review uses the shared components and the design's breakpoints: lot rows with thumbnails and a current-row border, the view switch as `SegmentedControl`, filters as `FilterChips` that wrap at phone width, the table as `DataTable` with the dark `BulkBar` above it, and styled Map controls with Tell Examine inside its card.
-- **Scope:** `components/review/` (Lots and Map) and `components/operator/`, including `Modal` onto `Dialog` and `StatusChip` onto `Pill`. Gaps V7 (Lots and Map), G2, G6, G13, G14, G15 and G17 for Review, clusters C8 (700px to `bp-compact`, 1000px to `bp-wide`), C11 (`ReviewTable`, `CompareMatches`), C12, C13, and C14 for Review.
+- **Scope:** `components/review/` (Lots and Map) and `components/operator/`, including `Modal` onto `Dialog` and `StatusChip` onto `Pill`. Gaps V7 (Lots and Map), G2, G6, G13, G14, G15 and G17 for Review, clusters C8 (700px to `bp-compact`, 1000px to `bp-wide`), C1, C3, C4, C9, C10, C11 (`ReviewTable`, `CompareMatches`), C12, C13 and C15–C17.
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: Screens use the shared components on Review; Layout follows the design's widths and breakpoints (Review's 1500px and its breakpoints).
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
@@ -398,14 +398,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 19.2 Move Review's breakpoints onto `bp-compact` and `bp-wide`, with screenshots at 700–800 and 1000–1200 px.
 - [ ] 19.3 Move `StatusChip`, the filters, the view switch and the tables onto `Pill`, `FilterChips`, `SegmentedControl` and `DataTable` with `BulkBar`, and `Modal` onto `Dialog`.
 - [ ] 19.4 Restyle the lot rows, the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
-- [ ] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
+- [ ] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17), local button look-alikes onto `Button` (C1) onto tokens, with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
 - [ ] 19.6 Record the screenshots and results in the handover.
 
 ## 20. Records and Changes, then strict lint
 
 - **PR delivery:** PR-K.
 - **Outcome:** Records and Changes match the canvas, with one status vocabulary between them; nothing uses `primitives.Notice` or the legacy primitives any more; and the literal-value lint is strict.
-- **Scope:** `components/review/records/`, `components/changes/`, the remaining `primitives.Notice` users and leftover legacy primitives. Gaps V7 (Records) and V8, G4, G12 (Added), G15 and G16 (Records), and clusters C11 (`RecordDetail`'s table onto `DataTable`) and C14.
+- **Scope:** `components/review/records/`, `components/changes/`, the remaining `primitives.Notice` users and leftover legacy primitives. Gaps V7 (Records) and V8, G4, G12 (Added), G15 and G16 (Records), and clusters C1, C3, C4, C9, C10, C11 (`RecordDetail`'s table onto `DataTable`), C14 and C15–C17.
 - **Prerequisites:** tasks 15–19.
 - **Acceptance:** ui-design-system: One status vocabulary (Records and Changes); Literal value refused, with the lint strict.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
@@ -415,7 +415,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 20.2 Restyle the Records type rail, `RecordDetail`'s table onto `DataTable`, its empty state, and the Ready to add layout and lot rows; give New, Update and Exists the same colours on both screens (G4); and give these screens' controls a 44px hit area at phone width.
 - [ ] 20.3 Move the remaining `primitives.Notice` users onto `Banner` and remove the unused legacy primitives.
 - [ ] 20.4 Empty the literal-value baseline and make the lint strict.
-- [ ] 20.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
+- [ ] 20.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17), local button look-alikes onto `Button` (C1) onto tokens, with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
 - [ ] 20.6 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the handover.
 
 ## Delivery evidence and lifecycle follow-up

@@ -2,7 +2,7 @@
 
 Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). Two read-only passes:
 
-- **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value or role exists), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
+- **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value, or with that role and value, exists; a role-only match is treated as NEAR when the work is done), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in `docs/handovers/redesign-batch-workspace.md` are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
 
 Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-0-5`, `space-5` and `space-6`, are EXACT under v2.
@@ -13,12 +13,14 @@ Values below are as measured on that commit; line numbers drift as tasks land. *
 - **Breakpoints:** Review drops its evidence pane under `bp-wide` (1180px), as the brand book says, not at the implemented 1000px (C8). The values are `bp-phone` 480, `bp-narrow` 600, `bp-compact` 760 and `bp-stacked` 860; 430 folds into `bp-phone` and 700 into `bp-compact`.
 - **Widths:** content is `width-content` (1240px) on every page except Review and Records, which use `width-review` (1500px). The canvas's narrower Agents (1100px) and Batches (1000px) boards (G1, A1) are not separate widths.
 - **Names:** the clusters' proposed names (`motion-*`, `motion.enter`, `z.popover`, `ring-halo`, `media.wide`, `space-control-y`) are superseded by the tokens' (`duration-*`, `duration-enter` and `ease-enter`, `z-popover`, `ring-width`, `bp-wide`); border-compensated control padding stays a `calc()` of a token, which the lint allows.
+- **Glyph boxes:** tokens v2 has no 18px or 22px size. The canvas's 22px PhaseRow disc (P10) and capture-tile glyph (K1) and the 18px boxes stay no-token literals rather than folding into `icon-md` (C18).
+- **Exact means equal value:** a value that only shares a token's role, such as a 6px card radius against `radius-card`, is NEAR, not EXACT (design D11). Type rows that match one property swap through that property's variable.
 - **Delivery:** where a cluster recommends its own PR (C11, C14), the plan's placement in tasks 19 and 20 (PR-K) applies.
 - **Not tokenised:** the 3px focus halo folds into the 2px ring (`ring-width`, `ring-offset`), and the masthead scene's three.js palette stays local to `electronics-current/`.
 
 ## Token audit summary
 
-Literal colours are already gone from the UI: `scripts/check-literal-colors.cjs` (run by `pnpm lint`) rejects hex/rgb/hsl outside `theme/` and `fixtures/`, and the sweep found **0** hex/rgb/hsl/named colours in component styles. Remaining colour literals are the 3D scene fills in `electronics-current/finishes.ts` (`0x` numbers the lint does not match) and alpha masks (`black`/`transparent`) in `ElectronicsCurrent.tsx`. The bulk of the work is spacing, radius and type values written as raw px that already equal a token.
+Literal colours are already gone from the UI: `frontend/scripts/check-literal-colors.cjs` (run by `pnpm lint`) rejects hex/rgb/hsl outside `theme/` and `fixtures/`, and the sweep found **0** hex/rgb/hsl/named colours in component styles. Remaining colour literals are the 3D scene fills in `electronics-current/finishes.ts` (`0x` numbers the lint does not match) and alpha masks (`black`/`transparent`) in `ElectronicsCurrent.tsx`. The bulk of the work is spacing, radius and type values written as raw px that already equal a token.
 
 | Category | EXACT | NEAR | NONE | Total |
 |---|---:|---:|---:|---:|
