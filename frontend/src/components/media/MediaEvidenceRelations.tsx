@@ -1,5 +1,6 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type { EditMedia } from '../../media/types'
 import type { CaptureSnapshotDto, MediaEvidenceDto } from '@invimport/contracts'
 import { Small } from '../ui/primitives'
@@ -43,14 +44,17 @@ export function MediaEvidenceRelations({ batch, evidence, disabled, edit }: Prop
 
 const Relations = styled.div`
   display: grid;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: ${space[5]};
+  margin-bottom: ${space[10]};
 
   label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: ${space[4]};
     flex-wrap: wrap;
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
 
   input,
@@ -60,7 +64,7 @@ const Relations = styled.div`
 
   fieldset {
     display: grid;
-    gap: 8px;
+    gap: ${space[4]};
     border: 1px solid ${color.line};
   }
 `

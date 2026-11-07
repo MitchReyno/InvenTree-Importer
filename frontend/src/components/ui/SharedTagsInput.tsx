@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
-import { CheckboxLabel, Input, Label, Small } from './primitives'
+import { CheckboxLabel, Input, Small } from './primitives'
+import { VisuallyHidden } from './VisuallyHidden'
 
 export type SharedTags = { manual: string[]; auto: boolean }
 
@@ -56,63 +57,66 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
   return (
     <Tags role="group" aria-labelledby={`${id}-title`}>
       <Title id={`${id}-title`}>Shared part tags</Title>
-      {value.manual.length > 0 && (
-        <Chips>
-          {value.manual.map((tag) => (
-            <Chip key={tag}>
-              {tag}
-              <button
-                type="button"
-                disabled={disabled}
-                aria-label={`Remove tag ${tag}`}
-                onClick={() =>
-                  onChange({ ...value, manual: value.manual.filter((item) => item !== tag) })
-                }
-              >
-                ×
-              </button>
-            </Chip>
-          ))}
-        </Chips>
-      )}
-      <Label>
-        Add shared part tag
-        <Input
-          value={draft}
-          disabled={disabled || full}
-          maxLength={MAX_TAG_CHARACTERS}
-          aria-describedby={`${id}-help`}
-          aria-invalid={problem ? true : undefined}
-          onChange={(event) => {
-            setProblem('')
-            const next = event.target.value
-            if (next.endsWith(',') && !composing.current) {
-              changeDraft(next.slice(0, -1))
-              add(next.slice(0, -1))
-            } else {
-              changeDraft(next)
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-              event.preventDefault()
-              add()
-            }
-          }}
-          onCompositionStart={() => {
-            composing.current = true
-          }}
-          onCompositionEnd={(event) => {
-            composing.current = false
-            const text = event.currentTarget.value
-            if (text.endsWith(',')) {
-              changeDraft(text.slice(0, -1))
-              add(text.slice(0, -1))
-            }
-          }}
-          onBlur={() => add()}
-        />
-      </Label>
+      <TagRow>
+        {value.manual.length > 0 && (
+          <Chips>
+            {value.manual.map((tag) => (
+              <Chip key={tag}>
+                {tag}
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`Remove tag ${tag}`}
+                  onClick={() =>
+                    onChange({ ...value, manual: value.manual.filter((item) => item !== tag) })
+                  }
+                >
+                  ×
+                </button>
+              </Chip>
+            ))}
+          </Chips>
+        )}
+        <TagLabel>
+          <VisuallyHidden>Add a tag to every Part</VisuallyHidden>
+          <TagInput
+            placeholder="Add a tag"
+            value={draft}
+            disabled={disabled || full}
+            maxLength={MAX_TAG_CHARACTERS}
+            aria-describedby={`${id}-help`}
+            aria-invalid={problem ? true : undefined}
+            onChange={(event) => {
+              setProblem('')
+              const next = event.target.value
+              if (next.endsWith(',') && !composing.current) {
+                changeDraft(next.slice(0, -1))
+                add(next.slice(0, -1))
+              } else {
+                changeDraft(next)
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                add()
+              }
+            }}
+            onCompositionStart={() => {
+              composing.current = true
+            }}
+            onCompositionEnd={(event) => {
+              composing.current = false
+              const text = event.currentTarget.value
+              if (text.endsWith(',')) {
+                changeDraft(text.slice(0, -1))
+                add(text.slice(0, -1))
+              }
+            }}
+            onBlur={() => add()}
+          />
+        </TagLabel>
+      </TagRow>
       {problem && <Small role="alert">{problem}</Small>}
       <Small id={`${id}-help`}>
         Press Enter or comma to add. <span>{`${value.manual.length} of ${MAX_TAGS} tags`}</span>
@@ -138,6 +142,21 @@ const Tags = styled.div`
 const Title = styled.span`
   font-size: ${typeVar.small.size};
   font-weight: ${typeVar.bodyStrong.weight};
+`
+const TagRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
+  min-width: 0;
+`
+const TagLabel = styled.label`
+  display: flex;
+  min-width: 0;
+`
+const TagInput = styled(Input)`
+  width: 140px;
+  max-width: 100%;
 `
 const Chips = styled.ul`
   display: flex;

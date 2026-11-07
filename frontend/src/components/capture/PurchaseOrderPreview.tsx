@@ -1,10 +1,10 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { AutoValueField } from '../ui/AutoValueField'
 import { NotesField } from '../ui/TextField'
-import { Small } from '../ui/primitives'
+import { DisabledFeature } from '../ui/DisabledFeature'
 import { Button } from '../ui/Button'
 
 type Props = {
@@ -22,16 +22,11 @@ export function PurchaseOrderPreview({ order, orderNote }: Props) {
   const id = useId()
   const [open, setOpen] = useState(false)
   return (
-    <Unavailable aria-labelledby={`${id}-legend`}>
-      <legend id={`${id}-legend`}>Purchase order · unavailable</legend>
-      <label>
-        <input type="checkbox" disabled aria-describedby={`${id}-why`} />
-        Create a purchase order in InvenTree
-      </label>
-      <Small id={`${id}-why`}>
-        Purchase-order creation is not yet available. These controls are disabled and no
-        purchase-order request is saved or sent.
-      </Small>
+    <Unavailable>
+      <DisabledFeature
+        label="Create a purchase order in InvenTree"
+        explanation="Purchase-order creation is not yet available. No purchase-order request is saved or sent; the preview shows the order details kept with this batch."
+      />
       <Toggle
         type="button"
         aria-expanded={open}
@@ -69,21 +64,10 @@ export function PurchaseOrderPreview({ order, orderNote }: Props) {
   )
 }
 
-const Unavailable = styled.fieldset`
+const Unavailable = styled.div`
   display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 12px;
-  color: ${color.muted};
-  background: ${color.surface2};
-  border: 1px solid ${color.lineStrong};
-  border-radius: 5px;
+  gap: ${space[4]};
   min-width: 0;
-  label {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
 `
 const Toggle = styled(Button)`
   justify-self: start;
@@ -91,5 +75,5 @@ const Toggle = styled(Button)`
 const Preview = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-  gap: 10px;
+  gap: ${space[5]};
 `

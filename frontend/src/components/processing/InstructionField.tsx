@@ -1,7 +1,7 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Small, TextArea } from '../ui/primitives'
 
@@ -116,7 +116,10 @@ export function InstructionField({
       ) : (
         <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}
-      <Small>Every agent on this batch reads them. They do not approve inventory values.</Small>
+      <Small>
+        Saved for the batch. Running agents are not told of a change yet. Instructions do not
+        approve inventory values.
+      </Small>
     </Field>
   )
 }
@@ -125,7 +128,7 @@ const Field = styled.div`
   display: grid;
   gap: ${space[4]};
   label {
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
 `
 

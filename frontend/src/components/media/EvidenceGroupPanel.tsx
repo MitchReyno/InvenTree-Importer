@@ -1,7 +1,6 @@
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { GroupLocationControl } from './GroupLocationControl'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import styled from 'styled-components'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -10,11 +9,13 @@ import type {
 } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { mediaDisplayLabels, type MediaIdentityLabels } from '../../media/identity-labels'
+import { reviewMap } from '../../operator/review-map'
+import { predecessorLotIds } from '../../operator/review-model'
 import type { EditMedia } from '../../media/types'
 import { Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
-import { color, space, type } from '../../theme/generated/tokens'
-import { EvidenceDropZone } from './EvidenceDropZone'
+import { useEvidenceDropZone } from './EvidenceDropZone'
+import { EvidenceGroup } from '../ui/EvidenceGroup'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
 import { EvidenceFileTile } from './EvidenceFileTile'
@@ -73,7 +74,6 @@ export function EvidenceGroupPanel({
   reload,
   captureEdit,
 }: Props) {
-  const [rename, setRename] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   // Closing the viewer would unmount the note editor and lose its draft.
@@ -85,8 +85,24 @@ export function EvidenceGroupPanel({
   const opened = evidence.find((item) => item.id === openId)
   const renameKey = `rename:${groupId}`
 
+  // The Map's own count: links to a lot, its Part or an earlier lot, and observed regions.
+  const map = reviewMap(
+    batch,
+    snapshot.evidence,
+    new Set(batch.lots.filter((lot) => lot.retired).map((lot) => lot.id)),
+    predecessorLotIds(review),
+  )
+  const lotsOf = new Map(map.files.map((file) => [file.id, file.lotIds]))
+  const groupLots = new Set(evidence.flatMap((item) => lotsOf.get(item.id) ?? []))
+  // Without the review's lineage, links to a split or merged lot's predecessors can't be followed,
+  // so counts are withheld rather than shown as zero, as the Map holds its conclusions.
+  const lineageKnown = review !== undefined || !batch.lots.some((lot) => lot.retired)
+
   function supportedLots(item: MediaSnapshotDto['evidence'][number]) {
-    const count = batch.lots.filter((lot) => item.linked_subject_ids.includes(lot.id)).length
+    if (!lineageKnown) {
+      return undefined
+    }
+    const count = lotsOf.get(item.id)?.length ?? 0
     return count === 1 ? '1 lot' : `${count} lots`
   }
 
@@ -106,48 +122,45 @@ export function EvidenceGroupPanel({
       return
     }
     acceptedConfirmation.current = confirmation
-    dirty(renameKey)(false)
     if (noteId) {
       dirty(`note:${noteId}`)(false)
     }
-    setRename(false)
     setNoteId(null)
     setNoteDirty(false)
-  }, [confirmation, dirty, renameKey, noteId])
+  }, [confirmation, dirty, noteId])
 
   function closeViewer() {
     setNoteId(null)
     setOpenId(null)
   }
 
+  const label = `${name} · ${evidence.length} files`
+  const drop = useEvidenceDropZone(groupId, label, frozen)
+
   return (
-    <EvidenceDropZone
-      groupId={groupId}
-      label={`${name} · ${evidence.length} files`}
-      disabled={frozen}
-    >
-      <GroupHead>
-        <GroupName>{name}</GroupName>
-        <FileCount>{evidence.length === 1 ? '1 file' : `${evidence.length} files`}</FileCount>
-      </GroupHead>
-      {group && (
-        <>
-          <GroupActions>
+    <EvidenceGroup
+      ref={drop.ref}
+      dropState={drop.dropState}
+      name={name}
+      count={evidence.length}
+      meta={!lineageKnown ? undefined : groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`}
+      ungrouped={!group}
+      label={label}
+      nameLabel={`Name for ${name}`}
+      nameDisabled={blocked(renameKey)}
+      onDraftChange={dirty(renameKey)}
+      onRename={
+        group
+          ? (label) =>
+              void edit({ kind: 'rename_group', group_id: group.id, label }, snapshot.revision)
+          : undefined
+      }
+      actions={
+        group && (
+          <>
             <Button
-              aria-label={`Rename ${name}`}
-              disabled={blocked(renameKey)}
-              onClick={() => setRename(true)}
-            >
-              Rename
-            </Button>
-            <Button
-              aria-label={`Ungroup ${name}`}
-              disabled={blocked('selection')}
-              onClick={() => void edit({ kind: 'ungroup', group_id: group.id })}
-            >
-              Ungroup
-            </Button>
-            <Button
+              size="sm"
+              icon="＋"
               aria-label={`Add photos to ${name}`}
               disabled={blocked('upload')}
               onClick={() => choose('photos', group.id)}
@@ -155,31 +168,53 @@ export function EvidenceGroupPanel({
               Add photos
             </Button>
             <Button
+              size="sm"
+              icon="＋"
               aria-label={`Add document to ${name}`}
               disabled={blocked('upload')}
               onClick={() => choose('document', group.id)}
             >
               Add document
             </Button>
-          </GroupActions>
-          {rename && (
-            <MediaTextEditor
-              label={`Name for ${name}`}
-              action="Save group name"
-              text={name}
-              revision={snapshot.revision}
-              maximum={256}
-              trim
-              disabled={blocked(renameKey)}
-              pending={pending}
-              onDirtyChange={dirty(renameKey)}
-              onCancel={() => setRename(false)}
-              onSave={(label, revision) =>
-                edit({ kind: 'rename_group', group_id: group.id, label }, revision)
-              }
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Ungroup ${name}`}
+              disabled={blocked('selection')}
+              onClick={() => void edit({ kind: 'ungroup', group_id: group.id })}
+            >
+              Ungroup
+            </Button>
+            {operator && review && reload && (
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Edit note for group ${name}`}
+                disabled={blocked(instructionKey)}
+                onClick={() => setInstructions(true)}
+              >
+                Edit note
+              </Button>
+            )}
+          </>
+        )
+      }
+    >
+      {group && (
+        <>
+          <MediaNoteSummary title="Group note" note={group.note} />
+          {operator && review && reload && instructions && (
+            <InstructionForm
+              batch={batch}
+              review={review}
+              client={operator}
+              groupId={group.id}
+              label={`Group “${name}”`}
+              disabled={blocked(instructionKey)}
+              reload={reload}
+              onDirtyChange={(_key, value) => dirty(instructionKey)(value)}
             />
           )}
-          <MediaNoteSummary title="Group note" note={group.note} />
           {captureEdit && (
             <GroupLocationControl
               batch={batch}
@@ -190,25 +225,6 @@ export function EvidenceGroupPanel({
               reload={reload}
               onDirtyChange={dirty(locationKey)}
             />
-          )}
-          {operator && review && reload && (
-            <>
-              <Button disabled={blocked(instructionKey)} onClick={() => setInstructions(true)}>
-                Edit note for group {name}
-              </Button>
-              {instructions && (
-                <InstructionForm
-                  batch={batch}
-                  review={review}
-                  client={operator}
-                  groupId={group.id}
-                  label={`Group “${name}”`}
-                  disabled={blocked(instructionKey)}
-                  reload={reload}
-                  onDirtyChange={(_key, value) => dirty(instructionKey)(value)}
-                />
-              )}
-            </>
           )}
         </>
       )}
@@ -223,18 +239,31 @@ export function EvidenceGroupPanel({
               label={controlLabel}
               disabled={blocked('selection')}
             >
-              <EvidenceFileTile
-                batchId={batch.id}
-                evidence={item}
-                name={controlLabel}
-                support={supportedLots(item)}
-                selectable={!blocked('selection')}
-                selected={selected.includes(item.id)}
-                onSelect={(checked) =>
-                  select(checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))
-                }
-                onOpen={() => setOpenId(item.id)}
-              />
+              {(handle) => (
+                <EvidenceFileTile
+                  batchId={batch.id}
+                  evidence={item}
+                  name={controlLabel}
+                  support={supportedLots(item)}
+                  handle={handle}
+                  selectable={!blocked('selection')}
+                  selected={selected.includes(item.id)}
+                  onSelect={(checked) =>
+                    select(
+                      checked ? [...selected, item.id] : selected.filter((id) => id !== item.id),
+                    )
+                  }
+                  onOpen={() => setOpenId(item.id)}
+                  onNote={
+                    blocked(`note:${item.id}`)
+                      ? undefined
+                      : () => {
+                          setOpenId(item.id)
+                          setNoteId(item.id)
+                        }
+                  }
+                />
+              )}
             </EvidenceDragHandle>
           )
         })}
@@ -282,28 +311,6 @@ export function EvidenceGroupPanel({
           />
         </Modal>
       )}
-    </EvidenceDropZone>
+    </EvidenceGroup>
   )
 }
-
-const GroupHead = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: ${space[4]};
-`
-
-const GroupName = styled.h3`
-  margin: 0;
-  ${type.h3}
-`
-
-const FileCount = styled.span`
-  font-size: 12.5px;
-  color: ${color.muted};
-`
-
-const GroupActions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${space[3]};
-`

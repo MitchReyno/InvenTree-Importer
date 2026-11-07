@@ -13,9 +13,10 @@ export type ProposedLot = {
   origin?: 'agent' | 'operator'
   /** An AI lot the operator has changed; the lead session now only suggests for it. */
   edited?: boolean
-  /** Crop URLs of the lot's pixel observations. */
-  /** Observation crops, sized for the glance's 40 px cover thumbnails. */
+  /** Observation crops, sized for the glance's 44 × 34 cover thumbnail. */
   crops?: ImageAttributes[]
+  /** The lot's active observations of any kind, pixel regions and document lines alike. */
+  observations?: number
   /** Observations the lead session suggested for this lot, awaiting the operator. */
   suggestions?: number
   /** The lot's latest agent status line, as "Step · line". */
@@ -61,13 +62,16 @@ export function proposedLots(
                 batch.id,
                 { ...observation, region: observation.region },
                 'thumbnail',
-                coverSizes({ width: 40, height: 40 }, observation.region),
+                coverSizes({ width: 44, height: 34 }, observation.region),
               )
             : null,
         )
         .filter((image): image is ImageAttributes => image !== null)
       const suggestions = observations.filter((observation) =>
         observation.suggested_lot_ids.includes(lot.id),
+      ).length
+      const active = observations.filter(
+        (observation) => members.has(observation.id) && observation.status === 'active',
       ).length
       const base = {
         id: lot.id,
@@ -76,7 +80,7 @@ export function proposedLots(
         href: batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id }),
       }
       // Operator lots without observations keep their earlier shape.
-      if (lot.origin !== 'agent' && !crops.length && !suggestions) {
+      if (lot.origin !== 'agent' && !active && !crops.length && !suggestions) {
         return base
       }
       return {
@@ -84,6 +88,7 @@ export function proposedLots(
         origin: lot.origin === 'agent' ? ('agent' as const) : ('operator' as const),
         edited: lot.operator_edited === true,
         crops,
+        observations: active,
         suggestions,
       }
     })

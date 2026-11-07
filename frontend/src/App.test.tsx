@@ -265,7 +265,7 @@ test('archive is read-only until explicit resume; no approval or write button is
       observe={vi.fn(async () => null)}
     />,
   )
-  expect(screen.getByText(/Archived, not deleted/)).toHaveAttribute('role', 'status')
+  expect(screen.getByText(/Archived, not deleted/).closest('[role="status"]')).not.toBeNull()
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
   cleanup()

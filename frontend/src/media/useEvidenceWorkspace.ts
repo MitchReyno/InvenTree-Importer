@@ -191,6 +191,7 @@ export function useEvidenceWorkspace(
       if (saved) {
         select([])
       }
+      return Boolean(saved)
     },
     discard: () => {
       if (!command.busy) {

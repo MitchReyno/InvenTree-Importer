@@ -1,7 +1,7 @@
 import Moveable from 'react-moveable'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import { cropAspect, type CropAspect, type CropFrame } from '../../media/crop-model'
 import type { ImageAttributes } from '../../media/images'
 
@@ -136,8 +136,12 @@ export function RotatedCropSelection({
 const SourceSurface = styled.div<{ $ratio: number }>`
   position: relative;
   aspect-ratio: ${(props) => props.$ratio};
-  width: min(calc(100% - 72px), 680px, calc((100dvh - 340px) * ${(props) => props.$ratio}));
-  margin: 36px auto;
+  width: min(
+    calc(100% - 2 * ${space[20]}),
+    680px,
+    calc((100dvh - 340px) * ${(props) => props.$ratio})
+  );
+  margin: ${space[20]} auto;
   touch-action: none;
   background: ${color.photoStage};
 `

@@ -350,7 +350,7 @@ test('exact retry closes an acknowledged new-group draft', async () => {
       onDirtyChange={vi.fn()}
     />,
   )
-  await user.click(await screen.findByRole('button', { name: 'New evidence group' }))
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
   await user.type(screen.getByRole('textbox', { name: 'New group name' }), 'Third packet')
   await user.click(screen.getByRole('button', { name: 'Create group' }))
   await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
@@ -469,4 +469,190 @@ test('a refused retry of an uncertain note keeps the typed text in the viewer', 
   // The page behind the modal is inert, so the viewer says why the save was refused.
   expect(within(viewer).getByRole('alert')).toBeInTheDocument()
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
+})
+
+test('renames a group inline and keeps each file’s move handle on its tile', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const name = await screen.findByRole('textbox', { name: 'Name for Packet A' })
+
+  await user.clear(name)
+  await user.type(name, 'Resistor bag{Enter}')
+  expect(client.edit).toHaveBeenCalledWith(
+    batch.id,
+    {
+      expected_revision: '1',
+      change: { kind: 'rename_group', group_id: groupA, label: 'Resistor bag' },
+    },
+    expect.any(String),
+  )
+
+  const group = screen.getByRole('region', { name: /Packet A/ })
+  const tile = within(group).getByRole('button', { name: 'Open Front label' }).parentElement!
+  expect(within(tile).getByRole('button', { name: 'Drag Front label' })).toBeVisible()
+  expect(within(group).queryByText('Move evidence')).not.toBeInTheDocument()
+  expect(within(group).getByRole('button', { name: 'Ungroup Packet A' })).toBeVisible()
+})
+
+test('heads the evidence with its file and group counts beside New group', async () => {
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+      headingId="evidence"
+    />,
+  )
+  const heading = await screen.findByRole('heading', { name: 'Evidence' })
+  expect(heading).toHaveAttribute('id', 'evidence')
+  expect(await screen.findByText('2 files · 2 groups')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'New group' })).toBeVisible()
+})
+
+test('opens a file’s note from its tile', async () => {
+  const user = userEvent.setup()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Note: Front label' }))
+  expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeVisible()
+  expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 0 lots')
+})
+
+test('confirms a move with a toast whose Undo moves the files back', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce({
+    ...initial,
+    revision: '2',
+    evidence: initial.evidence.map((item) =>
+      item.id === front ? { ...item, group_id: groupB } : item,
+    ),
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+
+  const toast = await screen.findByText('Moved 1 file to Packet B')
+  await user.click(within(toast.parentElement!).getByRole('button', { name: 'Undo' }))
+  await waitFor(() =>
+    expect(client.edit).toHaveBeenLastCalledWith(
+      batch.id,
+      expect.objectContaining({
+        change: { kind: 'move_many', evidence_ids: [front], group_id: groupA },
+      }),
+      expect.any(String),
+    ),
+  )
+})
+
+test('Undo waits while another draft is open, so the draft is not lost', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce({
+    ...initial,
+    revision: '2',
+    evidence: initial.evidence.map((item) =>
+      item.id === front ? { ...item, group_id: groupB } : item,
+    ),
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  const toast = await screen.findByText('Moved 1 file to Packet B')
+  await user.click(screen.getByRole('button', { name: 'New group' }))
+  await user.type(screen.getByRole('textbox', { name: 'New group name' }), 'Third')
+  expect(within(toast.parentElement!).queryByRole('button', { name: 'Undo' })).toBeNull()
+  expect(screen.getByRole('textbox', { name: 'New group name' })).toHaveValue('Third')
+})
+
+test('a retired lot no longer counts among the lots a group feeds', async () => {
+  const lot = (id: string, retired: boolean) =>
+    ({ id, label: id, retired }) as unknown as CaptureSnapshotDto['lots'][number]
+
+  const client = mediaClient()
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    evidence: initial.evidence.map((item) => ({ ...item, linked_subject_ids: ['old', 'new'] })),
+  })
+  const props = {
+    batch: { ...batch, lots: [lot('old', true), lot('new', false)] },
+    client,
+    disabled: false,
+    selectedSubject: 'defaults',
+    onDirtyChange: vi.fn(),
+  }
+  const view = render(<MediaWorkspace {...props} />)
+  // Until the review's lineage is read, the count is withheld rather than shown as zero.
+  expect(await screen.findByRole('region', { name: /Packet A/ })).not.toHaveTextContent('lot')
+  view.rerender(
+    <MediaWorkspace
+      {...props}
+      review={{ retired_lots: [{ lot_id: 'old', successor_lot_ids: ['new'] }] } as never}
+    />,
+  )
+  expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 1 lot')
+})
+
+test('a move confirmed by an exact retry still raises its toast', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit)
+    .mockRejectedValueOnce(new Error('lost_ack'))
+    .mockResolvedValueOnce({
+      ...initial,
+      revision: '2',
+      evidence: initial.evidence.map((item) =>
+        item.id === front ? { ...item, group_id: groupB } : item,
+      ),
+    })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
 })

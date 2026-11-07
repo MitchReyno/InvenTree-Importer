@@ -1,23 +1,16 @@
 import { useEffect, useRef, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { space } from '../../theme/generated/tokens'
 import {
   validate,
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
-import {
-  ErrorNotice,
-  Fieldset,
-  Input,
-  Label,
-  Notice,
-  Paragraph,
-  Select,
-  Small,
-  TextArea,
-} from '../ui/primitives'
+import { Fieldset, Input, Label, Small, TextArea } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
+import { OptionRow } from '../ui/OptionRow'
+import { QuestionCard } from '../ui/QuestionCard'
 import { Button } from '../ui/Button'
 
 interface Props {
@@ -27,6 +20,8 @@ interface Props {
   currentCaptureRevision: string
   disabled: boolean
   readOnly?: boolean
+  /** Where to add evidence for this question, offered as "Add a photo". */
+  captureHref?: string
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
@@ -74,6 +69,7 @@ export function QuestionAnswer({
   currentCaptureRevision,
   disabled,
   readOnly = false,
+  captureHref,
   onDirtyChange,
   answer,
 }: Props) {
@@ -81,8 +77,17 @@ export function QuestionAnswer({
     question: requestedQuestion,
     captureRevision: requestedCaptureRevision,
   }).current
-  const { register, handleSubmit, getValues, reset, setError, clearErrors, formState } =
-    useForm<AnswerFields>({ defaultValues: emptyAnswer })
+  const {
+    register,
+    handleSubmit,
+    getValues,
+    reset,
+    setError,
+    clearErrors,
+    setValue,
+    watch,
+    formState,
+  } = useForm<AnswerFields>({ defaultValues: emptyAnswer })
   const submission = useRef<AnswerSubmission | null>(null)
   const dirtyObserver = useRef(onDirtyChange)
   dirtyObserver.current = onDirtyChange
@@ -176,105 +181,129 @@ export function QuestionAnswer({
     }
   }
 
+  const basis = watch('basis')
+
   return (
-    <Card
+    <Form
       aria-label="Pinned application question"
       onChange={reportDirty}
       onSubmit={handleSubmit(submit)}
     >
-      <h3>{question.spec.prompt}</h3>
-      <Paragraph>{question.spec.reason}</Paragraph>
+      <QuestionCard
+        question={question.spec.prompt}
+        why={question.spec.reason}
+        assumption={
+          question.assumption
+            ? `The agent keeps working on this assumption: ${question.assumption}`
+            : 'Work on this waits for your answer.'
+        }
+        answer={
+          <>
+            {stale && (
+              <div role="status">
+                <Banner tone="warn">
+                  {retrying
+                    ? 'The saved question context changed. Retry only the original unconfirmed answer, or discard the local draft.'
+                    : 'This question is superseded or its saved context changed. Your unsaved answer is preserved; it cannot be applied to another question.'}
+                </Banner>
+              </div>
+            )}
+            <Fieldset disabled={formState.isSubmitting || readOnly || retrying}>
+              <Field>
+                <Label htmlFor={`answer-${question.id}`}>
+                  {question.spec.kind === 'quantity' ? 'Quantity' : 'Clarification'}
+                </Label>
+                {question.spec.kind === 'quantity' ? (
+                  <Input
+                    id={`answer-${question.id}`}
+                    inputMode="decimal"
+                    required
+                    aria-invalid={Boolean(formState.errors.value)}
+                    aria-describedby={error ? errorId : undefined}
+                    {...register('value')}
+                  />
+                ) : (
+                  <TextArea
+                    id={`answer-${question.id}`}
+                    maxLength={2048}
+                    required
+                    aria-invalid={Boolean(formState.errors.value)}
+                    aria-describedby={error ? errorId : undefined}
+                    {...register('value')}
+                  />
+                )}
+              </Field>
+              {question.spec.kind === 'quantity' && (
+                <OptionRow
+                  name="basis"
+                  legend="How was the quantity determined?"
+                  options={[{ id: 'counted', title: 'Counted', detail: 'Every item counted' }]}
+                  escape={{ id: 'estimated', title: 'Estimated', detail: 'An approximate count' }}
+                  value={basis}
+                  onChange={(id) =>
+                    setValue('basis', id as AnswerFields['basis'], { shouldDirty: true })
+                  }
+                />
+              )}
+              {error && (
+                <div id={errorId} role="alert">
+                  <Banner tone="bad">{error}</Banner>
+                </div>
+              )}
+            </Fieldset>
+            <Actions>
+              <Button variant="primary" disabled={submitDisabled} type="submit">
+                {actionLabel}
+              </Button>
+              {(formState.isDirty || retrying) && (
+                <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
+                  Discard unsaved answer
+                </Button>
+              )}
+            </Actions>
+          </>
+        }
+        secondary={
+          captureHref && (
+            <Ghosts>
+              <Button as="a" variant="ghost" size="sm" href={captureHref}>
+                Add a photo
+              </Button>
+            </Ghosts>
+          )
+        }
+      />
       <Small>
         Attempt {question.attempt_id.slice(0, 8)} · question revision {question.revision}
       </Small>
-      {stale && (
-        <Notice role="status">
-          {retrying
-            ? 'The saved question context changed. Retry only the original unconfirmed answer, or discard the local draft.'
-            : 'This question is superseded or its saved context changed. Your unsaved answer is preserved; it cannot be applied to another question.'}
-        </Notice>
-      )}
-      {question.assumption && (
-        <Paragraph>The agent keeps working on this assumption: {question.assumption}</Paragraph>
-      )}
-      <Fieldset disabled={formState.isSubmitting || readOnly || retrying}>
-        <Field>
-          <Label htmlFor={`answer-${question.id}`}>
-            {question.spec.kind === 'quantity' ? 'Quantity' : 'Clarification'}
-          </Label>
-          {question.spec.kind === 'quantity' ? (
-            <Input
-              id={`answer-${question.id}`}
-              inputMode="decimal"
-              required
-              aria-invalid={Boolean(formState.errors.value)}
-              aria-describedby={error ? errorId : undefined}
-              {...register('value')}
-            />
-          ) : (
-            <TextArea
-              id={`answer-${question.id}`}
-              maxLength={2048}
-              required
-              aria-invalid={Boolean(formState.errors.value)}
-              aria-describedby={error ? errorId : undefined}
-              {...register('value')}
-            />
-          )}
-        </Field>
-        {question.spec.kind === 'quantity' && (
-          <Field>
-            <Label htmlFor={`basis-${question.id}`}>How was the quantity determined?</Label>
-            <Select id={`basis-${question.id}`} {...register('basis')}>
-              <option value="counted">Counted</option>
-              <option value="estimated">Estimated</option>
-            </Select>
-          </Field>
-        )}
-        {error && (
-          <ErrorNotice id={errorId} role="alert">
-            {error}
-          </ErrorNotice>
-        )}
-      </Fieldset>
-      <Actions>
-        <Button disabled={submitDisabled} type="submit">
-          {actionLabel}
-        </Button>
-        {(formState.isDirty || retrying) && (
-          <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
-            Discard unsaved answer
-          </Button>
-        )}
-      </Actions>
       <Small>
         {question.assumption
           ? 'This human answer updates the saved lot or note and reaches the agent session.'
           : 'This human answer updates the saved lot or note and queues a new attempt.'}
       </Small>
-    </Card>
+    </Form>
   )
 }
 
-const Card = styled.form`
-  padding: 20px;
-  border: 1px solid ${color.warn};
-  border-radius: 8px;
-  background: ${color.warnWeak};
-  h3 {
-    margin: 0 0 8px;
-  }
+const Form = styled.form`
+  display: grid;
+  gap: ${space[3]};
+  min-width: 0;
 `
 
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0;
+  gap: ${space[4]};
+`
+
+const Ghosts = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[3]};
 `
 
 const Field = styled.div`
   display: grid;
-  gap: 8px;
-  margin-top: 14px;
+  gap: ${space[4]};
 `

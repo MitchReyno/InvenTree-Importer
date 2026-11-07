@@ -1,13 +1,13 @@
-import { HeadingRow, Caption } from '../ui/primitives'
-import { useCallback, useState } from 'react'
-import { Heading, Panel, Paragraph, Summary } from '../ui/primitives'
+import { useCallback, useState, type ReactNode } from 'react'
+import { Paragraph, Summary } from '../ui/primitives'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import styled from 'styled-components'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { MediaWorkspace } from '../media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
-import { EvidenceActions } from '../media/EvidenceActions'
+import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
 
@@ -21,6 +21,10 @@ type Props = {
   frozen: boolean
   onMediaDirtyChange: (dirty: boolean) => void
   onNoteDirtyChange: (dirty: boolean) => void
+  /** Receives the element where Batch settings draws the batch notes field. */
+  notesSlot?: (element: HTMLElement | null) => void
+  /** Shown right after the capture actions, such as the phone's lots glance. */
+  afterActions?: ReactNode
 }
 
 /** Evidence actions, groups and batch notes; it no longer depends on a selected subject. */
@@ -34,6 +38,8 @@ export function EvidencePanel({
   edit,
   onMediaDirtyChange,
   onNoteDirtyChange,
+  notesSlot,
+  afterActions,
 }: Props) {
   const [writing, setWriting] = useState(false)
   // Notes and media each advance the revision; one owner's save must not remount the other's draft.
@@ -60,13 +66,6 @@ export function EvidencePanel({
 
   return (
     <EvidenceArea data-area="context" aria-labelledby="evidence">
-      <HeadingRow>
-        <Heading id="evidence">Evidence</Heading>
-      </HeadingRow>
-      <Caption>
-        Original observations are retained. A note is evidence, not an inferred or approved
-        inventory fact.
-      </Caption>
       {media && (
         <MediaWorkspace
           operator={operator}
@@ -79,10 +78,12 @@ export function EvidencePanel({
           disabled={frozen || noteDirty}
           onDirtyChange={reportMedia}
           captureEdit={edit}
+          headingId="evidence"
+          afterActions={afterActions}
         />
       )}
       {!media && (
-        <EvidenceActions
+        <CaptureActions
           mediaDisabled
           noteDisabled={frozen || writing}
           writeNote={writeNote}
@@ -91,6 +92,8 @@ export function EvidencePanel({
           unavailable
         />
       )}
+      {!media && afterActions}
+      {!media && <EvidenceLabel id="evidence">Evidence</EvidenceLabel>}
       {writing && (
         <EvidenceNoteForm
           disabled={frozen || mediaDirty}
@@ -99,6 +102,7 @@ export function EvidencePanel({
           onClose={() => setWriting(false)}
         />
       )}
+      {notesSlot && <div ref={notesSlot} />}
       {latestNote && <HumanNote note={latestNote} batch={batch} />}
       {notes.length > 1 && (
         <details>
@@ -122,11 +126,22 @@ export function EvidencePanel({
   )
 }
 
-const EvidenceArea = styled(Panel)`
-  grid-area: context;
+const EvidenceArea = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[7]};
+  min-width: 0;
+  padding: ${space[8]};
+  border: 1px dashed ${color.lineStrong};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+`
+const EvidenceLabel = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
 `
 const IdentityDetails = styled.details`
-  padding: 14px;
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
 `

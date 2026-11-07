@@ -1,6 +1,6 @@
 import type { MediaSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { Small } from '../ui/primitives'
+import { Small, Summary } from '../ui/primitives'
 
 type Props = { title: string; note: MediaSnapshotDto['evidence'][number]['note'] }
 
@@ -16,7 +16,7 @@ export function MediaNoteSummary({ title, note }: Props) {
         Version {note.version} · {new Date(note.created_at).toLocaleString()}
       </Small>
       <details>
-        <summary>Note provenance</summary>
+        <Summary>Note provenance</Summary>
         <Small>
           Record {note.id} · actor {note.actor_id}
         </Small>

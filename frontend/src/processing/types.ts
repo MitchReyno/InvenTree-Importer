@@ -1,3 +1,4 @@
+import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import type {
   SessionFailureDto,
   ProcessingAnswerDto,
@@ -45,3 +46,9 @@ export interface ProcessingClient {
 }
 /** The Processing steps; Examine shows the Reading and Identifying stages. */
 export type ProcessingView = 'overview' | 'examine' | 'research' | 'images' | 'inventory'
+
+/** The agent-session read Processing shares with the Agents page, for start times and the slot limit. */
+export type AgentsRead = {
+  sessions: (before?: string) => Promise<AgentSessionListDto>
+  settings: () => Promise<AgentSettingsDto>
+}

@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import type { ProcessingQuestionDto } from '@invimport/contracts'
 import { render } from '../../test/render'
@@ -45,4 +45,20 @@ test('an earlier-profile question still queues a continuation', () => {
   expect(
     screen.getByRole('button', { name: 'Save answer and queue continuation' }),
   ).toBeInTheDocument()
+})
+
+test('answers inside the question card, choosing the basis from options', () => {
+  render(
+    <QuestionAnswer
+      question={question}
+      currentQuestion={question}
+      captureHref="#b/capture"
+      {...props}
+    />,
+  )
+  expect(screen.getByRole('group', { name: 'How many reels?' })).toBeVisible()
+  const basis = screen.getByRole('radiogroup', { name: 'How was the quantity determined?' })
+  expect(within(basis).getByRole('radio', { name: /^Counted/ })).toBeChecked()
+  expect(within(basis).getByRole('radio', { name: /^Estimated/ })).not.toBeChecked()
+  expect(screen.getByRole('link', { name: 'Add a photo' })).toHaveAttribute('href', '#b/capture')
 })

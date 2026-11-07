@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { EvidenceGroup } from './EvidenceGroup'
@@ -133,5 +133,126 @@ describe('EvidenceGroup', () => {
     rerender(<EvidenceGroup name="Not grouped yet" count={3} ungrouped />)
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Not grouped yet' })).toHaveTextContent('3 files')
+  })
+})
+
+describe('EvidenceGroup on Capture', () => {
+  it('names its region and field, reports an unsaved name and locks the name while blocked', async () => {
+    const onDraftChange = vi.fn()
+    const { rerender } = render(
+      <EvidenceGroup
+        name="Bag"
+        count={2}
+        label="Bag · 2 files"
+        nameLabel="Name for Bag"
+        onRename={() => {}}
+        onDraftChange={onDraftChange}
+      />,
+    )
+    const field = screen.getByRole('textbox', { name: 'Name for Bag' })
+    expect(screen.getByRole('region', { name: 'Bag · 2 files' })).toBeVisible()
+
+    await userEvent.type(field, 'X')
+    expect(onDraftChange).toHaveBeenLastCalledWith(true)
+    await userEvent.type(field, '{Escape}')
+    expect(onDraftChange).toHaveBeenLastCalledWith(false)
+
+    rerender(
+      <EvidenceGroup
+        name="Bag"
+        count={2}
+        nameLabel="Name for Bag"
+        nameDisabled
+        onRename={() => {}}
+      />,
+    )
+    expect(screen.getByRole('textbox', { name: 'Name for Bag' })).toBeDisabled()
+  })
+})
+
+describe('EvidenceTile handle', () => {
+  it('shows a move handle on the tile', () => {
+    render(
+      <EvidenceTile
+        {...base}
+        state="ready"
+        onOpen={() => {}}
+        handle={<button type="button">Drag IMG_2041.jpg</button>}
+      />,
+    )
+    const tile = screen.getByRole('button', { name: 'Open IMG_2041.jpg' }).parentElement!
+    expect(within(tile).getByRole('button', { name: 'Drag IMG_2041.jpg' })).toBeVisible()
+  })
+})
+
+describe('EvidenceTile states', () => {
+  it('shimmers while preparing and says so in the caption, not on the photo', () => {
+    render(<EvidenceTile {...base} state="preparing" onOpen={() => {}} />)
+    const stage = screen.getByRole('button', { name: 'Open IMG_2041.jpg' })
+
+    expect(stage).not.toHaveTextContent('Preparing…')
+    expect(screen.getByText('Preparing…').closest('[data-caption]')).not.toBeNull()
+  })
+})
+
+describe('Evidence notes and lot counts', () => {
+  it('adds the group’s lot count to its file count', () => {
+    render(<EvidenceGroup name="Bag" count={2} meta="2 lots" />)
+    expect(screen.getByRole('region', { name: 'Bag' })).toHaveTextContent('2 files · 2 lots')
+  })
+
+  it('offers a note link on the tile, worded by whether a note exists', async () => {
+    const onNote = vi.fn()
+    const { rerender } = render(
+      <EvidenceTile {...base} state="ready" onOpen={() => {}} onNote={onNote} />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Note: IMG_2041.jpg' }))
+    expect(onNote).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <EvidenceTile
+        {...base}
+        note="Counted 30 Oct"
+        state="ready"
+        onOpen={() => {}}
+        onNote={onNote}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Edit note: IMG_2041.jpg' })).toHaveTextContent(
+      'Edit note',
+    )
+  })
+})
+
+describe('EvidenceGroup composition', () => {
+  it('does not rename on the Enter that confirms an IME candidate', () => {
+    const onRename = vi.fn()
+    render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)
+    const name = screen.getByRole('textbox', { name: 'Group name' })
+    fireEvent.change(name, { target: { value: 'にほ' } })
+    fireEvent.keyDown(name, { key: 'Enter', isComposing: true })
+    expect(onRename).not.toHaveBeenCalled()
+  })
+})
+
+describe('EvidenceGroup while its name is locked', () => {
+  it('still lets an unsaved name be discarded', async () => {
+    const onDraftChange = vi.fn()
+    const { rerender } = render(
+      <EvidenceGroup name="Bag" count={1} onRename={() => {}} onDraftChange={onDraftChange} />,
+    )
+    await userEvent.type(screen.getByRole('textbox', { name: 'Group name' }), 'X')
+    rerender(
+      <EvidenceGroup
+        name="Bag"
+        count={1}
+        nameDisabled
+        onRename={() => {}}
+        onDraftChange={onDraftChange}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Discard name change' }))
+    expect(screen.getByRole('textbox', { name: 'Group name' })).toHaveValue('Bag')
+    expect(onDraftChange).toHaveBeenLastCalledWith(false)
   })
 })

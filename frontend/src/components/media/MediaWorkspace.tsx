@@ -1,9 +1,11 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space, type } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
-import { Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
+import { Label, Paragraph, Select, Small } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
+import { Toast } from '../ui/Toast'
 import { Button } from '../ui/Button'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
@@ -28,6 +30,14 @@ interface Props {
   review?: OperatorReviewDto
   reload?: () => Promise<void>
   captureEdit?: CaptureWorkspaceProps['edit']
+  /** Id for the "Evidence" heading, so the enclosing area can be named by it. */
+  headingId?: string
+  /** Shown right after the capture actions. */
+  afterActions?: ReactNode
+}
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`
 }
 
 export function MediaWorkspace({
@@ -42,12 +52,20 @@ export function MediaWorkspace({
   review,
   reload,
   captureEdit,
+  headingId,
+  afterActions,
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
   const upload = useRef<EvidenceUploadHandle>(null)
   const [newGroup, setNewGroup] = useState(false)
   const [destinationGroup, setDestinationGroup] = useState('')
+  const [moved, setMoved] = useState<{
+    /** Each confirmed move gets its own toast, even when its message repeats. */
+    id: string
+    message: string
+    undo?: { ids: string[]; groupId: string | null }
+  } | null>(null)
   const confirmation = useRef(state.confirmation)
   useEffect(() => {
     if (confirmation.current !== state.confirmation) {
@@ -66,22 +84,67 @@ export function MediaWorkspace({
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
 
+  // A confirmed move is undoable when its files all came from one group.
+  const unconfirmedMove = useRef<typeof moved>(null)
+  // Once nothing is retained (confirmed, refused or discarded), the move is forgotten.
+  useEffect(() => {
+    if (!command.pending) {
+      unconfirmedMove.current = null
+    }
+  }, [command.pending])
+
+  async function moveEvidence(ids: string[], groupId: string | null) {
+    const origins = new Set(
+      snapshot?.evidence.filter((item) => ids.includes(item.id)).map((item) => item.group_id),
+    )
+    const name = groupId
+      ? (snapshot?.groups.find((group) => group.id === groupId)?.label ?? 'a group')
+      : 'Ungrouped'
+    const [origin] = origins
+    const confirmation = {
+      id: crypto.randomUUID(),
+      message: `Moved ${plural(ids.length, 'file')} to ${name}`,
+      undo: origins.size === 1 ? { ids, groupId: origin ?? null } : undefined,
+    }
+    const result = await state.move(ids, groupId)
+    if (result === 'saved') {
+      setMoved(confirmation)
+    } else if (result === 'unconfirmed' && command.hasPendingIntent()) {
+      // Only a retained, uncertain move can still be confirmed by an exact retry.
+      unconfirmedMove.current = confirmation
+    }
+    return result
+  }
+
   const retained = (
     <>
       <Button
         disabled={command.busy || state.unavailable || disabled}
-        onClick={() => void state.retry()}
+        onClick={() => {
+          const move = unconfirmedMove.current
+          void state.retry().then((saved) => {
+            if (saved && move) {
+              setMoved(move)
+            }
+          })
+        }}
       >
         Retry exact media request
       </Button>
-      <Button disabled={command.busy} onClick={state.discard}>
+      <Button
+        disabled={command.busy}
+        onClick={() => {
+          unconfirmedMove.current = null
+          state.discard()
+        }}
+      >
         Discard unconfirmed media request
       </Button>
     </>
   )
 
   return (
-    <section aria-label="Retained evidence">
+    <Workspace aria-label="Retained evidence">
       <MediaUpload
         ref={upload}
         disabled={blocked('upload')}
@@ -105,35 +168,66 @@ export function MediaWorkspace({
           }
         }}
       />
-      <Heading>Evidence groups</Heading>
-      <Paragraph>
-        Grouping preserves original files, links and physical-lot identities. Move up to 200
-        selected files together.
-      </Paragraph>
+      {afterActions}
+      <LabelRow>
+        <EvidenceLabel id={headingId}>Evidence</EvidenceLabel>
+        {snapshot && (
+          <Small as="span">
+            {plural(snapshot.evidence.length, 'file')} · {plural(snapshot.groups.length, 'group')}
+          </Small>
+        )}
+        <Spacer />
+        {snapshot && (
+          <Button
+            size="sm"
+            icon="＋"
+            disabled={blocked('new-group')}
+            onClick={() => setNewGroup(true)}
+          >
+            New group
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="Refresh saved evidence"
+          disabled={command.busy}
+          onClick={() =>
+            void state
+              .refresh()
+              .catch(() => state.setError('Refresh failed. Local drafts are preserved.'))
+          }
+        >
+          Refresh
+        </Button>
+      </LabelRow>
+      <Small>
+        Group photos that belong together, such as the front and back of one packet. Originals,
+        links and lot identities are kept; up to 200 selected files move together.
+      </Small>
       {state.unavailable && (
-        <Paragraph role="alert">
-          Current saved media could not be confirmed. Local file, selection and crop inputs are
-          preserved; media changes wait for a fresh read.
-        </Paragraph>
+        <div role="alert">
+          <Banner tone="warn">
+            Current saved media could not be confirmed. Local file, selection and crop inputs are
+            preserved; media changes wait for a fresh read.
+          </Banner>
+        </div>
       )}
-      {state.error && <Paragraph role="alert">{state.error}</Paragraph>}
-      {command.message && <Paragraph role="alert">{command.message}</Paragraph>}
-      {command.pending && retained}
-      <Button
-        disabled={command.busy}
-        onClick={() =>
-          void state
-            .refresh()
-            .catch(() => state.setError('Refresh failed. Local drafts are preserved.'))
-        }
-      >
-        Refresh saved evidence
-      </Button>
+      {state.error && (
+        <div role="alert">
+          <Banner tone="bad">{state.error}</Banner>
+        </div>
+      )}
+      {command.message && (
+        <div role="alert">
+          <Banner tone="bad" action={command.pending ? <Actions>{retained}</Actions> : undefined}>
+            {command.message}
+          </Banner>
+        </div>
+      )}
+      {command.pending && !command.message && retained}
       {snapshot && (
         <>
-          <Button disabled={blocked('new-group')} onClick={() => setNewGroup(true)}>
-            New evidence group
-          </Button>
           {newGroup && (
             <MediaTextEditor
               label="New group name"
@@ -169,7 +263,7 @@ export function MediaWorkspace({
               </Label>
               <Button
                 disabled={blocked('selection')}
-                onClick={() => void state.move(state.selected, destinationGroup || null)}
+                onClick={() => void moveEvidence(state.selected, destinationGroup || null)}
               >
                 Move selected evidence
               </Button>
@@ -193,7 +287,7 @@ export function MediaWorkspace({
             disabled={frozen || drafts.hasOtherSources('selection', 'drag')}
             onDraggingChange={drafts.forSource('drag')}
             onMove={(id, groupId) =>
-              state.move(state.selected.includes(id) ? state.selected : [id], groupId)
+              moveEvidence(state.selected.includes(id) ? state.selected : [id], groupId)
             }
           >
             <Groups>
@@ -267,23 +361,66 @@ export function MediaWorkspace({
           save={state.saveCrop}
         />
       )}
-    </section>
+      {moved && (
+        <Toast
+          key={moved.id}
+          message={moved.message}
+          action={
+            // Undo waits for other drafts, as any move does, so it cannot discard them.
+            moved.undo && !(frozen || drafts.hasOtherSources('selection', 'drag'))
+              ? {
+                  label: 'Undo',
+                  onClick: () => {
+                    const undo = moved.undo!
+                    setMoved(null)
+                    void state.move(undo.ids, undo.groupId)
+                  },
+                }
+              : undefined
+          }
+          onDismiss={() => setMoved(null)}
+        />
+      )}
+    </Workspace>
   )
 }
 
+const Workspace = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[7]};
+  min-width: 0;
+`
+const LabelRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+`
+const EvidenceLabel = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
+`
+const Spacer = styled.span`
+  flex: 1;
+`
+const Actions = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[3]};
+`
 const Groups = styled.div`
   display: grid;
-  gap: 16px;
-  margin: 16px 0;
+  gap: ${space[6]};
   min-width: 0;
 `
 const MoveControls = styled.div`
   display: grid;
-  gap: 8px;
-  margin: 12px 0;
-  padding: 12px;
+  gap: ${space[4]};
+  padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   min-width: 0;
   select {
     max-width: 100%;

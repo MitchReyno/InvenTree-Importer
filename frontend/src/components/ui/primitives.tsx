@@ -135,11 +135,6 @@ export const HeadingRow = styled.div`
     margin-bottom: ${space[4]};
   }
 `
-export const Caption = styled(Paragraph)`
-  color: ${color.muted};
-  font-size: ${typeVar.small.size};
-  margin: ${space[4]} 0 ${space[8]};
-`
 export const Eyebrow = styled(Paragraph)`
   ${type.label}
   color: ${color.muted};

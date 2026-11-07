@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,
@@ -10,12 +12,17 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '../../capture/types'
-import { settingsChange, settingsValues, type SettingsValues } from '../../capture/settings-model'
+import {
+  referenceLabel,
+  settingsChange,
+  settingsValues,
+  type SettingsValues,
+} from '../../capture/settings-model'
 import type { QueueState } from '../../capture/save-queue'
 import { useSaveQueue } from '../../capture/useSaveQueue'
 import { useCatalogue } from '../../catalogue/useCatalogue'
 import { AutosaveStatus, type AutosaveState } from '../ui/AutosaveStatus'
-import { NotesField } from '../ui/TextField'
+import { TextField } from '../ui/TextField'
 import { SharedTagsInput } from '../ui/SharedTagsInput'
 import {
   Fieldset,
@@ -25,21 +32,25 @@ import {
   Label,
   Link,
   Panel,
-  Paragraph,
   Small,
   TextArea,
 } from '../ui/primitives'
-import { CaptureContextSummary } from './CaptureContextSummary'
 import { DefaultLocationField } from './DefaultLocationField'
 import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
 import { batchHref } from '../../navigation/batch-route'
+import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
 
 type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
   batch: Snapshot
   ports?: SettingsPorts
   /** An evidence change is pending; settings wait so the two commands cannot race. */
   paused?: boolean
+  /** Where the batch notes field is drawn; Capture puts it in the evidence card. */
+  notesTarget?: HTMLElement | null
+  /** On a phone the fields fold behind a summary; folded fields stay mounted, keeping drafts. */
+  collapsible?: boolean
   onDirty: (dirty: boolean) => void
 }
 
@@ -70,6 +81,8 @@ export function BatchSettingsPanel({
   batch,
   ports,
   paused = false,
+  notesTarget,
+  collapsible = false,
   operatorReview,
   observe,
   reload,
@@ -381,23 +394,74 @@ export function BatchSettingsPanel({
     }
   }
 
+  const [open, setOpen] = useState(false)
+  const fields = useRef<HTMLFormElement>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const foldFocused = useRef(false)
+  // Folding at the breakpoint must not hide the field being edited, so the fold opens instead.
+  useEffect(() => {
+    if (collapsible && fields.current?.contains(document.activeElement)) {
+      setOpen(true)
+    }
+    // The fold button leaves with the phone layout; its focus moves to the plain heading.
+    if (!collapsible && foldFocused.current && document.activeElement === document.body) {
+      heading.current?.focus()
+    }
+    foldFocused.current = false
+  }, [collapsible])
+  const summary = settingsSummary(batch, values)
   const titleInvalid = !values.title.trim()
   const settingsStatus = laneState(state, 'settings')
 
   return (
     <Settings role="region" aria-labelledby="batch-settings-title" data-area="settings">
-      <Heading id="batch-settings-title">Batch settings</Heading>
-      {!ports && <Paragraph role="status">Settings editing is unavailable in this view.</Paragraph>}
+      <Head>
+        {collapsible ? (
+          <Heading id="batch-settings-title">
+            <Fold
+              type="button"
+              onFocus={() => {
+                foldFocused.current = true
+              }}
+              onBlur={(event) => {
+                if (event.relatedTarget) {
+                  foldFocused.current = false
+                }
+              }}
+              aria-expanded={open}
+              aria-controls="batch-settings-fields"
+              onClick={() => setOpen(!open)}
+            >
+              Batch settings
+              {summary.length > 0 && <Small as="span"> · {summary.join(' · ')}</Small>}
+            </Fold>
+          </Heading>
+        ) : (
+          <Heading id="batch-settings-title" ref={heading} tabIndex={-1}>
+            Batch settings
+          </Heading>
+        )}
+        <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
+      </Head>
+      {!ports && (
+        <div role="status">
+          <Banner tone="plain">Settings editing is unavailable in this view.</Banner>
+        </div>
+      )}
       {ports && !connected && (
-        <Paragraph role="status">
-          Application connection unavailable. Settings are read-only until it returns; unsaved edits
-          stay on this page.
-        </Paragraph>
+        <div role="status">
+          <Banner tone="warn">
+            Application connection unavailable. Settings are read-only until it returns; unsaved
+            edits stay on this page.
+          </Banner>
+        </div>
       )}
       {paused && (
-        <Paragraph role="status">
-          Finish or discard the evidence change to continue editing settings.
-        </Paragraph>
+        <div role="status">
+          <Banner tone="info">
+            Finish or discard the evidence change to continue editing settings.
+          </Banner>
+        </div>
       )}
       {state.blocked === 'conflict' && (
         <AutosaveStatus
@@ -408,9 +472,9 @@ export function BatchSettingsPanel({
         />
       )}
       {state.blocked === 'conflict' && (
-        <KeepButton type="button" onClick={() => void keepEdits()}>
+        <Button onClick={() => void keepEdits()}>
           Keep my edits and save them over the newer version
-        </KeepButton>
+        </Button>
       )}
       {state.blocked === 'unconfirmed' && (
         <AutosaveStatus
@@ -422,11 +486,12 @@ export function BatchSettingsPanel({
         />
       )}
       {ports && !connected && (state.dirty || tagPending) && queue.canDiscardLocally() && (
-        <KeepButton type="button" onClick={discardUnsent}>
-          Discard unsent settings edits
-        </KeepButton>
+        <Button onClick={discardUnsent}>Discard unsent settings edits</Button>
       )}
       <Form
+        ref={fields}
+        id="batch-settings-fields"
+        hidden={collapsible && !open}
         onSubmit={(event) => event.preventDefault()}
         onBlur={flushAll}
         onCompositionStart={() => {
@@ -465,22 +530,29 @@ export function BatchSettingsPanel({
           <Controller
             name="batchNote"
             control={control}
-            render={({ field }) => (
-              <NotesField
-                toggleLabel="Add batch notes"
-                label="Batch notes"
-                value={field.value}
-                disabled={!editable}
-                onChange={(value) => {
-                  field.onChange(value)
-                  if (value === null) {
-                    schedule()
-                  } else {
-                    scheduleText()
-                  }
-                }}
-              />
-            )}
+            render={({ field }) => {
+              const notes = (
+                <TextField
+                  as="textarea"
+                  label="Notes for the whole batch"
+                  help="Plain language is fine. Agents read these notes while they work."
+                  value={field.value ?? ''}
+                  maxLength={8192}
+                  disabled={!editable}
+                  onChange={(event) => {
+                    // An empty field removes the notes rather than saving blank text.
+                    const value = event.target.value || null
+                    field.onChange(value)
+                    if (value === null) {
+                      schedule()
+                    } else {
+                      scheduleText()
+                    }
+                  }}
+                />
+              )
+              return notesTarget ? createPortal(notes, notesTarget) : notes
+            }}
           />
           <DefaultLocationField
             batch={batch}
@@ -495,6 +567,7 @@ export function BatchSettingsPanel({
               textEdit.current = true
             }}
           />
+          <LocationOverrides batch={batch} />
           <SupplierField
             batch={batch}
             value={values.intent.supplier}
@@ -531,7 +604,6 @@ export function BatchSettingsPanel({
               />
             )}
           />
-          <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
           {state.lanes.instructions && (
             <Instructions>
               <Label>
@@ -558,31 +630,98 @@ export function BatchSettingsPanel({
           )}
         </Fieldset>
       </Form>
-      <details>
-        <summary>Saved lot inheritance and overrides · {batch.lots.length} physical lots</summary>
-        {batch.lots.map((lot) => (
-          <div key={lot.id}>
-            <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
-              {lot.label}
-            </Link>
-            <CaptureContextSummary batch={batch} subjectId={lot.id} />
-            <Small>
-              Location:{' '}
-              {lot.location.mode === 'inherit' ? 'Inherited from Default location' : 'Lot override'}
-            </Small>
-          </div>
-        ))}
-      </details>
     </Settings>
   )
 }
 
+/** The phone summary: the chosen supplier and default location, as their pickers name them. */
+function settingsSummary(batch: Snapshot, values: SettingsValues) {
+  const draftName = (id: string) => values.drafts.find((draft) => draft.draft_id === id)?.value.name
+
+  const parts: string[] = []
+  const supplier = values.intent.supplier
+  if (supplier.absent) {
+    parts.push('No supplier')
+  } else if (supplier.selection.mode === 'existing') {
+    parts.push(referenceLabel(batch, supplier.selection.reference.observation_id))
+  } else if (supplier.selection.mode === 'draft') {
+    const name = draftName(supplier.selection.draft_id)
+    if (name) {
+      parts.push(name)
+    }
+  }
+  const location = values.defaultLocation
+  if (location.mode === 'set') {
+    parts.push(referenceLabel(batch, location.value.observation_id))
+  } else if (location.mode === 'draft') {
+    const name = draftName(location.draft_id)
+    if (name) {
+      parts.push(name)
+    }
+  }
+  return parts
+}
+
+/** One line naming the lots whose location differs from the default; Review holds the detail. */
+function LocationOverrides({ batch }: { batch: Snapshot }) {
+  const overrides = batch.lots.filter((lot) => !lot.retired && lot.location.mode !== 'inherit')
+  if (!overrides.length) {
+    return null
+  }
+  const lead =
+    overrides.length === 1 ? '1 lot overrides this: ' : `${overrides.length} lots override this: `
+  return (
+    <Small>
+      {lead}
+      {overrides.map((lot, index) => (
+        <span key={lot.id}>
+          {index > 0 && (index === overrides.length - 1 ? ' and ' : ', ')}
+          <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
+            {lot.label}
+          </Link>
+        </span>
+      ))}
+      .
+    </Small>
+  )
+}
+
+const Fold = styled.button`
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &::before {
+    content: '▸ ';
+  }
+  &[aria-expanded='true']::before {
+    content: '▾ ';
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
+`
+
+const Head = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${space[4]};
+  margin-bottom: ${space[6]};
+  ${Heading} {
+    margin: 0;
+  }
+`
 const Settings = styled(Panel)`
   min-width: 0;
   margin-bottom: 0;
-  details {
-    margin-top: ${space[6]};
-    overflow-wrap: anywhere;
+  form[hidden] {
+    display: none;
   }
 `
 const Instructions = styled.div`
@@ -590,14 +729,4 @@ const Instructions = styled.div`
   gap: ${space[4]};
   padding-top: ${space[6]};
   border-top: 1px solid ${color.line};
-`
-const KeepButton = styled.button`
-  min-height: 44px;
-  margin: 8px 0 12px;
-  padding: 9px 14px;
-  color: ${color.accent};
-  background: ${color.accentWeak};
-  border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  cursor: pointer;
 `

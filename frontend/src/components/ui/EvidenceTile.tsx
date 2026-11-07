@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, ring, size, space } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { Skeleton } from './Loading'
+import { linkTouchArea } from './primitives'
 import type { ImageAttributes } from '../../media/images'
 
 export type EvidenceKind = 'photo' | 'document'
@@ -22,6 +23,10 @@ type EvidenceTileProps = {
   onOpen: () => void
   onSelect?: (selected: boolean) => void
   onRetry?: () => void
+  /** A move handle, drawn on the tile's top-left corner. */
+  handle?: ReactNode
+  /** Opens the file's note; the tile then shows "＋ Note" or "Edit note". */
+  onNote?: () => void
 }
 
 function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'name' | 'state'>) {
@@ -29,17 +34,12 @@ function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'na
   const [failedPreview, setFailedPreview] = useState<string>()
 
   if (state === 'preparing') {
-    return (
-      <Placeholder>
-        <Skeleton width="100%" height="100%" />
-        <ScrimText>Preparing…</ScrimText>
-      </Placeholder>
-    )
+    return <Skeleton width="100%" height="100%" />
   }
   if (state === 'failed') {
     return (
       <Placeholder>
-        <PhotoText>The preview couldn’t be made.</PhotoText>
+        <FailureText>The preview couldn’t be made.</FailureText>
       </Placeholder>
     )
   }
@@ -73,7 +73,12 @@ export function EvidenceTile(props: EvidenceTileProps) {
       <Preview type="button" aria-label={`Open ${name}`} onClick={props.onOpen}>
         <Stage preview={props.preview} name={name} state={state} />
       </Preview>
-      {kind === 'document' && <Tag>Document</Tag>}
+      {(props.handle || kind === 'document') && (
+        <Corner>
+          {props.handle}
+          {kind === 'document' && <Tag>Document</Tag>}
+        </Corner>
+      )}
       {selectable && (
         <Tick>
           <input
@@ -84,16 +89,33 @@ export function EvidenceTile(props: EvidenceTileProps) {
           />
         </Tick>
       )}
-      <Caption>
+      <Caption data-caption>
         <span title={name}>{name}</span>
-        {support && <Support>{support}</Support>}
+        {state === 'preparing' ? (
+          <Support>Preparing…</Support>
+        ) : (
+          support && <Support>{support}</Support>
+        )}
       </Caption>
       {state === 'failed' && props.onRetry && (
         <Retry type="button" aria-label={`Retry preview for ${name}`} onClick={props.onRetry}>
           Retry
         </Retry>
       )}
-      {note && <Note>{note}</Note>}
+      {(note || props.onNote) && (
+        <Note>
+          {note}
+          {props.onNote && (
+            <NoteLink
+              type="button"
+              aria-label={note ? `Edit note: ${name}` : `Note: ${name}`}
+              onClick={props.onNote}
+            >
+              {note ? 'Edit note' : '＋ Note'}
+            </NoteLink>
+          )}
+        </Note>
+      )}
     </Tile>
   )
 }
@@ -179,10 +201,14 @@ const PhotoText = styled.span`
   color: ${color.photoFg};
 `
 
-const ScrimText = styled(PhotoText)`
-  padding: 1px ${space[3]};
-  border-radius: ${radius.sm};
-  background: ${color.photoScrim};
+const FailureText = styled.span`
+  position: relative;
+  max-width: 100%;
+  font-size: ${typeVar.pill.size};
+  line-height: ${typeVar.pill.lineHeight};
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: ${color.photoFg};
 `
 
 const overlay = css`
@@ -193,11 +219,28 @@ const overlay = css`
   color: ${color.photoFg};
 `
 
-const Tag = styled.span`
-  ${overlay}
+const Corner = styled.span`
+  position: absolute;
+  top: ${space[2]};
   left: ${space[2]};
+  display: flex;
+  align-items: flex-start;
+  gap: ${space[2]};
+  ${media.compact} {
+    top: 0;
+    left: 0;
+  }
+`
+
+const Tag = styled.span`
+  border-radius: ${radius.sm};
+  background: ${color.photoScrim};
+  color: ${color.photoFg};
   padding: 1px 5px;
   font-size: 10.5px;
+  ${media.compact} {
+    margin: ${space[2]};
+  }
 `
 
 const Tick = styled.label`
@@ -225,7 +268,8 @@ const Caption = styled.span`
   justify-content: space-between;
   gap: ${space[2]};
   padding: ${space[2]} ${space[3]};
-  font-size: 11.5px;
+  font-size: ${typeVar.pill.size};
+  line-height: ${typeVar.pill.lineHeight};
   span:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -252,6 +296,20 @@ const Retry = styled.button`
     min-width: ${size.touch};
     min-height: ${size.touch};
   }
+`
+
+const NoteLink = styled.button`
+  margin-left: ${space[2]};
+  padding: 0;
+  border: 0;
+  background: none;
+  color: ${color.accent};
+  font: inherit;
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+  }
+  ${linkTouchArea}
 `
 
 const Note = styled.p`

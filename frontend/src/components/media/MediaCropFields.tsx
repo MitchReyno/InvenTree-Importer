@@ -1,5 +1,7 @@
 import { Controller, type Control, type UseFormSetValue } from 'react-hook-form'
 import styled from 'styled-components'
+import { size, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import { cropAspect, type CropAspect, type CropForm } from '../../media/crop-model'
 
 interface Props {
@@ -90,16 +92,19 @@ export function MediaCropFields({ control, setValue, width, aspect, disabled }: 
 const Fields = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 12px;
+  gap: ${space[6]};
   label {
     display: grid;
-    gap: 6px;
+    gap: ${space[3]};
   }
   input,
   select {
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
-    padding: 8px;
+    padding: ${space[4]};
+    ${media.compact} {
+      min-height: ${size.touch};
+    }
   }
 `

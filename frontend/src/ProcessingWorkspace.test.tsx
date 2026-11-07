@@ -115,6 +115,7 @@ function deferredRead() {
   return { promise, resolve }
 }
 
+// The job reads its marking, so its attempt detail is on the Examine step page.
 function mount(client: ProcessingClient, cache = createServerQueryClient()) {
   const dirty = vi.fn()
   const navigate = vi.fn()
@@ -123,7 +124,7 @@ function mount(client: ProcessingClient, cache = createServerQueryClient()) {
       <ProcessingWorkspace
         batch={batch}
         client={client}
-        view="overview"
+        view="examine"
         questionId={questionId}
         navigate={navigate}
         onDirtyChange={dirty}
@@ -334,7 +335,7 @@ test('archiving a verified workspace preserves the draft but refuses every mutat
       <ProcessingWorkspace
         batch={{ ...batch, archived: true }}
         client={client}
-        view="overview"
+        view="examine"
         questionId={questionId}
         navigate={mounted.navigate}
         onDirtyChange={mounted.dirty}
@@ -450,7 +451,7 @@ test('the fixture profile shows its jobs and questions by step, and claims no li
   expect(within(steps).getByText('1 waiting · 1 question')).toBeInTheDocument()
   expect(
     within(screen.getByRole('region', { name: 'Needs you' })).getByRole('link', {
-      name: 'How many are in Packet A?',
+      name: 'Answer: How many are in Packet A?',
     }),
   ).toHaveAttribute('href', `#${batchId}/processing/examine/${questionId}`)
   expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()
@@ -485,6 +486,8 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
     await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
   )
   const drawer = screen.getByRole('dialog', { name: 'Examine · Packet A' })
+  // Docked on the right, as on the canvas, rather than centred.
+  expect(drawer).toHaveAttribute('data-placement', 'side')
 
   await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
   expect(

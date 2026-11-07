@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureWorkspaceProps } from '../../capture/types'
-import { Notice } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { EvidencePanel } from './EvidencePanel'
 import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '../../processing/proposed-lots'
+import { batchHref } from '../../navigation/batch-route'
+import { media as breakpoints } from '../ui/media'
+import { useMediaQuery } from '../ui/useMediaQuery'
 import { useSessionStatuses } from '../../processing/session-status'
 
 type DirtySource = 'settings' | 'media' | 'note'
@@ -21,7 +25,6 @@ export function CaptureWorkspace({
   media,
   edit,
   observe,
-  onStage,
   onDirtyChange,
   operatorReview,
   operator,
@@ -29,6 +32,8 @@ export function CaptureWorkspace({
   settings,
   processing,
 }: CaptureWorkspaceProps) {
+  // The evidence card hosts the batch notes field, which Batch settings still owns and saves.
+  const [notesTarget, setNotesTarget] = useState<HTMLElement | null>(null)
   const statuses = useSessionStatuses(processing, batch.id, batch.revision)
   const dirtyFlags = useRef<Record<DirtySource, boolean>>({
     settings: false,
@@ -87,12 +92,56 @@ export function CaptureWorkspace({
 
   const frozen = busy || batch.archived
 
+  // On a phone the glance follows the capture tiles and settings collapse, as on the canvas.
+  const phone = useMediaQuery(breakpoints.compact)
+  // Moving the glance remounts its links, so focus on one returns to its twin after the move.
+  const glanceBox = useRef<HTMLDivElement>(null)
+  const glanceFocus = useRef<string | null>(null)
+
+  const rememberGlanceFocus = (event: React.FocusEvent) => {
+    glanceFocus.current = event.target.getAttribute('href')
+  }
+
+  const forgetGlanceFocus = (event: React.FocusEvent) => {
+    if (event.relatedTarget) {
+      glanceFocus.current = null
+    }
+  }
+
+  useEffect(() => {
+    const href = glanceFocus.current
+    if (!href || document.activeElement !== document.body) {
+      return
+    }
+    const twin = [...(glanceBox.current?.querySelectorAll('a') ?? [])].find(
+      (link) => link.getAttribute('href') === href,
+    )
+    // A lot beyond the phone's first rows has no twin; the glance's first link takes focus.
+    ;(twin ?? glanceBox.current?.querySelector('a'))?.focus()
+  }, [phone])
+  const glance = (
+    <GlanceFocus ref={glanceBox} onFocus={rememberGlanceFocus} onBlur={forgetGlanceFocus}>
+      <ProposedLotsGlance
+        batchId={batch.id}
+        lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
+          ...lot,
+          status: statuses.lots.get(lot.id),
+        }))}
+        leadStatus={statuses.lead}
+        leadRunning={statuses.leadRunning}
+        limit={phone ? 3 : undefined}
+      />
+    </GlanceFocus>
+  )
+
   return (
     <>
       {batch.archived && (
-        <Notice role="status">
-          Archived, not deleted. History and original contributions are retained. Resume to edit.
-        </Notice>
+        <ArchivedNote role="status">
+          <Banner tone="plain">
+            Archived, not deleted. History and original contributions are retained. Resume to edit.
+          </Banner>
+        </ArchivedNote>
       )}
       <CaptureGrid data-capture-grid>
         <EvidencePanel
@@ -105,24 +154,25 @@ export function CaptureWorkspace({
           edit={edit}
           onMediaDirtyChange={reportMedia}
           onNoteDirtyChange={reportNote}
+          notesSlot={setNotesTarget}
+          afterActions={phone ? glance : undefined}
         />
         <SettingsColumn>
-          <ProposedLotsGlance
-            batchId={batch.id}
-            lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS).map((lot) => ({
-              ...lot,
-              status: statuses.lots.get(lot.id),
-            }))}
-            leadStatus={statuses.lead}
-          />
+          {!phone && glance}
           {refresh === 'failed' && (
-            <Notice role="alert">
-              Saved settings could not be refreshed after the evidence change, so settings stay
-              paused.{' '}
-              <Button type="button" onClick={refreshSettings}>
-                Refresh saved settings
-              </Button>
-            </Notice>
+            <div role="alert">
+              <Banner
+                tone="bad"
+                action={
+                  <Button size="sm" onClick={refreshSettings}>
+                    Refresh saved settings
+                  </Button>
+                }
+              >
+                Saved settings could not be refreshed after the evidence change, so settings stay
+                paused.
+              </Banner>
+            </div>
           )}
           <BatchSettingsPanel
             batch={batch}
@@ -132,12 +182,18 @@ export function CaptureWorkspace({
             onDirty={reportSettings}
             observe={observe}
             reload={reload}
+            notesTarget={notesTarget}
+            collapsible={phone}
           />
-          {onStage && (
-            <ReviewEntry type="button" onClick={() => onStage('review')}>
-              Go to review →
-            </ReviewEntry>
-          )}
+          <NextStep>
+            <Button
+              as="a"
+              variant="primary"
+              href={batchHref(batch.id, { tab: 'processing', step: 'overview' })}
+            >
+              Go to processing →
+            </Button>
+          </NextStep>
         </SettingsColumn>
       </CaptureGrid>
     </>
@@ -147,25 +203,31 @@ export function CaptureWorkspace({
 // The glance hides lots the snapshot marks retired; Capture has no separate retired set.
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
+// The canvas's flex bases: evidence takes the room, and the columns stack when both no longer fit.
 const CaptureGrid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
-  grid-template-areas: 'context settings';
-  gap: 16px;
-  align-items: start;
-  @media (max-width: 860px) {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'context' 'settings';
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[9]};
+  align-items: flex-start;
+  & > [data-area='context'] {
+    flex: 999 1 600px;
   }
 `
 const SettingsColumn = styled.div`
-  grid-area: settings;
+  flex: 1 1 380px;
   display: grid;
-  gap: 12px;
+  gap: ${space[6]};
   min-width: 0;
 `
-const ReviewEntry = styled(Button)`
-  justify-self: stretch;
-  text-align: left;
-  font-weight: 550;
+const ArchivedNote = styled.div`
+  margin-bottom: ${space[8]};
+`
+const GlanceFocus = styled.div`
+  display: contents;
+`
+const NextStep = styled.div`
+  display: grid;
+  & > a {
+    justify-content: center;
+  }
 `

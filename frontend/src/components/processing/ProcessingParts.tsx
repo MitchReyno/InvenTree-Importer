@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { media } from '../ui/media'
 import { batchHref } from '../../navigation/batch-route'
 import type {
   PipelineCell,
@@ -7,10 +8,10 @@ import type {
   SourceSession,
   StepProgress,
 } from '../../processing/source'
-import { color, radius, space, type } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { hoverTransition } from '../ui/motion'
 import { Pill, type PillTone } from '../ui/Pill'
-import { Small } from '../ui/primitives'
+import { linkTouchArea } from '../ui/primitives'
 
 export const STEP_LABEL: Record<string, string> = {
   examine: 'Examine',
@@ -19,9 +20,12 @@ export const STEP_LABEL: Record<string, string> = {
   inventory: 'Inventory',
 }
 
-export const SESSION_STATE: Record<SourceSession['state'], { word: string; tone: PillTone }> = {
-  queued: { word: 'Queued', tone: 'neutral' },
-  running: { word: 'Running', tone: 'info' },
+export const SESSION_STATE: Record<
+  SourceSession['state'],
+  { word: string; tone: PillTone; glyph?: string }
+> = {
+  queued: { word: 'Queued', tone: 'outline', glyph: '…' },
+  running: { word: 'Running', tone: 'acc' },
   waiting_input: { word: 'Waiting for you', tone: 'warn' },
   waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
   waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
@@ -62,27 +66,36 @@ export function SessionRows({
   onOpen: (jobId: string) => void
 }) {
   return (
-    <Rows>
+    <SessionList>
       {sessions.map((session) => (
         <li key={session.jobId}>
-          <SessionLabel>
-            <span>
-              {STEP_LABEL[session.step]} · {session.subject}
-            </span>
-            {session.status && <Small>{session.status}</Small>}
-          </SessionLabel>
-          <Pill tone={SESSION_STATE[session.state].tone}>{SESSION_STATE[session.state].word}</Pill>
-          <Button
-            size="sm"
-            variant="ghost"
+          <SessionRow
+            type="button"
             aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
+            aria-describedby={`session-${session.jobId}-state${
+              session.status ? ` session-${session.jobId}-status` : ''
+            }`}
             onClick={() => onOpen(session.jobId)}
           >
-            Open session
-          </Button>
+            <SessionLabel>
+              <Pill tone="neutral" glyph="">
+                {STEP_LABEL[session.step]}
+              </Pill>
+              <b>{session.subject}</b>
+            </SessionLabel>
+            <Pill
+              tone={SESSION_STATE[session.state].tone}
+              glyph={SESSION_STATE[session.state].glyph}
+            >
+              <span id={`session-${session.jobId}-state`}>{SESSION_STATE[session.state].word}</span>
+            </Pill>
+            {session.status && (
+              <SessionStatus id={`session-${session.jobId}-status`}>{session.status}</SessionStatus>
+            )}
+          </SessionRow>
         </li>
       ))}
-    </Rows>
+    </SessionList>
   )
 }
 
@@ -142,7 +155,7 @@ export const CardTitle = styled.h2`
 `
 
 export const Muted = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -169,14 +182,15 @@ const Rows = styled.ul`
   }
   a {
     color: ${color.fg};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
+    ${linkTouchArea}
   }
 `
 
 /** A Processing job's state in words for the pipeline. */
 export const JOB_STATE: Record<string, { word: string; tone: PillTone }> = {
   queued: { word: 'Queued', tone: 'neutral' },
-  running: { word: 'Running', tone: 'info' },
+  running: { word: 'Running', tone: 'acc' },
   waiting_for_user: { word: 'Waiting for you', tone: 'warn' },
   waiting_for_login: { word: 'Waiting for sign-in', tone: 'warn' },
   waiting_for_capacity: { word: 'Waiting for a slot', tone: 'neutral' },
@@ -195,9 +209,7 @@ function PipelineStep({ label, cell }: { label: string; cell: PipelineCell }) {
       {state ? (
         <Pill tone={state.tone}>{state.word}</Pill>
       ) : (
-        <Pill tone="outline" glyph="">
-          Not started
-        </Pill>
+        <Pill tone="outline">Not started</Pill>
       )}
       {cell && cell.stale > 0 && <Pill tone="warn">{plural(cell.stale, 'stale result')}</Pill>}
       {cell && cell.provisional > 0 && <Pill tone="neutral">{cell.provisional} provisional</Pill>}
@@ -224,7 +236,7 @@ export function PipelineRows({ pipeline }: { pipeline: ProcessingSource['pipelin
           <strong>{lot.label}</strong>
           <Lanes>
             <PipelineStep label="Research" cell={lot.cells.research} />
-            <Parallel aria-hidden>∥</Parallel>
+            <Parallel aria-hidden>·</Parallel>
             <PipelineStep label="Images" cell={lot.cells.images} />
             <Parallel aria-hidden>→</Parallel>
             <PipelineStep label="Inventory" cell={lot.cells.inventory} />
@@ -265,7 +277,7 @@ const Step = styled.span`
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[2]};
-  font-size: 13px;
+  ${type.small}
   > span:first-child {
     color: ${color.muted};
   }
@@ -273,13 +285,58 @@ const Step = styled.span`
 
 const Parallel = styled.span`
   color: ${color.muted};
-  @media (max-width: 480px) {
+  ${media.phone} {
     display: none;
   }
 `
 
-const SessionLabel = styled.span`
+const SessionList = styled.ul`
   display: grid;
-  gap: 2px;
+  margin: 0 calc(-1 * ${space[8]});
+  padding: 0;
+  list-style: none;
+  li {
+    border-top: 1px solid ${color.line};
+  }
+`
+
+// The whole row opens the session drawer, as on the canvas.
+const SessionRow = styled.button`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${space[2]} ${space[5]};
+  width: 100%;
+  padding: ${space[5]} ${space[8]};
+  border: 0;
+  background: none;
+  color: ${color.fg};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  ${hoverTransition}
+  &:hover {
+    background: ${color.surface2};
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
+`
+
+const SessionLabel = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
   min-width: 0;
+  b {
+    font-size: ${typeVar.small.size};
+    overflow-wrap: anywhere;
+  }
+`
+
+const SessionStatus = styled.span`
+  grid-column: 1 / -1;
+  ${type.small}
+  color: ${color.muted};
 `

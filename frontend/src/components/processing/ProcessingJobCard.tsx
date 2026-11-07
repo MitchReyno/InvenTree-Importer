@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
 import { Heading, Paragraph, Panel, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -105,21 +105,25 @@ export function ProcessingJobCard({
       {job.questions
         .filter((question) => question.state === 'open')
         .map((question) => (
-          <Paragraph key={question.id}>
-            {question.spec.prompt}
-            {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
-            <br />
+          // Each question keeps its own button beside it, so several stay distinguishable.
+          <Question key={question.id}>
+            <Paragraph>
+              {question.spec.prompt}
+              {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
+            </Paragraph>
             <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
               Open this question
             </Button>
-          </Paragraph>
+          </Question>
         ))}
       {session}
-      {cancellable && (
-        <Button disabled={disabled} onClick={cancel}>
-          Cancel this attempt
-        </Button>
-      )}
+      <Actions>
+        {cancellable && (
+          <Button disabled={disabled} onClick={cancel}>
+            Cancel this attempt
+          </Button>
+        )}
+      </Actions>
     </Panel>
   )
 }
@@ -128,12 +132,32 @@ const Row = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 16px;
+  gap: ${space[8]};
   flex-wrap: wrap;
 `
 
 const Status = styled.span`
-  font-size: 13px;
-  font-weight: 600;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
   color: ${color.muted};
+`
+
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[4]};
+  &:empty {
+    display: none;
+  }
+`
+
+const Question = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+  > p {
+    flex: 1 1 240px;
+    margin: 0;
+  }
 `

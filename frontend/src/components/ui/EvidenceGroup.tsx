@@ -1,18 +1,30 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { hoverTransition } from './motion'
+import { Button } from './Button'
 
 type EvidenceGroupProps = {
   name: string
   count: number
+  /** Shown after the file count, such as "2 lots". */
+  meta?: string
   note?: string
   actions?: ReactNode
   dropState?: 'none' | 'over'
   /** Files not yet in a group: a dashed box whose name can't be edited. */
   ungrouped?: boolean
+  /** The region's name; defaults to the group name. */
+  label?: string
+  /** The name field's label; defaults to "Group name". */
+  nameLabel?: string
+  nameDisabled?: boolean
   onRename?: (name: string) => void
+  /** Whether the name field holds an unsaved edit. */
+  onDraftChange?: (dirty: boolean) => void
+  /** The drop target's element. */
+  ref?: Ref<HTMLElement>
   children?: ReactNode
 }
 
@@ -33,6 +45,13 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
     setDraft(name)
   }
 
+  const onDraftChange = useRef(props.onDraftChange)
+  onDraftChange.current = props.onDraftChange
+  const dirty = draft !== name
+  useEffect(() => {
+    onDraftChange.current?.(dirty)
+  }, [dirty])
+
   function commit() {
     const trimmed = draft.trim()
     if (!trimmed || trimmed === name) {
@@ -51,7 +70,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
+    // The Enter that confirms an IME candidate is not a commit.
+    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
       event.preventDefault()
       sentOnEnter.current = true
       commit()
@@ -62,14 +82,20 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   }
 
   return (
-    <Group aria-label={draft || name} $ungrouped={ungrouped} $over={dropState === 'over'}>
+    <Group
+      ref={props.ref}
+      aria-label={props.label ?? (draft || name)}
+      $ungrouped={ungrouped}
+      $over={dropState === 'over'}
+    >
       <Header>
         {ungrouped || !props.onRename ? (
           <StaticName>{name}</StaticName>
         ) : (
           <NameField
-            aria-label="Group name"
+            aria-label={props.nameLabel ?? 'Group name'}
             value={draft}
+            disabled={props.nameDisabled}
             onChange={(event) => {
               sentOnEnter.current = false
               setDraft(event.target.value)
@@ -78,9 +104,20 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
             onBlur={handleBlur}
           />
         )}
-        <Count>{fileCount(count)}</Count>
-        {actions}
+        {props.nameDisabled && dirty && (
+          // A locked field cannot take Escape, so the draft keeps its own way out.
+          <Button size="sm" variant="ghost" onClick={() => setDraft(name)}>
+            Discard name change
+          </Button>
+        )}
       </Header>
+      <Meta>
+        <Count>
+          {fileCount(count)}
+          {props.meta && ` · ${props.meta}`}
+        </Count>
+        {actions}
+      </Meta>
       {note && <Note>{note}</Note>}
       {children}
     </Group>
@@ -90,6 +127,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
 const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: ${space[4]};
   padding: ${space[5]};
   border: 1px solid ${color.line};
@@ -111,25 +150,35 @@ const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
 
 const Header = styled.div`
   display: flex;
+  min-width: 0;
+`
+
+const Meta = styled.div`
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[4]};
+  gap: ${space[3]};
 `
 
 const NameField = styled.input`
   min-width: 0;
   flex: 1;
   padding: ${space[2]} ${space[3]};
-  margin-left: -6px;
+  margin-left: calc(-1 * ${space[3]});
+  color: ${color.fg};
+  font-size: ${typeVar.h3.size};
   border: 1px solid transparent;
   border-radius: ${radius.input};
   background: transparent;
   font-weight: ${typeVar.h3.weight};
   ${hoverTransition}
-  &:hover,
+  &:hover:not(:disabled),
   &:focus {
     border-color: ${color.lineStrong};
     background: ${color.surface};
+  }
+  &:disabled {
+    color: ${color.fg};
   }
   ${media.compact} {
     min-height: ${size.touch};

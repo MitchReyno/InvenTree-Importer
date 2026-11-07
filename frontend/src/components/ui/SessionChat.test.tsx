@@ -34,3 +34,14 @@ describe('SessionChat', () => {
     expect(screen.getByText('This session was cancelled, so it can’t take messages.')).toBeVisible()
   })
 })
+
+it('keeps line breaks in a message', async () => {
+  const onSend = vi.fn()
+  render(<SessionChat messages={[]} onSend={onSend} />)
+  await userEvent.type(
+    screen.getByRole('textbox', { name: 'Message' }),
+    'Row 1{Shift>}{Enter}{/Shift}Row 2',
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+  expect(onSend).toHaveBeenCalledWith('Row 1\nRow 2')
+})

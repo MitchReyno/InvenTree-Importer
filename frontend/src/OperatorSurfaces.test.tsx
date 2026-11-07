@@ -184,14 +184,12 @@ test('Processing keeps retired history but offers only active lots for new attem
   expect(within(picker).queryByLabelText('Retired bag')).not.toBeInTheDocument()
   const needsYou = screen.getByRole('region', { name: 'Needs you' })
   expect(within(needsYou).getAllByRole('listitem')).toHaveLength(1)
-  expect(within(needsYou).getByText(/Examine · Active packet/)).toBeVisible()
-  expect(within(needsYou).getByRole('link', { name: 'How many?' })).toHaveAttribute(
+  expect(within(needsYou).getByText(/Active packet/)).toBeVisible()
+  expect(within(needsYou).queryByText(/Retired bag/)).not.toBeInTheDocument()
+  expect(within(needsYou).getByRole('link', { name: 'Answer: How many?' })).toHaveAttribute(
     'href',
     `#${batchId}/processing/examine/${questionId}`,
   )
-  expect(
-    within(needsYou).getByRole('link', { name: 'Open in Review: Active packet' }),
-  ).toHaveAttribute('href', `#${batchId}/review/lots/${active}`)
   expect(screen.queryByRole('link', { name: 'Open this lot in Review' })).not.toBeInTheDocument()
 })
 
@@ -299,17 +297,14 @@ test('a settings acknowledgement cannot erase a sibling instruction draft', asyn
   expect(operator.instruct).not.toHaveBeenCalled()
 })
 
-test('Capture omits subject panes and opens Review for subject editing', async () => {
-  const user = userEvent.setup()
+test('Capture omits subject panes and opens Review for subject editing', () => {
   history.replaceState(null, '', `#${batchId}/capture`)
-  const onStage = vi.fn()
   render(
     <CaptureWorkspace
       batch={batch}
       busy={false}
       edit={vi.fn(async () => undefined)}
       observe={vi.fn()}
-      onStage={onStage}
     />,
   )
   expect(screen.getByRole('heading', { name: 'Batch settings' })).toBeInTheDocument()
@@ -319,8 +314,10 @@ test('Capture omits subject panes and opens Review for subject editing', async (
   expect(screen.queryByRole('region', { name: /^Lot:|^Shared Part:/ })).not.toBeInTheDocument()
   // Provenance on demand: no revision or version numbers inline on Capture.
   expect(screen.queryByText(/revision \d|Version \d/)).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Go to review →' }))
-  expect(onStage).toHaveBeenCalledWith('review')
+  expect(screen.getByRole('link', { name: 'Go to processing →' })).toHaveAttribute(
+    'href',
+    `#${batchId}/processing/overview`,
+  )
   history.replaceState(null, '', location.pathname)
 })
 

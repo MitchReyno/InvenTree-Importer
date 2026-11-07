@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { previewImage } from '../../media/images'
 import { EvidenceTile, type PreviewState } from '../ui/EvidenceTile'
@@ -8,11 +9,13 @@ type EvidenceFileTileProps = {
   /** The file's distinguishing name when two files share a label. */
   name: string
   /** What the file supports, such as "2 lots". */
-  support: string
+  support?: string
   selectable: boolean
   selected: boolean
   onSelect: (selected: boolean) => void
   onOpen: () => void
+  handle?: ReactNode
+  onNote?: () => void
 }
 
 /** A ready crop shows in place of its original; otherwise the newest version decides. */
@@ -53,6 +56,8 @@ export function EvidenceFileTile(props: EvidenceFileTileProps) {
       selected={props.selected}
       onSelect={props.onSelect}
       onOpen={props.onOpen}
+      handle={props.handle}
+      onNote={props.onNote}
     />
   )
 }

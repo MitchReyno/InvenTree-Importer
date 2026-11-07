@@ -85,7 +85,7 @@ describe('proposedLots for lead-session lots', () => {
       {
         src: `${crop}?rev=v-1-0-0-800-600`,
         srcSet: `${crop}?size=thumb&rev=v-1-0-0-800-600 320w, ${crop}?rev=v-1-0-0-800-600 800w`,
-        sizes: '54px',
+        sizes: '46px', // an 800 × 600 crop covering the glance's 44 × 34 thumbnail
         width: 800,
         height: 600,
       },

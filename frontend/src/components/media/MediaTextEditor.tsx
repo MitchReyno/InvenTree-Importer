@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { ErrorNotice, Fieldset, Form, Input, Label, Small, TextArea } from '../ui/primitives'
+import { Fieldset, Form, Input, Label, Small, TextArea } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 
 type Props = {
@@ -70,7 +71,9 @@ export function MediaTextEditor({
           )}
         </Label>
         {formState.errors.text && (
-          <ErrorNotice role="alert">{formState.errors.text.message}</ErrorNotice>
+          <div role="alert">
+            <Banner tone="bad">{formState.errors.text.message}</Banner>
+          </div>
         )}
         <Button type="submit" disabled={!formState.isDirty}>
           {action}

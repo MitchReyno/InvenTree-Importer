@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type { ProcessingProposalDto } from '@invimport/contracts'
 
 /** Source identities come from the verified retained attempt, not the current capture selection. */
@@ -45,9 +45,9 @@ export function ProcessingSources({ proposal }: { proposal: ProcessingProposalDt
 }
 
 const Sources = styled.ul`
-  margin: 8px 0;
-  padding-left: 18px;
+  margin: ${space[4]} 0;
+  padding-left: ${space[9]};
   color: ${color.muted};
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   overflow-wrap: anywhere;
 `

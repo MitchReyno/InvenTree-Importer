@@ -93,7 +93,7 @@ Token changes in PR-A relative to the design system's `tokens.json`, made in bot
 | `button-lg` | 15/18/500 | Large buttons |
 | `mono` / `mono-strong` | 12.5/18/400 and 500 | MPNs, IPNs, SKUs, date codes, quantities in lists, keys |
 
-Tone colours and sub-element styles that a row below doesn't restate (Banner, ProblemCard and Count tones, PhaseRow discs, ProgressSegments colours, DataTable cells, StatusTimeline markers and rail, SessionChat bubbles) follow the design system's `components/bundle.css` exactly; the component tests assert them. `Count` adds a `bad` tone (`bad-weak` with `bad` text), which the bundle lacks. A running segment with no `fraction` fills 50%. `ProgressSegments` adds a `failed` state, filled in `bad`, which the bundle lacks, so the header keeps a failed step apart from one waiting.
+Tone colours and sub-element styles that a row below doesn't restate (Banner, ProblemCard and Count tones, ProgressSegments colours, DataTable cells, StatusTimeline markers and rail, SessionChat bubbles) follow the design system's `components/bundle.css` exactly; the component tests assert them. `Count` adds a `bad` tone (`bad-weak` with `bad` text), which the bundle lacks. A running segment with no `fraction` fills 50%. `ProgressSegments` adds a `failed` state, filled in `bad`, which the bundle lacks, so the header keeps a failed step apart from one waiting.
 
 The design system's component CSS also uses a few fixed lengths below the space scale, such as 7px button padding, 9px chip padding, 11.5px meta text and 10.5px tags. They are component constants: keep them exactly, and don't add new ones. The literal-colour check covers colours only.
 
@@ -158,7 +158,6 @@ Each component lives in `frontend/src/components/ui/`, uses only tokens, and is 
 
 | Component | Variants and props | Measurements | Notes |
 | --- | --- | --- | --- |
-| `PhaseRow` | `state: 'done' \| 'running' \| 'waiting'`, `title`, `outcome`, `badges`, `expanded`, `onToggle` | grid 24px · fluid · auto · 14px; padded `space-3` `space-4`; status disc 22px with a 1.5px ring | A disclosure button (`aria-expanded`) |
 | `QuestionCard` | `question`, `why`, `closeups?: {label, image}[]`, `assumption`, `answer` (slot), `secondary` | 1px `warn` border, `radius-card`; header on `warn-weak` padded `space-2-5` `space-3-5`; body padded `space-3` `space-3-5`, gap `space-3`; close-ups in two columns, 4:3 | States the assumption in use |
 | `OptionRow` | radio group; `options: {id, title, detail}[]` | grid 18px plus fluid, padded 9px 11px, `radius-btn`; selected on `accent-weak` with `accent` border | Always includes an escape option |
 | `StatusTimeline` | `entries: {text, time, current?}[]` | rows padded 5px 0; marker 10px with a 2px rail; current marker has a 4px `accent-weak` halo and bold text; time 11.5px tabular | Newest last |
@@ -246,7 +245,7 @@ All motion stops under `prefers-reduced-motion: reduce`, except the spinner, whi
 | --- | --- | --- | --- | --- |
 | Spinner | Running | Rotate 360° | 800ms, infinite | linear |
 | Skeleton | Preparing | Background sweep | 1300ms, infinite | linear |
-| Running step (PhaseRow, segments) | Running | `accent-weak` opacity pulse, 0.6 to 1 | 1600ms, infinite | ease-in-out |
+| Running step (segments) | Running | `accent-weak` opacity pulse, 0.6 to 1 | 1600ms, infinite | ease-in-out |
 | Popover and menu | Open / close | Opacity 0→1 and translateY 4px→0 / reverse | 120ms / 90ms | ease-out / ease-in |
 | Toast | Enter / exit | Opacity and translateY 8px→0 / opacity only | 150ms / 120ms | ease-out |
 | Hover backgrounds | Hover | Background colour | 80ms | linear |

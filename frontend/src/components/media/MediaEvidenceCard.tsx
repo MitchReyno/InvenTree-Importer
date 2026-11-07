@@ -1,8 +1,8 @@
 import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { Paragraph, Small, Subheading } from '../ui/primitives'
+import { Link, Paragraph, Small, Subheading, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { mediaResource } from '../../media/types'
 import { previewImage } from '../../media/images'
@@ -48,11 +48,11 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
               )}
             </figure>
           ))}
-          <a href={mediaResource(batchId, 'versions', version.id)} download>
+          <Link href={mediaResource(batchId, 'versions', version.id)} download>
             Download retained {version.kind}
-          </a>
+          </Link>
           <details>
-            <summary>Retained byte identity</summary>
+            <Summary>Retained byte identity</Summary>
             <Paragraph>
               {version.byte_size} bytes · SHA-256 {version.digest}
             </Paragraph>
@@ -66,26 +66,26 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
 
 const Card = styled.article`
   display: grid;
-  gap: 10px;
+  gap: ${space[5]};
   border: 1px solid ${color.line};
-  border-radius: 5px;
-  padding: 12px;
-  margin: 12px 0;
+  border-radius: ${radius.card};
+  padding: ${space[6]};
+  margin: ${space[6]} 0;
 `
 
 const Version = styled.div`
   display: grid;
-  gap: 8px;
+  gap: ${space[4]};
   overflow-wrap: anywhere;
 
   figure {
     display: grid;
-    gap: 8px;
+    gap: ${space[4]};
     margin: 0;
   }
 
   figcaption {
-    font-size: 12px;
+    font-size: ${typeVar.small.size};
     color: ${color.muted};
   }
 `

@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type {
   CatalogueRecordDto,
   CaptureDefaultLocationSettingDto,
@@ -132,7 +134,7 @@ export function DefaultLocationField({
   const parent = draft?.value.parent
 
   return (
-    <Field>
+    <FieldStack>
       <SearchableReferencePicker
         label="Default location"
         noun="locations"
@@ -214,6 +216,12 @@ export function DefaultLocationField({
           Remove default location
         </Button>
       )}
-    </Field>
+    </FieldStack>
   )
 }
+
+const FieldStack = styled.div`
+  display: grid;
+  gap: ${space[4]};
+  min-width: 0;
+`

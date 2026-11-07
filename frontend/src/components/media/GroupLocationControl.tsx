@@ -81,6 +81,7 @@ export function GroupLocationControl({
         scope="Applies to lots linked to this group's evidence when they use the batch default and their shared Part has no location. Different group locations for one lot must be resolved in Review."
         value={shown}
         batch={batch}
+        inline
         disabled={disabled || state !== 'idle'}
         onChange={(location) => void save(location)}
       />

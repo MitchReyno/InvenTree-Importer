@@ -28,6 +28,7 @@ it('reads the lead session’s line and each lot’s newest line, re-reading whe
     { initialProps: { revision: '4' } },
   )
   await waitFor(() => expect(result.current.lead).toBe('Finding items'))
+  expect(result.current.leadRunning).toBe(true)
   expect(result.current.lots.size).toBe(0)
   rerender({ revision: '5' })
   await waitFor(() => expect(result.current.lead).toBe('Grouping the reel photos'))
@@ -40,7 +41,7 @@ it('reads nothing where sessions are not supported', () => {
   const { result } = renderHook(() =>
     useSessionStatuses({ read } as unknown as ProcessingClient, 'b', '1'),
   )
-  expect(result.current).toEqual({ lead: undefined, lots: new Map() })
+  expect(result.current).toEqual({ lead: undefined, leadRunning: false, lots: new Map() })
   expect(read).not.toHaveBeenCalled()
 })
 
@@ -61,4 +62,20 @@ it('leaves out the last line of a session that has finished or ended', async () 
   const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'))
   await waitFor(() => expect(result.current.lots.size).toBe(1))
   expect(result.current.lots.get('l3')).toBe('Images · Now')
+})
+
+it('drops its statuses when a later read fails, so Capture stops claiming sorting', async () => {
+  const read = vi
+    .fn()
+    .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Sorting reels')] })
+    .mockRejectedValueOnce(new Error('offline'))
+  const client = { read, session: vi.fn() } as unknown as ProcessingClient
+  const { result, rerender } = renderHook(
+    ({ revision }) => useSessionStatuses(client, 'b', revision),
+    { initialProps: { revision: '1' } },
+  )
+  await waitFor(() => expect(result.current.leadRunning).toBe(true))
+  rerender({ revision: '2' })
+  await waitFor(() => expect(result.current.leadRunning).toBe(false))
+  expect(result.current.lead).toBeUndefined()
 })

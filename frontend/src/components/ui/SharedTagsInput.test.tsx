@@ -27,7 +27,7 @@ test('Enter and comma add trimmed manual tags and Auto stays independent', async
   const user = userEvent.setup()
   const onChange = vi.fn()
   render(<Harness onChange={onChange} />)
-  const input = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const input = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(input, ' bench {Enter}receipt,')
   expect(onChange).toHaveBeenLastCalledWith({ manual: ['bench', 'receipt'], auto: false })
   expect(input).toHaveValue('')
@@ -49,7 +49,7 @@ test('a case-insensitive duplicate keeps the original tag and explains why', asy
   const user = userEvent.setup()
   const onChange = vi.fn()
   render(<Harness initial={{ manual: ['Bench'], auto: false }} onChange={onChange} />)
-  const input = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const input = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(input, 'bench{Enter}')
   expect(onChange).not.toHaveBeenCalled()
   expect(screen.getByText('“Bench” is already a tag.')).toBeVisible()
@@ -60,7 +60,7 @@ test('the tag limits are enforced before a change is emitted', async () => {
   const onChange = vi.fn()
   const full = Array.from({ length: 32 }, (_, index) => `t${index}`)
   render(<Harness initial={{ manual: full, auto: false }} onChange={onChange} />)
-  const input = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const input = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   expect(input).toBeDisabled()
   expect(screen.getByText('32 of 32 tags')).toBeVisible()
 })
@@ -69,7 +69,7 @@ test('Enter during IME composition does not add a partial tag; Backspace never r
   const user = userEvent.setup()
   const onChange = vi.fn()
   render(<Harness initial={{ manual: ['keep'], auto: false }} onChange={onChange} />)
-  const input = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const input = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   fireEvent.change(input, { target: { value: 'でん' } })
   fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
   expect(onChange).not.toHaveBeenCalled()
@@ -81,7 +81,7 @@ test('Enter during IME composition does not add a partial tag; Backspace never r
 test('a comma typed during IME composition waits for the composition to end', () => {
   const onChange = vi.fn()
   render(<Harness onChange={onChange} />)
-  const input = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const input = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   fireEvent.compositionStart(input)
   fireEvent.change(input, { target: { value: '抵抗,' } })
   expect(onChange).not.toHaveBeenCalled()
@@ -109,7 +109,7 @@ test('pending text is reported from the input event, before the next render comm
 
   render(<Ordered />)
   log.length = 0
-  fireEvent.change(screen.getByRole('textbox', { name: 'Add shared part tag' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add a tag to every Part' }), {
     target: { value: 'b' },
   })
   expect(log[0]).toBe('pending:true')

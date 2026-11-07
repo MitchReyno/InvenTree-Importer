@@ -12,7 +12,7 @@ import type { ProcessingClient } from '../../processing/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { space } from '../../theme/generated/tokens'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
-import { chatConfirmation } from '../processing/SessionChat'
+import { chatConfirmation } from '../processing/SessionChatPanel'
 import { Button } from '../ui/Button'
 import { Label, Small, TextArea } from '../ui/primitives'
 

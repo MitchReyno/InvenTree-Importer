@@ -2,7 +2,8 @@ import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { color, space } from '../../theme/generated/tokens'
 import type {
   MediaEditDto,
   MediaSnapshotDto,
@@ -11,6 +12,7 @@ import type {
 } from '@invimport/contracts'
 import { Heading, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { DialogSurface } from '../ui/Dialog'
 import { previewImage } from '../../media/images'
 import {
   cropRecipe,
@@ -156,7 +158,8 @@ export function MediaCropDialog({
       : null
 
   return createPortal(
-    <Dialog
+    <DialogSurface
+      $wide
       ref={dialog}
       aria-labelledby="crop-title"
       onCancel={(event) => event.preventDefault()}
@@ -259,29 +262,17 @@ export function MediaCropDialog({
           </Small>
         </Output>
       </CropBody>
-    </Dialog>,
+    </DialogSurface>,
     document.body,
   )
 }
 
-const Dialog = styled.dialog`
-  width: min(1400px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
-  border: 1px solid ${color.lineStrong};
-  border-radius: 8px;
-  padding: 20px;
-  background: ${color.surface};
-  &::backdrop {
-    background: ${color.overlay};
-  }
-`
 const CropBody = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(250px, 0.42fr);
-  gap: 20px;
+  gap: ${space[10]};
   align-items: start;
-  @media (max-width: 760px) {
+  ${media.compact} {
     grid-template-columns: minmax(0, 1fr);
   }
 `
@@ -295,17 +286,17 @@ const SelectionEditor = styled.div`
 `
 const Actions = styled.div`
   display: flex;
-  gap: 10px;
+  gap: ${space[5]};
   flex-wrap: wrap;
-  margin: 16px 0;
+  margin: ${space[8]} 0;
 `
 const Output = styled.section`
   border-left: 1px solid ${color.line};
-  padding-left: 20px;
-  @media (max-width: 760px) {
+  padding-left: ${space[10]};
+  ${media.compact} {
     border-left: 0;
     border-top: 1px solid ${color.line};
-    padding: 16px 0 0;
+    padding: ${space[8]} 0 0;
   }
   img {
     display: block;
@@ -314,6 +305,6 @@ const Output = styled.section`
     height: auto;
     max-width: 100%;
     max-height: 360px;
-    margin-bottom: 12px;
+    margin-bottom: ${space[6]};
   }
 `

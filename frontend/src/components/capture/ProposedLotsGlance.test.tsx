@@ -24,9 +24,9 @@ describe('ProposedLotsGlance', () => {
     expect(within(glance).getByText('Blocked')).toBeInTheDocument()
     expect(within(glance).queryByRole('textbox')).not.toBeInTheDocument()
     expect(within(glance).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(glance).getByRole('link', { name: 'Open Review' })).toHaveAttribute(
+    expect(within(glance).getByRole('link', { name: 'See the map in Review' })).toHaveAttribute(
       'href',
-      '#b/review/lots',
+      '#b/review/map',
     )
   })
 
@@ -91,10 +91,10 @@ describe('ProposedLotsGlance with lead-session lots', () => {
     )
     const led = screen.getByRole('listitem', { name: 'LED 0603 red' })
     expect(within(led).getByText('AI-proposed')).toBeInTheDocument()
-    expect(within(led).getAllByRole('img')).toHaveLength(2)
-    expect(within(led).getAllByRole('img')[0]).toHaveAttribute('srcset', '/crop/o1?size=thumb 320w')
-    expect(within(led).getAllByRole('img')[0]).toHaveAttribute('sizes', '40px')
-    expect(within(led).getByText('1 suggestion')).toBeInTheDocument()
+    const thumb = within(led).getByRole('img', { name: 'LED 0603 red' })
+    expect(thumb).toHaveAttribute('srcset', '/crop/o1?size=thumb 320w')
+    expect(thumb).toHaveAttribute('sizes', '40px')
+    expect(led).toHaveTextContent('2 observations · 1 suggestion')
     const crystal = screen.getByRole('listitem', { name: '16 MHz crystal' })
     expect(within(crystal).getByText('Edited')).toBeInTheDocument()
     expect(within(crystal).queryByText('AI-proposed')).not.toBeInTheDocument()
@@ -121,4 +121,37 @@ it('shows no stray count for an AI lot without crops or suggestions', () => {
     />,
   )
   expect(screen.getByRole('listitem', { name: 'Document line lot' })).not.toHaveTextContent(/^.*0$/)
+})
+
+describe('ProposedLotsGlance while sorting and on a phone', () => {
+  const many = Array.from({ length: 5 }, (_, index) => ({
+    id: `m${index}`,
+    label: `Lot ${index + 1}`,
+    state: 'to_review' as const,
+    href: `#b/review/lots/m${index}`,
+  }))
+
+  it('shows Sorting and a Finding row while the lead session runs', () => {
+    render(<ProposedLotsGlance batchId="b" lots={many} leadStatus="Grouping" leadRunning />)
+    const glance = screen.getByRole('region', { name: 'Proposed lots, 5' })
+    expect(within(glance).getByText('Sorting')).toBeInTheDocument()
+    expect(within(glance).getByText('Finding…')).toBeInTheDocument()
+  })
+
+  it('shows the first rows and links to all lots when limited', () => {
+    render(<ProposedLotsGlance batchId="b" lots={many} limit={3} />)
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByRole('link', { name: 'See all 5 lots' })).toHaveAttribute(
+      'href',
+      '#b/review/lots',
+    )
+  })
+})
+
+it('keeps a stopped lead session’s last line without a spinner', () => {
+  const { container } = render(
+    <ProposedLotsGlance batchId="b" lots={[]} leadStatus="Grouped the reels" />,
+  )
+  expect(screen.getByRole('status')).toHaveTextContent('Grouped the reels')
+  expect(container.querySelector('[aria-hidden="true"][style]')).toBeNull()
 })

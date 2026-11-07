@@ -3,7 +3,7 @@ import { createServerQueryClient } from '../../queries/client'
 import { serverQueryKey } from '../../queries/scope'
 import { ServerStateProvider } from '../query/ServerStateProvider'
 import { render, fixtureScope } from '../../test/render'
-import { act, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -387,4 +387,159 @@ test('discarding an unconfirmed group location reloads through the owner and kee
   expect(await screen.findByText(/Saved values could not be reloaded/)).toBeVisible()
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(field).toHaveValue('clear')
+})
+
+test('batch notes sit in the evidence card', async () => {
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  const evidence = await screen.findByRole('region', { name: 'Evidence' })
+  expect(within(evidence).getByRole('textbox', { name: 'Notes for the whole batch' })).toBeVisible()
+})
+
+test('at phone width the glance follows the capture tiles and settings collapse to a summary', async () => {
+  const user = userEvent.setup()
+  // jsdom has no matchMedia; this one reports every width query as matching.
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        matches: query.includes('max-width'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  const evidence = await screen.findByRole('region', { name: 'Evidence' })
+  const glance = within(evidence).getByRole('region', { name: /Proposed lots/ })
+  const tiles = within(evidence).getByRole('button', { name: 'Take photos' })
+  expect(tiles.compareDocumentPosition(glance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.getAllByRole('region', { name: /Proposed lots/ })).toHaveLength(1)
+
+  const toggle = screen.getByRole('button', { name: /^Batch settings/ })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.getByLabelText('Batch title')).not.toBeVisible()
+  await user.click(toggle)
+  expect(screen.getByLabelText('Batch title')).toBeVisible()
+  delete (window as { matchMedia?: unknown }).matchMedia
+})
+
+test('settings stay open when the phone fold arrives while a field is being edited', () => {
+  let phone = false
+  const listeners = new Set<() => void>()
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        get matches() {
+          return phone && query.includes('max-width')
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  screen.getByLabelText('Batch title').focus()
+  act(() => {
+    phone = true
+    listeners.forEach((listener) => listener())
+  })
+  expect(screen.getByRole('button', { name: /^Batch settings/ })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  )
+  expect(screen.getByLabelText('Batch title')).toBeVisible()
+  delete (window as { matchMedia?: unknown }).matchMedia
+})
+
+test('focus in the lots glance survives crossing the phone breakpoint', () => {
+  let phone = false
+  const listeners = new Set<() => void>()
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        get matches() {
+          return phone && query.includes('max-width')
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  const map = screen.getByRole('link', { name: 'See the map in Review' })
+  map.focus()
+  act(() => {
+    phone = true
+    listeners.forEach((listener) => listener())
+  })
+  expect(document.activeElement).toHaveAttribute('href', map.getAttribute('href'))
+  delete (window as { matchMedia?: unknown }).matchMedia
+})
+
+test('focus on the settings fold moves to the heading when the phone layout ends', () => {
+  let phone = true
+  const listeners = new Set<() => void>()
+  window.matchMedia = vi.fn(
+    (query: string) =>
+      ({
+        get matches() {
+          return phone && query.includes('max-width')
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+      }) as unknown as MediaQueryList,
+  )
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn(async () => null)}
+      settings={ports()}
+    />,
+  )
+  screen.getByRole('button', { name: /^Batch settings/ }).focus()
+  act(() => {
+    phone = false
+    listeners.forEach((listener) => listener())
+  })
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Batch settings' }))
+  delete (window as { matchMedia?: unknown }).matchMedia
 })

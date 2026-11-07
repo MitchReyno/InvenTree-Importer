@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { mediaResource } from '../../media/types'
 import { mediaDisplayLabels } from '../../media/identity-labels'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { EvidenceViewer } from '../operator/EvidenceViewer'
-import { Heading, Link, Notice, Panel, Paragraph, Small } from '../ui/primitives'
+import { Heading, Link, Panel, Paragraph, Small } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { batchHref } from '../../navigation/batch-route'
 
 export function ProcessingImages({ batchId, client }: { batchId: string; client?: MediaClient }) {
@@ -22,7 +23,7 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
   const unavailable = query.isError || query.fetchStatus === 'paused'
   const labels = query.data ? mediaDisplayLabels(query.data.evidence) : undefined
   if (!client) {
-    return <Notice>Retained media is not configured for this application.</Notice>
+    return <Banner tone="plain">Retained media is not configured for this application.</Banner>
   }
   return (
     <section aria-label="Retained image outputs">
@@ -35,9 +36,12 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
         Add evidence or prepare another crop in Capture
       </Link>
       {unavailable && (
-        <Notice role="alert">
-          Current media status is unavailable. Any displayed outputs are the last retained snapshot.
-        </Notice>
+        <div role="alert">
+          <Banner tone="bad">
+            Current media status is unavailable. Any displayed outputs are the last retained
+            snapshot.
+          </Banner>
+        </div>
       )}
       {!query.data && !unavailable && (
         <Paragraph role="status">Loading retained image outputs…</Paragraph>
@@ -67,13 +71,13 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
                     {version.state} · {version.pages.length} pages
                   </Small>
                   {version.state === 'ready' && version.pages[0] && (
-                    <a
+                    <Link
                       href={mediaResource(batchId, 'previews', version.pages[0].preview_id)}
                       target="_blank"
                       rel="noreferrer"
                     >
                       Open exact {version.kind === 'original' ? 'original' : 'crop'} preview
-                    </a>
+                    </Link>
                   )}
                 </div>
               ))}
@@ -88,20 +92,20 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
 const Gallery = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
-  gap: 16px;
-  margin-top: 14px;
+  gap: ${space[8]};
+  margin-top: ${space[7]};
   overflow-wrap: anywhere;
 `
 const Versions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding-top: 12px;
+  gap: ${space[6]};
+  padding-top: ${space[6]};
   border-top: 1px solid ${color.line};
   a {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
+    min-height: ${size.touch};
     color: ${color.accent};
   }
 `

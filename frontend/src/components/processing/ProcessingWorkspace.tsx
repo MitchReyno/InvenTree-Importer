@@ -1,7 +1,7 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { size, space } from '../../theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -11,8 +11,9 @@ import type {
   ProcessingSnapshotDto,
   ProcessingStartDto,
 } from '@invimport/contracts'
-import type { ProcessingClient, ProcessingView } from '../../processing/types'
-import { ErrorNotice, Heading, Notice, Paragraph, Panel, Small, Summary } from '../ui/primitives'
+import type { AgentsRead, ProcessingClient, ProcessingView } from '../../processing/types'
+import { Heading, Link, Panel, Small, Summary } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import type { MediaClient } from '../../media/types'
 import { ProcessingImages } from './ProcessingImages'
@@ -23,12 +24,46 @@ import { ProcessingOverview } from './ProcessingOverview'
 import { StepPage } from './StepPage'
 import { ExamineView } from './ExamineView'
 import { InstructionField } from './InstructionField'
-import { Card, CardTitle, STEP_LABEL } from './ProcessingParts'
-import { Modal } from '../operator/Modal'
+import { Muted, STEP_LABEL } from './ProcessingParts'
+import { Dialog } from '../ui/Dialog'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
-import type { BatchAttentionDto } from '@invimport/contracts'
+import { openQuestionsByLot } from '../../operator/review-model'
+import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
+
+const ACTIVITY_LIMIT = 6
+const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
+
+/** The batch's newest agent status lines, oldest first; the newest is current while it runs. */
+function recentActivity(
+  snapshot: ProcessingSnapshotDto | undefined,
+  subjectLabel: (id: string | null) => string,
+) {
+  const lines = (snapshot?.jobs ?? [])
+    .filter((job) => job.latest_status)
+    .sort((a, b) => a.latest_status!.at.localeCompare(b.latest_status!.at))
+    .slice(-ACTIVITY_LIMIT)
+
+  return lines.map((job, index) => {
+    const at = new Date(job.latest_status!.at)
+    return {
+      text: `${STEP_LABEL[processingStepFor(job.stage)] ?? 'Processing'} · ${subjectLabel(job.subject_id)}: ${job.latest_status!.text}`,
+      time: Number.isNaN(at.getTime()) ? job.latest_status!.at : clock.format(at),
+      current: index === lines.length - 1 && job.session_state === 'running',
+    }
+  })
+}
+
+/** When this batch's first agent session started, as a clock time. */
+function firstStart(sessions: AgentSessionListDto['sessions'] | undefined, batchId: string) {
+  const starts = (sessions ?? [])
+    .filter((session) => session.batch_id === batchId && session.started_at)
+    .map((session) => session.started_at!)
+    .sort()
+  const at = starts[0] ? new Date(starts[0]) : undefined
+  return at && !Number.isNaN(at.getTime()) ? clock.format(at) : undefined
+}
 
 /** Whether a job belongs on a Processing step; Examine covers the Reading and Identifying stages. */
 function onStep(stage: string, view: ProcessingView) {
@@ -47,6 +82,10 @@ interface Props {
   retiredLotIds?: ReadonlySet<string>
   /** Counts for the Overview's links to Review and Changes. */
   attention?: BatchAttentionDto
+  /** The agent-session read, for the batch's start time and the slot limit. */
+  agents?: AgentsRead
+  /** Files no lot uses, offered on the Overview as a way into the Map. */
+  unusedFiles?: number
   /** The batch instructions and how to save them; absent where this setup has none. */
   instructions?: {
     text: string | undefined
@@ -71,6 +110,8 @@ export function ProcessingWorkspace({
   onSaved,
   retiredLotIds = NO_RETIRED_LOTS,
   attention,
+  agents,
+  unusedFiles,
   instructions,
 }: Props) {
   const [sessionJobId, setSessionJobId] = useState<string | null>(null)
@@ -107,6 +148,37 @@ export function ProcessingWorkspace({
     refetchInterval: pollInterval,
   })
   const snapshot = snapshotQuery.data
+  // The Agents page's own reads, so both share one cache entry.
+  const agentSessions = useQuery({
+    queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
+    queryFn: () => agents!.sessions(),
+    enabled: agents !== undefined && view === 'overview',
+    refetchInterval: pollInterval,
+  })
+  const agentSettings = useQuery({
+    queryKey: serverQueryKey(scope, 'agent-settings'),
+    queryFn: () => agents!.settings(),
+    enabled: agents !== undefined && view === 'overview',
+    refetchInterval: pollInterval,
+  })
+
+  // A read that failed or paused keeps old data; it is withheld rather than shown as current.
+  const liveRead = (read: { isSuccess: boolean; isError: boolean; fetchStatus: string }) =>
+    read.isSuccess && !read.isError && read.fetchStatus !== 'paused'
+
+  // The list is one page across every batch, so a start time needs the whole history.
+  const started =
+    liveRead(agentSessions) && agentSessions.data?.next_before === null
+      ? firstStart(agentSessions.data.sessions, batch.id)
+      : undefined
+  const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
+  // Capture's media read names Examine's photos by file and group.
+  const mediaSnapshot = useQuery({
+    queryKey: serverQueryKey(scope, 'media', batch.id),
+    queryFn: () => media!.snapshot(batch.id),
+    enabled: media !== undefined && view === 'examine',
+    refetchInterval: pollInterval,
+  })
   const offline = snapshotQuery.isError || snapshotQuery.fetchStatus === 'paused'
   const waitingForRead =
     !successfulRead.current ||
@@ -280,6 +352,44 @@ export function ProcessingWorkspace({
   )
   const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
   const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
+  const activity = recentActivity(snapshot, subjectLabel)
+  const queue = snapshot && (
+    <details>
+      <Summary>Queue work for selected saved subjects</Summary>
+      <Selection
+        disabled={batch.archived}
+        aria-label="Select saved subjects for a new processing attempt"
+      >
+        {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
+          (subject) => (
+            <label key={subject.id}>
+              <input
+                type="checkbox"
+                checked={selected.includes(subject.id)}
+                onChange={() =>
+                  setSelected((previous) =>
+                    previous.includes(subject.id)
+                      ? previous.filter((id) => id !== subject.id)
+                      : [...previous, subject.id],
+                  )
+                }
+              />
+              {subject.label}
+            </label>
+          ),
+        )}
+      </Selection>
+      <Button
+        disabled={
+          runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
+        }
+        onClick={start}
+      >
+        Queue new processing attempts
+      </Button>
+      <Small>New attempts preserve saved human values and previous results.</Small>
+    </details>
+  )
   const jobCards = (
     <>
       {jobs.map((job) => (
@@ -304,7 +414,10 @@ export function ProcessingWorkspace({
           {job.subject_id !== null &&
             batch.lots.some((lot) => lot.id === job.subject_id) &&
             !retiredLotIds.has(job.subject_id) && (
-              <ReviewLink
+              <Button
+                as="a"
+                variant="link"
+                size="sm"
                 href={batchHref(batch.id, {
                   tab: 'review',
                   view: 'lots',
@@ -312,7 +425,7 @@ export function ProcessingWorkspace({
                 })}
               >
                 Open this lot in Review
-              </ReviewLink>
+              </Button>
             )}
         </div>
       ))}
@@ -322,83 +435,63 @@ export function ProcessingWorkspace({
   return (
     <Workspace>
       {batch.archived && (
-        <Notice role="status">
-          Processing is read-only while this batch is archived. Resume it in the batch header to
-          make changes.
-        </Notice>
+        <div role="status">
+          <Banner tone="plain">
+            Processing is read-only while this batch is archived. Resume it in the batch header to
+            make changes.
+          </Banner>
+        </div>
       )}
       {unconfigured && (
-        <Notice role="status">
-          Processing setup required. The operator must configure a persistent private runner channel
-          before work can start.
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            Processing setup required. The operator must configure a persistent private runner
+            channel before work can start.
+          </Banner>
+        </div>
       )}
-      <Notice>
+      <Banner tone="info">
         {snapshot?.runner_status === 'native_unverified'
           ? 'Native agent profile · requires a saved default and supervised worker. Live provider access has not been qualified.'
           : 'Synthetic processing fixture · actual provider support is not qualified.'}{' '}
         Closing this browser does not cancel saved work.
-      </Notice>
+      </Banner>
       {offline && (
-        <ErrorNotice role="alert">
-          Processing status unavailable. The last snapshot is shown; commands are disabled.
-        </ErrorNotice>
+        <div role="alert">
+          <Banner tone="bad">
+            Processing status unavailable. The last snapshot is shown; commands are disabled.
+          </Banner>
+        </div>
       )}
-      {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+      {error && (
+        <div role="alert">
+          <Banner tone="bad">{error}</Banner>
+        </div>
+      )}
       {waitingForRead && snapshot && !offline && (
-        <Notice role="status">
-          Verifying current processing state. Cached results cannot authorize commands.
-        </Notice>
+        <div role="status">
+          <Banner tone="plain">
+            Verifying current processing state. Cached results cannot authorize commands.
+          </Banner>
+        </div>
       )}
       {!snapshot || !source ? (
-        <Paragraph role="status">Reading retained processing state…</Paragraph>
+        <Muted role="status">Reading retained processing state…</Muted>
       ) : (
         <>
-          <Panel>
-            <Heading>
-              {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
-              {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need answers
-              · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
-            </Heading>
-            <Small>
-              One research lane per account. A waiting question frees the lane for other lots.
-            </Small>
-            <details>
-              <Summary>Queue work for selected saved subjects</Summary>
-              <Selection
-                disabled={batch.archived}
-                aria-label="Select saved subjects for a new processing attempt"
-              >
-                {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
-                  (subject) => (
-                    <label key={subject.id}>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(subject.id)}
-                        onChange={() =>
-                          setSelected((previous) =>
-                            previous.includes(subject.id)
-                              ? previous.filter((id) => id !== subject.id)
-                              : [...previous, subject.id],
-                          )
-                        }
-                      />
-                      {subject.label}
-                    </label>
-                  ),
-                )}
-              </Selection>
-              <Button
-                disabled={
-                  runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
-                }
-                onClick={start}
-              >
-                Queue new processing attempts
-              </Button>
-              <Small>New attempts preserve saved human values and previous results.</Small>
-            </details>
-          </Panel>
+          {view !== 'overview' && (
+            <Panel>
+              <Heading>
+                {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
+                {snapshot.jobs.filter((job) => job.state === 'waiting_for_user').length} need
+                answers · {snapshot.jobs.filter((job) => job.state === 'ready').length} ready
+              </Heading>
+              <Small>
+                One research lane per account. A waiting question frees the lane for other lots.
+              </Small>
+              {queue}
+            </Panel>
+          )}
           {questionId && pinned?.question.id === questionId ? (
             <>
               <QuestionAnswer
@@ -409,6 +502,7 @@ export function ProcessingWorkspace({
                 currentCaptureRevision={snapshot.capture_revision}
                 disabled={runnerDisabled || drafts.isDirty('instructions')}
                 readOnly={batch.archived || saving === 'instructions'}
+                captureHref={batchHref(batch.id, { tab: 'capture' })}
                 answer={answer}
                 onDirtyChange={drafts.forSource('answer')}
               />
@@ -421,11 +515,11 @@ export function ProcessingWorkspace({
             </>
           ) : (
             questionId && (
-              <Notice>
+              <Banner tone="warn">
                 {waitingForRead || offline
                   ? 'The selected question cannot be opened until current state is available.'
                   : 'The pinned question is unavailable. Choose a current question explicitly.'}
-              </Notice>
+              </Banner>
             )
           )}
           {view === 'overview' ? (
@@ -454,18 +548,11 @@ export function ProcessingWorkspace({
                   onDirtyChange={drafts.forSource('instructions')}
                 />
               }
-              activity={
-                <Card aria-label="Activity">
-                  <CardTitle>Activity</CardTitle>
-                  {jobs.length === 0 ? (
-                    <Paragraph>
-                      No retained work yet. Select saved subjects to queue an attempt.
-                    </Paragraph>
-                  ) : (
-                    jobCards
-                  )}
-                </Card>
-              }
+              activity={activity}
+              queue={queue}
+              unusedFiles={unusedFiles}
+              started={started}
+              sessionLimit={sessionLimit}
             />
           ) : (
             <StepPage
@@ -481,6 +568,9 @@ export function ProcessingWorkspace({
                     <ExamineView
                       batch={batch}
                       lead={jobs.find((job) => job.stage === 'examine' && job.subject_id === null)}
+                      media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
+                      // A question on a shared Part questions every lot that uses it, as in Review.
+                      questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
                     />
                   )}
                   {jobCards}
@@ -489,14 +579,15 @@ export function ProcessingWorkspace({
             </StepPage>
           )}
           {sessionJob && client.session && client.chat && (
-            <Modal
+            <Dialog
+              placement="side"
               title={`${STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} · ${subjectLabel(sessionJob.subject_id)}`}
               onClose={() => setSessionJobId(null)}
             >
               {sessionJob.questions
                 .filter((question) => question.state === 'open')
                 .map((question) => (
-                  <a
+                  <Link
                     key={question.id}
                     onClick={() => {
                       // On this question's own step page the link changes no route.
@@ -514,7 +605,7 @@ export function ProcessingWorkspace({
                     })}
                   >
                     {question.spec.prompt}
-                  </a>
+                  </Link>
                 ))}
               <SessionPanel
                 batchId={batch.id}
@@ -523,7 +614,7 @@ export function ProcessingWorkspace({
                 startFresh={() => restart(sessionJob)}
                 freshDisabled={runnerDisabled || !client.replaceSession}
               />
-            </Modal>
+            </Dialog>
           )}
         </>
       )}
@@ -533,21 +624,10 @@ export function ProcessingWorkspace({
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
-const ReviewLink = styled.a`
-  display: inline-block;
-  margin: 4px 0 8px;
-  color: ${color.accent};
-`
-
 const Workspace = styled.section`
   display: grid;
-  gap: 12px;
+  gap: ${space[6]};
   min-width: 0;
-  > ${Notice} {
-    margin: 0;
-    padding: 10px 12px;
-    font-size: 13px;
-  }
   > ${Panel} {
     margin-bottom: 0;
   }
@@ -555,15 +635,15 @@ const Workspace = styled.section`
 
 const Selection = styled.fieldset`
   border: 0;
-  margin: 16px 0;
+  margin: ${space[8]} 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: ${space[4]} ${space[10]};
   label {
     display: flex;
-    gap: 8px;
+    gap: ${space[4]};
     align-items: center;
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `

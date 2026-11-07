@@ -144,7 +144,7 @@ test('the panel has the simplified fields, no explicit save and the disabled PO 
   expect(within(panel).queryByLabelText(/Capture tags mode/)).not.toBeInTheDocument()
   const supplier = within(panel).getByRole('combobox', { name: 'Supplier' })
   const po = within(panel).getByRole('checkbox', { name: 'Create a purchase order in InvenTree' })
-  const tags = within(panel).getByRole('textbox', { name: 'Add shared part tag' })
+  const tags = within(panel).getByRole('textbox', { name: 'Add a tag to every Part' })
   expect(po).toBeDisabled()
   expect(supplier.compareDocumentPosition(po) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(po.compareDocumentPosition(tags) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -356,20 +356,20 @@ test('a clean panel follows newer saved values but a dirty one keeps its draft',
   expect(screen.getByLabelText('Batch title')).toHaveValue('Renamed elsewhere mine')
 })
 
-test('batch notes autosave, Hide keeps them and Remove sends a tombstone', async () => {
-  const { user, panel } = setup()
-  await user.click(within(panel).getByRole('checkbox', { name: 'Add batch notes' }))
-  await user.type(within(panel).getByRole('textbox', { name: 'Batch notes' }), 'Two bags')
+test('batch notes are always shown, autosave, and clearing them sends a tombstone', async () => {
+  const { user } = setup()
+  // Batch settings owns the field; Capture draws it in the evidence card.
+  const notes = screen.getByRole('textbox', { name: 'Notes for the whole batch' })
+  expect(notes).toHaveAccessibleDescription(
+    'Plain language is fine. Agents read these notes while they work.',
+  )
+  await user.type(notes, 'Two bags')
   await idle()
   expect(saves[0].change.notes).toEqual({ batch: 'Two bags', order: null })
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
-  await user.click(within(panel).getByRole('checkbox', { name: 'Add batch notes' }))
+  await user.clear(notes)
   await idle()
-  expect(saves).toHaveLength(1)
-  await user.click(within(panel).getByRole('checkbox', { name: 'Add batch notes' }))
-  await user.click(within(panel).getByRole('button', { name: 'Remove batch notes' }))
-  await settle()
   expect(saves[1].change.notes).toEqual({ batch: null, order: null })
 })
 
@@ -490,7 +490,9 @@ test('lot overrides stay visible and link to the pinned Review subject', () => {
   for (const link of links) {
     expect(link).toHaveAttribute('href', `#${batch.id}/review/lots/${lotId}`)
   }
-  expect(screen.getByText(/Location: Lot override/)).toBeInTheDocument()
+  expect(screen.getByText(/1 lot overrides this:/)).toHaveTextContent(
+    '1 lot overrides this: Packet A.',
+  )
 })
 
 const savedInstruction = {
@@ -733,7 +735,7 @@ test('a late location observation keeps a supplier draft created while it was pe
 test('typed tag text protects navigation before it is added', async () => {
   const dirty = vi.fn()
   const { user, panel } = setup({ onDirtyChange: dirty })
-  const tag = within(panel).getByRole('textbox', { name: 'Add shared part tag' })
+  const tag = within(panel).getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(tag, 'bench')
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(saves).toHaveLength(0)
@@ -812,7 +814,7 @@ test('local discard while disconnected also clears tag text not yet added', asyn
   const dirty = vi.fn()
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
   const view = render(<Host onDirtyChange={dirty} />)
-  const tag = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const tag = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(tag, 'bench{Enter}')
   await settle()
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
@@ -821,7 +823,7 @@ test('local discard while disconnected also clears tag text not yet added', asyn
   await user.type(tag, 'Bench{Enter}')
   view.rerender(<Host onDirtyChange={dirty} connected={false} />)
   await user.click(screen.getByRole('button', { name: 'Discard unsent settings edits' }))
-  expect(screen.getByRole('textbox', { name: 'Add shared part tag' })).toHaveValue('')
+  expect(screen.getByRole('textbox', { name: 'Add a tag to every Part' })).toHaveValue('')
   expect(dirty).toHaveBeenLastCalledWith(false)
   expect(saves).toHaveLength(1)
 })
@@ -834,7 +836,7 @@ test('typed tag text reaches the navigation owner before the next render commits
     </Profiler>,
   )
   log.length = 0
-  fireEvent.change(screen.getByRole('textbox', { name: 'Add shared part tag' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add a tag to every Part' }), {
     target: { value: 'b' },
   })
   expect(log[0]).toBe('dirty:true')

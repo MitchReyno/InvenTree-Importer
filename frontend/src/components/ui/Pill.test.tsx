@@ -64,3 +64,12 @@ describe('Count', () => {
     expect(screen.getByText('999+')).toBeInTheDocument()
   })
 })
+
+it('draws no glyph slot for a plain chip', () => {
+  render(
+    <Pill tone="neutral" glyph="">
+      Research
+    </Pill>,
+  )
+  expect(screen.getByText('Research').parentElement!.querySelector('i')).toBeNull()
+})

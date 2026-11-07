@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
-import type { ProcessingSource, WorkStep } from '../../processing/source'
-import { color, space, type } from '../../theme/generated/tokens'
+import type { ProcessingSource, StepProgress, WorkStep } from '../../processing/source'
+import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { Spinner } from '../ui/Loading'
+import { linkTouchArea } from '../ui/primitives'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {
@@ -27,6 +29,7 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
   return (
     <Page>
       <Head>
+        {progress && <StateDisc progress={progress} />}
         <Title>{label}</Title>
         {progress && progress.jobs > 0 && <Muted>{stepOutcome(progress)}</Muted>}
         <a href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</a>
@@ -49,6 +52,58 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
   )
 }
 
+/** The step's state at a glance: a spinner only while work runs, a tick once all is ready. */
+function StateDisc({ progress }: { progress: StepProgress }) {
+  if (progress.running > 0) {
+    return (
+      <Disc data-state="running" aria-hidden="true">
+        <Spinner size={11} />
+      </Disc>
+    )
+  }
+  if (progress.jobs > 0 && progress.ready === progress.jobs) {
+    return (
+      <Disc data-state="done" aria-hidden="true">
+        ✓
+      </Disc>
+    )
+  }
+  if (progress.failed > 0) {
+    return (
+      <Disc data-state="failed" aria-hidden="true">
+        ×
+      </Disc>
+    )
+  }
+  return <Disc data-state="waiting" aria-hidden="true" />
+}
+
+const Disc = styled.span`
+  display: inline-grid;
+  place-items: center;
+  width: ${icon.lg};
+  height: ${icon.lg};
+  border: 1.5px solid ${color.lineStrong};
+  border-radius: ${radius.round};
+  color: ${color.muted};
+  font-size: ${typeVar.pill.size};
+  &[data-state='running'] {
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
+    color: ${color.accent};
+  }
+  &[data-state='done'] {
+    border-color: ${color.ok};
+    background: ${color.okWeak};
+    color: ${color.ok};
+  }
+  &[data-state='failed'] {
+    border-color: ${color.bad};
+    background: ${color.badWeak};
+    color: ${color.bad};
+  }
+`
+
 const Page = styled.div`
   display: grid;
   gap: ${space[6]};
@@ -58,11 +113,12 @@ const Page = styled.div`
 const Head = styled.div`
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: ${space[4]} ${space[6]};
   a {
     margin-left: auto;
     color: ${color.accent};
+    ${linkTouchArea}
   }
 `
 
