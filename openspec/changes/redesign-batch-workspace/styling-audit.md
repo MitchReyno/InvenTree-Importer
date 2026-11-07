@@ -1,18 +1,19 @@
 # Styling audit: tokens and visual gaps
 
-Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) (tokens v2) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). Two read-only passes:
+Evidence for tasks 15–20. Captured on `interactive-app` at `2d852e2` (2026-11-07) against the [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) and the [redesign canvas](https://claude.ai/artifact/TFjujLEMdBcqdRUBbvJKRf). Two read-only passes:
 
 - **Token audit:** every styling value in `frontend/src` (excluding `theme/generated/`, tests and fixtures) classified as EXACT (a token with that value or role exists), NEAR (a step from a token; switching changes the look) or NONE (no token). The per-file table is not kept here: task 15's literal-value lint baseline regenerates it.
 - **Visual sweep:** every owned fixture screen at 1440 and 390 px, light and dark, at 2×, with hover, focus, menus, popovers and drawers opened and computed styles measured, compared with canvas artboards rendered from the canvas sources. Deliberate deviations recorded in `docs/handovers/redesign-batch-workspace.md` are excluded. Severity: **High** clearly off-design or broken, **Medium** noticeable, **Low** polish. Gap IDs are per area: `G` global, `M` masthead, `B` Batches, `K` Capture, `P` Processing, `A` Agents, `R` Review, `X` Changes; clusters are `C1`–`C18`.
 
-Values below are as measured on that commit; line numbers drift as tasks land.
+Values below are as measured on that commit; line numbers drift as tasks land. **The token audit classified values against tokens v1**, before the design system added version 2's tokens. Most of its NONE rows for motion, z-index, breakpoints, opacity and sizes, and the proposed `space-0-5`, `space-5` and `space-6`, are EXACT under v2.
 
 **The design system decides values.** Where a cluster's recommendation differs from tokens v2, tokens v2 wins:
 
 - **Motion:** the tokens keep the PR-A handoff's values, including the toast's 150ms entrance with an 8px rise and the popover's 90ms `ease-in` close (`duration-*`, `ease-*`, `offset-*`). They do not fold the toast into 120ms (C7).
 - **Breakpoints:** Review drops its evidence pane under `bp-wide` (1180px), as the brand book says, not at the implemented 1000px (C8). The values are `bp-phone` 480, `bp-narrow` 600, `bp-compact` 760 and `bp-stacked` 860; 430 folds into `bp-phone` and 700 into `bp-compact`.
 - **Widths:** content is `width-content` (1240px) on every page except Review and Records, which use `width-review` (1500px). The canvas's narrower Agents (1100px) and Batches (1000px) boards (G1, A1) are not separate widths.
-- **Names:** the clusters' proposed names (`motion-*`, `ring-halo`, `media.wide`) are superseded by the tokens' (`duration-*`, `ring-width`, `bp-wide`).
+- **Names:** the clusters' proposed names (`motion-*`, `motion.enter`, `z.popover`, `ring-halo`, `media.wide`, `space-control-y`) are superseded by the tokens' (`duration-*`, `duration-enter` and `ease-enter`, `z-popover`, `ring-width`, `bp-wide`); border-compensated control padding stays a `calc()` of a token, which the lint allows.
+- **Delivery:** where a cluster recommends its own PR (C11, C14), the plan's placement in tasks 19 and 20 (PR-K) applies.
 - **Not tokenised:** the 3px focus halo folds into the 2px ring (`ring-width`, `ring-offset`), and the masthead scene's three.js palette stays local to `electronics-current/`.
 
 ## Token audit summary
@@ -66,6 +67,7 @@ Each cluster is one role written several ways, with a recommended single value.
 
 ### C2. Control padding: 7/9/11px (border-compensated)
 `7px space-3` (Button, primitives Button), `7px 9px` (primitives Input `:98`, SessionChat `:98`, Tabs `:99`), `9px 11px` (OptionRow `:49`, AutoValueField `:201`), `space-1 9px` (Button sm), `9px space-3-5` (Toast `:68`), `9px 14px` (KeepButton), `2px 9px 2px 7px` (Pill `:77`), `2px 9px` (StatusChip `:19`), `1px 7px` (Pill count `:111`), `3px 7px` (RecordChain `:96`).
+
 **Recommend:** keep the odd px only inside `ui/` components and write them as `calc(token - 1px)` so the token relationship shows. Feature code should use the components, not copy the padding.
 
 ### C3. Card / panel / box padding: six recipes
@@ -82,14 +84,17 @@ Each cluster is one role written several ways, with a recommended single value.
 
 ### C4. Container radius: 6px used for cards and boxes
 These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, RestructureDialog ChildRow and PreviewBox, BulkEditPanel PreviewBox, CompareMatches Confirm, Diagnostics container and the ReviewTable scroll frame. The role is a card, so the value should be 8px (`radius.card`). The two dialogs (`operator/Modal.tsx:65`, `media/MediaCropDialog.tsx:270`) use 8px, but `radius.dialog` is 12px. ModeSwitch (`ReviewWorkspace.tsx:624`) and KeepButton use 6px, but `radius.btn` is 7px.
+
 **Recommend:** use the role token in each case. Every change is NEAR (2–4px visible).
 
 ### C5. Dialogs (no shared component)
 `operator/Modal.tsx` and `media/MediaCropDialog.tsx` both style a native `<dialog>` with 20px padding, 8px radius and their own 760px or 600px stacking rules. `RestructureDialog`, `CompareMatches`, `EvidenceGroupPanel` and `ProcessingWorkspace` use `Modal`.
+
 **Recommend:** add a `ui/Dialog` (radius.dialog, `space-5` padding, `shadow`, `color.overlay` backdrop, `media.compact` stacking). Build `Modal` and `MediaCropDialog` on it.
 
 ### C6. Popovers: three copies
 `batches/NeedYouPanel.tsx`, `masthead/MastheadMenu.tsx` and `masthead/HeaderDisclosure.tsx` each define the same `translateY(4px)→0` keyframes, `120ms ease-out`, `z-index: 1000` and `${shadow}`. `ui/AutoValueField.tsx:173` also uses `z-index: 1000` with `shadow`.
+
 **Recommend:** share one `popoverEnter` keyframe and a `Popover` surface (radius.popover, shadow, z.popover, motion.enter) in `ui/`.
 
 ### C7. Motion durations and easing
@@ -106,6 +111,7 @@ These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, Restructure
 
 ### C8. Breakpoints: seven values, two named
 `media.ts` names `compact 759.98` and `stacked 859.98`. Raw queries use 430 (`EvidenceActions`), 480 (`ProcessingParts`), 600 (`RestructureDialog`, `ImpactSummary`), 700 (×8: `App`, `ReviewWorkspace` ×4, `ReviewFilters` ×2, `EvidenceViewer`; `primitives.tsx:152` also has a 700px `max-width`, a width rather than a query), 760 (`MediaCropDialog` ×2, inclusive), 860 (`CaptureWorkspace`, `RecordsStage`, inclusive) and 1000 (`ReviewWorkspace`).
+
 **Recommend:**
 - Change 760 and 860 to `media.compact` and `media.stacked`; these are EXACT apart from the inclusive edge.
 - Fold 700 into `media.compact`. This moves 60px and is the most visible change (Review stacks earlier), so check it on screenshots.
@@ -126,10 +132,12 @@ These containers use 6px (`radius.input`): ScopeBar, IssuePanel Box, Restructure
 
 ### C10. Uppercase eyebrows outside `type.label`
 These eyebrows hand-roll the style instead of using `type.label` or `primitives.Eyebrow` (`11px / 600 / 0.06em`): `ReviewQueue.tsx:174` GroupTitle (12px, 1.2px), `FactRow.tsx:51` dt (12px, 1px), the `ReviewTable.tsx:187` and `CompareMatches.tsx:222` headers (12px, 1px), `RecordChain.tsx:114` Kind (10.5px, 0.04em) and `DisabledFeature.tsx:62` Soon (11px, 0.04em). `DataTable.tsx:158` uses `type.label` but overrides it to 0.05em.
+
 **Recommend:** use `${type.label}` everywhere and remove the overrides.
 
 ### C11. Tables: DataTable unused
 `ui/DataTable.tsx` is imported only by the component gallery fixture. `operator/ReviewTable.tsx`, `operator/CompareMatches.tsx` and `review/records/RecordDetail.tsx` each build their own `<table>` with 13px cells and their own header style.
+
 **Recommend:** move them onto `DataTable`, or document why not. This is larger than a token swap, so give it its own PR.
 
 ### C12. Chips and pills: three systems
@@ -306,7 +314,7 @@ These eyebrows hand-roll the style instead of using `type.label` or `primitives.
 ### Cross-cutting patterns
 
 1. **Screens bypass the component library.** The gallery measures to spec, but Review (filters, mode switch, rows, table, bulk bar), Capture (actions, groups, proposed lots), Processing (Needs you, timeline) and Records use older local styled-components or `primitives.tsx` layouts. This is the source of most High findings (R1, R2, R4, R12, K1, K3, K6, P4, P5).
-2. **Layout skeletons differ from the canvas.** Content width is 1600 instead of 1240/1500 (G1). The batch header is an inset card, not a full-bleed band with tabs on the title row (M5). Two-column pages render as one stack: Processing overview, Changes Ready, Agents (P1, X1). Long explanatory paragraphs and loose text lines sit between cards (R5, K2).
+2. **Layout skeletons differ from the canvas.** Content width is 1600 instead of 1240/1500 (G1). The batch header is an inset card, not a full-bleed band with tabs on the title row (M5). Two-column pages render as one stack: Processing overview, Changes Ready (P1, X1). Long explanatory paragraphs and loose text lines sit between cards (R5, K2).
 3. **Hover motion is missing almost everywhere.** Only Button, SegmentedControl and the primitives Panel transition (G7). Table rows have no hover at all (G8). Menus and toasts animate in but not out (G9, G10).
 4. **State glyph and tone maps are ad hoc.** The Pill defaults (`+`, `•`, `–`) leak into real states: Running `+`, Exists `–`, New `•` (G3). Changes and Records swap New and Update tones (G4). Running is `info` instead of `acc` (G5). Legacy chips draw borders (G6).
 5. **Buttons are used where the design uses compact or inline controls.** The design uses sm or ghost buttons, inline links or no control: md buttons per group and per tile (K3, K4), full-width secondary buttons (K3 "Edit note", "Go to review", drawer "Send"), stacked vertical button lists (P6), "Show" inside every lot row (R4). Primary fill is used for non-primary capture actions (K1).

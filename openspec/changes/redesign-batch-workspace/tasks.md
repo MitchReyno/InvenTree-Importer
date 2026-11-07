@@ -17,7 +17,7 @@
 - **Branches and subjects.** Branches are `feat/redesign-batch-workspace-<bundle>`, targeting `interactive-app`. Subjects are `type(redesign-batch-workspace): …`.
 - **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`, merged in #95). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). BI-006 supplies only data and contracts (its design D11). This change's `ProcessingSource` gains the session and observation adapter whenever those contracts exist: in task 14: one conditional PR (PR-G) after PR-C, PR-D and PR-E, which doesn't block any task, PR or BI-008.
 
-- **Styling uplift.** Tasks 15–20 move the remaining styling onto the design system's tokens (version 2) and shared components, and close the visual gaps against the canvas (design D11). Their evidence is [styling-audit.md](styling-audit.md): clusters `C1`–`C18` and visual gaps by area `V1`–`V8`. Where the audit's recommendation differs from tokens v2, tokens v2 wins. Each area task's first step swaps that area's exact values, including its share of the spacing, radius and type clusters (C2–C4, C10, C15–C17); later steps take the visible changes. Every area task also gives its controls a 44px hit area at phone width (G15).
+- **Styling uplift.** Tasks 15–20 move the remaining styling onto the design system's tokens (version 2) and shared components, and close the visual gaps against the canvas (design D11). Their evidence is [styling-audit.md](styling-audit.md): clusters `C1`–`C18` and visual gaps by area `V1`–`V8`. Where the audit's recommendation differs from tokens v2, tokens v2 wins. Each area task's first step swaps that area's exact values, including its share of the spacing, radius, type and opacity clusters (C2–C4, C10, C15–C17); later steps take the visible changes. Every area task also gives its controls a 44px hit area at phone width (G15).
 
 ## Completion and commit ordering
 
@@ -349,7 +349,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 16.3 Move the three header popovers onto `Popover` (closing G9), keep the masthead to one row at phone width, and give these screens' controls a 44px hit area at phone width.
 - [ ] 16.4 Make the batch header a full-width band with the tabs on the title row, the second tab row as its own band, tab counts and the Processing step icons.
 - [ ] 16.5 Close the V3 and V6 gaps on Batches, Agents and settings.
-- [ ] 16.6 Record the screenshots and results in the handover.
+- [ ] 16.6 Close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
+- [ ] 16.7 Record the screenshots and results in the handover.
 
 ## 17. Capture
 
@@ -365,13 +366,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 17.2 Restyle the capture actions as the design's tiles, and give every Capture control a 44px hit area at phone width.
 - [ ] 17.3 Restyle evidence groups and tiles: inline group name, small and ghost actions, the move handle on the tile.
 - [ ] 17.4 Restyle the Proposed lots glance, and move `MediaCropDialog` onto `Dialog`.
-- [ ] 17.5 Record the screenshots and results in the handover.
+- [ ] 17.5 Close the remaining V4 gaps: K2, K7, K8, K9 and K10.
+- [ ] 17.6 Record the screenshots and results in the handover.
 
 ## 18. Processing
 
 - **PR delivery:** PR-J.
 - **Outcome:** the Processing overview is the canvas's two-column layout with a step progress bar, Needs-you items as cards and activity as a timeline; the session drawer docks on the right with its timeline and chat; running states use the accent colour.
-- **Scope:** `components/processing/` and the session drawer. Gaps V5, G5, G12 and G16 for Processing and the drawer, and G15, plus the Processing rows of clusters C3 and C8.
+- **Scope:** `components/processing/`, the session drawer and `ui/PhaseRow.tsx` (P10, P11). Gaps V5, G5, G12 and G16 for Processing and the drawer, and G15, plus the Processing rows of clusters C3 and C8.
 - **Prerequisites:** task 15.
 - **Acceptance:** ui-design-system: One status vocabulary (the running step); processing-workspace: Overview with running agents and Session drawer, as laid out in the canvas.
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
@@ -380,7 +382,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged.
 - [ ] 18.2 Lay out the overview in two columns with the step progress bar, Needs-you cards and the activity timeline.
 - [ ] 18.3 Dock the session drawer on the right with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
-- [ ] 18.4 Record the screenshots and results in the handover.
+- [ ] 18.4 Close the remaining V5 gaps: P3, P6, P7, P8, P10 and P11 (P10 and P11 in `ui/PhaseRow.tsx`).
+- [ ] 18.5 Record the screenshots and results in the handover.
 
 ## 19. Review Lots and Map
 
@@ -396,7 +399,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 19.2 Move Review's breakpoints onto `bp-compact` and `bp-wide`, with screenshots at 700–800 and 1000–1200 px.
 - [ ] 19.3 Move `StatusChip`, the filters, the view switch and the tables onto `Pill`, `FilterChips`, `SegmentedControl` and `DataTable` with `BulkBar`, and `Modal` onto `Dialog`.
 - [ ] 19.4 Restyle the lot rows, the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
-- [ ] 19.5 Record the screenshots and results in the handover.
+- [ ] 19.5 Close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
+- [ ] 19.6 Record the screenshots and results in the handover.
 
 ## 20. Records and Changes, then strict lint
 
@@ -412,7 +416,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 20.2 Restyle the Records type rail, `RecordDetail`'s table onto `DataTable`, its empty state, and the Ready to add layout and lot rows; give New, Update and Exists the same colours on both screens (G4); and give these screens' controls a 44px hit area at phone width.
 - [ ] 20.3 Move the remaining `primitives.Notice` users onto `Banner` and remove the unused legacy primitives.
 - [ ] 20.4 Empty the literal-value baseline and make the lint strict.
-- [ ] 20.5 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the handover.
+- [ ] 20.5 Close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
+- [ ] 20.6 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the handover.
 
 ## Delivery evidence and lifecycle follow-up
 
