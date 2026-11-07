@@ -144,7 +144,7 @@ test('the panel has the simplified fields, no explicit save and the disabled PO 
   expect(within(panel).queryByLabelText(/Capture tags mode/)).not.toBeInTheDocument()
   const supplier = within(panel).getByRole('combobox', { name: 'Supplier' })
   const po = within(panel).getByRole('checkbox', { name: 'Create a purchase order in InvenTree' })
-  const tags = within(panel).getByRole('textbox', { name: 'Add shared part tag' })
+  const tags = within(panel).getByRole('textbox', { name: 'Add a tag to every Part' })
   expect(po).toBeDisabled()
   expect(supplier.compareDocumentPosition(po) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(po.compareDocumentPosition(tags) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -735,7 +735,7 @@ test('a late location observation keeps a supplier draft created while it was pe
 test('typed tag text protects navigation before it is added', async () => {
   const dirty = vi.fn()
   const { user, panel } = setup({ onDirtyChange: dirty })
-  const tag = within(panel).getByRole('textbox', { name: 'Add shared part tag' })
+  const tag = within(panel).getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(tag, 'bench')
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(saves).toHaveLength(0)
@@ -814,7 +814,7 @@ test('local discard while disconnected also clears tag text not yet added', asyn
   const dirty = vi.fn()
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
   const view = render(<Host onDirtyChange={dirty} />)
-  const tag = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  const tag = screen.getByRole('textbox', { name: 'Add a tag to every Part' })
   await user.type(tag, 'bench{Enter}')
   await settle()
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
@@ -823,7 +823,7 @@ test('local discard while disconnected also clears tag text not yet added', asyn
   await user.type(tag, 'Bench{Enter}')
   view.rerender(<Host onDirtyChange={dirty} connected={false} />)
   await user.click(screen.getByRole('button', { name: 'Discard unsent settings edits' }))
-  expect(screen.getByRole('textbox', { name: 'Add shared part tag' })).toHaveValue('')
+  expect(screen.getByRole('textbox', { name: 'Add a tag to every Part' })).toHaveValue('')
   expect(dirty).toHaveBeenLastCalledWith(false)
   expect(saves).toHaveLength(1)
 })
@@ -836,7 +836,7 @@ test('typed tag text reaches the navigation owner before the next render commits
     </Profiler>,
   )
   log.length = 0
-  fireEvent.change(screen.getByRole('textbox', { name: 'Add shared part tag' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add a tag to every Part' }), {
     target: { value: 'b' },
   })
   expect(log[0]).toBe('dirty:true')

@@ -78,7 +78,7 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
           </Chips>
         )}
         <TagLabel>
-          <VisuallyHidden>Add shared part tag</VisuallyHidden>
+          <VisuallyHidden>Add a tag to every Part</VisuallyHidden>
           <TagInput
             placeholder="Add a tag"
             value={draft}

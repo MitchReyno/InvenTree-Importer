@@ -83,20 +83,26 @@ export function MediaWorkspace({
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
 
   // A confirmed move is undoable when its files all came from one group.
+  const unconfirmedMove = useRef<typeof moved>(null)
+
   async function moveEvidence(ids: string[], groupId: string | null) {
     const origins = new Set(
       snapshot?.evidence.filter((item) => ids.includes(item.id)).map((item) => item.group_id),
     )
+    const name = groupId
+      ? (snapshot?.groups.find((group) => group.id === groupId)?.label ?? 'a group')
+      : 'Ungrouped'
+    const [origin] = origins
+    const confirmation = {
+      message: `Moved ${plural(ids.length, 'file')} to ${name}`,
+      undo: origins.size === 1 ? { ids, groupId: origin ?? null } : undefined,
+    }
     const result = await state.move(ids, groupId)
     if (result === 'saved') {
-      const name = groupId
-        ? (snapshot?.groups.find((group) => group.id === groupId)?.label ?? 'a group')
-        : 'Ungrouped'
-      const [origin] = origins
-      setMoved({
-        message: `Moved ${plural(ids.length, 'file')} to ${name}`,
-        undo: origins.size === 1 ? { ids, groupId: origin ?? null } : undefined,
-      })
+      setMoved(confirmation)
+    } else if (result === 'unconfirmed') {
+      // An exact retry can still confirm this move; its toast waits for that.
+      unconfirmedMove.current = confirmation
     }
     return result
   }
@@ -105,11 +111,24 @@ export function MediaWorkspace({
     <>
       <Button
         disabled={command.busy || state.unavailable || disabled}
-        onClick={() => void state.retry()}
+        onClick={() =>
+          void state.retry().then((saved) => {
+            if (saved && unconfirmedMove.current) {
+              setMoved(unconfirmedMove.current)
+            }
+            unconfirmedMove.current = saved ? null : unconfirmedMove.current
+          })
+        }
       >
         Retry exact media request
       </Button>
-      <Button disabled={command.busy} onClick={state.discard}>
+      <Button
+        disabled={command.busy}
+        onClick={() => {
+          unconfirmedMove.current = null
+          state.discard()
+        }}
+      >
         Discard unconfirmed media request
       </Button>
     </>

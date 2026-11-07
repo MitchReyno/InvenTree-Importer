@@ -628,3 +628,31 @@ test('a retired lot no longer counts among the lots a group feeds', async () => 
   )
   expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 1 lot')
 })
+
+test('a move confirmed by an exact retry still raises its toast', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit)
+    .mockRejectedValueOnce(new Error('lost_ack'))
+    .mockResolvedValueOnce({
+      ...initial,
+      revision: '2',
+      evidence: initial.evidence.map((item) =>
+        item.id === front ? { ...item, group_id: groupB } : item,
+      ),
+    })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), 'Packet B')
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
+})

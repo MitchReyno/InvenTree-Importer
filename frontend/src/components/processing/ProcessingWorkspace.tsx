@@ -153,11 +153,13 @@ export function ProcessingWorkspace({
     queryKey: serverQueryKey(scope, 'agent-sessions', 'newest'),
     queryFn: () => agents!.sessions(),
     enabled: agents !== undefined && view === 'overview',
+    refetchInterval: pollInterval,
   })
   const agentSettings = useQuery({
     queryKey: serverQueryKey(scope, 'agent-settings'),
     queryFn: () => agents!.settings(),
     enabled: agents !== undefined && view === 'overview',
+    refetchInterval: pollInterval,
   })
 
   // A read that failed or paused keeps old data; it is withheld rather than shown as current.
