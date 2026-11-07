@@ -184,3 +184,42 @@ describe('EvidenceTile handle', () => {
     expect(within(tile).getByRole('button', { name: 'Drag IMG_2041.jpg' })).toBeVisible()
   })
 })
+
+describe('EvidenceTile states', () => {
+  it('shimmers while preparing and says so in the caption, not on the photo', () => {
+    render(<EvidenceTile {...base} state="preparing" onOpen={() => {}} />)
+    const stage = screen.getByRole('button', { name: 'Open IMG_2041.jpg' })
+
+    expect(stage).not.toHaveTextContent('Preparing…')
+    expect(screen.getByText('Preparing…').closest('[data-caption]')).not.toBeNull()
+  })
+})
+
+describe('Evidence notes and lot counts', () => {
+  it('adds the group’s lot count to its file count', () => {
+    render(<EvidenceGroup name="Bag" count={2} meta="2 lots" />)
+    expect(screen.getByRole('region', { name: 'Bag' })).toHaveTextContent('2 files · 2 lots')
+  })
+
+  it('offers a note link on the tile, worded by whether a note exists', async () => {
+    const onNote = vi.fn()
+    const { rerender } = render(
+      <EvidenceTile {...base} state="ready" onOpen={() => {}} onNote={onNote} />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Add a note to IMG_2041.jpg' }))
+    expect(onNote).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <EvidenceTile
+        {...base}
+        note="Counted 30 Oct"
+        state="ready"
+        onOpen={() => {}}
+        onNote={onNote}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Edit the note on IMG_2041.jpg' })).toHaveTextContent(
+      'Edit note',
+    )
+  })
+})

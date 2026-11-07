@@ -2,9 +2,9 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { render } from '../../test/render'
-import { EvidenceActions } from './EvidenceActions'
+import { CaptureActions } from './CaptureActions'
 
-function renderActions(overrides: Partial<Parameters<typeof EvidenceActions>[0]> = {}) {
+function renderActions(overrides: Partial<Parameters<typeof CaptureActions>[0]> = {}) {
   const props = {
     mediaDisabled: false,
     noteDisabled: false,
@@ -13,7 +13,7 @@ function renderActions(overrides: Partial<Parameters<typeof EvidenceActions>[0]>
     writeNote: vi.fn(),
     ...overrides,
   }
-  render(<EvidenceActions {...props} />)
+  render(<CaptureActions {...props} />)
   return props
 }
 

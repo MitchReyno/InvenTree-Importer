@@ -5,7 +5,7 @@ import type { MediaReceiptDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Banner } from '../ui/Banner'
-import { EvidenceActions } from './EvidenceActions'
+import { CaptureActions } from '../capture/CaptureActions'
 
 export type EvidenceUploadHandle = {
   choose: (kind: 'photos' | 'document', groupId?: string) => void
@@ -115,7 +115,7 @@ export function MediaUpload({
 
   return (
     <UploadArea>
-      <EvidenceActions
+      <CaptureActions
         mediaDisabled={chooseDisabled || !!pending || !!unfinished || busy}
         noteDisabled={noteDisabled}
         writeNote={onWriteNote}

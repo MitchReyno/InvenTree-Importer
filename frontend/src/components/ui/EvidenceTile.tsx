@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, ring, size, space } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 import { Skeleton } from './Loading'
+import { linkTouchArea } from './primitives'
 
 export type EvidenceKind = 'photo' | 'document'
 export type PreviewState = 'ready' | 'preparing' | 'failed'
@@ -23,6 +24,8 @@ type EvidenceTileProps = {
   onRetry?: () => void
   /** A move handle, drawn on the tile's top-left corner. */
   handle?: ReactNode
+  /** Opens the file's note; the tile then shows "＋ Note" or "Edit note". */
+  onNote?: () => void
 }
 
 function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'name' | 'state'>) {
@@ -30,17 +33,12 @@ function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'na
   const [failedPreview, setFailedPreview] = useState<string>()
 
   if (state === 'preparing') {
-    return (
-      <Placeholder>
-        <Skeleton width="100%" height="100%" />
-        <ScrimText>Preparing…</ScrimText>
-      </Placeholder>
-    )
+    return <Skeleton width="100%" height="100%" />
   }
   if (state === 'failed') {
     return (
       <Placeholder>
-        <PhotoText>The preview couldn’t be made.</PhotoText>
+        <FailureText>The preview couldn’t be made.</FailureText>
       </Placeholder>
     )
   }
@@ -81,16 +79,33 @@ export function EvidenceTile(props: EvidenceTileProps) {
           />
         </Tick>
       )}
-      <Caption>
+      <Caption data-caption>
         <span title={name}>{name}</span>
-        {support && <Support>{support}</Support>}
+        {state === 'preparing' ? (
+          <Support>Preparing…</Support>
+        ) : (
+          support && <Support>{support}</Support>
+        )}
       </Caption>
       {state === 'failed' && props.onRetry && (
         <Retry type="button" aria-label={`Retry preview for ${name}`} onClick={props.onRetry}>
           Retry
         </Retry>
       )}
-      {note && <Note>{note}</Note>}
+      {(note || props.onNote) && (
+        <Note>
+          {note}
+          {props.onNote && (
+            <NoteLink
+              type="button"
+              aria-label={note ? `Edit the note on ${name}` : `Add a note to ${name}`}
+              onClick={props.onNote}
+            >
+              {note ? 'Edit note' : '＋ Note'}
+            </NoteLink>
+          )}
+        </Note>
+      )}
     </Tile>
   )
 }
@@ -176,10 +191,14 @@ const PhotoText = styled.span`
   color: ${color.photoFg};
 `
 
-const ScrimText = styled(PhotoText)`
-  padding: 1px ${space[3]};
-  border-radius: ${radius.sm};
-  background: ${color.photoScrim};
+const FailureText = styled.span`
+  position: relative;
+  max-width: 100%;
+  font-size: ${typeVar.pill.size};
+  line-height: ${typeVar.pill.lineHeight};
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: ${color.photoFg};
 `
 
 const overlay = css`
@@ -239,7 +258,8 @@ const Caption = styled.span`
   justify-content: space-between;
   gap: ${space[2]};
   padding: ${space[2]} ${space[3]};
-  font-size: 11.5px;
+  font-size: ${typeVar.pill.size};
+  line-height: ${typeVar.pill.lineHeight};
   span:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -266,6 +286,20 @@ const Retry = styled.button`
     min-width: ${size.touch};
     min-height: ${size.touch};
   }
+`
+
+const NoteLink = styled.button`
+  margin-left: ${space[2]};
+  padding: 0;
+  border: 0;
+  background: none;
+  color: ${color.accent};
+  font: inherit;
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+  }
+  ${linkTouchArea}
 `
 
 const Note = styled.p`

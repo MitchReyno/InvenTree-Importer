@@ -519,3 +519,19 @@ test('heads the evidence with its file and group counts beside New group', async
   expect(await screen.findByText('2 files · 2 groups')).toBeVisible()
   expect(screen.getByRole('button', { name: 'New evidence group' })).toHaveTextContent('New group')
 })
+
+test('opens a file’s note from its tile', async () => {
+  const user = userEvent.setup()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add a note to Front label' }))
+  expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeVisible()
+  expect(screen.getByRole('region', { name: /Packet A/ })).toHaveTextContent('2 files · 0 lots')
+})

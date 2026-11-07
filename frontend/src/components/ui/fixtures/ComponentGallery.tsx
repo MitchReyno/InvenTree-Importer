@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
 import { GlobalStyle } from '../../GlobalStyle'
-import { EvidenceActions } from '../../media/EvidenceActions'
+import { CaptureActions } from '../../capture/CaptureActions'
 import { Masthead } from '../../masthead/Masthead'
 import { AutosaveStatus, type AutosaveState } from '../AutosaveStatus'
 import { AutoValueField, type AutoValue } from '../AutoValueField'
@@ -88,7 +88,7 @@ export function ComponentGallery() {
         </Banner>
 
         <Section title="Actions">
-          <EvidenceActions
+          <CaptureActions
             mediaDisabled={false}
             noteDisabled={false}
             takePhotos={() => {}}

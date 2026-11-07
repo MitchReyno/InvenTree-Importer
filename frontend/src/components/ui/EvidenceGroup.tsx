@@ -7,6 +7,8 @@ import { hoverTransition } from './motion'
 type EvidenceGroupProps = {
   name: string
   count: number
+  /** Shown after the file count, such as "2 lots". */
+  meta?: string
   note?: string
   actions?: ReactNode
   dropState?: 'none' | 'over'
@@ -102,7 +104,10 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
         )}
       </Header>
       <Meta>
-        <Count>{fileCount(count)}</Count>
+        <Count>
+          {fileCount(count)}
+          {props.meta && ` · ${props.meta}`}
+        </Count>
         {actions}
       </Meta>
       {note && <Note>{note}</Note>}

@@ -14,7 +14,7 @@ type Props = {
   unavailable?: boolean
 }
 
-export function EvidenceActions({
+export function CaptureActions({
   mediaDisabled,
   noteDisabled,
   takePhotos,

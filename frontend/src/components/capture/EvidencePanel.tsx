@@ -7,7 +7,7 @@ import type { MediaClient } from '../../media/types'
 import { MediaWorkspace } from '../media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
-import { EvidenceActions } from '../media/EvidenceActions'
+import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
 
@@ -76,7 +76,7 @@ export function EvidencePanel({
         />
       )}
       {!media && (
-        <EvidenceActions
+        <CaptureActions
           mediaDisabled
           noteDisabled={frozen || writing}
           writeNote={writeNote}

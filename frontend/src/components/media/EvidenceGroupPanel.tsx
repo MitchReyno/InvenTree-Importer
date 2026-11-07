@@ -83,6 +83,12 @@ export function EvidenceGroupPanel({
   const opened = evidence.find((item) => item.id === openId)
   const renameKey = `rename:${groupId}`
 
+  const groupLots = new Set(
+    evidence.flatMap((item) =>
+      batch.lots.filter((lot) => item.linked_subject_ids.includes(lot.id)).map((lot) => lot.id),
+    ),
+  )
+
   function supportedLots(item: MediaSnapshotDto['evidence'][number]) {
     const count = batch.lots.filter((lot) => item.linked_subject_ids.includes(lot.id)).length
     return count === 1 ? '1 lot' : `${count} lots`
@@ -125,6 +131,7 @@ export function EvidenceGroupPanel({
       dropState={drop.dropState}
       name={name}
       count={evidence.length}
+      meta={groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`}
       ungrouped={!group}
       label={label}
       nameLabel={`Name for ${name}`}
@@ -235,6 +242,14 @@ export function EvidenceGroupPanel({
                     )
                   }
                   onOpen={() => setOpenId(item.id)}
+                  onNote={
+                    blocked(`note:${item.id}`)
+                      ? undefined
+                      : () => {
+                          setOpenId(item.id)
+                          setNoteId(item.id)
+                        }
+                  }
                 />
               )}
             </EvidenceDragHandle>
