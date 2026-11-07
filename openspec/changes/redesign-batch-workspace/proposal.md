@@ -118,10 +118,15 @@ Sources:
    - The first pass moved colour onto tokens and left other existing styling as it was. Every remaining spacing, radius, type, shadow, motion, layer, breakpoint, opacity and size value moves onto the design system's tokens (version 3, which names spacing on a 2px scale) where an equivalent exists.
    - Screens move onto the shared design-system components where one exists, instead of local copies.
    - The styling gaps between the screens and the canvas, found by the audit in [styling-audit.md](styling-audit.md), are closed: spacing, margins, shadows, glyph icons, animations, widths and phone layouts.
+10. **Component alignment and structural gaps (tasks 15–23).**
+    - Each component has one name, the design system's, in the app and the design system alike; screen copies of library components are retired (design D12).
+    - Structural gaps against the canvas are closed: the Map draws its links between evidence and lots, sub-tabs carry their counts, and the activity and connection popovers, Examine, Records and Changes gain the canvas's missing parts.
+    - Behaviour on existing commands is added: Examine corrections, region editing and moves on the Map, Review's inline answer, and opening a session from Agents (task 21).
+    - Data the specs require is added: existing values in Records, a source kind and agreement for values, question times and the Exclude command (task 22); then the remaining canvas detail on new fields and commands (task 23).
 
 **Non-goals**
 
-- **The agent backend:** sessions, tools, outbox and inbox, Examine, and the observation and region data model. These belong to `simplify-intake-entry` and its revision.
+- **The agent backend:** sessions, tools, outbox and inbox, Examine, and the observation and region data model. These belong to `simplify-intake-entry` and its revision. Five additive exceptions are in scope: a source kind and agreement on readings and proposal values (task 22.2), when each question was asked (task 22.3), pausing and resuming sessions (task 23.6), delivering a changed batch instruction to sessions (task 23.11), and a command that joins observations as one item (task 23.7).
 - **New InvenTree effect kinds:** creating categories or parameter templates, supplier price breaks, and updating existing Part fields. They are shown as "Not supported yet" with the nearest supported choice. One small extension is in scope: an optional Part description on created Parts (design D6), following the existing location and company description pattern.
 - **Disabled features:** purchase orders and automatic logos stay disabled.
 - **Masthead options B, C and D.**
@@ -159,7 +164,7 @@ Sources:
 
 ### New capabilities
 
-- **`ui-design-system`:** tokens and themes, theme control, typography, the component vocabulary, content rules (provenance on demand, limits stated once), the masthead and electronics current in both themes, and (tasks 15–20) token-driven layout and type, motion and layers, shared components on every screen, and the design's widths and breakpoints.
+- **`ui-design-system`:** tokens and themes, theme control, typography, the component vocabulary, content rules (provenance on demand, limits stated once), the masthead and electronics current in both themes, and (tasks 15–20) token-driven layout and type, motion and layers, shared components on every screen, the design's widths and breakpoints, and components carrying the design system's names.
 - **`batch-navigation`:** four tabs, the second tab row with counts and attention badges, the "need you" panel, and legacy route redirects.
 - **`processing-workspace`:** Overview, step pages, the session drawer, and how retained non-session jobs are presented.
 - **`review-workspace`:** Lots (Workspace and Table), the evidence pane, problem routing, and the Map.

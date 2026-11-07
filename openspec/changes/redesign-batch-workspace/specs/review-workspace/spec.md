@@ -92,3 +92,40 @@ Links SHALL be drawn at region level when observations exist, and at file level 
 - **GIVEN** a profile without agent sessions or observations
 - **WHEN** the Map opens
 - **THEN** it shows file-level links and the direct edits, and no instruction field appears.
+
+### Requirement: Map drawing and region edits
+
+The Map SHALL draw its links as connectors between evidence and lot cards: solid where a region or file shows the lot, dotted where a document line or an inherited link supports it, and highlighted for the selected photo. Each link SHALL also be available as text. At region level, moving evidence and creating a lot from it SHALL act on a region, and the operator SHALL be able to adjust or add a region on the selected photo.
+
+#### Scenario: Links drawn between evidence and lots
+
+- **GIVEN** a photo with three regions supporting three lots, and a packing-slip line supporting one of them
+- **WHEN** the operator selects that photo on the Map
+- **THEN** a solid connector joins each region to its lot and a dotted one joins the slip line to its lot, the photo's three connectors and lot cards are highlighted, and a caption explains the line styles.
+
+#### Scenario: Move a region to another lot
+
+- **GIVEN** a region linked to the wrong lot
+- **WHEN** the operator moves that region to another lot
+- **THEN** only that region's link changes, the photo's other regions keep their lots, and both lots show the change.
+
+### Requirement: Same physical item
+
+On the Map, the operator SHALL be able to mark an observation as the same physical item as another, such as one bag photographed twice. The two observations SHALL then count once towards their lot's quantity, both SHALL stay linked as evidence, and the mark SHALL be removable. Marking observations of different lots SHALL be refused with the reason.
+
+#### Scenario: One bag seen twice
+
+- **GIVEN** a lot whose quantity counts two observations that show the same bag of 200
+- **WHEN** the operator marks the second as the same item as the first
+- **THEN** the lot's quantity counts the bag once, both photos stay linked to the lot, and removing the mark restores the earlier count.
+
+### Requirement: Exclude a lot
+
+The operator SHALL be able to exclude a lot from the batch with a reason, and include it again. An excluded lot SHALL show the Excluded state and its reason in Lots and the Table, SHALL appear under the Excluded filter, SHALL NOT be offered in Ready to add, and SHALL be listed under Not included in Changes with its reason. Excluding SHALL keep the lot's evidence and values unchanged.
+
+#### Scenario: Exclude and include again
+
+- **GIVEN** a lot of salvaged resistors the operator does not want in InvenTree
+- **WHEN** the operator excludes it with the reason "Salvage, not stocked"
+- **THEN** it shows Excluded with that reason, is not offered in Ready to add and is listed under Not included; including it again restores its earlier state, values and evidence.
+

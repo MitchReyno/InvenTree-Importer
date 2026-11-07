@@ -108,6 +108,16 @@ Where the design system has a component for a control, a status, a table, a noti
 - **WHEN** each screen renders
 - **THEN** both "New" statuses use the same pill colour and glyph, and the running step uses the running state's accent colour and glyph.
 
+### Requirement: Components carry the design system's names
+
+Each shared component SHALL have its design-system name, in a file named after its main export, and there SHALL be one component per name. A screen SHALL NOT keep its own copy of a library component under another name. Where the app's name for a screen or tab is established in these specs, such as Changes, the design system SHALL use it.
+
+#### Scenario: One component per name
+
+- **GIVEN** the design system's ActivityIndicator, QuestionCard and SessionChat
+- **WHEN** a reader looks for each in `frontend/src/components`
+- **THEN** each is one component of that name, in a file of that name, used by every screen that shows it, and no other component has the same name.
+
 ### Requirement: Layout follows the design's widths and breakpoints
 
 Main content SHALL be at most 1240px wide (1500px for Review and Records), centred. Layouts SHALL change only at the design system's named breakpoints. At phone width the masthead SHALL stay one row, and below `bp-compact` (760px) every interactive control SHALL have a hit area of at least 44px.
