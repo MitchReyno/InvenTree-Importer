@@ -8,6 +8,7 @@ import type {
 } from '@invimport/contracts'
 import { display } from '../../capture/display'
 import {
+  PROVENANCE_LABELS,
   blockingIssues,
   lotLocationFact,
   lotProvenance,
@@ -125,7 +126,10 @@ export function ReviewTable({
           value: display(capture.quantity, batch, 'quantity'),
           ...markers(lotProvenance(capture.quantity, batch.defaults.quantity)),
         },
-        location: { value: location.value, ...markers(location.provenance) },
+        location: {
+          value: `${location.value} · ${PROVENANCE_LABELS[location.provenance]}`,
+          ...markers(location.provenance),
+        },
         part: {
           value: part,
           content: (
