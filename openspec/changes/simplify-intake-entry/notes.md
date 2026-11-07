@@ -57,11 +57,11 @@ Resumable agent sessions (PR-A, [#97](https://github.com/MitchReyno/InvenTree-Im
 
 ## Open items
 
-- **Codex tool surface (from task 13):** expose the intake MCP tools directly, with `exec` (code-mode) wrapping turned off, since turning off `exec` alone would cut off every app tool. Remove `wait`, `request_user_input_async`, the `collaboration` and `clock` namespaces, `apply_patch`, `image_gen` and the skills catalogue, keeping D2's four accepted exceptions. Check the full offered tool surface at start, including built-ins, and refuse code run inside `exec`.
-- **Proposal validation messages (from task 13):** `propose` should name the field that failed validation.
-- **Citable new evidence (from task 13):** deliver a digest for evidence picked up mid-session, in the inbox payload or the `fetch_evidence` result.
-- **Claude `advisor` tool (from task 13):** exclude or detect the deferred `advisor` server tool in intake sessions.
-- **Qualification script (from task 13):** count a chat as handled when the session asks a question or posts a status after reading it, not only when it replies in chat.
+- **Codex tool surface (from task 13, tracked as BI-010):** expose the intake MCP tools directly, with `exec` (code-mode) wrapping turned off, since turning off `exec` alone would cut off every app tool. Remove `wait`, `request_user_input_async`, the `collaboration` and `clock` namespaces, `apply_patch`, `image_gen` and the skills catalogue, keeping D2's four accepted exceptions. Check the full offered tool surface at start, including built-ins, and refuse code run inside `exec`.
+- **Proposal validation messages (from task 13, tracked as BI-010):** `propose` should name the field that failed validation.
+- **Citable new evidence (from task 13, tracked as BI-010):** deliver a digest for evidence picked up mid-session, in the inbox payload or the `fetch_evidence` result.
+- **Claude `advisor` tool (from task 13, tracked as BI-010):** exclude or detect the deferred `advisor` server tool in intake sessions.
+- **Qualification script (from task 13, tracked as BI-010):** count a chat as handled when the session asks a question or posts a status after reading it, not only when it replies in chat.
 - **`/1` Codex goal tools:** `features.goals` defaults to on in codex-cli 0.166.0, so a `/1` Codex turn is also offered the goal tools and `request_user_input`. `/1` was out of scope; raise it separately if wanted.
 - **Resume routing:** routing a resume to the matching worker is not solved. One actor's worker per DBOS application is the supported deployment; a mis-routed claim changes nothing.
 - **Dev launcher:** dev setup does not create the `agent_writer` role and the dev launcher does not start a session worker. Without `INTAKE_AGENT_WRITER_DATABASE_URL` the lot-forming tools refuse with `tool_not_allowed`.
