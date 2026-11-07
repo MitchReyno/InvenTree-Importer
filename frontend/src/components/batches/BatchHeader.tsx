@@ -14,7 +14,8 @@ import { Pill } from '../ui/Pill'
 import { linkTouchArea } from '../ui/primitives'
 import { NeedsYouPanel } from './NeedsYouPanel'
 
-export type EvidenceCounts = { files: number; unused: number }
+/** `unused` is absent while lot lineage is unknown. */
+export type EvidenceCounts = { files: number; unused?: number }
 
 type BatchHeaderProps = {
   batch: CaptureSnapshotDto
@@ -176,7 +177,7 @@ function reviewRow(batchId: string, { attention, evidence, activeLotCount }: Cou
       id: 'map',
       label: 'Map',
       href: batchHref(batchId, { tab: 'review', view: 'map' }),
-      ...(evidence && evidence.unused > 0
+      ...(evidence?.unused
         ? {
             badge: {
               label: `${evidence.unused} unused ${plural(evidence.unused, 'file', 'files')}`,

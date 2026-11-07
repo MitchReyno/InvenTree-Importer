@@ -95,6 +95,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-07, PR-I review round 6:** `Batch` withholds the attention read's data once a refresh fails or pauses, as the header already did, so the batch header says "Needs you unavailable" instead of keeping old spinners, counts and "agents working" as if current; Processing gets the same withheld data. A batch with no lots shows its Processing work or questions ahead of "Draft", because the batch-level Examine can run or ask before any lot exists.
 - **2026-11-07, PR-I review round 7:** Relative times now advance on one shared minute clock that runs only while a time is on screen. The Agents summary labels the configured model "Default for new sessions", since a running session keeps the selection it started with.
 - **2026-11-07, PR-I review round 8:** The Map's badge says "unused file", because its count includes documents as well as photos.
+- **2026-11-07, PR-I review round 9:** While a split or merged batch's lineage is unknown (the operator review is unavailable and lots are retired), the header shows no unused-file count, as the Map shows "checking history" rather than calling inherited files unused; the file total stays.
 
 ## Open items
 

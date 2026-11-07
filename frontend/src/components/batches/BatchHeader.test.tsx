@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { BatchHeader } from './BatchHeader'
+import { BatchHeader, type EvidenceCounts } from './BatchHeader'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -29,10 +29,7 @@ const attention: BatchAttentionDto = {
   items_truncated: false,
 }
 
-function header(
-  route: Parameters<typeof BatchHeader>[0]['route'],
-  evidence?: { files: number; unused: number },
-) {
+function header(route: Parameters<typeof BatchHeader>[0]['route'], evidence?: EvidenceCounts) {
   return render(
     <BatchHeader
       batch={batch}
@@ -200,7 +197,8 @@ describe('BatchHeader', () => {
     )
     unmount()
 
-    header({ tab: 'review', view: 'map' }, { files: 9, unused: 0 })
+    // No count while lineage is unknown, as with none unused: the Map shows no badge.
+    header({ tab: 'review', view: 'map' }, { files: 9 })
     expect(
       within(screen.getByRole('navigation', { name: 'Review views' })).getByRole('link', {
         name: 'Map',

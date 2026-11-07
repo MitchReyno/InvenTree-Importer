@@ -403,11 +403,22 @@ export function Batch({
       batch && mediaCurrent
         ? {
             files: mediaCurrent.evidence.length,
-            unused: unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors),
+            // While lineage is unknown, inherited files would read as unused, as the Map also holds.
+            unused:
+              operatorUnavailable && retired.size > 0
+                ? undefined
+                : unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors),
           }
         : undefined,
     // `retired` and `predecessors` follow the operator review.
-    [batch, mediaCurrent, currentOperatorReview, acceptedOperatorReview, operatorReview],
+    [
+      batch,
+      mediaCurrent,
+      currentOperatorReview,
+      acceptedOperatorReview,
+      operatorReview,
+      operatorUnavailable,
+    ],
   )
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
