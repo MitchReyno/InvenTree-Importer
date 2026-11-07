@@ -4,6 +4,7 @@ import { space } from '../../theme/generated/tokens'
 import type { MediaReceiptDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { Banner } from '../ui/Banner'
 import { EvidenceActions } from './EvidenceActions'
 
 export type EvidenceUploadHandle = {
@@ -179,7 +180,11 @@ export function MediaUpload({
           Retry saved membership read
         </Button>
       )}
-      {error && <Paragraph role="alert">{error}</Paragraph>}
+      {error && (
+        <div role="alert">
+          <Banner tone="bad">{error}</Banner>
+        </div>
+      )}
     </UploadArea>
   )
 }
@@ -187,7 +192,6 @@ export function MediaUpload({
 const UploadArea = styled.div`
   display: grid;
   gap: ${space[5]};
-  margin-bottom: ${space[8]};
   min-width: 0;
   p {
     overflow-wrap: anywhere;

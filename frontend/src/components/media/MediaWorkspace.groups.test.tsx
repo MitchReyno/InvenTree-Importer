@@ -502,3 +502,20 @@ test('renames a group inline and keeps each file’s move handle on its tile', a
   expect(within(group).queryByText('Move evidence')).not.toBeInTheDocument()
   expect(within(group).getByRole('button', { name: 'Ungroup Packet A' })).toBeVisible()
 })
+
+test('heads the evidence with its file and group counts beside New group', async () => {
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+      headingId="evidence"
+    />,
+  )
+  const heading = await screen.findByRole('heading', { name: 'Evidence' })
+  expect(heading).toHaveAttribute('id', 'evidence')
+  expect(await screen.findByText('2 files · 2 groups')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'New evidence group' })).toHaveTextContent('New group')
+})

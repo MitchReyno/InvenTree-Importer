@@ -1,9 +1,10 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space, type } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
-import { Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
+import { Label, Paragraph, Select, Small } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
@@ -28,6 +29,12 @@ interface Props {
   review?: OperatorReviewDto
   reload?: () => Promise<void>
   captureEdit?: CaptureWorkspaceProps['edit']
+  /** Id for the "Evidence" heading, so the enclosing area can be named by it. */
+  headingId?: string
+}
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`
 }
 
 export function MediaWorkspace({
@@ -42,6 +49,7 @@ export function MediaWorkspace({
   review,
   reload,
   captureEdit,
+  headingId,
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
@@ -81,7 +89,7 @@ export function MediaWorkspace({
   )
 
   return (
-    <section aria-label="Retained evidence">
+    <Workspace aria-label="Retained evidence">
       <MediaUpload
         ref={upload}
         disabled={blocked('upload')}
@@ -105,35 +113,66 @@ export function MediaWorkspace({
           }
         }}
       />
-      <Heading>Evidence groups</Heading>
-      <Paragraph>
-        Grouping preserves original files, links and physical-lot identities. Move up to 200
-        selected files together.
-      </Paragraph>
+      <LabelRow>
+        <EvidenceLabel id={headingId}>Evidence</EvidenceLabel>
+        {snapshot && (
+          <Small as="span">
+            {plural(snapshot.evidence.length, 'file')} · {plural(snapshot.groups.length, 'group')}
+          </Small>
+        )}
+        <Spacer />
+        {snapshot && (
+          <Button
+            size="sm"
+            icon="＋"
+            aria-label="New evidence group"
+            disabled={blocked('new-group')}
+            onClick={() => setNewGroup(true)}
+          >
+            New group
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="Refresh saved evidence"
+          disabled={command.busy}
+          onClick={() =>
+            void state
+              .refresh()
+              .catch(() => state.setError('Refresh failed. Local drafts are preserved.'))
+          }
+        >
+          Refresh
+        </Button>
+      </LabelRow>
+      <Small>
+        Group photos that belong together, such as the front and back of one packet. Originals,
+        links and lot identities are kept; up to 200 selected files move together.
+      </Small>
       {state.unavailable && (
-        <Paragraph role="alert">
-          Current saved media could not be confirmed. Local file, selection and crop inputs are
-          preserved; media changes wait for a fresh read.
-        </Paragraph>
+        <div role="alert">
+          <Banner tone="warn">
+            Current saved media could not be confirmed. Local file, selection and crop inputs are
+            preserved; media changes wait for a fresh read.
+          </Banner>
+        </div>
       )}
-      {state.error && <Paragraph role="alert">{state.error}</Paragraph>}
-      {command.message && <Paragraph role="alert">{command.message}</Paragraph>}
-      {command.pending && retained}
-      <Button
-        disabled={command.busy}
-        onClick={() =>
-          void state
-            .refresh()
-            .catch(() => state.setError('Refresh failed. Local drafts are preserved.'))
-        }
-      >
-        Refresh saved evidence
-      </Button>
+      {state.error && (
+        <div role="alert">
+          <Banner tone="bad">{state.error}</Banner>
+        </div>
+      )}
+      {command.message && (
+        <div role="alert">
+          <Banner tone="bad" action={command.pending ? <Actions>{retained}</Actions> : undefined}>
+            {command.message}
+          </Banner>
+        </div>
+      )}
+      {command.pending && !command.message && retained}
       {snapshot && (
         <>
-          <Button disabled={blocked('new-group')} onClick={() => setNewGroup(true)}>
-            New evidence group
-          </Button>
           {newGroup && (
             <MediaTextEditor
               label="New group name"
@@ -267,23 +306,46 @@ export function MediaWorkspace({
           save={state.saveCrop}
         />
       )}
-    </section>
+    </Workspace>
   )
 }
 
+const Workspace = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: ${space[7]};
+  min-width: 0;
+`
+const LabelRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[4]};
+`
+const EvidenceLabel = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
+`
+const Spacer = styled.span`
+  flex: 1;
+`
+const Actions = styled.span`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[3]};
+`
 const Groups = styled.div`
   display: grid;
-  gap: ${space[8]};
-  margin: ${space[8]} 0;
+  gap: ${space[6]};
   min-width: 0;
 `
 const MoveControls = styled.div`
   display: grid;
   gap: ${space[4]};
-  margin: ${space[6]} 0;
   padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   min-width: 0;
   select {
     max-width: 100%;

@@ -1,9 +1,8 @@
-import { HeadingRow, Caption } from '../ui/primitives'
 import { useCallback, useState } from 'react'
-import { Heading, Panel, Paragraph, Summary } from '../ui/primitives'
+import { Paragraph, Summary } from '../ui/primitives'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { MediaWorkspace } from '../media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
@@ -61,13 +60,6 @@ export function EvidencePanel({
 
   return (
     <EvidenceArea data-area="context" aria-labelledby="evidence">
-      <HeadingRow>
-        <Heading id="evidence">Evidence</Heading>
-      </HeadingRow>
-      <Caption>
-        Original observations are retained. A note is evidence, not an inferred or approved
-        inventory fact.
-      </Caption>
       {media && (
         <MediaWorkspace
           operator={operator}
@@ -80,6 +72,7 @@ export function EvidencePanel({
           disabled={frozen || noteDirty}
           onDirtyChange={reportMedia}
           captureEdit={edit}
+          headingId="evidence"
         />
       )}
       {!media && (
@@ -92,6 +85,7 @@ export function EvidencePanel({
           unavailable
         />
       )}
+      {!media && <EvidenceLabel id="evidence">Evidence</EvidenceLabel>}
       {writing && (
         <EvidenceNoteForm
           disabled={frozen || mediaDirty}
@@ -123,11 +117,23 @@ export function EvidencePanel({
   )
 }
 
-const EvidenceArea = styled(Panel)`
+const EvidenceArea = styled.section`
   grid-area: context;
+  display: flex;
+  flex-direction: column;
+  gap: ${space[7]};
+  min-width: 0;
+  padding: ${space[8]};
+  border: 1px dashed ${color.lineStrong};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+`
+const EvidenceLabel = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
 `
 const IdentityDetails = styled.details`
-  padding: ${space[7]};
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
 `

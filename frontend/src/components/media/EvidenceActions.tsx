@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { color, icon, opacity, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { hoverTransition } from '../ui/motion'
-import { Paragraph } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 
 type Props = {
   mediaDisabled: boolean
@@ -48,9 +48,11 @@ export function EvidenceActions({
         />
       </Actions>
       {unavailable && (
-        <Paragraph role="status">
-          Media storage is unavailable. Human notes remain available when Capture is editable.
-        </Paragraph>
+        <div role="status">
+          <Banner tone="warn">
+            Media storage is unavailable. Human notes remain available when Capture is editable.
+          </Banner>
+        </div>
       )}
     </>
   )
@@ -87,7 +89,6 @@ const Actions = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: ${space[4]};
-  margin: 0 0 ${space[8]};
 `
 const Tile = styled.button`
   display: flex;
