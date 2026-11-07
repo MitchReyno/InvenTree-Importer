@@ -11,7 +11,7 @@ import { Button } from '../ui/Button'
 import { media } from '../ui/media'
 import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
 import { Pill } from '../ui/Pill'
-import { NeedYouPanel } from './NeedYouPanel'
+import { NeedsYouPanel } from './NeedsYouPanel'
 
 type BatchHeaderProps = {
   batch: CaptureSnapshotDto
@@ -221,7 +221,7 @@ export function BatchHeader({
         <Lead>
           <TitleLine>
             <Title>{batch.title}</Title>
-            {attention && <NeedYouPanel attention={attention} />}
+            {attention && <NeedsYouPanel attention={attention} />}
             {!attention && attentionUnavailable && (
               <Pill tone="neutral">Needs you unavailable</Pill>
             )}

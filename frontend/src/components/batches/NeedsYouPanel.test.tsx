@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import { describe, expect, it } from 'vitest'
-import { NeedYouPanel } from './NeedYouPanel'
+import { NeedsYouPanel } from './NeedsYouPanel'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -49,10 +49,10 @@ const attention: BatchAttentionDto = {
   items_truncated: false,
 }
 
-describe('NeedYouPanel', () => {
+describe('NeedsYouPanel', () => {
   it('lists every open item grouped by its tab, each linking to its owner', async () => {
     const user = userEvent.setup()
-    render(<NeedYouPanel attention={attention} />)
+    render(<NeedsYouPanel attention={attention} />)
 
     await user.click(screen.getByRole('button', { name: '3 need you' }))
     const panel = screen.getByRole('dialog', { name: 'Needs you' })
@@ -70,7 +70,7 @@ describe('NeedYouPanel', () => {
 
   it('closes once an item is chosen, so it does not cover the screen it opens', async () => {
     const user = userEvent.setup()
-    render(<NeedYouPanel attention={attention} />)
+    render(<NeedsYouPanel attention={attention} />)
 
     await user.click(screen.getByRole('button', { name: '3 need you' }))
     await user.click(screen.getByRole('link', { name: 'Answer: A run needs recovery' }))
@@ -80,7 +80,7 @@ describe('NeedYouPanel', () => {
 
   it('closes with Escape and returns focus to the pill', async () => {
     const user = userEvent.setup()
-    render(<NeedYouPanel attention={attention} />)
+    render(<NeedsYouPanel attention={attention} />)
     const pill = screen.getByRole('button', { name: '3 need you' })
 
     await user.click(pill)
@@ -91,10 +91,10 @@ describe('NeedYouPanel', () => {
   })
 
   it('says when nothing needs the operator and when the list is truncated', () => {
-    const { rerender } = render(<NeedYouPanel attention={{ ...attention, items: [] }} />)
+    const { rerender } = render(<NeedsYouPanel attention={{ ...attention, items: [] }} />)
     expect(screen.getByText('Nothing needs you')).toBeInTheDocument()
 
-    rerender(<NeedYouPanel attention={{ ...attention, items_truncated: true }} />)
+    rerender(<NeedsYouPanel attention={{ ...attention, items_truncated: true }} />)
     expect(screen.getByRole('button', { name: '3+ need you' })).toBeInTheDocument()
   })
 })

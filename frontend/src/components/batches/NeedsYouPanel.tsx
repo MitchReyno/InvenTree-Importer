@@ -23,7 +23,7 @@ const GROUP_WORD: Record<AttentionItemDto['group'], string> = {
 }
 
 /** Every open item in the batch, grouped by the tab that owns it. */
-export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
+export function NeedsYouPanel({ attention }: { attention: BatchAttentionDto }) {
   const [open, setOpen] = useState(false)
   const total = attention.items.length
   const label = attention.items_truncated ? `${total}+ need you` : `${total} need you`

@@ -132,8 +132,11 @@ const End = styled.div`
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: ${space[4]};
+  gap: ${space[6]};
   max-width: 100%;
+  ${media.compact} {
+    gap: ${space[4]};
+  }
 `
 
 const Wordmark = styled.a`

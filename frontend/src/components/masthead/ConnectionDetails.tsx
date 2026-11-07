@@ -1,7 +1,11 @@
+import type { ReactNode } from 'react'
+import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS, type UpdateHealth } from '../operations/LiveUpdates'
-import { Paragraph, Small, Subheading } from '../ui/primitives'
-import { observationFresh, timestampFresh } from '../../header/observations'
+import { KeyValue } from '../ui/KeyValue'
+import { media } from '../ui/media'
+import { observationFresh, safeTargetNavigation, timestampFresh } from '../../header/observations'
 
 interface Props {
   target?: ConnectionStatusDto['target']
@@ -9,9 +13,25 @@ interface Props {
   apiChecked: number
   now: number
   health: UpdateHealth
+  /** The Open InvenTree link, or the reason there is none. */
+  inventree: ReactNode
 }
 
-export function ConnectionDetails({ target, apiUnavailable, apiChecked, now, health }: Props) {
+const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+
+function shortTime(at: string | number) {
+  return new Date(at).toLocaleTimeString([], SHORT_TIME)
+}
+
+/** Host, last check and the link first; the transport and API diagnostics sit in Details. */
+export function ConnectionDetails({
+  target,
+  apiUnavailable,
+  apiChecked,
+  now,
+  health,
+  inventree,
+}: Props) {
   const apiFresh = apiChecked > 0 && timestampFresh(apiChecked, now)
   const targetFresh =
     target && target.freshness === 'fresh' && observationFresh(target.observed_at, now)
@@ -50,36 +70,79 @@ export function ConnectionDetails({ target, apiUnavailable, apiChecked, now, hea
   if (target?.observed_at) {
     targetObservation = targetFresh ? 'Fresh target observation' : 'Stale target observation'
   }
+  const navigation = safeTargetNavigation(target?.navigation_url)
+  const host = navigation ? new URL(navigation).hostname : (target?.label ?? 'No configured target')
+
   return (
-    <>
-      <Subheading>Application API</Subheading>
-      <Paragraph>{apiStatus}</Paragraph>
-      <Small>
-        Last API read: {apiChecked ? new Date(apiChecked).toLocaleString() : 'Not yet checked'}
-      </Small>
-      <Subheading>Update transport</Subheading>
-      <Paragraph>{transport}</Paragraph>
-      <Small>
-        Transport observation: {transportFreshness} ·{' '}
-        {transportObserved && health.observedAt !== null
-          ? new Date(health.observedAt).toLocaleString()
-          : 'Not yet observed'}
-        {health.truncated ? ' · update coverage partial; polling remains enabled' : ''}
-      </Small>
-      <Subheading>InvenTree target</Subheading>
-      <Paragraph>{target?.label ?? 'No configured target label'}</Paragraph>
-      <Paragraph>
-        {targetObservation} · {target?.state ?? 'unknown'}
-        {target?.failure_code ? ` · ${target.failure_code.replaceAll('_', ' ')}` : ''}
-      </Paragraph>
-      <Small>
-        Last target check:{' '}
-        {target?.observed_at ? new Date(target.observed_at).toLocaleString() : 'Not yet checked'}
-      </Small>
-      <Paragraph>
-        A reachable read does not establish complete permissions, inventory-write capability or
-        provider availability.
-      </Paragraph>
-    </>
+    <Body>
+      <KeyValue
+        rows={[
+          { label: 'Host', value: host, state: 'plain' },
+          {
+            label: 'Last check',
+            value: target?.observed_at ? shortTime(target.observed_at) : 'Not yet checked',
+            state: 'plain',
+          },
+        ]}
+      />
+      {target?.kind === 'owned_test' && (
+        <Line>Approvals write only to this test InvenTree, never to a real one.</Line>
+      )}
+      {inventree}
+      <Details>
+        <summary>Details</summary>
+        <p>{apiStatus}</p>
+        <p>Last API read: {apiChecked ? shortTime(apiChecked) : 'Not yet checked'}</p>
+        <p>{transport}</p>
+        <p>
+          Transport observation: {transportFreshness} ·{' '}
+          {transportObserved && health.observedAt !== null
+            ? shortTime(health.observedAt)
+            : 'Not yet observed'}
+          {health.truncated ? ' · update coverage partial; polling remains enabled' : ''}
+        </p>
+        <p>{target?.label ?? 'No configured target label'}</p>
+        <p>
+          {targetObservation} · {target?.state ?? 'unknown'}
+          {target?.failure_code ? ` · ${target.failure_code.replaceAll('_', ' ')}` : ''}
+        </p>
+        <p>
+          A reachable read does not establish complete permissions, inventory-write capability or
+          provider availability.
+        </p>
+      </Details>
+    </Body>
   )
 }
+
+const Body = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: ${space[4]};
+  padding: ${space[5]};
+`
+
+const Line = styled.p`
+  margin: 0;
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+`
+
+const Details = styled.details`
+  align-self: stretch;
+  font-size: ${typeVar.small.size};
+  color: ${color.muted};
+  overflow-wrap: anywhere;
+  summary {
+    cursor: pointer;
+  }
+  p {
+    margin: ${space[2]} 0 0;
+  }
+  ${media.compact} {
+    summary {
+      line-height: ${size.touch};
+    }
+  }
+`

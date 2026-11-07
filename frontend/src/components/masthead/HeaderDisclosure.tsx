@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
-import styled from 'styled-components'
-import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import styled, { css } from 'styled-components'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { hoverTransition } from '../ui/motion'
 import { Popover } from '../ui/Popover'
+
+type Variant = 'activity' | 'connection'
 
 interface HeaderDisclosureProps {
   label: string
@@ -11,18 +13,22 @@ interface HeaderDisclosureProps {
   trigger: ReactNode
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Accent pill while work is running. */
+  /** The design system's pill: the taller activity pill or the compact connection pill. */
+  variant: Variant
+  /** Accent pill while work is under way; an idle activity pill is plain. */
   active?: boolean
   describedBy?: string
   children: ReactNode
 }
 
+/** A masthead status pill that opens its details; the dialog is named by `title`. */
 export function HeaderDisclosure({
   label,
   title,
   trigger,
   open,
   onOpenChange,
+  variant,
   active = false,
   describedBy,
   children,
@@ -39,33 +45,42 @@ export function HeaderDisclosure({
           aria-label={label}
           aria-describedby={describedBy}
           data-active={active}
+          $variant={variant}
         >
           {trigger}
         </Trigger>
       }
     >
-      <Body>
-        <Title>{title}</Title>
-        {children}
-      </Body>
+      {children}
     </Popover>
   )
 }
 
-const Trigger = styled.button`
+const variants = {
+  activity: css`
+    gap: ${space[4]};
+    padding: ${space[2]} ${space[5]} ${space[2]} ${space[4]};
+    color: ${color.fg};
+  `,
+  connection: css`
+    gap: ${space[3]};
+    padding: ${space[2]} ${space[5]};
+    color: ${color.muted};
+    font-size: ${typeVar.small.size};
+  `,
+}
+
+const Trigger = styled.button<{ $variant: Variant }>`
   display: inline-flex;
   align-items: center;
-  min-height: ${size.control};
   max-width: 100%;
   min-width: 0;
-  padding: 3px ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};
-  color: ${color.fg};
-  font-size: ${typeVar.small.size};
   cursor: pointer;
   ${hoverTransition}
+  ${({ $variant }) => variants[$variant]}
   &[data-active='true'] {
     border-color: ${color.accent};
     background: ${color.accentWeak};
@@ -75,17 +90,9 @@ const Trigger = styled.button`
     border-color: ${color.accent};
   }
   ${media.compact} {
+    justify-content: center;
     min-width: ${size.touch};
     min-height: ${size.touch};
     padding-inline: ${space[2]};
   }
-`
-
-const Body = styled.div`
-  padding: ${space[5]};
-`
-
-const Title = styled.h2`
-  margin: 0 0 ${space[4]};
-  ${type.h2}
 `

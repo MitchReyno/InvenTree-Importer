@@ -50,6 +50,15 @@ function client(): HeaderClient {
 
 afterEach(() => vi.useRealTimers())
 
+/** Diagnostics sit in a panel's Details disclosure. */
+function showDetails(panel: HTMLElement) {
+  for (const details of panel.querySelectorAll('details')) {
+    details.open = true
+  }
+}
+
+const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+
 test('healthy live transport never implies target reachability and the isolated link follows the connection control', async () => {
   const user = userEvent.setup()
   render(
@@ -59,7 +68,7 @@ test('healthy live transport never implies target reachability and the isolated 
       <HeaderStatus client={client()} batchId={batchId} />
     </UpdateHealthContext.Provider>,
   )
-  await screen.findByText('InvenTree unavailable')
+  await screen.findByText('InvenTree unreachable')
   const trigger = screen.getByRole('button', { name: 'Connection status' })
   const link = screen.getByRole('link', { name: 'Open InvenTree' })
   expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
@@ -67,9 +76,9 @@ test('healthy live transport never implies target reachability and the isolated 
   expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   expect(trigger.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   await user.click(trigger)
-  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
-    'Live updates connected',
-  )
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  showDetails(panel)
+  expect(panel).toHaveTextContent('Live updates connected')
   expect(screen.getByText(/Fresh target observation/)).toBeVisible()
   expect(screen.getByText(/timeout/)).toBeVisible()
 })
@@ -109,7 +118,9 @@ test('local expiry and visibility recomputation mark an old successful observati
   render(<HeaderStatus client={api} />)
   await screen.findByText('InvenTree status stale')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
-  expect(screen.getByText(/Last target check/)).toHaveTextContent(new Date(old).toLocaleString())
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
+    `Last check${new Date(old).toLocaleTimeString([], SHORT_TIME)}`,
+  )
   fireEvent(document, new Event('visibilitychange'))
   await waitFor(() => expect(api.connection).toHaveBeenCalledTimes(2))
 })
@@ -242,7 +253,7 @@ test('tab-level rerenders preserve the draft and the same scoped query subscript
   )
 
   const view = render(element('Capture'))
-  await screen.findByText('InvenTree unavailable')
+  await screen.findByText('InvenTree unreachable')
   const draft = screen.getByRole('textbox', { name: 'Unsaved draft' })
   await user.type(draft, ' plus unsaved input')
   view.rerender(element('Review'))
@@ -388,6 +399,7 @@ test('foreground clock reconciliation cannot report an old live transport as con
     await vi.advanceTimersByTimeAsync(1)
   })
   fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
+  showDetails(screen.getByRole('dialog', { name: 'Connection details' }))
   expect(screen.getByText('Live updates connected')).toBeVisible()
   vi.setSystemTime(observedAt + 31_000)
   await act(async () => {
@@ -406,8 +418,9 @@ test('live transport without a retained frame observation remains unknown', asyn
       <HeaderStatus client={client()} />
     </UpdateHealthContext.Provider>,
   )
-  await screen.findByText('InvenTree unavailable')
+  await screen.findByText('InvenTree unreachable')
   await userEvent.setup().click(screen.getByRole('button', { name: 'Connection status' }))
+  showDetails(screen.getByRole('dialog', { name: 'Connection details' }))
   expect(screen.getByText(/Live-update health unknown/)).toBeVisible()
   expect(screen.queryByText('Live updates connected')).toBeNull()
 })
@@ -464,7 +477,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
 test('the connection panel also offers Open InvenTree, for phone width where the bar has no room', async () => {
   const user = userEvent.setup()
   render(<HeaderStatus client={client()} batchId={batchId} />)
-  await screen.findByText('InvenTree unavailable')
+  await screen.findByText('InvenTree unreachable')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
 
   const panel = screen.getByRole('dialog', { name: 'Connection details' })
@@ -576,15 +589,15 @@ test('the activity label counts the agents holding a slot and names the batch wi
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
   await waitFor(() =>
     expect(trigger).toHaveAccessibleDescription(
-      '2 agents working Mouser 3381-22 + bench bag 3 questions need you',
+      '2 agents working Mouser 3381-22 + bench bag Research: 6 of 10 3 questions need you',
     ),
   )
   const steps = within(trigger).getAllByRole('listitem', { hidden: true })
   expect(steps.map((step) => step.textContent)).toEqual([
-    'examine: done',
-    'research: running',
-    'images: failed',
-    'inventory: waiting',
+    'Examine: done',
+    'Research: running',
+    'Images: failed',
+    'Inventory: waiting',
   ])
 })
 
@@ -610,8 +623,74 @@ test('the workflow panel shows each job as step segments and keeps raw IDs out o
   expect(within(panel).queryByRole('button', { name: /Close/ })).toBeNull()
   expect(within(panel).queryByRole('list', { name: 'Retained steps' })).toBeNull()
   const job = within(panel).getByRole('region', { name: 'Current batch · Processing' })
-  expect(within(job).getByText('research: running')).toBeInTheDocument()
-  const ids = within(job).getByText('IDs').closest('details')!
-  expect(ids).not.toHaveAttribute('open')
-  expect(ids).toHaveTextContent(`attempt ${id}`)
+  expect(within(job).getByText('Research: running')).toBeInTheDocument()
+  expect(within(job).getByText('Running')).toBeInTheDocument()
+  expect(within(job).getByRole('link', { name: 'Open processing' })).toBeInTheDocument()
+  const details = within(job).getByText('Details').closest('details')!
+  expect(details).not.toHaveAttribute('open')
+  expect(details).toHaveTextContent(`attempt ${id}`)
+  expect(details).toHaveTextContent('Physical lane occupied')
+  for (const line of within(job).getAllByText(`attempt ${id}`, { exact: false })) {
+    expect(line).not.toBeVisible()
+  }
+})
+
+test('with nothing retained the activity pill says so plainly and drops its accent', async () => {
+  render(<HeaderStatus client={client()} batchId={batchId} />)
+
+  expect(await screen.findByText('Idle')).toBeInTheDocument()
+  const trigger = screen.getByRole('button', { name: 'Workflow activity' })
+  expect(trigger).toHaveAccessibleDescription('Idle Nothing running')
+  expect(trigger).toHaveAttribute('data-active', 'false')
+})
+
+test('other open jobs show as +N beside the named one', async () => {
+  const api = client()
+  const busy = processingWork()
+  vi.mocked(api.work).mockResolvedValue({
+    ...busy,
+    work: [
+      ...busy.work,
+      {
+        kind: 'import',
+        id: 'd0000000-0000-4000-8000-00000000000d',
+        batch_id: 'c0000000-0000-4000-8000-00000000000c',
+        stage: 'inventory',
+        state: 'running',
+        steps: [{ name: 'approval', state: 'confirmed' }],
+        steps_complete: false,
+      },
+    ],
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+
+  await screen.findByText('2 agents working')
+  expect(screen.getByRole('button', { name: 'Workflow activity' })).toHaveAccessibleDescription(
+    '2 agents working Current batch 1 more job',
+  )
+})
+
+test('the connection panel leads with host, last check and Open InvenTree, and names a test target once', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const at = new Date().toISOString()
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: {
+      ...connection().target,
+      state: 'reachable',
+      kind: 'owned_test',
+      observed_at: at,
+      failure_code: null,
+    },
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+
+  expect(panel).toHaveTextContent('Hostinventory.example.test')
+  expect(panel).toHaveTextContent(`Last check${new Date(at).toLocaleTimeString([], SHORT_TIME)}`)
+  expect(within(panel).getAllByText(/test InvenTree/)).toHaveLength(1)
+  expect(within(panel).getByRole('link', { name: 'Open InvenTree' })).toBeVisible()
+  expect(within(panel).getByText(/Application API/)).not.toBeVisible()
 })
