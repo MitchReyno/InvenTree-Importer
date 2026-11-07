@@ -37,9 +37,15 @@ function resumeAction(batch: InboxBatch) {
     }
   }
   if (batch.workflow?.lots) {
+    const { lots, needs_review } = batch.workflow
+    // Lots still to check come first, so Review opens filtered to them.
     return {
-      href: batchHref(batch.id, { tab: 'review', view: 'lots' }),
-      label: `Review ${batch.workflow.lots} lots`,
+      href: batchHref(
+        batch.id,
+        { tab: 'review', view: 'lots' },
+        needs_review > 0 ? '?filter=needs_review' : '',
+      ),
+      label: `Review ${lots} ${lots === 1 ? 'lot' : 'lots'}`,
     }
   }
   return { href: batchHref(batch.id, { tab: 'capture' }), label: 'Continue Capture' }

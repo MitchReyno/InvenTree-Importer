@@ -356,9 +356,9 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   render(<App />)
   expect(
     within(await screen.findByRole('region', { name: fixture.title })).getByRole('link', {
-      name: 'Capture',
+      name: 'Review 1 lot',
     }),
-  ).toHaveAttribute('href', `#${batchId}/capture`)
+  ).toHaveAttribute('href', `#${batchId}/review/lots?filter=needs_review`)
   expect(screen.queryByText('Archived packet')).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
   expect(await screen.findByText('Archived packet')).toBeVisible()
@@ -808,7 +808,7 @@ test('following an inbox workflow filter opens Review through the actual App rou
   navigationServer()
   const user = userEvent.setup()
   render(<App />)
-  await user.click(await screen.findByRole('link', { name: '1 need review' }))
+  await user.click(await screen.findByRole('link', { name: 'Review 1 lot' }))
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
   // Review then opens on the first lot.
   await waitFor(() =>
