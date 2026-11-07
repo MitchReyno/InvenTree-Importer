@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { reviewMap } from '../../operator/review-map'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { Pill } from '../ui/Pill'
@@ -298,7 +298,7 @@ const Links = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[3]};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -327,11 +327,11 @@ const Controls = styled.div`
 
 const Regions = styled.ul`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   margin: 0;
   padding-left: ${space[8]};
 `
 const Muted = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

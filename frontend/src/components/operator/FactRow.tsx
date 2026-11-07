@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { ReactNode } from 'react'
 import { PROVENANCE_LABELS, type Provenance } from '../../operator/review-model'
 import { StatusChip, type ChipTone } from './StatusChip'
@@ -44,8 +44,8 @@ export function FactRow({ label, value, provenance, children }: Props) {
 
 const Row = styled.div`
   display: grid;
-  gap: 6px;
-  padding: 10px 0;
+  gap: ${space[3]};
+  padding: ${space[5]} 0;
   border-bottom: 1px solid ${color.line};
   dt {
     font-size: 12px;
@@ -56,13 +56,13 @@ const Row = styled.div`
   dd {
     margin: 0;
     display: grid;
-    gap: 8px;
+    gap: ${space[4]};
   }
 `
 const Value = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: ${space[4]};
   overflow-wrap: anywhere;
 `

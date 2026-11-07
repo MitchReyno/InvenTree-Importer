@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Link, Paragraph, Small } from '../ui/primitives'
@@ -211,17 +211,17 @@ const TONES = {
 }
 
 const Box = styled.section<{ $tone: keyof typeof TONES }>`
-  padding: 12px 14px;
-  margin: 12px 0;
+  padding: ${space[6]} ${space[7]};
+  margin: ${space[6]} 0;
   border: 1px solid ${(p) => TONES[p.$tone].border};
   background: ${(p) => TONES[p.$tone].background};
   border-radius: 6px;
 `
 const Item = styled.div`
-  padding: 8px 0;
+  padding: ${space[4]} 0;
   border-top: 1px solid ${color.line};
   display: grid;
-  gap: 6px;
+  gap: ${space[3]};
   justify-items: start;
 `
 
@@ -229,6 +229,6 @@ const FixRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 4px 0;
+  gap: ${space[4]};
+  margin: ${space[2]} 0;
 `

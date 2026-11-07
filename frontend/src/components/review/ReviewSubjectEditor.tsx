@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { MediaEditDto } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
@@ -197,9 +198,9 @@ function ReviewAttachment({
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${space[4]};
 `
 const EditorPanel = styled(Panel)`
   display: grid;
-  gap: 10px;
+  gap: ${space[5]};
 `

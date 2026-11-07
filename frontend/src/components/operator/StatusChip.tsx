@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 
 export type ChipTone = 'neutral' | 'blue' | 'green' | 'amber' | 'red'
 
@@ -15,13 +15,13 @@ const TONES: Record<ChipTone, { color: string; background: string; border: strin
 export const StatusChip = styled.span<{ $tone: ChipTone }>`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 9px;
+  gap: ${space[2]};
+  padding: ${space[1]} 9px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: ${typeVar.bodyStrong.weight};
   line-height: 1.6;
   white-space: nowrap;
-  border-radius: 999px;
+  border-radius: ${radius.pill};
   color: ${(p) => TONES[p.$tone].color};
   background: ${(p) => TONES[p.$tone].background};
   border: 1px solid ${(p) => TONES[p.$tone].border};

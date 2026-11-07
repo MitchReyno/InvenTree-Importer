@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { OperatorLotDto } from '@invimport/contracts'
 import { blockingIssues, dismissedWarnings, openWarnings } from '../../operator/review-model'
 import { StatusChip } from './StatusChip'
@@ -33,5 +34,5 @@ export function LotStatusChips({ lot }: { lot: OperatorLotDto }) {
 const Chips = styled.span`
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: ${space[2]};
 `

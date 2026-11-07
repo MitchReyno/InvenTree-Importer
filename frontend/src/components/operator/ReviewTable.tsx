@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -171,14 +171,14 @@ const Table = styled.table`
   width: 100%;
   min-width: 860px;
   caption {
-    padding: 10px 12px;
+    padding: ${space[5]} ${space[6]};
     text-align: left;
     color: ${color.muted};
     font-size: 13px;
   }
   th,
   td {
-    padding: 10px 12px;
+    padding: ${space[5]} ${space[6]};
     text-align: left;
     vertical-align: top;
     border-top: 1px solid ${color.line};
@@ -200,7 +200,7 @@ const Table = styled.table`
 const ProblemList = styled.span`
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: ${space[2]};
 `
 const ItemButton = styled.button`
   padding: 0;
@@ -211,13 +211,13 @@ const ItemButton = styled.button`
   text-align: left;
   font: inherit;
   cursor: pointer;
-  min-height: 32px;
+  min-height: ${size.control};
 `
 const SharedCount = styled.span`
   color: ${color.muted};
   font-size: 13px;
 `
 const Empty = styled.p`
-  padding: 12px;
+  padding: ${space[6]};
   color: ${color.muted};
 `

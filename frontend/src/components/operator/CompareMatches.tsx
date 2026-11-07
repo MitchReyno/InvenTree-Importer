@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -213,7 +213,7 @@ const Table = styled.table`
   min-width: 100%;
   th,
   td {
-    padding: 8px 10px;
+    padding: ${space[4]} ${space[5]};
     text-align: left;
     vertical-align: top;
     border-bottom: 1px solid ${color.line};
@@ -227,8 +227,8 @@ const Table = styled.table`
   }
 `
 const Confirm = styled.section`
-  margin-top: 14px;
-  padding: 12px;
+  margin-top: ${space[7]};
+  padding: ${space[6]};
   border: 1px solid ${color.warn};
   background: ${color.warnWeak};
   border-radius: 6px;

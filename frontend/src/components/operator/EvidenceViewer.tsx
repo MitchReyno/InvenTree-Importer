@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
@@ -365,15 +365,15 @@ export function EvidenceViewer({
 
 const Viewer = styled.section`
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: ${space[4]};
+  margin-bottom: ${space[6]};
   min-width: 0;
 `
 const Controls = styled.div`
   display: flex;
   align-items: end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${space[4]};
   > label {
     flex: 1;
     min-width: 110px;
@@ -382,10 +382,10 @@ const Controls = styled.div`
 const Zoom = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: ${space[3]};
   button {
-    padding: 6px 10px;
-    min-width: 44px;
+    padding: ${space[3]} ${space[5]};
+    min-width: ${size.touch};
   }
 `
 const Preview = styled.div`
@@ -406,7 +406,7 @@ const PreviewImage = styled.img<{ $zoom: number }>`
   height: auto;
 `
 const Empty = styled.div`
-  padding: 24px 12px;
+  padding: ${space[12]} ${space[6]};
   background: ${color.surface2};
   color: ${color.muted};
   border-radius: 6px;

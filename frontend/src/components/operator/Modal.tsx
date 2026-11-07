@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import { HeadingRow, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
@@ -61,7 +61,7 @@ const Dialog = styled.dialog`
   width: min(960px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow: auto;
-  padding: 20px;
+  padding: ${space[10]};
   border: 1px solid ${color.line};
   border-radius: 8px;
   color: ${color.fg};

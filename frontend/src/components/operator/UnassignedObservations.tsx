@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { coverSizes, observationImage } from '../../media/images'
 import { Field, Small, Subheading } from '../ui/primitives'
@@ -147,7 +148,7 @@ export function UnassignedObservations({ batch, edit, disabled }: Props) {
 
 const List = styled.ul`
   display: grid;
-  gap: 8px;
+  gap: ${space[4]};
   margin: 0;
   padding: 0;
   list-style: none;
@@ -155,7 +156,7 @@ const List = styled.ul`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: ${space[4]};
   }
 `
 

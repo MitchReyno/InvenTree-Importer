@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
@@ -468,18 +469,18 @@ function RestructureErrors({ errors }: { errors: FieldErrors<Values> }) {
 const ChildRow = styled.fieldset`
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 10px;
+  gap: ${space[5]};
   align-items: end;
   border: 1px solid ${color.line};
   border-radius: 6px;
-  padding: 10px;
-  @media (max-width: 600px) {
+  padding: ${space[5]};
+  ${media.narrow} {
     grid-template-columns: 1fr;
   }
 `
 const PreviewBox = styled.section`
-  margin-top: 14px;
-  padding: 12px;
+  margin-top: ${space[7]};
+  padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
   background: ${color.accentWeak};
   border-radius: 6px;

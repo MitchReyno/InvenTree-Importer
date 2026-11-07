@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import {
   FILTER_LABELS,
@@ -60,21 +60,21 @@ export function ReviewFilters({
 const Chips = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: ${space[3]};
+  margin-bottom: ${space[6]};
   min-width: 0;
   @media (max-width: 700px) {
     flex-wrap: nowrap;
     max-width: 100%;
     overflow-x: auto;
-    padding: 2px;
-    margin-bottom: 8px;
+    padding: ${space[1]};
+    margin-bottom: ${space[4]};
   }
 `
 const Chip = styled.button`
   min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 999px;
+  padding: ${space[3]} ${space[6]};
+  border-radius: ${radius.pill};
   border: 1px solid ${color.lineStrong};
   background: ${color.surface};
   color: ${color.fg};
@@ -85,13 +85,13 @@ const Chip = styled.button`
   }
   @media (max-width: 700px) {
     flex: 0 0 auto;
-    min-height: 44px;
+    min-height: ${size.touch};
     white-space: nowrap;
   }
   &[aria-pressed='true'] {
     background: ${color.accentWeak};
     border-color: ${color.accent};
     color: ${color.accent};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
 `

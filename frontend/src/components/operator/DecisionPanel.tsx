@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -392,7 +392,7 @@ function reviewSentence(
 
 const SharedLine = styled.p`
   margin: 0;
-  font-size: 14px;
+  font-size: ${typeVar.body.size};
 `
 const LinkButton = styled.button`
   padding: 0;
@@ -407,14 +407,14 @@ const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0;
+  gap: ${space[4]};
+  margin: ${space[4]} 0;
 `
 
 const LotActions = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0 12px;
+  gap: ${space[4]};
+  margin: ${space[4]} 0 ${space[6]};
 `

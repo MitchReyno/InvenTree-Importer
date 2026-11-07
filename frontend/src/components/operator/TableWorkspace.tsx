@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { blockingIssues, openWarnings } from '../../operator/review-model'
@@ -159,6 +160,6 @@ const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 12px 0;
+  gap: ${space[4]};
+  margin: ${space[6]} 0;
 `

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   ManualWorkspaceDto,
@@ -169,7 +169,7 @@ export function ReviewQueue({
 }
 
 const Group = styled.section`
-  margin-top: 12px;
+  margin-top: ${space[6]};
 `
 const GroupTitle = styled.h3`
   margin: 0;
@@ -180,9 +180,9 @@ const GroupTitle = styled.h3`
 `
 const QueueRow = styled.div<{ $focused: boolean }>`
   display: grid;
-  gap: 6px;
-  padding: 12px;
-  margin-top: 10px;
+  gap: ${space[3]};
+  padding: ${space[6]};
+  margin-top: ${space[5]};
   border: 1px solid ${(p) => (p.$focused ? color.accent : color.line)};
   border-left-width: ${(p) => (p.$focused ? '4px' : '1px')};
   border-radius: 5px;
@@ -196,8 +196,8 @@ const QueueRow = styled.div<{ $focused: boolean }>`
 const CheckLabel = styled.label`
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
+  gap: ${space[5]};
+  min-height: ${size.touch};
   input {
     width: 20px;
     height: 20px;

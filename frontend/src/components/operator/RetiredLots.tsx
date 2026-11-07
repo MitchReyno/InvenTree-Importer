@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
 import { StatusChip } from './StatusChip'
@@ -41,11 +41,11 @@ export function RetiredLots({ batch, review }: Props) {
 
 const List = styled.ul`
   display: grid;
-  gap: 10px;
+  gap: ${space[5]};
   padding: 0;
   list-style: none;
   li {
-    padding: 10px;
+    padding: ${space[5]};
     border: 1px dashed ${color.lineStrong};
     border-radius: 5px;
     background: ${color.surface2};

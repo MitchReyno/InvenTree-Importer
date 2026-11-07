@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { subjectStatuses, type LotStatus } from '../../processing/source'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -573,10 +573,10 @@ export function ReviewWorkspace({
 const ScopeBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: ${space[6]};
   flex-wrap: wrap;
-  margin-bottom: 8px;
-  padding: 6px 10px;
+  margin-bottom: ${space[4]};
+  padding: ${space[3]} ${space[5]};
   background: ${color.surface};
   border: 1px solid ${color.line};
   border-radius: 6px;
@@ -586,7 +586,7 @@ const ScopeBar = styled.div`
   @media (max-width: 700px) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    gap: ${space[3]};
     > div {
       grid-column: 1 / -1;
       margin-right: 0;
@@ -594,7 +594,7 @@ const ScopeBar = styled.div`
     > button {
       min-width: 0;
       width: 100%;
-      padding: 6px 8px;
+      padding: ${space[3]} ${space[4]};
       font-size: 13px;
       line-height: 1.3;
     }
@@ -603,8 +603,8 @@ const ScopeBar = styled.div`
 const SubjectActions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: ${space[4]};
+  margin-bottom: ${space[4]};
 `
 const KeyboardHint = styled(Small)`
   @media (max-width: 700px) {
@@ -616,8 +616,8 @@ const Toolbar = styled.div`
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-bottom: 6px;
+  gap: ${space[4]} ${space[8]};
+  margin-bottom: ${space[3]};
 `
 const ModeSwitch = styled.div`
   display: inline-flex;
@@ -627,7 +627,7 @@ const ModeSwitch = styled.div`
 `
 const ModeTab = styled.button`
   min-height: 40px;
-  padding: 8px 16px;
+  padding: ${space[4]} ${space[8]};
   border: 0;
   background: ${color.surface};
   color: ${color.fg};
@@ -635,13 +635,13 @@ const ModeTab = styled.button`
   &[aria-selected='true'] {
     background: ${color.accentWeak};
     color: ${color.accent};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
   grid-template-columns: minmax(200px, 0.75fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
-  gap: 12px;
+  gap: ${space[6]};
   align-items: start;
   @media (max-width: 1000px) {
     grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr);
@@ -671,7 +671,7 @@ const BackButton = styled(Button)`
   display: none;
   @media (max-width: 700px) {
     display: block;
-    margin-bottom: 12px;
+    margin-bottom: ${space[6]};
   }
 `
 const QueueFocus = styled.div`
