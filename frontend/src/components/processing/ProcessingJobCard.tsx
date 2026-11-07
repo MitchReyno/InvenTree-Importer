@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
 import { Heading, Paragraph, Panel, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -128,12 +128,12 @@ const Row = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 16px;
+  gap: ${space[8]};
   flex-wrap: wrap;
 `
 
 const Status = styled.span`
   font-size: 13px;
-  font-weight: 600;
+  font-weight: ${typeVar.bodyStrong.weight};
   color: ${color.muted};
 `

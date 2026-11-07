@@ -1,7 +1,7 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -535,17 +535,17 @@ const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
 const ReviewLink = styled.a`
   display: inline-block;
-  margin: 4px 0 8px;
+  margin: ${space[2]} 0 ${space[4]};
   color: ${color.accent};
 `
 
 const Workspace = styled.section`
   display: grid;
-  gap: 12px;
+  gap: ${space[6]};
   min-width: 0;
   > ${Notice} {
     margin: 0;
-    padding: 10px 12px;
+    padding: ${space[5]} ${space[6]};
     font-size: 13px;
   }
   > ${Panel} {
@@ -555,15 +555,15 @@ const Workspace = styled.section`
 
 const Selection = styled.fieldset`
   border: 0;
-  margin: 16px 0;
+  margin: ${space[8]} 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: ${space[4]} ${space[10]};
   label {
     display: flex;
-    gap: 8px;
+    gap: ${space[4]};
     align-items: center;
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `

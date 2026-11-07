@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { SessionStateDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -153,14 +154,14 @@ export function SessionChat({ storeKey, state, send, startFresh, freshDisabled }
 
 const Form = styled.form`
   display: grid;
-  gap: 6px;
+  gap: ${space[3]};
   label {
     display: grid;
-    gap: 4px;
+    gap: ${space[2]};
   }
 `
 
 const Unconfirmed = styled.div`
   display: grid;
-  gap: 6px;
+  gap: ${space[3]};
 `

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import {
   validate,
   type ProcessingAnswerDto,
@@ -259,22 +259,22 @@ export function QuestionAnswer({
 const Card = styled.form`
   padding: 20px;
   border: 1px solid ${color.warn};
-  border-radius: 8px;
+  border-radius: ${radius.card};
   background: ${color.warnWeak};
   h3 {
-    margin: 0 0 8px;
+    margin: 0 0 ${space[4]};
   }
 `
 
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0;
+  gap: ${space[4]};
+  margin: ${space[8]} 0;
 `
 
 const Field = styled.div`
   display: grid;
-  gap: 8px;
-  margin-top: 14px;
+  gap: ${space[4]};
+  margin-top: ${space[7]};
 `

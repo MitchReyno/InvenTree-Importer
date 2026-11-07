@@ -1,7 +1,7 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Small, TextArea } from '../ui/primitives'
 
@@ -125,7 +125,7 @@ const Field = styled.div`
   display: grid;
   gap: ${space[4]};
   label {
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
 `
 

@@ -3,7 +3,7 @@ import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
 import type { ProcessingSource } from '../../processing/source'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import {
   Card,
   CardTitle,
@@ -112,10 +112,10 @@ const Steps = styled.ul`
   }
   a {
     color: ${color.fg};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
   span {
-    font-size: 12.5px;
+    font-size: ${typeVar.small.size};
     color: ${color.muted};
   }
 `
@@ -130,6 +130,6 @@ const Glances = styled.nav`
     border-radius: ${radius.card};
     background: ${color.surface};
     color: ${color.accent};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
 `

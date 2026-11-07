@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { media } from '../ui/media'
 import { batchHref } from '../../navigation/batch-route'
 import type {
   PipelineCell,
@@ -7,7 +8,7 @@ import type {
   SourceSession,
   StepProgress,
 } from '../../processing/source'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Pill, type PillTone } from '../ui/Pill'
 import { Small } from '../ui/primitives'
@@ -142,7 +143,7 @@ export const CardTitle = styled.h2`
 `
 
 export const Muted = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -169,7 +170,7 @@ const Rows = styled.ul`
   }
   a {
     color: ${color.fg};
-    font-weight: 600;
+    font-weight: ${typeVar.bodyStrong.weight};
   }
 `
 
@@ -273,13 +274,13 @@ const Step = styled.span`
 
 const Parallel = styled.span`
   color: ${color.muted};
-  @media (max-width: 480px) {
+  ${media.phone} {
     display: none;
   }
 `
 
 const SessionLabel = styled.span`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   min-width: 0;
 `

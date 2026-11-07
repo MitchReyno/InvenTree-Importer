@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { space, typeVar } from '../../theme/generated/tokens'
 import type { SessionTimelineDto } from '@invimport/contracts'
 import { Heading, Small } from '../ui/primitives'
 
@@ -79,17 +80,17 @@ function answerText(payload: unknown) {
 }
 
 const Current = styled.p`
-  margin: 8px 0;
-  font-weight: 600;
+  margin: ${space[4]} 0;
+  font-weight: ${typeVar.bodyStrong.weight};
 `
 
 const Steps = styled.ol`
-  margin: 4px 0 12px;
-  padding-left: 20px;
+  margin: ${space[2]} 0 ${space[6]};
+  padding-left: ${space[10]};
   li {
     display: flex;
-    gap: 12px;
+    gap: ${space[6]};
     justify-content: space-between;
-    padding: 2px 0;
+    padding: ${space[1]} 0;
   }
 `

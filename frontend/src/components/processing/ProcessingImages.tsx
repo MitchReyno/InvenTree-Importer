@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { mediaResource } from '../../media/types'
 import { mediaDisplayLabels } from '../../media/identity-labels'
@@ -88,20 +88,20 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
 const Gallery = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
-  gap: 16px;
-  margin-top: 14px;
+  gap: ${space[8]};
+  margin-top: ${space[7]};
   overflow-wrap: anywhere;
 `
 const Versions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding-top: 12px;
+  gap: ${space[6]};
+  padding-top: ${space[6]};
   border-top: 1px solid ${color.line};
   a {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
+    min-height: ${size.touch};
     color: ${color.accent};
   }
 `

@@ -390,7 +390,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged, recording in the PR description the inclusive 480px query that moves to just below `bp-phone`.
+- [x] 18.1 Swap exact values for tokens in Processing, with the screenshot diff unchanged, recording in the PR description the inclusive 480px query that moves to just below `bp-phone`.
 - [ ] 18.2 Lay out the overview in two columns (P1, P2, P4, P5) with the step progress bar, Needs-you cards and the activity timeline.
 - [ ] 18.3 Dock the session drawer on the right (P9) with its timeline and chat, use the accent colour for running states (G5), and restyle the Processing banners, empty states (G12, G16) and phone-width hit areas (G15).
 - [ ] 18.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V5 gaps: P3, P6, P7 and P8.
