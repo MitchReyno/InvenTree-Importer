@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space, type } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -96,7 +96,8 @@ export function CompareMatches({
         <Paragraph>
           No existing Parts have been read for this batch yet.{' '}
           {onEditPart ? (
-            <InlineButton
+            <Button
+              variant="link"
               type="button"
               onClick={() => {
                 onClose()
@@ -104,7 +105,7 @@ export function CompareMatches({
               }}
             >
               Read an existing Part in the shared Part editor
-            </InlineButton>
+            </Button>
           ) : (
             'Read one in the shared Part editor in Review.'
           )}
@@ -221,9 +222,7 @@ const Table = styled.table`
     overflow-wrap: anywhere;
   }
   thead th {
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    ${type.label}
     color: ${color.muted};
   }
 `
@@ -232,14 +231,5 @@ const Confirm = styled.section`
   padding: ${space[6]};
   border: 1px solid ${color.warn};
   background: ${color.warnWeak};
-  border-radius: 6px;
-`
-const InlineButton = styled.button`
-  padding: 0;
-  border: 0;
-  background: none;
-  color: ${color.accent};
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
+  border-radius: ${radius.card};
 `

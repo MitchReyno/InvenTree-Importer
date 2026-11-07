@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { hoverTransition } from '../ui/motion'
 import { lotCrops } from '../../processing/proposed-lots'
@@ -189,9 +189,7 @@ const Group = styled.section`
 `
 const GroupTitle = styled.h3`
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  ${type.label}
   color: ${color.muted};
 `
 /** The canvas's item row: the whole row opens the lot; the checkbox sits beside it. */

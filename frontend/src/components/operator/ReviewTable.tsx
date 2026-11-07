@@ -171,7 +171,7 @@ const ItemButton = styled.button`
 `
 const SharedCount = styled.span`
   color: ${color.muted};
-  font-size: 13px;
+  font-size: ${typeVar.small.size};
 `
 const Empty = styled.p`
   padding: ${space[6]};

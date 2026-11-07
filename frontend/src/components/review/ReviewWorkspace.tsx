@@ -4,7 +4,7 @@ import { SegmentedControl } from '../ui/SegmentedControl'
 import { Kbd } from '../ui/Kbd'
 import styled from 'styled-components'
 import { media } from '../ui/media'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -577,7 +577,7 @@ const ScopeBar = styled.div`
   padding: ${space[3]} ${space[5]};
   background: ${color.surface};
   border: 1px solid ${color.line};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   > div {
     margin-right: auto;
   }
@@ -592,9 +592,6 @@ const ScopeBar = styled.div`
     > button {
       min-width: 0;
       width: 100%;
-      padding: ${space[3]} ${space[4]};
-      font-size: 13px;
-      line-height: 1.3;
     }
   }
 `

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
 import { media } from '../ui/media'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
@@ -472,7 +472,7 @@ const ChildRow = styled.fieldset`
   gap: ${space[5]};
   align-items: end;
   border: 1px solid ${color.line};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   padding: ${space[5]};
   ${media.narrow} {
     grid-template-columns: 1fr;
@@ -483,5 +483,5 @@ const PreviewBox = styled.section`
   padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
   background: ${color.accentWeak};
-  border-radius: 6px;
+  border-radius: ${radius.card};
 `

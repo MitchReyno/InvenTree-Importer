@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { media } from '../ui/media'
-import { color, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
@@ -415,7 +415,7 @@ const Preview = styled.div`
   overflow: auto;
   background: ${color.photoStage};
   border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   ${media.compact} {
     height: 280px;
   }
@@ -430,6 +430,6 @@ const Empty = styled.div`
   padding: ${space[12]} ${space[6]};
   background: ${color.surface2};
   color: ${color.muted};
-  border-radius: 6px;
-  line-height: 1.5;
+  border-radius: ${radius.card};
+  line-height: ${typeVar.body.lineHeight};
 `

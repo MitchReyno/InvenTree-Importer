@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
 import { Pill } from '../ui/Pill'
@@ -47,7 +47,7 @@ const List = styled.ul`
   li {
     padding: ${space[5]};
     border: 1px dashed ${color.lineStrong};
-    border-radius: 5px;
+    border-radius: ${radius.card};
     background: ${color.surface2};
   }
 `

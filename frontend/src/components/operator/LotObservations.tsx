@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { radius, space } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { coverSizes, observationImage } from '../../media/images'
 import { Field, Small, Subheading } from '../ui/primitives'
@@ -198,5 +198,5 @@ const Crop = styled.img`
   height: 64px;
   object-fit: cover;
   border: 1px solid currentColor;
-  border-radius: 4px;
+  border-radius: ${radius.thumb};
 `

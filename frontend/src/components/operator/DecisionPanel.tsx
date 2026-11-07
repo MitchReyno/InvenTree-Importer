@@ -12,7 +12,7 @@ import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
 import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
-import { Heading, Link, Notice, Paragraph, Small, linkTouchArea } from '../ui/primitives'
+import { Heading, Link, Notice, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Kbd } from '../ui/Kbd'
 import { StickyFooter } from '../ui/StickyFooter'
@@ -241,9 +241,9 @@ export function DecisionPanel({
             {sharing.map((other, index) => (
               <span key={other.id}>
                 {index > 0 && ', '}
-                <LinkButton type="button" onClick={() => inspect(other.id)}>
+                <Button variant="link" type="button" onClick={() => inspect(other.id)}>
                   {other.label}
-                </LinkButton>
+                </Button>
               </span>
             ))}
           </SharedLine>
@@ -454,16 +454,6 @@ const PartExtras = styled.div`
 const SharedLine = styled.p`
   margin: 0;
   font-size: ${typeVar.body.size};
-`
-const LinkButton = styled.button`
-  padding: 0;
-  border: 0;
-  background: none;
-  color: ${color.accent};
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
-  ${linkTouchArea}
 `
 const Actions = styled.div`
   display: flex;

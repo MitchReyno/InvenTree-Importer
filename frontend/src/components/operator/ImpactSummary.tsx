@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { media } from '../ui/media'
-import { color, space } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 
@@ -93,7 +93,7 @@ const Row = styled.div`
   gap: ${space[6]};
   dt {
     color: ${color.muted};
-    font-size: 13px;
+    font-size: ${typeVar.small.size};
   }
   dd {
     margin: 0;
