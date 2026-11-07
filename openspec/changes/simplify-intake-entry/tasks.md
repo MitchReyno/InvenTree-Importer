@@ -58,7 +58,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Prerequisites:** none.
 - **Acceptance:** design D2/D3 updated with the chosen versions and flags. Any contradiction found is written back into the design before task 2.
 - **TDD approach:** investigation, not test-first. Evidence is a runnable spike script and its recorded output.
-- **Verification:** `pnpm spikes:check`. The [notes](notes.md) record the spike decisions and CLI versions.
+- **Verification:** `pnpm spikes:check` at the time; that script was later removed with the Stage 1 spikes (`baseline-specs`), and it runs from the `history/pre-openspec-cleanup` tag. The [notes](notes.md) record the spike decisions and CLI versions.
 - **Risks and decisions:**
   - Claude's mid-turn stream-JSON behavior cannot be proven offline. Record it as unverified, and keep `read_inbox` as the guaranteed path.
 

@@ -91,6 +91,10 @@ jobs:
         run: pnpm --filter @invimport/contracts test
       - name: Test development supervisor policies
         run: pnpm test:dev
+      - name: Install the qualified OpenSpec CLI
+        run: npm install --global @fission-ai/openspec@1.16.0
+      - name: Test the OpenSpec sync overlap check
+        run: pnpm test:openspec
       - name: Test public HTTP and protected-target boundaries
         run: pnpm --filter @invimport/intake-server test
 

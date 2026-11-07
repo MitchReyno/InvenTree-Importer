@@ -175,6 +175,8 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
    If the sync failed, or any capability does not match, report what differs and stop — do not archive. Nothing has moved and `changeRoot` is intact, so the user can fix the mismatch or re-run the sync and start the archive again.
 
+   **Overlap check:** when the repository provides `pnpm openspec:overlap`, run `pnpm openspec:overlap --change "<name>"` before writing any main spec. Stop and report every error. A warning means another active change touches the same capability: name it and confirm the intended sync order with the user before continuing.
+
 5. **Perform the archive**
 
    Create an `archive` directory under `planningHome.changesDir` if it doesn't exist:

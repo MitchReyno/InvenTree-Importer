@@ -90,6 +90,8 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
    If no delta specs found, inform user and stop.
 
+   **Overlap check:** when the repository provides `pnpm openspec:overlap`, run `pnpm openspec:overlap --change "<name>"` before writing any main spec. Stop and report every error. A warning means another active change touches the same capability: name it and confirm the intended sync order with the user before continuing.
+
 4. **For each delta spec, apply changes to main specs**
 
    Before the first main-spec write, obtain one current specs-rule snapshot:

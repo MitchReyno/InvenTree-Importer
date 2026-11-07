@@ -66,6 +66,8 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             or path in WORKSPACE_INPUTS
             or path == "tooling/dev.cjs"
             or path.startswith(("tooling/dev/", "tooling/tests/dev.", "tooling/tests/inventree-dev"))
+            # The OpenSpec sync overlap check runs with the other Node tooling tests.
+            or path.startswith(("tooling/openspec/", "tooling/tests/openspec-"))
             or (not markdown and path.startswith("tooling/inventree-dev/"))
             # The local InvenTree seed fixture is checked against the importer config.
             or (not markdown and path.startswith("backend/config/"))

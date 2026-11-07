@@ -18,3 +18,4 @@ operations:
       - Check implementation and acceptance evidence before describing a linked BI item as Done; archive state alone is insufficient.
       - Update the functionality index links if the authorized archive moves the referenced change.
       - Confirm notes.md exists and records the final open items before archiving an implemented change.
+      - Run pnpm openspec:overlap --change <name> before syncing or archiving; resolve errors and confirm the sync order for any warning.

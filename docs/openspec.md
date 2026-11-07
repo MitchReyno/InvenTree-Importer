@@ -37,6 +37,8 @@ openspec status --change change-name --json
 openspec instructions proposal --change change-name --json
 ```
 
+Before syncing or archiving a change, run `pnpm openspec:overlap --change change-name`. It parses specs and deltas with the installed CLI's own parser (found from `openspec` on `PATH`, or `OPENSPEC_CLI_DIR`), mirrors the CLI's pre-validation (duplicate names, contradictory sections, unpaired renames), and simulates each delta in the CLI's apply order. Operations whose result is already in the main specs are reported as applied, comparing blocks exactly apart from line endings. It fails when an added requirement's name exists with different text, when a modified or renamed requirement is missing, when a rename's destination already exists, or when another active change has a pending operation on the same requirement. It warns when another active change has pending operations in the same capability, because the sync order then decides which change wins. Add `--new-capabilities-only` for a change that must not touch existing capabilities, such as `baseline-specs`.
+
 Use the correct repository root and preserve CLI-resolved output paths and artifact scope. Structural validation does not establish artifact quality, approval, provider behavior or inventory-write authority.
 
 ## Maintenance and qualification

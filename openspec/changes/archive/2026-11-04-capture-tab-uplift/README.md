@@ -21,7 +21,7 @@ Use the original's named groups, group notes, per-evidence notes, add-to-group, 
 - [Preserved original mockup and provenance](../../../../docs/bench-intake/reference/README.md).
 - [Interactive original mockup](../../../../docs/bench-intake/reference/bench-intake.html): Capture view.
 - [Original Capture screenshot](../../../../docs/bench-intake/reference/03-capture.png).
-- [Current experience](../../../../docs/bench-intake/05-experience.md) and [contracts](../../../../docs/bench-intake/04-contracts.md) for implemented authority and limitations.
+- [Current experience](../../baseline-specs/sources/bench-intake/05-experience.md) and [contracts](../../baseline-specs/sources/bench-intake/04-contracts.md) for implemented authority and limitations.
 - Existing Capture components under `frontend/src/components/capture/` for the current settings/evidence behavior.
 
 At proposal time, assess existing components, packages/frameworks and any missing persistence contracts before custom implementation. Specify save/discard, inheritance/overrides, group identity, accessibility and adverse-state behavior, and resolve unsupported mockup controls explicitly. No dependency on the separate status-signalling uplift is implied; both should follow the same visual reference.

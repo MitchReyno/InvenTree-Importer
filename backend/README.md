@@ -30,7 +30,7 @@ Two design points worth knowing up front:
 * **Half of real stock has no manufacturer part number.** Measured across a 359-row inventory: 52% have no MPN, 29% no order, 13% no supplier at all. `import-stock` therefore treats all three as optional and invents none of them — a part with an unknown manufacturer gets no ManufacturerPart rather than a placeholder one.
 * **Every command is also a library.** The CLI modules are thin adapters over importable functions that return data and print nothing, so you can compose new tooling from them. See [Using it as a library](#using-it-as-a-library).
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the implemented import flow and its limitations, and the [execution plan](../docs/import-execution-plan.md) for the staged observable/resumable design. Future interfaces in those documents are not available commands yet.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the implemented import flow and its limitations, and the [durable import execution spec](../openspec/specs/durable-import-execution/spec.md) for the required observable and resumable behavior.
 
 ## Getting started
 
