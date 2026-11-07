@@ -10,6 +10,38 @@ export const MEDIA_PREVIEW_MAX_BYTES = 64 * 1024 * 1024
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
+/** Long-edge bounds of the display renditions; the full-resolution page is never one of them. */
+export const MEDIA_RENDITION_SIZES = Object.freeze({ thumb: 320, card: 960, view: 2048 })
+export type MediaRenditionSize = keyof typeof MEDIA_RENDITION_SIZES
+export const MEDIA_RENDITION_SIZE_NAMES = Object.freeze(
+  Object.keys(MEDIA_RENDITION_SIZES) as MediaRenditionSize[],
+)
+/** 30 pages with three renditions each need about 16.5 KB of result header. */
+export const MEDIA_DECODER_HEADER_MAX_BYTES = 64 * 1024
+
+/**
+ * The one sizing rule shared by the decoder, the crop route and the frontend. Null means the
+ * source is no larger than the size, so that size does not exist and the source serves it.
+ */
+export function renditionDimensions(
+  width: number,
+  height: number,
+  size: MediaRenditionSize,
+): { width: number; height: number } | null {
+  const bound = MEDIA_RENDITION_SIZES[size]
+  const long = Math.max(width, height)
+  if (long <= bound) {
+    return null
+  }
+  const short = Math.max(1, Math.round((Math.min(width, height) * bound) / long))
+  return width >= height ? { width: bound, height: short } : { width: short, height: bound }
+}
+
+/** The sizes a source of these dimensions has, smallest first. */
+export function expectedRenditionSizes(width: number, height: number): MediaRenditionSize[] {
+  return MEDIA_RENDITION_SIZE_NAMES.filter((size) => renditionDimensions(width, height, size))
+}
+
 const nullableId = Type.Union([Id, Type.Null()])
 const pixel = Type.Integer({ minimum: 0, maximum: 24000000 })
 const dimension = Type.Integer({ minimum: 1, maximum: 24000000 })
@@ -184,7 +216,15 @@ export function assertMediaRecipe(value: unknown): asserts value is MediaRecipeD
   }
 }
 
-export const MEDIA_TOOLCHAIN = 'sharp/0.35.5;pdfjs/6.4.299;canvas/1.1.0;png/1'
+export const MEDIA_TOOLCHAIN = 'sharp/0.35.5;pdfjs/6.4.299;canvas/1.1.0;png/1;webp/1'
+
+const MediaOutputRendition = object({
+  size: Type.Union(MEDIA_RENDITION_SIZE_NAMES.map((size) => Type.Literal(size))),
+  width: dimension,
+  height: dimension,
+  byte_size: Type.Integer({ minimum: 1, maximum: MEDIA_PREVIEW_MAX_BYTES }),
+  digest: Digest,
+})
 
 const MediaOutputPage = object({
   page: Type.Integer({ minimum: 1, maximum: 30 }),
@@ -192,6 +232,7 @@ const MediaOutputPage = object({
   height: dimension,
   byte_size: Type.Integer({ minimum: 1, maximum: MEDIA_PREVIEW_MAX_BYTES }),
   digest: Digest,
+  renditions: Type.Array(MediaOutputRendition, { maxItems: MEDIA_RENDITION_SIZE_NAMES.length }),
 })
 
 const MediaOutputHeader = Type.Union([
@@ -213,6 +254,7 @@ const MediaOutputHeader = Type.Union([
 ])
 
 export type MediaOutputPageDto = Static<typeof MediaOutputPage>
+export type MediaOutputRenditionDto = Static<typeof MediaOutputRendition>
 export type MediaOutputHeaderDto = Static<typeof MediaOutputHeader>
 
 /** Decoder structural schema stays interpreted under the no-code-generation policy. */

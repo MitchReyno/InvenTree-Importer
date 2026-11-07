@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { parseDecoderOutput } from './decoder-output.ts'
+import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
 import {
   checkedInput,
   MEDIA_LIMITS,
@@ -86,7 +87,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
   const timer = setTimeout(discard, MEDIA_LIMITS.wallMilliseconds)
   child.stdout.on('data', (chunk: Buffer) => {
     length += chunk.length
-    if (length > MEDIA_LIMITS.totalOutputBytes + 8192) {
+    if (length > MEDIA_LIMITS.totalOutputBytes + MEDIA_DECODER_HEADER_MAX_BYTES) {
       exceeded = true
       discard()
     } else {

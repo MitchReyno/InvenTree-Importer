@@ -38,10 +38,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Verification:** decoder unit tests; real decoder-image timing for a 50 MP JPEG and a 30-page PDF.
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
-- [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
-- [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
-- [ ] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
-- [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
+- [x] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
+- [x] 1.2 RED: add decoder tests for rendition sizes, dimensions exactly equal to `renditionDimensions()` (including a 1000 × 101 page), omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit (`limit_exceeded`), an injected encoder failure and a watchdog timeout (both `interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
+- [x] 1.3 GREEN: add `renditionDimensions()` with tests for landscape, portrait, square, small and 1-pixel sources, then encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
+- [x] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
 ## 2. Rendition storage and publication
 
@@ -53,10 +53,10 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("One table keyed by preview and size"), using the existing digest locks and immutability-trigger pattern.
 - **Verification:** PostgreSQL tier (`pnpm test:intake:pg`) for the migration, the trigger, grants, atomic publication, interrupted publication and collection.
 
-- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
-- [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
-- [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
-- [ ] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
+- [x] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
+- [x] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
+- [x] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
+- [x] 2.4 Document and test rollback by restore: on the pre-change build, take an `operations backup`; migrate on the new build; then, on the pre-change build again, restore into a fresh `intake_restore_*` database and confirm it passes the compatibility gate and starts against it.
 
 ## 3. Sized preview reads
 
@@ -68,9 +68,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Approach:** as in design ("The route takes a size…"). Override the global `no-store` only on these routes.
 - **Verification:** HTTP tests; regenerate and run `pnpm contracts:check`; `pnpm test:intake`.
 
-- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
-- [ ] 3.2 GREEN: implement the sized read, route and headers.
-- [ ] 3.3 Update `contracts/scripts/generate.cjs` for the preview route's media types, `size` parameter and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
+- [x] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
+- [x] 3.2 GREEN: implement the sized read, route and headers.
+- [x] 3.3 Update `contracts/scripts/generate.cjs` for the preview route's media types, `size` parameter and ETag/304 behavior, regenerate, and confirm with `contracts:check` that the only diffs are those route declarations and that every JSON response schema is unchanged. Then run `typecheck:intake`, `test:intake` and `test:frontend`.
 
 ## 4. Sized observation crops
 
