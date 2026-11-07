@@ -3,7 +3,7 @@ import type {
   ProcessingCancellationDto,
   ProcessingAnswerDto,
 } from './processing.ts'
-import type { SessionInboxSubmissionDto } from './sessions.ts'
+import type { SessionInboxSubmissionDto, SessionReplacementDto } from './sessions.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
 
@@ -54,6 +54,15 @@ export function processingClient(
       successfulData(
         client.GET('/api/v1/batches/{id}/processing/{jobId}/session', {
           params: { path: { id, jobId } },
+        }),
+      ),
+
+    replaceSession: (id: string, jobId: string, input: SessionReplacementDto, key: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/processing/{jobId}/replacement', {
+          params: { path: { id, jobId } },
+          body: input,
+          headers: commandHeaders(key),
         }),
       ),
 

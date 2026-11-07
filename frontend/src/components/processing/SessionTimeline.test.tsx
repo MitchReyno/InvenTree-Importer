@@ -1,4 +1,5 @@
 import { screen, within, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { SessionTimelineDto } from '@invimport/contracts'
 import { render } from '../../test/render'
@@ -190,4 +191,27 @@ test('a failed session explains that a fresh session is needed after sending', a
   fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello?' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
   expect(await screen.findByText(/start a fresh session to continue/)).toBeVisible()
+})
+
+test('offers explicit replacement for an incompatible conversation without losing the draft', async () => {
+  const startFresh = vi.fn()
+  const send = vi.fn()
+  render(
+    <SessionChat
+      storeKey="batch:legacy"
+      state="resume_unavailable"
+      send={send}
+      startFresh={startFresh}
+    />,
+  )
+  await userEvent.type(
+    screen.getByRole('textbox', { name: 'Message this session' }),
+    'Keep my draft',
+  )
+  expect(screen.getByText(/History and queued messages will be kept/)).toBeVisible()
+  expect(startFresh).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Start a fresh session' }))
+  expect(startFresh).toHaveBeenCalledOnce()
+  expect(send).not.toHaveBeenCalled()
+  expect(screen.getByRole('textbox', { name: 'Message this session' })).toHaveValue('Keep my draft')
 })

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile, readdir, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -396,25 +396,21 @@ test(
   },
 )
 
-for (const mode of ['loose-policy', 'command-item'] as const) {
-  test(
-    `codex: a ${mode === 'loose-policy' ? 'wider effective policy' : 'command execution item'} is refused`,
-    { timeout: 60000 },
-    async () => {
-      const h = await sessionHarness('codex')
-      try {
-        assert.equal(
-          await runSessionTurn(h.deps(mode), h.session.attempt, new AbortController().signal),
-          'failed',
-        )
-        const current = await h.state()
-        assert.equal(current.session_state, 'failed')
-        assert.equal(current.capability_sha256, null)
-      } finally {
-        await h.dispose()
-      }
-    },
-  )
+for (const mode of ['loose-policy', 'command-item', 'wrapped-call', 'server-request'] as const) {
+  test(`codex: ${mode} is refused`, { timeout: 60000 }, async () => {
+    const h = await sessionHarness('codex')
+    try {
+      assert.equal(
+        await runSessionTurn(h.deps(mode), h.session.attempt, new AbortController().signal),
+        'failed',
+      )
+      const current = await h.state()
+      assert.equal(current.session_state, 'failed')
+      assert.equal(current.capability_sha256, null)
+    } finally {
+      await h.dispose()
+    }
+  })
 }
 
 for (const provider of ['claude', 'codex'] as const) {
@@ -531,3 +527,144 @@ for (const provider of ['claude', 'codex'] as const) {
     },
   )
 }
+
+for (const provider of ['claude', 'codex'] as const) {
+  test(
+    `${provider}: an unqualified executable never starts a turn`,
+    { timeout: 60000 },
+    async () => {
+      const h = await sessionHarness(provider)
+      try {
+        assert.equal(
+          await runSessionTurn(
+            h.deps('unknown-version'),
+            h.session.attempt,
+            new AbortController().signal,
+          ),
+          'failed',
+        )
+        assert.equal(
+          (await h.events()).some((event) => event.event === 'opening'),
+          false,
+        )
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+  test(
+    `${provider}: a legacy conversation preserves pending input without starting resume`,
+    { timeout: 90000 },
+    async () => {
+      const h = await sessionHarness(provider)
+      try {
+        assert.equal(
+          await runSessionTurn(h.deps('normal'), h.session.attempt, new AbortController().signal),
+          'finished',
+        )
+        const directory = join(h.stateRoot, 'sessions', h.session.job)
+        for (const name of await readdir(directory)) {
+          if (name.startsWith('admission-')) await unlink(join(directory, name))
+        }
+        const receipt = await h.chat('legacy-chat', 'Please keep this pending.')
+        await transaction(h.fixture.runner.pool, (client) =>
+          queueSessionResume(client, h.session.job),
+        )
+        assert.equal(
+          await runSessionTurn(h.deps('normal'), h.session.attempt, new AbortController().signal),
+          'resume_unavailable',
+        )
+        assert.equal(
+          (await h.events()).some((event) => event.event === 'resume'),
+          false,
+        )
+        const cursor = await h.fixture.db.pool.query<{ acked_seq: string }>(
+          'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
+          [h.session.job],
+        )
+        assert.ok(BigInt(cursor.rows[0]?.acked_seq ?? '0') < BigInt(receipt.seq))
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+}
+for (const mode of ['code-mode', 'skills-enabled'] as const) {
+  test(`codex: ${mode} drift is refused before inference`, { timeout: 60000 }, async () => {
+    const h = await sessionHarness('codex')
+    try {
+      assert.equal(
+        await runSessionTurn(h.deps(mode), h.session.attempt, new AbortController().signal),
+        'failed',
+      )
+      assert.equal(
+        (await h.events()).some((event) => event.event === 'opening'),
+        false,
+      )
+    } finally {
+      await h.dispose()
+    }
+  })
+}
+
+test('claude: deferred tool calls are refused', { timeout: 60000 }, async () => {
+  const h = await sessionHarness('claude')
+  try {
+    assert.equal(
+      await runSessionTurn(
+        h.deps('deferred-call'),
+        h.session.attempt,
+        new AbortController().signal,
+      ),
+      'failed',
+    )
+  } finally {
+    await h.dispose()
+  }
+})
+
+test(
+  'codex: resumed configuration drift does not consume pending input',
+  { timeout: 90000 },
+  async () => {
+    const h = await sessionHarness('codex')
+    try {
+      assert.equal(
+        await runSessionTurn(h.deps('normal'), h.session.attempt, new AbortController().signal),
+        'finished',
+      )
+      const receipt = await h.chat('drift-chat', 'Do not lose this')
+      await transaction(h.fixture.runner.pool, (client) =>
+        queueSessionResume(client, h.session.job),
+      )
+      assert.equal(
+        await runSessionTurn(h.deps('code-mode'), h.session.attempt, new AbortController().signal),
+        'failed',
+      )
+      assert.equal((await h.events()).filter((event) => event.event === 'opening').length, 1)
+      const cursor = await h.fixture.db.pool.query<{ acked_seq: string }>(
+        'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
+        [h.session.job],
+      )
+      assert.ok(BigInt(cursor.rows[0]?.acked_seq ?? '0') < BigInt(receipt.seq))
+    } finally {
+      await h.dispose()
+    }
+  },
+)
+
+test('claude: effective skill injection is refused', { timeout: 60000 }, async () => {
+  const h = await sessionHarness('claude')
+  try {
+    assert.equal(
+      await runSessionTurn(
+        h.deps('skills-enabled'),
+        h.session.attempt,
+        new AbortController().signal,
+      ),
+      'failed',
+    )
+  } finally {
+    await h.dispose()
+  }
+})

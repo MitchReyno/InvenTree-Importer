@@ -14,6 +14,10 @@ const settings = fs.existsSync(settingsFile)
 // A test that cannot reach the session directory first may bake a mode into the executable.
 // eslint-disable-next-line no-undef
 const mode = settings.mode ?? (typeof FORCED_MODE === 'string' ? FORCED_MODE : 'normal')
+if (args.includes('--version')) {
+  process.stdout.write(mode === 'unknown-version' ? '2.1.320 (Claude Code)\n' : '2.1.319 (Claude Code)\n')
+  process.exit(0)
+}
 const log = (entry) => {
   if (settings.log) {
     fs.appendFileSync(settings.log, JSON.stringify(entry) + '\n')
@@ -21,7 +25,7 @@ const log = (entry) => {
 }
 const send = (value) => process.stdout.write(JSON.stringify(value) + '\n')
 const sessionsDir = path.join(process.cwd(), 'fake-sessions')
-const TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
+const TOOLS = settings.tools ?? ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
 
 if (mode === 'ignore-sigterm') {
   process.on('SIGTERM', () => log({ event: 'sigterm-ignored' }))
@@ -157,7 +161,7 @@ if (args[0] === 'app-server') {
   lines.on('line', async (line) => {
     const frame = JSON.parse(line)
     const reply = (result) => send({ id: frame.id, result })
-    if (frame.method === 'initialize') reply({})
+    if (frame.method === 'initialize') reply({ userAgent: mode === 'unknown-version' ? 'bench_intake/0.166.1' : 'bench_intake/0.166.0 (test)' })
     if (frame.method === 'thread/start') {
       threadId = `fake-thread-${Date.now()}`
       persist(threadId)
@@ -173,7 +177,12 @@ if (args[0] === 'app-server') {
       reply(threadReply(threadId))
     }
     if (frame.method === 'config/read') {
-      reply({ config: { mcp_servers: { intake: {} } } })
+      reply({ config: {
+        mcp_servers: { intake: {} }, approval_policy: 'never', sandbox_mode: 'read-only', web_search: 'disabled',
+        features: { code_mode: { enabled: mode === 'code-mode' }, goals: false, shell_tool: false, view_image: false,
+          apps: false, plugins: false, remote_plugin: false, memories: false, multi_agent: false, request_permissions_tool: false },
+        skills: { bundled: { enabled: false }, include_instructions: mode === 'skills-enabled' },
+      } })
     }
     if (frame.method === 'mcpServerStatus/list') {
       const tools = Object.fromEntries(
@@ -182,13 +191,14 @@ if (args[0] === 'app-server') {
       reply({ data: [{ name: 'intake', tools }] })
     }
     if (frame.method === 'turn/start') {
+      if (mode === 'server-request') send({ id: 9000, method: 'item/tool/requestUserInput', params: {} })
       turnId = `fake-turn-${Date.now()}`
       log({ event: 'opening', text: frame.params.input[0].text })
       reply({ turn: { id: turnId } })
-      if (mode === 'command-item') {
+      if (mode === 'command-item' || mode === 'wrapped-call') {
         send({
           method: 'item/started',
-          params: { threadId, turnId, item: { type: 'commandExecution', id: 'c1', command: 'ls' } },
+          params: { threadId, turnId, item: { type: mode === 'wrapped-call' ? 'codeExecution' : 'commandExecution', id: 'c1', command: 'ls' } },
         })
       }
       await work(() => deliveries.next())
@@ -210,7 +220,19 @@ if (args[0] === 'app-server') {
   let started = false
   const lines = readline.createInterface({ input: process.stdin })
   lines.on('line', async (line) => {
-    const text = JSON.parse(line).message.content[0].text
+    const frame = JSON.parse(line)
+    if (frame.type === 'control_request') {
+      let response
+      if (frame.request.subtype === 'initialize') response = {
+        claude_code_version: '2.1.319', current_permission_mode: 'default', output_style: 'default', session_state: 'idle',
+        commands: mode === 'skills-enabled' ? ['planted'] : [],
+        agents: ['claude','Explore','general-purpose','Plan','statusline-setup'].map((name) => ({ name })),
+      }
+      if (frame.request.subtype === 'mcp_status') response = { mcpServers: [{name:'intake',status:'connected',tools:[...TOOLS,...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => ({name}))}] }
+      send({type:'control_response',response:{subtype:'success',request_id:frame.request_id,response}})
+      return
+    }
+    const text = frame.message.content[0].text
     if (started) {
       deliveries.push(text)
       return
@@ -231,11 +253,15 @@ if (args[0] === 'app-server') {
     send({
       type: 'system',
       subtype: 'init',
+      claude_code_version: '2.1.319', permissionMode: 'default', output_style: 'default',
+      slash_commands: [], skills: mode === 'skills-enabled' ? ['planted'] : [], additional_directories: [],
+      plugins: ['cc-plugin-agents-md', 'cc-plugin-privacy', 'cc-plugin-plugin-authoring'].map((name) => ({name,path:'builtin',source:`${name}@builtin`})),
       session_id: sessionId,
       model: 'fake-claude-model',
       tools,
       mcp_servers: [{ name: 'intake', status: 'connected' }],
     })
+    if (mode === 'deferred-call') send({type:'assistant',message:{content:[{type:'tool_use',name:'advisor',input:{}}]}})
     log({ event: 'opening', text })
     await work(() => deliveries.next())
     send({ type: 'result', subtype: 'success', is_error: false, session_id: sessionId })

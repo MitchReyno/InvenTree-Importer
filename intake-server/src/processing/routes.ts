@@ -7,7 +7,9 @@ import {
   type ProcessingAnswerDto,
   type ProcessingCancellationDto,
   type SessionInboxSubmissionDto,
+  type SessionReplacementDto,
 } from '@invimport/contracts'
+import { replaceSession } from './session-replacement.ts'
 import { submitSessionInbox } from '../agents/tools/inbox.ts'
 import { readSessionTimeline } from '../agents/tools/timeline.ts'
 import type { LockCapture } from './capture.ts'
@@ -101,6 +103,25 @@ export function registerProcessing(
       '/api/v1/batches/:id/processing/:jobId/session',
       { schema: { response: { 200: schemas.SessionTimeline } } },
       (request) => readSessionTimeline(pool, config, id(request), id(request, 'jobId')),
+    )
+    scope.post<{ Body: SessionReplacementDto }>(
+      '/api/v1/batches/:id/processing/:jobId/replacement',
+      {
+        schema: { body: schemas.SessionReplacement, response: { 202: schemas.ProcessingReceipt } },
+      },
+      async (request, reply) =>
+        reply
+          .code(202)
+          .send(
+            await replaceSession(
+              pool,
+              config,
+              id(request),
+              id(request, 'jobId'),
+              key(request),
+              request.body,
+            ),
+          ),
     )
     scope.post<{ Body: SessionInboxSubmissionDto }>(
       '/api/v1/batches/:id/processing/:jobId/inbox',

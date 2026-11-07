@@ -186,7 +186,15 @@ export const SessionTimeline = object({
   /** True when older items exist beyond the newest 500 returned. */
   truncated: Type.Boolean(),
 })
+export const SessionReplacement = object({
+  expected_capture_revision: Revision,
+  expected_revision: Revision,
+  attempt_id: Id,
+})
+export type SessionReplacementDto = Static<typeof SessionReplacement>
+
 export const sessionSchemas = {
+  SessionReplacement,
   SessionLatestStatus,
   SessionTimeline,
   SessionEnvelope,

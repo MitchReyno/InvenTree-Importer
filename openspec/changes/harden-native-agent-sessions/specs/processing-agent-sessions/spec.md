@@ -18,13 +18,13 @@ The session SHALL have no shell, filesystem, web, arbitrary code execution, coll
 
 - **GIVEN** a queued `native-agent/2` attempt for Claude or Codex
 - **WHEN** the adapter starts the provider session
-- **THEN** the complete effective surface contains only the session's app-owned tools and the enumerated inert Codex exceptions; unknown or uninspectable callable surfaces cause refusal before a model turn. This includes resumed sessions.
+- **THEN** the adapter admits only a provider version covered by offline full-surface qualification, verifies the required effective configuration and scoped MCP tools before each fresh or resumed turn, and refuses unknown versions or configuration drift. Runtime checks reject forbidden tool events. Offline qualification does not attest the exact tool list of each subscription request.
 
 #### Scenario: Wrapped or deferred tools
 
 - **GIVEN** a provider exposes exec-wrapped intake tools or a deferred advisor tool
 - **WHEN** a fresh or resumed turn is admitted
-- **THEN** admission fails; observing only nested MCP calls or an incomplete init list does not establish confinement.
+- **THEN** that configuration fails offline qualification or is refused by admission/runtime checks; a runtime refusal does not undo an already executed action. An incomplete init list alone is not qualification evidence.
 
 ## ADDED Requirements
 
@@ -85,3 +85,23 @@ The profile SHALL remain native_unverified until the supported provider/model/au
 - **GIVEN** one supported configuration fails or has not been exercised
 - **WHEN** qualification results are recorded
 - **THEN** the profile remains native_unverified and the failed or untested boundary is reported explicitly.
+
+### Requirement: Version-pinned admission assurance
+
+Admission SHALL require a supported executable version with offline full-surface qualification and effective-configuration checks on every fresh or resumed turn. Unknown versions or configuration drift MUST fail closed. Runtime rejection SHALL remain defense in depth. The system MUST NOT claim per-request subscription tool attestation from offline API-key probes.
+
+#### Scenario: Provider upgrade or configuration drift
+
+- **GIVEN** an unqualified CLI version or changed effective confinement settings
+- **WHEN** a fresh or resumed turn is requested
+- **THEN** it is refused before inference, with configuration or policy failure details, and native_unverified remains until the required live qualification passes.
+
+### Requirement: Legacy conversation compatibility
+
+A provider conversation created before the current admission policy SHALL NOT resume under the new policy. The application SHALL preserve its history and pending input, explain that a fresh conversation is required, and offer an explicit operator action to start a replacement under the current policy. Existing source and input authority checks SHALL still apply.
+
+#### Scenario: Resume a pre-policy conversation
+
+- **GIVEN** a retained session without proof that its provider conversation began under the current admission policy
+- **WHEN** a resume is requested or scheduled
+- **THEN** no provider turn starts, history and pending inbox items remain available, and the operator can explicitly start a replacement conversation without losing pending input or duplicating accepted effects.
