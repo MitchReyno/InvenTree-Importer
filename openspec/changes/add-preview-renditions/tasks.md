@@ -14,7 +14,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 | --- | --- | --- | --- |
 | 1. Decoder renditions | Behavior | None | Media preview renditions; Media full-resolution crop source |
 | 2. Rendition storage and publication | Behavior, migration | 1 | Media preview renditions; Media orphan collection (unchanged guarantees) |
-| 3. Sized preview reads and contract | Behavior, contract | 2 | Media authorized byte reads; Media preview renditions (snapshot listing) |
+| 3. Sized preview reads | Behavior | 2 | Media authorized byte reads; Media preview renditions (unchanged response shapes) |
 | 4. Sized observation crops | Behavior | 1 (`renditionDimensions()`) | Media sized observation crops; Media authorized byte reads (revalidation); Media full-resolution crop source |
 | 5. Rendition backfill | Behavior, migration of retained data | 2 | Media rendition backfill |
 | 6. Frontend preview selection | Behavior (UI) | 3, 4 | Media previews fit their surface |
@@ -23,7 +23,7 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
-| PR-A | New decodes produce, store and serve sized renditions; the snapshot lists them | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together. The client's strict response schemas and the regenerated contracts ship in the same PR, so the served frontend and API always agree | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check`; independent exact-head review; selected CI green |
+| PR-A | New decodes produce, store and serve sized renditions, with no API response changing shape | Tasks 1–3 in full | One end-to-end server slice: protocol, table and route are only testable together. Response shapes stay as they are, so already-open built clients keep working | None; merges first | `interactive-app`; `feat/add-preview-renditions-server`; `feat(add-preview-renditions): decode and serve preview renditions` | Decoder, PostgreSQL and HTTP tiers; decoder-bound timing recorded on the PR; `contracts:check` unchanged; independent exact-head review; selected CI green |
 | PR-B | Observation crops at each size, and retained versions upgraded in the background | Tasks 4–5 in full | Both close the remaining server gaps before the UI relies on sizes; they share the worker and HTTP test setup | After PR-A (task 5 needs the table) | `interactive-app`; `feat/add-preview-renditions-backfill`; `feat(add-preview-renditions): sized observation crops and rendition backfill` | PostgreSQL, HTTP and decoder process tiers; backfill run against a copy of retained dev data; independent exact-head review; selected CI green |
 | PR-C | Each frontend surface loads a suitable size, with the viewer switching to full when its density-adjusted width needs it | Task 6 in full | One UI pass over the media surfaces with a single helper; reviewed with a demo recording | After PR-A and PR-B | `interactive-app`; `feat/add-preview-renditions-frontend`; `feat(add-preview-renditions): use sized previews in the app` | Frontend typecheck, lint, tests and build; byte-transfer comparison and demo video on the PR; independent exact-head review; selected CI green |
 
@@ -58,20 +58,19 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
 - [ ] 2.4 Document and test rollback by restore: take an `operations backup`, migrate, restore into a fresh `intake_restore_*` database, and confirm the pre-change build passes the compatibility gate and starts against it.
 
-## 3. Sized preview reads and contract
+## 3. Sized preview reads
 
 - **PR delivery:** PR-A.
-- **Outcome:** the snapshot and the inbox workflow thumbnail list each page's dimensions and renditions, and `GET …/media/previews/:id?size=` serves a rendition or falls back to the page. Stored renditions and `full` are private and immutable, fallbacks are `no-cache`, and authorization is unchanged.
-- **Scope:** `contracts/src/media.ts` (`MediaVersion.pages[].renditions`), the inbox workflow thumbnail contract and its read model, generated client contracts, `media/read.ts`, `media/content.ts`, `media/routes.ts`.
+- **Outcome:** `GET …/media/previews/:id?size=` serves a rendition or falls back to the page, and no snapshot or inbox response changes shape. Stored renditions and `full` are private and immutable, fallbacks are `no-cache`, and authorization is unchanged.
+- **Scope:** `media/read.ts`, `media/content.ts`, `media/routes.ts`. Response contracts are deliberately unchanged.
 - **Prerequisites:** task 2.
-- **Acceptance:** Media authorized byte reads (cross-batch rendition, private immutable caching); Media preview renditions (snapshot listing).
+- **Acceptance:** Media authorized byte reads (cross-batch rendition, private immutable caching); Media preview renditions (response shapes unchanged).
 - **Approach:** as in design ("The route takes a size…"). Override the global `no-store` only on these routes.
 - **Verification:** HTTP tests; `pnpm contracts:check`; `pnpm test:intake`.
 
-- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, content types and caching headers, and the snapshot and inbox thumbnail listings.
-- [ ] 3.2 GREEN: extend the contract, regenerate, and implement the read, route and headers.
-- [ ] 3.3 Verify `contracts:check`, `typecheck:intake`, `test:intake` and `test:frontend`, which validate the new responses against the strict client schemas.
-- [ ] 3.4 Manual: with a tab open on the pre-PR build, restart `pnpm dev` on the PR and confirm the tab reloads onto the new build, through Vite's reload on contract source changes, rather than failing response validation. Record the result on the PR.
+- [ ] 3.1 RED: add HTTP tests for each size, fallback without renditions marked `no-cache`, the same URL returning WebP once renditions exist, 400 on an unknown size, 404 across batches, and content types and caching headers. Snapshot and inbox responses must still validate against the pre-change client schemas.
+- [ ] 3.2 GREEN: implement the sized read, route and headers.
+- [ ] 3.3 Verify `contracts:check` reports no generated-contract change, then run `typecheck:intake`, `test:intake` and `test:frontend`.
 
 ## 4. Sized observation crops
 
@@ -112,11 +111,12 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - a retained page whose bytes don't match its recorded digest, skipped;
   - process tier: a retained page PNG above 20 MiB, and a mismatched one, through the real decoder image via `decodeIsolated()`;
   - a derived version's recipe backfill.
-- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs. Append the same `media_prepared` live event a decode appends, in the publication transaction.
+- [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
 - [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
 - [ ] 5.4 Update `docs/development.md` to say retained media upgrades in the background after restart.
-- [ ] 5.5 Add tests for live invalidation and scheduling:
-  - a mounted client on a healthy socket refreshes its rendition listing after a backfill, with no other activity or reload;
+- [ ] 5.5 Add scheduling tests:
+  - repeated polling within the backoff never re-claims an interrupted preview, which becomes eligible once `retry_after` passes;
+  - claim, recovery and publication all succeed under the restricted worker role;
   - an upload that arrives during a page backfill is decoded right after that one page;
   - after a multi-page PDF backfill is interrupted, its completed pages show renditions and the rest fall back.
 

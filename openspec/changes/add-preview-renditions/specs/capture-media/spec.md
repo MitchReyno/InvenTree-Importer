@@ -40,19 +40,19 @@ Original, preview, rendition and observation-crop bytes SHALL be returned only a
 
 ### Requirement: Media preview renditions
 
-Every ready page of an original or derived version SHALL have aspect-preserving WebP renditions with long edges of at most 320 (`thumb`), 960 (`card`) and 2048 (`view`) pixels, produced by the bounded decoder and committed with the page. A size SHALL be omitted when the page is no larger than it, the full-resolution preview SHALL stay unchanged, and the snapshot SHALL list each page's renditions with their dimensions.
+Every ready page of an original or derived version SHALL have aspect-preserving WebP renditions with long edges of at most 320 (`thumb`), 960 (`card`) and 2048 (`view`) pixels, produced by the bounded decoder and committed with the page. A size SHALL be omitted when the page is no larger than it, and the full-resolution preview SHALL stay unchanged. Which sizes exist, and their dimensions, SHALL follow from the page dimensions alone, so API responses need no new fields.
 
 #### Scenario: Photo renditions
 
 - **GIVEN** a retained 4032 × 3024 JPEG photo
 - **WHEN** it is decoded
-- **THEN** its page keeps its 4032 × 3024 full preview and lists `thumb` 320 × 240, `card` 960 × 720 and `view` 2048 × 1536 WebP renditions.
+- **THEN** its page keeps its 4032 × 3024 full preview and gains `thumb` 320 × 240, `card` 960 × 720 and `view` 2048 × 1536 WebP renditions, and no snapshot or inbox response changes shape.
 
 #### Scenario: Small source
 
 - **GIVEN** a retained 800 × 600 PNG
 - **WHEN** it is decoded
-- **THEN** its page lists only a `thumb` rendition, and the `card` and `view` sizes resolve to the full page.
+- **THEN** its page has only a `thumb` rendition, and requests for the `card` and `view` sizes return the full page.
 
 #### Scenario: Multi-page document
 
@@ -154,7 +154,7 @@ Ready versions decoded before renditions existed SHALL gain renditions rendered 
 
 - **GIVEN** a backfill decode that is interrupted or fails
 - **WHEN** the worker runs again
-- **THEN** the page still has its full preview, no partial set of renditions is visible, the version's decode state and version count are unchanged, and the backfill is retried on a later run up to a bounded number of attempts.
+- **THEN** the page still has its full preview, no partial set of renditions is visible, and the version's decode state and version count are unchanged. The backfill is retried only after a backoff, up to a bounded number of attempts, so repeated polling cannot exhaust them at once.
 
 #### Scenario: Renditions match the retained page
 

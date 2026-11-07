@@ -60,12 +60,12 @@ Rejected: extra `media_preview` rows per size, which would break every consumer 
 
 - Response type: `image/webp` for a rendition, `image/png` for the page.
 - Headers for a stored rendition, or `size=full`: `cache-control: private, max-age=31536000, immutable`, with `etag` set to the blob digest. Those bytes never change for that ID and size.
-- Headers for a fallback, where a size is requested that has no rendition yet: `cache-control: private, no-cache`, with the page's digest as `etag`. This stops a pre-backfill PNG being cached under a URL that later serves WebP. The frontend requests only sizes listed in the snapshot, so fallbacks are rare.
+- Headers for a fallback, where a size is requested that has no rendition yet: `cache-control: private, no-cache`, with the page's digest as `etag`. This stops a pre-backfill PNG being cached under a URL that later serves WebP. Fallbacks occur only before a page is backfilled.
 - The global `no-store` hook is overridden only on these routes.
 - Unknown sizes return 400.
 - Authorization stays as it is: the preview must belong to the authorized batch.
 
-Snapshot contract: each `MediaVersion.pages[]` item gains `renditions: [{ size, width, height }]`. The URL needs only `preview_id` and the size, so no rendition IDs are exposed.
+Response contracts don't change. The URL needs only `preview_id` and the size, and the client derives each size's dimensions from the page dimensions it already receives, so neither rendition IDs nor a listing are exposed.
 
 Rejected: a separate route per rendition ID. It would add identifiers for the frontend to carry, for no gain in authority or caching.
 
@@ -95,6 +95,7 @@ Re-decoding the original wouldn't be safe either. After a decoder or toolchain c
 Attempts are tracked per preview in a `media_rendition_backfill` table, with these columns:
 
 - `id`, `batch_id` and `preview_id`;
+- `retry_after`, set when an attempt is interrupted;
 - `owner_id` and `claimed_at`;
 - `outcome`: `claimed`, `completed`, `skipped_mismatch` or `interrupted`;
 - `attempt` and `created_at`.
@@ -102,11 +103,12 @@ Attempts are tracked per preview in a `media_rendition_backfill` table, with the
 How attempts are claimed and published:
 
 - **Claiming.** A claim is an insert, not a row lock. The worker selects eligible previews, reading `media_preview`, its renditions and earlier attempts, which it can already read. For each candidate in turn it runs `INSERT … (outcome 'claimed', owner_id, attempt = prior attempts + 1) ON CONFLICT DO NOTHING RETURNING id`. A partial unique index on `preview_id WHERE outcome = 'claimed'` makes a second concurrent claim on the same preview insert nothing, so that worker moves to the next candidate. No lock on `media_preview` is needed, and the worker role needs only `INSERT`/`UPDATE` on the attempt table. A unique index on (`preview_id`, `attempt`) also stops two workers recording the same attempt number.
+- **Retry schedule.** Marking an attempt `interrupted` sets `retry_after` to now plus a backoff (10 minutes, then 1 hour), and a preview is eligible again only after its latest attempt's `retry_after` has passed. A temporary failure can't use up all three attempts in one polling burst.
 - **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
 - **Priority.** The worker claims a backfill only when no decode command is waiting, and does one page per claim. The worker runs commands one at a time, so an upload arriving during a backfill waits for at most that one in-flight page, which the decoder's 25 s bound limits, and is decoded before any further backfill.
 - **Abandoned claims.** A `claimed` row older than the decoder's outer watchdog plus a grace period (for example 2 minutes) was left by a killed worker. The next worker marks it `interrupted` before claiming, and it becomes eligible again within the three-attempt cap.
 - **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. A mismatched or unreadable page PNG inserts nothing and marks the attempt `skipped_mismatch` (logged). Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
-- **Roles.** The worker role gets `INSERT`/`UPDATE` on this table only, and snapshot reads never touch it.
+- **Roles.** The worker role gets `SELECT`, `INSERT` and `UPDATE` on this table only: eligibility reads earlier attempts, claiming uses `RETURNING`, and publication re-reads and locks the attempt. Snapshot reads never touch it.
 
 Rejected: rendering from the page PNG in the API or a migration. That would decode image bytes outside the bounded container, and keeping every decode inside the container keeps the boundary simple to audit.
 
@@ -114,7 +116,7 @@ Rejected: rendering from the page PNG in the API or a migration. That would deco
 
 `frontend/src/media/types.ts` gains:
 
-- `previewImage(batchId, page, usage)`, returning `{ src, srcSet, sizes, width, height }` from the page's listed renditions;
+- `previewImage(batchId, page, usage)`, returning `{ src, srcSet, sizes, width, height }` computed from the page's dimensions with `renditionDimensions()`;
 - `observationImage(batchId, observation, usage)`, which takes the observation with its pixel region, so it knows the crop's real size.
 
 Rendition and crop output sizes come from one shared function, `renditionDimensions(width, height, size)` in `contracts/src/media.ts`. Task 1 adds it, and the decoder, the crop route and the frontend all use it. It scales the long edge to the size, rounds the other edge, keeps both at least 1, and never upscales, so client and server cannot disagree. Observation images take their intrinsic size from the region, scaled by that function, not from the page.
@@ -128,7 +130,9 @@ Usage profiles:
 | `viewer` | `EvidenceViewer`, `MediaCropDialog` selection | thumb, card and view; the viewer replaces `src` and `srcSet` with the full page once zoom × displayed width exceeds the view width |
 | `full` | `ProcessingImages` open link | full page (the original download link keeps using the version route) |
 
-`srcSet` lists the renditions the usage allows, with `w` descriptors from their listed widths. The full page is a candidate only when the usage's largest size was omitted because the page is no larger than it, or because the page hasn't been backfilled yet. Then the full page is no bigger than that size, or is the only accurate image.
+No rendition listing is sent to the client. Which sizes a page has follows from its dimensions alone, and the route serves the full page for a size not yet rendered (before backfill), so the client needs only the page dimensions it already receives.
+
+`srcSet` offers the sizes the usage allows that the page's dimensions call for, with `w` descriptors from `renditionDimensions()`. The full page is a candidate only when the usage's largest size is omitted because the page is no larger than it, so the full page is then no bigger than that size.
 
 - An 800 × 600 page in a card offers `thumb` and the 800 px full page, not `thumb` alone, so it is never blurrier than today.
 - A 4032 px photo's card never offers the full page, so a high-density screen can't skip to it.
@@ -138,7 +142,7 @@ The viewer starts with its usage candidates. It promotes to full when `zoom × r
 
 Several surfaces don't receive page data today, so their interfaces change too:
 
-- `BatchThumbnail` gets only `{ preview_id, label }` from the inbox workflow read model, so that contract gains the page's dimensions and renditions;
+- `BatchThumbnail` gets only `{ preview_id, label }` from the inbox workflow read model. It requests `size=thumb` as a plain `src` inside its fixed CSS box, so that contract doesn't change;
 - `EvidenceFileTile` passes a single URL to `EvidenceTile`;
 - `RotatedCropSelection` takes a single `source` string;
 - `proposed-lots.ts` produces `crops?: string[]` for the images in `ProposedLotsGlance`.
@@ -161,9 +165,9 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 - **Identity.** A rendition is identified by (`preview_id`, `size`) and is immutable. Re-decoding never replaces an existing rendition.
 - **Authority.** The decoder role publishes renditions only for the command it holds. It still cannot edit drafts, links or attachment selections. The API role only reads them.
 - **Atomicity.** A normal decode commits previews and renditions together, so an interrupted or limited decode leaves neither. A backfill commits each page's complete rendition set or nothing for that page, so an interrupted multi-page PDF shows renditions for its finished pages and falls back on the rest.
-- **Live updates.** Backfill publication appends the same `media_prepared` live event a decode appends, in the same transaction, so mounted pages refresh their rendition listings without polling.
+- **Live updates.** None needed. Image URLs don't depend on backfill state: before backfill they resolve to the full page, which is `no-cache`, and afterwards to the rendition. An image mounted before its page was backfilled shows the full page until it next loads, which is a one-time cost.
 - **Collection.** Rendition blobs are protected by the new reference. Orphans from a rolled-back publication follow the existing collection rules.
-- **Compatibility.** The client validates responses against strict schemas (`additionalProperties: false`, `contracts/src/client-policy.ts`), so an older build would reject the new fields rather than ignore them. Because the frontend and API are one app built from the same contracts, PR-A regenerates the client contracts with the server change, so the served frontend and API always agree. A browser tab still open from before the upgrade reloads through Vite when the contract sources change; this is checked manually in task 3. Attachments, approval pins and agent evidence still reference versions and full previews.
+- **Compatibility.** The client validates responses against strict schemas (`additionalProperties: false`, `contracts/src/client-policy.ts`), so any new response field would break an already-open built client. This change therefore adds no response fields. The only interface additions are the optional `size` and `rev` query parameters, which older clients never send and which default to today's behavior. Attachments, approval pins and agent evidence still reference versions and full previews.
 
 ## Verification strategy
 
@@ -178,7 +182,7 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 
   Check rollback by restore: back up, migrate, restore into a fresh database, and start the pre-change build against it through the compatibility gate.
 - **HTTP tests.** Check a crop request with a stale `rev` refused with 409, and size selection and fallback, with fallbacks marked `no-cache` and a same-URL request after backfill returning WebP, 400 on an unknown size, 404 across batches, the caching headers, and observation-crop sizes, aspect ratio, ETag and 304, plus a region change returning new bytes.
-- **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage. A large page with its renditions present never offers the full page in `srcSet`; a small source and a page not yet backfilled do offer it. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, an 800 × 600 page offering its full page in cards and the viewer, the viewer promoting to full just above, and not just below, the density-adjusted threshold at 1× and 3×, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
+- **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage, computed from page dimensions. A large page never offers the full page in `srcSet`; a small source does. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, an 800 × 600 page offering its full page in cards and the viewer, the viewer promoting to full just above, and not just below, the density-adjusted threshold at 1× and 3×, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
 - **Manual check.** On `pnpm dev --tailscale` from a phone, record transferred bytes for the batch list, Capture and the viewer before and after, and attach them to the PR.
 
 ## Migration, rollout and recovery

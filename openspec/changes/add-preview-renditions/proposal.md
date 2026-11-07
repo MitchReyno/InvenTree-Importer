@@ -55,7 +55,7 @@ Non-goals:
 Compatibility:
 
 - `preview_id`, page dimensions, region coordinates, recipe digests and existing preview bytes stay unchanged.
-- The new contract fields ship with the frontend that reads them, because the client validates responses strictly.
+- No API response gains fields. The client validates responses strictly, so this keeps already-open built clients working across the upgrade.
 - Retained development data is upgraded in place, without reseeding.
 
 ## Reuse and dependency assessment
@@ -93,7 +93,7 @@ None.
   - orphan collection references;
   - the preview and observation-crop routes, and the observation-crop cache key;
   - the backfill path.
-- **Contracts:** `MediaVersion.pages[]` gains `renditions`, and the client contract regenerates.
+- **Contracts:** no API response changes shape. Clients derive rendition sizes from page dimensions with the shared `renditionDimensions()`, and the preview route falls back for a missing size, so already-open built clients keep validating every response.
 - **Frontend:** the media URL helper and the image surfaces listed above.
 - **Retained data:** existing versions get renditions from the backfill. Bytes and IDs that already exist are never altered.
 - **Coordination:** `redesign-batch-workspace` PR-I to PR-K restyle several of these components. The edits here are limited to image sources and attributes. Whichever lands second rebases.
