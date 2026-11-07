@@ -1,7 +1,8 @@
 const { spawn } = require('node:child_process')
 const { setTimeout: delay } = require('node:timers/promises')
 
-function launch(name, command, args, options, ready) {
+/** `group` signals the whole process group, for commands that run their real work in a child. */
+function launch(name, command, args, { group = false, ...options }, ready) {
   const child = spawn(command, args, {
     ...options,
     detached: true,
@@ -26,6 +27,15 @@ function launch(name, command, args, options, ready) {
     name,
     child,
     exited,
+    terminate(signal = 'SIGTERM') {
+      try {
+        if (group) {
+          process.kill(-child.pid, signal)
+        } else {
+          child.kill(signal)
+        }
+      } catch {}
+    },
     async ready(timeoutMs = 30000, signal) {
       const deadline = Date.now() + timeoutMs
       while (true) {
@@ -48,7 +58,7 @@ function launch(name, command, args, options, ready) {
 async function stop(children, graceMs = 45000) {
   for (const item of children) {
     if (item.child.exitCode === null && item.child.signalCode === null) {
-      item.child.kill('SIGTERM')
+      item.terminate()
     }
   }
   let timer

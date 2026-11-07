@@ -25,15 +25,15 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 
 - PR delivery: PR-A.
 - Outcome: the option starts a loopback gateway and a foreground `tailscale serve`, both surviving reloads; refusals and failures behave as designed.
-- Scope and approach: `tooling/dev/tailnet.cjs`, `tooling/dev.cjs`, `tooling/dev/environment.cjs`, `tooling/tests/dev-tailnet.test.cjs`, `package.json` `test:dev`.
+- Scope and approach: `tooling/dev/tailnet.cjs`, `tooling/dev.cjs`, `tooling/dev/process.cjs` (group termination), `tooling/tests/dev.test.cjs`, `tooling/dev/environment.cjs`, `tooling/tests/dev-tailnet.test.cjs`, `package.json` `test:dev`.
 - Prerequisites: None.
 - Acceptance: design D1–D5.
 - TDD approach: unit tests for option parsing, identity parsing and header translation; an in-process gateway test against a fake upstream for HTTP and WebSocket upgrade forwarding and refusal.
-- Verification: `pnpm test:dev`; a real `pnpm dev --tailscale` run loading the app and live socket through the MagicDNS URL, then confirming `tailscale serve status` is empty after Ctrl-C.
+- Verification: `pnpm test:dev`; a real `pnpm dev --tailscale` run loading the app and live socket through the MagicDNS URL, then confirming `tailscale serve status --json` is empty and no serve process remains after Ctrl-C.
 
 - [x] 1.1 Add option parsing, identity discovery, header translation and the gateway, with tests.
 - [x] 1.2 Launch the gateway and serve children from `pnpm dev`, keep them across reloads, and add the settings to the allowlist.
-- [ ] 1.3 Verify a real tailnet run end to end and serve cleanup.
+- [x] 1.3 Verify a real tailnet run end to end and serve cleanup.
 
 ## 2. Documentation
 

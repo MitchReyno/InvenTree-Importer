@@ -235,7 +235,7 @@ async function main() {
     startup.abort()
     for (const item of children) {
       if (item.child.exitCode === null && item.child.signalCode === null) {
-        item.child.kill('SIGTERM')
+        item.terminate()
       }
     }
     resolveStop()
@@ -437,7 +437,8 @@ async function main() {
         'tailscale-serve',
         'tailscale',
         ['serve', `--https=${tailscale.port}`, `http://127.0.0.1:${gatewayPort}`],
-        { cwd: repository, env: baseEnv },
+        // The CLI may be a wrapper script; the binary must get the signal to remove its config.
+        { cwd: repository, env: baseEnv, group: true },
         (text) => {
           if (text.includes('Serve is not enabled')) {
             throw new Error('tailscale_serve_not_enabled')
