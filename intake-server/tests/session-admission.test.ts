@@ -112,7 +112,7 @@ test('Claude admission checks effective startup customizations and version', () 
   // A subscription session reports the built-in telemetry plugin as well.
   requireClaudeSessionConfig({ ...config, plugins: [...config.plugins, telemetry] })
   for (const change of [
-    { ...config, plugins: [...config.plugins, { ...telemetry, path: '/tmp/telemetry' }] },
+    { ...config, plugins: [...config.plugins, { ...telemetry, path: 'plugins/telemetry' }] },
     {
       ...config,
       plugins: [...config.plugins, { ...telemetry, source: 'cc-plugin-telemetry@market' }],

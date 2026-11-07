@@ -120,13 +120,15 @@ const chats: {
   sentAt: string
 }[] = []
 async function chat(batchId: string, jobId: string, text: string, purpose: string) {
+  // Conservative until collection replaces it with the retained inbox time.
+  const requested = new Date().toISOString()
   const receipt = await processing.chat(
     batchId,
     jobId,
     { idempotency_key: randomUUID(), text },
     randomUUID(),
   )
-  chats.push({ jobId, id: receipt.item_id, text, purpose, sentAt: new Date().toISOString() })
+  chats.push({ jobId, id: receipt.item_id, text, purpose, sentAt: requested })
   note('chat', { purpose, jobId })
 }
 
@@ -356,6 +358,10 @@ function readAt(sent: (typeof chats)[number]) {
   return at === undefined ? undefined : new Date(at).toISOString()
 }
 
+for (const sent of chats) {
+  const retained = timelines[sent.jobId]?.inbox.find((item) => item.id === sent.id)
+  sent.sentAt = retained?.created_at ?? sent.sentAt
+}
 const chatResults = chats.map((sent) => {
   const outbox = timelines[sent.jobId]?.outbox ?? []
   const sessionId = outbox[0]?.session_id ?? ''

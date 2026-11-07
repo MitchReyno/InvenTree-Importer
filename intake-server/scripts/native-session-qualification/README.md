@@ -2,7 +2,7 @@
 
 `driver.ts` runs one scripted operator flow per provider against an isolated development app and writes evidence outside the repository. It sends real provider requests on the operator's subscription, so run it only with explicit authorization for live provider use. It never starts an inventory stage or approves anything, and the development app uses the fake inventory target.
 
-`chat.ts` decides whether a chat was handled. A reply counts when it names the chat. A question or status counts only when the same session posts it after reading the chat and it takes up the chat's own content: a number from it, or two of its words, that the session had not used before the chat. Without an observed read time, such a match is reported as unverified. Matched terms are listed so a reviewer can confirm them. Observations, proposals and lots never count. `tests/qualification-chat.test.ts` covers both the missed-question case from the previous qualification and unrelated activity.
+`chat.ts` decides whether a chat was handled. A reply counts when it names the chat. A question or status counts only when the same session posts it after reading the chat and it takes up two of the chat's words that the session had not used before the chat. A shared number or single word, or any match without an observed read time, is reported as unverified and needs a reviewer's confirmation. Matched terms are listed so a reviewer can confirm them. Observations, proposals and lots never count. `tests/qualification-chat.test.ts` covers both the missed-question case from the previous qualification and unrelated activity.
 
 ## Running it
 
