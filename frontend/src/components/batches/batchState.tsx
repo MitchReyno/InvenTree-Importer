@@ -7,7 +7,16 @@ import { Pill } from '../ui/Pill'
 /** A batch as the Batches list reads it, with its saved workflow counts when present. */
 export type InboxBatch = CaptureList['batches'][number] & { workflow?: InboxWorkflowDto }
 
-/** A batch's one-word state, from its saved workflow counts. */
+/** Rounds that stopped short; their lots are approved but not known to be in InvenTree. */
+const RECOVERY = new Set(['recovery_required', 'settled_incomplete'])
+const SETTLED = new Set(['settled_complete', 'settled_incomplete'])
+
+/** Every lot approved and the last round confirmed complete; approval alone is not completion. */
+function addedComplete(workflow: InboxWorkflowDto) {
+  return workflow.approved >= workflow.lots && workflow.latest_round?.state === 'settled_complete'
+}
+
+/** A batch's one-word state, from its saved workflow counts and its latest import round. */
 export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {
   if (!workflow) {
     return null
@@ -21,8 +30,21 @@ export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {
   if (workflow.open_questions > 0) {
     return <Pill status="needs-answer">{workflow.open_questions} need you</Pill>
   }
+  const round = workflow.latest_round
+  if (round && RECOVERY.has(round.state)) {
+    return <Pill status="failed">Needs recovery</Pill>
+  }
+  if (round && !SETTLED.has(round.state)) {
+    return <Pill status="processing">Adding to InvenTree</Pill>
+  }
   if (workflow.approved >= workflow.lots) {
-    return <Pill status="complete">Complete</Pill>
+    return addedComplete(workflow) ? (
+      <Pill status="complete">Complete</Pill>
+    ) : (
+      <Pill tone="acc" glyph="◐">
+        Approved
+      </Pill>
+    )
   }
   if (workflow.approved > 0) {
     return (
@@ -37,14 +59,14 @@ export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {
   return <Pill tone="neutral">In review</Pill>
 }
 
-/** How much of the batch is added to InvenTree, as a thin bar beside its state. */
+/** How much of the batch is approved, as a thin bar; it turns green only once added complete. */
 export function AddedBar({ workflow }: { workflow?: InboxWorkflowDto }) {
   if (!workflow || workflow.lots === 0) {
     return null
   }
   const share = Math.min(1, workflow.approved / workflow.lots)
   return (
-    <Bar aria-hidden="true" data-complete={share === 1}>
+    <Bar aria-hidden="true" data-complete={addedComplete(workflow)}>
       <span style={{ width: `${Math.round(share * 100)}%` }} />
     </Bar>
   )

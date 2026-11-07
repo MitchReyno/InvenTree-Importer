@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { render } from '../../test/render'
-import type { CaptureListQueryDto } from '@invimport/contracts'
+import type { CaptureListQueryDto, InboxWorkflowDto } from '@invimport/contracts'
 import { Batches } from './Batches'
 
 const saved = {
@@ -20,7 +20,7 @@ const saved = {
     approved: 0,
     open_questions: 3,
     active_jobs: 1,
-    latest_round: null,
+    latest_round: null as InboxWorkflowDto['latest_round'],
     thumbnail: { preview_id: '30000000-0000-4000-8000-000000000003', label: 'Packet original' },
   },
 }
@@ -104,7 +104,19 @@ test('each batch row is one link named by its title and described by its state',
         ...saved,
         id: '10000000-0000-4000-8000-000000000009',
         title: 'Rockby order',
-        workflow: { ...saved.workflow, lots: 6, approved: 6, open_questions: 0, active_jobs: 0 },
+        workflow: {
+          ...saved.workflow,
+          lots: 6,
+          approved: 6,
+          open_questions: 0,
+          active_jobs: 0,
+          latest_round: {
+            run_id: '40000000-0000-4000-8000-000000000004',
+            round_number: '1',
+            state: 'settled_complete',
+            confirmed_stock: 6,
+          },
+        },
       },
     ],
     truncated: false,

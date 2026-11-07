@@ -5,6 +5,7 @@ import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { observationFresh, preferredWork, workflowSummary } from '../../header/observations'
 import { useCachedBatchReads } from '../../header/useCachedBatchReads'
 import {
+  jobPill,
   otherOpenJobs,
   runningStepProgress,
   segmentSteps,
@@ -48,6 +49,12 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
   const questions = attention?.processing.questions ?? 0
   const progress = fresh && preferred ? runningStepProgress(preferred, attention) : ''
   const more = fresh && data ? otherOpenJobs(data.work, preferred) : 0
+  const compact =
+    fresh && preferred
+      ? jobPill(preferred, 0).word
+      : idle
+        ? 'Idle'
+        : compactWord(unavailable, !!data, fresh)
   const describedBy = [
     `${ids}-headline`,
     `${ids}-name`,
@@ -80,12 +87,8 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
             </b>
             <Name id={`${ids}-name`}>{name}</Name>
           </Labels>
-          {!(fresh && preferred) && (
-            <ShortText
-              aria-hidden="true"
-              data-short={idle ? 'Idle' : compactWord(unavailable, !!data, fresh)}
-            />
-          )}
+          {/* At phone width one mark always shows: the question count, the spinner or this word. */}
+          {questions === 0 && !running && <ShortText aria-hidden="true" data-short={compact} />}
           {fresh && preferred && (
             <WideOnly>
               <ProgressSegments steps={segmentSteps(preferred, attention)} />

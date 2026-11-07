@@ -295,7 +295,12 @@ const captureClient = {
           approved: 6,
           open_questions: 0,
           active_jobs: 0,
-          latest_round: null,
+          latest_round: {
+            run_id: '40000000-0000-4000-8000-000000000004',
+            round_number: '1',
+            state: 'settled_complete',
+            confirmed_stock: 6,
+          },
         },
       },
       {

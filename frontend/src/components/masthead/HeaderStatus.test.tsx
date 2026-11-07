@@ -694,3 +694,26 @@ test('the connection panel leads with host, last check and Open InvenTree, and n
   expect(within(panel).getByRole('link', { name: 'Open InvenTree' })).toBeVisible()
   expect(within(panel).getByText(/Application API/)).not.toBeVisible()
 })
+
+test('at phone width a failed job still draws a word, never an empty pill', async () => {
+  const api = client()
+  const busy = processingWork()
+  vi.mocked(api.work).mockResolvedValue({
+    ...busy,
+    work: [
+      {
+        ...busy.work[0],
+        state: 'failed',
+        occupies_lane: false,
+        steps: [{ stage: 'research', state: 'failed' }],
+      } as HeaderWorkDto['work'][number],
+    ],
+    active_sessions: [],
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await screen.findByText('Needs attention · research')
+
+  expect(
+    screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
+  ).toHaveAttribute('data-short', 'Failed')
+})

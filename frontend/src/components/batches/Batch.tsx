@@ -2,7 +2,7 @@ import { ErrorNotice } from '../ui/primitives'
 import { Paragraph, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
@@ -14,7 +14,6 @@ import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
-  MediaSnapshotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
@@ -387,23 +386,29 @@ export function Batch({
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
-  // Never fetches: the header reads the media snapshot Capture, the Map, Lots and Images hold,
-  // so its counts match theirs and add no request.
-  const mediaQuery = useQuery<MediaSnapshotDto>({
+  // Never fetches itself: Capture, the Map, Lots and Images own this read and its polling. The
+  // disabled observer keeps their snapshot while other tabs show, with the same fetch function, so
+  // their refreshes still work; the header's counts then match those screens without a request.
+  const mediaQuery = useQuery({
     queryKey: serverQueryKey(scope, 'media', id),
-    queryFn: skipToken,
+    queryFn: () => media!.snapshot(id),
+    enabled: false,
   })
+  const mediaCurrent =
+    mediaQuery.status === 'success' && mediaQuery.fetchStatus !== 'paused'
+      ? mediaQuery.data
+      : undefined
   const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
   const evidence = useMemo(
     () =>
-      batch && mediaQuery.data
+      batch && mediaCurrent
         ? {
-            files: mediaQuery.data.evidence.length,
-            unused: unusedEvidenceCount(batch, mediaQuery.data.evidence, retired, predecessors),
+            files: mediaCurrent.evidence.length,
+            unused: unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors),
           }
         : undefined,
     // `retired` and `predecessors` follow the operator review.
-    [batch, mediaQuery.data, currentOperatorReview, acceptedOperatorReview, operatorReview],
+    [batch, mediaCurrent, currentOperatorReview, acceptedOperatorReview, operatorReview],
   )
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)

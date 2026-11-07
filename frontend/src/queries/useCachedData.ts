@@ -1,0 +1,20 @@
+import { useCallback, useSyncExternalStore } from 'react'
+import { hashKey, useQueryClient, type QueryKey } from '@tanstack/react-query'
+
+/**
+ * Another screen's settled read, taken from the cache without an observer, so that screen's fetch
+ * options stay in force. Data from a read that failed or paused since is withheld, not shown as current.
+ */
+export function useCachedData<T>(queryKey: QueryKey | undefined): T | undefined {
+  const cache = useQueryClient().getQueryCache()
+  const hash = queryKey ? hashKey(queryKey) : undefined
+  const subscribe = useCallback((notify: () => void) => cache.subscribe(notify), [cache])
+  const read = useCallback(() => {
+    const state = hash ? cache.get(hash)?.state : undefined
+    return state?.status === 'success' && state.fetchStatus !== 'paused'
+      ? (state.data as T)
+      : undefined
+  }, [cache, hash])
+
+  return useSyncExternalStore(subscribe, read)
+}
