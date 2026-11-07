@@ -370,20 +370,20 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 
 - **PR delivery:** PR-D
 - **Outcome:** evidence on whether real Claude and Codex sessions call the app tools reliably, accept in-turn input and resume. This decides whether `/2` may drop the `native_unverified` label.
-- **Scope and approach:** a manual run against the operator's own accounts, only after explicit authorization. Record the outcomes in `notes.md`, with no code changes unless separately scoped.
+- **Scope and approach:** a manual run against the operator's own accounts, only after explicit authorization. Put the qualification evidence in the PR-D description and the label decision, with anything unexpected, in `notes.md`. No code changes unless separately scoped.
 - **Prerequisites:** PR-C merged; explicit operator authorization for live provider usage.
 - **Acceptance:** the documented qualification outcome for each provider.
 - **TDD approach:** not applicable (manual qualification). Evidence is a recorded session log summary without secrets or private reasoning.
-- **Verification:** review of the outcomes recorded in `notes.md`.
+- **Verification:** review of the evidence in the PR-D description.
 - **Risks and decisions:** billable usage. Held until authorized.
 
 - [ ] 13.1 Obtain explicit live-usage authorization, and record its scope.
 - [ ] 13.2 Run the scripted qualification for Claude and Codex: tool-only allowlist, status cadence, in-turn answer, resume after finish.
-- [ ] 13.3 Record the outcomes and the label decision in `notes.md`.
+- [ ] 13.3 Record the outcomes in the PR-D description and the label decision in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 
-CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage). For PR-B onward, "selected CI green" covers the jobs CI still runs, and the local `pnpm db:intake test` and `pnpm db:intake test:process` results recorded in the handover stand in for the skipped job.
+CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage). For PR-B onward, "selected CI green" covers the jobs CI still runs, and the local `pnpm db:intake test` and `pnpm db:intake test:process` results recorded in the PR description stand in for the skipped job.
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`.
 - [x] D.2 PR-B: same gates. Review clear at `0948449` (rounds 9–10 covered the two `interactive-app` merges); CI green; merged as `776c302` (#107).

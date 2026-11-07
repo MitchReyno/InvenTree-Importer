@@ -10,6 +10,7 @@ BI-002 was delivered in two PRs: tasks 1–2 in [#77](https://github.com/MitchRe
 
 - **Task 2 (PR-A):** the real default HTTP adapter discarded `Content-Type`, but the probe requires a JSON response. Tests that injected a `Response` missed this, so healthy targets would have shown as unavailable. The adapter now keeps only `Content-Type` internally, and a regression runs through the actual default transport.
 - **Task 2 (PR-A):** connection reads could probe the target while bootstrap still required setup. They now share the bootstrap configuration predicate, so a missing or blank credential returns `unconfigured` without a probe.
+- **Task 3 (PR-B):** the generated public client entry point did not re-export the foundation's `headerClient`. The generator template was fixed and its outputs regenerated, with a regression that imports the public entry point, rather than importing through an internal path.
 - **Task 3 (PR-B):** after the browser is suspended, the local clock can advance before the socket deadline timer fires. An old live observation then stayed labelled connected. Transport state is now derived from the observed time under the same 30-second policy.
 - **Task 1 (PR-A):** native browser zoom could not be driven through the attached Chrome. An isolated headless profile with Chromium's default-zoom preference gave real 200% zoom, confirmed by CDP's `cssVisualViewport.zoom`. Evidence is in [status-signalling evidence](../../../../docs/bench-intake/evidence/status-signalling/).
 

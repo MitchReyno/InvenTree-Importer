@@ -28,7 +28,7 @@ Documentation and instructions only. No runtime, provider or inventory behavior 
 
 - `openspec schema validate bench-intake`, then a disposable project exercising `notes` through blocked → ready → done, `openspec instructions notes`, and `isComplete`.
 - Every migrated `notes.md` is checked against its source handover for invented content and against the template's sections.
-- No tracked file outside `redesign-batch-workspace` references `docs/handovers/` after deletion.
+- After deletion, no relative link points at a deleted handover. Docs due for retirement under `baseline-specs` link to the `2d852e2` permalinks instead, and no live document cites a handover as evidence.
 - `pnpm lint:markdown`, `pnpm format:check`, `pnpm workflow-sync`, and an exact mirror comparison of the edited skill.
 
 ## Migration, rollout and recovery
@@ -38,4 +38,5 @@ Existing changes keep their schema. They show `notes` as `ready` until they gain
 ## Risks and open decisions
 
 - `isPlanningComplete` now stays false until `notes.md` exists. No installed skill branches on it. OpenSpec's `continue` workflow would offer `notes` as the next artifact; it is not installed here.
+- The update-change skill lists every `ready` artifact without a file, so during planning it may offer to create `notes`. Its instruction says to create notes only when implementation starts, so decline it until then. The generated skill is not adapted, to keep `openspec update` easy to reapply.
 - Detail dropped in distillation (review-round fixes that hardened code without changing the design) is still in Git history.
