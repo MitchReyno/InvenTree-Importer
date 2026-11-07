@@ -1,6 +1,6 @@
 # Status signalling uplift
 
-BI-002 is implemented and merged into `interactive-app`; the [functionality index](../../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/header-connection-status/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../../docs/handovers/status-signalling-uplift.md#accepted-delivery) records reviewed commits, CI, browser qualification and remaining runtime limits. The sections below retain the original request and proposal context.
+BI-002 is implemented and merged into `interactive-app`; the [functionality index](../../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/header-connection-status/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. The [implementation notes](notes.md) record departures from the plan and remaining limits. The sections below retain the original request and proposal context.
 
 ## Connection status and InvenTree access
 

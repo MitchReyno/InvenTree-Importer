@@ -5,8 +5,10 @@ This project-local OpenSpec schema supplies planning and delivery guidance to th
 ## Structure and lifecycle
 
 ```text
-proposal → specs → design → tasks → apply
+proposal → specs → design → tasks → apply (notes)
 ```
+
+`notes.md` is written during and after implementation, not during planning. It is the change's historical record: departures from the plan, unexpected challenges, decisions the design left open and remaining limitations. It replaces handover documents; do not write one under `docs/handovers/` or elsewhere. Keep it short, and keep review logs, test output and CI results in the PR description. When a departure changes the plan, update the affected artifact as well, so the plan stays current and the note keeps the history. `openspec archive` warns when a change has no `notes.md`.
 
 This schema deliberately uses specs before design, while allowing findings in later phases to revise earlier artifacts within authorized scope. `schema.yaml` defines artifact instructions and dependencies. `templates/` defines document shape. Standard OpenSpec skills own creation, status, apply, updates, synchronization and archival; project instructions and existing project-level skills own implementation standards, source access, Git, review and CI. Schema prose guides the agent; CLI validation and artifact existence do not prove approval, correctness or execution guarantees.
 
@@ -88,7 +90,7 @@ Before apply, verify the complete non-skipped artifact dependency set and refres
 
 Before committing completed checklist work, verify the result, mark its checkbox complete in `tasks.md`, and stage that task-file update in the same commit as the work. Do not postpone completed-item updates to a later bookkeeping commit. Leave genuinely incomplete actions and pending child actions unchecked. Record review/publication/CI/merge outcomes only after they occur, before committing any corresponding evidence update; do not pre-check future events to satisfy the rule.
 
-Before raising or updating a PR, follow the repository's required independent review of the exact candidate commit. Re-review a changed candidate or establish unchanged reviewed patches using the governing process. Use the existing Git/PR skills, conventional branches, maintained handovers and selected CI. Schema instructions do not replace branch protection or the user's merge decision.
+Before raising or updating a PR, follow the repository's required independent review of the exact candidate commit. Re-review a changed candidate or establish unchanged reviewed patches using the governing process. Use the existing Git/PR skills, conventional branches, current implementation notes and selected CI. Schema instructions do not replace branch protection or the user's merge decision.
 
 Keep these facts distinct: a task implemented and verified, a plan ready, a PR under review, an implementation merged, and a change archived. Check a task only for its own completed deliverable. Keep publication or merge tasks pending while held. Mark a linked BI item Done only after acceptance and merged implementation are evidenced. Update current metadata in the repository index and update its OpenSpec links when archival moves a change. Keep only current item status.
 
@@ -96,4 +98,4 @@ Keep these facts distinct: a task implemented and verified, a plan ready, a PR u
 
 The planning practices were informed by [OpenSpec Plus 1.6.1](https://github.com/sudokar/openspec-plus/tree/311dd818f2de99d38c1f0a144fc4946895d6aed4); these files are project-authored adaptations. There is no Plus auto-update hook or additional skill orchestrator. Standard OpenSpec integration updates and custom schema changes are reviewed separately; do not overwrite the schema while regenerating skills.
 
-After schema changes, validate structure and template resolution with the installed CLI, then exercise instructions, prerequisite transitions, skipped specs, native checkbox progress and strict validation in temporary projects. Do not create synthetic qualification items in the real register or real change tree. Record the CLI version, actual outcomes and limits in the change's handover. Structural qualification does not prove that an agent will produce a good plan; independent review and realistic exercises supply separate evidence.
+After schema changes, validate structure and template resolution with the installed CLI, then exercise instructions, prerequisite transitions, skipped specs, native checkbox progress and strict validation in temporary projects. Do not create synthetic qualification items in the real register or real change tree. Record the CLI version and any unexpected outcomes or limits in the change's `notes.md`; put routine verification in the PR description. Structural qualification does not prove that an agent will produce a good plan; independent review and realistic exercises supply separate evidence.

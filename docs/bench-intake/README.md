@@ -88,4 +88,4 @@ The prior [reconciled design](../intake-design.md) and [plan](../intake-plan.md)
 6. Prefer an honest unresolved outcome to an unsafe retry or invented success.
 7. Build only the supported product slice; grow from observed requirements rather than copying legacy breadth.
 
-The [owner handover](../handovers/bench-intake-typescript-design.md) records design provenance, alternatives, validation, limitations and continuation instructions. Data-model PR #35 has already merged into `feat/spike-shared-contracts`, so publish this package directly above that refreshed branch while consolidation #29 remains open toward `interactive-app`; never merge automatically.
+The [owner handover](https://github.com/MitchReyno/InvenTree-Importer/blob/2d852e2/docs/handovers/bench-intake-typescript-design.md) records design provenance, alternatives, validation, limitations and continuation instructions. Data-model PR #35 has already merged into `feat/spike-shared-contracts`, so publish this package directly above that refreshed branch while consolidation #29 remains open toward `interactive-app`; never merge automatically.

@@ -164,7 +164,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 
 - PR delivery: PR-D.
 - Outcome: the integrated panel and its dependencies have honest, reproducible acceptance evidence and current documentation.
-- Scope and approach: synthetic end-to-end fixtures, responsive/browser checks, rollout/rollback instructions and maintained `docs/handovers/batch-settings-overhaul.md`. Documentation uses reference/consistency validation rather than ceremonial RED tests.
+- Scope and approach: synthetic end-to-end fixtures, responsive/browser checks, rollout/rollback instructions and a maintained handover, since replaced by the [notes](notes.md). Documentation uses reference/consistency validation rather than ceremonial RED tests.
 - Prerequisites: Tasks 3–7 and 9; each earlier bundle owns its own required tests/docs and remains independently reviewed.
 - Acceptance: all three capability deltas, legacy compatibility, truthful PO/logo/provider limits and exact task/PR ownership.
 - TDD approach: add an integrated failing regression only for an uncovered behaviour; otherwise use existing suites plus real-boundary acceptance and document the evidence. Never equate screenshots with retained save proof.

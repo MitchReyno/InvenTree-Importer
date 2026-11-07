@@ -1,6 +1,6 @@
 # Subscription runtime investigation (Stage 1A)
 
-Repository-only personal-runner spike, not a production service or deployment entitlement. Read the [owner handover](../../docs/handovers/spike-subscription-runtime.md) for observed results and remaining gates. Never expose app-server or CLI protocol streams to a browser. No inventory commands are supplied.
+Repository-only personal-runner spike, not a production service or deployment entitlement. Never expose app-server or CLI protocol streams to a browser. No inventory commands are supplied.
 
 ## Route gate, recorded before inference
 

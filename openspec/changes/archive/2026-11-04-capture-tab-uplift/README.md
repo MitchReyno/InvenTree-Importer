@@ -1,6 +1,6 @@
 # Capture tab uplift
 
-BI-001 is implemented and merged into `interactive-app`; the [functionality index](../../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../../docs/handovers/capture-tab-uplift.md#accepted-delivery) records reviewed commits, CI and qualification limits. The selected layout places Batch settings on the desktop right and stacks it on narrow screens; the sections below retain the original request context.
+BI-001 is implemented and merged into `interactive-app`; the [functionality index](../../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. The [implementation notes](notes.md) record departures from the plan and remaining limits. The selected layout places Batch settings on the desktop right and stacks it on narrow screens; the sections below retain the original request context.
 
 ## Batch settings
 

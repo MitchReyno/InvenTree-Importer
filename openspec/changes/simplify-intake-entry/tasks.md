@@ -43,7 +43,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 | PR-A | Resumable agent sessions: tool server, outbox/inbox, status lines, chat, slots, header status. Questions become non-blocking at protocol level. | 1–6 | One protocol foundation that the other bundles build on, reviewable on its own with the synthetic profile. The `/1` flow is unchanged. | None. Merges first. | `interactive-app` ← `feat/simplify-intake-entry-sessions`; `feat(simplify-intake-entry): add resumable agent sessions` | `pnpm contracts:check`, `pnpm typecheck`, `pnpm test:intake`, `test:intake:pg`, `test:intake:process`, frontend typecheck/lint/test/build; independent exact-head review; selected CI green |
 | PR-B | Examine lead session: observations with regions, live draft lots and per-lot identity proposals | 7–9 | Observation and lot authority plus the session that writes them form one coherent capture-boundary change, visible end to end. | PR-A merged | `interactive-app` ← `feat/simplify-intake-entry-lot-forming`; `feat(simplify-intake-entry): form lots from observations` | Same checks plus a browser check of live lots formed from regions (one photo, three lots; one lot, two photos), with Research/Images queued through the existing Processing controls (automatic queueing on a stable identity arrives in PR-C); independent review; CI green |
 | PR-C | Per-lot Research ∥ Images on a stable identity, selective rework, observation pickup | 10–12 | Changes successor triggering and currentness together; it needs lead-session lots for its end-to-end check. | PR-B merged | `interactive-app` ← `feat/simplify-intake-entry-examine-pipeline`; `feat(simplify-intake-entry): run research and images per lot in parallel` | Same checks plus a browser qualification of the full flow; handover updated; independent review; CI green |
-| PR-D | Live provider qualification evidence (docs/handover only) | 13 | Kept separate because it needs explicit live-usage authorization and may stay on hold. | PR-C merged and authorization given | `interactive-app` ← `feat/simplify-intake-entry-live-qualification`; `docs(simplify-intake-entry): record live session qualification` | Recorded evidence; review; held without authorization |
+| PR-D | Live provider qualification evidence (notes and docs only) | 13 | Kept separate because it needs explicit live-usage authorization and may stay on hold. | PR-C merged and authorization given | `interactive-app` ← `feat/simplify-intake-entry-live-qualification`; `docs(simplify-intake-entry): record live session qualification` | Recorded evidence; review; held without authorization |
 
 ## 1. Proof-of-fit spike for tools, resume and in-turn input
 
@@ -58,7 +58,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Prerequisites:** none.
 - **Acceptance:** design D2/D3 updated with the chosen versions and flags. Any contradiction found is written back into the design before task 2.
 - **TDD approach:** investigation, not test-first. Evidence is a runnable spike script and its recorded output.
-- **Verification:** `pnpm spikes:check`. The spike notes in `docs/handovers/simplify-intake-entry.md` record CLI versions and outputs.
+- **Verification:** `pnpm spikes:check`. The [notes](notes.md) record the spike decisions and CLI versions.
 - **Risks and decisions:**
   - Claude's mid-turn stream-JSON behavior cannot be proven offline. Record it as unverified, and keep `read_inbox` as the guaranteed path.
 
@@ -351,7 +351,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
   - Architecture docs and the handover describe the final behavior.
 - **Scope and approach:**
   - `frontend/src/components/processing/*`, or the redesigned Processing pages if BI-008 has landed on `interactive-app` by then (design D11).
-  - `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md` and `docs/handovers/simplify-intake-entry.md`.
+  - `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md` and `notes.md`.
 - **Prerequisites:** tasks 10 and 11.
 - **Acceptance:** pipeline UI parts of all three new specs; legacy display.
 - **TDD approach:**
@@ -370,24 +370,24 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 
 - **PR delivery:** PR-D
 - **Outcome:** evidence on whether real Claude and Codex sessions call the app tools reliably, accept in-turn input and resume. This decides whether `/2` may drop the `native_unverified` label.
-- **Scope and approach:** a manual run against the operator's own accounts, only after explicit authorization. Record the results in the handover, with no code changes unless separately scoped.
+- **Scope and approach:** a manual run against the operator's own accounts, only after explicit authorization. Put the qualification evidence in the PR-D description and the label decision, with anything unexpected, in `notes.md`. No code changes unless separately scoped.
 - **Prerequisites:** PR-C merged; explicit operator authorization for live provider usage.
 - **Acceptance:** the documented qualification outcome for each provider.
 - **TDD approach:** not applicable (manual qualification). Evidence is a recorded session log summary without secrets or private reasoning.
-- **Verification:** handover review.
+- **Verification:** review of the evidence in the PR-D description.
 - **Risks and decisions:** billable usage. Held until authorized.
 
 - [ ] 13.1 Obtain explicit live-usage authorization, and record its scope.
 - [ ] 13.2 Run the scripted qualification for Claude and Codex: tool-only allowlist, status cadence, in-turn answer, resume after finish.
-- [ ] 13.3 Record the outcomes and the label decision in the handover.
+- [ ] 13.3 Record the outcomes in the PR-D description and the label decision in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 
-CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage). For PR-B onward, "selected CI green" covers the jobs CI still runs, and the local `pnpm db:intake test` and `pnpm db:intake test:process` results recorded in the handover stand in for the skipped job.
+CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage). For PR-B onward, "selected CI green" covers the jobs CI still runs, and the local `pnpm db:intake test` and `pnpm db:intake test:process` results stand in for the skipped job. For PR-B and PR-C they were recorded in the handover (kept at `2d852e2`); from PR-D they go in the PR description.
 
-- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`. See the handover.
-- [x] D.2 PR-B: same gates. Review clear at `0948449` (rounds 9–10 covered the two `interactive-app` merges); CI green; merged as `776c302` (#107). See the handover.
-- [x] D.3 PR-C: same gates; BI-006 is updated to Done only after acceptance and merge are evidenced. Review clear at `37bfd82` (round 6, after the `interactive-app` merge); CI green; merged as `236a165` (#112). BI-006 stays In progress until PR-D. See the handover.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`.
+- [x] D.2 PR-B: same gates. Review clear at `0948449` (rounds 9–10 covered the two `interactive-app` merges); CI green; merged as `776c302` (#107).
+- [x] D.3 PR-C: same gates; BI-006 is updated to Done only after acceptance and merge are evidenced. Review clear at `37bfd82` (round 6, after the `interactive-app` merge); CI green; merged as `236a165` (#112). BI-006 stays In progress until PR-D.
 - [ ] D.4 PR-D: held until live authorization; same gates once run.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

@@ -100,7 +100,7 @@ None. This is development tooling. The product behaviour of the intake API, UI a
   - new Docker volumes `bench-inventree-dev-db` and `bench-inventree-dev-data`.
 
   The legacy `postgres.json`, container and volume are never read, rewritten or deleted. Intake dev databases on the new server start empty.
-- **Docs:** `docs/development.md`, the `intake-server/README.md` service ledger, `intake-server/TESTING.md`, `.env.intake.example`, `ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`, and a handover under `docs/handovers/`.
+- **Docs:** `docs/development.md`, the `intake-server/README.md` service ledger, `intake-server/TESTING.md`, `.env.intake.example`, `ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`, and the change's `notes.md`.
 - **External prerequisites:**
   - Docker with Compose v2;
   - the base image present locally or pullable by digest;

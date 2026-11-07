@@ -48,4 +48,4 @@ Run real imports from root as before when using `.local_imports/...` arguments. 
 
 The wheel still contains the `invimport` package only, without config, tests, scripts, frontend or repository `.env`. Outside a source checkout its default config/env fallback remains package-relative as before; supply explicit `--config` and `--env-file` when those defaults are absent. It does not adopt an unrelated nearby workspace. Distribution of default config remains an existing limitation, not a new packaging feature of this relocation.
 
-See the [shared architecture](../ARCHITECTURE.md) and [backend architecture](../backend/ARCHITECTURE.md) for application/execution boundaries and [the handover](handovers/repository-layout.md) for checks and decisions.
+See the [shared architecture](../ARCHITECTURE.md) and [backend architecture](../backend/ARCHITECTURE.md) for application/execution boundaries.

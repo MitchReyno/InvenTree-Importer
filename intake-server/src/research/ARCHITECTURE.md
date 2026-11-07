@@ -36,4 +36,4 @@ The protocol adapter binds exact thread/turn/call identities and constructs appl
 
 ## Verification limits
 
-Tests use deterministic protocol sessions, controlled Node children, owned loopback HTTP and random isolated PostgreSQL databases. They never load the original repository environment or make a real inventory/model request. The T07 handover records passing checks, service cleanup and remaining qualification separately. No fixture pass proves a real provider sandbox or native account support.
+Tests use deterministic protocol sessions, controlled Node children, owned loopback HTTP and random isolated PostgreSQL databases. They never load the original repository environment or make a real inventory/model request. No fixture pass proves a real provider sandbox or native account support.

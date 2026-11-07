@@ -28,4 +28,4 @@ Selected repair passes the original Plan, run, operation and journal to `repair_
 
 Version 2 shared Parts permit selecting lot B alone: filtering the raw interchange first avoids its parser-generated same-document `part_of` reference to unselected lot A. A later round explicitly binds the original known Part PK/IPN and revalidates that identity before preparation. v1 `part_of` selections are rejected by this spike; including their parent as a whole lot would expand approval. This is a deliberate unsupported adapter case, not an engine rewrite or a claim that arbitrary `part_of` dependency extraction is solved.
 
-See the [engineering handover](../../docs/handovers/spike-importer-adapter.md) for rationale, fault evidence, limitations and the independent-review gate. Shared contracts/fixtures and root documentation remain coordinator-owned.
+Shared contracts/fixtures and root documentation remain coordinator-owned.

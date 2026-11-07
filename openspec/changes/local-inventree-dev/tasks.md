@@ -154,7 +154,7 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
 - Scope and approach:
   - `docs/development.md`, the `intake-server/README.md` service ledger and local-image section (replacing the internal-network suggestion), `intake-server/TESTING.md`;
   - `.env.intake.example`, `ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`;
-  - a new `docs/handovers/local-inventree-dev.md`.
+  - a handover, since replaced by the [notes](notes.md).
 - Prerequisites: Tasks 1–4.
 - Acceptance: every documented command, port, path and state file matches the code.
 - TDD approach: not applicable to docs. Verify with a reference check (`rg` for 55432, `bench-intake-dev-pg`, 4320 and command names) and the markdown lint.
@@ -167,7 +167,7 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
 
 ## Delivery evidence and lifecycle follow-up
 
-- [x] 6.1 An independent read-only review of the exact PR-B head is clean. Record the reviewed SHA. (Clean on `9f57ec6`; see the handover.)
+- [x] 6.1 An independent read-only review of the exact PR-B head is clean. Record the reviewed SHA. (Clean on `9f57ec6`.)
 - [x] 6.2 PR-B is opened against `interactive-app` and CI is green. ([#105](https://github.com/MitchReyno/InvenTree-Importer/pull/105) opened against `interactive-app`; CI green on `bd950b2`.)
 - [x] 6.3 PR-B is merged, and BI-009 is updated to its evidenced status. (Squash-merged as `21575ca`; BI-009 is Done.)
 
