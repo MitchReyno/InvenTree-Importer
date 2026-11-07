@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { subjectStatuses, type LotStatus } from '../../processing/source'
 import styled from 'styled-components'
+import { media } from '../ui/media'
 import { color, space, typeVar } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
@@ -583,7 +584,7 @@ const ScopeBar = styled.div`
   > div {
     margin-right: auto;
   }
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: ${space[3]};
@@ -607,7 +608,7 @@ const SubjectActions = styled.div`
   margin-bottom: ${space[4]};
 `
 const KeyboardHint = styled(Small)`
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: none;
   }
 `
@@ -643,7 +644,7 @@ const ReviewGrid = styled.div<{ $focused: boolean }>`
   grid-template-columns: minmax(200px, 0.75fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
   gap: ${space[6]};
   align-items: start;
-  @media (max-width: 1000px) {
+  ${media.wide} {
     grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr);
     [data-area='evidence'] {
       grid-column: 2;
@@ -656,7 +657,7 @@ const ReviewGrid = styled.div<{ $focused: boolean }>`
       grid-row: 1/3;
     }
   }
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: block;
     [data-area='queue'] {
       display: ${(p) => (p.$focused ? 'none' : 'block')};
@@ -669,7 +670,7 @@ const ReviewGrid = styled.div<{ $focused: boolean }>`
 `
 const BackButton = styled(Button)`
   display: none;
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: block;
     margin-bottom: ${space[6]};
   }

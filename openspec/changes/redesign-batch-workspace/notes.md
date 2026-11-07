@@ -122,6 +122,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-08, PR-J review round 14:** When the phone layout ends while the settings fold has focus, focus moves to the "Batch settings" heading instead of dropping to the page.
 - **2026-11-08, PR-J merge of `interactive-app` (#140–#144):** The preview-rendition work changed the same image call sites from URLs to sized image attributes (`media/images`). Each takes both: the glance's thumbnail spreads the lot's first sized crop, now sized for its 44 × 34 box rather than the earlier 40px, Examine's crops and the crop dialog take the new helpers, and the evidence tile keeps its states with the sized preview. The PR's screenshots are unchanged by the merge.
 - **2026-11-08, task 18.5 (PR-J), DS6:** With Mitch's approval, the design system's PhaseRow card is removed (README and preview), its brand book's running pulse now names "the running step's segment", and its index records the change (version 15).
+- **2026-11-08, task 19.2 (PR-K):** Review's 700px queries (the workspace, filters and evidence viewer) are `bp-compact` and its 1000px three-column query `bp-wide`, so Review takes its phone layout up to 759px and drops the details pane below 1180px; the shots at 740px and 1100px are in the PR. The records fixture's two `/5` proposals now carry their required `sources`, without which opening Lots or Map in it crashed.
 
 ## Open items
 

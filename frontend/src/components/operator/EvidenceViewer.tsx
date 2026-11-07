@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { media } from '../ui/media'
 import { color, size, space } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
@@ -395,7 +396,7 @@ const Preview = styled.div`
   background: ${color.photoStage};
   border: 1px solid ${color.lineStrong};
   border-radius: 6px;
-  @media (max-width: 700px) {
+  ${media.compact} {
     height: 280px;
   }
 `

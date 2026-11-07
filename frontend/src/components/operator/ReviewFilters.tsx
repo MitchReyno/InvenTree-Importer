@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { media } from '../ui/media'
 import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import {
@@ -63,7 +64,7 @@ const Chips = styled.div`
   gap: ${space[3]};
   margin-bottom: ${space[6]};
   min-width: 0;
-  @media (max-width: 700px) {
+  ${media.compact} {
     flex-wrap: nowrap;
     max-width: 100%;
     overflow-x: auto;
@@ -83,7 +84,7 @@ const Chip = styled.button`
     color: ${color.muted};
     font-variant-numeric: tabular-nums;
   }
-  @media (max-width: 700px) {
+  ${media.compact} {
     flex: 0 0 auto;
     min-height: ${size.touch};
     white-space: nowrap;

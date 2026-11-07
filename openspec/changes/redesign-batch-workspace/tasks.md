@@ -408,7 +408,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
 - [x] 19.1 Swap exact values for tokens in Review Lots, Map and the operator components, with the screenshot diff unchanged, recording in the PR description the inclusive 600px queries (`RestructureDialog`, `ImpactSummary`) that move to just below `bp-narrow`.
-- [ ] 19.2 Move Review's breakpoints onto `bp-compact` and `bp-wide` (G2), with screenshots at 700–800 and 1000–1200 px.
+- [x] 19.2 Move Review's breakpoints onto `bp-compact` and `bp-wide` (G2), with screenshots at 700–800 and 1000–1200 px.
 - [ ] 19.3 Move `StatusChip` (G6), the filters, the view switch and the tables (R1, R2, R11, R12) onto `Pill`, `FilterChips`, `SegmentedControl` and `DataTable` with `BulkBar`, and `Modal` onto `Dialog`.
 - [ ] 19.4 Restyle the lot rows (R4), the observation cards and their small buttons (R14), the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
 - [ ] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
