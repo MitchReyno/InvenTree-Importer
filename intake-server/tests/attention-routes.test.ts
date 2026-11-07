@@ -7,10 +7,10 @@ import { registerAttention } from '../src/attention/routes.ts'
 import { CaptureError } from '../src/capture/repository.ts'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0 },
-  research: { questions: 0, failed: 0 },
-  images: { questions: 0, failed: 0 },
-  inventory: { questions: 0, failed: 0 },
+  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
 }
 
 const batch = '00000000-0000-4000-8000-0000000000b1'
@@ -23,9 +23,9 @@ const config = devConfig({
 const empty: BatchAttentionDto = {
   batch_id: batch,
   revision: '1',
-  processing: { questions: 0, failed: 0, steps: noSteps },
-  review: { to_check: 0, changed_after_review: 0, to_decide: 0 },
-  changes: { ready: 0, failed: 0, uncertain: 0 },
+  processing: { questions: 0, failed: 0, running: 0, steps: noSteps },
+  review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 0 },
+  changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 }

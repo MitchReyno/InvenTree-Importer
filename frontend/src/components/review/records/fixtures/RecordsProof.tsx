@@ -12,6 +12,7 @@ import { GlobalStyle } from '../../../GlobalStyle'
 import { Masthead } from '../../../masthead/Masthead'
 import { ServerStateProvider } from '../../../query/ServerStateProvider'
 import { Batch } from '../../../batches/Batch'
+import { Main } from '../../../AppLayout'
 
 /**
  * Owned browser fixture: an in-memory capture client applies record edits with the shared
@@ -292,17 +293,23 @@ const manualClient = {
   cancel: unsupported,
   recover: unsupported,
 }
-const noSteps = { questions: 0, failed: 0 }
+const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
   processing: {
     questions: 0,
     failed: 0,
+    running: 0,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
-  review: { to_check: 5, changed_after_review: 0, to_decide: 1 },
-  changes: { ready: 0, failed: 0, uncertain: 0 },
+  review: {
+    to_check: 5,
+    changed_after_review: 0,
+    to_decide: 1,
+    records: projectRecords({ capture: current, processing, lotGroups: null }).records.length,
+  },
+  changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 }
@@ -330,8 +337,8 @@ export function RecordsProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
-      <main style={{ maxWidth: 1600, padding: '18px 16px 40px', margin: 'auto' }}>
+<Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
+      <Main>
         <Batch
           id={batchId}
           route={route}
@@ -342,7 +349,7 @@ export function RecordsProof() {
           processing={processingClient as never}
           onDirtyChange={() => {}}
         />
-      </main>
+      </Main>
     </ServerStateProvider>
   )
 }

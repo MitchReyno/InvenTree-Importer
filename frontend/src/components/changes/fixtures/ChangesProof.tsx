@@ -12,6 +12,7 @@ import { Masthead } from '../../masthead/Masthead'
 import { HeaderStatus } from '../../masthead/HeaderStatus'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
 import { Batch } from '../../batches/Batch'
+import { Main } from '../../AppLayout'
 
 /**
  * Owned browser fixture for Changes: an in-memory manual client prepares exactly the ticked lots,
@@ -469,7 +470,7 @@ const header = {
   }),
 }
 
-const noSteps = { questions: 0, failed: 0 }
+const noSteps = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
 
 const attention = async (): Promise<BatchAttentionDto> => ({
   batch_id: batchId,
@@ -477,13 +478,15 @@ const attention = async (): Promise<BatchAttentionDto> => ({
   processing: {
     questions: 0,
     failed: 0,
+    running: 0,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
-  review: { to_check: 1, changed_after_review: 0, to_decide: 1 },
+  review: { to_check: 1, changed_after_review: 0, to_decide: 1, records: 0 },
   changes: {
     ready: preparations.length ? preparations[0].selected_lot_ids.length : 0,
     failed: 0,
     uncertain: runs.filter((run) => run.effect_certainty === 'unknown').length,
+    runs: runs.length,
   },
   items: [],
   items_truncated: false,
@@ -505,11 +508,11 @@ export function ChangesProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead
+<Masthead
         breadcrumb={[{ label: 'Batches', href: '#' }, { label: capture.title }]}
         status={<HeaderStatus client={header as never} batchId={batchId} />}
       />
-      <main style={{ maxWidth: 1600, padding: '18px 16px 40px', margin: 'auto' }}>
+      <Main>
         <Batch
           id={batchId}
           route={route}
@@ -518,7 +521,7 @@ export function ChangesProof() {
           attention={{ read: attention }}
           onDirtyChange={() => {}}
         />
-      </main>
+      </Main>
     </ServerStateProvider>
   )
 }

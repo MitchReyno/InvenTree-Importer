@@ -5968,22 +5968,35 @@ export interface components {
             processing: {
                 questions: number;
                 failed: number;
+                running: number;
                 steps: {
                     examine: {
                         questions: number;
                         failed: number;
+                        jobs: number;
+                        ready: number;
+                        running: number;
                     };
                     research: {
                         questions: number;
                         failed: number;
+                        jobs: number;
+                        ready: number;
+                        running: number;
                     };
                     images: {
                         questions: number;
                         failed: number;
+                        jobs: number;
+                        ready: number;
+                        running: number;
                     };
                     inventory: {
                         questions: number;
                         failed: number;
+                        jobs: number;
+                        ready: number;
+                        running: number;
                     };
                 };
             };
@@ -5991,11 +6004,13 @@ export interface components {
                 to_check: number;
                 changed_after_review: number;
                 to_decide: number;
+                records: number;
             };
             changes: {
                 ready: number;
                 failed: number;
                 uncertain: number;
+                runs: number;
             };
             items: {
                 key: string;

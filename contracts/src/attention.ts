@@ -9,7 +9,14 @@ const choice = <const T extends readonly string[]>(values: T) =>
 
 const count = Type.Integer({ minimum: 0, maximum: 100000 })
 
-const stepWork = object({ questions: count, failed: count })
+/** A step's open work, and its attempts: how many there are, are ready and are running. */
+const stepWork = object({
+  questions: count,
+  failed: count,
+  jobs: count,
+  ready: count,
+  running: count,
+})
 
 /** Bounds the panel; counts stay exact when items are truncated. */
 export const MAX_ATTENTION_ITEMS = 200
@@ -45,6 +52,7 @@ export const BatchAttention = object({
   processing: object({
     questions: count,
     failed: count,
+    running: count,
     /** Exact per step, since the item list can be truncated. */
     steps: object({
       examine: stepWork,
@@ -53,8 +61,15 @@ export const BatchAttention = object({
       inventory: stepWork,
     }),
   }),
-  review: object({ to_check: count, changed_after_review: count, to_decide: count }),
-  changes: object({ ready: count, failed: count, uncertain: count }),
+  /** `records` is every record Review › Records lists, for its sub-tab's total. */
+  review: object({
+    to_check: count,
+    changed_after_review: count,
+    to_decide: count,
+    records: count,
+  }),
+  /** `runs` is every import run Changes › Added lists. */
+  changes: object({ ready: count, failed: count, uncertain: count, runs: count }),
   items: Type.Array(AttentionItem, { maxItems: MAX_ATTENTION_ITEMS }),
   items_truncated: Type.Boolean(),
 })

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, font, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
@@ -6,9 +6,17 @@ import { media } from './media'
 import { VisuallyHidden } from './VisuallyHidden'
 import { hoverTransition } from './motion'
 
-export type DataColumn = { id: string; header: string; editable?: boolean; mono?: boolean }
+/** `nowrap` keeps a short label column (a step or a state) from breaking inside a word. */
+export type DataColumn = {
+  id: string
+  header: string
+  editable?: boolean
+  mono?: boolean
+  nowrap?: boolean
+}
 
-export type DataCell = { value: string; override?: boolean; edited?: boolean }
+/** `content` shows in place of the plain value, e.g. a status pill. */
+export type DataCell = { value: string; content?: ReactNode; override?: boolean; edited?: boolean }
 
 export type DataRow = { id: string; label: string; cells: Record<string, DataCell> }
 
@@ -51,6 +59,9 @@ function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelec
 }
 
 function CellContent({ cell, mono }: { cell: DataCell; mono: boolean }) {
+  if (cell.content !== undefined) {
+    return <>{cell.content}</>
+  }
   return (
     <CellText $override={cell.override ?? false} $edited={cell.edited ?? false} $mono={mono}>
       {cell.override && <span aria-hidden="true">◆ </span>}
@@ -105,7 +116,7 @@ export function DataTable({ caption, columns, rows, selection, onCellEdit }: Dat
                   const editable = column.editable && onCellEdit
 
                   return (
-                    <td key={column.id}>
+                    <td key={column.id} data-nowrap={column.nowrap || undefined}>
                       {editable ? (
                         <InlineEdit
                           label={column.header}
@@ -169,6 +180,9 @@ const Table = styled.table`
     border-bottom: 1px solid ${color.line};
     vertical-align: middle;
     ${hoverTransition}
+  }
+  td[data-nowrap] {
+    white-space: nowrap;
   }
   tbody tr:hover td {
     background: ${color.surface2};

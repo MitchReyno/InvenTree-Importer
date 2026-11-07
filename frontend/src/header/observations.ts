@@ -64,7 +64,7 @@ const UNKNOWN: TargetStatus = {
   short: 'Unknown',
 }
 const UNAVAILABLE: TargetStatus = {
-  summary: 'InvenTree unavailable',
+  summary: 'InvenTree unreachable',
   tone: 'bad',
   short: 'Offline',
 }

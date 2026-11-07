@@ -1,11 +1,13 @@
 import styled, { css } from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
 import { Spinner } from './Loading'
 import { hoverTransition } from './motion'
+import { visuallyHidden } from './VisuallyHidden'
 
-export type TabBadge = { label: string; tone: 'warn' | 'bad' | 'ok' }
+/** `short` replaces the words at phone width, where the row has room only for numbers. */
+export type TabBadge = { label: string; short?: string; tone: 'warn' | 'bad' | 'ok' }
 
 export type TabItem = {
   id: string
@@ -18,14 +20,21 @@ export type TabItem = {
   badge?: TabBadge
   disabled?: boolean
   spinner?: boolean
+  /** A step's attempts: a tick when all are ready, otherwise "7 of 12". */
+  progress?: { ready: number; of: number }
 }
 
 type TabsProps = { label: string; items: TabItem[]; current: string }
 
 function accessibleName(item: TabItem) {
-  const parts = [item.label]
+  // The spinner is decorative, so its meaning is read here.
+  const parts = [item.label, ...(item.spinner ? ['running'] : [])]
   if (item.count !== undefined) {
     parts.push([formatCount(item.count), item.countLabel].filter(Boolean).join(' '))
+  }
+  if (item.progress) {
+    const { ready, of } = item.progress
+    parts.push(ready === of ? 'done' : `${ready} of ${of} ready`)
   }
   if (item.badge) {
     parts.push(item.badge.label)
@@ -60,9 +69,28 @@ function TabLinks({
             title={item.label}
           >
             {item.spinner && <Spinner />}
+            {item.progress && item.progress.ready === item.progress.of && (
+              <Done aria-hidden="true">✓</Done>
+            )}
             <TabLabel>{item.label}</TabLabel>
             {item.count !== undefined && <Count value={item.count} tone={item.countTone} />}
-            {item.badge && <Badge tone={BADGE_TONE[item.badge.tone]}>{item.badge.label}</Badge>}
+            {item.progress && item.progress.ready < item.progress.of && (
+              <Badge tone="default">
+                {item.progress.ready} of {item.progress.of}
+              </Badge>
+            )}
+            {item.badge && (
+              <Badge tone={BADGE_TONE[item.badge.tone]}>
+                {item.badge.short ? (
+                  <>
+                    <Words>{item.badge.label}</Words>
+                    <Short aria-hidden="true">{item.badge.short}</Short>
+                  </>
+                ) : (
+                  item.badge.label
+                )}
+              </Badge>
+            )}
           </TabLink>
         )
       })}
@@ -95,11 +123,21 @@ const levels = {
   primary: css`
     padding: 9px ${space[6]} ${space[5]};
     gap: ${space[2]};
+    /* Four tabs and their numbers fit one row at phone width. */
+    ${media.compact} {
+      padding-inline: ${space[4]};
+    }
   `,
   secondary: css`
     padding: calc(${space[4]} - 1px) ${space[5]} calc(${space[5]} - 1px);
     gap: ${space[3]};
     font-size: 13px;
+    &:hover {
+      background: ${color.surface2};
+    }
+    &[aria-current='page'] {
+      font-weight: ${typeVar.bodyStrong.weight};
+    }
   `,
 }
 
@@ -142,4 +180,23 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
 const TabLabel = styled.span`
   overflow: hidden;
   text-overflow: ellipsis;
+`
+
+const Done = styled.span`
+  color: ${color.ok};
+  font-weight: ${typeVar.pill.weight};
+`
+
+/** Below bp-compact a badge shows only its number; its words are still read. */
+const Words = styled.span`
+  ${media.compact} {
+    ${visuallyHidden}
+  }
+`
+
+const Short = styled.span`
+  display: none;
+  ${media.compact} {
+    display: inline;
+  }
 `

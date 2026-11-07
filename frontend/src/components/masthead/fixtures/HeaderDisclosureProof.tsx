@@ -27,6 +27,7 @@ export function HeaderDisclosureProof() {
               label="Connection status"
               title="Connection details"
               trigger="Connection"
+              variant="connection"
               open={open === 'connection'}
               onOpenChange={(next) => changeOpen('connection', next)}
             >
@@ -38,6 +39,7 @@ export function HeaderDisclosureProof() {
               label="Workflow activity"
               title="Workflow details"
               trigger="Workflow"
+              variant="activity"
               open={open === 'workflow'}
               onOpenChange={(next) => changeOpen('workflow', next)}
             >

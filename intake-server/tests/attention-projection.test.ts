@@ -158,15 +158,21 @@ test('counts each tab from the same reads the screens use', () => {
   assert.deepEqual(attention.processing, {
     questions: 2,
     failed: 0,
+    running: 0,
     steps: {
-      examine: { questions: 1, failed: 0 },
-      research: { questions: 1, failed: 0 },
-      images: { questions: 0, failed: 0 },
-      inventory: { questions: 0, failed: 0 },
+      examine: { questions: 1, failed: 0, jobs: 1, ready: 0, running: 0 },
+      research: { questions: 1, failed: 0, jobs: 1, ready: 0, running: 0 },
+      images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+      inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
     },
   })
-  assert.deepEqual(attention.review, { to_check: 2, changed_after_review: 1, to_decide: 2 })
-  assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1 })
+  assert.deepEqual(attention.review, {
+    to_check: 2,
+    changed_after_review: 1,
+    to_decide: 2,
+    records: 3,
+  })
+  assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1, runs: 3 })
   assert.equal(attention.revision, '7')
 })
 
@@ -250,11 +256,12 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
   assert.deepEqual(attention.processing, {
     questions: 2,
     failed: 2,
+    running: 0,
     steps: {
-      examine: { questions: 1, failed: 1 },
-      research: { questions: 1, failed: 1 },
-      images: { questions: 0, failed: 0 },
-      inventory: { questions: 0, failed: 0 },
+      examine: { questions: 1, failed: 1, jobs: 2, ready: 0, running: 0 },
+      research: { questions: 1, failed: 1, jobs: 3, ready: 0, running: 0 },
+      images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+      inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
     },
   })
   assert.deepEqual(
@@ -357,4 +364,26 @@ test('a record waiting with no decision reads as needing one, not unsupported', 
     attention.items.find((entry) => entry.group === 'decision')?.title,
     'Needs a decision',
   )
+})
+
+test('each step reports its attempts, how many are ready and how many are running', () => {
+  const states = ['running', 'ready', 'running', 'queued']
+  const jobs = states.map((state, index) => ({ ...job(10 + index, 'research', []), state }))
+  const attention = projectAttention({
+    batchId: batch,
+    processing: { ...processing, jobs } as unknown as ProcessingSnapshotDto,
+    review,
+    manual,
+    records,
+  })
+
+  validate('BatchAttention', attention)
+  assert.equal(attention.processing.running, 2)
+  assert.deepEqual(attention.processing.steps.research, {
+    questions: 0,
+    failed: 0,
+    jobs: 4,
+    ready: 1,
+    running: 2,
+  })
 })

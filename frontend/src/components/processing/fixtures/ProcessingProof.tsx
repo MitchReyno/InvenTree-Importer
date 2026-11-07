@@ -11,6 +11,7 @@ import { Masthead } from '../../masthead/Masthead'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
 import { AgentSessions } from '../../agents/AgentSessions'
 import { ProcessingWorkspace } from '../ProcessingWorkspace'
+import { Main, PageContent } from '../../AppLayout'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
@@ -127,15 +128,16 @@ const attention = {
   processing: {
     questions: 1,
     failed: 1,
+    running: 0,
     steps: {
-      examine: { questions: 1, failed: 0 },
-      research: { questions: 0, failed: 0 },
-      images: { questions: 0, failed: 1 },
-      inventory: { questions: 0, failed: 0 },
+      examine: { questions: 1, failed: 0, jobs: 0, ready: 0, running: 0 },
+      research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+      images: { questions: 0, failed: 1, jobs: 0, ready: 0, running: 0 },
+      inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
     },
   },
-  review: { to_check: 2, changed_after_review: 0, to_decide: 1 },
-  changes: { ready: 1, failed: 0, uncertain: 0 },
+  review: { to_check: 2, changed_after_review: 0, to_decide: 1, records: 0 },
+  changes: { ready: 1, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 } as BatchAttentionDto
@@ -244,8 +246,9 @@ export function ProcessingProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: batch.title }]} />
-      <main style={{ maxWidth: 1600, padding: '18px 16px 40px', margin: 'auto' }}>
+<Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: batch.title }]} />
+      <PageContent $width="content">
+<Main>
         {page.startsWith('agents') ? (
           <AgentSessions
             key={view}
@@ -275,7 +278,8 @@ export function ProcessingProof() {
             }}
           />
         )}
-      </main>
+      </Main>
+</PageContent>
     </ServerStateProvider>
   )
 }

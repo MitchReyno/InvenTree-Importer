@@ -4,7 +4,7 @@
 
 ### Requirement: Accessible workflow disclosure and layout
 
-The workflow control SHALL provide text equivalent to visual step segments, expanded state, keyboard operation, labelled details, Escape dismissal and predictable focus return. The masthead SHALL be one bar holding, in order: the wordmark, the Dev mode badge in development builds, the breadcrumb, the workflow activity control, connection status and Open InvenTree. Connection status, workflow activity and Open InvenTree SHALL stay distinguishable. The bar SHALL wrap responsively, and hide only the breadcrumb and the activity labels at phone width, rather than hiding essential information. The decorative electronics current SHALL be masked so that no part overlaps the wordmark, breadcrumb or status controls.
+The workflow control SHALL provide text equivalent to visual step segments, expanded state, keyboard operation, labelled details, Escape dismissal and predictable focus return. The masthead SHALL be one bar holding, in order: the wordmark, the Dev mode badge in development builds, the breadcrumb, the workflow activity control, connection status and Open InvenTree. Connection status, workflow activity and Open InvenTree SHALL stay distinguishable. At phone width the bar SHALL stay one row: it hides the breadcrumb and the activity labels, shortens the Dev mode badge to "Dev" (still announced in full), and moves Open InvenTree into the connection status panel, so no essential information is lost. The decorative electronics current SHALL be masked so that no part overlaps the wordmark, breadcrumb or status controls.
 
 #### Scenario: Expanded workflow on a narrow screen
 

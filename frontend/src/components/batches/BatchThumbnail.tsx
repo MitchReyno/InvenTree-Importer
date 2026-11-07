@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius } from '../../theme/generated/tokens'
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import { mediaResource } from '../../media/types'
 
@@ -22,28 +22,26 @@ export function BatchThumbnail({
           onError={() => setFailed(thumbnail.preview_id)}
         />
       ) : (
-        <span>{thumbnail ? 'Preview unavailable' : 'Notes / known values'}</span>
+        // No photo yet, or one that failed to load: a quiet glyph that still says which.
+        <span role="img" aria-label={thumbnail ? 'Preview unavailable' : 'No photos yet'}>
+          {thumbnail ? '⊘' : '✎'}
+        </span>
       )}
     </Frame>
   )
 }
 
 const Frame = styled.div`
-  width: var(--thumbnail-size, 84px);
-  height: var(--thumbnail-size, 84px);
+  width: var(--thumbnail-width, 84px);
+  height: var(--thumbnail-height, 84px);
   flex-shrink: 0;
   border: 1px solid ${color.line};
-  border-radius: 5px;
+  border-radius: ${radius.thumb};
   background: ${color.photoStage};
   overflow: hidden;
   display: grid;
   place-items: center;
-  span {
-    padding: 8px;
-    font-size: 12px;
-    text-align: center;
-    color: ${color.photoFg};
-  }
+  color: ${color.muted};
   img {
     width: 100%;
     height: 100%;

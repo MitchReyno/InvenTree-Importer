@@ -4,10 +4,10 @@ import { validate } from '../src/index.ts'
 import { attentionClient } from '../src/client.ts'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0 },
-  research: { questions: 0, failed: 0 },
-  images: { questions: 0, failed: 0 },
-  inventory: { questions: 0, failed: 0 },
+  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
 }
 
 const batch = '00000000-0000-4000-8000-000000000001'
@@ -16,9 +16,9 @@ const question = '00000000-0000-4000-8000-000000000002'
 const attention = {
   batch_id: batch,
   revision: '7',
-  processing: { questions: 1, failed: 0, steps: noSteps },
-  review: { to_check: 2, changed_after_review: 1, to_decide: 1 },
-  changes: { ready: 3, failed: 0, uncertain: 1 },
+  processing: { questions: 1, failed: 0, running: 0, steps: noSteps },
+  review: { to_check: 2, changed_after_review: 1, to_decide: 1, records: 0 },
+  changes: { ready: 3, failed: 0, uncertain: 1, runs: 0 },
   items: [
     {
       key: `question:${question}`,
@@ -37,7 +37,7 @@ test('batch attention gives tab counts and routed need-you items', () => {
   validate('BatchAttention', { ...attention, items: [] })
   validate('BatchAttention', {
     ...attention,
-    processing: { questions: 1, failed: 1, steps: noSteps },
+    processing: { questions: 1, failed: 1, running: 0, steps: noSteps },
     items: [
       ...attention.items,
       {

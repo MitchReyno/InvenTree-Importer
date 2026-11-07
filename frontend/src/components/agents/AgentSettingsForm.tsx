@@ -5,6 +5,8 @@ import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { Notice, Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { space } from '../../theme/generated/tokens'
+import { TextField } from '../ui/TextField'
 
 interface Props {
   initial: AgentSettingsDto
@@ -99,61 +101,53 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
 
   return (
     <Form onSubmit={save} onChange={() => onDirtyChange(true)}>
-      <label>
-        Provider
-        <select
-          {...register('provider', {
-            onChange: () => setValue('model', '', { shouldDirty: true }),
-          })}
-          disabled={busy}
-        >
-          <option value="codex">OpenAI · Codex</option>
-          <option value="claude">Anthropic · Claude Code</option>
-        </select>
-      </label>
-      <label>
-        Authentication
-        <select {...register('authentication')} disabled={busy}>
-          <option value="subscription">Subscription · host CLI login</option>
-          <option value="api_key">API key · worker environment</option>
-        </select>
-      </label>
-      <label>
-        Default model
-        <input
-          {...register('model', {
-            required: true,
-            pattern: /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/,
-          })}
-          list="agent-models"
-          required
-          maxLength={128}
-
-          disabled={busy}
-          autoComplete="off"
-          placeholder="Choose a model or enter its exact ID"
-        />
-        <datalist id="agent-models">
-          {presets.map((model) => (
-            <option key={model} value={model} />
-          ))}
-        </datalist>
-      </label>
-      {formState.errors.model && <Notice role="alert">Choose a valid model ID.</Notice>}
-      <label>
-        Sessions running at once
-        <select {...register('session_concurrency', { valueAsNumber: true })} disabled={busy}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((limit) => (
-            <option key={limit} value={limit}>
-              {limit}
-            </option>
-          ))}
-        </select>
-      </label>
-      <Paragraph>
-        Sessions waiting for an answer or finished hold no slot. Lowering the limit lets running
-        sessions finish; only new starts wait.
-      </Paragraph>
+      <TextField
+        as="select"
+        label="Provider"
+        {...register('provider', {
+          onChange: () => setValue('model', '', { shouldDirty: true }),
+        })}
+        disabled={busy}
+      >
+        <option value="codex">OpenAI · Codex</option>
+        <option value="claude">Anthropic · Claude Code</option>
+      </TextField>
+      <TextField as="select" label="Authentication" {...register('authentication')} disabled={busy}>
+        <option value="subscription">Subscription · host CLI login</option>
+        <option value="api_key">API key · worker environment</option>
+      </TextField>
+      <TextField
+        label="Default model"
+        {...register('model', {
+          required: true,
+          pattern: /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/,
+        })}
+        error={formState.errors.model ? 'Choose a valid model ID.' : undefined}
+        list="agent-models"
+        required
+        maxLength={128}
+        disabled={busy}
+        autoComplete="off"
+        placeholder="Choose a model or enter its exact ID"
+      />
+      <datalist id="agent-models">
+        {presets.map((model) => (
+          <option key={model} value={model} />
+        ))}
+      </datalist>
+      <TextField
+        as="select"
+        label="Sessions running at once"
+        help="Sessions waiting for an answer or finished hold no slot. Lowering the limit lets running sessions finish; only new starts wait."
+        {...register('session_concurrency', { valueAsNumber: true })}
+        disabled={busy}
+      >
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((limit) => (
+          <option key={limit} value={limit}>
+            {limit}
+          </option>
+        ))}
+      </TextField>
       <Paragraph>
         Presets do not verify account access. Claude aliases resolve when the CLI starts; sessions
         also record the resolved model. There is no automatic model or billing fallback.
@@ -200,20 +194,8 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
 
 const Form = styled.form`
   display: grid;
-  gap: 16px;
+  gap: ${space[8]};
   max-width: 720px;
-  label {
-    display: grid;
-    gap: 6px;
-    font-weight: 600;
-  }
-  input,
-  select {
-    width: 100%;
-    min-height: 40px;
-    padding: 8px;
-    font: inherit;
-  }
   code {
     overflow-wrap: anywhere;
   }
@@ -221,5 +203,5 @@ const Form = styled.form`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${space[4]};
 `

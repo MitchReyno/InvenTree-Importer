@@ -93,7 +93,7 @@ Token changes in PR-A relative to the design system's `tokens.json`, made in bot
 | `button-lg` | 15/18/500 | Large buttons |
 | `mono` / `mono-strong` | 12.5/18/400 and 500 | MPNs, IPNs, SKUs, date codes, quantities in lists, keys |
 
-Tone colours and sub-element styles that a row below doesn't restate (Banner, ProblemCard and Count tones, PhaseRow discs, ProgressSegments colours, DataTable cells, StatusTimeline markers and rail, SessionChat bubbles) follow the design system's `components/bundle.css` exactly; the component tests assert them. `Count` adds a `bad` tone (`bad-weak` with `bad` text), which the bundle lacks. A running segment with no `fraction` fills 50%.
+Tone colours and sub-element styles that a row below doesn't restate (Banner, ProblemCard and Count tones, PhaseRow discs, ProgressSegments colours, DataTable cells, StatusTimeline markers and rail, SessionChat bubbles) follow the design system's `components/bundle.css` exactly; the component tests assert them. `Count` adds a `bad` tone (`bad-weak` with `bad` text), which the bundle lacks. A running segment with no `fraction` fills 50%. `ProgressSegments` adds a `failed` state, filled in `bad`, which the bundle lacks, so the header keeps a failed step apart from one waiting.
 
 The design system's component CSS also uses a few fixed lengths below the space scale, such as 7px button padding, 9px chip padding, 11.5px meta text and 10.5px tags. They are component constants: keep them exactly, and don't add new ones. The literal-colour check covers colours only.
 
@@ -127,7 +127,7 @@ Each component lives in `frontend/src/components/ui/`, uses only tokens, and is 
 | `Banner` | `tone: 'info' \| 'warn' \| 'bad' \| 'ok' \| 'plain'`, `icon`, slot, `action?` | padding `space-2-5` `space-3-5`, gap `space-2-5`, `radius-card`, icon column 20px | At most one per page, at the top of the content column |
 | `ProblemCard` | `severity: 'blocking' \| 'warning'`, `title`, `summary`, `issues: {title, text, actions}[]` | header padding `space-2` `space-3`; issues on `surface` with a top `line` border | Blocking cards render first |
 | `Toast` | `message`, `action?: {label, onClick}`, `durationMs = 5000` | padding 9px `space-3-5`, `radius-card`, `fg` background with `bg` text, `shadow` | Bottom centre, 16px above the safe area. Never covers a sticky footer's primary button |
-| `ProgressSegments` | `steps: {label, state: 'done' \| 'running' \| 'waiting', fraction?}[]`, `size: 'sm' \| 'lg'` | sm: 14×6px segments, 2px gap, radius 2. lg: flexible width, 8px tall | Text alternative lists every step and state |
+| `ProgressSegments` | `steps: {label, state: 'done' \| 'running' \| 'failed' \| 'waiting', fraction?}[]`, `size: 'sm' \| 'lg'` | sm: 14×6px segments, 2px gap, radius 2. lg: flexible width, 8px tall | Text alternative lists every step and state |
 | `Spinner` | `size = 12` | 2px ring, right edge transparent | Decorative; the label carries the meaning |
 | `Skeleton` | `width`, `height` | `radius-thumb`, gradient `surface-2` → `line` → `surface-2` | Preparing previews only |
 
@@ -149,7 +149,7 @@ Each component lives in `frontend/src/components/ui/`, uses only tokens, and is 
 | `EvidenceGroup` | `name` (inline-editable), `note`, `count`, `actions`, `dropState: 'none' \| 'over'`, `ungrouped?` | padding `space-2-5`, gap `space-2`, `radius-card`; ungrouped is a dashed, transparent box; `over` adds a 3px `accent-weak` ring and an `accent` border | Drop target for drag and move |
 | `KeyValue` | `rows: {label, value, source?, state: 'plain' \| 'edited' \| 'override' \| 'inherited', onEdit?}[]` | grid 118px plus fluid, gap `space-1` `space-2-5`; value padded 3px `space-1-5`, radius 5 | Edited: 2px `accent` underline. Override: "· overrides batch" in `warn`. Inherited: "· from batch" in `muted` |
 | `RecordChain` | `links: {kind, label, state: 'exists' \| 'new' \| 'update' \| 'choose' \| 'none', href}[]` | link padding 3px 7px, `radius-input`; kind 10.5px uppercase; status 12px/600; arrow 12px `muted` | New: dashed `info` border. Update: `accent`. Choose: `warn` |
-| `DataTable` | `columns`, `rows`, `selection`, `onCellEdit` | header `label` type on `surface-2`, padded `space-2` `space-2-5`; cells padded `space-1-5` `space-2-5`; 13px | Lives inside `TableWrap` (horizontal scroll, `radius-card`). Selected row on `accent-weak`. ◆ marks an override; an underline marks an edit |
+| `DataTable` | `columns` (each with optional `mono`, `editable` and `nowrap`, the last for short label columns), `rows`, `selection`, `onCellEdit` | header `label` type on `surface-2`, padded `space-2` `space-2-5`; cells padded `space-1-5` `space-2-5`; 13px | Lives inside `TableWrap` (horizontal scroll, `radius-card`). Selected row on `accent-weak`. ◆ marks an override; an underline marks an edit |
 | `BulkBar` | `count`, `field`, `value`, `onApply`, `onClear`, `extraActions?` | `fg` background with `bg` text, padded `space-2` `space-3`, `radius-card` | The apply label states its scope ("Apply to 3") |
 | `ChangeSummary` | `sections: {title, count, items}[]` | section padded `space-3` `space-4`; header count in mono 13px `muted` | Rows can carry a `Pill` and link to Review |
 | `StickyFooter` | `summary`, `primary` (Button lg), `leading?` | padded `space-3` `space-3-5`, `radius-card`, `shadow`, sticky to the bottom | The only non-floating element with a shadow |
@@ -162,7 +162,7 @@ Each component lives in `frontend/src/components/ui/`, uses only tokens, and is 
 | `QuestionCard` | `question`, `why`, `closeups?: {label, image}[]`, `assumption`, `answer` (slot), `secondary` | 1px `warn` border, `radius-card`; header on `warn-weak` padded `space-2-5` `space-3-5`; body padded `space-3` `space-3-5`, gap `space-3`; close-ups in two columns, 4:3 | States the assumption in use |
 | `OptionRow` | radio group; `options: {id, title, detail}[]` | grid 18px plus fluid, padded 9px 11px, `radius-btn`; selected on `accent-weak` with `accent` border | Always includes an escape option |
 | `StatusTimeline` | `entries: {text, time, current?}[]` | rows padded 5px 0; marker 10px with a 2px rail; current marker has a 4px `accent-weak` halo and bold text; time 11.5px tabular | Newest last |
-| `NeedsYou` | `items: {thumb?, title, assumption, step?, href}[]` | grid 44px · fluid · auto; padded `space-2-5` `space-3` | Each item links to its owner |
+| `NeedsYou` | `items: {thumb?, title, assumption, step?, mark?, action?, href}[]` | grid fluid · auto, with a 44px thumbnail column only when an item has a photo; `mark` is a tone pill (glyph shown, word read) for items without a step, and `action` the link's verb (default Answer); padded `space-2-5` `space-3` | Each item links to its owner |
 | `SessionChat` | `messages: {who, text, mine}[]`, `onSend`, `disabled?` | message max 85% width, padded `space-2` `space-2-5`, `radius-card`; own messages right-aligned on `accent-weak` | Composer stays enabled except for a cancelled session |
 
 ### Restyled existing controls

@@ -12,6 +12,8 @@ type PopoverProps = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   align?: 'start' | 'center' | 'end'
+  /** A set width for panels whose content needs one; the window's width still caps it. */
+  width?: string
   children: ReactNode
 }
 
@@ -22,13 +24,20 @@ export function Popover({
   open,
   onOpenChange,
   align = 'end',
+  width,
   children,
 }: PopoverProps) {
   return (
     <RadixPopover.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
       <RadixPopover.Portal>
-        <Surface align={align} sideOffset={8} collisionPadding={12} aria-label={label}>
+        <Surface
+          align={align}
+          sideOffset={8}
+          collisionPadding={12}
+          aria-label={label}
+          style={width ? { width } : undefined}
+        >
           {children}
         </Surface>
       </RadixPopover.Portal>

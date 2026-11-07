@@ -11,12 +11,13 @@ import { ServerStateProvider } from '../../query/ServerStateProvider'
 import type { MediaClient } from '../../../media/types'
 import { Batch } from '../Batch'
 import { Batches } from '../Batches'
+import { Main, PageContent } from '../../AppLayout'
 
 const noSteps = {
-  examine: { questions: 0, failed: 0 },
-  research: { questions: 0, failed: 0 },
-  images: { questions: 0, failed: 0 },
-  inventory: { questions: 0, failed: 0 },
+  examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  research: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
+  inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
 }
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
@@ -132,9 +133,9 @@ const media: MediaSnapshotDto = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
-  processing: { questions: 3, failed: 0, steps: noSteps },
-  review: { to_check: 4, changed_after_review: 1, to_decide: 2 },
-  changes: { ready: 1, failed: 0, uncertain: 0 },
+  processing: { questions: 3, failed: 0, running: 0, steps: noSteps },
+  review: { to_check: 4, changed_after_review: 1, to_decide: 2, records: 0 },
+  changes: { ready: 1, failed: 0, uncertain: 0, runs: 0 },
   items: [
     {
       key: 'question:q1',
@@ -266,7 +267,7 @@ const captureClient = {
         title: batch.title,
         revision: batch.revision,
         archived: false,
-        updated_at: batch.updated_at,
+        updated_at: ago(42),
         source_id: batch.source_id,
         workflow: {
           lots: 5,
@@ -284,7 +285,7 @@ const captureClient = {
         title: 'Rockby order 55120',
         revision: '12',
         archived: false,
-        updated_at: '2026-10-28T09:00:00Z',
+        updated_at: ago(10 * 24 * 60),
         source_id: batch.source_id,
         workflow: {
           lots: 6,
@@ -294,7 +295,12 @@ const captureClient = {
           approved: 6,
           open_questions: 0,
           active_jobs: 0,
-          latest_round: null,
+          latest_round: {
+            run_id: '40000000-0000-4000-8000-000000000004',
+            round_number: '1',
+            state: 'settled_complete',
+            confirmed_stock: 6,
+          },
         },
       },
       {
@@ -302,7 +308,7 @@ const captureClient = {
         title: 'Drawer cleanup — loose ICs',
         revision: '2',
         archived: false,
-        updated_at: '2026-11-04T09:00:00Z',
+        updated_at: ago(3 * 24 * 60),
         source_id: batch.source_id,
       },
     ],
@@ -429,6 +435,11 @@ const processingClient = {
   chat: async () => ({ id: 'f0000000-0000-4000-8000-000000000001' }),
 }
 
+/** List times are relative, so they are set from now to keep the screenshots stable. */
+function ago(minutes: number) {
+  return new Date(Date.now() - minutes * 60_000).toISOString()
+}
+
 export function BatchCaptureProof() {
   const route = useHashRoute()
 
@@ -440,7 +451,7 @@ export function BatchCaptureProof() {
           route ? [{ label: 'Batches', href: '#' }, { label: batch.title }] : [{ label: 'Batches' }]
         }
       />
-      <main style={{ maxWidth: 1600, padding: '18px 16px 40px', margin: 'auto' }}>
+      <Main>
         {route ? (
           <Batch
             key={route.split('/')[0]}
@@ -455,9 +466,11 @@ export function BatchCaptureProof() {
             onDirtyChange={() => {}}
           />
         ) : (
-          <Batches client={captureClient as never} onDirtyChange={() => {}} />
+          <PageContent $width="content">
+            <Batches client={captureClient as never} onDirtyChange={() => {}} />
+          </PageContent>
         )}
-      </main>
+      </Main>
     </ServerStateProvider>
   )
 }

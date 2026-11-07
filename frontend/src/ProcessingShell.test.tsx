@@ -149,6 +149,8 @@ test('Processing deep link uses its own workspace and stale-input physical work 
   )
   expect(await screen.findByText(/Processing in progress/)).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
+  // Lanes are diagnostics: each job keeps them in its Details.
+  await user.click(within(screen.getByRole('dialog')).getAllByText('Details')[0])
   expect(screen.getByText(/Physical lane occupied/)).toBeVisible()
   expect(screen.getByRole('link', { name: 'Open processing' })).toHaveAttribute(
     'href',

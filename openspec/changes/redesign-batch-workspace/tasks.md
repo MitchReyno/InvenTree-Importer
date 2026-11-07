@@ -353,14 +353,14 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 16.1 Swap exact values for tokens in these areas, with the screenshot diff unchanged.
-- [ ] 16.2 Set the content widths (G1) (`width-content`, `width-review`) and page padding (`space-12` at desktop, at least `space-8` at phone width), move the app shell's 700px query to `bp-compact` (G2), and move the global focus ring and body type onto tokens.
-- [ ] 16.3 Move the three header popovers onto `Popover` (closing G9) and drop their copied keyframes (C6), keep the masthead to one row at phone width (M2), and give these screens' controls a 44px hit area below `bp-compact` (G15).
-- [ ] 16.4 Make the batch header a full-width band (M5, M8) with the tabs on the title row, the second tab row as its own band, tab counts with sub-tab counts and badges (M9), and the Processing step icons.
-- [ ] 16.5 Close the V3 and V6 gaps (B1–B7, A1–A4) on Batches, Agents and Agent settings (`components/agents/AgentSettings*`).
-- [ ] 16.6 Apply the hover-transition mixin to G7's Batches, HeaderStatus and MastheadMenu rows, move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
-- [ ] 16.7 Extract `ActivityIndicator` with `ActivityPopover` and `ConnectionStatus` from `HeaderStatus`, rename `NeedYouPanel` to `NeedsYouPanel`, and extract `BatchRow` and `ContinueCard` (design D12); close M12 (each Review and Changes sub-tab's own count and badge, with the Map's unused-evidence count added to the attention read or taken from the media snapshot), M13–M19 (M16 without step counts, task 23.9; M18 without the server version, task 23.8), B9, A5 and A7. A2's "Pause all agents" stays disabled with its reason until task 23.6.
-- [ ] 16.8 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 16.1 Swap exact values for tokens in these areas, with the screenshot diff unchanged.
+- [x] 16.2 Set the content widths (G1) (`width-content`, `width-review`) and page padding (`space-12` at desktop, at least `space-8` at phone width), move the app shell's 700px query to `bp-compact` (G2), and move the global focus ring and body type onto tokens.
+- [x] 16.3 Move the three header popovers onto `Popover` (closing G9) and drop their copied keyframes (C6), keep the masthead to one row at phone width (M2), and give these screens' controls a 44px hit area below `bp-compact` (G15).
+- [x] 16.4 Make the batch header a full-width band (M5, M8) with the tabs on the title row, the second tab row as its own band, tab counts with sub-tab counts and badges (M9), and the Processing step icons.
+- [x] 16.5 Close the V3 and V6 gaps (B1–B7, A1–A4) on Batches, Agents and Agent settings (`components/agents/AgentSettings*`).
+- [x] 16.6 Apply the hover-transition mixin to G7's Batches, HeaderStatus and MastheadMenu rows, move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V2 gaps: M1, M3, M4, M6, M7, M10 and M11.
+- [x] 16.7 Extract `ActivityIndicator` with `ActivityPopover` and `ConnectionStatus` from `HeaderStatus`, rename `NeedYouPanel` to `NeedsYouPanel`, and extract `BatchRow` and `ContinueCard` (design D12); close M12 (each Review and Changes sub-tab's own count and badge, with the Map's unused-evidence count and the Capture tab's file count added to the attention read or taken from the media snapshot), M13–M19 (M16 without step counts, task 23.9; M18 without the server version, task 23.8), B9, A5 and A7. A2's "Pause all agents" stays disabled with its reason until task 23.6.
+- [x] 16.8 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 17. Capture
 
@@ -498,7 +498,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] D.5 PR-E: same gates. Review clear at `18b2381` after fourteen rounds, then the merge of #107 and its two fixes reviewed clear at `ad15957`; merged as #108 (`ab80c3b`) with every CI job that ran green and a demo video attached.
 - [x] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7. Review clear at `cabe29c` after six rounds; merged as #109 (`c15e9ce`) with every CI job that ran green and a demo video attached. BI-008 is Done; task 14 follows as PR-G.
 - [x] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`. Review clear at `e99d14f` after seven rounds, with its wording follow-up `2139767` reviewed clear; merged as #110 (`3ed53f2`) with every CI job that ran green and a demo video attached.
-- [ ] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit.
+- [x] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit. The token rename and library swaps left the screenshot diff unchanged. Review clear at `9629c8f` after sixteen rounds and, after rebasing onto #131–#134, at `65d3d61`; the 15.10 checkbox follow-up is `3fd8fff`. Merged as #135 (`2fbc2be`) with every CI job that ran green and a demo video attached.
 - [ ] D.9 PR-I (task 16): same gates, after PR-H.
 - [ ] D.10 PR-J (tasks 17 and 18): same gates, after PR-H.
 - [ ] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J.

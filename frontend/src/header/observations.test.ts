@@ -48,11 +48,11 @@ describe('targetStatus', () => {
       'target unavailable',
       target({ state: 'unavailable' }),
       false,
-      'InvenTree unavailable',
+      'InvenTree unreachable',
       'bad',
       'Offline',
     ],
-    ['API unavailable', target({}), true, 'InvenTree unavailable', 'bad', 'Offline'],
+    ['API unavailable', target({}), true, 'InvenTree unreachable', 'bad', 'Offline'],
     [
       'unconfigured',
       target({ state: 'unconfigured' }),

@@ -4,15 +4,18 @@ import { Button } from '../ui/Button'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { useCachedData } from '../../queries/useCachedData'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '../../operator/review-model'
+import { unusedEvidenceCount } from '../../operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { validate } from '@invimport/contracts'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
+  MediaSnapshotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
@@ -22,6 +25,7 @@ import { useApplicationAvailable } from '../../capture/useApplicationAvailable'
 import type { MediaClient } from '../../media/types'
 import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
+import { typeVar } from '../../theme/generated/tokens'
 import type { ManualClient, ManualStage } from '../../manual/types'
 import type { ProcessingClient } from '../../processing/types'
 import { clearPending } from '../../processing/pending-messages'
@@ -30,6 +34,7 @@ import { ManualWorkspace } from '../review/ManualWorkspace'
 import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/batch-route'
 import { useBatchAttention, type AttentionClient } from '../../attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
+import { PageContent } from '../AppLayout'
 import { RecordsStage } from '../review/records/RecordsStage'
 import type { RecordsClient } from '../../records/useBatchRecords'
 import { ReviewMapStage } from '../review/ReviewMapStage'
@@ -383,6 +388,38 @@ export function Batch({
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
+  // A refresh that failed keeps the old data; it is withheld, so nothing old reads as current.
+  const attentionUnavailable = attentionQuery.isError || attentionQuery.fetchStatus === 'paused'
+  const attentionCurrent = attentionUnavailable ? undefined : attentionQuery.data
+  // Capture, the Map, Lots and Images own the media read and its polling. This disabled observer
+  // only keeps their snapshot while other tabs show, with the same fetch function so their refreshes
+  // still work; the counts come from `useCachedData`, which drops it once invalidated and unrefreshed.
+  const mediaKey = serverQueryKey(scope, 'media', id)
+  useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
+  const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
+  const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
+  const evidence = useMemo(
+    () =>
+      batch && mediaCurrent
+        ? {
+            files: mediaCurrent.evidence.length,
+            // While lineage is unknown, inherited files would read as unused, as the Map also holds.
+            unused:
+              operatorUnavailable && retired.size > 0
+                ? undefined
+                : unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors),
+          }
+        : undefined,
+    // `retired` and `predecessors` follow the operator review.
+    [
+      batch,
+      mediaCurrent,
+      currentOperatorReview,
+      acceptedOperatorReview,
+      operatorReview,
+      operatorUnavailable,
+    ],
+  )
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
   const visibleError =
@@ -420,7 +457,7 @@ export function Batch({
         reload={reloadForStage}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
-        attention={attentionQuery.data}
+        attention={attentionCurrent}
         instructions={{
           // Undefined until the review projection for this revision is read.
           text: currentOperatorReview
@@ -460,7 +497,7 @@ export function Batch({
         edit={edit}
         operator={operator}
         retiredLotIds={retired}
-        predecessors={predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)}
+        predecessors={predecessors}
         restructureUnavailable={operatorUnavailable}
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
         reload={reloadForStage}
@@ -529,66 +566,70 @@ export function Batch({
         <BatchHeader
           batch={batch}
           route={batchRoute}
-          attention={attentionQuery.data}
-          attentionUnavailable={attentionQuery.isError}
+          attention={attentionCurrent}
+          attentionUnavailable={attentionUnavailable}
+          evidence={evidence}
           activeLotCount={batch.lots.length - retired.size}
           retiredLotCount={retired.size}
           busy={readOrCommandBusy || readUnavailable || draftDirty}
           onArchive={() => void edit({ kind: 'batch', archived: !batch.archived })}
         />
       )}
-      {operatorUnavailable && acceptedOperatorReview && !visibleError && (
-        <ErrorNotice role="status">
-          <Paragraph>
-            Current operator review is unavailable or changed. Local input is retained until exact
-            retry or explicit discard.
-          </Paragraph>
-          <Button
-            disabled={busy || captureQuery.isFetching}
-            onClick={() => void discardLocalEdits()}
-          >
-            Discard local edits and load saved values
-          </Button>
-        </ErrorNotice>
-      )}
-      {visibleError && (
-        <ErrorNotice role="alert">
-          <Paragraph>{visibleError}</Paragraph>
-          {current && (
-            <>
-              <Paragraph>
-                <strong>Current saved title:</strong> {current.title} · revision {current.revision}
-              </Paragraph>
-              <details>
-                <Summary>Current saved revision {current.revision} · exact fields</Summary>
-                <SnapshotFields>
-                  {JSON.stringify(
-                    {
-                      title: current.title,
-                      defaults: current.defaults,
-                      context: current.context,
-                      notes: current.notes,
-                      lots: current.lots,
-                      parts: current.parts,
-                    },
-                    null,
-                    2,
-                  )}
-                </SnapshotFields>
-              </details>
-            </>
-          )}
-          <Button
-            disabled={readOrCommandBusy}
-            onClick={() => {
-              void discardLocalEdits()
-            }}
-          >
-            Discard local edits and load saved values
-          </Button>
-        </ErrorNotice>
-      )}
-      {content}
+      <PageContent $width={batchRoute?.tab === 'review' ? 'review' : 'content'}>
+        {operatorUnavailable && acceptedOperatorReview && !visibleError && (
+          <ErrorNotice role="status">
+            <Paragraph>
+              Current operator review is unavailable or changed. Local input is retained until exact
+              retry or explicit discard.
+            </Paragraph>
+            <Button
+              disabled={busy || captureQuery.isFetching}
+              onClick={() => void discardLocalEdits()}
+            >
+              Discard local edits and load saved values
+            </Button>
+          </ErrorNotice>
+        )}
+        {visibleError && (
+          <ErrorNotice role="alert">
+            <Paragraph>{visibleError}</Paragraph>
+            {current && (
+              <>
+                <Paragraph>
+                  <strong>Current saved title:</strong> {current.title} · revision{' '}
+                  {current.revision}
+                </Paragraph>
+                <details>
+                  <Summary>Current saved revision {current.revision} · exact fields</Summary>
+                  <SnapshotFields>
+                    {JSON.stringify(
+                      {
+                        title: current.title,
+                        defaults: current.defaults,
+                        context: current.context,
+                        notes: current.notes,
+                        lots: current.lots,
+                        parts: current.parts,
+                      },
+                      null,
+                      2,
+                    )}
+                  </SnapshotFields>
+                </details>
+              </>
+            )}
+            <Button
+              disabled={readOrCommandBusy}
+              onClick={() => {
+                void discardLocalEdits()
+              }}
+            >
+              Discard local edits and load saved values
+            </Button>
+          </ErrorNotice>
+        )}
+        {content}
+      </PageContent>
     </>
   )
 }
@@ -596,5 +637,5 @@ export function Batch({
 const SnapshotFields = styled.pre`
   overflow: auto;
   max-height: 300px;
-  font-size: 12px;
+  font-size: ${typeVar.mono.size};
 `

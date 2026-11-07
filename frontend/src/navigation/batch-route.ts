@@ -190,3 +190,10 @@ export function processingStepFor(stage: string): ProcessingStep {
 
   return PROCESSING_STEPS.includes(stage as ProcessingStep) ? (stage as ProcessingStep) : 'overview'
 }
+
+/** Review's views use the wider review width; every other page uses the content width. */
+export function pageWidthFor(hash: string): 'content' | 'review' {
+  const parsed = parseBatchRoute(hash)
+  const settled = parsed.kind === 'redirect' ? parseBatchRoute(parsed.to) : parsed
+  return settled.kind === 'route' && settled.route.tab === 'review' ? 'review' : 'content'
+}

@@ -62,7 +62,9 @@ test('shows the brand, dev mode label and workflow label over a decorative canva
 
   expect(screen.getByText('Bench')).toBeVisible()
   expect(screen.getByText('Intake')).toBeVisible()
-  expect(screen.getByText('Dev mode')).toBeVisible()
+  // At phone width the badge shows "Dev"; its text is still "Dev mode" for assistive technology.
+  expect(screen.getByText('Dev')).toHaveTextContent('Dev mode')
+  expect(screen.getByText('Dev')).toBeVisible()
   expect(screen.getByText('Manual workflow')).toBeVisible()
   expect(screen.getByTestId('electronics-current')).toHaveAttribute('aria-hidden', 'true')
   expect(screen.getByRole('banner')).toHaveTextContent('Bench Intake')
@@ -78,7 +80,7 @@ test('orders the bar: wordmark, dev badge, breadcrumb, status, then the menu', (
   )
   const order = [
     screen.getByRole('link', { name: 'Bench Intake, Batches' }),
-    screen.getByText('Dev mode'),
+    screen.getByText('Dev'),
     screen.getByRole('navigation', { name: 'Breadcrumb' }),
     screen.getByText('Status slot'),
     screen.getByRole('button', { name: 'More' }),
@@ -101,6 +103,10 @@ test('hides only the breadcrumb at phone width', () => {
     'data-compact',
     'hidden',
   )
+  // The trail opens with a separator after the Dev badge, as on the canvas.
+  const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' }).parentElement!
+  expect(crumbs.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+  expect(crumbs.firstElementChild).toHaveTextContent('/')
   expect(screen.getByText('Status slot').closest('[data-compact="hidden"]')).toBeNull()
   expect(screen.getByRole('button', { name: 'More' }).closest('[data-compact="hidden"]')).toBeNull()
 })

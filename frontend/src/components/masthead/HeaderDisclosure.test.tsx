@@ -25,6 +25,17 @@ test('switching disclosures keeps one open and preserves a neighbouring draft', 
   await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
   expect(await screen.findByRole('dialog', { name: 'Workflow details' })).toBeVisible()
   expect(screen.queryByRole('dialog', { name: 'Connection details' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Close Workflow details' }))
+  await user.keyboard('{Escape}')
   expect(draft).toHaveValue('Preserve exact input Ω')
+})
+
+test('the panel has no Close button; a click outside shuts it', async () => {
+  const user = userEvent.setup()
+  render(<HeaderDisclosureProof />)
+  await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
+  const panel = await screen.findByRole('dialog', { name: 'Workflow details' })
+  expect(screen.queryByRole('button', { name: /Close/ })).toBeNull()
+  expect(panel).toBeVisible()
+  await user.click(document.body)
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 })

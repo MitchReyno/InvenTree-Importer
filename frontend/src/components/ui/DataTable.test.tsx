@@ -61,6 +61,28 @@ describe('DataTable', () => {
     await userEvent.type(screen.getByRole('textbox', { name: 'Quantity' }), '0{Enter}')
     expect(onCellEdit).toHaveBeenCalledWith('l1', 'qty', '1000')
   })
+
+  it('keeps a nowrap column on one line, so a short word never breaks', () => {
+    render(
+      <DataTable
+        caption="Sessions"
+        columns={[
+          { id: 'step', header: 'Step', nowrap: true },
+          { id: 'status', header: 'Status' },
+        ]}
+        rows={[
+          {
+            id: 's',
+            label: 'Research',
+            cells: { step: { value: 'Research' }, status: { value: 'Long text' } },
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('cell', { name: 'Research' })).toHaveAttribute('data-nowrap', 'true')
+    expect(screen.getByRole('cell', { name: 'Long text' })).not.toHaveAttribute('data-nowrap')
+  })
 })
 
 describe('BulkBar', () => {

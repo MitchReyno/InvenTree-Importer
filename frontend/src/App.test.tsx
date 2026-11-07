@@ -356,9 +356,9 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   render(<App />)
   expect(
     within(await screen.findByRole('region', { name: fixture.title })).getByRole('link', {
-      name: 'Capture',
+      name: 'Review 1 lot',
     }),
-  ).toHaveAttribute('href', `#${batchId}/capture`)
+  ).toHaveAttribute('href', `#${batchId}/review/lots?filter=needs_review`)
   expect(screen.queryByText('Archived packet')).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
   expect(await screen.findByText('Archived packet')).toBeVisible()
@@ -808,7 +808,7 @@ test('following an inbox workflow filter opens Review through the actual App rou
   navigationServer()
   const user = userEvent.setup()
   render(<App />)
-  await user.click(await screen.findByRole('link', { name: '1 need review' }))
+  await user.click(await screen.findByRole('link', { name: 'Review 1 lot' }))
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
   // Review then opens on the first lot.
   await waitFor(() =>
@@ -1134,4 +1134,62 @@ test('stale application observations disable settings until a fresh read', async
   } finally {
     vi.useRealTimers()
   }
+})
+
+test('a failed attention refresh withholds the old running counts and says so', async () => {
+  const cache = createServerQueryClient()
+
+  const transport: typeof fetch = async () => response(fixture)
+
+  const client = captureClient(location.origin, 'a'.repeat(64), transport)
+  const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
+    throw new Error('unexpected_manual_transport')
+  })
+  const counts = { questions: 0, failed: 0, jobs: 2, ready: 0, running: 2 }
+  const none = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
+  const read = vi
+    .fn()
+    .mockResolvedValueOnce({
+      batch_id: fixture.id,
+      revision: fixture.revision,
+      processing: {
+        questions: 0,
+        failed: 0,
+        running: 2,
+        steps: { examine: counts, research: none, images: none, inventory: none },
+      },
+      review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 0 },
+      changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
+      items: [],
+      items_truncated: false,
+    })
+    .mockRejectedValue(new Error('attention_unavailable'))
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <Batch
+      id={fixture.id}
+      route={fixture.id}
+      client={client}
+      manual={manual}
+      attention={{ read }}
+      onDirtyChange={vi.fn()}
+    />,
+    { wrapper: Wrapper },
+  )
+  await screen.findByText(/2 agents working/)
+
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'attention', fixture.id) })
+  })
+
+  expect(await screen.findByText('Needs you unavailable')).toBeInTheDocument()
+  expect(screen.queryByText(/2 agents working/)).not.toBeInTheDocument()
 })

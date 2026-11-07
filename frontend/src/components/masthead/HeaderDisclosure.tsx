@@ -1,8 +1,11 @@
-import { useId, type ReactNode } from 'react'
-import * as Popover from '@radix-ui/react-popover'
-import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
+import type { ReactNode } from 'react'
+import styled, { css } from 'styled-components'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
+import { hoverTransition } from '../ui/motion'
+import { Popover } from '../ui/Popover'
+
+type Variant = 'activity' | 'connection'
 
 interface HeaderDisclosureProps {
   label: string
@@ -10,63 +13,74 @@ interface HeaderDisclosureProps {
   trigger: ReactNode
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Accent pill while work is running. */
+  /** The design system's pill: the taller activity pill or the compact connection pill. */
+  variant: Variant
+  /** Accent pill while work is under way; an idle activity pill is plain. */
   active?: boolean
+  describedBy?: string
   children: ReactNode
 }
 
+/** A masthead status pill that opens its details; the dialog is named by `title`. */
 export function HeaderDisclosure({
   label,
   title,
   trigger,
   open,
   onOpenChange,
+  variant,
   active = false,
+  describedBy,
   children,
 }: HeaderDisclosureProps) {
-  const titleId = useId()
   return (
-    <Popover.Root open={open} onOpenChange={onOpenChange} modal={false}>
-      <Popover.Trigger asChild>
-        <Trigger type="button" aria-label={label} data-active={active}>
+    <Popover
+      label={title}
+      width={`min(360px, calc(100vw - ${space[12]}))`}
+      open={open}
+      onOpenChange={onOpenChange}
+      trigger={
+        <Trigger
+          type="button"
+          aria-label={label}
+          aria-describedby={describedBy}
+          data-active={active}
+          $variant={variant}
+        >
           {trigger}
         </Trigger>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Content align="end" sideOffset={8} collisionPadding={12} aria-labelledby={titleId}>
-          <TitleRow>
-            <Title id={titleId}>{title}</Title>
-            <Popover.Close asChild>
-              <Close type="button" aria-label={`Close ${title}`}>
-                Close
-              </Close>
-            </Popover.Close>
-          </TitleRow>
-          {children}
-        </Content>
-      </Popover.Portal>
-    </Popover.Root>
+      }
+    >
+      {children}
+    </Popover>
   )
 }
 
-const open = keyframes`
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-`
+const variants = {
+  activity: css`
+    gap: ${space[4]};
+    padding: ${space[2]} ${space[5]} ${space[2]} ${space[4]};
+    color: ${color.fg};
+  `,
+  connection: css`
+    gap: ${space[3]};
+    padding: ${space[2]} ${space[5]};
+    color: ${color.muted};
+    font-size: ${typeVar.small.size};
+  `,
+}
 
-const Trigger = styled.button`
+const Trigger = styled.button<{ $variant: Variant }>`
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
   max-width: 100%;
   min-width: 0;
-  padding: 3px ${space[5]};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};
-  color: ${color.fg};
-  font-size: 12.5px;
   cursor: pointer;
+  ${hoverTransition}
+  ${({ $variant }) => variants[$variant]}
   &[data-active='true'] {
     border-color: ${color.accent};
     background: ${color.accentWeak};
@@ -76,55 +90,9 @@ const Trigger = styled.button`
     border-color: ${color.accent};
   }
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
-  }
-`
-
-const Content = styled(Popover.Content)`
-  z-index: 1000;
-  width: min(360px, calc(100vw - 24px));
-  max-width: var(--radix-popover-content-available-width);
-  max-height: min(70vh, var(--radix-popover-content-available-height));
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: ${space[7]};
-  border: 1px solid ${color.line};
-  border-radius: ${radius.popover};
-  background: ${color.surface};
-  color: ${color.fg};
-  box-shadow: ${shadow};
-  overflow-wrap: anywhere;
-  animation: ${open} 120ms ease-out;
-  ${media.reducedMotion} {
-    animation: none;
-  }
-`
-
-const TitleRow = styled.div`
-  display: flex;
-  gap: ${space[6]};
-  align-items: center;
-  justify-content: space-between;
-`
-
-const Title = styled.h2`
-  margin: 0;
-  ${type.h2}
-`
-
-const Close = styled.button`
-  min-height: 32px;
-  padding: ${space[3]} ${space[5]};
-  border: 1px solid ${color.lineStrong};
-  border-radius: ${radius.btn};
-  background: ${color.surface};
-  color: ${color.fg};
-  cursor: pointer;
-  &:hover {
-    background: ${color.surface2};
-  }
-  ${media.compact} {
-    min-height: 44px;
+    justify-content: center;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
+    padding-inline: ${space[2]};
   }
 `

@@ -6,6 +6,7 @@ import { CaptureWorkspace } from '../../capture/CaptureWorkspace'
 import { ServerStateProvider } from '../../query/ServerStateProvider'
 import type { MediaClient } from '../../../media/types'
 import { EvidenceViewer } from '../../operator/EvidenceViewer'
+import { Main, PageContent } from '../../AppLayout'
 
 const actor = '30000000-0000-4000-8000-000000000003'
 const batch: CaptureSnapshotDto = {
@@ -142,7 +143,8 @@ export function GroupedCaptureProof() {
       }}
     >
       <GlobalStyle />
-      <main style={{ maxWidth: 1600, padding: 16, margin: 'auto' }}>
+<PageContent $width="content">
+<Main>
         <h1>Grouped Capture qualification</h1>
         <p>Owned synthetic client · no inventory/provider traffic · files awaiting preview.</p>
         <label>
@@ -175,7 +177,8 @@ export function GroupedCaptureProof() {
             onDirtyChange={setDirty}
           />
         )}
-      </main>
+      </Main>
+</PageContent>
     </ServerStateProvider>
   )
 }
