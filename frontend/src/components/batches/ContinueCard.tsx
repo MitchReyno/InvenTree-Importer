@@ -19,14 +19,15 @@ function resumeAction(batch: InboxBatch) {
   }
   if (batch.workflow?.lots) {
     const { lots, needs_review } = batch.workflow
-    // Lots still to check come first, so Review opens filtered to them.
+    // Lots still to check come first, so Review opens filtered to them and counts those.
+    const shown = needs_review > 0 ? needs_review : lots
     return {
       href: batchHref(
         batch.id,
         { tab: 'review', view: 'lots' },
         needs_review > 0 ? '?filter=needs_review' : '',
       ),
-      label: `Review ${lots} ${lots === 1 ? 'lot' : 'lots'}`,
+      label: `Review ${shown} ${shown === 1 ? 'lot' : 'lots'}`,
     }
   }
   return { href: batchHref(batch.id, { tab: 'capture' }), label: 'Continue Capture' }

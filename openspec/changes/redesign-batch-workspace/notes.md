@@ -96,6 +96,7 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **2026-11-07, PR-I review round 7:** Relative times now advance on one shared minute clock that runs only while a time is on screen. The Agents summary labels the configured model "Default for new sessions", since a running session keeps the selection it started with.
 - **2026-11-07, PR-I review round 8:** The Map's badge says "unused file", because its count includes documents as well as photos.
 - **2026-11-07, PR-I review round 9:** While a split or merged batch's lineage is unknown (the operator review is unavailable and lots are retired), the header shows no unused-file count, as the Map shows "checking history" rather than calling inherited files unused; the file total stays.
+- **2026-11-07, PR-I review round 10:** The Continue card's Review action counts the lots it opens: the lots still to check when it filters to them, otherwise every lot.
 
 ## Open items
 

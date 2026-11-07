@@ -148,3 +148,29 @@ test('times read relatively, keep the exact time, and the list has no footnote',
   expect(row.querySelector('time')?.textContent).toMatch(/ago$|^just now$/)
   expect(screen.queryByText(/Search covers every retained batch title/)).not.toBeInTheDocument()
 })
+
+test('the Continue card counts the lots its Review filter opens', async () => {
+  const api = client()
+  api.list.mockImplementation(async () => ({
+    batches: [
+      {
+        ...saved,
+        workflow: {
+          ...saved.workflow,
+          lots: 10,
+          needs_review: 3,
+          open_questions: 0,
+          active_jobs: 0,
+        },
+      },
+    ],
+    truncated: false,
+  }))
+  render(<Batches client={api} onDirtyChange={vi.fn()} />)
+  const continued = await screen.findByRole('region', { name: 'Bench bag' })
+
+  expect(within(continued).getByRole('link', { name: 'Review 3 lots' })).toHaveAttribute(
+    'href',
+    `#${saved.id}/review/lots?filter=needs_review`,
+  )
+})
