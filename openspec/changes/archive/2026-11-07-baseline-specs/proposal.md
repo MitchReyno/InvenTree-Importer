@@ -33,7 +33,7 @@ Linked BI items: none. The change records existing behavior and does not deliver
 | `intake/design.md`, `intake/plan.md` | ~170 | Post-spike architecture and delivery plan, superseded by the TypeScript design |
 | `import-execution/design.md`, `contracts.md`, `plan.md` | ~870 | Python durable-import design, contracts and Stages 0–7 (complete) |
 
-The Stage 1 spikes (`combined-seams`, `durable-coordination`, `importer-adapter`, `subscription-runtime`, and the `shared` fixtures and contract) and their backend tests were investigation code for the intake design. They move to `spikes/` in this change. `spikes/mcp-session-tools` stays where it is, because it belongs to the active `simplify-intake-entry` change.
+The Stage 1 spikes (`combined-seams`, `durable-coordination`, `importer-adapter`, `subscription-runtime`, and the `shared` fixtures and contract) and their backend tests were investigation code for the intake design. They move to `spikes/` in this change. `spikes/mcp-session-tools` stayed out of this move because it belonged to `simplify-intake-entry`; it now lives in that change's archive.
 
 ## Scope and non-goals
 
