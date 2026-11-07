@@ -5,7 +5,7 @@
 A `native-agent/2` session SHALL reach the application only through an app-owned tool server scoped to that session. The tool server SHALL offer exactly these tools:
 
 - status
-- record_observation, propose_lot and regroup (the Examine lead session only)
+- read_batch, record_observation, propose_lot and regroup (the Examine lead session only)
 - propose
 - ask
 - reply

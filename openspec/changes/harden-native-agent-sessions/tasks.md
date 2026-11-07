@@ -48,11 +48,11 @@ Every bundle requires scoped documentation updates, exact-head independent revie
 - Prerequisites: Task 1 successful proof and expansion of this same change with the selected approach and remaining work.
 - Acceptance: D1; Session tool boundary scenarios.
 - Approach: Implement the demonstrated admission policy and runtime guards for both providers, with direct intake tools and only the four inert exceptions.
-- TDD or equivalent verification: Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must refuse before inference and preserve reap ordering.
+- TDD or equivalent verification: Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must admit the normal lead tool set including read_batch, refuse forbidden surfaces before inference and preserve reap ordering.
 - Verification and risks: Run scoped process tests including cancellation, server-request refusal and unconfirmed reap; update agents architecture.
 
 - [ ] 2.1 Confirm the scoped baseline and prerequisites for enforce fresh and resumed tool confinement.
-- [ ] 2.2 Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must refuse before inference and preserve reap ordering.
+- [ ] 2.2 Baseline existing process fixtures; RED for exec-wrapped calls, deferred tools, skill injection, unknown surface and resumed-policy drift; GREEN must admit the normal lead tool set including read_batch, refuse forbidden surfaces before inference and preserve reap ordering.
 - [ ] 2.3 Implement the demonstrated admission policy and runtime guards for both providers, with direct intake tools and only the four inert exceptions.
 - [ ] 2.4 Run scoped process tests including cancellation, server-request refusal and unconfirmed reap; update agents architecture.
 
