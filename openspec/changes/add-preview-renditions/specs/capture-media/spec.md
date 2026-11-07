@@ -124,7 +124,7 @@ An observation crop SHALL be requestable at the `thumb`, `card` or `view` size o
 
 ### Requirement: Media rendition backfill
 
-Ready versions decoded before renditions existed SHALL gain renditions without changing their existing previews, preview identifiers, dimensions or bytes, without operator action and without blocking other decoding. Until a page has renditions, a requested size SHALL resolve to its full-resolution preview.
+Ready versions decoded before renditions existed SHALL gain renditions rendered from their retained page previews, without changing those previews' identifiers, dimensions or bytes, without operator action and without blocking other decoding. Until a page has renditions, a requested size SHALL resolve to its full-resolution preview.
 
 #### Scenario: Retained version upgraded
 
@@ -150,11 +150,23 @@ Ready versions decoded before renditions existed SHALL gain renditions without c
 - **WHEN** the worker runs again
 - **THEN** the page still has its full preview, no partial set of renditions is visible, the version's decode state and version count are unchanged, and the backfill is retried on a later run up to a bounded number of attempts.
 
-#### Scenario: Source changed
+#### Scenario: Renditions match the retained page
 
-- **GIVEN** a retained version whose re-decoded page no longer matches the recorded page dimensions
-- **WHEN** its backfill completes
-- **THEN** no renditions are recorded for it and its existing preview is unchanged.
+- **GIVEN** a retained page preview whose bytes no longer match its recorded digest or dimensions
+- **WHEN** its backfill runs
+- **THEN** no renditions are recorded for it, its existing preview is unchanged, and it is not selected again.
+
+#### Scenario: Concurrent workers
+
+- **GIVEN** two media workers running at once
+- **WHEN** both look for backfill work
+- **THEN** each page is upgraded at most once, and neither worker's attempt is counted against the other.
+
+#### Scenario: Worker killed after claiming
+
+- **GIVEN** a worker killed after claiming a page's backfill
+- **WHEN** another worker runs after the claim has expired
+- **THEN** the abandoned attempt is recorded as interrupted and the page is upgraded within the bounded number of attempts.
 
 ### Requirement: Media previews fit their surface
 

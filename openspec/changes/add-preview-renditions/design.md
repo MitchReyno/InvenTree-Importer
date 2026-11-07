@@ -39,7 +39,7 @@ The result header gains, per page, `renditions: [{ size, width, height, byte_siz
 - **Rejected: a second, separate rendition command.** It would double container start-up and split one decode's outputs across two commits.
 - **Accepted trade-off:** more decoder time and stored bytes. A 960 px WebP is typically 100–200 KB against a multi-megabyte page PNG, so storage grows by only a few percent.
 
-Proof of fit (task 1): measure a 50 MP JPEG and a 30-page PDF against the 30 s bound. If the margin is thin, lower `effort` before reducing the sizes.
+Proof of fit (task 1): run a 50 MP JPEG and a 30-page PDF through `decodeIsolated()`, which enforces both the container's inner 25 s `timeout` and the 30 s outer watchdog, and require them to complete successfully with margin against the 25 s bound. If the margin is thin, lower `effort` before reducing the sizes.
 
 ### One table keyed by preview and size
 
@@ -50,7 +50,7 @@ Renditions are rows under the existing preview, not separate previews, so:
 - `preview_id` keeps meaning the full page everywhere: agents, regions, recipes and attachment previews;
 - a page either has a size or does not;
 - `blobReferenced()` gains one more `EXISTS`;
-- the decoder role gains `INSERT` on the table, the API role `SELECT`, and the collector (`gc`) role `SELECT`, which its separate grant list needs before `blobReferenced()` can read the table.
+- the decoder role gains `INSERT` on the table, and every role that reads `media_preview` gains `SELECT` on it: the API, `processing` and `processing-reader` roles, whose processing reads reach `mediaSnapshot()` through `media/inputs.ts`, and the collector (`gc`) role, whose separate grant list `blobReferenced()` needs.
 
 Rejected: extra `media_preview` rows per size, which would break every consumer that assumes one preview per page.
 
@@ -80,26 +80,33 @@ The cache key gains the size. The route serves `?size=`, defaulting to `full`, w
 
 Observation crops stay outside the blob store. They remain a disposable cache, as the existing design intends.
 
-### Backfill uses its own attempt table, not decode commands
+### Backfill renders from the retained page, per preview, with claimed attempts
 
 Ordinary decode commands can't carry the backfill. `media_original_decode_once` allows one command per original, `derivation_id` is unique, snapshot reads assume those cardinalities, and the decoder role can't create commands. Relaxing them would risk duplicate versions, derivations or decode results.
 
-Instead, a `media_rendition_backfill` table records attempts: `id`, `batch_id`, `version_id`, `attempt`, `outcome` (`claimed` | `completed` | `skipped_mismatch` | `interrupted`) and `created_at`.
+Re-decoding the original wouldn't be safe either. After a decoder or toolchain change it can produce different pixels at the same dimensions, attaching renditions that don't match the retained page that crops, regions and agents still use. So the backfill renders from the retained full-page PNG itself, inside the bounded decoder:
 
-- **Who writes it.** The worker role gets `INSERT`/`UPDATE` on that table only.
-- **Decoder input.** The original's bytes and, for a derived version, its derivation's recipe, the same input a normal decode uses.
-- **Eligibility.** A ready version qualifies when some page lacks a size its dimensions call for (long edge above 320, 960 or 2048), it has no `completed` or `skipped_mismatch` attempt, and it has fewer than three attempts. Expected sizes are computed from dimensions, so a page no larger than 320 px expects none and is never selected again, while a mixed-size PDF expects sizes per page.
+- The decoder protocol gains a `media-renditions/1` input carrying one retained page PNG and its recorded width, height and digest.
+- The decoder accepts only a PNG whose digest and dimensions match, and returns only its renditions.
+- Renditions therefore always derive from exactly the bytes that are retained.
+
+Attempts are tracked per preview in a `media_rendition_backfill` table, with these columns:
+
+- `id`, `batch_id` and `preview_id`;
+- `owner_id` and `claimed_at`;
+- `outcome`: `claimed`, `completed`, `skipped_mismatch` or `interrupted`;
+- `attempt` and `created_at`.
+
+How attempts are claimed and published:
+
+- **Exclusion.** A partial unique index allows one `claimed` row per preview, and the claim is made with `FOR UPDATE SKIP LOCKED`, so concurrent workers never claim the same preview or consume its retry budget twice.
+- **Eligibility.** A preview qualifies when its version is ready, its dimensions call for a size it lacks (long edge above 320, 960 or 2048), and it has no `completed` or `skipped_mismatch` attempt and fewer than three attempts. Expected sizes come from the dimensions, so a page no larger than 320 px expects none and is never selected, and each page of a mixed-size PDF is judged on its own.
 - **Priority.** The worker claims a backfill only when no decode command is waiting, so new uploads never wait behind it.
+- **Abandoned claims.** A `claimed` row older than the decoder's outer watchdog plus a grace period (for example 2 minutes) was left by a killed worker. The next worker marks it `interrupted` before claiming, and it becomes eligible again within the three-attempt cap.
+- **Publication.** It happens in one transaction that re-locks the attempt and requires `owner_id` to match and the outcome to still be `claimed`. A mismatched or unreadable page PNG inserts nothing and marks the attempt `skipped_mismatch` (logged). Otherwise every rendition row for that preview is inserted and the attempt is marked `completed`. No version, preview, decode command or decode result is written.
+- **Roles.** The worker role gets `INSERT`/`UPDATE` on this table only, and snapshot reads never touch it.
 
-On publication, in one transaction, the worker:
-
-- compares each re-decoded page's dimensions with the recorded `media_preview`, and on any mismatch inserts nothing and marks the attempt `skipped_mismatch` (logged);
-- otherwise inserts every rendition row for the existing preview IDs and marks the attempt `completed`;
-- writes no version, preview, decode command or decode result.
-
-An interrupted attempt is marked `interrupted` and becomes eligible again on a later worker run, up to the three-attempt cap, so a failing source cannot loop. Snapshot reads never touch this table.
-
-Rejected: generating renditions from the stored page PNG outside the decoder, in the API or a migration. That would decode image bytes outside the bounded container. The PNG is decoder output, but keeping every decode inside the container keeps the boundary simple to audit.
+Rejected: rendering from the page PNG in the API or a migration. That would decode image bytes outside the bounded container, and keeping every decode inside the container keeps the boundary simple to audit.
 
 ### The frontend picks a size per surface with `srcset`
 
@@ -117,9 +124,13 @@ Usage profiles:
 | `viewer` | `EvidenceViewer`, `MediaCropDialog` selection | thumb, card and view; the viewer replaces `src` and `srcSet` with the full page once zoom × displayed width exceeds the view width |
 | `full` | `ProcessingImages` open link | full page (the original download link keeps using the version route) |
 
-`srcSet` lists only the renditions the usage allows, with `w` descriptors from their listed widths. The full page is never a `srcSet` candidate, so a high-density screen can't skip to it. `src` is the largest allowed rendition, or the full page only when the page has no rendition in that range, as before backfill or for a small source.
+`srcSet` lists the renditions the usage allows, with `w` descriptors from their listed widths. The full page is a candidate only when the usage's largest size was omitted because the page is no larger than it, or because the page hasn't been backfilled yet. Then the full page is no bigger than that size, or is the only accurate image.
 
-The viewer starts with `thumb`, `card` and `view` candidates. Once zoom × displayed width exceeds the `view` width, it replaces both `src` and `srcSet` with the full page alone, and restores them when zoomed back out.
+- An 800 × 600 page in a card offers `thumb` and the 800 px full page, not `thumb` alone, so it is never blurrier than today.
+- A 4032 px photo's card never offers the full page, so a high-density screen can't skip to it.
+- `src` is the largest candidate.
+
+The viewer starts with its usage candidates. It promotes to full when `zoom × rendered CSS width × devicePixelRatio` exceeds the `view` rendition's width, where the rendered width is measured at zoom 1. It then replaces both `src` and `srcSet` with the full page alone, and restores them when the product drops back below the width.
 
 Several surfaces don't receive page data today, so their interfaces change too:
 
@@ -151,17 +162,35 @@ observation region ─▶ cut from full page PNG ─▶ downscaled per size (cac
 ## Verification strategy
 
 - **Decoder unit tests.** A 30-page result passes through the real header framing, and an injected encoder failure stays `interrupted`, not `limit_exceeded`. Fixtures cover a JPEG with EXIF orientation, a small PNG, a three-page PDF, a recipe crop and a rotated region. Each checks the expected sizes, dimensions and omitted sizes, that the output is WebP, and that the full page is unchanged. An oversized total output must end `limit_exceeded` with no renditions.
-- **Decoder bounds (process tier).** Run the real decoder image against a 50 MP photo and a 30-page PDF and record the time against the 30 s limit. Results go on the PR.
-- **PostgreSQL tier.** Check the migration, the immutability trigger, grants (decoder inserts, API and `gc` read, none update), and `blobReferenced()` and collection with rendition blobs run as the restricted `gc` role. Check atomic publication. Check the backfill: it upgrades without touching previews, versions, commands or decode results; marks a mismatch skipped; never selects small pages; retries an interrupted attempt only on a later run and within the cap; and defers to pending commands. Check the rollback procedure: after clearing rendition rows, the collector keeps every remaining referenced blob.
+- **Decoder bounds (process tier).** Run the real decoder image through `decodeIsolated()` against a 50 MP photo and a 30-page PDF. Both must complete within the inner 25 s bound, and the times go on the PR. Also run a `media-renditions/1` input with a matching page, a digest mismatch and a dimension mismatch.
+- **PostgreSQL tier.** Check the migration, the immutability trigger, grants (decoder inserts; API, `processing`, `processing-reader` and `gc` read; none update), a processing-side snapshot read run as the restricted processing reader, and `blobReferenced()` and collection with rendition blobs run as the restricted `gc` role. Check atomic publication. Check the backfill:
+  - it upgrades without touching previews, versions, commands or decode results, and marks a mismatch skipped;
+  - it never selects small pages, and defers to pending commands;
+  - two concurrent workers never claim one preview;
+  - a claim abandoned by a killed worker is recovered and retried within the cap;
+  - a stale owner cannot publish.
+
+  Check the rollback procedure: after clearing rendition rows, the collector keeps every remaining referenced blob.
 - **HTTP tests.** Check size selection and fallback, with fallbacks marked `no-cache` and a same-URL request after backfill returning WebP, 400 on an unknown size, 404 across batches, the caching headers, and observation-crop sizes, aspect ratio, ETag and 304, plus a region change returning new bytes.
-- **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage, with the full page never offered in `srcSet`, and its fallback with no renditions. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, the viewer switching both attributes to full on zoom at 3× density, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
+- **Frontend tests.** Check the helper's `srcSet`/`sizes` per usage, with the full page never offered in `srcSet`, and its fallback with no renditions. Check the attributes reach the real `<img>` in `BatchThumbnail`, `EvidenceTile` and `RotatedCropSelection`, an 800 × 600 page offering its full page in cards and the viewer, the viewer promoting to full just above, and not just below, the density-adjusted threshold at 1× and 3×, crop dialog coordinates unchanged while showing `view`, and each listed surface using its usage profile.
 - **Manual check.** On `pnpm dev --tailscale` from a phone, record transferred bytes for the batch list, Capture and the viewer before and after, and attach them to the PR.
 
 ## Migration, rollout and recovery
 
 - **Migration.** Migration `0020_media_preview_renditions.sql` adds the table, the trigger, the grants and the reference check. Dev setup reapplies grants on start, so retained namespaces upgrade automatically.
 - **Backfill.** It then runs in the background worker, and the UI shows full previews until each page is upgraded.
-- **Rollback.** Older code ignores the table for reads, but its collector also ignores rendition references, and could delete aged rendition blobs whose rows remain. So a rollback must not run the older collector until the rendition rows are cleared. The owner role runs `DELETE FROM media_preview_rendition; DELETE FROM media_rendition_backfill;` first, which is safe because renditions are display-only and are backfilled again after re-upgrading. A down-migration is not provided, matching the project's forward-only migrations.
+- **Rollback.** Older code ignores the tables for reads, but its collector also ignores rendition references, and could delete aged rendition blobs whose rows remain. So the older collector must not run until the rendition rows are cleared. The immutability trigger refuses deletes, so the procedure runs as the table owner in one transaction:
+
+  ```sql
+  BEGIN;
+  ALTER TABLE media_preview_rendition DISABLE TRIGGER media_preview_rendition_immutable;
+  DELETE FROM media_preview_rendition;
+  ALTER TABLE media_preview_rendition ENABLE TRIGGER media_preview_rendition_immutable;
+  DELETE FROM media_rendition_backfill;  -- once PR-B has added it
+  COMMIT;
+  ```
+
+  This is safe because renditions are display-only and are backfilled again after re-upgrading. PR-A documents and tests the rendition-table part, and PR-B adds the backfill table to it. A down-migration is not provided, matching the project's forward-only migrations.
 - **Observability.** The worker logs backfill progress (`renditions_backfilled`, `renditions_skipped_mismatch`) without content or digests beyond existing log policy.
 - **Authorization.** This plan does not authorize live operations. It touches only the local development stack and its own data.
 

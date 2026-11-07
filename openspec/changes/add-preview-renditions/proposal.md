@@ -107,5 +107,5 @@ Assumptions, adjustable at review:
 - **Encoding.** WebP at quality 80.
 - **Small sources.** A rendition is omitted when the page is no larger than its long edge, and the next size up, or the full page, serves that size.
 - **Crop source.** "The original retained as the source for crops" is met by keeping the original bytes inside the decoder boundary as today. Crops are cut from the original, or from the full-resolution page decoded from it, never from a rendition.
-- **Backfill.** It runs automatically through the media worker for every ready version without renditions, one bounded decode at a time.
+- **Backfill.** It runs automatically through the media worker for every retained page preview that lacks the sizes its dimensions call for. Renditions are rendered from the retained page PNG inside the bounded decoder, one page at a time, after any pending decode work.
 - **Agents.** Agent evidence delivery is unchanged. Reusing renditions for agents could be a later change.

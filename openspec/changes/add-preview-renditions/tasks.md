@@ -38,25 +38,25 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 - **Verification:** decoder unit tests; real decoder-image timing for a 50 MP JPEG and a 30-page PDF.
 - **Risks:** encode time near the 30 s bound. Measure before tuning `effort`.
 
-- [ ] 1.1 Baseline: run the existing decoder tests and record a 50 MP JPEG and a 30-page PDF decode time in the real image.
+- [ ] 1.1 Baseline: run the existing decoder tests, and record a 50 MP JPEG and a 30-page PDF decode time through `decodeIsolated()` against its inner 25 s bound.
 - [ ] 1.2 RED: add decoder tests for rendition sizes, dimensions, omission, WebP type, unchanged full page, derived-crop sizing, a total-output limit, an injected encoder failure (`interrupted`), and a 30-page result through the real header framing. They fail because no renditions are returned and the header bound is 8192 bytes.
 - [ ] 1.3 GREEN: encode renditions per page, extend the result header and byte framing, and raise the shared header bound in the parser and runner.
-- [ ] 1.4 Re-measure the two large inputs in the real image, tune `effort` if needed, and record the times for the PR.
+- [ ] 1.4 Re-measure the two large inputs through `decodeIsolated()`, require successful completion with margin against the 25 s bound, tune `effort` if needed, and record the times for the PR.
 
 ## 2. Rendition storage and publication
 
 - **PR delivery:** PR-A.
 - **Outcome:** a ready decode commits its renditions with its previews in one transaction. Rendition blobs are referenced for collection, and the decoder role can insert but not alter them.
-- **Scope:** `intake-server/migrations/0020_media_preview_renditions.sql`, `media/schema.ts`, `media/worker.ts`, `media/grants.ts` (decoder `INSERT`, API and `gc` `SELECT`), `media/blob-reference.ts`, intake-server architecture notes and the rollback note in `docs/development.md`.
+- **Scope:** `intake-server/migrations/0020_media_preview_renditions.sql`, `media/schema.ts`, `media/worker.ts`, `media/grants.ts` (decoder `INSERT`; API, `processing`, `processing-reader` and `gc` `SELECT`), `media/blob-reference.ts`, intake-server architecture notes and the rollback note in `docs/development.md`.
 - **Prerequisites:** task 1.
 - **Acceptance:** Media preview renditions (atomic with the page; none on failure); existing Media orphan collection guarantees.
 - **Approach:** as in design ("One table keyed by preview and size"), using the existing digest locks and immutability-trigger pattern.
 - **Verification:** PostgreSQL tier (`pnpm test:intake:pg`) for the migration, the trigger, grants, atomic publication, interrupted publication and collection.
 
-- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/`gc` grants, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
+- [ ] 2.1 RED: add PostgreSQL tests for publication, a rolled-back publication, immutability, decoder/API/processing/`gc` grants, a processing-side snapshot read as the restricted processing reader, and collection run as the restricted `gc` role keeping referenced rendition blobs and removing aged orphans.
 - [ ] 2.2 GREEN: add the migration, Drizzle table, grants and reference check, and publish renditions in `publishDecoded`.
 - [ ] 2.3 Verify the existing media PostgreSQL and process suites still pass, and update the media architecture note.
-- [ ] 2.4 Document and test the rollback procedure: clear rendition rows before an older collector runs, then confirm every remaining referenced blob survives collection.
+- [ ] 2.4 Document and test the rendition-table rollback (owner transaction disabling the immutability trigger to clear rows) before an older collector runs, then confirm every remaining referenced blob survives collection.
 
 ## 3. Sized preview reads and contract
 
@@ -89,10 +89,15 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - **PR delivery:** PR-B.
 - **Outcome:** the media worker upgrades retained ready versions in the background, after pending work. Eligibility comes from the sizes each page's dimensions call for, and attempts are tracked in their own table. It never changes existing previews, versions, commands or decode results, skips a dimension mismatch, and retries an interrupted attempt only on a later run, within a three-attempt cap.
-- **Scope:** a migration adding `media_rendition_backfill` with its worker grants, `media/worker.ts` (eligibility, claim, decode input from the original and its recipe, and rendition-only publication), and snapshot reads, which must not change.
+- **Scope:**
+  - a migration adding `media_rendition_backfill`, with its partial unique claim index and worker grants;
+  - the `media-renditions/1` decoder input in `decoder-protocol.ts`, `decode.ts` and `decoder-runner.ts`;
+  - in `media/worker.ts`: eligibility, claiming, abandoned-claim recovery and owner-checked rendition-only publication;
+  - snapshot reads, which must not change;
+  - adding the backfill table to the rollback procedure.
 - **Prerequisites:** task 2.
 - **Acceptance:** Media rendition backfill (upgrade, request before backfill, interrupted, source changed).
-- **Approach:** as in design ("Backfill uses its own attempt table, not decode commands").
+- **Approach:** as in design ("Backfill renders from the retained page, per preview, with claimed attempts").
 - **Verification:** PostgreSQL tier, plus a run against a copy of retained development data. Never run it against the live namespace without a backup.
 
 - [ ] 5.1 RED: add PostgreSQL tests for:
@@ -102,6 +107,9 @@ Complete and verify a checkbox action, then check it in the same commit as its w
   - small pages never selected;
   - a mixed-size PDF;
   - an interrupted attempt retried only on a later run and capped;
+  - two concurrent workers never claiming one preview;
+  - an abandoned claim recovered after expiry, and a stale owner refused at publication;
+  - a retained page whose bytes don't match its recorded digest, skipped;
   - a derived version's recipe backfill.
 - [ ] 5.2 GREEN: implement the attempt table, eligibility, claiming and rendition-only publication, with `renditions_backfilled`/`renditions_skipped_mismatch` logs.
 - [ ] 5.3 Run the backfill against a copy of a retained development namespace, confirm every ready page gains renditions, and record counts for the PR.
