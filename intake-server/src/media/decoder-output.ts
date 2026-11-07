@@ -42,22 +42,21 @@ function decodedPage(page: MediaOutputPageDto, bytes: Buffer, expectedPage: numb
 
 /** Encoded dimensions of a simple-lossy, lossless or extended WebP, or null if it is not one. */
 export function webpDimensions(bytes: Buffer): { width: number; height: number } | null {
-  if (
-    bytes.length < 30 ||
-    bytes.toString('ascii', 0, 4) !== 'RIFF' ||
-    bytes.toString('ascii', 8, 12) !== 'WEBP'
-  ) {
+  // Exact bytes: `ascii` decoding drops the high bit, so 0xD2 would read as `R`.
+  const is = (start: number, text: string) =>
+    bytes.subarray(start, start + 4).equals(Buffer.from(text))
+
+  if (bytes.length < 30 || !is(0, 'RIFF') || !is(8, 'WEBP')) {
     return null
   }
-  const chunk = bytes.toString('ascii', 12, 16)
-  if (chunk === 'VP8 ' && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+  if (is(12, 'VP8 ') && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
     return { width: bytes.readUInt16LE(26) & 0x3fff, height: bytes.readUInt16LE(28) & 0x3fff }
   }
-  if (chunk === 'VP8L' && bytes[20] === 0x2f) {
+  if (is(12, 'VP8L') && bytes[20] === 0x2f) {
     const bits = bytes.readUInt32LE(21)
     return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 }
   }
-  if (chunk === 'VP8X') {
+  if (is(12, 'VP8X')) {
     return { width: bytes.readUIntLE(24, 3) + 1, height: bytes.readUIntLE(27, 3) + 1 }
   }
   return null

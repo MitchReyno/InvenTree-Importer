@@ -286,6 +286,20 @@ test('each rendition integrity guard refuses its own corruption', () => {
       ),
     /invalid_decoder_rendition/,
   )
+  // A high bit set on any magic byte is not a WebP, even though `ascii` decoding would hide it.
+  for (const offset of [0, 8, 12]) {
+    assert.throws(
+      () =>
+        parseDecoderOutput(
+          framed(page, undefined, (bytes) => {
+            const copy = Buffer.from(bytes)
+            copy[offset] |= 0x80
+            return copy
+          }),
+        ),
+      /invalid_decoder_rendition/,
+    )
+  }
   // A WebP whose encoded dimensions disagree with its header entry.
   assert.throws(
     () =>
