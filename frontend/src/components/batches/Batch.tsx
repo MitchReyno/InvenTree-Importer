@@ -550,7 +550,6 @@ export function Batch({
         }
         edit={edit}
         observe={observe}
-        onStage={navigate}
         onDirtyChange={reportCaptureDirty}
         settings={settingsPorts}
         processing={processing}

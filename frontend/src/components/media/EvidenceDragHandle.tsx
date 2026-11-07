@@ -39,7 +39,7 @@ export function EvidenceDragHandle({ evidenceId, label, disabled, children }: Pr
 
 const Card = styled.div<{ $dragging: boolean }>`
   min-width: 0;
-  opacity: ${(p) => (p.$dragging ? 0.6 : 1)};
+  opacity: ${(p) => (p.$dragging ? opacity.disabled : 1)};
 `
 // The photo-fg ring stays visible on any picture, as the tile's tick does.
 const Handle = styled.button`

@@ -299,17 +299,14 @@ test('a settings acknowledgement cannot erase a sibling instruction draft', asyn
   expect(operator.instruct).not.toHaveBeenCalled()
 })
 
-test('Capture omits subject panes and opens Review for subject editing', async () => {
-  const user = userEvent.setup()
+test('Capture omits subject panes and opens Review for subject editing', () => {
   history.replaceState(null, '', `#${batchId}/capture`)
-  const onStage = vi.fn()
   render(
     <CaptureWorkspace
       batch={batch}
       busy={false}
       edit={vi.fn(async () => undefined)}
       observe={vi.fn()}
-      onStage={onStage}
     />,
   )
   expect(screen.getByRole('heading', { name: 'Batch settings' })).toBeInTheDocument()
@@ -319,8 +316,10 @@ test('Capture omits subject panes and opens Review for subject editing', async (
   expect(screen.queryByRole('region', { name: /^Lot:|^Shared Part:/ })).not.toBeInTheDocument()
   // Provenance on demand: no revision or version numbers inline on Capture.
   expect(screen.queryByText(/revision \d|Version \d/)).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Go to review →' }))
-  expect(onStage).toHaveBeenCalledWith('review')
+  expect(screen.getByRole('link', { name: 'Go to processing →' })).toHaveAttribute(
+    'href',
+    `#${batchId}/processing/overview`,
+  )
   history.replaceState(null, '', location.pathname)
 })
 

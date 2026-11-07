@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { Fieldset, Form, Label, Small, TextArea } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -69,7 +69,7 @@ const NoteForm = styled(Form)`
   margin: ${space[6]} 0;
   padding: ${space[6]};
   border: 1px solid ${color.line};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   background: ${color.surface2};
 `
 const Actions = styled.div`

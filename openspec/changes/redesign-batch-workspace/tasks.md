@@ -376,7 +376,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 17.2 Restyle the capture actions as the design's tiles (K1), and give every Capture control a 44px hit area below `bp-compact` (G15).
 - [x] 17.3 Restyle evidence groups and tiles (K3–K5): inline group name, small and ghost actions, the move handle on the tile.
 - [x] 17.4 Restyle the Proposed lots glance (K6; its chips onto `Pill`, G6), and move `MediaCropDialog` onto `Dialog`.
-- [ ] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
+- [x] 17.5 Move Capture's notices onto `Banner` (G12), apply the hover-transition mixin to `EvidenceActions` (G7), move this area's near values and visible cluster changes (C3, C4, C8: 430px to `bp-phone`, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V4 gaps: K2, K7, K8, K9 and K10.
 - [ ] 17.6 Rename `EvidenceActions` to `CaptureActions` and make `EvidenceGroupPanel` render `ui/EvidenceGroup` (design D12); close K11, K12, K13, K15 and K6's skeleton row and header pill, G24 for Capture's undoable actions and G26 (EvidenceTile's failure, caption and preparing states).
 - [ ] 17.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 

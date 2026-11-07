@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { space } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { Notice } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -9,6 +8,7 @@ import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { EvidencePanel } from './EvidencePanel'
 import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '../../processing/proposed-lots'
+import { batchHref } from '../../navigation/batch-route'
 import { useSessionStatuses } from '../../processing/session-status'
 
 type DirtySource = 'settings' | 'media' | 'note'
@@ -23,7 +23,6 @@ export function CaptureWorkspace({
   media,
   edit,
   observe,
-  onStage,
   onDirtyChange,
   operatorReview,
   operator,
@@ -135,11 +134,15 @@ export function CaptureWorkspace({
             observe={observe}
             reload={reload}
           />
-          {onStage && (
-            <ReviewEntry type="button" onClick={() => onStage('review')}>
-              Go to review →
-            </ReviewEntry>
-          )}
+          <NextStep>
+            <Button
+              as="a"
+              variant="primary"
+              href={batchHref(batch.id, { tab: 'processing', step: 'overview' })}
+            >
+              Go to processing →
+            </Button>
+          </NextStep>
         </SettingsColumn>
       </CaptureGrid>
     </>
@@ -149,25 +152,25 @@ export function CaptureWorkspace({
 // The glance hides lots the snapshot marks retired; Capture has no separate retired set.
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
+// The canvas's flex bases: evidence takes the room, and the columns stack when both no longer fit.
 const CaptureGrid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
-  grid-template-areas: 'context settings';
-  gap: ${space[8]};
-  align-items: start;
-  ${media.stacked} {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'context' 'settings';
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[9]};
+  align-items: flex-start;
+  & > [data-area='context'] {
+    flex: 999 1 600px;
   }
 `
 const SettingsColumn = styled.div`
-  grid-area: settings;
+  flex: 1 1 380px;
   display: grid;
   gap: ${space[6]};
   min-width: 0;
 `
-const ReviewEntry = styled(Button)`
-  justify-self: stretch;
-  text-align: left;
-  font-weight: 550;
+const NextStep = styled.div`
+  display: grid;
+  & > a {
+    justify-content: center;
+  }
 `

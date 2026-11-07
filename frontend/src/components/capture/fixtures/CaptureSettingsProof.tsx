@@ -167,7 +167,6 @@ export function CaptureSettingsProof() {
           busy={false}
           observe={observe as never}
           edit={async () => true}
-          onStage={() => undefined}
           settings={ports}
         />
         <ol aria-label="Acknowledged fixture saves">

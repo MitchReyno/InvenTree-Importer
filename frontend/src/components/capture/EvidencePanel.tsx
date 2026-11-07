@@ -118,7 +118,6 @@ export function EvidencePanel({
 }
 
 const EvidenceArea = styled.section`
-  grid-area: context;
   display: flex;
   flex-direction: column;
   gap: ${space[7]};

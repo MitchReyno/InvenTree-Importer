@@ -1,6 +1,6 @@
 import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { Paragraph, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -59,7 +59,7 @@ const Card = styled.article`
   display: grid;
   gap: ${space[5]};
   border: 1px solid ${color.line};
-  border-radius: 5px;
+  border-radius: ${radius.card};
   padding: ${space[6]};
   margin: ${space[6]} 0;
 `
@@ -76,7 +76,7 @@ const Version = styled.div`
   }
 
   figcaption {
-    font-size: 12px;
+    font-size: ${typeVar.small.size};
     color: ${color.muted};
   }
 `
