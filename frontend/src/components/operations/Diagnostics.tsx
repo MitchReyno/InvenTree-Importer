@@ -5,7 +5,7 @@ import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 
 export function Diagnostics() {
   const scope = useServerScope()
@@ -57,21 +57,21 @@ export function Diagnostics() {
 }
 
 const Container = styled.details`
-  margin: 6px 0;
-  padding: 0 10px 8px;
+  margin: ${space[3]} 0;
+  padding: 0 ${space[5]} ${space[4]};
   border: 1px solid ${color.line};
   border-radius: 6px;
   background: ${color.surface};
   font-size: 12px;
   summary {
     cursor: pointer;
-    min-height: 44px;
+    min-height: ${size.touch};
     align-content: center;
   }
   dt {
-    font-weight: 650;
+    font-weight: ${typeVar.h3.weight};
   }
   dd {
-    margin: 4px 0 10px;
+    margin: ${space[2]} 0 ${space[5]};
   }
 `

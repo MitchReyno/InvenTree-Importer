@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import type { ThemeController } from '../../theme/theme'
 import { Breadcrumb, type BreadcrumbItem } from '../ui/Breadcrumb'
 import { media } from '../ui/media'
@@ -143,7 +143,7 @@ const Wordmark = styled.a`
 `
 
 const DevBadge = styled.span`
-  padding: 2px ${space[4]};
+  padding: ${space[1]} ${space[4]};
   border: 1px solid ${color.devLine};
   border-radius: ${radius.pill};
   background: ${color.devBg};
@@ -160,7 +160,7 @@ const Crumbs = styled.div`
   overflow: hidden;
   /* Room for the link's focus ring inside the clipped box. */
   margin: -4px;
-  padding: 4px;
+  padding: ${space[2]};
   ${media.compact} {
     display: none;
   }
@@ -176,5 +176,5 @@ const WorkflowLabel = styled.span`
   border-radius: ${radius.pill};
   background: ${color.surface};
   color: ${color.muted};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
 `

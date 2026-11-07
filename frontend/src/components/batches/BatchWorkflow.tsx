@@ -1,6 +1,6 @@
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { Link, Small } from '../ui/primitives'
 import { batchHref } from '../../navigation/batch-route'
@@ -62,7 +62,7 @@ const Summary = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[2]} ${space[3]};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
   > span {
     padding: 1px 0;
@@ -82,7 +82,7 @@ const Summary = styled.div`
   }
   ${media.compact} {
     a {
-      min-height: 44px;
+      min-height: ${size.touch};
     }
   }
 `

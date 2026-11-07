@@ -2,7 +2,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { useState } from 'react'
 import type { AttentionItemDto, BatchAttentionDto } from '@invimport/contracts'
 import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
+import { color, radius, shadow, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { NeedsYou } from '../ui/NeedsYou'
 import { Pill } from '../ui/Pill'
@@ -91,17 +91,17 @@ const Trigger = styled.button`
   display: inline-flex;
   align-items: center;
   gap: ${space[3]};
-  min-height: 32px;
+  min-height: ${size.control};
   padding: 3px ${space[6]};
   border: 1px solid ${color.warn};
   border-radius: ${radius.pill};
   background: ${color.warnWeak};
   color: ${color.warn};
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
   cursor: pointer;
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
@@ -135,6 +135,6 @@ const Heading = styled.h3`
 const More = styled.p`
   margin: 0;
   padding: ${space[4]} ${space[6]};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

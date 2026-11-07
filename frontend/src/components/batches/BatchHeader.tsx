@@ -6,7 +6,7 @@ import {
   type BatchTab,
   type ProcessingStep,
 } from '../../navigation/batch-route'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
 import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
@@ -235,7 +235,7 @@ const Title = styled.h1`
 
 const Meta = styled.p`
   margin: ${space[2]} 0 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 

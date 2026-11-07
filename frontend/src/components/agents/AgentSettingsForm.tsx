@@ -5,6 +5,7 @@ import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { Notice, Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { space, typeVar } from '../../theme/generated/tokens'
 
 interface Props {
   initial: AgentSettingsDto
@@ -200,18 +201,18 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
 
 const Form = styled.form`
   display: grid;
-  gap: 16px;
+  gap: ${space[8]};
   max-width: 720px;
   label {
     display: grid;
-    gap: 6px;
-    font-weight: 600;
+    gap: ${space[3]};
+    font-weight: ${typeVar.bodyStrong.weight};
   }
   input,
   select {
     width: 100%;
     min-height: 40px;
-    padding: 8px;
+    padding: ${space[4]};
     font: inherit;
   }
   code {
@@ -221,5 +222,5 @@ const Form = styled.form`
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${space[4]};
 `

@@ -12,7 +12,7 @@ import { BatchStageLinks } from './BatchStageLinks'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, pageWidth, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { batchHref } from '../../navigation/batch-route'
@@ -248,7 +248,7 @@ export function Batches({ client, onDirtyChange }: Props) {
 const Inbox = styled.section`
   display: grid;
   gap: ${space[9]};
-  max-width: 1240px;
+  max-width: ${pageWidth.content};
   margin: 0 auto;
 `
 
@@ -309,7 +309,7 @@ const Eyebrow = styled.span`
 `
 
 const Meta = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -342,17 +342,17 @@ const SearchForm = styled.form`
 `
 
 const SearchInput = styled(Input)`
-  min-height: 32px;
+  min-height: ${size.control};
 `
 
 const ArchiveToggle = styled.label`
   display: inline-flex;
   align-items: center;
   gap: ${space[3]};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
@@ -381,7 +381,7 @@ const BatchList = styled.ul`
 
 const BatchIdentity = styled.div`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   min-width: 0;
   > a {
     color: ${color.fg};
@@ -409,6 +409,6 @@ const Note = styled.p`
 
 const Footnote = styled.p`
   margin: ${space[6]} 0 0;
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

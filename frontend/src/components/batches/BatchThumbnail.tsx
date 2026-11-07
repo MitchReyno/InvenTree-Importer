@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import { mediaResource } from '../../media/types'
 
@@ -33,13 +33,13 @@ const Frame = styled.div`
   height: var(--thumbnail-size, 84px);
   flex-shrink: 0;
   border: 1px solid ${color.line};
-  border-radius: 5px;
+  border-radius: ${radius.thumb};
   background: ${color.photoStage};
   overflow: hidden;
   display: grid;
   place-items: center;
   span {
-    padding: 8px;
+    padding: ${space[4]};
     font-size: 12px;
     text-align: center;
     color: ${color.photoFg};

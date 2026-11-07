@@ -353,7 +353,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **TDD approach:** a failing component or layout test first (RED) for each behaviour that changes (states, glyphs, layers, motion under reduced motion, layout at a breakpoint), then the change (GREEN). Token swaps need no new tests: the screenshot diff proves them.
 - **Verification:** frontend typecheck, lint (with the literal-value baseline), tests and build; the contrast script; the screenshot diff unchanged for the token-swap commit; before-and-after screenshots of every changed screen in both themes at 1440 and 390 px (plus 860 px and 200% zoom where a layout changes); screenshots and results go in the PR description, with a demo video. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 16.1 Swap exact values for tokens in these areas, with the screenshot diff unchanged.
+- [x] 16.1 Swap exact values for tokens in these areas, with the screenshot diff unchanged.
 - [ ] 16.2 Set the content widths (G1) (`width-content`, `width-review`) and page padding (`space-12` at desktop, at least `space-8` at phone width), move the app shell's 700px query to `bp-compact` (G2), and move the global focus ring and body type onto tokens.
 - [ ] 16.3 Move the three header popovers onto `Popover` (closing G9) and drop their copied keyframes (C6), keep the masthead to one row at phone width (M2), and give these screens' controls a 44px hit area below `bp-compact` (G15).
 - [ ] 16.4 Make the batch header a full-width band (M5, M8) with the tabs on the title row, the second tab row as its own band, tab counts with sub-tab counts and badges (M9), and the Processing step icons.

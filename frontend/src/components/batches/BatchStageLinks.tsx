@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { batchHref } from '../../navigation/batch-route'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 
 interface Props {
@@ -31,7 +31,7 @@ const Stages = styled.nav`
     padding: 0 ${space[4]};
     border-radius: ${radius.btn};
     color: ${color.accent};
-    font-size: 12.5px;
+    font-size: ${typeVar.small.size};
     font-weight: 500;
     text-decoration: none;
   }
@@ -40,7 +40,7 @@ const Stages = styled.nav`
   }
   ${media.compact} {
     a {
-      min-height: 44px;
+      min-height: ${size.touch};
     }
   }
 `

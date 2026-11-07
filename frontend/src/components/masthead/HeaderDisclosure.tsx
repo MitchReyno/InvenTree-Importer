@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
+import { color, radius, shadow, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 
 interface HeaderDisclosureProps {
@@ -57,7 +57,7 @@ const open = keyframes`
 const Trigger = styled.button`
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: ${size.control};
   max-width: 100%;
   min-width: 0;
   padding: 3px ${space[5]};
@@ -65,7 +65,7 @@ const Trigger = styled.button`
   border-radius: ${radius.pill};
   background: ${color.surface};
   color: ${color.fg};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   cursor: pointer;
   &[data-active='true'] {
     border-color: ${color.accent};
@@ -76,8 +76,8 @@ const Trigger = styled.button`
     border-color: ${color.accent};
   }
   ${media.compact} {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: ${size.touch};
+    min-height: ${size.touch};
   }
 `
 
@@ -114,7 +114,7 @@ const Title = styled.h2`
 `
 
 const Close = styled.button`
-  min-height: 32px;
+  min-height: ${size.control};
   padding: ${space[3]} ${space[5]};
   border: 1px solid ${color.lineStrong};
   border-radius: ${radius.btn};
@@ -125,6 +125,6 @@ const Close = styled.button`
     background: ${color.surface2};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `

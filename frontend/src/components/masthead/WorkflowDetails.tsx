@@ -1,7 +1,7 @@
 import type { HeaderWorkDto } from '@invimport/contracts'
 import { Link, Paragraph, Small, Subheading } from '../ui/primitives'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space } from '../../theme/generated/tokens'
 import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
@@ -152,16 +152,16 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
 }
 
 const Work = styled.section`
-  padding: 10px 0;
+  padding: ${space[5]} 0;
   border-bottom: 1px solid ${color.line};
   overflow-wrap: anywhere;
   ol {
-    padding-left: 20px;
+    padding-left: ${space[10]};
   }
 `
 const Action = styled(Link)`
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  margin-right: 10px;
+  min-height: ${size.touch};
+  margin-right: ${space[5]};
 `

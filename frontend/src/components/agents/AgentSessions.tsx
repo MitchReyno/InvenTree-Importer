@@ -9,7 +9,7 @@ import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { SESSION_STATE, STEP_LABEL } from '../processing/ProcessingParts'
 import { Banner } from '../ui/Banner'
@@ -251,7 +251,7 @@ const Title = styled.h1`
 `
 
 const Muted = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 

@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled, { keyframes } from 'styled-components'
-import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
+import { color, radius, shadow, size, space, type } from '../../theme/generated/tokens'
 import {
   THEME_CHOICES,
   useThemeChoice,
@@ -59,8 +59,8 @@ const open = keyframes`
 const Trigger = styled.button`
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: ${size.control};
+  height: ${size.control};
   border: 1px solid ${color.line};
   border-radius: ${radius.pill};
   background: ${color.surface};
@@ -73,8 +73,8 @@ const Trigger = styled.button`
     background: ${color.surface2};
   }
   ${media.compact} {
-    width: 44px;
-    height: 44px;
+    width: ${size.touch};
+    height: ${size.touch};
   }
 `
 
@@ -110,14 +110,14 @@ const Links = styled.nav`
     a {
       display: flex;
       align-items: center;
-      min-height: 44px;
+      min-height: ${size.touch};
     }
   }
 `
 
 const Theme = styled.div`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   padding: ${space[4]} ${space[4]} ${space[2]};
   border-top: 1px solid ${color.line};
 `
@@ -134,6 +134,6 @@ const Choice = styled.label`
   min-height: 28px;
   cursor: pointer;
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
 import { Spinner } from '../ui/Loading'
 import type { HeaderClient } from '../../header/types'
@@ -238,7 +238,7 @@ const Dot = styled.span<{ 'data-tone': keyof typeof dotTone }>`
   flex: none;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: ${radius.round};
   background: ${(props) => dotTone[props['data-tone']]};
 `
 
@@ -279,7 +279,7 @@ const segmentTone = {
 const Segments = styled.span`
   display: flex;
   flex: none;
-  gap: 2px;
+  gap: ${space[1]};
 `
 
 const Segment = styled.span<{ 'data-tone': StepTone }>`
@@ -293,23 +293,23 @@ const Segment = styled.span<{ 'data-tone': StepTone }>`
 const TargetLink = styled.a`
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: ${size.control};
   padding: ${space[2]} 9px;
   border: 1px solid transparent;
   border-radius: ${radius.btn};
   color: ${color.fg};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   font-weight: 500;
   text-decoration: none;
   &:hover {
     background: ${color.surface2};
   }
   ${media.compact} {
-    min-height: 44px;
+    min-height: ${size.touch};
   }
 `
 
 const UnavailableLink = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

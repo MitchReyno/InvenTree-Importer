@@ -25,7 +25,7 @@ import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
-import { color } from './theme/generated/tokens'
+import { color, space, typeVar } from './theme/generated/tokens'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
@@ -226,17 +226,17 @@ export default function App() {
 
 const AppShell = styled.div`
   max-width: 1600px;
-  padding: 0 24px;
+  padding: 0 ${space[12]};
   margin: auto;
   @media (max-width: 700px) {
-    padding: 0 12px;
+    padding: 0 ${space[6]};
   }
 `
 const Main = styled.main`
-  margin: 0 auto 16px auto;
+  margin: 0 auto ${space[8]} auto;
 `
 
 const SetupStatus = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
