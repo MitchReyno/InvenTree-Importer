@@ -4,7 +4,7 @@
 
 - **Planning artifacts:** [proposal](proposal.md), [design assessment](design.md), and specs [processing-agent-sessions](specs/processing-agent-sessions/spec.md), [processing-lot-forming](specs/processing-lot-forming/spec.md), [processing-stage-pipeline](specs/processing-stage-pipeline/spec.md) and the [header-workflow-status delta](specs/header-workflow-status/spec.md).
 - **Reuse recommendation:** extend the Claude CLI and Codex app-server adapters; add one app-owned MCP server (official TypeScript SDK); keep the inbox/outbox in Processing-owned PostgreSQL tables; use DBOS for waking only; reuse the `bench-intake-live/1` hints.
-- **Change name:** `simplify-intake-entry`. It delivers [BI-006](../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake). BI-007 (Antigravity) is out of scope.
+- **Change name:** `simplify-intake-entry`. It delivers [BI-006](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake). BI-007 (Antigravity) is out of scope.
 - **Branches and subjects:** branches are `feat/simplify-intake-entry-<bundle>`, targeting `interactive-app`. Subjects are `feat(simplify-intake-entry): …`.
 - **Provider usage:** none is authorized by this plan. Automated evidence uses deterministic fake CLIs and `synthetic-session/1`. Task 13 is held until the operator explicitly authorizes live qualification.
 

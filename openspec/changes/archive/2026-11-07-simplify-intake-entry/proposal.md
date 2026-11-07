@@ -23,8 +23,8 @@ This change covers Claude and Codex only. Gemini/Antigravity is a separate futur
 
 - **Change name:** `simplify-intake-entry`. Branches use `feat/simplify-intake-entry-<bundle>`; subjects use `feat(simplify-intake-entry): …`.
 - **Linked items:**
-  - [BI-006 — Agent-led intake](../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake), which this change delivers.
-  - [BI-007 — Antigravity agent provider](../../../docs/PLANNED_FUNCTIONALITY.md#bi-007--antigravity-agent-provider), which is out of scope and should target the provider interface defined here.
+  - [BI-006 — Agent-led intake](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake), which this change delivers.
+  - [BI-007 — Antigravity agent provider](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-007--antigravity-agent-provider), which is out of scope and should target the provider interface defined here.
 
 ## Current behavior and evidence
 
