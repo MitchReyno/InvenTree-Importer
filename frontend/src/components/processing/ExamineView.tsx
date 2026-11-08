@@ -270,8 +270,18 @@ export function ExamineView({
   )
   const capture = batchHref(batch.id, { tab: 'capture' })
 
-  const evidenceOf = (version: string) =>
-    media?.evidence.find((item) => item.versions?.some((value) => value.id === version))
+  // The last evidence seen per version, so a failed media read keeps an open region editor.
+  const seenEvidence = useRef(new Map<string, NonNullable<typeof media>['evidence'][number]>())
+
+  const evidenceOf = (version: string) => {
+    const live = media?.evidence.find((item) =>
+      item.versions?.some((value) => value.id === version),
+    )
+    if (live) {
+      seenEvidence.current.set(version, live)
+    }
+    return live ?? seenEvidence.current.get(version)
+  }
 
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (
@@ -391,7 +401,8 @@ export function ExamineView({
                     evidence={evidenceOf(version)!}
                     label={named?.name ?? `Photo ${index + 1}`}
                     observations={observations}
-                    disabled={lockedFor('region')}
+                    // Saving waits for the media read, which checks the region's photo.
+                    disabled={lockedFor('region') || !media}
                     save={edit}
                     onDirtyChange={dirtyEditor('region')}
                   />

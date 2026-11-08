@@ -28,6 +28,8 @@ function originalVersion(evidence: Evidence) {
   return version?.pages?.length ? version : null
 }
 
+const clamp = (value: number, max: number) => Math.min(Math.max(0, value), Math.max(0, max))
+
 const FIELDS: [keyof Box, string][] = [
   ['x', 'Left'],
   ['y', 'Top'],
@@ -101,7 +103,7 @@ export function RegionStage({
   const scale = (sourceWidth: number) => (surfaceWidth ? surfaceWidth / sourceWidth : 0)
 
   async function submit() {
-    if (!draft) {
+    if (!draft || outside) {
       return
     }
     setSaving(true)
@@ -132,6 +134,13 @@ export function RegionStage({
 
   const locked = disabled || saving
   const draftScale = draft ? scale(draft.sourceWidth) : 0
+  // The server refuses a region outside its photo, so it is never sent.
+  const outside =
+    draft !== null &&
+    (draft.width < 1 ||
+      draft.height < 1 ||
+      draft.x + draft.width > draft.sourceWidth ||
+      draft.y + draft.height > draft.sourceHeight)
 
   return (
     <Stage aria-label={`Regions of ${label}`}>
@@ -219,18 +228,32 @@ export function RegionStage({
             onDrag={(event) =>
               setDraft({
                 ...draft,
-                x: Math.round(event.left / draftScale),
-                y: Math.round(event.top / draftScale),
+                x: clamp(Math.round(event.left / draftScale), draft.sourceWidth - draft.width),
+                y: clamp(Math.round(event.top / draftScale), draft.sourceHeight - draft.height),
               })
             }
             onResize={(event) => {
               const start = gestureStart.current ?? draft
+              const x = clamp(
+                Math.round(start.x + event.drag.beforeTranslate[0] / draftScale),
+                draft.sourceWidth - 1,
+              )
+              const y = clamp(
+                Math.round(start.y + event.drag.beforeTranslate[1] / draftScale),
+                draft.sourceHeight - 1,
+              )
               setDraft({
                 ...draft,
-                x: Math.round(start.x + event.drag.beforeTranslate[0] / draftScale),
-                y: Math.round(start.y + event.drag.beforeTranslate[1] / draftScale),
-                width: Math.max(1, Math.round(event.width / draftScale)),
-                height: Math.max(1, Math.round(event.height / draftScale)),
+                x,
+                y,
+                width: Math.max(
+                  1,
+                  Math.min(Math.round(event.width / draftScale), draft.sourceWidth - x),
+                ),
+                height: Math.max(
+                  1,
+                  Math.min(Math.round(event.height / draftScale), draft.sourceHeight - y),
+                ),
               })
             }}
           />
@@ -297,8 +320,18 @@ export function RegionStage({
             </Label>
           ))}
           <Small>Pixels of the original photo. Drag the box or its corners to adjust it.</Small>
+          {outside && (
+            <Small role="alert">
+              The region must fit inside the photo ({draft.sourceWidth} × {draft.sourceHeight}).
+            </Small>
+          )}
           <span>
-            <Button size="sm" variant="primary" disabled={locked} onClick={() => void submit()}>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={locked || outside}
+              onClick={() => void submit()}
+            >
               Save region
             </Button>{' '}
             <Button size="sm" variant="ghost" disabled={saving} onClick={() => setDraft(null)}>

@@ -375,3 +375,52 @@ it('keeps a marking that contains a comma when another marking is corrected', as
     expect.objectContaining({ readings: expect.objectContaining({ markings: ['4,7 kΩ', 'R10'] }) }),
   ])
 })
+
+it('keeps a region draft while the media read fails, and saves once it returns', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+  const paged = {
+    ...media,
+    evidence: [
+      {
+        ...media.evidence[0],
+        versions: [
+          {
+            id: 'v1',
+            kind: 'original',
+            pages: [{ page: 1, preview_id: 'p1', width: 768, height: 512 }],
+          },
+        ],
+      },
+      media.evidence[1],
+    ],
+  } as unknown as MediaSnapshotDto
+
+  const view = (current?: MediaSnapshotDto) => (
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      media={current}
+      edit={async (change) => {
+        edits.push(change)
+      }}
+    />
+  )
+
+  const mounted = render(view(paged))
+
+  const bench = () => screen.getByRole('region', { name: 'bench.jpg' })
+
+  await user.click(within(bench()).getByRole('button', { name: 'Adjust regions' }))
+  await user.click(within(bench()).getByRole('button', { name: 'Add a region' }))
+  const left = within(bench()).getByLabelText('Left')
+  await user.clear(left)
+  await user.type(left, '10')
+  mounted.rerender(view(undefined))
+  expect(screen.getByLabelText('Left')).toHaveValue(10)
+  expect(screen.getByRole('button', { name: 'Save region' })).toBeDisabled()
+  mounted.rerender(view(paged))
+  expect(within(bench()).getByLabelText('Left')).toHaveValue(10)
+  await user.click(within(bench()).getByRole('button', { name: 'Save region' }))
+  expect(edits).toHaveLength(1)
+})

@@ -85,3 +85,30 @@ it('a page whose preview failed does not stop another page loading', async () =>
   await user.selectOptions(screen.getByLabelText('Page'), '2')
   expect(screen.getByRole('img', { name: 'Front, page 2' })).toBeInTheDocument()
 })
+
+it('will not send a region that leaves the photo, and saves it once it fits', async () => {
+  const user = userEvent.setup()
+  const save = vi.fn(async () => true)
+  render(
+    <RegionStage
+      batchId="b"
+      evidence={evidence([page(1)])}
+      label="Front"
+      observations={observations}
+      disabled={false}
+      save={save}
+    />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Adjust 1N4148' }))
+  const left = screen.getByLabelText('Left')
+  await user.clear(left)
+  await user.type(left, '700')
+  expect(screen.getByText(/must fit inside the photo/)).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Save region' })).toBeDisabled()
+  await user.clear(left)
+  await user.type(left, '600')
+  await user.click(screen.getByRole('button', { name: 'Save region' }))
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({ region: expect.objectContaining({ x: 600, width: 200 }) }),
+  )
+})
