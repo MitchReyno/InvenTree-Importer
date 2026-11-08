@@ -235,6 +235,37 @@ function treeFor(shown: ManualPreviewDto): PreparationNodeDto[] {
       part_subject_id: partId(info.part),
     })
   }
+  // The diode's existing Part gains its photo, so the plan updates that Part.
+  const diode = nodes.find((node) => node.key === 'part:pk:29')
+  if (diode) {
+    diode.state = 'update'
+    diode.changes = [{ field: 'Image', before: null, after: `Image for ${parts[4].label}` }]
+    add({
+      key: 'attachment:diode-photo',
+      kind: 'attachment',
+      label: `Image for ${parts[4].label}`,
+      parent_key: diode.key,
+      part_subject_id: partId(4),
+    })
+  }
+  // Lots left out stay in the tree, dimmed, with the reason Review gives.
+  for (const [n, info] of Object.entries(lots)) {
+    const lot = Number(n)
+    if (!chosen.includes(lot)) {
+      const part = parts[info.part]
+      const key = part.pk ? `part:pk:${part.pk}` : `part:${partId(info.part)}`
+      add({
+        key: `unticked:${lotId(lot)}`,
+        kind: 'stock_item',
+        label: info.label,
+        state: 'not_ticked',
+        detail: lot === 2 ? 'Changed since review' : 'Not ticked',
+        parent_key: nodes.some((node) => node.key === key) ? key : null,
+        lot_id: lotId(lot),
+        part_subject_id: partId(info.part),
+      })
+    }
+  }
   return nodes
 }
 
@@ -509,7 +540,7 @@ export function ChangesProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-<Masthead
+      <Masthead
         breadcrumb={[{ label: 'Batches', href: '#' }, { label: capture.title }]}
         status={<HeaderStatus client={header as never} batchId={batchId} />}
       />

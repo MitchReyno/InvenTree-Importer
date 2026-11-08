@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
 import type { TreeItem } from '../../changes/model'
-import { STATE_LABELS } from '../../changes/model'
+import { STATE_LABELS, changeLines } from '../../changes/model'
 import { RecordStatePill } from '../ui/RecordStatePill'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, opacity, radius, space, type } from '../../theme/generated/tokens'
 import { CheckboxLabel, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Pill } from '../ui/Pill'
@@ -30,8 +30,12 @@ function tally(list: TreeItem[], into: Tally = { new: 0, update: 0, exists: 0 })
   return into
 }
 
+/** A lot left out changes nothing in InvenTree, so it is not a change. */
 function changed(item: TreeItem): boolean {
-  return item.node.state !== 'exists' || item.children.some(changed)
+  return (
+    (item.node.state !== 'exists' && item.node.state !== 'not_ticked') ||
+    item.children.some(changed)
+  )
 }
 
 /** Keeps only nodes that change, with the parents that lead to them. */
@@ -67,7 +71,16 @@ const KIND_LABELS: Record<string, string> = {
 }
 
 /** A WAI-ARIA tree: one tab stop; arrows move, expand and collapse; Home and End jump. */
-export function PreparationTreeView({ label, items: all }: { label: string; items: TreeItem[] }) {
+export function PreparationTreeView({
+  label,
+  items: all,
+  lotHref,
+}: {
+  label: string
+  items: TreeItem[]
+  /** Review's address for a lot, for the link on a lot left out. */
+  lotHref?: (lotId: string) => string
+}) {
   const [changesOnly, setChangesOnly] = useState(false)
   const items = useMemo(() => (changesOnly ? onlyChanges(all) : all), [all, changesOnly])
   const counts = useMemo(() => tally(all), [all])
@@ -196,6 +209,7 @@ export function PreparationTreeView({ label, items: all }: { label: string; item
               aria-selected={node.key === current}
               tabIndex={node.key === current ? 0 : -1}
               $level={row.level}
+              data-unticked={node.state === 'not_ticked' || undefined}
               onKeyDown={(event) => onKeyDown(event, row)}
               onFocus={() => setFocused(node.key)}
               onClick={() => {
@@ -212,6 +226,20 @@ export function PreparationTreeView({ label, items: all }: { label: string; item
                 <Kind>{KIND_LABELS[node.kind] ?? node.kind.replaceAll('_', ' ')}</Kind>
                 {node.label}
                 {node.detail && <Small>{node.detail}</Small>}
+                {changeLines(node).map((line) => (
+                  <Small key={line}>{line}</Small>
+                ))}
+                {node.state === 'not_ticked' && node.lot_id && lotHref && (
+                  <Small>
+                    <a
+                      href={lotHref(node.lot_id)}
+                      aria-label={`Review ${node.label}`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Review
+                    </a>
+                  </Small>
+                )}
                 {children.length > 0 && collapsed.has(node.key) && (
                   <Small>{summary(tally(children))}</Small>
                 )}
@@ -251,6 +279,9 @@ const Row = styled.li<{ $level: number }>`
   overflow-wrap: anywhere;
   &[aria-selected='true'] {
     background: ${color.surface2};
+  }
+  &[data-unticked='true'] > :not(:last-child) {
+    opacity: ${opacity.muted};
   }
 `
 

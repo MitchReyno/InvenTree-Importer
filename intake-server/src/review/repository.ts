@@ -3,7 +3,12 @@ import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { manualRuns, manualApprovals, manualPreparations, manualPrepareCommands } from './schema.ts'
 import type { ManualAttachmentRead } from './part-attachments.ts'
 import type { Pool, PoolClient } from 'pg'
-import { validate, type ManualPreviewDto, type ManualWorkspaceDto } from '@invimport/contracts'
+import {
+  validate,
+  type ManualPreviewDto,
+  type ManualWorkspaceDto,
+  type OperatorReviewDto,
+} from '@invimport/contracts'
 import { transaction } from '../db/database.ts'
 import { captureInTransaction, fail } from '../capture/repository.ts'
 import { canonical, canonicalRecord } from '@invimport/contracts/json'
@@ -13,7 +18,8 @@ import { deploymentBinding, currentReviews, type ManualConfig } from './authorit
 import { issue } from './model.ts'
 import { materializeWithMedia } from './media-material.ts'
 import { manualRunSnapshot, retainedPreparation } from './runs.ts'
-import { preparationTree } from './preparation-tree.ts'
+import { preparationTree, type UntickedLot } from './preparation-tree.ts'
+import { operatorReview } from '../operator-review/projection.ts'
 import { captureObservations } from '../capture/schema.ts'
 import { isEffectsPlan } from '../execution/effects-plan.ts'
 import {
@@ -23,6 +29,21 @@ import {
   warningIssues,
 } from './preparations.ts'
 import { runCommand } from './commands.ts'
+
+/** Why the operator review leaves a lot out of a preparation, as Changes says it. */
+function untickedReason(lot: OperatorReviewDto['lots'][number]) {
+  if (lot.excluded) {
+    return `Excluded: ${lot.excluded.reason}`
+  }
+  const blocking = lot.issues.find((value) => value.severity === 'blocking')
+  if (blocking) {
+    return blocking.message
+  }
+  if (lot.review_state === 'changed_after_review') {
+    return 'Changed since review'
+  }
+  return lot.review_state === 'reviewed' ? 'Not ticked' : 'Needs review'
+}
 
 export function manualRepository(
   pool: Pool,
@@ -91,10 +112,20 @@ export function manualRepository(
             )
           : []
         const labels = new Map(rows.map((value) => [value.id, value.label]))
+        const review = await operatorReview(client, config, row.batch_id)
+        const selected = new Set(preview.selected_lot_ids)
+        const unticked = review.lots
+          .filter((lot) => !lot.approved && !selected.has(lot.lot_id))
+          .map((lot): UntickedLot => ({
+            lot_id: lot.lot_id,
+            label: lot.label,
+            reason: untickedReason(lot),
+            part_subject_id: lot.part_subject_id,
+          }))
         return {
           preparation_id: preparationId,
           plan_version: plan.version,
-          nodes: preparationTree(plan, preview, (id) => labels.get(id)),
+          nodes: preparationTree(plan, preview, (id) => labels.get(id), unticked),
         }
       })
     },

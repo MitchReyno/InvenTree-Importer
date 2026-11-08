@@ -27,13 +27,25 @@ export const PreparationNode = object({
   label: Type.String({ minLength: 1, maxLength: 512 }),
   /** What else a new record carries, such as a Part's description and tags. */
   detail: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
-  state: choice(['new', 'update', 'exists', 'choose'] as const),
+  /** `not_ticked` is a lot of the batch this preparation leaves out; `detail` says why. */
+  state: choice(['new', 'update', 'exists', 'choose', 'not_ticked'] as const),
   parent_key: Type.Union([Type.String({ minLength: 1, maxLength: 160 }), Type.Null()]),
   location_key: Type.Union([Type.String({ minLength: 1, maxLength: 160 }), Type.Null()]),
   /** The lot a stock item or its attachment comes from, for its link into Review. */
   lot_id: Type.Union([Id, Type.Null()]),
   /** The batch Part a node belongs to, for its link to the record in Review. */
   part_subject_id: Type.Union([Id, Type.Null()]),
+  /** What an update changes on an existing record, field by field; null is no value. */
+  changes: Type.Optional(
+    Type.Array(
+      object({
+        field: Type.String({ minLength: 1, maxLength: 128 }),
+        before: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
+        after: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
+      }),
+      { maxItems: 50 },
+    ),
+  ),
 })
 
 /** Read from the stored plan; `nodes` is null for a plan version this build cannot place. */

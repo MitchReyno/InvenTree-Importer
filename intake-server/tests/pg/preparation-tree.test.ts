@@ -65,9 +65,15 @@ test('a stock preparation reads as a tree without changing what replay compares'
         ['location', 'exists', null, null],
         ['part', 'exists', null, null],
         ['stock_item', 'new', 'part:pk:29', 'location:43'],
+        ['stock_item', 'not_ticked', null, null],
       ],
     )
-    assert.equal(read.nodes?.at(-1)?.lot_id, capture.a.id)
+    assert.equal(read.nodes?.[2].lot_id, capture.a.id)
+    // The lot left out stays in the tree with why it was not ticked.
+    assert.deepEqual(
+      [read.nodes?.[3].lot_id, read.nodes?.[3].label, read.nodes?.[3].detail],
+      [capture.b.id, 'Packet B', 'Needs review'],
+    )
 
     assert.deepEqual(await stored(fixture, preview.id), before)
     const accepted = await fixture.http(
@@ -146,6 +152,8 @@ test('a new Part reads under its observed category, with its parameter', async (
         ['part', 'Shared resistor', 'new', 'category:81'],
         ['parameter', `${labels.get(template.observation_id)}: 4.7 kΩ`, 'new', part],
         ['stock_item', `${captured.a.label} · 17`, 'new', part],
+        // Packet B shares the Part and was not ticked, so it shows beside A, left out.
+        ['stock_item', 'Packet B', 'not_ticked', part],
       ],
     )
     assert.deepEqual(await stored(fixture, preview.id), before)

@@ -376,3 +376,53 @@ test('a location and company made by an earlier run appear once, by their pk', (
   )
   assert.equal(nodes?.find((node) => node.kind === 'stock_item')?.location_key, 'location:88')
 })
+
+test('an unticked lot stays in the tree under its Part, with the reason it is left out', () => {
+  const plan = effectsPlan('bench-effects-plan/1')
+  const nodes = preparationTree(plan, preview([newPartEffect()]), label, [
+    { lot_id: lotB, label: 'Lot B', reason: 'Changed since review', part_subject_id: subject },
+    { lot_id: id(103), label: 'Lot C', reason: 'Needs review', part_subject_id: id(11) },
+  ])
+  const left = nodes?.filter((node) => node.state === 'not_ticked')
+  assert.deepEqual(
+    left?.map((node) => [node.kind, node.label, node.detail, node.parent_key, node.lot_id]),
+    [
+      ['stock_item', 'Lot B', 'Changed since review', `part:${subject}`, lotB],
+      // A Part the tree does not hold leaves the lot at the top.
+      ['stock_item', 'Lot C', 'Needs review', null, id(103)],
+    ],
+  )
+  validate('PreparationTree', { preparation_id: id(50), plan_version: plan.version, nodes })
+})
+
+test('an existing Part that gains a file is an update, naming the field it changes', () => {
+  const plan = effectsPlan('bench-effects-plan/1', true)
+  const attachment = {
+    artifact_key: id(70),
+    part_subject_id: subject,
+    part_label: 'Carbon film resistor',
+    destination: 'part_attachment',
+    prior_run_id: null,
+    prior_remote_pk: null,
+    part_id: '77',
+    media_type: 'image/png',
+  }
+  const nodes = preparationTree(
+    plan,
+    preview([newPartEffect()], { part_attachments: [attachment] }),
+    label,
+  )
+  const part = nodes?.find((node) => node.key === `part:${subject}`)
+  assert.equal(part?.state, 'update')
+  assert.deepEqual(part?.changes, [
+    { field: 'Image', before: null, after: 'Image for Carbon film resistor' },
+  ])
+  // An attachment an earlier run already added changes nothing.
+  const again = preparationTree(
+    plan,
+    preview([newPartEffect()], { part_attachments: [{ ...attachment, prior_remote_pk: '900' }] }),
+    label,
+  )
+  assert.equal(again?.find((node) => node.key === `part:${subject}`)?.state, 'exists')
+  assert.equal(again?.find((node) => node.key === `part:${subject}`)?.changes, undefined)
+})

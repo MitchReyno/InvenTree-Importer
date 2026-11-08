@@ -7161,11 +7161,16 @@ export interface components {
             kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
             label: string;
             detail: string | null;
-            state: "new" | "update" | "exists" | "choose";
+            state: "new" | "update" | "exists" | "choose" | "not_ticked";
             parent_key: string | null;
             location_key: string | null;
             lot_id: string | null;
             part_subject_id: string | null;
+            changes?: {
+                field: string;
+                before: string | null;
+                after: string | null;
+            }[];
         };
         PreparationTree: {
             preparation_id: string;
@@ -7175,11 +7180,16 @@ export interface components {
                 kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
                 label: string;
                 detail: string | null;
-                state: "new" | "update" | "exists" | "choose";
+                state: "new" | "update" | "exists" | "choose" | "not_ticked";
                 parent_key: string | null;
                 location_key: string | null;
                 lot_id: string | null;
                 part_subject_id: string | null;
+                changes?: {
+                    field: string;
+                    before: string | null;
+                    after: string | null;
+                }[];
             }[] | null;
         };
         ProcessingStageV2: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
