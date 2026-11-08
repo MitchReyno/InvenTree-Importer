@@ -31,7 +31,12 @@ import type { ProcessingClient, AgentsRead } from '../../processing/types'
 import { clearPending } from '../../processing/pending-messages'
 import { ProcessingStage } from '../processing/ProcessingStage'
 import { ManualWorkspace } from '../review/ManualWorkspace'
-import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/batch-route'
+import {
+  batchHref,
+  parseBatchRoute,
+  sessionFromQuery,
+  type BatchRoute,
+} from '../../navigation/batch-route'
 import { useBatchAttention, type AttentionClient } from '../../attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
 import { PageContent } from '../AppLayout'
@@ -456,6 +461,7 @@ export function Batch({
         media={media}
         step={batchRoute.step}
         questionId={batchRoute.questionId}
+        sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
         reload={reloadForStage}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}

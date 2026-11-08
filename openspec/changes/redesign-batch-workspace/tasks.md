@@ -447,7 +447,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 21.2 On the Map, show the selected photo's stage with its regions, and adjust a region by its corners or add one, through the same edit (R21).
 - [ ] 21.3 On the Map, move a region to another lot with `observation_move`, and create a lot from a region with `add_lot` and then the move (R22).
 - [ ] 21.4 Answer a lot's open question in Review ("Answer here"), queued to the asking session, with the problem updating when the answer is accepted.
-- [ ] 21.5 Open a session from Agents: a route parameter for the session opens its drawer on Processing (A6).
+- [x] 21.5 Open a session from Agents: a route parameter for the session opens its drawer on Processing (A6).
 - [ ] 21.6 Close the notes' unmet-behaviour item for the inline answer and "Correct a reading", and record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 22. Data the specs require

@@ -71,6 +71,8 @@ function onStep(stage: string, view: ProcessingView) {
 }
 
 interface Props {
+  /** A job whose session drawer opens on arrival, from a session link. */
+  sessionId?: string | null
   batch: CaptureSnapshotDto
   media?: MediaClient
   client: ProcessingClient
@@ -113,15 +115,20 @@ export function ProcessingWorkspace({
   agents,
   unusedFiles,
   instructions,
+  sessionId = null,
 }: Props) {
-  const [sessionJobId, setSessionJobId] = useState<string | null>(null)
+  const [sessionJobId, setSessionJobId] = useState<string | null>(sessionId)
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
   // Opening a question navigates; the drawer closes only once the route actually changes.
+  const routeKey = useRef(`${view}:${questionId}`)
   useEffect(() => {
-    setSessionJobId(null)
+    if (routeKey.current !== `${view}:${questionId}`) {
+      routeKey.current = `${view}:${questionId}`
+      setSessionJobId(null)
+    }
   }, [questionId, view])
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
@@ -582,7 +589,14 @@ export function ProcessingWorkspace({
             <Dialog
               placement="side"
               title={`${STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} · ${subjectLabel(sessionJob.subject_id)}`}
-              onClose={() => setSessionJobId(null)}
+              onClose={() => {
+                setSessionJobId(null)
+                // A session link's query would reopen the drawer when the batch next reloads.
+                const [hash, query] = location.hash.split('?')
+                if (query && new URLSearchParams(query).has('session')) {
+                  location.replace(hash)
+                }
+              }}
             >
               {sessionJob.questions
                 .filter((question) => question.state === 'open')

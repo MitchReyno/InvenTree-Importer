@@ -11,6 +11,7 @@ interface Props {
   client: ProcessingClient
   step: ProcessingStep
   questionId?: string
+  sessionId?: string | null
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
   /** Retired lots keep their job history but cannot start new attempts. */
@@ -31,6 +32,7 @@ export function ProcessingStage({
   media,
   step,
   questionId,
+  sessionId,
   reload,
   onDirtyChange,
   retiredLotIds,
@@ -52,6 +54,7 @@ export function ProcessingStage({
       media={media}
       view={step}
       questionId={questionId}
+      sessionId={sessionId}
       navigate={navigateProcessing}
       onDirtyChange={onDirtyChange}
       onSaved={reload}

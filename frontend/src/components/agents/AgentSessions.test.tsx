@@ -191,7 +191,9 @@ test('sessions are grouped by batch, each group linking to its Processing', asyn
   const row = within(table)
     .getAllByRole('row')
     .find((r) => r.textContent?.includes('Checking the supplier page'))!
-  expect(within(row).getByText('Research')).toBeInTheDocument()
+  expect(
+    within(row).getByRole('link', { name: 'Open session: Research · Packet A' }),
+  ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
   expect(within(row).getByText('Packet A')).toBeInTheDocument()
   // Times are short and tabular.
   expect(within(row).getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()

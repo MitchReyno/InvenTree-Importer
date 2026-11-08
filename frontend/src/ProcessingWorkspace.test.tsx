@@ -429,13 +429,14 @@ test('stale running input exposes its exact cancel action, while explicit false 
   expect(client.cancel).toHaveBeenCalledTimes(1)
 })
 
-function mountView(client: ProcessingClient, view: 'overview' | 'examine') {
+function mountView(client: ProcessingClient, view: 'overview' | 'examine', sessionId?: string) {
   render(
     <ServerStateProvider scope={scope} client={createServerQueryClient()}>
       <ProcessingWorkspace
         batch={batch}
         client={client}
         view={view}
+        sessionId={sessionId}
         navigate={vi.fn()}
         onDirtyChange={vi.fn()}
         onSaved={vi.fn().mockResolvedValue(undefined)}
@@ -495,6 +496,31 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   ).toBeInTheDocument()
   await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('a session link opens its drawer on arrival', async () => {
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue({
+      ...snapshot,
+      jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
+    }),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  history.replaceState(null, '', `#${batchId}/processing/examine?session=${jobId}`)
+  mountView(client, 'examine', jobId)
+  const drawer = await screen.findByRole('dialog', { name: 'Examine · Packet A' })
+  expect(drawer).toBeVisible()
+  // Closing drops the link's query, so a later reload does not reopen the drawer.
+  await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
+  expect(location.hash).toBe(`#${batchId}/processing/examine`)
 })
 
 test('with both drafts open, neither can save until the other is saved or discarded', async () => {
