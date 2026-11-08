@@ -125,14 +125,15 @@ export function ProcessingWorkspace({
   const drafts = useDirtySources(onDirtyChange)
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
-  // Opening a question navigates; the drawer closes only once the route actually changes.
-  const routeKey = useRef(`${view}:${questionId}`)
+  // A route change shows the session its link names, or none: opening a question navigates, and
+  // the drawer closes only once the route actually changes.
+  const routeKey = useRef(`${view}:${questionId}:${sessionId}`)
   useEffect(() => {
-    if (routeKey.current !== `${view}:${questionId}`) {
-      routeKey.current = `${view}:${questionId}`
-      setSessionJobId(null)
+    if (routeKey.current !== `${view}:${questionId}:${sessionId}`) {
+      routeKey.current = `${view}:${questionId}:${sessionId}`
+      setSessionJobId(sessionId)
     }
-  }, [questionId, view])
+  }, [questionId, view, sessionId])
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
@@ -303,8 +304,7 @@ export function ProcessingWorkspace({
   /** Sends the Examine lead session a request for a sharper photo, through its chat. */
   const askSharper =
     client.chat && examineLead?.session_state && examineLead.session_state !== 'cancelled'
-      ? async (name: string) => {
-          const key = crypto.randomUUID()
+      ? async (name: string, key: string) => {
           await client.chat!(
             batch.id,
             examineLead.id,
@@ -530,7 +530,9 @@ export function ProcessingWorkspace({
                 captureRevision={pinned.captureRevision}
                 currentQuestion={currentQuestion}
                 currentCaptureRevision={snapshot.capture_revision}
-                disabled={runnerDisabled || drafts.isDirty('instructions')}
+                disabled={
+                  runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')
+                }
                 readOnly={batch.archived || saving === 'instructions'}
                 captureHref={batchHref(batch.id, { tab: 'capture' })}
                 answer={answer}
@@ -540,6 +542,11 @@ export function ProcessingWorkspace({
                 <Small>
                   Save or discard the batch instructions first; saving the answer reloads
                   Processing.
+                </Small>
+              )}
+              {drafts.isDirty('correction') && (
+                <Small>
+                  Save or discard the correction first; saving the answer reloads Processing.
                 </Small>
               )}
             </>
@@ -573,7 +580,9 @@ export function ProcessingWorkspace({
                   saveBlockedReason={
                     drafts.isDirty('answer')
                       ? 'Save or discard the answer first; saving reloads Processing.'
-                      : undefined
+                      : drafts.isDirty('correction')
+                        ? 'Save or discard the correction first; saving reloads Processing.'
+                        : undefined
                   }
                   onDirtyChange={drafts.forSource('instructions')}
                 />
@@ -602,7 +611,9 @@ export function ProcessingWorkspace({
                       // A question on a shared Part questions every lot that uses it, as in Review.
                       questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
                       edit={batch.archived ? undefined : edit}
+                      locked={drafts.isDirty('answer') || drafts.isDirty('instructions')}
                       askSharper={askSharper}
+                      onDirtyChange={drafts.forSource('correction')}
                     />
                   )}
                   {jobCards}

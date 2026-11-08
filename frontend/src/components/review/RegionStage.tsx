@@ -5,7 +5,7 @@ import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invi
 import { previewImage } from '../../media/images'
 import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
-import { Input, Label, Small } from '../ui/primitives'
+import { Input, Label, Select, Small } from '../ui/primitives'
 
 type Evidence = MediaSnapshotDto['evidence'][number]
 type Box = { x: number; y: number; width: number; height: number }
@@ -18,13 +18,14 @@ type Props = {
   observations: NonNullable<CaptureSnapshotDto['evidence_observations']>
   disabled: boolean
   save: (change: CaptureEditDto['change']) => Promise<unknown>
+  /** Reports an unsaved region draft to the navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-/** The first page of the file's original version, which its regions are drawn on. */
-function stagePage(evidence: Evidence) {
+/** The file's original version, whose pages its regions are drawn on. */
+function originalVersion(evidence: Evidence) {
   const version = (evidence.versions ?? []).find((value) => value.kind === 'original')
-  const page = version?.pages?.[0]
-  return version && page ? { version, page } : null
+  return version?.pages?.length ? version : null
 }
 
 const FIELDS: [keyof Box, string][] = [
@@ -38,9 +39,20 @@ const FIELDS: [keyof Box, string][] = [
  * The selected photo with its regions. A region adjusts by dragging it or its corners, or through
  * its numbers; Add a region starts a new one. Saving sends the capture edit `kind: 'observation'`.
  */
-export function RegionStage({ batchId, evidence, label, observations, disabled, save }: Props) {
-  const found = stagePage(evidence)
+export function RegionStage({
+  batchId,
+  evidence,
+  label,
+  observations,
+  disabled,
+  save,
+  onDirtyChange,
+}: Props) {
+  const version = originalVersion(evidence)
+  const [pageNumber, setPageNumber] = useState(version?.pages[0].page ?? 1)
   const [draft, setDraft] = useState<Draft | null>(null)
+  // A resize gesture measures from where the box stood when it began.
+  const gestureStart = useRef<Box | null>(null)
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState(false)
   const surface = useRef<HTMLDivElement>(null)
@@ -62,14 +74,22 @@ export function RegionStage({ batchId, evidence, label, observations, disabled, 
     moveable.current?.updateRect()
   }, [draft, surfaceWidth])
 
-  if (!found) {
+  useEffect(() => {
+    onDirtyChange?.(draft !== null)
+  }, [draft, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+
+  const page = version?.pages.find((value) => value.page === pageNumber) ?? version?.pages[0]
+  if (!version || !page) {
     return null
   }
-  const { version, page } = found
+  const versionId = version.id
+  const shownPage = page.page
   const regions = observations.filter(
     (item) =>
       item.status === 'active' &&
       item.evidence_version_id === version.id &&
+      (item.page ?? 1) === page.page &&
       item.region.kind === 'pixels',
   )
 
@@ -84,11 +104,12 @@ export function RegionStage({ batchId, evidence, label, observations, disabled, 
     }
     setSaving(true)
     try {
-      await save({
+      // The batch edit resolves false when the save was refused or not confirmed.
+      const saved = await save({
         kind: 'observation',
         ...(draft.observationId ? { observation_id: draft.observationId } : {}),
-        evidence_version_id: version.id,
-        page: page.page,
+        evidence_version_id: versionId,
+        page: shownPage,
         region: {
           kind: 'pixels',
           x: draft.x,
@@ -99,7 +120,9 @@ export function RegionStage({ batchId, evidence, label, observations, disabled, 
           source_height: draft.sourceHeight,
         },
       })
-      setDraft(null)
+      if (saved !== false) {
+        setDraft(null)
+      }
     } finally {
       setSaving(false)
     }
@@ -111,6 +134,22 @@ export function RegionStage({ batchId, evidence, label, observations, disabled, 
   return (
     <Stage aria-label={`Regions of ${label}`}>
       <StageTitle>Regions of {label}</StageTitle>
+      {version.pages.length > 1 && (
+        <Label>
+          Page
+          <Select
+            value={page.page}
+            disabled={draft !== null}
+            onChange={(event) => setPageNumber(Number(event.target.value))}
+          >
+            {version.pages.map((value) => (
+              <option key={value.page} value={value.page}>
+                Page {value.page}
+              </option>
+            ))}
+          </Select>
+        </Label>
+      )}
       <Surface ref={surface} $ratio={page.width / page.height}>
         {failed ? (
           <Missing>
@@ -167,6 +206,14 @@ export function RegionStage({ batchId, evidence, label, observations, disabled, 
             renderDirections={['nw', 'ne', 'sw', 'se']}
             throttleDrag={0}
             throttleResize={0}
+            onResizeStart={() => {
+              gestureStart.current = {
+                x: draft.x,
+                y: draft.y,
+                width: draft.width,
+                height: draft.height,
+              }
+            }}
             onDrag={(event) =>
               setDraft({
                 ...draft,
@@ -174,15 +221,16 @@ export function RegionStage({ batchId, evidence, label, observations, disabled, 
                 y: Math.round(event.top / draftScale),
               })
             }
-            onResize={(event) =>
+            onResize={(event) => {
+              const start = gestureStart.current ?? draft
               setDraft({
                 ...draft,
-                x: Math.round((draft.x * draftScale + event.drag.beforeTranslate[0]) / draftScale),
-                y: Math.round((draft.y * draftScale + event.drag.beforeTranslate[1]) / draftScale),
+                x: Math.round(start.x + event.drag.beforeTranslate[0] / draftScale),
+                y: Math.round(start.y + event.drag.beforeTranslate[1] / draftScale),
                 width: Math.max(1, Math.round(event.width / draftScale)),
                 height: Math.max(1, Math.round(event.height / draftScale)),
               })
-            }
+            }}
           />
         )}
       </Surface>

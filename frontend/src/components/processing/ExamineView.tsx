@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureEditDto,
@@ -14,7 +14,7 @@ import { Button } from '../ui/Button'
 import { Count, Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { SourceChip } from '../ui/SourceChip'
-import { Input, Label, linkTouchArea, Summary } from '../ui/primitives'
+import { Input, Label, linkTouchArea, Small, Summary } from '../ui/primitives'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
 import { RegionStage } from '../review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
@@ -77,13 +77,24 @@ function photoNames(media: MediaSnapshotDto | undefined) {
 function ReadingEdit({
   observation,
   save,
+  locked,
+  onDirty,
 }: {
   observation: Observation
   save: (change: CaptureEditDto['change']) => Promise<unknown>
+  /** Another correction is unsaved, so this one waits. */
+  locked: boolean
+  onDirty: (dirty: boolean) => void
 }) {
   const name = observation.readings.markings.join(' · ') || 'this region'
-  const [value, setValue] = useState(observation.readings.markings.join(', '))
+  const saved = observation.readings.markings.join(', ')
+  const [value, setValue] = useState(saved)
   const [saving, setSaving] = useState(false)
+  const dirty = value !== saved
+  useEffect(() => {
+    onDirty(dirty)
+  }, [dirty, onDirty])
+  useEffect(() => () => onDirty(false), [onDirty])
   return (
     <ReadingForm
       onSubmit={(event) => {
@@ -107,11 +118,25 @@ function ReadingEdit({
     >
       <Label>
         <VisuallyHidden>Markings for {name}</VisuallyHidden>
-        <Input value={value} disabled={saving} onChange={(event) => setValue(event.target.value)} />
+        <Input
+          value={value}
+          disabled={saving || locked}
+          onChange={(event) => setValue(event.target.value)}
+        />
       </Label>
-      <Button size="sm" type="submit" disabled={saving} aria-label={`Save readings for ${name}`}>
+      <Button
+        size="sm"
+        type="submit"
+        disabled={saving || locked || !dirty}
+        aria-label={`Save readings for ${name}`}
+      >
         Save
       </Button>
+      {dirty && (
+        <Button size="sm" variant="ghost" disabled={saving} onClick={() => setValue(saved)}>
+          Discard
+        </Button>
+      )}
     </ReadingForm>
   )
 }
@@ -123,6 +148,8 @@ export function ExamineView({
   questionedLots = new Set(),
   edit,
   askSharper,
+  onDirtyChange,
+  locked = false,
 }: {
   batch: CaptureSnapshotDto
   lead: Job | undefined
@@ -133,11 +160,65 @@ export function ExamineView({
   /** Corrects a reading or region through the capture edit `kind: 'observation'`. */
   edit?: (change: CaptureEditDto['change']) => Promise<unknown>
   /** Asks the Examine lead session, through its chat, for a sharper photo of the named file. */
-  askSharper?: (name: string) => Promise<void>
+  askSharper?: (name: string, key: string) => Promise<void>
+  /** Reports an unsaved correction to the navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void
+  /** Another unsaved Processing draft would be lost when a correction reloads Processing. */
+  locked?: boolean
 }) {
   const [lens, setLens] = useState<'photo' | 'lot'>('photo')
   const [editing, setEditing] = useState<string | null>(null)
   const [adjusting, setAdjusting] = useState<string | null>(null)
+  // One correction at a time: saving reloads Processing, which would drop any other draft.
+  const [dirtyEditors, setDirtyEditors] = useState<ReadonlySet<string>>(new Set())
+  const reportDirty = useCallback((editor: string, dirty: boolean) => {
+    setDirtyEditors((previous) => {
+      if (previous.has(editor) === dirty) {
+        return previous
+      }
+      const next = new Set(previous)
+      if (dirty) {
+        next.add(editor)
+      } else {
+        next.delete(editor)
+      }
+      return next
+    })
+  }, [])
+  // One stable callback per editor, so its effects do not re-run on every render.
+  const dirtyCallbacks = useRef(new Map<string, (dirty: boolean) => void>())
+
+  const dirtyEditor = (editor: string) => {
+    let callback = dirtyCallbacks.current.get(editor)
+    if (!callback) {
+      callback = (dirty: boolean) => reportDirty(editor, dirty)
+      dirtyCallbacks.current.set(editor, callback)
+    }
+    return callback
+  }
+
+  const lockedFor = (editor: string) =>
+    locked || (dirtyEditors.size > 0 && !dirtyEditors.has(editor))
+
+  useEffect(() => {
+    onDirtyChange?.(dirtyEditors.size > 0)
+  }, [dirtyEditors, onDirtyChange])
+  // A request keeps its key until confirmed, so a retry cannot queue it twice.
+  const [requests, setRequests] = useState<
+    Record<string, { key: string; state: 'sending' | 'failed' | 'sent' }>
+  >({})
+
+  async function requestSharper(name: string) {
+    const key = requests[name]?.state === 'failed' ? requests[name].key : crypto.randomUUID()
+    setRequests((value) => ({ ...value, [name]: { key, state: 'sending' } }))
+    try {
+      await askSharper!(name, key)
+      setRequests((value) => ({ ...value, [name]: { key, state: 'sent' } }))
+    } catch {
+      setRequests((value) => ({ ...value, [name]: { key, state: 'failed' } }))
+    }
+  }
+
   const observations = (batch.evidence_observations ?? []).filter(
     (item) => item.status === 'active',
   )
@@ -238,20 +319,35 @@ export function ExamineView({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => void askSharper(named?.name ?? `Photo ${index + 1}`)}
+                      disabled={requests[named?.name ?? `Photo ${index + 1}`]?.state === 'sending'}
+                      onClick={() => void requestSharper(named?.name ?? `Photo ${index + 1}`)}
                     >
-                      Ask for a sharper photo
+                      {requests[named?.name ?? `Photo ${index + 1}`]?.state === 'failed'
+                        ? 'Retry the request'
+                        : 'Ask for a sharper photo'}
                     </Button>
                   )}
                 </PhotoHead>
+                {requests[named?.name ?? `Photo ${index + 1}`]?.state === 'failed' && (
+                  <div role="alert">
+                    <Small>
+                      The request was not confirmed and may already be queued; retrying sends the
+                      same request.
+                    </Small>
+                  </div>
+                )}
+                {requests[named?.name ?? `Photo ${index + 1}`]?.state === 'sent' && (
+                  <Small role="status">Asked Examine for a sharper photo.</Small>
+                )}
                 {edit && adjusting === version && evidenceOf(version) && (
                   <RegionStage
                     batchId={batch.id}
                     evidence={evidenceOf(version)!}
                     label={named?.name ?? `Photo ${index + 1}`}
                     observations={observations}
-                    disabled={false}
+                    disabled={lockedFor('region')}
                     save={edit}
+                    onDirtyChange={dirtyEditor('region')}
                   />
                 )}
                 <List>
@@ -267,7 +363,12 @@ export function ExamineView({
                             <Pill status="edited">Corrected by you</Pill>
                           )}
                           {edit && editing === version && (
-                            <ReadingEdit observation={observation} save={edit} />
+                            <ReadingEdit
+                              observation={observation}
+                              save={edit}
+                              locked={lockedFor(`reading:${observation.id}`)}
+                              onDirty={dirtyEditor(`reading:${observation.id}`)}
+                            />
                           )}
                           <SourceChip
                             source={chip.source}

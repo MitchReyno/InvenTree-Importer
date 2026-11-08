@@ -227,3 +227,54 @@ it('asks the lead session for a sharper photo', async () => {
   )
   expect(asked).toEqual(['Photo 2'])
 })
+
+it('reports an unsaved reading and locks other corrections until it is saved or discarded', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Markings for 16 MHz crystal'), ' 2')
+  expect(dirty.at(-1)).toBe(true)
+  expect(within(first).getByLabelText('Markings for LED 0603 red')).toBeDisabled()
+  // A save that is not confirmed keeps the draft.
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(within(first).getByLabelText('Markings for 16 MHz crystal')).toHaveValue(
+    '16 MHz crystal 2',
+  )
+})
+
+it('retries an unconfirmed sharper-photo request with the same key, and says when it is sent', async () => {
+  const user = userEvent.setup()
+  const keys: string[] = []
+  let fail = true
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => {}}
+      askSharper={async (_name, key) => {
+        keys.push(key)
+        if (fail) {
+          throw new Error('lost')
+        }
+      }}
+    />,
+  )
+  const second = screen.getByLabelText('Photo 2')
+  await user.click(within(second).getByRole('button', { name: 'Ask for a sharper photo' }))
+  expect(within(second).getByRole('alert')).toHaveTextContent(/not confirmed/)
+  fail = false
+  await user.click(within(second).getByRole('button', { name: 'Retry the request' }))
+  expect(keys).toHaveLength(2)
+  expect(keys[1]).toBe(keys[0])
+  expect(within(second).getByRole('status')).toHaveTextContent('Asked Examine for a sharper photo')
+})

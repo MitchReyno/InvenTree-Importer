@@ -330,6 +330,62 @@ describe('ReviewMapStage', () => {
     })
   })
 
+  it('keeps a region draft when its save is not confirmed', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => false)
+    const onDirtyChange = vi.fn()
+    render(
+      <ReviewMapStage
+        batch={regioned}
+        media={versioned()}
+        edit={edit}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={onDirtyChange}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
+    const stage = screen.getByRole('region', { name: 'Regions of Front label' })
+    await user.click(within(stage).getByRole('button', { name: 'Adjust 1N4148' }))
+    const x = within(stage).getByLabelText('Left')
+    await user.clear(x)
+    await user.type(x, '3')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+    await user.click(within(stage).getByRole('button', { name: 'Save region' }))
+    expect(edit).toHaveBeenCalledTimes(1)
+    expect(within(stage).getByLabelText('Left')).toHaveValue(3)
+  })
+
+  it('shows only the displayed page’s regions', async () => {
+    const user = userEvent.setup()
+    const twoPages = {
+      ...regioned,
+      evidence_observations: [
+        ...regioned.evidence_observations!,
+        {
+          ...regioned.evidence_observations![0],
+          id: 'o2',
+          page: 2,
+          readings: { markings: ['LM358'], text: null },
+        },
+      ],
+    } as unknown as CaptureSnapshotDto
+    render(
+      <ReviewMapStage
+        batch={twoPages}
+        media={versioned()}
+        edit={vi.fn(async () => true)}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
+    const stage = screen.getByRole('region', { name: 'Regions of Front label' })
+    expect(within(stage).getByRole('button', { name: 'Adjust 1N4148' })).toBeInTheDocument()
+    expect(within(stage).queryByRole('button', { name: 'Adjust LM358' })).toBeNull()
+  })
+
   it('adds a region to the selected photo', async () => {
     const user = userEvent.setup()
     const edit = vi.fn(async () => true)

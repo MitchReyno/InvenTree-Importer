@@ -26,6 +26,7 @@ type Props = {
   newLotFromRegion?: (observationId: string, label: string) => Promise<void>
   /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
   editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
+  onRegionDirtyChange?: (dirty: boolean) => void
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
@@ -53,6 +54,7 @@ export function ReviewMap({
   moveRegion,
   newLotFromRegion,
   editRegion,
+  onRegionDirtyChange,
   openRestructure,
   approvedLotIds,
   restructureUnavailable = false,
@@ -159,6 +161,7 @@ export function ReviewMap({
               observations={batch.evidence_observations ?? []}
               disabled={disabled}
               save={editRegion}
+              onDirtyChange={onRegionDirtyChange}
             />
           )}
         </>

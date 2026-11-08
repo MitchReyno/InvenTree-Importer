@@ -185,7 +185,8 @@ export function DecisionPanel({
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [answering, setAnswering] = useState(false)
+  // The question being answered is pinned, so a later read cannot drop the draft or its retry.
+  const [answering, setAnswering] = useState<OpenQuestion | null>(null)
   const [restructure, setRestructure] = useState<RestructureKind | null>(null)
   const sharing = batch.lots.filter(
     (other) =>
@@ -218,7 +219,7 @@ export function DecisionPanel({
           Processing has an open question about this lot.{' '}
           {answerQuestion && !answering && (
             <>
-              <Button size="sm" onClick={() => setAnswering(true)}>
+              <Button size="sm" onClick={() => setAnswering(openQuestion)}>
                 Answer here
               </Button>{' '}
             </>
@@ -234,21 +235,28 @@ export function DecisionPanel({
           </Link>
         </Paragraph>
       )}
-      {openQuestion && answerQuestion && answering && (
-        <QuestionAnswer
-          key={openQuestion.id}
-          question={openQuestion.question}
-          captureRevision={openQuestion.captureRevision}
-          currentQuestion={openQuestion.question}
-          currentCaptureRevision={openQuestion.captureRevision}
-          disabled={disabled}
-          answer={async (questionId, input, key) => {
-            await answerQuestion(questionId, input, key)
-            drafts.forSource('answer')(false)
-            setAnswering(false)
-          }}
-          onDirtyChange={drafts.forSource('answer')}
-        />
+      {answerQuestion && answering && (
+        <>
+          <QuestionAnswer
+            key={answering.id}
+            question={answering.question}
+            captureRevision={answering.captureRevision}
+            currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}
+            currentCaptureRevision={openQuestion?.captureRevision ?? answering.captureRevision}
+            disabled={disabled}
+            answer={async (questionId, input, key) => {
+              await answerQuestion(questionId, input, key)
+              drafts.forSource('answer')(false)
+              setAnswering(null)
+            }}
+            onDirtyChange={drafts.forSource('answer')}
+          />
+          {!drafts.isDirty('answer') && (
+            <Button size="sm" variant="ghost" onClick={() => setAnswering(null)}>
+              Close the answer
+            </Button>
+          )}
+        </>
       )}
       <KeyValue
         rows={[
