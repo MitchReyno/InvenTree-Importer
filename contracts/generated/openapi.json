@@ -8336,6 +8336,38 @@
                 "type": "object",
                 "required": [
                   "kind",
+                  "lot_id",
+                  "reason"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "lot_exclusion",
+                    "type": "string"
+                  },
+                  "lot_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
                   "id"
                 ],
                 "properties": {
@@ -12458,6 +12490,27 @@
                 "reexamine": {
                   "const": true,
                   "type": "boolean"
+                },
+                "excluded": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "reason",
+                    "at"
+                  ],
+                  "properties": {
+                    "reason": {
+                      "minLength": 1,
+                      "maxLength": 500,
+                      "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                      "type": "string"
+                    },
+                    "at": {
+                      "maxLength": 40,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                      "type": "string"
+                    }
+                  }
                 },
                 "estimated_quantity": {
                   "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -25160,6 +25213,27 @@
                         "const": true,
                         "type": "boolean"
                       },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
+                      },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                         "type": "string"
@@ -27346,6 +27420,27 @@
                       "reexamine": {
                         "const": true,
                         "type": "boolean"
+                      },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
                       },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -31475,6 +31570,27 @@
                     "const": true,
                     "type": "boolean"
                   },
+                  "excluded": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "reason",
+                      "at"
+                    ],
+                    "properties": {
+                      "reason": {
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                        "type": "string"
+                      },
+                      "at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      }
+                    }
+                  },
                   "estimated_quantity": {
                     "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                     "type": "string"
@@ -33590,6 +33706,27 @@
                     "const": true,
                     "type": "boolean"
                   },
+                  "excluded": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "reason",
+                      "at"
+                    ],
+                    "properties": {
+                      "reason": {
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                        "type": "string"
+                      },
+                      "at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      }
+                    }
+                  },
                   "estimated_quantity": {
                     "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                     "type": "string"
@@ -35274,6 +35411,27 @@
                   "reexamine": {
                     "const": true,
                     "type": "boolean"
+                  },
+                  "excluded": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "reason",
+                      "at"
+                    ],
+                    "properties": {
+                      "reason": {
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                        "type": "string"
+                      },
+                      "at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      }
+                    }
                   },
                   "estimated_quantity": {
                     "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -36970,6 +37128,27 @@
                   "reexamine": {
                     "const": true,
                     "type": "boolean"
+                  },
+                  "excluded": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "reason",
+                      "at"
+                    ],
+                    "properties": {
+                      "reason": {
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                        "type": "string"
+                      },
+                      "at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                        "type": "string"
+                      }
+                    }
                   },
                   "estimated_quantity": {
                     "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -40273,6 +40452,27 @@
                         "const": true,
                         "type": "boolean"
                       },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
+                      },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                         "type": "string"
@@ -41957,6 +42157,27 @@
                       "reexamine": {
                         "const": true,
                         "type": "boolean"
+                      },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
                       },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -43653,6 +43874,27 @@
                         "const": true,
                         "type": "boolean"
                       },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
+                      },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                         "type": "string"
@@ -45348,6 +45590,27 @@
                       "reexamine": {
                         "const": true,
                         "type": "boolean"
+                      },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
                       },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -47055,6 +47318,27 @@
                       "reexamine": {
                         "const": true,
                         "type": "boolean"
+                      },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
                       },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -48796,6 +49080,27 @@
                       "reexamine": {
                         "const": true,
                         "type": "boolean"
+                      },
+                      "excluded": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reason",
+                          "at"
+                        ],
+                        "properties": {
+                          "reason": {
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                            "type": "string"
+                          },
+                          "at": {
+                            "maxLength": 40,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                            "type": "string"
+                          }
+                        }
                       },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
@@ -58825,6 +59130,27 @@
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
               "type": "string"
             }
+          },
+          "excluded": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "reason",
+              "at"
+            ],
+            "properties": {
+              "reason": {
+                "minLength": 1,
+                "maxLength": 500,
+                "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                "type": "string"
+              },
+              "at": {
+                "maxLength": 40,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              }
+            }
           }
         }
       },
@@ -59127,6 +59453,27 @@
                   "items": {
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                     "type": "string"
+                  }
+                },
+                "excluded": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "reason",
+                    "at"
+                  ],
+                  "properties": {
+                    "reason": {
+                      "minLength": 1,
+                      "maxLength": 500,
+                      "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                      "type": "string"
+                    },
+                    "at": {
+                      "maxLength": 40,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+                      "type": "string"
+                    }
                   }
                 }
               }

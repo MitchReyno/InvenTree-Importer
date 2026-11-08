@@ -165,6 +165,7 @@ export async function operatorReview(
       approved: history.approvedContributionKeys.has(lot.contribution_key),
       issues: [...blockingIssues(material, lot, history), ...warningIssues(material)],
       predecessor_lot_ids: context.predecessors.get(lot.id) ?? [],
+      ...(lot.excluded ? { excluded: lot.excluded } : {}),
     }
   })
   const instructions = await latestInstructions(client, batchId)

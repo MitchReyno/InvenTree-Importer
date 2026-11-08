@@ -1,5 +1,5 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { CaptureLocation, CaptureQuantity } from './capture.ts'
+import { CaptureLocation, CaptureQuantity, LotExclusion } from './capture.ts'
 import { CursorSequence, Digest, Id, Quantity, Revision } from './scalars.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -52,6 +52,8 @@ export const OperatorLot = object({
   approved: Type.Boolean(),
   issues: Type.Array(OperatorIssue, { maxItems: 100 }),
   predecessor_lot_ids: Type.Array(Id, { maxItems: MAX_RESTRUCTURE_LOTS }),
+  /** Left out of the batch by the operator, as the capture lot records it. */
+  excluded: Type.Optional(LotExclusion),
 })
 
 export const OperatorRetiredLot = object({

@@ -1,5 +1,5 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { CursorSequence, Digest, Id, Quantity, Revision } from './scalars.ts'
+import { CursorSequence, Digest, Id, IsoTime, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
 import { captureTags } from './capture-primitives.ts'
 import { AgentSelection } from './agent-selection.ts'
@@ -484,12 +484,7 @@ export const ProcessingQuestion = object({
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
   /** When the question was asked; absent for questions retained before the time was kept. */
-  asked_at: Type.Optional(
-    Type.String({
-      maxLength: 40,
-      pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$',
-    }),
-  ),
+  asked_at: Type.Optional(IsoTime),
 })
 
 /** Orders questions oldest first; a question retained before its time was kept comes last. */

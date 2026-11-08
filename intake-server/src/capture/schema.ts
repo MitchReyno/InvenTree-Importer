@@ -117,6 +117,8 @@ export const captureLots = pgTable('capture_lot', {
   operatorEdited: boolean('operator_edited').notNull().default(false),
   /** The operator corrected a reading this lot used; cleared when the lead session looks again. */
   reexamine: boolean().notNull().default(false),
+  excludedReason: text('excluded_reason'),
+  excludedAt: timestamp('excluded_at', { withTimezone: true, precision: 3 }),
   estimatedQuantity: text('estimated_quantity'),
   quantityBasis: text('quantity_basis'),
   observationSetVersion: bigint('observation_set_version', { mode: 'bigint' })

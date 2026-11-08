@@ -316,7 +316,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   const label = (observationId: string, fallback: string) =>
     capture.observations.find((item) => item.id === observationId)?.label ?? fallback
 
-  const activeLots = capture.lots.filter((lot) => !lot.retired)
+  // Retired and excluded lots add nothing to the target.
+  const activeLots = capture.lots.filter((lot) => !lot.retired && !lot.excluded)
 
   const lotsOf = (partIds: readonly string[]) =>
     activeLots

@@ -327,6 +327,16 @@ export function materialize(
       )
       continue
     }
+    if (lot.excluded) {
+      issues.push(
+        issue(
+          'lot_excluded',
+          `Excluded: ${lot.excluded.reason}. Include it again to add it.`,
+          lotId,
+        ),
+      )
+      continue
+    }
     const part = snapshot.parts.find((value) => value.id === lot.part_subject_id)
     const quantity = lot.quantity.mode === 'inherit' ? snapshot.defaults.quantity : lot.quantity
     const resolution = resolveLotLocation(snapshot, lot, lotGroups)

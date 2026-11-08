@@ -4377,6 +4377,11 @@ export interface components {
                 };
             } | {
                 /** @constant */
+                kind: "lot_exclusion";
+                lot_id: string;
+                reason: string | null;
+            } | {
+                /** @constant */
                 kind: "part";
                 id: string;
                 label?: string;
@@ -5251,6 +5256,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7257,6 +7266,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7723,6 +7736,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -8551,6 +8568,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9003,6 +9024,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9359,6 +9384,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9718,6 +9747,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10427,6 +10460,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10782,6 +10819,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11140,6 +11181,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11498,6 +11543,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11857,6 +11906,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -12222,6 +12275,10 @@ export interface components {
                 operator_edited?: true;
                 /** @constant */
                 reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -14111,6 +14168,10 @@ export interface components {
                 } | null;
             }[];
             predecessor_lot_ids: string[];
+            excluded?: {
+                reason: string;
+                at: string;
+            };
         };
         OperatorRetiredLot: {
             lot_id: string;
@@ -14155,6 +14216,10 @@ export interface components {
                     } | null;
                 }[];
                 predecessor_lot_ids: string[];
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
             }[];
             retired_lots: {
                 lot_id: string;

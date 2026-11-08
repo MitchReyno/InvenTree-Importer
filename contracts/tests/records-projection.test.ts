@@ -242,6 +242,29 @@ test('stock items and locations follow active lots; a lot with no location needs
   assert.equal(of(result.records, 'location')[1].decision?.code, 'location_required')
 })
 
+test('an excluded lot has no records; a Part only it used is left out too', () => {
+  const excluded = {
+    ...capture,
+    lots: capture.lots.map((item) =>
+      item.id === id(103) || item.id === id(102)
+        ? { ...item, excluded: { reason: 'Damaged', at: '2026-11-08T05:00:00.000Z' } }
+        : item,
+    ),
+  } as CaptureSnapshotDto
+  const result = projectRecords({ capture: excluded, processing: undefined, lotGroups: null })
+  assert.deepEqual(
+    of(result.records, 'stock_item').map((record) => record.label),
+    ['Lot 1', 'Lot 4', 'Lot 5'],
+  )
+  // Part B's only lot is excluded; Part A keeps Lot 1 alone.
+  const partLots = of(result.records, 'part').map((record) => record.lot_ids)
+  assert.equal(
+    partLots.some((lots) => lots.includes(id(103))),
+    false,
+  )
+  assert.ok(partLots.some((lots) => lots.length === 1 && lots[0] === id(101)))
+})
+
 test('a lot taking a new default location draft is placed under that draft, not a decision', () => {
   const draftId = id(950)
   const withDraft = {

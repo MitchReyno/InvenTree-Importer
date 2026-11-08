@@ -791,3 +791,38 @@ test('move preview reports a preparation blocked only by a new sibling duplicate
     await fixture.dispose()
   }
 })
+
+test('an excluded lot carries its reason, cannot be reviewed into a preparation, and returns when included', async () => {
+  const fixture = await manualFixture()
+  try {
+    const seeded = await fixture.seedCapture()
+    const batchId = seeded.batch.id
+    const { a } = seeded
+    const exclude = async (reason: string | null) => {
+      const current = await capture(fixture, batchId)
+      const result = await fixture.http(`/batches/${batchId}/edits`, {
+        expected_revision: current.revision,
+        change: { kind: 'lot_exclusion', lot_id: a.id, reason },
+      })
+      assert.equal(result.status, 200, JSON.stringify(result.value))
+    }
+
+    await exclude('Bent leads')
+    let current = await operator(fixture, batchId)
+    const lot = current.lots.find((item) => item.lot_id === a.id)!
+    assert.equal(lot.excluded?.reason, 'Bent leads')
+    assert.ok(lot.issues.some((item) => item.code === 'lot_excluded'))
+    assert.notEqual((await review(fixture, batchId, [a.id])).status, 200)
+
+    await exclude(null)
+    current = await operator(fixture, batchId)
+    const back = current.lots.find((item) => item.lot_id === a.id)!
+    assert.equal(back.excluded, undefined)
+    assert.equal(
+      back.issues.some((item) => item.code === 'lot_excluded'),
+      false,
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})

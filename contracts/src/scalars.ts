@@ -21,3 +21,9 @@ export const PositivePk = Type.String({ pattern: '^[1-9][0-9]{0,18}' + end, form
 export const Quantity = Type.String({
   pattern: '^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?' + end,
 })
+
+/** An ISO 8601 instant with an explicit offset, as the server writes them. */
+export const IsoTime = Type.String({
+  maxLength: 40,
+  pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$',
+})
