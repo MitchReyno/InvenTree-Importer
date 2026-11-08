@@ -5,7 +5,7 @@ import { AskControl } from './AskControl'
 import { ProposedCompanyEditor } from './ProposedCompanyEditor'
 import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '../../../records/model'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
-import { Small } from '../../ui/primitives'
+import { Link, Small } from '../../ui/primitives'
 import { CompanyEditor } from './CompanyEditor'
 import { ParameterEditor } from './ParameterEditor'
 import { PartDecision } from './PartDecision'
@@ -72,9 +72,9 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
           {record.lot_ids.map((lotId, index) => (
             <span key={lotId}>
               {index > 0 && ', '}
-              <a href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
+              <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
                 {batch.lots.find((lot) => lot.id === lotId)?.label ?? 'a retired lot'}
-              </a>
+              </Link>
             </span>
           ))}
           .

@@ -22,7 +22,7 @@ import { media } from '../../ui/media'
 import { Banner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
-import { Small, Summary } from '../../ui/primitives'
+import { Link, Small, Summary } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
@@ -308,7 +308,7 @@ export function RecordsStage({
             )}
             {selected && (
               <RecordNav aria-label="Record">
-                <a href={batchHref(batch.id, { tab: 'review', view: 'records' })}>Records</a>
+                <Link href={batchHref(batch.id, { tab: 'review', view: 'records' })}>Records</Link>
                 <span aria-hidden="true">›</span>
                 <span>{TYPE_LABELS[type]}</span>
                 <span aria-hidden="true">›</span>

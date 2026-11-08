@@ -12,7 +12,14 @@ import { Pill } from '../ui/Pill'
 import { StatusTimeline } from '../ui/StatusTimeline'
 import { Heading, Link, Panel, Paragraph, Small } from '../ui/primitives'
 import { TargetChip } from '../ui/TargetChip'
-import { activeRun, checking, refused, roundSummary, RoundOutcome } from './RoundOutcome'
+import {
+  activeRun,
+  checking,
+  needsAttention,
+  refused,
+  roundSummary,
+  RoundOutcome,
+} from './RoundOutcome'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -46,8 +53,6 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
   ])
   const notIncluded = batch.lots.filter((lot) => !lot.retired && !placed.has(lot.id))
   const shown = focusedRunId ? (focused ? [focused] : []) : runs
-
-  const needsAttention = (run: ManualRunDto) => checking(run) > 0 || refused(run).length > 0
 
   const attention = runs.filter(needsAttention).length
   const ordered = [...shown].sort(

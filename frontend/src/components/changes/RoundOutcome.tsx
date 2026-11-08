@@ -58,6 +58,22 @@ export function checking(run: ManualRunDto) {
   )
 }
 
+/** Unfinished work the operator can act on: checks, refusals, stops, resumes and repairs. */
+export function needsAttention(run: ManualRunDto) {
+  return (
+    checking(run) > 0 ||
+    refused(run).length > 0 ||
+    run.state === 'recovery_required' ||
+    run.state === 'settled_incomplete' ||
+    run.operations.some((operation) => operation.recovery_allowed) ||
+    (run.supported_effects ?? []).some((effect) => Boolean(effect.recovery_action)) ||
+    (run.attachments ?? []).some(
+      (attachment) =>
+        Boolean(attachment.recovery_action) || attachment.verification === 'missing_or_changed',
+    )
+  )
+}
+
 /** A round that needs checking only because InvenTree refused something. */
 const heldByRefusal = (run: ManualRunDto) =>
   run.state === 'recovery_required' && refused(run).length > 0 && checking(run) === 0

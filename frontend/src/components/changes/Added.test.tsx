@@ -363,6 +363,29 @@ describe('Added', () => {
     ).toHaveTextContent(/^Packet D\s*\S/)
   })
 
+  it('counts a stopped round to resume and an attachment to repair as needing attention', async () => {
+    const user = userEvent.setup()
+    const stopped = run(3, {
+      state: 'settled_incomplete',
+      effect_certainty: 'confirmed',
+      operations: [{ ...operation(lotA, 'none', null), recovery_allowed: true }],
+    })
+    const repair = run(4, {
+      attachments: [
+        {
+          certainty: 'confirmed',
+          verification: 'missing_or_changed',
+          recovery_action: 'repair_attachment',
+        },
+      ] as never,
+    })
+    setup([confirmed, stopped, repair])
+    await user.click(screen.getByRole('button', { name: 'Needs attention, 2' }))
+    expect(
+      screen.getAllByRole('heading', { name: /^Round \d/ }).map((heading) => heading.textContent),
+    ).toEqual([expect.stringMatching(/^Round 3/), expect.stringMatching(/^Round 4/)])
+  })
+
   it('lists pending changes, lots not included and the activity log', () => {
     const pending = {
       id: id(900),
