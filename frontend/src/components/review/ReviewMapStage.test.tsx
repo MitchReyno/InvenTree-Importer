@@ -393,6 +393,29 @@ describe('ReviewMapStage', () => {
     expect(within(stage).getByLabelText('Left')).toHaveValue(3)
   })
 
+  it('drops a region draft when the batch’s local edits are discarded', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const props = {
+      batch: regioned,
+      media: versioned(),
+      edit: vi.fn(async () => false),
+      retiredLotIds: new Set<string>(),
+      reload: vi.fn(async () => undefined),
+      onDirtyChange,
+    }
+    const view = render(<ReviewMapStage {...props} discarded={0} />)
+    await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
+
+    const stage = () => screen.getByRole('region', { name: 'Regions of Front label' })
+
+    await user.click(within(stage()).getByRole('button', { name: 'Adjust 1N4148' }))
+    expect(within(stage()).getByLabelText('Left')).toBeInTheDocument()
+    view.rerender(<ReviewMapStage {...props} discarded={1} />)
+    expect(within(stage()).queryByLabelText('Left')).toBeNull()
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  })
+
   it('shows only the displayed page’s regions', async () => {
     const user = userEvent.setup()
     const twoPages = {

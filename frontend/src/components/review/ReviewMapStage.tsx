@@ -25,6 +25,8 @@ type Props = {
   restructureUnavailable?: boolean
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
+  /** Counts discards of the batch's local edits; an unsaved region draft is dropped on each. */
+  discarded?: number
   /** Present with agent sessions: the Map's instruction goes to the Examine lead session. */
   processing?: ProcessingClient
 }
@@ -49,6 +51,7 @@ export function ReviewMapStage({
   restructureUnavailable = false,
   reload,
   onDirtyChange,
+  discarded,
   processing,
 }: Props) {
   const drafts = useDirtySources(onDirtyChange)
@@ -257,6 +260,7 @@ export function ReviewMapStage({
           editRegion={edit}
           onRegionDirtyChange={drafts.forSource('region')}
           selectionLocked={drafts.isDirty('region')}
+          discarded={discarded}
           openRestructure={
             operator ? (kind, lotIds) => setRestructure({ kind, lotIds }) : undefined
           }

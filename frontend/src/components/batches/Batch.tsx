@@ -509,6 +509,7 @@ export function Batch({
       <ReviewMapStage
         batch={batch}
         media={media}
+        discarded={discarded}
         edit={edit}
         operator={operator}
         retiredLotIds={retired}

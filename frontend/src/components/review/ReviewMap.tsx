@@ -29,6 +29,8 @@ type Props = {
   onRegionDirtyChange?: (dirty: boolean) => void
   /** An unsaved region draft holds the selected photo until it is saved or discarded. */
   selectionLocked?: boolean
+  /** Counts discards of the batch's local edits. */
+  discarded?: number
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
@@ -58,6 +60,7 @@ export function ReviewMap({
   editRegion,
   onRegionDirtyChange,
   selectionLocked = false,
+  discarded = 0,
   openRestructure,
   approvedLotIds,
   restructureUnavailable = false,
@@ -157,7 +160,8 @@ export function ReviewMap({
           </TitleRow>
           {editRegion && selectedFile && evidence.find((file) => file.id === selectedFile) && (
             <RegionStage
-              key={selectedFile}
+              // A discard of the batch's local edits drops the region draft too.
+              key={`${selectedFile}:${discarded}`}
               batchId={batch.id}
               evidence={evidence.find((file) => file.id === selectedFile)!}
               label={fileLabel.get(selectedFile) ?? 'Selected file'}
