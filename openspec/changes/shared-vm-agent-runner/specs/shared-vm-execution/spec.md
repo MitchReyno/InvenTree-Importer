@@ -27,16 +27,16 @@ A personal deployment SHALL run its trusted services in host Compose and multipl
 
 ### Requirement: Scoped guest execution and tool access
 
-The guest SHALL provide a private working directory per session, shell, script execution, readable images and PDFs, and a clean browser profile. Only authenticated attempt-scoped bridge operations SHALL reach application data. The deployed network policy SHALL restrict private destinations and host mounts independently of provider configuration.
+The guest SHALL provide a distinct working directory per session, shell, script execution, readable images and PDFs, and a clean browser profile. Only authenticated attempt-scoped bridge operations SHALL reach application data. The deployed network policy SHALL restrict private destinations and host mounts independently of provider configuration. Jobs running as the same guest user share a trust domain and may read files or credentials accessible to that user.
 
 #### Scenario: Research a component
 
 - **WHEN** a session requests authorized evidence, crops the image with its own script and reads a public datasheet
-- **THEN** it can submit a proposal citing the authorized version, while access to unrelated evidence, host files, PostgreSQL and InvenTree is refused.
+- **THEN** it can submit a proposal citing the authorized version, while its scoped bridge request for unrelated evidence is refused and host files, PostgreSQL and InvenTree remain inaccessible.
 
 #### Scenario: Attempt to reach protected services
 
-- **WHEN** a guest script tries to reach the host, LAN, tailnet, database, InvenTree, cloud metadata, management interface or another session's scoped tools
+- **WHEN** a guest script tries to reach the host, LAN, tailnet, database, InvenTree, cloud metadata, management interface, or invokes another session’s tools using its own capability
 - **THEN** network policy or application authorization refuses the operation, including redirected and IPv6 requests, and no retained inventory changes.
 
 ### Requirement: Fenced execution lifecycle
