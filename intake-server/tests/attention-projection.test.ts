@@ -411,3 +411,21 @@ test('questions are listed oldest first across jobs, with untimed questions last
     ['Question 3?', 'Question 1?', 'Question 2?'],
   )
 })
+
+test('an excluded lot asks nothing of Review', () => {
+  const excluded = {
+    ...review,
+    lots: review.lots.map((lot) => ({
+      ...lot,
+      review_state: 'changed_after_review' as const,
+      excluded: { reason: 'Bent leads', at: '2026-11-08T05:00:00.000Z' },
+    })),
+  } as unknown as OperatorReviewDto
+  const result = projectAttention({ batchId: batch, processing, review: excluded, manual, records })
+  assert.equal(result.review.to_check, 0)
+  assert.equal(result.review.changed_after_review, 0)
+  assert.equal(
+    result.items.some((item) => item.group === 'changed_lot'),
+    false,
+  )
+})

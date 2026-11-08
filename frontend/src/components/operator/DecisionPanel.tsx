@@ -456,7 +456,8 @@ export function DecisionPanel({
                 size="sm"
                 variant="ghost"
                 aria-expanded={excluding}
-                disabled={disabled || (drafts.dirty && !excluding)}
+                // A typed reason closes only through Cancel, so it is never dropped unseen.
+                disabled={disabled || (excluding ? drafts.isDirty('exclude') : drafts.dirty)}
                 onClick={() => setExcluding(!excluding)}
               >
                 Exclude…

@@ -90,7 +90,8 @@ function changedLotItems({ batchId, review }: AttentionSources): AttentionItemDt
 
 /** Lots still to approve; an approved lot needs nothing more from Review. */
 function openLots(review: OperatorReviewDto) {
-  return review.lots.filter((lot) => !lot.approved)
+  // An excluded lot waits on nothing but being included again.
+  return review.lots.filter((lot) => !lot.approved && !lot.excluded)
 }
 
 /** A record waiting for a choice, as Review › Records counts it: once per record, not per lot. */

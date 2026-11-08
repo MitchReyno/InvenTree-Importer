@@ -174,6 +174,20 @@ describe('excluding a lot', () => {
     expect(changes).toEqual([{ kind: 'lot_exclusion', lot_id: 'l', reason: 'Bent leads' }])
   })
 
+  it('keeps a typed reason until it is sent or cancelled', async () => {
+    const user = userEvent.setup()
+    render(panel(async () => false))
+    await user.click(screen.getByRole('button', { name: 'Exclude…' }))
+    await user.type(screen.getByLabelText('Why leave Packet B out?'), 'Bent leads')
+    expect(screen.getByRole('button', { name: 'Exclude…' })).toBeDisabled()
+    // An unconfirmed save keeps the reason for an exact retry.
+    await user.click(screen.getByRole('button', { name: 'Exclude this lot' }))
+    expect(screen.getByLabelText('Why leave Packet B out?')).toHaveValue('Bent leads')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByLabelText('Why leave Packet B out?')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Exclude…' })).toBeEnabled()
+  })
+
   it('says why an excluded lot is out, and includes it again', async () => {
     const user = userEvent.setup()
     const changes: unknown[] = []

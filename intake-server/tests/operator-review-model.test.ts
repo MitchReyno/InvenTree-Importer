@@ -223,6 +223,16 @@ test('an excluded lot is blocking with its reason and produces no subject depend
   assert.equal(material.effects.length, 0)
 })
 
+test('an excluded lot’s issue fits its contract even with the longest reason', () => {
+  const capture = snapshot()
+  const lotA = capture.lots[0]
+  Object.assign(lotA, { excluded: { reason: 'x'.repeat(500), at: '2026-11-08T05:00:00.000Z' } })
+  const material = materialize(capture, [lotA.id], new Map())
+  const message = material.issues[0].message
+  assert.ok(Array.from(message).length <= 256, `${Array.from(message).length}`)
+  assert.match(message, /^Excluded: x+…\. Include it again to add it\.$/)
+})
+
 test('lineage alone seals /3 bytes so a successor review never matches its predecessor', () => {
   const capture = snapshot()
   const [lotA, lotB] = capture.lots

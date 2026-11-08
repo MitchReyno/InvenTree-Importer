@@ -85,6 +85,12 @@ const WARNING_MESSAGES: Record<ReviewWarningCode, string> = {
 /** Successors inherit predecessor evidence; lineage depth is bounded by subject capacity. */
 const MAX_LINEAGE_DEPTH = 100
 
+/** Issue messages hold 256 characters; a long exclusion reason is shortened to fit. */
+function clipReason(reason: string) {
+  const characters = Array.from(reason)
+  return characters.length > 200 ? `${characters.slice(0, 199).join('')}…` : reason
+}
+
 export function issue(
   code: string,
   message: string,
@@ -331,7 +337,7 @@ export function materialize(
       issues.push(
         issue(
           'lot_excluded',
-          `Excluded: ${lot.excluded.reason}. Include it again to add it.`,
+          `Excluded: ${clipReason(lot.excluded.reason)}. Include it again to add it.`,
           lotId,
         ),
       )
