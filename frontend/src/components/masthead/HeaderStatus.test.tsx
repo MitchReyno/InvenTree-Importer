@@ -605,6 +605,47 @@ test('the activity label counts the agents holding a slot and names the batch wi
   ])
 })
 
+test('away from the batch the header step counts give the partial fill and "Research: 3 of 5"', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const step = { jobs: 0, ready: 0, running: 0 }
+  vi.mocked(api.work).mockResolvedValue({
+    ...processingWork(),
+    batch_steps: [
+      {
+        batch_id: batchId,
+        steps: {
+          examine: { ...step, jobs: 4, ready: 4 },
+          research: { jobs: 5, ready: 3, running: 1 },
+          images: step,
+          inventory: step,
+        },
+      },
+    ],
+  })
+  render(<HeaderStatus client={api} />)
+
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription(/Research: 3 of 5/))
+  const running = trigger.querySelector('[data-state="running"] i')
+  expect(running).toHaveStyle({ width: '60%' })
+
+  await user.click(trigger)
+  const panel = screen.getByRole('dialog', { name: 'Workflow details' })
+  const job = within(panel).getByRole('region', { name: 'Other batch · Processing' })
+  expect(job.querySelector('[data-state="running"] i')).toHaveStyle({ width: '60%' })
+})
+
+test('a batch the header read does not count shows its running step without a fraction', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue({ ...processingWork(), batch_steps: [] })
+  render(<HeaderStatus client={api} />)
+
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+  await screen.findByText('2 agents working')
+  expect(trigger).not.toHaveAccessibleDescription(/ of /)
+})
+
 test('without the batch reads the label still names the work and leaves out the question count', async () => {
   const api = client()
   vi.mocked(api.work).mockResolvedValue(processingWork())

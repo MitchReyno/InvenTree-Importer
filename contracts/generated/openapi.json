@@ -17693,6 +17693,140 @@
               }
             }
           },
+          "batch_steps": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "batch_id",
+                "steps"
+              ],
+              "properties": {
+                "batch_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "steps": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "examine",
+                    "research",
+                    "images",
+                    "inventory"
+                  ],
+                  "properties": {
+                    "examine": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "jobs",
+                        "ready",
+                        "running"
+                      ],
+                      "properties": {
+                        "jobs": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "research": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "jobs",
+                        "ready",
+                        "running"
+                      ],
+                      "properties": {
+                        "jobs": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "images": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "jobs",
+                        "ready",
+                        "running"
+                      ],
+                      "properties": {
+                        "jobs": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "inventory": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "jobs",
+                        "ready",
+                        "running"
+                      ],
+                      "properties": {
+                        "jobs": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "ready": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "running": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "work_truncated": {
             "type": "boolean"
           },

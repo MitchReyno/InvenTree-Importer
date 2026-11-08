@@ -95,3 +95,26 @@ test('the connection target may carry the InvenTree version, and older reads wit
     assert.throws(() => validate('ConnectionStatus', { ...status, target: { ...target, version } }))
   }
 })
+
+test('the header may count each step of a batch, and reads without counts stay valid', () => {
+  validate('HeaderWork', work)
+  const step = { jobs: 5, ready: 3, running: 1 }
+  const steps = { examine: step, research: step, images: step, inventory: step }
+  validate('HeaderWork', { ...work, batch_steps: [{ batch_id: id, steps }] })
+  validate('HeaderWork', { ...work, batch_steps: [] })
+  assert.throws(() =>
+    validate('HeaderWork', { ...work, batch_steps: [{ batch_id: id, steps: { examine: step } }] }),
+  )
+  assert.throws(() =>
+    validate('HeaderWork', {
+      ...work,
+      batch_steps: [{ batch_id: id, steps: { ...steps, research: { ...step, ready: -1 } } }],
+    }),
+  )
+  assert.throws(() =>
+    validate('HeaderWork', {
+      ...work,
+      batch_steps: Array.from({ length: 6 }, () => ({ batch_id: id, steps })),
+    }),
+  )
+})

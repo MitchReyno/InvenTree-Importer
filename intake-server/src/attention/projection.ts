@@ -8,6 +8,7 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
+import { STEPS, STEP_BY_STAGE, countSteps, type Step, type StepJobs } from '../processing/steps.ts'
 
 export type AttentionSources = {
   batchId: string
@@ -15,16 +16,6 @@ export type AttentionSources = {
   review: OperatorReviewDto
   manual: ManualWorkspaceDto
   records: BatchRecordsDto
-}
-
-/** Reading and Identifying are the Examine step on the redesigned Processing tab. */
-const STEP_BY_STAGE: Record<string, string> = {
-  reading: 'examine',
-  identifying: 'examine',
-  examine: 'examine',
-  research: 'research',
-  images: 'images',
-  inventory: 'inventory',
 }
 
 const STEP_LABEL: Record<string, string> = {
@@ -129,27 +120,21 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
     }))
 }
 
-const STEPS = ['examine', 'research', 'images', 'inventory'] as const
-
-type StepWork = { questions: number; failed: number; jobs: number; ready: number; running: number }
+type StepWork = StepJobs & { questions: number; failed: number }
 
 function stepWork(items: AttentionItemDto[], processing: ProcessingSnapshotDto | undefined) {
-  const step = (name: string): StepWork => {
+  const jobs = countSteps(processing?.jobs ?? [])
+
+  const step = (name: Step): StepWork => {
     const own = items.filter((item) => item.route.split('/')[2] === name)
-    const jobs = (processing?.jobs ?? []).filter((job) => STEP_BY_STAGE[job.stage] === name)
     return {
       questions: own.filter((item) => item.group === 'question').length,
       failed: own.filter((item) => item.group === 'failed_job').length,
-      jobs: jobs.length,
-      ready: jobs.filter((job) => job.state === 'ready').length,
-      running: jobs.filter((job) => job.state === 'running').length,
+      ...jobs[name],
     }
   }
 
-  return Object.fromEntries(STEPS.map((name) => [name, step(name)])) as Record<
-    (typeof STEPS)[number],
-    StepWork
-  >
+  return Object.fromEntries(STEPS.map((name) => [name, step(name)])) as Record<Step, StepWork>
 }
 
 /** Tab counts and need-you items projected together, so badges and the panel agree. */

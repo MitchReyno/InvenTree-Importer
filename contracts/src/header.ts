@@ -53,6 +53,12 @@ const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
 export const HeaderWorkQuery = object({ batch_id: Type.Optional(Id) })
+
+/** Bounds the header's per-batch step counts: the open batch and a few with live work. */
+export const MAX_HEADER_BATCH_STEPS = 5
+
+const count = Type.Integer({ minimum: 0, maximum: 100000 })
+const stepJobs = object({ jobs: count, ready: count, running: count })
 export const HeaderWork = object({
   actor_id: Id,
   target_id: Id,
@@ -121,6 +127,21 @@ export const HeaderWork = object({
       latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
     }),
     { maxItems: 50 },
+  ),
+  /** Each counted batch's current jobs per step; a batch without an entry is uncounted. */
+  batch_steps: Type.Optional(
+    Type.Array(
+      object({
+        batch_id: Id,
+        steps: object({
+          examine: stepJobs,
+          research: stepJobs,
+          images: stepJobs,
+          inventory: stepJobs,
+        }),
+      }),
+      { maxItems: MAX_HEADER_BATCH_STEPS },
+    ),
   ),
   work_truncated: Type.Boolean(),
   sessions_truncated: Type.Boolean(),

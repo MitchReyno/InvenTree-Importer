@@ -3,8 +3,9 @@ import type { PillStatus } from '../components/ui/Pill'
 import type { ProgressStep, SegmentState } from '../components/ui/ProgressSegments'
 
 type WorkItem = HeaderWorkDto['work'][number]
-type StepCounts =
-  BatchAttentionDto['processing']['steps'][keyof BatchAttentionDto['processing']['steps']]
+/** The header read counts jobs only; the attention read also counts each step's failures. */
+type StepCounts = { jobs: number; ready: number; running: number; failed?: number }
+type BatchStepCounts = Record<(typeof PLANNED)[number], StepCounts>
 
 function capitalised(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
@@ -39,33 +40,50 @@ const PLANNED_STEP: Record<string, (typeof PLANNED)[number]> = {
   inventory: 'inventory',
 }
 
+/** A batch's step counts: the open batch's attention read, else the header read's own count. */
+export function batchStepCounts(
+  data: HeaderWorkDto | undefined,
+  batch: string | undefined,
+  attention: BatchAttentionDto | undefined,
+): BatchStepCounts | undefined {
+  if (!batch) {
+    return undefined
+  }
+  if (attention?.batch_id === batch) {
+    return attention.processing.steps
+  }
+
+  return data?.batch_steps?.find((entry) => entry.batch_id === batch)?.steps
+}
+
 /**
  * A batch's Processing steps in plan order. Each retained job is one step, so the steps come from all
- * of the batch's jobs, filled by the attention read's ready share where it counts the step.
+ * of the batch's jobs, filled by the counted ready share where a read counts the step.
  */
 export function processingSegments(
   items: WorkItem[],
-  attention: BatchAttentionDto | undefined,
+  steps: BatchStepCounts | undefined,
 ): ProgressStep[] {
   const retained = items.flatMap((item) => (item.kind === 'processing' ? item.steps : []))
   return PLANNED.map((step) => {
-    const counts = attention?.processing.steps[step]
+    const counts = steps?.[step]
     const states = retained
       .filter((own) => 'stage' in own && PLANNED_STEP[own.stage] === step)
       .map((own) => own.state)
     return {
       label: capitalised(step),
-      state: counts?.jobs ? countedState(counts) : retainedState(states),
+      state: counts?.jobs ? countedState(counts, retainedState(states)) : retainedState(states),
       fraction: counts?.jobs ? counts.ready / counts.jobs : undefined,
     }
   })
 }
 
-function countedState(counts: StepCounts): SegmentState {
+/** Without a failure count, a retained failed job still marks its step failed. */
+function countedState(counts: StepCounts, retained: SegmentState): SegmentState {
   if (counts.running > 0) {
     return 'running'
   }
-  if (counts.failed > 0) {
+  if ((counts.failed ?? 0) > 0 || (counts.failed === undefined && retained === 'failed')) {
     return 'failed'
   }
 
@@ -84,10 +102,10 @@ function retainedState(states: string[]): SegmentState {
   return segments.length > 0 && segments.every((state) => state === 'done') ? 'done' : 'waiting'
 }
 
-/** "Research: 7 of 12" for the first step the attention read counts as running. */
-export function processingProgress(attention: BatchAttentionDto | undefined) {
+/** "Research: 7 of 12" for the first step counted as running. */
+export function processingProgress(steps: BatchStepCounts | undefined) {
   for (const step of PLANNED) {
-    const counts = attention?.processing.steps[step]
+    const counts = steps?.[step]
     if (counts?.jobs && counts.running > 0) {
       return `${capitalised(step)}: ${counts.ready} of ${counts.jobs}`
     }

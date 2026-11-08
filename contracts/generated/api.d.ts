@@ -6141,6 +6141,31 @@ export interface components {
                     at: string;
                 } | null;
             }[];
+            batch_steps?: {
+                batch_id: string;
+                steps: {
+                    examine: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                    research: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                    images: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                    inventory: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                };
+            }[];
             work_truncated: boolean;
             sessions_truncated: boolean;
             lane_occupied: boolean;
