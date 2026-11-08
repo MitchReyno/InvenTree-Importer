@@ -1,6 +1,7 @@
 import { locationDraftName } from '../capture/context'
 import {
   lotLocationGroups,
+  oldestQuestionFirst,
   resolveLotLocation,
   type CaptureSnapshotDto,
   type MediaSnapshotDto,
@@ -98,7 +99,7 @@ export type OpenQuestion = {
 }
 
 /**
- * Each active lot's first open Processing question: its own, else its Part's, since a job can be
+ * Each active lot's oldest open Processing question: its own, else its Part's, since a job can be
  * about a Part that several lots share.
  */
 export function openQuestionsByLot(
@@ -106,17 +107,18 @@ export function openQuestionsByLot(
   batch: Pick<CaptureSnapshotDto, 'lots'>,
 ): ReadonlyMap<string, OpenQuestion> {
   const bySubject = new Map<string, OpenQuestion>()
-  for (const job of processing?.jobs ?? []) {
-    for (const question of job.questions) {
-      const subject = question.spec.subject_id
-      if (question.state === 'open' && subject && !bySubject.has(subject)) {
-        bySubject.set(subject, {
-          id: question.id,
-          step: processingStepFor(job.stage),
-          question,
-          captureRevision: processing!.capture_revision,
-        })
-      }
+  const asked = (processing?.jobs ?? [])
+    .flatMap((job) => job.questions.map((question) => ({ job, question })))
+    .sort((a, b) => oldestQuestionFirst(a.question, b.question))
+  for (const { job, question } of asked) {
+    const subject = question.spec.subject_id
+    if (question.state === 'open' && subject && !bySubject.has(subject)) {
+      bySubject.set(subject, {
+        id: question.id,
+        step: processingStepFor(job.stage),
+        question,
+        captureRevision: processing!.capture_revision,
+      })
     }
   }
   const byLot = new Map<string, OpenQuestion>()

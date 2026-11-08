@@ -483,7 +483,29 @@ export const ProcessingQuestion = object({
   /** Session questions only: the fields affected and the assumption the agent continues with. */
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+  /** When the question was asked; absent for questions retained before the time was kept. */
+  asked_at: Type.Optional(
+    Type.String({
+      maxLength: 40,
+      pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$',
+    }),
+  ),
 })
+
+/** Orders questions oldest first; a question retained before its time was kept comes last. */
+export function oldestQuestionFirst(a: { asked_at?: string }, b: { asked_at?: string }): number {
+  if (a.asked_at === b.asked_at) {
+    return 0
+  }
+  if (!a.asked_at) {
+    return 1
+  }
+  if (!b.asked_at) {
+    return -1
+  }
+  return Date.parse(a.asked_at) - Date.parse(b.asked_at)
+}
+
 export const STATUS_LINE_MAX_CHARACTERS = 120
 /** One status line: no line breaks, at most 120 characters. */
 export const statusLine = Type.String({

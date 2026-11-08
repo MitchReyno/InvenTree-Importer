@@ -390,3 +390,19 @@ test('tool results report the pending inbox and typed errors', () => {
   })
   validate('SessionProposeArgs', { proposal: proposalV5 })
 })
+
+test('a question keeps when it was asked, and an older question without the time stays readable', () => {
+  const question = {
+    id: id(1),
+    job_id: id(2),
+    attempt_id: id(3),
+    input_sha256: digest('a'),
+    revision: '1',
+    state: 'open',
+    spec: { kind: 'quantity', subject_id: id(4), prompt: 'How many?', reason: 'Torn label.' },
+  }
+  validate('ProcessingQuestion', question)
+  validate('ProcessingQuestion', { ...question, asked_at: '2026-11-08T04:30:24.952Z' })
+  assert.throws(() => validate('ProcessingQuestion', { ...question, asked_at: '' }))
+  assert.throws(() => validate('ProcessingQuestion', { ...question, asked_at: 'yesterday' }))
+})

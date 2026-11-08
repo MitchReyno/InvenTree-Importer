@@ -54008,6 +54008,11 @@
             "minLength": 1,
             "maxLength": 2048,
             "type": "string"
+          },
+          "asked_at": {
+            "maxLength": 40,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
+            "type": "string"
           }
         }
       },
@@ -56159,6 +56164,11 @@
                 "assumption": {
                   "minLength": 1,
                   "maxLength": 2048,
+                  "type": "string"
+                },
+                "asked_at": {
+                  "maxLength": 40,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
                   "type": "string"
                 }
               }
@@ -58353,6 +58363,11 @@
                       "assumption": {
                         "minLength": 1,
                         "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "asked_at": {
+                        "maxLength": 40,
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?(Z|[+-]\\d{2}:\\d{2})$",
                         "type": "string"
                       }
                     }

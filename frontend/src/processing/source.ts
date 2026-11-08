@@ -1,4 +1,4 @@
-import type { ProcessingSnapshotDto } from '@invimport/contracts'
+import { oldestQuestionFirst, type ProcessingSnapshotDto } from '@invimport/contracts'
 import { processingStepFor } from '../navigation/batch-route'
 
 type Job = ProcessingSnapshotDto['jobs'][number]
@@ -183,23 +183,27 @@ export function retainedJobsSource(
 
   const jobsOn = (step: WorkStep) => snapshot.jobs.filter((job) => workStep(job) === step)
 
-  const questions = snapshot.jobs.flatMap((job) =>
-    job.questions
-      .filter((question) => question.state === 'open')
-      .map((question) => {
-        // The Examine lead session can ask about the whole batch.
-        const about = question.spec.subject_id
-        return {
-          id: question.id,
-          jobId: job.id,
-          step: workStep(job),
-          subject: about === null ? 'Whole batch' : (subjects.get(about) ?? subject(job)),
-          prompt: question.spec.prompt,
-          assumption: question.assumption ?? null,
-          lotId: about !== null && activeLotIds.has(about) ? about : null,
-        }
-      }),
-  )
+  // Oldest first across jobs, as Needs you lists them.
+  const questions = snapshot.jobs
+    .flatMap((job) =>
+      job.questions
+        .filter((question) => question.state === 'open')
+        .map((question) => ({ job, question })),
+    )
+    .sort((a, b) => oldestQuestionFirst(a.question, b.question))
+    .map(({ job, question }) => {
+      // The Examine lead session can ask about the whole batch.
+      const about = question.spec.subject_id
+      return {
+        id: question.id,
+        jobId: job.id,
+        step: workStep(job),
+        subject: about === null ? 'Whole batch' : (subjects.get(about) ?? subject(job)),
+        prompt: question.spec.prompt,
+        assumption: question.assumption ?? null,
+        lotId: about !== null && activeLotIds.has(about) ? about : null,
+      }
+    })
 
   const sessions: SourceSession[] = snapshot.jobs.flatMap((job) =>
     job.session_state

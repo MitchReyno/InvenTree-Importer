@@ -67,6 +67,39 @@ describe('the Needs answer filter', () => {
     expect(matchesFilter(lot('b'), 'needs_answer', questions)).toBe(false)
   })
 
+  it('offers a lot its oldest open question, whichever job asked it', () => {
+    const asked = {
+      jobs: [
+        {
+          stage: 'research',
+          questions: [
+            {
+              id: 'q-new',
+              state: 'open',
+              spec: { subject_id: 'a' },
+              asked_at: '2026-11-08T05:00:00Z',
+            },
+          ],
+        },
+        {
+          stage: 'identifying',
+          questions: [
+            {
+              id: 'q-old',
+              state: 'open',
+              spec: { subject_id: 'a' },
+              asked_at: '2026-11-08T04:00:00Z',
+            },
+          ],
+        },
+      ],
+    } as unknown as ProcessingSnapshotDto
+    expect(openQuestionsByLot(asked, batch).get('a')).toMatchObject({
+      id: 'q-old',
+      step: 'examine',
+    })
+  })
+
   it('shows nothing before Processing is read', () => {
     expect(matchesFilter(lot('a'), 'needs_answer')).toBe(false)
     expect(openQuestionsByLot(undefined, batch).size).toBe(0)

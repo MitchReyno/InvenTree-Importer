@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import { and, eq, getTableColumns, inArray } from 'drizzle-orm'
+import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { canonicalRecord } from '@invimport/contracts/json'
 import {
@@ -255,7 +255,8 @@ async function questionsForJob(
       .innerJoin(processingInputs, eq(processingInputs.id, processingQuestions.inputId))
       .innerJoin(processingMessages, eq(processingMessages.id, processingQuestions.messageId))
       .where(eq(processingQuestions.jobId, job.id))
-      .orderBy(processingQuestions.id)
+      // Oldest first; questions retained before the time was kept come last.
+      .orderBy(sql`${processingQuestions.askedAt} ASC NULLS LAST`, processingQuestions.id)
       .limit(MAX_JOB_RESULTS + 1),
   )
   if (questions.length > MAX_JOB_RESULTS) {
@@ -273,6 +274,7 @@ async function questionsForJob(
       revision: question.revision.toString(),
       state: staleOpenQuestion ? 'superseded' : question.state,
       ...questionSpec(question, job.subjectId, batchSubjects),
+      ...(question.askedAt ? { asked_at: question.askedAt.toISOString() } : {}),
     }
   })
 }

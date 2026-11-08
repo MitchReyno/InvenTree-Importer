@@ -462,7 +462,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 
 - [ ] 22.1 Read each mapped record's current values from the target into the records projection, and show existing against proposed values in Records (R24).
 - [ ] 22.2 Add a source kind (label, packing slip, handwriting, distributor page) and an agreement (read, likely, sources disagree) to observation readings and proposal values, through the session tools' schemas, and show them as source chips in words on Lots, Examine and Records (G18, R19).
-- [ ] 22.3 Retain when each question was asked, and order Needs you oldest first.
+- [x] 22.3 Retain when each question was asked, and order Needs you oldest first.
 - [ ] 22.4 Add a command that excludes a lot from the batch with a reason and includes it again, and turn on Exclude in Lot details, the Excluded filter and state in Lots and the Table (R20), and excluded lots in Changes' Not included.
 - [ ] 22.5 Close the notes' unmet-behaviour item for Needs you oldest first and the Exclude open item, and record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 

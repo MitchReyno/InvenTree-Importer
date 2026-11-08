@@ -13271,6 +13271,7 @@ export interface components {
             };
             fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
             assumption?: string;
+            asked_at?: string;
         };
         ProcessingJob: {
             id: string;
@@ -13653,6 +13654,7 @@ export interface components {
                 };
                 fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
                 assumption?: string;
+                asked_at?: string;
             }[];
         };
         ProcessingSnapshot: {
@@ -14041,6 +14043,7 @@ export interface components {
                     };
                     fields?: ("markings" | "identity" | "quantity" | "research" | "images")[];
                     assumption?: string;
+                    asked_at?: string;
                 }[];
             }[];
             cursor: {
