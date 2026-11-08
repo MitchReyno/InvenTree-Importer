@@ -1128,3 +1128,66 @@ test('a split drops suggestions aimed at the lot it retires', async () => {
     )
   })
 })
+
+test('correcting a reading marks only the lot that used it for re-examination, until the lead looks again', async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const start = await read()
+    const first = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: start.revision,
+        evidence_version_id: photo.version,
+        region: region(0),
+        readings: readings('BC547'),
+      }),
+    )
+    assert.ok(first.ok)
+    const second = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: first.revision,
+        evidence_version_id: photo.version,
+        region: region(300),
+        readings: readings('BC557'),
+      }),
+    )
+    assert.ok(second.ok)
+    const lotA = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: second.revision,
+        label: 'BC547 transistors',
+        observation_ids: [first.id],
+      }),
+    )
+    assert.ok(lotA.ok)
+    const lotB = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: lotA.revision,
+        label: 'BC557 transistors',
+        observation_ids: [second.id],
+      }),
+    )
+    assert.ok(lotB.ok)
+
+    const corrected = await edit({
+      kind: 'observation',
+      observation_id: first.id,
+      evidence_version_id: photo.version,
+      region: region(0),
+      readings: readings('BC548'),
+    })
+    assert.equal(corrected.status, 200, JSON.stringify(corrected.value))
+    const after = await read()
+    const lotOf = (id: string) => after.lots.find((lot) => lot.id === id)!
+    assert.equal(lotOf(lotA.id!).reexamine, true)
+    assert.equal(lotOf(lotB.id!).reexamine, undefined)
+
+    const looked = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: after.revision,
+        lot_id: lotA.id,
+        observation_ids: [first.id],
+      }),
+    )
+    assert.ok(looked.ok)
+    assert.equal((await read()).lots.find((lot) => lot.id === lotA.id)!.reexamine, undefined)
+  })
+})

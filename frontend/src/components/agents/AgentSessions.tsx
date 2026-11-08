@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
-import { batchHref, processingStepFor } from '../../navigation/batch-route'
+import { batchHref, processingStepFor, sessionHref } from '../../navigation/batch-route'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { linkTouchArea } from '../ui/primitives'
+import { Link, linkTouchArea } from '../ui/primitives'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { SESSION_STATE, STEP_LABEL } from '../processing/ProcessingParts'
 import { Banner } from '../ui/Banner'
@@ -231,7 +231,22 @@ export function AgentSessions({ client, batches }: Props) {
                     id: session.attempt_id,
                     label: `${step} · ${subject}`,
                     cells: {
-                      step: { value: step },
+                      step: {
+                        value: step,
+                        content: (
+                          <Link
+                            href={sessionHref(
+                              batchId,
+                              processingStepFor(session.stage),
+                              session.job_id,
+                            )}
+                            // The drawer shows a job's latest attempt, so an earlier row says so.
+                            aria-label={`${session.latest_on_job ? 'Open session' : 'Open latest session'}: ${step} · ${subject}`}
+                          >
+                            {step}
+                          </Link>
+                        ),
+                      },
                       lot: { value: subject },
                       status: {
                         value: notes.join(' · '),

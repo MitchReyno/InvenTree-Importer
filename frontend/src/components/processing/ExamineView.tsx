@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type {
+  CaptureEditDto,
   CaptureSnapshotDto,
   MediaSnapshotDto,
   ProcessingSnapshotDto,
@@ -13,7 +14,9 @@ import { Button } from '../ui/Button'
 import { Count, Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { SourceChip } from '../ui/SourceChip'
-import { linkTouchArea, Summary } from '../ui/primitives'
+import { Label, linkTouchArea, Small, Summary, TextArea } from '../ui/primitives'
+import { VisuallyHidden } from '../ui/VisuallyHidden'
+import { RegionStage } from '../review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 
@@ -70,11 +73,155 @@ function photoNames(media: MediaSnapshotDto | undefined) {
  * What the Examine lead session found: every region it read in each photo with the lot it
  * belongs to, then each lot with its observations, candidates and quantity basis.
  */
+/** A reading's markings, edited as a comma-separated list. */
+function ReadingEdit({
+  observation,
+  save,
+  locked,
+  onDirty,
+}: {
+  observation: Observation
+  save: (change: CaptureEditDto['change']) => Promise<unknown>
+  /** Another correction is unsaved, so this one waits. */
+  locked: boolean
+  onDirty: (dirty: boolean) => void
+}) {
+  const { readings } = observation
+  const name = (readings.markings.join(' · ') || readings.text || 'this region').replace(
+    /\s+/g,
+    ' ',
+  )
+  // One field per marking keeps each marking whole, whatever characters it holds.
+  const [markings, setMarkings] = useState<string[]>(readings.markings)
+  const [text, setText] = useState(readings.text ?? '')
+  const [saving, setSaving] = useState(false)
+  const dirty =
+    text !== (readings.text ?? '') ||
+    markings.length !== readings.markings.length ||
+    markings.some((marking, index) => marking !== readings.markings[index])
+  useEffect(() => {
+    onDirty(dirty)
+  }, [dirty, onDirty])
+  useEffect(() => () => onDirty(false), [onDirty])
+  const busy = saving || locked
+  return (
+    <ReadingForm
+      aria-label={`Readings for ${name}`}
+      onSubmit={(event) => {
+        event.preventDefault()
+        setSaving(true)
+        const kept = text.trim()
+        void save({
+          kind: 'observation',
+          observation_id: observation.id,
+          evidence_version_id: observation.evidence_version_id,
+          page: observation.page,
+          region: observation.region,
+          readings: {
+            markings: markings.map((marking) => marking.trim()).filter(Boolean),
+            ...(kept ? { text: kept } : {}),
+          },
+        }).finally(() => setSaving(false))
+      }}
+    >
+      {markings.map((marking, index) => (
+        <Label key={index}>
+          <VisuallyHidden>
+            Marking {index + 1} for {name}
+          </VisuallyHidden>
+          <MarkingField
+            rows={Math.max(1, marking.split('\n').length)}
+            value={marking}
+            disabled={busy}
+            onChange={(event) =>
+              setMarkings(markings.map((value, at) => (at === index ? event.target.value : value)))
+            }
+          />
+        </Label>
+      ))}
+      {markings.length < 32 && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          aria-label={`Add a marking for ${name}`}
+          onClick={() => setMarkings([...markings, ''])}
+        >
+          Add a marking
+        </Button>
+      )}
+      <Label>
+        <VisuallyHidden>Text for {name}</VisuallyHidden>
+        <TextArea
+          rows={2}
+          placeholder="Other text read from the photo"
+          value={text}
+          disabled={busy}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </Label>
+      <Small>Clear a marking to remove it.</Small>
+      <span>
+        <Button
+          size="sm"
+          type="submit"
+          disabled={busy || !dirty}
+          aria-label={`Save readings for ${name}`}
+        >
+          Save
+        </Button>{' '}
+        {dirty && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => {
+              setMarkings(readings.markings)
+              setText(readings.text ?? '')
+            }}
+          >
+            Discard
+          </Button>
+        )}
+      </span>
+    </ReadingForm>
+  )
+}
+
+export type SharperRequests = Record<
+  string,
+  { key: string; name: string; state: 'sending' | 'failed' | 'sent' }
+>
+
+/** Sharper-photo requests by evidence version; every mounted view sees each update. */
+export function createSharperRequestStore() {
+  let current: SharperRequests = {}
+  const listeners = new Set<() => void>()
+  return {
+    get: () => current,
+    set(version: string, entry: SharperRequests[string]) {
+      current = { ...current, [version]: entry }
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+}
+
+export type SharperRequestStore = ReturnType<typeof createSharperRequestStore>
+
 export function ExamineView({
   batch,
   lead,
   media,
   questionedLots = new Set(),
+  edit,
+  askSharper,
+  onDirtyChange,
+  locked = false,
+  requestStore,
 }: {
   batch: CaptureSnapshotDto
   lead: Job | undefined
@@ -82,8 +229,77 @@ export function ExamineView({
   media?: MediaSnapshotDto
   /** Lots with an open question, which read "Question" rather than "Stable". */
   questionedLots?: ReadonlySet<string>
+  /** Corrects a reading or region through the capture edit `kind: 'observation'`. */
+  edit?: (change: CaptureEditDto['change']) => Promise<unknown>
+  /** Asks the Examine lead session, through its chat, for a sharper photo of the named file. */
+  askSharper?: (name: string, key: string) => Promise<void>
+  /** Reports an unsaved correction to the navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void
+  /** Another unsaved Processing draft would be lost when a correction reloads Processing. */
+  locked?: boolean
+  /** Outlives Processing's reload on each capture revision, so a retry keeps its key. */
+  requestStore?: SharperRequestStore
 }) {
   const [lens, setLens] = useState<'photo' | 'lot'>('photo')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [adjusting, setAdjusting] = useState<string | null>(null)
+  // One correction at a time: saving reloads Processing, which would drop any other draft.
+  const [dirtyEditors, setDirtyEditors] = useState<ReadonlySet<string>>(new Set())
+  const reportDirty = useCallback((editor: string, dirty: boolean) => {
+    setDirtyEditors((previous) => {
+      if (previous.has(editor) === dirty) {
+        return previous
+      }
+      const next = new Set(previous)
+      if (dirty) {
+        next.add(editor)
+      } else {
+        next.delete(editor)
+      }
+      return next
+    })
+  }, [])
+  // One stable callback per editor, so its effects do not re-run on every render.
+  const dirtyCallbacks = useRef(new Map<string, (dirty: boolean) => void>())
+
+  const dirtyEditor = (editor: string) => {
+    let callback = dirtyCallbacks.current.get(editor)
+    if (!callback) {
+      callback = (dirty: boolean) => reportDirty(editor, dirty)
+      dirtyCallbacks.current.set(editor, callback)
+    }
+    return callback
+  }
+
+  const anyDirty = dirtyEditors.size > 0
+
+  const lockedFor = (editor: string) =>
+    locked || (dirtyEditors.size > 0 && !dirtyEditors.has(editor))
+
+  useEffect(() => {
+    onDirtyChange?.(dirtyEditors.size > 0)
+  }, [dirtyEditors, onDirtyChange])
+  // Requests are kept per evidence version with their key and wording until confirmed, so a retry
+  // resends exactly the same request, even after the photo's name arrives or Processing reloads.
+  // A request outlives a reload mid-send, so its reply reaches whichever view is mounted then.
+  const [ownStore] = useState(createSharperRequestStore)
+  const store = requestStore ?? ownStore
+  const requests = useSyncExternalStore(store.subscribe, store.get)
+  const record = store.set
+
+  async function requestSharper(version: string, shownName: string) {
+    const previous = requests[version]
+    const retry = previous?.state === 'failed' ? previous : null
+    const request = { key: retry?.key ?? crypto.randomUUID(), name: retry?.name ?? shownName }
+    record(version, { ...request, state: 'sending' })
+    try {
+      await askSharper!(request.name, request.key)
+      record(version, { ...request, state: 'sent' })
+    } catch {
+      record(version, { ...request, state: 'failed' })
+    }
+  }
+
   const observations = (batch.evidence_observations ?? []).filter(
     (item) => item.status === 'active',
   )
@@ -98,6 +314,19 @@ export function ExamineView({
     (lot) => !lot.retired && (lot.evidence_observation_ids?.length ?? 0) > 0,
   )
   const capture = batchHref(batch.id, { tab: 'capture' })
+
+  // The last evidence seen per version, so a failed media read keeps an open region editor.
+  const seenEvidence = useRef(new Map<string, NonNullable<typeof media>['evidence'][number]>())
+
+  const evidenceOf = (version: string) => {
+    const live = media?.evidence.find((item) =>
+      item.versions?.some((value) => value.id === version),
+    )
+    if (live) {
+      seenEvidence.current.set(version, live)
+    }
+    return live ?? seenEvidence.current.get(version)
+  }
 
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (
@@ -128,8 +357,14 @@ export function ExamineView({
             { id: 'lot', label: 'By lot' },
           ]}
           value={lens}
-          onChange={(id) => setLens(id as 'photo' | 'lot')}
+          onChange={(id) => {
+            // Switching lens would unmount an unsaved correction.
+            if (!anyDirty) {
+              setLens(id as 'photo' | 'lot')
+            }
+          }}
         />
+        {anyDirty && <Muted>Save or discard the correction first.</Muted>}
       </Lens>
       {lens === 'photo' && (
         <Card aria-label="Regions by photo">
@@ -157,7 +392,66 @@ export function ExamineView({
                   <Button as="a" size="sm" variant="ghost" href={capture}>
                     Evidence in Capture
                   </Button>
+                  {edit && (
+                    <>
+                      <Button
+                        size="sm"
+                        aria-pressed={editing === version}
+                        disabled={anyDirty}
+                        onClick={() => setEditing(editing === version ? null : version)}
+                      >
+                        Edit readings
+                      </Button>
+                      {evidenceOf(version) && (
+                        <Button
+                          size="sm"
+                          aria-pressed={adjusting === version}
+                          disabled={anyDirty}
+                          onClick={() => setAdjusting(adjusting === version ? null : version)}
+                        >
+                          Adjust regions
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {askSharper && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={requests[version]?.state === 'sending'}
+                      onClick={() =>
+                        void requestSharper(version, named?.name ?? `Photo ${index + 1}`)
+                      }
+                    >
+                      {requests[version]?.state === 'failed'
+                        ? 'Retry the request'
+                        : 'Ask for a sharper photo'}
+                    </Button>
+                  )}
                 </PhotoHead>
+                {requests[version]?.state === 'failed' && (
+                  <div role="alert">
+                    <Small>
+                      The request was not confirmed and may already be queued; retrying sends the
+                      same request.
+                    </Small>
+                  </div>
+                )}
+                {requests[version]?.state === 'sent' && (
+                  <Small role="status">Asked Examine for a sharper photo.</Small>
+                )}
+                {edit && adjusting === version && evidenceOf(version) && (
+                  <RegionStage
+                    batchId={batch.id}
+                    evidence={evidenceOf(version)!}
+                    label={named?.name ?? `Photo ${index + 1}`}
+                    observations={observations}
+                    // Saving waits for the media read, which checks the region's photo.
+                    disabled={lockedFor('region') || !media}
+                    save={edit}
+                    onDirtyChange={dirtyEditor('region')}
+                  />
+                )}
                 <List>
                   {shown.map((observation) => {
                     const lot = observation.lot_id ? lots.get(observation.lot_id) : undefined
@@ -167,6 +461,17 @@ export function ExamineView({
                         {crop(observation)}
                         <Reading>
                           <span>{readings(observation)}</span>
+                          {observation.operator_edited && observation.origin !== 'operator' && (
+                            <Pill status="edited">Corrected by you</Pill>
+                          )}
+                          {edit && editing === version && (
+                            <ReadingEdit
+                              observation={observation}
+                              save={edit}
+                              locked={lockedFor(`reading:${observation.id}`)}
+                              onDirty={dirtyEditor(`reading:${observation.id}`)}
+                            />
+                          )}
                           <SourceChip
                             source={chip.source}
                             certainty={chip.certainty}
@@ -242,6 +547,7 @@ export function ExamineView({
                         AI-proposed
                       </Pill>
                     ))}
+                  {lot.reexamine && <Pill status="warning">Re-examine</Pill>}
                   {questionedLots.has(lot.id) ? (
                     <Pill status="needs-answer">Question</Pill>
                   ) : (
@@ -394,4 +700,19 @@ const Pills = styled.span`
 const Candidate = styled.div`
   display: grid;
   gap: ${space[2]};
+`
+
+const ReadingForm = styled.form`
+  display: grid;
+  justify-items: start;
+  gap: ${space[3]};
+  max-width: 28rem;
+  label,
+  textarea {
+    width: 100%;
+  }
+`
+/** One line per marking line, rather than the default note height. */
+const MarkingField = styled(TextArea)`
+  min-height: 0;
 `

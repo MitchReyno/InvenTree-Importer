@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
-import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { BatchAttentionDto, CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
 import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
 import type { AgentsRead, ProcessingClient } from '../../processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
+import type { SharperRequestStore } from './ExamineView'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -11,7 +12,11 @@ interface Props {
   client: ProcessingClient
   step: ProcessingStep
   questionId?: string
+  sessionId?: string | null
+  sharperRequests?: SharperRequestStore
   reload: () => Promise<void>
+  /** The batch's capture edit, for Examine's reading and region corrections. */
+  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
   onDirtyChange: (dirty: boolean) => void
   /** Retired lots keep their job history but cannot start new attempts. */
   retiredLotIds?: ReadonlySet<string>
@@ -31,7 +36,10 @@ export function ProcessingStage({
   media,
   step,
   questionId,
+  sessionId,
+  sharperRequests,
   reload,
+  edit,
   onDirtyChange,
   retiredLotIds,
   attention,
@@ -52,9 +60,12 @@ export function ProcessingStage({
       media={media}
       view={step}
       questionId={questionId}
+      sessionId={sessionId}
+      sharperRequests={sharperRequests}
       navigate={navigateProcessing}
       onDirtyChange={onDirtyChange}
       onSaved={reload}
+      edit={edit}
       retiredLotIds={retiredLotIds}
       attention={attention}
       agents={agents}

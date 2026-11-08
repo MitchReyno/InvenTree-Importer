@@ -103,6 +103,8 @@ export const LeadBatchView = object({
       label,
       origin: Type.Union([Type.Literal('agent'), Type.Literal('operator')]),
       operator_edited: Type.Boolean(),
+      /** The operator corrected a reading this lot used: look at it again. */
+      reexamine: Type.Boolean(),
       retired: Type.Boolean(),
       part_subject_id: Type.Union([Id, Type.Null()]),
       estimated_quantity: Type.Union([Quantity, Type.Null()]),

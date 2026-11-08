@@ -191,7 +191,9 @@ test('sessions are grouped by batch, each group linking to its Processing', asyn
   const row = within(table)
     .getAllByRole('row')
     .find((r) => r.textContent?.includes('Checking the supplier page'))!
-  expect(within(row).getByText('Research')).toBeInTheDocument()
+  expect(
+    within(row).getByRole('link', { name: 'Open session: Research · Packet A' }),
+  ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
   expect(within(row).getByText('Packet A')).toBeInTheDocument()
   // Times are short and tabular.
   expect(within(row).getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument()
@@ -273,3 +275,22 @@ const failureDetails: SessionFailureDto = {
   recovery: 'Check CLI configuration.',
   truncated: false,
 }
+
+test('an earlier attempt’s link says it opens the latest session on its job', async () => {
+  const earlier: Session = {
+    ...base,
+    attempt_id: 'earlier',
+    state: 'failed',
+    session_state: 'failed',
+    latest_on_job: false,
+    finished_at: new Date().toISOString(),
+    latest_status: { text: 'Gave up on the datasheet', at: new Date().toISOString() },
+  }
+  render(<AgentSessions client={client({ sessions: [earlier, sessions[1]] })} batches={batches} />)
+  const row = (await screen.findAllByRole('row')).find((r) =>
+    r.textContent?.includes('Gave up on the datasheet'),
+  )!
+  expect(
+    within(row).getByRole('link', { name: 'Open latest session: Research · Packet A' }),
+  ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
+})

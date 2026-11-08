@@ -5249,6 +5249,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7253,6 +7255,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7717,6 +7721,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -8543,6 +8549,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -8993,6 +9001,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9347,6 +9357,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9704,6 +9716,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10411,6 +10425,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10764,6 +10780,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11120,6 +11138,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11476,6 +11496,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11833,6 +11855,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -12196,6 +12220,8 @@ export interface components {
                 agent_session_id?: string;
                 /** @constant */
                 operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -15741,6 +15767,7 @@ export interface components {
                     label: string;
                     origin: "agent" | "operator";
                     operator_edited: boolean;
+                    reexamine: boolean;
                     retired: boolean;
                     part_subject_id: string | null;
                     estimated_quantity: string | null;
@@ -16085,6 +16112,7 @@ export interface components {
                 label: string;
                 origin: "agent" | "operator";
                 operator_edited: boolean;
+                reexamine: boolean;
                 retired: boolean;
                 part_subject_id: string | null;
                 estimated_quantity: string | null;

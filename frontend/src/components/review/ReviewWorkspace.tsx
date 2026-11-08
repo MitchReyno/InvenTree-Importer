@@ -12,6 +12,7 @@ import type {
   ManualWorkspaceDto,
   MediaSnapshotDto,
   OperatorReviewDto,
+  ProcessingAnswerDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { Panel, Paragraph, Small, Summary } from '../ui/primitives'
@@ -60,6 +61,8 @@ interface Props {
   toggle: (id: string) => void
   review: () => void
   reviewLots: (ids: string[]) => void
+  /** Answers a lot's open question in place; absent without a Processing client. */
+  answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
   /** Replaces the shared selection; the Table may select more than the Workspace cap. */
   setSelection: (ids: string[]) => void
   prepare: () => void
@@ -178,6 +181,7 @@ export function ReviewWorkspace({
   toggle,
   review,
   reviewLots,
+  answerQuestion,
   setSelection,
   prepare,
   edit,
@@ -554,6 +558,7 @@ export function ReviewWorkspace({
                 inspect={inspect}
                 markReviewed={() => reviewLots([lot.id])}
                 openQuestion={openQuestions.get(lot.id) ?? null}
+                answerQuestion={answerQuestion}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || !observe || drafts.dirty}

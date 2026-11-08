@@ -171,6 +171,7 @@ async function snapshot(
         origin: captureLots.origin,
         agent_session_id: captureLots.agentSessionId,
         operator_edited: captureLots.operatorEdited,
+        reexamine: captureLots.reexamine,
         estimated_quantity: captureLots.estimatedQuantity,
         quantity_basis: captureLots.quantityBasis,
         observation_set_version: captureLots.observationSetVersion,
@@ -256,6 +257,7 @@ async function snapshot(
         origin,
         agent_session_id,
         operator_edited,
+        reexamine,
         estimated_quantity,
         quantity_basis,
         observation_set_version,
@@ -268,6 +270,7 @@ async function snapshot(
           ? { origin: 'agent' as const, agent_session_id }
           : {}),
         ...(operator_edited && origin === 'agent' ? { operator_edited: true as const } : {}),
+        ...(reexamine ? { reexamine: true as const } : {}),
         ...(estimated_quantity ? { estimated_quantity } : {}),
         ...(quantity_basis ? { quantity_basis } : {}),
         ...(members.length ? { evidence_observation_ids: members } : {}),

@@ -8,14 +8,21 @@ import type {
   ManualWorkspaceDto,
   MediaSnapshotDto,
   OperatorLotDto,
+  ProcessingAnswerDto,
 } from '@invimport/contracts'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
-import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
+import {
+  lotLocationFact,
+  lotProvenance,
+  partProvenance,
+  type OpenQuestion,
+} from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Heading, Link, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Kbd } from '../ui/Kbd'
+import { QuestionAnswer } from '../processing/QuestionAnswer'
 import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
 import { KeyValue } from '../ui/KeyValue'
@@ -27,7 +34,7 @@ import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
-import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
+import { batchHref } from '../../navigation/batch-route'
 import { RecordChain, type RecordLink } from '../ui/RecordChain'
 import { AgentLine } from './AgentLine'
 import type { LotStatus } from '../../processing/source'
@@ -53,7 +60,9 @@ interface Props {
   reload: () => Promise<void>
   inspect: (lotId: string) => void
   /** The lot's open Processing question, which problems can offer to answer. */
-  openQuestion?: { id: string; step: ProcessingStep } | null
+  openQuestion?: OpenQuestion | null
+  /** Answers the open question in place, queued to the asking session. */
+  answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
   /** Marks this one lot reviewed; refused while it has unresolved problems. */
   markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
@@ -165,6 +174,7 @@ export function DecisionPanel({
   inspect,
   markReviewed,
   openQuestion = null,
+  answerQuestion,
   editPart,
   subjectsDisabled = false,
   openEvidence,
@@ -175,6 +185,8 @@ export function DecisionPanel({
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
   const [editing, setEditing] = useState(false)
+  // The question being answered is pinned, so a later read cannot drop the draft or its retry.
+  const [answering, setAnswering] = useState<OpenQuestion | null>(null)
   const [restructure, setRestructure] = useState<RestructureKind | null>(null)
   const sharing = batch.lots.filter(
     (other) =>
@@ -205,6 +217,13 @@ export function DecisionPanel({
       {openQuestion && (
         <Paragraph>
           Processing has an open question about this lot.{' '}
+          {answerQuestion && !answering && (
+            <>
+              <Button size="sm" onClick={() => setAnswering(openQuestion)}>
+                Answer here
+              </Button>{' '}
+            </>
+          )}
           <Link
             href={batchHref(batch.id, {
               tab: 'processing',
@@ -215,6 +234,29 @@ export function DecisionPanel({
             Answer the open question
           </Link>
         </Paragraph>
+      )}
+      {answerQuestion && answering && (
+        <>
+          <QuestionAnswer
+            key={answering.id}
+            question={answering.question}
+            captureRevision={answering.captureRevision}
+            currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}
+            currentCaptureRevision={openQuestion?.captureRevision ?? answering.captureRevision}
+            disabled={disabled || drafts.hasOtherSources('answer')}
+            answer={async (questionId, input, key) => {
+              await answerQuestion(questionId, input, key)
+              drafts.forSource('answer')(false)
+              setAnswering(null)
+            }}
+            onDirtyChange={drafts.forSource('answer')}
+          />
+          {!drafts.isDirty('answer') && (
+            <Button size="sm" variant="ghost" onClick={() => setAnswering(null)}>
+              Close the answer
+            </Button>
+          )}
+        </>
       )}
       <KeyValue
         rows={[
@@ -302,12 +344,8 @@ export function DecisionPanel({
           }
           onEditValues={() => setEditing(true)}
           onEditPart={editPart && part ? () => editPart(part.id) : undefined}
-          disabled={
-            disabled ||
-            drafts.isDirty('quick') ||
-            drafts.isDirty('restructure') ||
-            drafts.isDirty('compare')
-          }
+          // Any save remounts Review, so each draft waits for the others.
+          disabled={disabled || drafts.hasOtherSources('warning')}
           reload={reload}
           onDirtyChange={drafts.forSource('warning')}
         />
@@ -369,12 +407,7 @@ export function DecisionPanel({
         <QuickLotEdit
           batch={batch}
           lot={lot}
-          disabled={
-            disabled ||
-            drafts.isDirty('warning') ||
-            drafts.isDirty('restructure') ||
-            drafts.isDirty('compare')
-          }
+          disabled={disabled || drafts.hasOtherSources('quick')}
           edit={edit}
           onDirtyChange={drafts.forSource('quick')}
         />
@@ -384,7 +417,7 @@ export function DecisionPanel({
           batch={batch}
           part={part}
           affectedLotIds={[lot.id, ...sharing.map((other) => other.id)]}
-          disabled={disabled}
+          disabled={disabled || drafts.hasOtherSources('compare')}
           edit={edit}
           onClose={() => setComparing(false)}
           onDirtyChange={drafts.forSource('compare')}

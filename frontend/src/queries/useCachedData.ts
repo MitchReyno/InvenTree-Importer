@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import { hashKey, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import { hashKey, notifyManager, useQueryClient, type QueryKey } from '@tanstack/react-query'
 
 /**
  * Another screen's settled read, taken from the cache without an observer, so that screen's fetch
@@ -9,7 +9,12 @@ import { hashKey, useQueryClient, type QueryKey } from '@tanstack/react-query'
 export function useCachedData<T>(queryKey: QueryKey | undefined): T | undefined {
   const cache = useQueryClient().getQueryCache()
   const hash = queryKey ? hashKey(queryKey) : undefined
-  const subscribe = useCallback((notify: () => void) => cache.subscribe(notify), [cache])
+  // Batched as React Query's own hooks do: a query built while another component renders must not
+  // update this one mid-render.
+  const subscribe = useCallback(
+    (notify: () => void) => cache.subscribe(notifyManager.batchCalls(notify)),
+    [cache],
+  )
   const read = useCallback(() => {
     const state = hash ? cache.get(hash)?.state : undefined
     const current =

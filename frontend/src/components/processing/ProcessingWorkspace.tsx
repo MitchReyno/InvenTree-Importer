@@ -22,7 +22,7 @@ import { SessionPanel } from './SessionPanel'
 import { QuestionAnswer } from './QuestionAnswer'
 import { ProcessingOverview } from './ProcessingOverview'
 import { StepPage } from './StepPage'
-import { ExamineView } from './ExamineView'
+import { ExamineView, type SharperRequestStore } from './ExamineView'
 import { InstructionField } from './InstructionField'
 import { Muted, STEP_LABEL } from './ProcessingParts'
 import { Dialog } from '../ui/Dialog'
@@ -30,7 +30,7 @@ import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { openQuestionsByLot } from '../../operator/review-model'
-import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
+import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -71,6 +71,11 @@ function onStep(stage: string, view: ProcessingView) {
 }
 
 interface Props {
+  /** The batch's capture edit, for Examine's reading and region corrections. */
+  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  /** A job whose session drawer opens on arrival, from a session link. */
+  sessionId?: string | null
+  sharperRequests?: SharperRequestStore
   batch: CaptureSnapshotDto
   media?: MediaClient
   client: ProcessingClient
@@ -113,16 +118,24 @@ export function ProcessingWorkspace({
   agents,
   unusedFiles,
   instructions,
+  sessionId = null,
+  sharperRequests,
+  edit,
 }: Props) {
-  const [sessionJobId, setSessionJobId] = useState<string | null>(null)
+  const [sessionJobId, setSessionJobId] = useState<string | null>(sessionId)
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
-  // Opening a question navigates; the drawer closes only once the route actually changes.
+  // A route change shows the session its link names, or none: opening a question navigates, and
+  // the drawer closes only once the route actually changes.
+  const routeKey = useRef(`${view}:${questionId}:${sessionId}`)
   useEffect(() => {
-    setSessionJobId(null)
-  }, [questionId, view])
+    if (routeKey.current !== `${view}:${questionId}:${sessionId}`) {
+      routeKey.current = `${view}:${questionId}:${sessionId}`
+      setSessionJobId(sessionId)
+    }
+  }, [questionId, view, sessionId])
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
@@ -286,6 +299,25 @@ export function ProcessingWorkspace({
       setSaving(null)
     }
   }
+
+  const examineLead = snapshot?.jobs.find(
+    (job) => job.stage === 'examine' && job.subject_id === null,
+  )
+  /** Sends the Examine lead session a request for a sharper photo, through its chat. */
+  const askSharper =
+    client.chat && examineLead?.session_state && examineLead.session_state !== 'cancelled'
+      ? async (name: string, key: string) => {
+          await client.chat!(
+            batch.id,
+            examineLead.id,
+            {
+              idempotency_key: key,
+              text: `Please ask for a sharper photo of “${name}”: its markings are hard to read.`,
+            },
+            key,
+          )
+        }
+      : undefined
 
   async function saveInstructions(text: string, revision: string, key: string) {
     setSaving('instructions')
@@ -500,7 +532,9 @@ export function ProcessingWorkspace({
                 captureRevision={pinned.captureRevision}
                 currentQuestion={currentQuestion}
                 currentCaptureRevision={snapshot.capture_revision}
-                disabled={runnerDisabled || drafts.isDirty('instructions')}
+                disabled={
+                  runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')
+                }
                 readOnly={batch.archived || saving === 'instructions'}
                 captureHref={batchHref(batch.id, { tab: 'capture' })}
                 answer={answer}
@@ -510,6 +544,11 @@ export function ProcessingWorkspace({
                 <Small>
                   Save or discard the batch instructions first; saving the answer reloads
                   Processing.
+                </Small>
+              )}
+              {drafts.isDirty('correction') && (
+                <Small>
+                  Save or discard the correction first; saving the answer reloads Processing.
                 </Small>
               )}
             </>
@@ -543,7 +582,9 @@ export function ProcessingWorkspace({
                   saveBlockedReason={
                     drafts.isDirty('answer')
                       ? 'Save or discard the answer first; saving reloads Processing.'
-                      : undefined
+                      : drafts.isDirty('correction')
+                        ? 'Save or discard the correction first; saving reloads Processing.'
+                        : undefined
                   }
                   onDirtyChange={drafts.forSource('instructions')}
                 />
@@ -571,6 +612,11 @@ export function ProcessingWorkspace({
                       media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
                       // A question on a shared Part questions every lot that uses it, as in Review.
                       questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
+                      edit={batch.archived ? undefined : edit}
+                      locked={drafts.isDirty('answer') || drafts.isDirty('instructions')}
+                      askSharper={askSharper}
+                      requestStore={sharperRequests}
+                      onDirtyChange={drafts.forSource('correction')}
                     />
                   )}
                   {jobCards}
@@ -582,7 +628,14 @@ export function ProcessingWorkspace({
             <Dialog
               placement="side"
               title={`${STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} · ${subjectLabel(sessionJob.subject_id)}`}
-              onClose={() => setSessionJobId(null)}
+              onClose={() => {
+                setSessionJobId(null)
+                // A session link's query would reopen the drawer when the batch next reloads.
+                const [hash, query] = location.hash.split('?')
+                if (query && new URLSearchParams(query).has('session')) {
+                  location.replace(hash)
+                }
+              }}
             >
               {sessionJob.questions
                 .filter((question) => question.state === 'open')

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { batchHref, batchRouteHash, pageWidthFor, parseBatchRoute } from './batch-route'
+import {
+  batchHref,
+  batchRouteHash,
+  pageWidthFor,
+  parseBatchRoute,
+  sessionFromQuery,
+  sessionHref,
+} from './batch-route'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
 const lot = 'a0000000-0000-4000-8000-00000000000a'
@@ -116,5 +123,15 @@ describe('each page takes its design width', () => {
     [`${b}/review`, 'review'],
   ])('%s → %s', (route, width) => {
     expect(pageWidthFor(route)).toBe(width)
+  })
+})
+
+describe('session links', () => {
+  it('opens a session on its step through a query the batch reads back', () => {
+    const href = sessionHref('b', 'research', 'job 1')
+    expect(href).toBe('#b/processing/research?session=job%201')
+    const parsed = parseBatchRoute(href.slice(1))
+    expect(parsed.kind === 'route' && sessionFromQuery(parsed.query)).toBe('job 1')
+    expect(sessionFromQuery('')).toBeNull()
   })
 })

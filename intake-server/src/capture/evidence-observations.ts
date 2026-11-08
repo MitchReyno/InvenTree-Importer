@@ -509,6 +509,10 @@ export async function proposeLot(
   if (conflicts.length) {
     return { ok: false, error: 'stale', revision: locked.revision, conflicts }
   }
+  // Proposing for a lot is the lead session looking at it again.
+  if (args.lot_id) {
+    await setReexamine(client, args.lot_id, false)
+  }
   const next = BigInt(locked.nextRevision)
   const db = queryDatabase(client)
   const subjects = locked.subjects.map((s) => ({ id: s.id, kind: s.kind }))
@@ -688,6 +692,16 @@ type ObservationChange = Extract<
 >
 
 /** Marks a lot as changed by the operator, so the lead session only suggests for it from now on. */
+/** Touches the row only when the mark changes, so the agent guard sees no idle writes. */
+async function setReexamine(client: PoolClient, lotId: string, reexamine: boolean) {
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(captureLots)
+      .set({ reexamine })
+      .where(and(eq(captureLots.id, lotId), eq(captureLots.reexamine, !reexamine))),
+  )
+}
+
 export async function markLotEdited(client: PoolClient, lotId: string, revision: bigint) {
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -803,6 +817,8 @@ export async function applyObservationEdit(
       )
       if (from) {
         await markLotEdited(client, from, revision)
+        // The lot used the reading the operator corrected, so the lead session looks again.
+        await setReexamine(client, from, true)
       }
     } else {
       await executeDatabaseQuery(
@@ -971,12 +987,13 @@ export async function leadBatchView(
     label: string
     origin: 'agent' | 'operator' | null
     operator_edited: boolean | null
+    reexamine: boolean | null
     part_subject_id: string | null
     estimated_quantity: string | null
     observation_set_version: string | null
     retired: boolean
   }>(
-    `SELECT s.id,s.kind,s.label,l.origin,l.operator_edited,l.part_subject_id,l.estimated_quantity,
+    `SELECT s.id,s.kind,s.label,l.origin,l.operator_edited,l.reexamine,l.part_subject_id,l.estimated_quantity,
        l.observation_set_version::text AS observation_set_version,
        EXISTS (SELECT 1 FROM public.capture_lot_retirement r WHERE r.lot_id=s.id) AS retired
      FROM public.capture_subject s LEFT JOIN public.capture_lot l ON l.id=s.id
@@ -1015,6 +1032,7 @@ export async function leadBatchView(
         label: row.label,
         origin: row.origin ?? 'operator',
         operator_edited: row.operator_edited === true,
+        reexamine: row.reexamine === true,
         retired: row.retired,
         part_subject_id: row.part_subject_id,
         estimated_quantity: row.estimated_quantity,

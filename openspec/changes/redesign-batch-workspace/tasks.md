@@ -443,12 +443,12 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **TDD approach:** failing tests first (RED) for each edit the screens send and for the screens' state after the server's answer, then the change (GREEN).
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `pnpm test:intake:pg` and `pnpm test:intake:process` (for any server change, such as the re-examination mark) and the frontend checks; a browser check of each correction against the owned fixtures; screenshots and a demo video in the PR description. Departures from this plan go in the change's `notes.md`.
 
-- [ ] 21.1 On Examine, correct a photo's readings and regions ("Edit readings", "Adjust regions") through the capture edit `kind: 'observation'`, shown as "Your edit" and "Corrected by you"; mark the lots that used the reading for re-examination, adding that mark on the server if it has none; and send "Ask for a sharper photo" to the Examine lead session's chat.
-- [ ] 21.2 On the Map, show the selected photo's stage with its regions, and adjust a region by its corners or add one, through the same edit (R21).
-- [ ] 21.3 On the Map, move a region to another lot with `observation_move`, and create a lot from a region with `add_lot` and then the move (R22).
-- [ ] 21.4 Answer a lot's open question in Review ("Answer here"), queued to the asking session, with the problem updating when the answer is accepted.
-- [ ] 21.5 Open a session from Agents: a route parameter for the session opens its drawer on Processing (A6).
-- [ ] 21.6 Close the notes' unmet-behaviour item for the inline answer and "Correct a reading", and record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 21.1 On Examine, correct a photo's readings and regions ("Edit readings", "Adjust regions") through the capture edit `kind: 'observation'`, shown as "Your edit" and "Corrected by you"; mark the lots that used the reading for re-examination, adding that mark on the server if it has none; and send "Ask for a sharper photo" to the Examine lead session's chat.
+- [x] 21.2 On the Map, show the selected photo's stage with its regions, and adjust a region by its corners or add one, through the same edit (R21).
+- [x] 21.3 On the Map, move a region to another lot with `observation_move`, and create a lot from a region with `add_lot` and then the move (R22).
+- [x] 21.4 Answer a lot's open question in Review ("Answer here"), queued to the asking session, with the problem updating when the answer is accepted.
+- [x] 21.5 Open a session from Agents: a route parameter for the session opens its drawer on Processing (A6).
+- [x] 21.6 Close the notes' unmet-behaviour item for the inline answer and "Correct a reading", and record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 22. Data the specs require
 
@@ -501,7 +501,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] D.8 PR-H (task 15): same gates, with the screenshot diff unchanged for the token-swap commit. The token rename and library swaps left the screenshot diff unchanged. Review clear at `9629c8f` after sixteen rounds and, after rebasing onto #131–#134, at `65d3d61`; the 15.10 checkbox follow-up is `3fd8fff`. Merged as #135 (`2fbc2be`) with every CI job that ran green and a demo video attached.
 - [x] D.9 PR-I (task 16): same gates, after PR-H. The 16.1 token swap left the screenshot diff unchanged and shrank the literal baseline from 364 to 302 (273 at merge); the unused-code baseline stayed at 13. Review clear at `b6f620e` after eleven rounds, following the rebase onto #136–#138; the 16.8 checkbox follow-up is `6fba611`. Merged as #139 (`bb370f5`) with every CI job that ran green and a demo video attached.
 - [x] D.10 PR-J (tasks 17 and 18): same gates, after PR-H. The 17.1 and 18.1 token swaps left the screenshot diff unchanged; the literal baseline went from 273 to 154 and the unused-code baseline was unchanged. Review clear at `b0f603da` after fifteen rounds, and at `b6812e74` (round 16) after merging #140–#144; 18.5 followed the design system's PhaseRow card removal (`de6860d`). Merged as #145 (`999ac83`) with every CI job that ran green and a demo video attached.
-- [ ] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J.
+- [x] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J. The 19.1 and 20.1 token swaps left their area's screenshots unchanged; the literal baseline went from 154 to 0 and the check is strict, and the unused-code baseline went from 13 to 11. Review clear at `84639d01` in round 5 after nine findings over four rounds. Merged as #146 (`cb91a49`) with every CI job that ran green and a demo video attached.
 - [ ] D.12 PR-L (task 21): same gates, after PR-K.
 - [ ] D.13 PR-M (task 22): same gates, after PR-L.
 - [ ] D.14 PR-N (task 23): same gates, after PR-K. BI-008 returns to Done once PR-L, PR-M and PR-N have merged.

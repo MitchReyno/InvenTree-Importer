@@ -89,6 +89,44 @@ test('an invalidated read with no owner left to refresh it is withheld', async (
 
   await act(() => client!.invalidateQueries({ queryKey: key }))
 
-  expect(screen.getByLabelText('Cached')).toHaveTextContent('none')
+  // Cache notices are batched, so the reader catches up a tick later.
+  await waitFor(() => expect(screen.getByLabelText('Cached')).toHaveTextContent('none'))
   expect(read).toHaveBeenCalledOnce()
+})
+
+test('a query built while another component renders does not update the reader mid-render', async () => {
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+  let client: ReturnType<typeof useQueryClient> | undefined
+
+  function Grab() {
+    client = useQueryClient()
+    return null
+  }
+
+  // A settled read whose notification is still pending, then a new query in the same render, as a
+  // session drawer opening on first load does.
+  function Builder() {
+    const cache = client!.getQueryCache()
+    const query = cache.build(client!, { queryKey: key })
+    query.state = { ...query.state, status: 'success', data: 'settled', dataUpdatedAt: 1 }
+    cache.build(client!, { queryKey: ['opened-in-render'] })
+    return null
+  }
+
+  const view = render(
+    <>
+      <Grab />
+      <Reader />
+    </>,
+  )
+  view.rerender(
+    <>
+      <Grab />
+      <Reader />
+      <Builder />
+    </>,
+  )
+  await waitFor(() => expect(screen.getByLabelText('Cached')).toHaveTextContent('settled'))
+  expect(error.mock.calls.flat().join(' ')).not.toMatch(/Cannot update a component/)
+  error.mockRestore()
 })

@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
-import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import { RegionStage } from './RegionStage'
 import { reviewMap, type MapEdge } from '../../operator/review-map'
 import { color, radius, size, space, type, typeVar, zIndex } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
@@ -18,8 +19,18 @@ type Props = {
   /** Each lot's direct predecessors, whose evidence its successors inherit. */
   predecessors?: ReadonlyMap<string, readonly string[]>
   disabled: boolean
-  link: (evidenceId: string, lotId: string, linked: boolean) => Promise<void>
+  link: (evidenceId: string, lotId: string, linked: boolean) => Promise<unknown>
   newLotFrom: (evidenceId: string, label: string) => Promise<void>
+  /** Moves a region's observation to another lot, or out of any (`observation_move`). */
+  moveRegion?: (observationId: string, lotId: string | null) => Promise<unknown>
+  newLotFromRegion?: (observationId: string, label: string) => Promise<void>
+  /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
+  editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
+  onRegionDirtyChange?: (dirty: boolean) => void
+  /** An unsaved region draft holds the selected photo until it is saved or discarded. */
+  selectionLocked?: boolean
+  /** Counts discards of the batch's local edits. */
+  discarded?: number
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
@@ -44,6 +55,12 @@ export function ReviewMap({
   disabled,
   link,
   newLotFrom,
+  moveRegion,
+  newLotFromRegion,
+  editRegion,
+  onRegionDirtyChange,
+  selectionLocked = false,
+  discarded = 0,
   openRestructure,
   approvedLotIds,
   restructureUnavailable = false,
@@ -141,6 +158,19 @@ export function ReviewMap({
               </Pill>
             )}
           </TitleRow>
+          {editRegion && selectedFile && evidence.find((file) => file.id === selectedFile) && (
+            <RegionStage
+              // A discard of the batch's local edits drops the region draft too.
+              key={`${selectedFile}:${discarded}`}
+              batchId={batch.id}
+              evidence={evidence.find((file) => file.id === selectedFile)!}
+              label={fileLabel.get(selectedFile) ?? 'Selected file'}
+              observations={batch.evidence_observations ?? []}
+              disabled={disabled}
+              save={editRegion}
+              onDirtyChange={onRegionDirtyChange}
+            />
+          )}
         </>
       }
       evidence={
@@ -158,6 +188,7 @@ export function ReviewMap({
                   <FileToggle
                     type="button"
                     aria-pressed={selectedFile === file.id}
+                    disabled={selectionLocked}
                     aria-label={`Show links for ${file.label}`}
                     onClick={() => setSelectedFile(selectedFile === file.id ? null : file.id)}
                   >
@@ -198,9 +229,20 @@ export function ReviewMap({
                   <Regions aria-label={`Regions of ${file.label}`}>
                     {file.regions.map((region) => (
                       <li key={region.id}>
-                        {region.label} <span aria-hidden="true">→</span>
-                        {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
-                        {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                        <span>
+                          {region.label} <span aria-hidden="true">→</span>
+                          {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
+                          {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                        </span>
+                        {moveRegion && (
+                          <RegionMove
+                            region={region}
+                            lots={map.lots}
+                            disabled={disabled}
+                            move={moveRegion}
+                            newLot={newLotFromRegion}
+                          />
+                        )}
                       </li>
                     ))}
                   </Regions>
@@ -352,6 +394,66 @@ export function ReviewMap({
         </Muted>
       }
     />
+  )
+}
+
+/** Moves one region to another lot, or makes a new lot from it. */
+function RegionMove({
+  region,
+  lots,
+  disabled,
+  move,
+  newLot,
+}: {
+  region: { id: string; label: string; lotId: string | null }
+  lots: { id: string; label: string }[]
+  disabled: boolean
+  move: (observationId: string, lotId: string | null) => Promise<unknown>
+  newLot?: (observationId: string, label: string) => Promise<void>
+}) {
+  const [chosen, setChosen] = useState('')
+  const targets = lots.filter((lot) => lot.id !== region.lotId)
+  // A choice that is no longer offered (moved there already, or retired) is not kept.
+  const target =
+    (chosen === 'none' && region.lotId !== null) || targets.some((lot) => lot.id === chosen)
+      ? chosen
+      : ''
+  return (
+    <Controls>
+      <LinkSelect
+        aria-label={`Move ${region.label} to`}
+        value={target}
+        disabled={disabled}
+        onChange={(event) => setChosen(event.target.value)}
+      >
+        <option value="">Move to a lot…</option>
+        {targets.map((lot) => (
+          <option key={lot.id} value={lot.id}>
+            {lot.label}
+          </option>
+        ))}
+        {region.lotId !== null && <option value="none">No lot</option>}
+      </LinkSelect>
+      <Button
+        size="sm"
+        disabled={disabled || !target}
+        aria-label={`Move ${region.label}`}
+        onClick={() => void move(region.id, target === 'none' ? null : target)}
+      >
+        Move
+      </Button>
+      {newLot && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={disabled}
+          aria-label={`New lot from region: ${region.label}`}
+          onClick={() => void newLot(region.id, region.label)}
+        >
+          New lot from this
+        </Button>
+      )}
+    </Controls>
   )
 }
 
@@ -686,7 +788,7 @@ const Controls = styled.div`
 
 const Regions = styled.ul`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[3]};
   margin: 0;
   padding-left: ${space[8]};
 `

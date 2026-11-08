@@ -230,6 +230,8 @@ export const CaptureSnapshot = object({
       agent_session_id: Type.Optional(Id),
       /** Present once the operator has changed the lot; the lead session then only suggests. */
       operator_edited: Type.Optional(Type.Literal(true)),
+      /** The operator corrected a reading this lot used; the lead session has not looked again. */
+      reexamine: Type.Optional(Type.Literal(true)),
       /** The lead session's estimate and its basis; never a counted quantity. */
       estimated_quantity: Type.Optional(Quantity),
       quantity_basis: Type.Optional(unicodeText(1, 512)),

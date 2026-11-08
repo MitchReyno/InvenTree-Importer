@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
@@ -24,11 +25,19 @@ type Props = {
   restructureUnavailable?: boolean
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
+  /** Counts discards of the batch's local edits; an unsaved region draft is dropped on each. */
+  discarded?: number
   /** Present with agent sessions: the Map's instruction goes to the Examine lead session. */
   processing?: ProcessingClient
 }
 
-type PendingLot = { evidenceId: string; label: string; knownLotIds: string[] }
+/** A lot made from a file (linked once it exists) or a region (moved into it once it exists). */
+type PendingLot = {
+  from: { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
+  label: string
+  knownLotIds: string[]
+}
+type Unfinished = Pick<PendingLot, 'from' | 'label'> & { lotId: string; lotLabel: string }
 
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
@@ -42,6 +51,7 @@ export function ReviewMapStage({
   restructureUnavailable = false,
   reload,
   onDirtyChange,
+  discarded,
   processing,
 }: Props) {
   const drafts = useDirtySources(onDirtyChange)
@@ -55,6 +65,7 @@ export function ReviewMapStage({
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [unfinished, setUnfinished] = useState<Unfinished | null>(null)
   const [restructure, setRestructure] = useState<{
     kind: 'split' | 'merge' | 'move'
     lotIds: string[]
@@ -65,7 +76,7 @@ export function ReviewMapStage({
   async function link(evidenceId: string, lotId: string, linked: boolean) {
     const snapshot = query.data
     if (!media || !snapshot) {
-      return
+      return false
     }
     setBusy(true)
     setError('')
@@ -79,9 +90,11 @@ export function ReviewMapStage({
         crypto.randomUUID(),
       )
       queryClient.setQueryData(key, next)
+      return true
     } catch {
       setError('The link could not be saved. Refresh and try again.')
       void query.refetch()
+      return false
     } finally {
       setBusy(false)
     }
@@ -90,13 +103,65 @@ export function ReviewMapStage({
   async function newLotFrom(evidenceId: string, label: string) {
     setBusy(true)
     setError('')
-    pending.current = { evidenceId, label, knownLotIds: batch.lots.map((lot) => lot.id) }
+    pending.current = {
+      from: { kind: 'file', evidenceId },
+      label,
+      knownLotIds: batch.lots.map((lot) => lot.id),
+    }
     try {
       // The batch edit reports failure as false rather than throwing.
       const saved = await edit({
         kind: 'add_lot',
         label,
         note: `Made from evidence “${label}”.`,
+        part_subject_id: null,
+      })
+      if (saved === false) {
+        pending.current = null
+      }
+    } catch {
+      pending.current = null
+      setError('The lot could not be made. Refresh and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function moveRegion(observationId: string, lotId: string | null) {
+    setBusy(true)
+    setError('')
+    try {
+      const saved = await edit({
+        kind: 'observation_move',
+        observation_id: observationId,
+        lot_id: lotId,
+      })
+      if (saved === false) {
+        setError('The region could not be moved. Refresh and try again.')
+        return false
+      }
+      return true
+    } catch {
+      setError('The region could not be moved. Refresh and try again.')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function newLotFromRegion(observationId: string, label: string) {
+    setBusy(true)
+    setError('')
+    pending.current = {
+      from: { kind: 'region', observationId },
+      label,
+      knownLotIds: batch.lots.map((lot) => lot.id),
+    }
+    try {
+      const saved = await edit({
+        kind: 'add_lot',
+        label,
+        note: `Made from region “${label}”.`,
         part_subject_id: null,
       })
       if (saved === false) {
@@ -120,9 +185,26 @@ export function ReviewMapStage({
     )
     if (created) {
       pending.current = null
-      void link(waiting.evidenceId, created.id, true)
+      void finish({
+        from: waiting.from,
+        label: waiting.label,
+        lotId: created.id,
+        lotLabel: created.label,
+      })
     }
   })
+
+  // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
+  async function finish(step: Unfinished) {
+    setUnfinished(step)
+    const done =
+      step.from.kind === 'file'
+        ? await link(step.from.evidenceId, step.lotId, true)
+        : await moveRegion(step.from.observationId, step.lotId)
+    if (done) {
+      setUnfinished(null)
+    }
+  }
 
   const disabled = busy || batch.archived || !media || !query.data
 
@@ -141,6 +223,22 @@ export function ReviewMapStage({
           <Banner tone="bad">{error}</Banner>
         </div>
       )}
+      {unfinished && !busy && (
+        <Banner
+          tone="warn"
+          action={
+            <Button size="sm" onClick={() => void finish(unfinished)}>
+              {unfinished.from.kind === 'file'
+                ? `Link the file to lot ${unfinished.lotLabel}`
+                : `Move ${unfinished.label} into lot ${unfinished.lotLabel}`}
+            </Button>
+          }
+        >
+          Lot {unfinished.lotLabel} was made, but{' '}
+          {unfinished.from.kind === 'file' ? 'its file is not linked' : 'its region was not moved'}{' '}
+          yet.
+        </Banner>
+      )}
       {!media ? (
         <div role="status">
           <Banner tone="bad">Evidence is not available in this setup.</Banner>
@@ -157,6 +255,12 @@ export function ReviewMapStage({
           disabled={disabled}
           link={link}
           newLotFrom={newLotFrom}
+          moveRegion={moveRegion}
+          newLotFromRegion={newLotFromRegion}
+          editRegion={edit}
+          onRegionDirtyChange={drafts.forSource('region')}
+          selectionLocked={drafts.isDirty('region')}
+          discarded={discarded}
           openRestructure={
             operator ? (kind, lotIds) => setRestructure({ kind, lotIds }) : undefined
           }

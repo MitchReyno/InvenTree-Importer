@@ -182,6 +182,16 @@ export function batchHref(batchId: string, route: BatchRoute, query = '') {
   return `#${batchRouteHash(batchId, route, query)}`
 }
 
+/** A link that opens a job's session drawer on its Processing step. */
+export function sessionHref(batchId: string, step: ProcessingStep, jobId: string) {
+  return batchHref(batchId, { tab: 'processing', step }, `?session=${encodeURIComponent(jobId)}`)
+}
+
+/** The session a Processing link asks to open, from the route's query. */
+export function sessionFromQuery(query: string) {
+  return new URLSearchParams(query).get('session')
+}
+
 /** The Processing step that shows a job of the given stage. */
 export function processingStepFor(stage: string): ProcessingStep {
   if (LEGACY_EXAMINE_STEPS.has(stage)) {
