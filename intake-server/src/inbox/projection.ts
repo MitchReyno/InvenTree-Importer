@@ -1,12 +1,17 @@
 import type { Pool } from 'pg'
-import { validate, type CaptureListQueryDto, type InboxListDto } from '@invimport/contracts'
+import {
+  possibleDuplicates,
+  validate,
+  type CaptureListQueryDto,
+  type InboxListDto,
+} from '@invimport/contracts'
 import { captureInTransaction, listCaptureBatches } from '../capture/repository.ts'
 import { transaction } from '../db/database.ts'
 import { operatorReview } from '../operator-review/projection.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { inboxProcessing } from '../processing/read.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
-import { inboxThumbnail } from '../media/read.ts'
+import { inboxEvidenceCounts, inboxThumbnail } from '../media/read.ts'
 import { latestInboxRound } from '../review/repository.ts'
 import type { ManualConfig } from '../review/authority.ts'
 
@@ -46,6 +51,8 @@ export async function inboxProjection(
           ...processing,
           latest_round: await latestInboxRound(client, config, batch.id),
           thumbnail: config.mediaEnabled ? await inboxThumbnail(client, batch.id) : null,
+          ...(config.mediaEnabled ? { evidence: await inboxEvidenceCounts(client, batch.id) } : {}),
+          possible_duplicates: possibleDuplicates(capture.snapshot.evidence_observations ?? []),
         },
       })
     }

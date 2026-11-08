@@ -200,3 +200,27 @@ export function lotItemCount(
 
   return counts.length ? counts.reduce((total, count) => total + count, 0) : null
 }
+
+/**
+ * Observations that may show an item another observation of the same lot already shows: the same
+ * markings, read again, and not yet marked as one item. Each cluster counts its items beyond the first.
+ */
+export function possibleDuplicates(observations: readonly CaptureEvidenceObservationDto[]) {
+  const active = observations.filter((item) => item.status === 'active' && item.lot_id)
+  const ids = new Set(active.map((item) => item.id))
+  const items = new Map<string, Set<string>>()
+  for (const item of active) {
+    const markings = (item.readings.markings ?? [])
+      .map((marking) => marking.trim().toLowerCase())
+      .filter(Boolean)
+      .sort()
+    if (!markings.length) {
+      continue
+    }
+    const key = `${item.lot_id}\n${markings.join('\n')}`
+    const root = item.same_item_as && ids.has(item.same_item_as) ? item.same_item_as : item.id
+    items.set(key, (items.get(key) ?? new Set()).add(root))
+  }
+
+  return [...items.values()].reduce((total, roots) => total + roots.size - 1, 0)
+}

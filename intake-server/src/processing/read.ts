@@ -51,6 +51,7 @@ import {
   processingMessages,
   processingLanes,
 } from './schema.ts'
+import { countSteps } from './steps.ts'
 
 const jobColumns = {
   id: processingJobs.id,
@@ -525,6 +526,7 @@ export async function inboxProcessing(
       .flatMap((job) => job.questions)
       .filter((question) => question.state === 'open').length,
     active_jobs: jobs.filter((job) => job.state === 'running' || job.state === 'queued').length,
+    steps: countSteps(jobs),
   }
 }
 

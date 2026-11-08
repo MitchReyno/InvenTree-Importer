@@ -5,6 +5,9 @@ import { lotItemCount, type CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { leadSession, seedPhoto } from '../support/sessions.ts'
 import { transaction } from '../../src/db/database.ts'
+import { devConfig } from '../../src/config.ts'
+import { inboxProjection } from '../../src/inbox/projection.ts'
+import { grantManual } from '../../src/review/grants.ts'
 import { mediaSnapshot } from '../../src/media/read.ts'
 import {
   proposeLot,
@@ -1399,6 +1402,64 @@ test('the operator marks one bag seen twice as the same item, so the lot counts 
       ).same_item_as,
       null,
     )
+  })
+})
+
+test('the batch list counts steps, evidence and possible duplicates until they are marked as one', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write, read, edit }) => {
+    await grantManual(fixture.db.pool, fixture.api.name, 'api')
+    const config = {
+      ...devConfig({
+        INTAKE_ORIGIN: 'http://127.0.0.1:4333',
+        INTAKE_CREDENTIAL_REF: 'inbox-fixture',
+        INTAKE_DEV_API_KEY: 'fake-only',
+      }),
+      ...fixture.config,
+      mediaEnabled: true,
+    }
+    const workflow = async () =>
+      (await inboxProjection(fixture.api.pool, config, {}, fixture.config)).batches.find(
+        (batch) => batch.id === batchId,
+      )!.workflow
+    const observe = async (x: number, marking: string) => {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings(marking),
+          visible_count: 200,
+        }),
+      )
+      assert.ok(seen.ok)
+      return seen
+    }
+    const first = await observe(0, '1N4148')
+    const second = await observe(200, '1N4148')
+    const lot = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: second.revision,
+        label: '1N4148 diodes',
+        observation_ids: [first.id, second.id],
+      }),
+    )
+    assert.ok(lot.ok)
+
+    const listed = await workflow()
+    assert.equal(listed.possible_duplicates, 1)
+    assert.deepEqual(listed.evidence, { photos: 1, documents: 0, other: 0 })
+    assert.ok(listed.steps)
+    assert.ok(listed.steps.examine.jobs >= 1)
+    assert.deepEqual(listed.steps.research, { jobs: 0, ready: 0, running: 0 })
+
+    const marked = await edit({
+      kind: 'observation_same_item',
+      observation_id: second.id,
+      same_as: first.id,
+    })
+    assert.equal(marked.status, 200, JSON.stringify(marked.value))
+    assert.equal((await workflow()).possible_duplicates, 0)
   })
 })
 

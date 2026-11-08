@@ -6,7 +6,7 @@ import { media } from '../ui/media'
 import { Pill } from '../ui/Pill'
 import { RelativeTime } from '../ui/RelativeTime'
 import { BatchThumbnail } from './BatchThumbnail'
-import { BatchCounts, type InboxBatch } from './batchState'
+import { BatchCounts, stageLine, type InboxBatch } from './batchState'
 import { Card, CardTitle } from './Card'
 
 /** Where the batch's work picks up: its questions, then its lots to check, then Capture. */
@@ -60,6 +60,7 @@ export function ContinueCard({ batch }: { batch: InboxBatch }) {
               {lastActivity}
             </Row>
             <BatchCounts workflow={batch.workflow} />
+            {stageLine(batch.workflow) && <Meta>{stageLine(batch.workflow)}</Meta>}
           </>
         ) : (
           lastActivity

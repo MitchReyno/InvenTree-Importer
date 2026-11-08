@@ -5206,6 +5206,153 @@
                 }
               }
             ]
+          },
+          "steps": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "examine",
+              "research",
+              "images",
+              "inventory"
+            ],
+            "properties": {
+              "examine": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "jobs",
+                  "ready",
+                  "running"
+                ],
+                "properties": {
+                  "jobs": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "ready": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "running": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  }
+                }
+              },
+              "research": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "jobs",
+                  "ready",
+                  "running"
+                ],
+                "properties": {
+                  "jobs": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "ready": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "running": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  }
+                }
+              },
+              "images": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "jobs",
+                  "ready",
+                  "running"
+                ],
+                "properties": {
+                  "jobs": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "ready": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "running": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  }
+                }
+              },
+              "inventory": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "jobs",
+                  "ready",
+                  "running"
+                ],
+                "properties": {
+                  "jobs": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "ready": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  },
+                  "running": {
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "evidence": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "photos",
+              "documents",
+              "other"
+            ],
+            "properties": {
+              "photos": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "documents": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "other": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              }
+            }
+          },
+          "possible_duplicates": {
+            "minimum": 0,
+            "maximum": 100000,
+            "type": "integer"
           }
         }
       },
@@ -5360,6 +5507,153 @@
                           }
                         }
                       ]
+                    },
+                    "steps": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "examine",
+                        "research",
+                        "images",
+                        "inventory"
+                      ],
+                      "properties": {
+                        "examine": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "jobs",
+                            "ready",
+                            "running"
+                          ],
+                          "properties": {
+                            "jobs": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "ready": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "running": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "research": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "jobs",
+                            "ready",
+                            "running"
+                          ],
+                          "properties": {
+                            "jobs": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "ready": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "running": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "images": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "jobs",
+                            "ready",
+                            "running"
+                          ],
+                          "properties": {
+                            "jobs": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "ready": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "running": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "inventory": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "jobs",
+                            "ready",
+                            "running"
+                          ],
+                          "properties": {
+                            "jobs": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "ready": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            },
+                            "running": {
+                              "minimum": 0,
+                              "maximum": 100000,
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "evidence": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "photos",
+                        "documents",
+                        "other"
+                      ],
+                      "properties": {
+                        "photos": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "documents": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        },
+                        "other": {
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "possible_duplicates": {
+                      "minimum": 0,
+                      "maximum": 100000,
+                      "type": "integer"
                     }
                   }
                 }

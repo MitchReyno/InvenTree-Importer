@@ -36,6 +36,38 @@ const client = () => ({
   observe: vi.fn(),
 })
 
+test('rows and the Continue card say what stage the batch is at, its evidence and possible duplicates', async () => {
+  const idle = { jobs: 0, ready: 0, running: 0 }
+  const api = client()
+  const sorting = {
+    ...saved,
+    workflow: {
+      ...saved.workflow,
+      lots: 5,
+      steps: {
+        examine: { jobs: 1, ready: 0, running: 1 },
+        research: idle,
+        images: idle,
+        inventory: idle,
+      },
+      evidence: { photos: 4, documents: 1, other: 0 },
+      possible_duplicates: 1,
+    },
+  }
+  api.list.mockResolvedValue({
+    batches: [sorting, { ...sorting, id: saved.source_id }],
+    truncated: false,
+  })
+  render(<Batches client={api} onDirtyChange={vi.fn()} />)
+
+  const continued = await screen.findByRole('region', { name: 'Bench bag' })
+  expect(within(continued).getByLabelText('Batch counts')).toHaveTextContent('1 possible duplicate')
+  expect(continued).toHaveTextContent('Sorting into lots · 5 found so far')
+  const row = screen.getAllByRole('link', { name: 'Bench bag' }).at(-1)!
+  expect(row).toHaveAccessibleDescription(/Sorting into lots · 5 found so far/)
+  expect(row).toHaveTextContent('4 photos · 1 document')
+})
+
 test('shows retained thumbnail/counts and submits server search once rather than on every key', async () => {
   const user = userEvent.setup()
   const api = client()

@@ -3731,6 +3731,34 @@ export interface components {
                 preview_id: string;
                 label: string;
             };
+            steps?: {
+                examine: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+                research: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+                images: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+                inventory: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+            };
+            evidence?: {
+                photos: number;
+                documents: number;
+                other: number;
+            };
+            possible_duplicates?: number;
         };
         InboxList: {
             batches: {
@@ -3760,6 +3788,34 @@ export interface components {
                         preview_id: string;
                         label: string;
                     };
+                    steps?: {
+                        examine: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                        research: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                        images: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                        inventory: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                    };
+                    evidence?: {
+                        photos: number;
+                        documents: number;
+                        other: number;
+                    };
+                    possible_duplicates?: number;
                 };
             }[];
             truncated: boolean;

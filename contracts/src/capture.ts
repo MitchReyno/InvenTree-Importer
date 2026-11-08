@@ -181,6 +181,9 @@ export const CaptureListQuery = object({
   archived: Type.Optional(Type.Union([Type.Literal('include'), Type.Literal('exclude')])),
   offset: Type.Optional(Type.String({ pattern: '^(0|[1-9][0-9]{0,5})$' })),
 })
+const inboxCount = Type.Integer({ minimum: 0, maximum: 100000 })
+const inboxStep = object({ jobs: inboxCount, ready: inboxCount, running: inboxCount })
+
 export const InboxWorkflow = object({
   lots: Type.Integer({ minimum: 0 }),
   ready: Type.Integer({ minimum: 0 }),
@@ -199,6 +202,19 @@ export const InboxWorkflow = object({
     }),
   ]),
   thumbnail: Type.Union([Type.Null(), object({ preview_id: Id, label })]),
+  /** Each step's current jobs, for the batch's stage line; absent before any job exists. */
+  steps: Type.Optional(
+    object({
+      examine: inboxStep,
+      research: inboxStep,
+      images: inboxStep,
+      inventory: inboxStep,
+    }),
+  ),
+  /** The batch's evidence files by what they hold. */
+  evidence: Type.Optional(object({ photos: inboxCount, documents: inboxCount, other: inboxCount })),
+  /** Observations a lot may count twice (`possibleDuplicates`). */
+  possible_duplicates: Type.Optional(inboxCount),
 })
 export const CaptureSummary = object({
   id: Id,

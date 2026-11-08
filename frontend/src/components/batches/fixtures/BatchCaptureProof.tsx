@@ -401,6 +401,14 @@ const captureClient = {
           open_questions: 3,
           active_jobs: 1,
           latest_round: null,
+          steps: {
+            examine: { jobs: 1, ready: 1, running: 0 },
+            research: { jobs: 5, ready: 3, running: 2 },
+            images: { jobs: 0, ready: 0, running: 0 },
+            inventory: { jobs: 0, ready: 0, running: 0 },
+          },
+          evidence: { photos: 9, documents: 2, other: 0 },
+          possible_duplicates: 1,
         },
       },
       {
@@ -418,6 +426,7 @@ const captureClient = {
           approved: 6,
           open_questions: 0,
           active_jobs: 0,
+          evidence: { photos: 3, documents: 1, other: 0 },
           latest_round: {
             run_id: '40000000-0000-4000-8000-000000000004',
             round_number: '1',

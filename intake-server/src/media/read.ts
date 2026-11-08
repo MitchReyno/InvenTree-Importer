@@ -187,6 +187,23 @@ export async function mediaSnapshot(
 }
 
 /** First decoded original page for an already scoped batch, inside the caller's read transaction. */
+/** A batch's evidence files by what their original holds: photos, documents and anything else. */
+export async function inboxEvidenceCounts(client: PoolClient, batchId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ mediaType: mediaVersions.mediaType })
+      .from(mediaEvidence)
+      .innerJoin(
+        mediaVersions,
+        and(eq(mediaVersions.evidenceId, mediaEvidence.id), eq(mediaVersions.kind, 'original')),
+      )
+      .where(eq(mediaEvidence.batchId, batchId)),
+  )
+  const photos = rows.filter((row) => row.mediaType.startsWith('image/')).length
+  const documents = rows.filter((row) => row.mediaType === 'application/pdf').length
+  return { photos, documents, other: rows.length - photos - documents }
+}
+
 export async function inboxThumbnail(client: PoolClient, batchId: string) {
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
