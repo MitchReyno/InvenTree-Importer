@@ -351,8 +351,29 @@ export const CatalogueProposal = object({
       category_mapping: Type.Union([mappedReference('category_parameter'), Type.Null()]),
       sources: catalogueSources,
       ...valueEvidence,
+      /** Other values the sources gave for it, each with its own sources. */
+      alternatives: Type.Optional(
+        Type.Array(object({ value: catalogueText, sources: catalogueSources, ...valueEvidence }), {
+          minItems: 1,
+          maxItems: 4,
+        }),
+      ),
+      /** Why this value was used over its alternatives. */
+      chosen_because: Type.Optional(text),
     }),
     { maxItems: 32 },
+  ),
+  /** Templates the category maps that the step found no value for, with why. */
+  required_missing: Type.Optional(
+    Type.Array(
+      object({
+        name: catalogueText,
+        template: mappedReference('parameter_template'),
+        category_mapping: mappedReference('category_parameter'),
+        reason: text,
+      }),
+      { maxItems: 32 },
+    ),
   ),
   manufacturer: Type.Union([
     object({

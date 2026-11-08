@@ -1,19 +1,49 @@
+import { useId } from 'react'
 import styled from 'styled-components'
-import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { parameterMatrix } from '../../../records/parameter-matrix'
+import type { BatchRecordDto, CaptureSnapshotDto, SourceKindDto } from '@invimport/contracts'
+import { parameterMatrix, type MatrixConflict } from '../../../records/parameter-matrix'
+import { STEP_LABELS } from '../../../records/model'
 import { color, font, radius, space, type, typeVar } from '../../../theme/generated/tokens'
 import { Button } from '../../ui/Button'
+import { Pill } from '../../ui/Pill'
 import { Small } from '../../ui/primitives'
 import { VisuallyHidden } from '../../ui/VisuallyHidden'
+import { AskControl } from './AskControl'
+import type { Save } from './draft'
+
+type Send = (text: string, key: string) => Promise<void>
 
 type Props = {
   batch: CaptureSnapshotDto
   records: BatchRecordDto[]
   open: (key: string) => void
+  /** Applies "Use <value>" as the parameter's record edit. */
+  edit?: Save
+  /** The proposing step's session for a record, when one will read a message. */
+  ask?: (record: BatchRecordDto, step: string) => Send | undefined
+}
+
+const SOURCE_PHRASE: Record<SourceKindDto, string> = {
+  label: 'the label',
+  packing_slip: 'the packing slip',
+  handwriting: 'the handwriting',
+  distributor_page: 'a distributor page',
+}
+
+/** "the label says 25 V; a distributor page says 35 V." */
+function disagreement(conflict: MatrixConflict) {
+  const says = (value: string, kind: SourceKindDto | undefined, first: boolean) =>
+    `${kind ? SOURCE_PHRASE[kind] : first ? 'one source' : 'another source'} says ${value}`
+
+  return [
+    says(conflict.used.value, conflict.used.source_kind, true),
+    ...conflict.alternatives.map((other) => says(other.value, other.source_kind, false)),
+  ].join('; ')
 }
 
 /** Each category's new Parts against its templates; a cell opens that parameter's record. */
-export function ParameterMatrix({ batch, records, open }: Props) {
+export function ParameterMatrix({ batch, records, open, edit, ask }: Props) {
+  const ids = useId()
   const groups = parameterMatrix(batch, records)
   if (!groups.length) {
     return null
@@ -34,6 +64,14 @@ export function ParameterMatrix({ batch, records, open }: Props) {
                   {group.templates.map((template) => (
                     <th key={template.pk} scope="col">
                       {template.label}
+                      {template.required && (
+                        <>
+                          {' '}
+                          <Pill tone="warn" glyph="!">
+                            Required here
+                          </Pill>
+                        </>
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -45,9 +83,15 @@ export function ParameterMatrix({ batch, records, open }: Props) {
                     {group.templates.map((template) => {
                       const cell = row.cells[template.pk]
                       if (cell.missing) {
+                        const why = `${ids}-${row.partId}-${template.pk}`
                         return (
-                          <td key={template.pk} data-missing>
-                            missing
+                          <td
+                            key={template.pk}
+                            data-missing
+                            aria-describedby={cell.reason ? why : undefined}
+                          >
+                            {cell.required ? '! missing' : 'missing'}
+                            {cell.reason && <VisuallyHidden id={why}>{cell.reason}</VisuallyHidden>}
                           </td>
                         )
                       }
@@ -57,10 +101,11 @@ export function ParameterMatrix({ batch, records, open }: Props) {
                             <Button
                               size="sm"
                               variant="link"
-                              aria-label={`${row.label}, ${template.label}: ${cell.value}`}
+                              aria-label={`${row.label}, ${template.label}: ${cell.value}${cell.conflict ? ', sources disagree' : ''}`}
                               onClick={() => open(cell.recordKey!)}
                             >
                               {cell.value}
+                              {cell.conflict && <Conflict aria-hidden="true"> ◆</Conflict>}
                             </Button>
                           ) : (
                             cell.value
@@ -74,11 +119,71 @@ export function ParameterMatrix({ batch, records, open }: Props) {
               </tbody>
             </Table>
           </Scroll>
+          {group.rows.flatMap((row) =>
+            group.templates.flatMap((template) => {
+              const cell = row.cells[template.pk]
+              const conflict = cell.conflict
+              if (!conflict) {
+                return []
+              }
+              const record = records.find((item) => item.key === cell.recordKey)
+              const send = record ? ask?.(record, conflict.step) : undefined
+              const step = STEP_LABELS[conflict.step]
+              return [
+                <ConflictRow
+                  key={`${row.partId}:${template.pk}`}
+                  role="group"
+                  aria-label={`${row.label} ${template.label}: sources disagree`}
+                >
+                  <span>
+                    <span aria-hidden="true">◆ </span>
+                    {row.label} {template.label}: {disagreement(conflict)}.
+                    {conflict.because && ` ${conflict.because}`}
+                  </span>
+                  {edit &&
+                    conflict.alternatives.map((other) => (
+                      <Button
+                        key={other.value}
+                        size="sm"
+                        variant="link"
+                        onClick={() =>
+                          void edit({
+                            kind: 'record',
+                            target: {
+                              kind: 'parameter',
+                              part_subject_id: row.partId,
+                              template_pk: template.pk,
+                            },
+                            operation: {
+                              op: 'set_parameter',
+                              template: conflict.template,
+                              category_mapping: conflict.categoryMapping,
+                              value: other.value,
+                            },
+                          })
+                        }
+                      >
+                        Use {other.value}
+                      </Button>
+                    ))}
+                  {send && record && (
+                    <AskControl
+                      step={step}
+                      value={cell.value ?? null}
+                      prefill={`The sources disagree on the ${template.label.toLowerCase()} of ${row.label}; please check which is right.`}
+                      send={send}
+                      storeKey={`${batch.id}:ask:${record.key}:conflict`}
+                    />
+                  )}
+                </ConflictRow>,
+              ]
+            }),
+          )}
         </Group>
       ))}
       <Small>
-        <Added>underline</Added>: your edit · missing: another Part in the category has this
-        template.
+        <Added>underline</Added>: your edit · ◆ sources disagree · missing: another Part in the
+        category has this template · ! missing: the category needs it.
       </Small>
     </Matrix>
   )
@@ -139,6 +244,19 @@ const Table = styled.table`
     text-decoration-color: ${color.accent};
     text-decoration-thickness: 2px;
   }
+`
+const Conflict = styled.span`
+  color: ${color.warn};
+`
+const ConflictRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]} ${space[5]};
+  padding: ${space[4]} ${space[5]};
+  border-radius: ${radius.card};
+  background: ${color.warnWeak};
+  font-size: ${typeVar.small.size};
 `
 const Added = styled.span`
   text-decoration: underline;

@@ -94,6 +94,17 @@ export const RecordOrigin = Type.Union([
     proposal_id: Id,
     /** What the matched value came from and how well its sources agree, when the step said. */
     ...valueEvidence,
+    /** Other values the step's sources gave, and why it used this one. */
+    alternatives: Type.Optional(
+      Type.Array(
+        object({ value: Type.String({ minLength: 1, maxLength: 256 }), ...valueEvidence }),
+        {
+          minItems: 1,
+          maxItems: 4,
+        },
+      ),
+    ),
+    chosen_because: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
   }),
   /** The Examine lead session's estimate, which the operator accepts or replaces. */
   object({ kind: Type.Literal('estimate'), step: Type.Literal('examine') }),
@@ -158,6 +169,17 @@ export const BatchRecord = object({
   unsupported: Type.Optional(Type.Array(RecordUnsupported, { maxItems: 40 })),
   /** Present when the record already exists in the target. */
   mapped: Type.Optional(RecordMapped),
+  /** A new Part's category templates its step found no value for, with why. */
+  required_missing: Type.Optional(
+    Type.Array(
+      object({
+        template_pk: PositivePk,
+        name: text,
+        reason: Type.Union([Type.String({ minLength: 1, maxLength: 2048 }), Type.Null()]),
+      }),
+      { maxItems: 32 },
+    ),
+  ),
 })
 /** Every record a batch touches, read from capture state; it never changes a stored row. */
 export const BatchRecords = object({

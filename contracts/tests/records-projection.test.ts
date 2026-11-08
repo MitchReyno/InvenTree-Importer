@@ -1131,3 +1131,134 @@ test('existing values come back per mapped record, or say why they could not be 
     }),
   )
 })
+
+test('a parameter keeps the values it was not given and why, and a Part names the templates its category still needs', () => {
+  const extra = [
+    observation(906, 'parameter_template', '202', 'Power', {
+      kind: 'parameter_template',
+      model_type: 'part.part',
+      enabled: true,
+    }),
+    observation(907, 'category_parameter', '302', 'Resistors · Power', {
+      kind: 'category_parameter',
+      category_id: '81',
+      template_id: '202',
+    }),
+  ]
+  const withPower = {
+    ...capture,
+    observations: [...capture.observations, ...extra],
+  } as unknown as CaptureSnapshotDto
+  const said = structuredClone(processing) as unknown as {
+    jobs: { proposals: { value: { catalogue: Record<string, unknown> } }[] }[]
+  }
+  const catalogue = said.jobs[0].proposals[0].value.catalogue
+  catalogue.parameters = [
+    {
+      name: 'Resistance',
+      value: '4.7 kΩ',
+      template: ref(903, 'parameter_template'),
+      category_mapping: ref(905, 'category_parameter'),
+      sources: [],
+      source_kind: 'label',
+      agreement: 'disagree',
+      alternatives: [{ value: '4.75 kΩ', sources: [], source_kind: 'distributor_page' }],
+      chosen_because: 'Using the label.',
+    },
+  ]
+  const power = {
+    observation_id: id(906),
+    target_context_id: context,
+    model: 'parameter_template',
+    pk: '202',
+  }
+  catalogue.required_missing = [
+    {
+      name: 'Power',
+      template: power,
+      category_mapping: {
+        ...power,
+        observation_id: id(907),
+        model: 'category_parameter',
+        pk: '302',
+      },
+      reason: 'Not in the datasheet pages read.',
+    },
+    // A template the Part already has a value for is not missing.
+    {
+      name: 'Resistance',
+      template: ref(903, 'parameter_template'),
+      category_mapping: ref(905, 'category_parameter'),
+      reason: 'Not read.',
+    },
+  ]
+  const result = projectRecords({
+    capture: withPower,
+    processing: said as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const value = result.records.find((record) => record.key === `parameter:${partA}:201`)
+  assert.deepEqual(value?.fields[0].origin, {
+    kind: 'step',
+    step: 'research',
+    proposal_id: id(710),
+    source_kind: 'label',
+    agreement: 'disagree',
+    alternatives: [{ value: '4.75 kΩ', source_kind: 'distributor_page' }],
+    chosen_because: 'Using the label.',
+  })
+  const part = result.records.find((record) => record.key === `part:${partA}`)
+  assert.deepEqual(part?.required_missing, [
+    { template_pk: '202', name: 'Power', reason: 'Not in the datasheet pages read.' },
+  ])
+  // A Part whose proposal names no missing template carries none.
+  assert.equal(
+    result.records.find((record) => record.key === `part:${partB}`)?.required_missing,
+    undefined,
+  )
+})
+
+test("a proposal may keep a value's alternatives and the templates its category still needs", () => {
+  const parameter = {
+    name: 'Voltage',
+    value: '25 V',
+    template: null,
+    category_mapping: null,
+    sources: [{ kind: 'note', note_id: id(800), text_sha256: 'a'.repeat(64) }],
+  }
+  const base = {
+    category: null,
+    parameters: [parameter],
+    manufacturer: null,
+    supplier: null,
+    description: null,
+  }
+  validate('CatalogueProposal', base)
+  validate('CatalogueProposal', {
+    ...base,
+    parameters: [
+      {
+        ...parameter,
+        alternatives: [
+          { value: '35 V', sources: parameter.sources, source_kind: 'distributor_page' },
+        ],
+        chosen_because: 'Using the label.',
+      },
+    ],
+    required_missing: [
+      {
+        name: 'Voltage rating',
+        template: ref(903, 'parameter_template'),
+        category_mapping: ref(905, 'category_parameter'),
+        reason: 'Not in the datasheet pages read.',
+      },
+    ],
+  })
+  assert.throws(() =>
+    validate('CatalogueProposal', {
+      ...base,
+      parameters: [{ ...parameter, alternatives: [] }],
+    }),
+  )
+})

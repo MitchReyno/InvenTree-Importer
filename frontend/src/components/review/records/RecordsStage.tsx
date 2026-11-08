@@ -315,6 +315,8 @@ export function RecordsStage({
                 batch={batch}
                 records={records.records}
                 open={(key) => choose('parameter', key)}
+                edit={edit}
+                ask={(record, step) => askFor(record)(step)}
               />
             )}
             {selected && (
