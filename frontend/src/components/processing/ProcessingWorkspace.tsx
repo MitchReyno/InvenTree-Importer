@@ -30,7 +30,7 @@ import { batchHref, processingStepFor } from '../../navigation/batch-route'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { openQuestionsByLot } from '../../operator/review-model'
-import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
+import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -71,6 +71,8 @@ function onStep(stage: string, view: ProcessingView) {
 }
 
 interface Props {
+  /** The batch's capture edit, for Examine's reading and region corrections. */
+  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
   /** A job whose session drawer opens on arrival, from a session link. */
   sessionId?: string | null
   batch: CaptureSnapshotDto
@@ -116,6 +118,7 @@ export function ProcessingWorkspace({
   unusedFiles,
   instructions,
   sessionId = null,
+  edit,
 }: Props) {
   const [sessionJobId, setSessionJobId] = useState<string | null>(sessionId)
   // The answer form and the instruction field each keep the navigation guard on their own.
@@ -293,6 +296,26 @@ export function ProcessingWorkspace({
       setSaving(null)
     }
   }
+
+  const examineLead = snapshot?.jobs.find(
+    (job) => job.stage === 'examine' && job.subject_id === null,
+  )
+  /** Sends the Examine lead session a request for a sharper photo, through its chat. */
+  const askSharper =
+    client.chat && examineLead?.session_state && examineLead.session_state !== 'cancelled'
+      ? async (name: string) => {
+          const key = crypto.randomUUID()
+          await client.chat!(
+            batch.id,
+            examineLead.id,
+            {
+              idempotency_key: key,
+              text: `Please ask for a sharper photo of “${name}”: its markings are hard to read.`,
+            },
+            key,
+          )
+        }
+      : undefined
 
   async function saveInstructions(text: string, revision: string, key: string) {
     setSaving('instructions')
@@ -578,6 +601,8 @@ export function ProcessingWorkspace({
                       media={liveRead(mediaSnapshot) ? mediaSnapshot.data : undefined}
                       // A question on a shared Part questions every lot that uses it, as in Review.
                       questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
+                      edit={batch.archived ? undefined : edit}
+                      askSharper={askSharper}
                     />
                   )}
                   {jobCards}

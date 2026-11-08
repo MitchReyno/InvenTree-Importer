@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import type {
+  CaptureEditDto,
   CaptureSnapshotDto,
   MediaSnapshotDto,
   ProcessingSnapshotDto,
@@ -13,7 +14,9 @@ import { Button } from '../ui/Button'
 import { Count, Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { SourceChip } from '../ui/SourceChip'
-import { linkTouchArea, Summary } from '../ui/primitives'
+import { Input, Label, linkTouchArea, Summary } from '../ui/primitives'
+import { VisuallyHidden } from '../ui/VisuallyHidden'
+import { RegionStage } from '../review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 
@@ -70,11 +73,56 @@ function photoNames(media: MediaSnapshotDto | undefined) {
  * What the Examine lead session found: every region it read in each photo with the lot it
  * belongs to, then each lot with its observations, candidates and quantity basis.
  */
+/** A reading's markings, edited as a comma-separated list. */
+function ReadingEdit({
+  observation,
+  save,
+}: {
+  observation: Observation
+  save: (change: CaptureEditDto['change']) => Promise<unknown>
+}) {
+  const name = observation.readings.markings.join(' · ') || 'this region'
+  const [value, setValue] = useState(observation.readings.markings.join(', '))
+  const [saving, setSaving] = useState(false)
+  return (
+    <ReadingForm
+      onSubmit={(event) => {
+        event.preventDefault()
+        setSaving(true)
+        void save({
+          kind: 'observation',
+          observation_id: observation.id,
+          evidence_version_id: observation.evidence_version_id,
+          page: observation.page,
+          region: observation.region,
+          readings: {
+            ...observation.readings,
+            markings: value
+              .split(',')
+              .map((part) => part.trim())
+              .filter(Boolean),
+          },
+        }).finally(() => setSaving(false))
+      }}
+    >
+      <Label>
+        <VisuallyHidden>Markings for {name}</VisuallyHidden>
+        <Input value={value} disabled={saving} onChange={(event) => setValue(event.target.value)} />
+      </Label>
+      <Button size="sm" type="submit" disabled={saving} aria-label={`Save readings for ${name}`}>
+        Save
+      </Button>
+    </ReadingForm>
+  )
+}
+
 export function ExamineView({
   batch,
   lead,
   media,
   questionedLots = new Set(),
+  edit,
+  askSharper,
 }: {
   batch: CaptureSnapshotDto
   lead: Job | undefined
@@ -82,8 +130,14 @@ export function ExamineView({
   media?: MediaSnapshotDto
   /** Lots with an open question, which read "Question" rather than "Stable". */
   questionedLots?: ReadonlySet<string>
+  /** Corrects a reading or region through the capture edit `kind: 'observation'`. */
+  edit?: (change: CaptureEditDto['change']) => Promise<unknown>
+  /** Asks the Examine lead session, through its chat, for a sharper photo of the named file. */
+  askSharper?: (name: string) => Promise<void>
 }) {
   const [lens, setLens] = useState<'photo' | 'lot'>('photo')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [adjusting, setAdjusting] = useState<string | null>(null)
   const observations = (batch.evidence_observations ?? []).filter(
     (item) => item.status === 'active',
   )
@@ -98,6 +152,9 @@ export function ExamineView({
     (lot) => !lot.retired && (lot.evidence_observation_ids?.length ?? 0) > 0,
   )
   const capture = batchHref(batch.id, { tab: 'capture' })
+
+  const evidenceOf = (version: string) =>
+    media?.evidence.find((item) => item.versions?.some((value) => value.id === version))
 
   const crop = (observation: Observation) =>
     observation.region.kind === 'pixels' ? (
@@ -157,7 +214,46 @@ export function ExamineView({
                   <Button as="a" size="sm" variant="ghost" href={capture}>
                     Evidence in Capture
                   </Button>
+                  {edit && (
+                    <>
+                      <Button
+                        size="sm"
+                        aria-pressed={editing === version}
+                        onClick={() => setEditing(editing === version ? null : version)}
+                      >
+                        Edit readings
+                      </Button>
+                      {evidenceOf(version) && (
+                        <Button
+                          size="sm"
+                          aria-pressed={adjusting === version}
+                          onClick={() => setAdjusting(adjusting === version ? null : version)}
+                        >
+                          Adjust regions
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {askSharper && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void askSharper(named?.name ?? `Photo ${index + 1}`)}
+                    >
+                      Ask for a sharper photo
+                    </Button>
+                  )}
                 </PhotoHead>
+                {edit && adjusting === version && evidenceOf(version) && (
+                  <RegionStage
+                    batchId={batch.id}
+                    evidence={evidenceOf(version)!}
+                    label={named?.name ?? `Photo ${index + 1}`}
+                    observations={observations}
+                    disabled={false}
+                    save={edit}
+                  />
+                )}
                 <List>
                   {shown.map((observation) => {
                     const lot = observation.lot_id ? lots.get(observation.lot_id) : undefined
@@ -167,6 +263,12 @@ export function ExamineView({
                         {crop(observation)}
                         <Reading>
                           <span>{readings(observation)}</span>
+                          {observation.operator_edited && observation.origin !== 'operator' && (
+                            <Pill status="edited">Corrected by you</Pill>
+                          )}
+                          {edit && editing === version && (
+                            <ReadingEdit observation={observation} save={edit} />
+                          )}
                           <SourceChip
                             source={chip.source}
                             certainty={chip.certainty}
@@ -242,6 +344,7 @@ export function ExamineView({
                         AI-proposed
                       </Pill>
                     ))}
+                  {lot.reexamine && <Pill status="warning">Re-examine</Pill>}
                   {questionedLots.has(lot.id) ? (
                     <Pill status="needs-answer">Question</Pill>
                   ) : (
@@ -394,4 +497,11 @@ const Pills = styled.span`
 const Candidate = styled.div`
   display: grid;
   gap: ${space[2]};
+`
+
+const ReadingForm = styled.form`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
 `

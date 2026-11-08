@@ -164,3 +164,66 @@ it('says a reading from document lines came from the document', () => {
     screen.getByRole('button', { name: 'Source: Examine, Read from the document. Open evidence' }),
   ).toBeInTheDocument()
 })
+
+it('corrects a photo’s readings, marking the correction and the lot to re-examine', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+  const corrected = {
+    ...batch,
+    lots: [{ ...batch.lots[0], operator_edited: true, reexamine: true }],
+    evidence_observations: [
+      { ...batch.evidence_observations![0], operator_edited: true, origin: 'agent' },
+      ...batch.evidence_observations!.slice(1),
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(
+    <ExamineView
+      batch={corrected}
+      lead={lead}
+      edit={async (change) => {
+        edits.push(change)
+      }}
+      askSharper={async () => {}}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  expect(within(first).getByText('Corrected by you')).toBeVisible()
+  expect(within(screen.getByLabelText('Lot LED reel')).getByText('Re-examine')).toBeVisible()
+
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  const field = within(first).getByLabelText('Markings for 16 MHz crystal')
+  await user.clear(field)
+  await user.type(field, '16.000 MHz crystal, HC-49')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(edits).toEqual([
+    {
+      kind: 'observation',
+      observation_id: 'o2',
+      evidence_version_id: 'v1',
+      page: 1,
+      region: pixels,
+      readings: { markings: ['16.000 MHz crystal', 'HC-49'] },
+    },
+  ])
+})
+
+it('asks the lead session for a sharper photo', async () => {
+  const user = userEvent.setup()
+  const asked: string[] = []
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => {}}
+      askSharper={async (name) => {
+        asked.push(name)
+      }}
+    />,
+  )
+  await user.click(
+    within(screen.getByLabelText('Photo 2')).getByRole('button', {
+      name: 'Ask for a sharper photo',
+    }),
+  )
+  expect(asked).toEqual(['Photo 2'])
+})

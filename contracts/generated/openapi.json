@@ -12455,6 +12455,10 @@
                   "const": true,
                   "type": "boolean"
                 },
+                "reexamine": {
+                  "const": true,
+                  "type": "boolean"
+                },
                 "estimated_quantity": {
                   "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                   "type": "string"
@@ -25152,6 +25156,10 @@
                         "const": true,
                         "type": "boolean"
                       },
+                      "reexamine": {
+                        "const": true,
+                        "type": "boolean"
+                      },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                         "type": "string"
@@ -27332,6 +27340,10 @@
                         "type": "string"
                       },
                       "operator_edited": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "reexamine": {
                         "const": true,
                         "type": "boolean"
                       },
@@ -31459,6 +31471,10 @@
                     "const": true,
                     "type": "boolean"
                   },
+                  "reexamine": {
+                    "const": true,
+                    "type": "boolean"
+                  },
                   "estimated_quantity": {
                     "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                     "type": "string"
@@ -33570,6 +33586,10 @@
                     "const": true,
                     "type": "boolean"
                   },
+                  "reexamine": {
+                    "const": true,
+                    "type": "boolean"
+                  },
                   "estimated_quantity": {
                     "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                     "type": "string"
@@ -35248,6 +35268,10 @@
                     "type": "string"
                   },
                   "operator_edited": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "reexamine": {
                     "const": true,
                     "type": "boolean"
                   },
@@ -36940,6 +36964,10 @@
                     "type": "string"
                   },
                   "operator_edited": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "reexamine": {
                     "const": true,
                     "type": "boolean"
                   },
@@ -40241,6 +40269,10 @@
                         "const": true,
                         "type": "boolean"
                       },
+                      "reexamine": {
+                        "const": true,
+                        "type": "boolean"
+                      },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                         "type": "string"
@@ -41919,6 +41951,10 @@
                         "type": "string"
                       },
                       "operator_edited": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "reexamine": {
                         "const": true,
                         "type": "boolean"
                       },
@@ -43613,6 +43649,10 @@
                         "const": true,
                         "type": "boolean"
                       },
+                      "reexamine": {
+                        "const": true,
+                        "type": "boolean"
+                      },
                       "estimated_quantity": {
                         "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
                         "type": "string"
@@ -45302,6 +45342,10 @@
                         "type": "string"
                       },
                       "operator_edited": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "reexamine": {
                         "const": true,
                         "type": "boolean"
                       },
@@ -47005,6 +47049,10 @@
                         "type": "string"
                       },
                       "operator_edited": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "reexamine": {
                         "const": true,
                         "type": "boolean"
                       },
@@ -48742,6 +48790,10 @@
                         "type": "string"
                       },
                       "operator_edited": {
+                        "const": true,
+                        "type": "boolean"
+                      },
+                      "reexamine": {
                         "const": true,
                         "type": "boolean"
                       },
@@ -68217,6 +68269,7 @@
                         "label",
                         "origin",
                         "operator_edited",
+                        "reexamine",
                         "retired",
                         "part_subject_id",
                         "estimated_quantity",
@@ -68247,6 +68300,9 @@
                           ]
                         },
                         "operator_edited": {
+                          "type": "boolean"
+                        },
+                        "reexamine": {
                           "type": "boolean"
                         },
                         "retired": {
@@ -70238,6 +70294,7 @@
                 "label",
                 "origin",
                 "operator_edited",
+                "reexamine",
                 "retired",
                 "part_subject_id",
                 "estimated_quantity",
@@ -70268,6 +70325,9 @@
                   ]
                 },
                 "operator_edited": {
+                  "type": "boolean"
+                },
+                "reexamine": {
                   "type": "boolean"
                 },
                 "retired": {

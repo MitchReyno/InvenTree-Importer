@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { BatchAttentionDto, CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
 import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
 import type { AgentsRead, ProcessingClient } from '../../processing/types'
@@ -13,6 +13,8 @@ interface Props {
   questionId?: string
   sessionId?: string | null
   reload: () => Promise<void>
+  /** The batch's capture edit, for Examine's reading and region corrections. */
+  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
   onDirtyChange: (dirty: boolean) => void
   /** Retired lots keep their job history but cannot start new attempts. */
   retiredLotIds?: ReadonlySet<string>
@@ -34,6 +36,7 @@ export function ProcessingStage({
   questionId,
   sessionId,
   reload,
+  edit,
   onDirtyChange,
   retiredLotIds,
   attention,
@@ -58,6 +61,7 @@ export function ProcessingStage({
       navigate={navigateProcessing}
       onDirtyChange={onDirtyChange}
       onSaved={reload}
+      edit={edit}
       retiredLotIds={retiredLotIds}
       attention={attention}
       agents={agents}

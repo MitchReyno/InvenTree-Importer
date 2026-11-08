@@ -157,6 +157,7 @@ export function ReviewQueue({
                         {lot.operator_edited ? 'Edited' : 'AI-proposed'}
                       </Pill>
                     )}
+                    {lot.reexamine && <Pill status="warning">Re-examine</Pill>}
                     {operatorLot ? (
                       <LotStatusChips lot={operatorLot} />
                     ) : (

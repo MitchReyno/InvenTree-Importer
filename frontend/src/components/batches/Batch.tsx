@@ -462,6 +462,7 @@ export function Batch({
         step={batchRoute.step}
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
+        edit={edit}
         reload={reloadForStage}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}

@@ -115,6 +115,8 @@ export const captureLots = pgTable('capture_lot', {
   origin: text().$type<'agent' | 'operator'>().notNull().default('operator'),
   agentSessionId: uuid('agent_session_id'),
   operatorEdited: boolean('operator_edited').notNull().default(false),
+  /** The operator corrected a reading this lot used; cleared when the lead session looks again. */
+  reexamine: boolean().notNull().default(false),
   estimatedQuantity: text('estimated_quantity'),
   quantityBasis: text('quantity_basis'),
   observationSetVersion: bigint('observation_set_version', { mode: 'bigint' })
