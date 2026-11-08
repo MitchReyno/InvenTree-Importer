@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
 import { media } from '../ui/media'
@@ -9,7 +10,6 @@ import { classifyFailure, failureMessage } from '../../operator/command-failure'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import {
   CheckboxLabel,
-  ErrorNotice,
   Fieldset,
   Form,
   Input,
@@ -401,7 +401,11 @@ export function RestructureDialog({
           </Button>
         </Fieldset>
       </Form>
-      {previewError && <ErrorNotice role="alert">{previewError}</ErrorNotice>}
+      {previewError && (
+        <div role="alert">
+          <Banner tone="bad">{previewError}</Banner>
+        </div>
+      )}
       {preview && (
         <PreviewBox>
           <ImpactSummary
@@ -410,7 +414,11 @@ export function RestructureDialog({
             selectedLotIds={lotIds}
             excludedLotIds={excludedLotIds}
           />
-          {apply.message && <ErrorNotice role="alert">{apply.message}</ErrorNotice>}
+          {apply.message && (
+            <div role="alert">
+              <Banner tone="bad">{apply.message}</Banner>
+            </div>
+          )}
           {apply.pending ? (
             <span>
               <Button disabled={apply.busy} onClick={() => void retryApply()}>
@@ -458,11 +466,13 @@ function RestructureErrors({ errors }: { errors: FieldErrors<Values> }) {
     return null
   }
   return (
-    <ErrorNotice role="alert">
-      {[...messages].map((message) => (
-        <Paragraph key={message}>{message}</Paragraph>
-      ))}
-    </ErrorNotice>
+    <div role="alert">
+      <Banner tone="bad">
+        {[...messages].map((message) => (
+          <Paragraph key={message}>{message}</Paragraph>
+        ))}
+      </Banner>
+    </div>
   )
 }
 

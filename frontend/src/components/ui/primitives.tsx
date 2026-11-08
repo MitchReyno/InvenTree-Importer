@@ -135,14 +135,6 @@ export const HeadingRow = styled.div`
     margin-bottom: ${space[4]};
   }
 `
-export const Eyebrow = styled(Paragraph)`
-  ${type.label}
-  color: ${color.muted};
-`
-export const Intro = styled(Paragraph)`
-  max-width: 700px;
-  color: ${color.muted};
-`
 export const CheckboxLabel = styled(Label)`
   display: flex;
   align-items: center;
@@ -161,18 +153,4 @@ export const Field = styled.div`
   border: 1px solid ${color.line};
   background: ${color.surface2};
   border-radius: ${radius.card};
-`
-export const Notice = styled(Paragraph)`
-  padding: ${space[5]} ${space[7]};
-  border: 1px solid transparent;
-  background: ${color.warnWeak};
-  border-radius: ${radius.card};
-  margin-bottom: ${space[9]};
-`
-export const ErrorNotice = styled.div`
-  padding: ${space[5]} ${space[7]};
-  border: 1px solid ${color.bad};
-  background: ${color.badWeak};
-  border-radius: ${radius.card};
-  margin-bottom: ${space[9]};
 `

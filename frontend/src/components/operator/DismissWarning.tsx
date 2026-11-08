@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
+import { Banner } from '../ui/Banner'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import { ErrorNotice, Form, Label, Small, TextArea } from '../ui/primitives'
+import { Form, Label, Small, TextArea } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
 const MAX_REASON_LENGTH = 1024
@@ -93,7 +94,11 @@ export function DismissWarning({
       <Small>
         The dismissal binds to the current facts. Any later change to them brings the warning back.
       </Small>
-      {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
+      {command.message && (
+        <div role="alert">
+          <Banner tone="bad">{command.message}</Banner>
+        </div>
+      )}
       <span>
         {command.pending ? (
           <Button type="button" disabled={command.busy} onClick={() => void retry()}>

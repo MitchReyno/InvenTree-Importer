@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
@@ -6,17 +7,7 @@ import type { BulkEditDto, CaptureSnapshotDto, OperatorImpactDto } from '@invimp
 import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import {
-  ErrorNotice,
-  Fieldset,
-  Form,
-  Input,
-  Label,
-  Panel,
-  Paragraph,
-  Select,
-  Small,
-} from '../ui/primitives'
+import { Fieldset, Form, Input, Label, Panel, Paragraph, Select, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
 import { Toast } from '../ui/Toast'
@@ -242,7 +233,11 @@ export function BulkEditPanel({
         </Row>
       </Form>
       {errors.quantity && <Small role="alert">{errors.quantity.message}</Small>}
-      {previewError && <ErrorNotice role="alert">{previewError}</ErrorNotice>}
+      {previewError && (
+        <div role="alert">
+          <Banner tone="bad">{previewError}</Banner>
+        </div>
+      )}
       {preview && (
         <PreviewBox>
           <ImpactSummary
@@ -251,7 +246,11 @@ export function BulkEditPanel({
             selectedLotIds={preview.lotIds}
             excludedLotIds={activeLotIds.filter((id) => !preview.lotIds.includes(id))}
           />
-          {apply.message && <ErrorNotice role="alert">{apply.message}</ErrorNotice>}
+          {apply.message && (
+            <div role="alert">
+              <Banner tone="bad">{apply.message}</Banner>
+            </div>
+          )}
           {apply.pending ? (
             <span>
               <Button

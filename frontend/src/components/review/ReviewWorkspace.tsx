@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { subjectStatuses, type LotStatus } from '../../processing/source'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { Kbd } from '../ui/Kbd'
@@ -13,7 +14,7 @@ import type {
   OperatorReviewDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Panel, Paragraph, Small, Notice, Summary } from '../ui/primitives'
+import { Panel, Paragraph, Small, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { CaptureContextSummary } from '../capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
@@ -327,15 +328,19 @@ export function ReviewWorkspace({
   return (
     <>
       {navigationBlocked && drafts.dirty && (
-        <Notice role="status">
-          Save or explicitly discard local edits before switching lots or views.
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            Save or explicitly discard local edits before switching lots or views.
+          </Banner>
+        </div>
       )}
       {reviewUnavailable && (
-        <Notice role="status">
-          Current operator review is unavailable or changed. Local drafts and exact retry intents
-          are retained; reload saved values deliberately before new commands.
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            Current operator review is unavailable or changed. Local drafts and exact retry intents
+            are retained; reload saved values deliberately before new commands.
+          </Banner>
+        </div>
       )}
       <ContextFold>
         <Summary>Batch context</Summary>
@@ -372,9 +377,9 @@ export function ReviewWorkspace({
         </Button>
       </ScopeBar>
       {!workspace.supported && (
-        <Notice>
+        <Banner tone="warn">
           Adding stock isn’t available for this target, so lots can be reviewed but not added.
-        </Notice>
+        </Banner>
       )}
       {editing && observe && (
         <ReviewSubjectEditor

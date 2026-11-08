@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import styled from 'styled-components'
 import { color, space, typeVar } from '../../theme/generated/tokens'
 import type {
@@ -12,7 +13,7 @@ import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
 import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
-import { Heading, Link, Notice, Paragraph, Small } from '../ui/primitives'
+import { Heading, Link, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Kbd } from '../ui/Kbd'
 import { StickyFooter } from '../ui/StickyFooter'
@@ -306,7 +307,7 @@ export function DecisionPanel({
         />
       ) : (
         legacyIssues(workspace, lot).map((problem, index) => (
-          <Notice key={`${problem.code}:${index}`}>
+          <Banner tone="warn" key={`${problem.code}:${index}`}>
             {problem.message}
             {problem.run_id && (
               <>
@@ -322,7 +323,7 @@ export function DecisionPanel({
                 </Link>
               </>
             )}
-          </Notice>
+          </Banner>
         ))
       )}
       <Actions aria-label="Edit this lot">

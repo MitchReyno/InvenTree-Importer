@@ -1,11 +1,12 @@
 import styled from 'styled-components'
+import { Banner } from '../ui/Banner'
 import type { CaptureSnapshotDto, ManualRunDto, ManualWorkspaceDto } from '@invimport/contracts'
 import type { RunRecoverySelection } from '../../manual/types'
 import { batchHref } from '../../navigation/batch-route'
 import { space } from '../../theme/generated/tokens'
 import { Pill } from '../ui/Pill'
 import { StatusTimeline } from '../ui/StatusTimeline'
-import { Heading, Link, Notice, Panel, Paragraph, Small } from '../ui/primitives'
+import { Heading, Link, Panel, Paragraph, Small } from '../ui/primitives'
 import { activeRun, checking, refused, roundSummary, RoundOutcome } from './RoundOutcome'
 
 interface Props {
@@ -53,12 +54,14 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
         <Paragraph>Nothing has been added to InvenTree from this batch yet.</Paragraph>
       )}
       {focusedRunId && !focused && (
-        <Notice role="status">
-          That approval round is unavailable, and no other has been put in its place.{' '}
-          <Link href={batchHref(batch.id, { tab: 'changes', view: 'added' })}>
-            Show every round
-          </Link>
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            That approval round is unavailable, and no other has been put in its place.{' '}
+            <Link href={batchHref(batch.id, { tab: 'changes', view: 'added' })}>
+              Show every round
+            </Link>
+          </Banner>
+        </div>
       )}
       {shown.map((run) => (
         <RoundOutcome

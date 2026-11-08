@@ -1,6 +1,7 @@
 import { AgentSettings } from './components/agents/AgentSettings'
+import { Banner } from './components/ui/Banner'
 import { AgentSessions } from './components/agents/AgentSessions'
-import { PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
+import { PageTitle, Panel, Paragraph } from './components/ui/primitives'
 import { Button } from './components/ui/Button'
 import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -215,16 +216,20 @@ export default function App() {
             {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
               <PageContent $width={width}>
                 {bootstrapUnavailable && bootstrap && (
-                  <Notice role="alert">
-                    Application connection unavailable. Showing the last development context;
-                    retained views report their own freshness. Unsaved input is preserved.
-                  </Notice>
+                  <div role="alert">
+                    <Banner tone="warn">
+                      Application connection unavailable. Showing the last development context;
+                      retained views report their own freshness. Unsaved input is preserved.
+                    </Banner>
+                  </div>
                 )}
                 {navigationBlocked && (
-                  <Notice role="alert">
-                    Your unsaved input is preserved. Save this form or discard its unsaved input
-                    before navigating, then choose the destination again.
-                  </Notice>
+                  <div role="alert">
+                    <Banner tone="warn">
+                      Your unsaved input is preserved. Save this form or discard its unsaved input
+                      before navigating, then choose the destination again.
+                    </Banner>
+                  </div>
                 )}
               </PageContent>
             )}

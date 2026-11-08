@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RestructureDialog } from '../operator/RestructureDialog'
-import { ErrorNotice } from '../ui/primitives'
+
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '../../operator/useDirtySources'
@@ -135,9 +136,15 @@ export function ReviewMapStage({
 
   return (
     <>
-      {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+      {error && (
+        <div role="alert">
+          <Banner tone="bad">{error}</Banner>
+        </div>
+      )}
       {!media ? (
-        <ErrorNotice role="status">Evidence is not available in this setup.</ErrorNotice>
+        <div role="status">
+          <Banner tone="bad">Evidence is not available in this setup.</Banner>
+        </div>
       ) : (
         <ReviewMap
           batch={batch}

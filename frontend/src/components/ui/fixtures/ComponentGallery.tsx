@@ -36,7 +36,7 @@ import { StickyFooter } from '../StickyFooter'
 import { SubTabs, Tabs } from '../Tabs'
 import { TextField } from '../TextField'
 import { Toast } from '../Toast'
-import { Input, Label, Notice, Panel } from '../primitives'
+import { Input, Label, Panel } from '../primitives'
 
 // A blank white page, the hardest ground for a focus ring on a preview.
 const WHITE_PREVIEW =
@@ -469,7 +469,6 @@ export function ComponentGallery() {
               />
             ))}
           </Stack>
-          <Notice>Notice primitive on its token ground.</Notice>
         </Section>
 
         <StickyFooter

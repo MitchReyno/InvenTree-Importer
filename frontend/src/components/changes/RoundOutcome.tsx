@@ -1,9 +1,10 @@
 import styled from 'styled-components'
+import { Banner } from '../ui/Banner'
 import type { ManualRunDto, PartOutputDto } from '@invimport/contracts'
 import type { RunRecoverySelection } from '../../manual/types'
 import { batchHref } from '../../navigation/batch-route'
 import { color, space } from '../../theme/generated/tokens'
-import { Field, Heading, Link, Notice, Panel, Paragraph, Small, Summary } from '../ui/primitives'
+import { Field, Heading, Link, Panel, Paragraph, Small, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { AttachmentOutcome } from './AttachmentOutcome'
 import { EffectOutcome } from './EffectOutcome'
@@ -160,15 +161,15 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
       </Heading>
       {run.state === 'recovery_required' &&
         (heldByRefusal(run) ? (
-          <Notice>
+          <Banner tone="warn">
             InvenTree refused a value in this round, so nothing was created for it. The round stays
             open and holds this batch’s source, so a corrected value cannot be sent yet.
-          </Notice>
+          </Banner>
         ) : (
-          <Notice>
+          <Banner tone="warn">
             Stock may have been created, or the original physical owner may still be active. Nothing
             is created again; each record is checked by its import reference first.
-          </Notice>
+          </Banner>
         ))}
       {unstarted && (
         <>

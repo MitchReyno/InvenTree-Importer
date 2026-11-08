@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Banner } from '../ui/Banner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -20,7 +21,7 @@ import {
   type RunRecoverySelection,
 } from '../../manual/types'
 import { useDirtySources } from '../../operator/useDirtySources'
-import { ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
+import { Paragraph, Heading, HeadingRow } from '../ui/primitives'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
 import { Toast } from '../ui/Toast'
 import { Button } from '../ui/Button'
@@ -390,36 +391,44 @@ export function ManualWorkspace({
         </HeadingRow>
       )}
       {workspace?.preparations_truncated && (
-        <Notice>
+        <Banner tone="warn">
           Only the 20 most recent unapproved preparations are considered here. Older exact plans
           remain retained; prepare current scope again if needed.
-        </Notice>
+        </Banner>
       )}
-      {busy && <Notice role="status">{busy}</Notice>}
+      {busy && (
+        <div role="status">
+          <Banner tone="warn">{busy}</Banner>
+        </div>
+      )}
       {workspace && waitingForFirstRead && !connectionLost && (
-        <Notice role="status">Verifying current retained state; commands are disabled.</Notice>
+        <div role="status">
+          <Banner tone="warn">Verifying current retained state; commands are disabled.</Banner>
+        </div>
       )}
       {(connectionLost || error) && (
-        <ErrorNotice role="alert">
-          {connectionLost && (
-            <Paragraph>
-              Status unavailable. Showing the last retained snapshot; commands are disabled until
-              the application can verify current state.
-            </Paragraph>
-          )}
-          {error && <Paragraph>{error}</Paragraph>}
-          <Button
-            disabled={Boolean(busy)}
-            onClick={() => {
-              void refresh().catch(() => undefined)
-            }}
-          >
-            Refresh retained state
-          </Button>
-        </ErrorNotice>
+        <div role="alert">
+          <Banner tone="bad">
+            {connectionLost && (
+              <Paragraph>
+                Status unavailable. Showing the last retained snapshot; commands are disabled until
+                the application can verify current state.
+              </Paragraph>
+            )}
+            {error && <Paragraph>{error}</Paragraph>}
+            <Button
+              disabled={Boolean(busy)}
+              onClick={() => {
+                void refresh().catch(() => undefined)
+              }}
+            >
+              Refresh retained state
+            </Button>
+          </Banner>
+        </div>
       )}
       {stale && workspace && (
-        <Notice>
+        <Banner tone="warn">
           Saved capture changed in another client. Your review display has not silently changed.
           <br />
           <Button
@@ -430,7 +439,7 @@ export function ManualWorkspace({
           >
             Load current saved choices
           </Button>
-        </Notice>
+        </Banner>
       )}
       {content}
     </>
