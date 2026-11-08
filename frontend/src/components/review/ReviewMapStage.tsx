@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
@@ -34,6 +35,7 @@ type PendingLot = {
   label: string
   knownLotIds: string[]
 }
+type Unfinished = Pick<PendingLot, 'from' | 'label'> & { lotId: string; lotLabel: string }
 
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
@@ -60,6 +62,7 @@ export function ReviewMapStage({
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [unfinished, setUnfinished] = useState<Unfinished | null>(null)
   const [restructure, setRestructure] = useState<{
     kind: 'split' | 'merge' | 'move'
     lotIds: string[]
@@ -70,7 +73,7 @@ export function ReviewMapStage({
   async function link(evidenceId: string, lotId: string, linked: boolean) {
     const snapshot = query.data
     if (!media || !snapshot) {
-      return
+      return false
     }
     setBusy(true)
     setError('')
@@ -84,9 +87,11 @@ export function ReviewMapStage({
         crypto.randomUUID(),
       )
       queryClient.setQueryData(key, next)
+      return true
     } catch {
       setError('The link could not be saved. Refresh and try again.')
       void query.refetch()
+      return false
     } finally {
       setBusy(false)
     }
@@ -130,9 +135,12 @@ export function ReviewMapStage({
       })
       if (saved === false) {
         setError('The region could not be moved. Refresh and try again.')
+        return false
       }
+      return true
     } catch {
       setError('The region could not be moved. Refresh and try again.')
+      return false
     } finally {
       setBusy(false)
     }
@@ -174,13 +182,26 @@ export function ReviewMapStage({
     )
     if (created) {
       pending.current = null
-      if (waiting.from.kind === 'file') {
-        void link(waiting.from.evidenceId, created.id, true)
-      } else {
-        void moveRegion(waiting.from.observationId, created.id)
-      }
+      void finish({
+        from: waiting.from,
+        label: waiting.label,
+        lotId: created.id,
+        lotLabel: created.label,
+      })
     }
   })
+
+  // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
+  async function finish(step: Unfinished) {
+    setUnfinished(step)
+    const done =
+      step.from.kind === 'file'
+        ? await link(step.from.evidenceId, step.lotId, true)
+        : await moveRegion(step.from.observationId, step.lotId)
+    if (done) {
+      setUnfinished(null)
+    }
+  }
 
   const disabled = busy || batch.archived || !media || !query.data
 
@@ -198,6 +219,22 @@ export function ReviewMapStage({
         <div role="alert">
           <Banner tone="bad">{error}</Banner>
         </div>
+      )}
+      {unfinished && !busy && (
+        <Banner
+          tone="warn"
+          action={
+            <Button size="sm" onClick={() => void finish(unfinished)}>
+              {unfinished.from.kind === 'file'
+                ? `Link the file to lot ${unfinished.lotLabel}`
+                : `Move ${unfinished.label} into lot ${unfinished.lotLabel}`}
+            </Button>
+          }
+        >
+          Lot {unfinished.lotLabel} was made, but{' '}
+          {unfinished.from.kind === 'file' ? 'its file is not linked' : 'its region was not moved'}{' '}
+          yet.
+        </Banner>
       )}
       {!media ? (
         <div role="status">

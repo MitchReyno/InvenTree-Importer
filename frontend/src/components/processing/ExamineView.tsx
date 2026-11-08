@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureEditDto,
@@ -145,7 +145,25 @@ export type SharperRequests = Record<
   string,
   { key: string; name: string; state: 'sending' | 'failed' | 'sent' }
 >
-export type SharperRequestStore = { current: SharperRequests }
+
+/** Sharper-photo requests by evidence version; every mounted view sees each update. */
+export function createSharperRequestStore() {
+  let current: SharperRequests = {}
+  const listeners = new Set<() => void>()
+  return {
+    get: () => current,
+    set(version: string, entry: SharperRequests[string]) {
+      current = { ...current, [version]: entry }
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+}
+
+export type SharperRequestStore = ReturnType<typeof createSharperRequestStore>
 
 export function ExamineView({
   batch,
@@ -216,17 +234,11 @@ export function ExamineView({
   }, [dirtyEditors, onDirtyChange])
   // Requests are kept per evidence version with their key and wording until confirmed, so a retry
   // resends exactly the same request, even after the photo's name arrives or Processing reloads.
-  const [requests, setRequestState] = useState<SharperRequests>(() => ({
-    ...requestStore?.current,
-  }))
-
-  // Written to the store directly: a reload mid-send unmounts this view before the reply lands.
-  function record(version: string, entry: SharperRequests[string]) {
-    if (requestStore) {
-      requestStore.current = { ...requestStore.current, [version]: entry }
-    }
-    setRequestState((value) => ({ ...value, [version]: entry }))
-  }
+  // A request outlives a reload mid-send, so its reply reaches whichever view is mounted then.
+  const [ownStore] = useState(createSharperRequestStore)
+  const store = requestStore ?? ownStore
+  const requests = useSyncExternalStore(store.subscribe, store.get)
+  const record = store.set
 
   async function requestSharper(version: string, shownName: string) {
     const previous = requests[version]

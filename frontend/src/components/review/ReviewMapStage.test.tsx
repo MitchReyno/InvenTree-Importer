@@ -293,6 +293,40 @@ describe('ReviewMapStage', () => {
     )
   })
 
+  it('offers to finish moving the region when the new lot was made but the move was not', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async (change: { kind: string }) => change.kind !== 'observation_move')
+    const props = {
+      media: versioned(),
+      edit,
+      retiredLotIds: new Set<string>(),
+      reload: vi.fn(async () => undefined),
+      onDirtyChange: vi.fn(),
+    }
+    const view = render(<ReviewMapStage batch={regioned} {...props} />)
+    await user.click(await screen.findByRole('button', { name: 'New lot from region: 1N4148' }))
+    view.rerender(
+      <ReviewMapStage
+        batch={
+          { ...regioned, revision: '5', lots: [...regioned.lots, lot('n', '1N4148')] } as never
+        }
+        {...props}
+      />,
+    )
+    const finish = await screen.findByRole('button', { name: 'Move 1N4148 into lot 1N4148' })
+    edit.mockImplementation(async () => true)
+    await user.click(finish)
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'observation_move',
+      observation_id: 'o1',
+      lot_id: 'n',
+    })
+    expect(edit.mock.calls.filter(([change]) => change.kind === 'add_lot')).toHaveLength(1)
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Move 1N4148 into lot 1N4148' })).toBeNull(),
+    )
+  })
+
   it('adjusts a region on the selected photo through the observation edit', async () => {
     const user = userEvent.setup()
     const edit = vi.fn(async () => true)

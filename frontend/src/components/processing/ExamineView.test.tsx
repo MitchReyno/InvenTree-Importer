@@ -6,7 +6,7 @@ import type {
   MediaSnapshotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { ExamineView } from './ExamineView'
+import { createSharperRequestStore, ExamineView } from './ExamineView'
 
 const pixels = {
   kind: 'pixels',
@@ -306,59 +306,41 @@ it('keeps a failed request with its photo when the photo’s name arrives', asyn
   expect(sent).toEqual([sent[0], sent[0]])
 })
 
-it('a request store keeps a request across a remount, even one still sending', async () => {
+it('a request still sending when the view remounts settles in the new view', async () => {
   const user = userEvent.setup()
   const sent: [string, string][] = []
-  let fail = true
+  let settle: { resolve: () => void; reject: (reason: Error) => void } | null = null
 
-  const askSharper = async (name: string, key: string) => {
+  const askSharper = (name: string, key: string) => {
     sent.push([name, key])
-    if (fail) {
-      throw new Error('lost')
-    }
+    return new Promise<void>((resolve, reject) => {
+      settle = { resolve, reject }
+    })
   }
 
-  const store = { current: {} }
-  const first = render(
+  const store = createSharperRequestStore()
+
+  const view = () => (
     <ExamineView
       batch={batch}
       lead={lead}
       media={media}
       askSharper={askSharper}
       requestStore={store}
-    />,
+    />
   )
+
+  const first = render(view())
 
   const reel = () => screen.getByRole('region', { name: 'reel.jpg' })
 
-  let reject: (reason: Error) => void = () => {}
-
-  fail = false
-  const pending = new Promise<void>((_, no) => {
-    reject = no
-  })
-
-  const slow = async (name: string, key: string) => {
-    sent.push([name, key])
-    return pending
-  }
-
-  first.rerender(
-    <ExamineView batch={batch} lead={lead} media={media} askSharper={slow} requestStore={store} />,
-  )
   await user.click(within(reel()).getByRole('button', { name: 'Ask for a sharper photo' }))
   first.unmount()
-  await act(async () => reject(new Error('lost')))
-  render(
-    <ExamineView
-      batch={batch}
-      lead={lead}
-      media={media}
-      askSharper={askSharper}
-      requestStore={store}
-    />,
-  )
-  fail = false
+  render(view())
+  expect(within(reel()).getByRole('button', { name: 'Ask for a sharper photo' })).toBeDisabled()
+  await act(async () => settle!.reject(new Error('lost')))
   await user.click(within(reel()).getByRole('button', { name: 'Retry the request' }))
   expect(sent).toEqual([sent[0], sent[0]])
+  await act(async () => settle!.resolve())
+  expect(within(reel()).getByRole('status')).toHaveTextContent('Asked Examine for a sharper photo')
 })

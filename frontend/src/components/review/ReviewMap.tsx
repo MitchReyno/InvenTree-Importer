@@ -19,10 +19,10 @@ type Props = {
   /** Each lot's direct predecessors, whose evidence its successors inherit. */
   predecessors?: ReadonlyMap<string, readonly string[]>
   disabled: boolean
-  link: (evidenceId: string, lotId: string, linked: boolean) => Promise<void>
+  link: (evidenceId: string, lotId: string, linked: boolean) => Promise<unknown>
   newLotFrom: (evidenceId: string, label: string) => Promise<void>
   /** Moves a region's observation to another lot, or out of any (`observation_move`). */
-  moveRegion?: (observationId: string, lotId: string | null) => Promise<void>
+  moveRegion?: (observationId: string, lotId: string | null) => Promise<unknown>
   newLotFromRegion?: (observationId: string, label: string) => Promise<void>
   /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
   editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
@@ -404,7 +404,7 @@ function RegionMove({
   region: { id: string; label: string; lotId: string | null }
   lots: { id: string; label: string }[]
   disabled: boolean
-  move: (observationId: string, lotId: string | null) => Promise<void>
+  move: (observationId: string, lotId: string | null) => Promise<unknown>
   newLot?: (observationId: string, label: string) => Promise<void>
 }) {
   const [target, setTarget] = useState('')
