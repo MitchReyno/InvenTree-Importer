@@ -27,6 +27,6 @@ PY
 python3 "$work/crop.py" "$work"
 node -e 'if (process.arch !== "arm64") process.exit(1)'
 printf '<title>synthetic fixture</title>' > "$work/index.html"
-chromium --headless --disable-gpu --disable-dev-shm-usage --user-data-dir="$work/browser" \
+timeout -k 5s 60s chromium --headless --disable-gpu --disable-dev-shm-usage --user-data-dir="$work/browser" \
     --dump-dom "file://$work/index.html" > "$work/result.html"
 grep -q '<title>synthetic fixture</title>' "$work/result.html"

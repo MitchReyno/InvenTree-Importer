@@ -12,7 +12,7 @@ services:
     security_opt:
       - no-new-privileges:true
       - seccomp=./guest/browser-seccomp.json
-    pids_limit: 192
+    pids_limit: 384
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=256m
     volumes:

@@ -41,3 +41,22 @@ limactl shell --workdir=/ "$vm" sh -ec '
 ```
 
 If first-boot SSH drops during provisioning, inspect the instance with `limactl list` and the Lima host-agent log. On the qualification M1 a restart of that VM restored SSH. Verify Docker and Compose are present inside the VM before loading the image. To pause the fixture while preserving the guest disk, run `limactl stop "$vm"`.
+
+### Raspberry Pi 5
+
+Use 64-bit Raspberry Pi OS with a writable KVM device, QEMU, AArch64 UEFI firmware and Lima 2.3. Place the VM, image archives and Docker data on SSD. Check the actual device backing each path before launch. The qualification Pi boots from NVMe, so its home directory and Docker data root already reside there.
+
+```sh
+test -r /dev/kvm && test -w /dev/kvm
+findmnt -T "$HOME"
+findmnt -T "$(docker info --format '{{.DockerRootDir}}')"
+qemu-system-aarch64 --version
+limactl --version
+free -h
+vm=bench-pi
+limactl start --tty=false --vm-type=qemu --name="$vm" tooling/deployment/lima/agent.yaml
+```
+
+For a per-user QEMU installation, include the Debian ipxe-qemu ROMs in QEMU's data directory. Pass that directory via QEMU's `-L` option and point Lima's `firmware.images` entry at the extracted AArch64 UEFI code file. Use the same Compose and smoke commands as on the Mac, substituting the Pi VM name. Transfer private images with `docker save` and `docker load`. Load the app into host Docker and the personal tools into guest Docker. Starting the host fixture requires separate synthetic secrets, a fresh Compose project name and its own volumes.
+
+On an installation that shares RAM with live services, stop the fixture after qualification. From the host manifest directory with the same Compose project and password file variables, use `docker compose -p "$project" -f host.compose.yaml stop` and `limactl stop "$vm"`. Both commands retain fixture data.
