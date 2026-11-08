@@ -479,7 +479,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 23.1 Add each batch's current stage line, evidence counts and possible-duplicate count to the batch list read, and show them on Batches (B8).
 - [x] 23.2 Keep unticked lots in the preparation tree with their reason, and give Update records field-level before and after values, shown in the Tree and By type (X8).
 - [x] 23.3 Mark parameter templates a category requires, and retain each conflicting value's alternatives with their sources and the reason one was used; show the matrix's "required here" and conflict markers and each conflict's row with "Use <value>" and "Ask <step>" (R26).
-- [ ] 23.4 Retain the nearest existing Part a proposal did not reuse and why, and the reason a category was chosen with the alternative considered, and show the reuse banner and the category reasoning (R28).
+- [x] 23.4 Retain the nearest existing Part a proposal did not reuse and why, and the reason a category was chosen with the alternative considered, and show the reuse banner and the category reasoning (R28).
 - [x] 23.5 Retain when each run happened, and show times in Added's activity log (X9).
 - [ ] 23.6 Add commands that pause and resume a batch's agent sessions and every batch's at once, and turn on "Pause all" for the batch on Processing and in each batch group on Agents, and "Pause all agents" in Agents' summary (P16, A2).
 - [x] 23.7 Add a command that joins observations as one physical item, and turn on the Map's "Same item as…" (R22).

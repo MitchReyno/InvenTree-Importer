@@ -180,6 +180,51 @@ function originsFor(spec: InventoryPartSpecDto, all: readonly Proposed[]) {
     return [...found.values()]
   }
 
+  type PartCatalogue = {
+    category?: {
+      choice: string
+      reference?: { pk: string }
+      reason?: string
+      alternative?: { name: string; reason?: string }
+    } | null
+    not_reused?: { part: Reference; label: string; reason: string }
+  }
+  const catalogues = proposals
+    .map((entry) => (entry.proposal.value as { catalogue?: PartCatalogue }).catalogue)
+    .filter((catalogue): catalogue is PartCatalogue => catalogue !== undefined)
+
+  /** The first existing Part a proposal chose not to reuse. */
+  const reuse = () => {
+    const found = catalogues.find((catalogue) => catalogue.not_reused)?.not_reused
+    return found
+      ? {
+          reference: { ...found.part, model: 'part' as const },
+          label: clip(found.label),
+          reason: found.reason,
+        }
+      : undefined
+  }
+
+  /** The reasoning of a proposal that chose the category the Part has now. */
+  const categoryReason = () => {
+    const chosen = catalogues
+      .map((catalogue) => catalogue.category)
+      .find(
+        (category) =>
+          category?.choice === 'existing' &&
+          category.reference?.pk === spec.category.pk &&
+          (category.reason || category.alternative),
+      )
+    return chosen
+      ? {
+          reason: chosen.reason ?? null,
+          alternative: chosen.alternative
+            ? { name: clip(chosen.alternative.name), reason: chosen.alternative.reason ?? null }
+            : null,
+        }
+      : undefined
+  }
+
   return {
     category: () => first((origins) => origins.category()),
     tags: () => first((origins) => origins.tags()),
@@ -188,6 +233,8 @@ function originsFor(spec: InventoryPartSpecDto, all: readonly Proposed[]) {
       first((origins) => origins.parameter(templatePk, value)),
     manufacturer: () => first((origins) => origins.manufacturer()),
     requiredMissing,
+    reuse,
+    categoryReason,
     mpn: () => first((origins) => origins.mpn()),
     supplier: () => first((origins) => origins.supplier()),
     sku: () => first((origins) => origins.sku()),
@@ -527,6 +574,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           field('tags', spec.tags.length ? spec.tags.join(', ') : null, origin.tags()),
         ],
         ...(origin.requiredMissing().length ? { required_missing: origin.requiredMissing() } : {}),
+        ...(origin.reuse() ? { reuse: origin.reuse() } : {}),
+        ...(origin.categoryReason() ? { category_reason: origin.categoryReason() } : {}),
       })
       if (spec.manufacturer) {
         record({

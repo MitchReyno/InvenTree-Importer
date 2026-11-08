@@ -326,6 +326,9 @@ const catalogueChoice = <M extends 'category' | 'company'>(model: M) =>
       reference: mappedReference(model),
       sources: catalogueSources,
       ...valueEvidence,
+      /** Why this one, and the other choice the step considered. */
+      reason: Type.Optional(text),
+      alternative: Type.Optional(object({ name: catalogueText, reason: Type.Optional(text) })),
     }),
     object({
       choice: Type.Literal('proposed_new'),
@@ -362,6 +365,10 @@ export const CatalogueProposal = object({
       chosen_because: Type.Optional(text),
     }),
     { maxItems: 32 },
+  ),
+  /** The nearest existing Part the step chose not to reuse, and why. */
+  not_reused: Type.Optional(
+    object({ part: mappedReference('part'), label: catalogueText, reason: text }),
   ),
   /** Templates the category maps that the step found no value for, with why. */
   required_missing: Type.Optional(

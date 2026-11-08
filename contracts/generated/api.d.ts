@@ -5900,6 +5900,25 @@ export interface components {
                 /** Format: int64 */
                 pk: string;
             };
+            reuse?: {
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "part";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                label: string;
+                reason: string;
+            };
+            category_reason?: {
+                reason: string | null;
+                alternative: {
+                    name: string;
+                    reason: string | null;
+                } | null;
+            };
             required_missing?: {
                 /** Format: int64 */
                 template_pk: string;
@@ -6011,6 +6030,25 @@ export interface components {
                     model: "part" | "company" | "category" | "parameter_template" | "location";
                     /** Format: int64 */
                     pk: string;
+                };
+                reuse?: {
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
+                category_reason?: {
+                    reason: string | null;
+                    alternative: {
+                        name: string;
+                        reason: string | null;
+                    } | null;
                 };
                 required_missing?: {
                     /** Format: int64 */
@@ -8266,6 +8304,11 @@ export interface components {
                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                 agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
             } | {
                 /** @constant */
                 choice: "proposed_new";
@@ -8344,6 +8387,18 @@ export interface components {
                 }[];
                 chosen_because?: string;
             }[];
+            not_reused?: {
+                part: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "part";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                label: string;
+                reason: string;
+            };
             required_missing?: {
                 name: string;
                 template: {
@@ -8392,6 +8447,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -8460,6 +8520,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -8610,6 +8675,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -8688,6 +8758,18 @@ export interface components {
                     }[];
                     chosen_because?: string;
                 }[];
+                not_reused?: {
+                    part: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
                 required_missing?: {
                     name: string;
                     template: {
@@ -8736,6 +8818,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -8804,6 +8891,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -13225,6 +13317,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -13303,6 +13400,18 @@ export interface components {
                     }[];
                     chosen_because?: string;
                 }[];
+                not_reused?: {
+                    part: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
                 required_missing?: {
                     name: string;
                     template: {
@@ -13351,6 +13460,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -13419,6 +13533,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -14004,6 +14123,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -14082,6 +14206,18 @@ export interface components {
                             }[];
                             chosen_because?: string;
                         }[];
+                        not_reused?: {
+                            part: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "part";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            label: string;
+                            reason: string;
+                        };
                         required_missing?: {
                             name: string;
                             template: {
@@ -14130,6 +14266,11 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -14198,6 +14339,11 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -14473,6 +14619,11 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -14551,6 +14702,18 @@ export interface components {
                                 }[];
                                 chosen_because?: string;
                             }[];
+                            not_reused?: {
+                                part: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "part";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                label: string;
+                                reason: string;
+                            };
                             required_missing?: {
                                 name: string;
                                 template: {
@@ -14599,6 +14762,11 @@ export interface components {
                                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                     agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
                                 } | {
                                     /** @constant */
                                     choice: "proposed_new";
@@ -14667,6 +14835,11 @@ export interface components {
                                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                     agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
                                 } | {
                                     /** @constant */
                                     choice: "proposed_new";
@@ -15910,6 +16083,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -15988,6 +16166,18 @@ export interface components {
                         }[];
                         chosen_because?: string;
                     }[];
+                    not_reused?: {
+                        part: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "part";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        label: string;
+                        reason: string;
+                    };
                     required_missing?: {
                         name: string;
                         template: {
@@ -16036,6 +16226,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -16104,6 +16299,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -16309,6 +16509,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -16387,6 +16592,18 @@ export interface components {
                         }[];
                         chosen_because?: string;
                     }[];
+                    not_reused?: {
+                        part: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "part";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        label: string;
+                        reason: string;
+                    };
                     required_missing?: {
                         name: string;
                         template: {
@@ -16435,6 +16652,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -16503,6 +16725,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";

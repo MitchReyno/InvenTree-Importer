@@ -79,6 +79,7 @@ company('14', 'Vishay', true, false)
 const mouser = company('21', 'Mouser Electronics', false, true)
 company('22', 'DigiKey', false, true)
 const existingDiode = observe('part', '29', '1N4148 small-signal diode')
+const stocked = observe('part', '31', 'RES 10k 5% 0603')
 
 const resistorSpec: InventoryPartSpecDto = {
   name: '10 kΩ thick-film resistor 0603',
@@ -167,7 +168,18 @@ const processing = {
             sources: [],
             tags: ['SMD', '0603'],
             catalogue: {
-              category: { choice: 'existing', reference: resistors },
+              category: {
+                choice: 'existing',
+                reference: resistors,
+                sources: [],
+                reason: 'the other 0603 resistors live here and share its templates',
+                alternative: { name: 'Thick film resistors', reason: 'a new sub-category' },
+              },
+              not_reused: {
+                part: stocked,
+                label: 'RES 10k 5% 0603',
+                reason: 'Different tolerance.',
+              },
               parameters: [
                 {
                   name: 'Resistance',

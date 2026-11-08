@@ -1262,3 +1262,64 @@ test("a proposal may keep a value's alternatives and the templates its category 
     }),
   )
 })
+
+test('a new Part says which existing Part it did not reuse and why its category was chosen', () => {
+  const said = structuredClone(processing) as unknown as {
+    jobs: { proposals: { value: { catalogue: Record<string, unknown> } }[] }[]
+  }
+  const catalogue = said.jobs[0].proposals[0].value.catalogue
+  catalogue.category = {
+    choice: 'existing',
+    reference: ref(901, 'category'),
+    sources: [],
+    reason: '14 existing 0603 resistors live here and share its templates.',
+    alternative: { name: 'Thick film', reason: 'A new sub-category for this composition.' },
+  }
+  catalogue.not_reused = {
+    part: ref(912, 'part'),
+    label: 'RES 10k 5% 0603',
+    reason: 'Different tolerance.',
+  }
+  const result = projectRecords({
+    capture,
+    processing: said as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const part = result.records.find((record) => record.key === `part:${partA}`)
+  assert.deepEqual(part?.reuse, {
+    reference: ref(912, 'part'),
+    label: 'RES 10k 5% 0603',
+    reason: 'Different tolerance.',
+  })
+  assert.deepEqual(part?.category_reason, {
+    reason: '14 existing 0603 resistors live here and share its templates.',
+    alternative: { name: 'Thick film', reason: 'A new sub-category for this composition.' },
+  })
+  // Without either, the Part carries neither.
+  const plain = projectRecords({ capture, processing, lotGroups: null })
+  const bare = plain.records.find((record) => record.key === `part:${partA}`)
+  assert.equal(bare?.reuse, undefined)
+  assert.equal(bare?.category_reason, undefined)
+})
+
+test('a category the Part has moved away from gives no reasoning for the one it has now', () => {
+  const said = structuredClone(processing) as unknown as {
+    jobs: { proposals: { value: { catalogue: Record<string, unknown> } }[] }[]
+  }
+  said.jobs[0].proposals[0].value.catalogue.category = {
+    choice: 'existing',
+    reference: { ...ref(901, 'category'), pk: '99' },
+    sources: [],
+    reason: 'For another category.',
+  }
+  const result = projectRecords({
+    capture,
+    processing: said as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  assert.equal(
+    result.records.find((record) => record.key === `part:${partA}`)?.category_reason,
+    undefined,
+  )
+})

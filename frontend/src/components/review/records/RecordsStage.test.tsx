@@ -319,6 +319,53 @@ describe('RecordsStage', () => {
     expect(matrix).toHaveTextContent(/missing/)
   })
 
+  it('says which existing Part a new one does not reuse, and why its category was chosen', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    const reference = {
+      observation_id: id(912),
+      target_context_id: batch.target_context_id,
+      model: 'part' as const,
+      pk: '31',
+    }
+    const reasoned = {
+      ...records,
+      records: records.records.map((record) =>
+        record.key === `part:${partA}`
+          ? {
+              ...record,
+              reuse: { reference, label: 'RES 10k 5% 0603', reason: 'Different tolerance.' },
+              category_reason: {
+                reason: '14 existing resistors live here.',
+                alternative: { name: 'Thick film', reason: null },
+              },
+            }
+          : record,
+      ),
+    }
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => reasoned) }}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    expect(detail).toHaveTextContent('Not reusing RES 10k 5% 0603: Different tolerance.')
+    expect(detail).toHaveTextContent(
+      'Chosen because 14 existing resistors live here. Alternative considered: Thick film.',
+    )
+    await user.click(within(detail).getByRole('button', { name: 'Use RES 10k 5% 0603 instead' }))
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'part',
+      id: partA,
+      choice: { mode: 'set', value: reference },
+    })
+  })
+
   it('maps a shared company to another in the same role, stating every Part it reaches', async () => {
     const user = userEvent.setup()
     const { edit } = stage()

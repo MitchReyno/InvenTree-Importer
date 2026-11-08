@@ -169,6 +169,27 @@ export const BatchRecord = object({
   unsupported: Type.Optional(Type.Array(RecordUnsupported, { maxItems: 40 })),
   /** Present when the record already exists in the target. */
   mapped: Type.Optional(RecordMapped),
+  /** The nearest existing Part its step chose not to reuse, and why. */
+  reuse: Type.Optional(
+    object({
+      reference: mappedReference('part'),
+      label: text,
+      reason: Type.String({ minLength: 1, maxLength: 2048 }),
+    }),
+  ),
+  /** Why the step chose the Part's category, and the other choice it considered. */
+  category_reason: Type.Optional(
+    object({
+      reason: Type.Union([Type.String({ minLength: 1, maxLength: 2048 }), Type.Null()]),
+      alternative: Type.Union([
+        object({
+          name: text,
+          reason: Type.Union([Type.String({ minLength: 1, maxLength: 2048 }), Type.Null()]),
+        }),
+        Type.Null(),
+      ]),
+    }),
+  ),
   /** A new Part's category templates its step found no value for, with why. */
   required_missing: Type.Optional(
     Type.Array(

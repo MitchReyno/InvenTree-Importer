@@ -295,6 +295,7 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask, ex
           save={save}
           disabled={disabled}
           reportFor={(source) => reportFor(`${record.key}:${source}`)}
+          record={record}
         />
       )}
       {(target?.kind === 'manufacturer_part' || target?.kind === 'supplier_part') && spec && (
