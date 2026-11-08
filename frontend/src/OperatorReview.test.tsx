@@ -1214,6 +1214,32 @@ test('lot details name the operator as the source of their own values', async ()
   expect(quantity).toHaveTextContent('You · Your edit')
 })
 
+test('an AI lot credits Examine only for its estimate, not for an inherited quantity', async () => {
+  renderReview({
+    batch: {
+      ...batch,
+      lots: batch.lots.map((item) =>
+        item.id === b
+          ? {
+              ...item,
+              origin: 'agent',
+              quantity: { mode: 'inherit' },
+              estimated_quantity: '40',
+            }
+          : item,
+      ),
+    } as unknown as typeof batch,
+  })
+  const details = await screen.findByRole('region', { name: 'Decision' })
+
+  const value = (label: string) =>
+    within(details).getByText(label, { selector: 'dt' }).nextElementSibling!
+
+  expect(value('Quantity')).not.toHaveTextContent('Examine')
+  expect(value('Examine estimate')).toHaveTextContent('40')
+  expect(value('Examine estimate')).toHaveTextContent('Examine · Estimated')
+})
+
 test('lot details show the records the lot becomes', async () => {
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })

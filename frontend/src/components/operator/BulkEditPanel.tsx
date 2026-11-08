@@ -10,7 +10,7 @@ import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import { Fieldset, Form, Input, Label, Panel, Paragraph, Select, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
-import { Toast } from '../ui/Toast'
+import { useConfirmation } from '../ui/Confirmation'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 
@@ -92,7 +92,7 @@ export function BulkEditPanel({
   const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
-  const [confirmation, setConfirmation] = useState<string | null>(null)
+  const confirm = useConfirmation()
   const apply = useRetainedCommand(
     (input: { lotIds: string[]; change: BulkChange; revision: string }, key: string) =>
       client.bulkEdit(
@@ -160,16 +160,13 @@ export function BulkEditPanel({
     if (result) {
       onDirtyChange?.(false)
       // An applied bulk edit has no inverse command, so the confirmation offers no Undo.
-      setConfirmation(`Applied to ${count} lot${count === 1 ? '' : 's'}`)
+      confirm(`Applied to ${count} lot${count === 1 ? '' : 's'}`)
       await reload()
     }
   }
 
   return (
     <Panel aria-label="Bulk edit selected lots">
-      {confirmation && (
-        <Toast key={confirmation} message={confirmation} onDismiss={() => setConfirmation(null)} />
-      )}
       <Paragraph>
         <strong>{selectedIds.length} selected</strong> · bulk edits apply to every selected lot or
         to none.

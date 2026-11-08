@@ -229,12 +229,18 @@ export function DecisionPanel({
             label: 'Quantity',
             value: display(lot.quantity, batch, 'quantity'),
             state: 'plain',
-            source: valueSource(
-              lotProvenance(lot.quantity, batch.defaults.quantity),
-              lot.origin === 'agent' && !lot.operator_edited,
-              openEvidence,
-            ),
+            source: valueSource(lotProvenance(lot.quantity, batch.defaults.quantity), false),
           },
+          ...(lot.estimated_quantity
+            ? [
+                {
+                  label: 'Examine estimate',
+                  value: `${lot.estimated_quantity}${lot.quantity_basis ? ` · ${lot.quantity_basis}` : ''}`,
+                  state: 'plain' as const,
+                  source: valueSource('unset', true, openEvidence),
+                },
+              ]
+            : []),
           {
             label: 'Location',
             value: location.value,
@@ -431,12 +437,12 @@ export function DecisionPanel({
 }
 
 /**
- * Who a value came from: the operator's own choice, Examine's proposal (which opens the evidence),
+ * Who a value came from: the operator's own choice, Examine's estimate (which opens the evidence),
  * or, for an inherited, missing or uncertain value, its provenance in words.
  */
 function valueSource(provenance: Provenance, proposed: boolean, openEvidence?: () => void) {
   if (proposed) {
-    return <SourceChip source="Examine" certainty="Proposed" tone="likely" onOpen={openEvidence} />
+    return <SourceChip source="Examine" certainty="Estimated" tone="likely" onOpen={openEvidence} />
   }
   if (provenance === 'human' || provenance === 'override') {
     return <SourceChip source="You" certainty="Your edit" tone="user" />

@@ -351,6 +351,25 @@ afterEach(() => {
   focusManager.setFocused(true)
 })
 
+test('a review confirmation survives the remount its new revision causes', async () => {
+  const client = fakeClient()
+  const user = userEvent.setup()
+  const props = {
+    batch,
+    client,
+    edit: vi.fn(async () => undefined),
+    navigate: vi.fn(),
+    reload: vi.fn(async () => undefined),
+  }
+  const view = render(<ManualWorkspace {...props} stage="review" />)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  expect(await screen.findByText('Marked 1 lot reviewed')).toBeVisible()
+  // Batch keys the workspace by revision, so the confirmed review's reload remounts it.
+  view.rerender(<ManualWorkspace key="next-revision" {...props} stage="review" />)
+  expect(screen.getByText('Marked 1 lot reviewed')).toBeVisible()
+})
+
 test('manual review and approval keep exact A-only scope, scalar text and server digest while leaving B outside', async () => {
   const client = fakeClient()
   const navigate = vi.fn()
