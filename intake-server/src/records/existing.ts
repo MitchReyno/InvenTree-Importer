@@ -44,42 +44,79 @@ function text(value: unknown) {
   return typeof value === 'string' && value.trim() !== '' ? value.slice(0, TEXT_MAX) : null
 }
 
+/** Optional text a record may omit, leave null or leave blank; anything else is invalid. */
+const optionalText = (value: unknown) =>
+  value === undefined || value === null || typeof value === 'string'
+
+/** Settles with the response, or null once the budget is spent; a late response is cancelled. */
+async function readWithin(read: Promise<Response>, budgetMs: number): Promise<Response | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const expired = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), budgetMs)
+  })
+  const settled = await Promise.race([read, expired])
+  clearTimeout(timer)
+  if (settled === null) {
+    void read.then((late) => late.body?.cancel()).catch(() => undefined)
+  }
+  return settled
+}
+
 async function readOne(
   target: ExistingValuesTarget,
   key: string,
   mapped: RecordMappedDto,
+  remainingMs: () => number,
 ): Promise<RecordExistingValuesDto['records'][number]> {
+  const unavailable = { key, status: 'unavailable' as const }
   try {
-    const response = await target.read({ kind: READ_KIND[mapped.model], pk: mapped.pk })
+    const response = await readWithin(
+      target.read({ kind: READ_KIND[mapped.model], pk: mapped.pk }),
+      remainingMs(),
+    )
+    if (response === null) {
+      return unavailable
+    }
     if (response.status === 404) {
       await response.body?.cancel()
       return { key, status: 'not_found' }
     }
     if (!response.ok || !response.body) {
       await response.body?.cancel()
-      return { key, status: 'unavailable' }
+      return unavailable
     }
-    const bytes = await readBoundedBody(response.body, DETAIL_BODY_MAX_BYTES, BODY_DEADLINE_MS)
+    const bodyBudget = Math.min(BODY_DEADLINE_MS, remainingMs())
+    if (bodyBudget <= 0) {
+      await response.body.cancel()
+      return unavailable
+    }
+    const bytes = await readBoundedBody(response.body, DETAIL_BODY_MAX_BYTES, bodyBudget)
     const row = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as Record<
       string,
       unknown
     > | null
-    // A body naming another record is not this record's values.
+    // A body naming another record, or without this record's fields, is not its values.
     if (!row || typeof row !== 'object' || String(row.pk) !== mapped.pk) {
-      return { key, status: 'unavailable' }
+      return unavailable
+    }
+    const extras = EXTRA_FIELDS[mapped.model] ?? []
+    if (
+      typeof row.name !== 'string' ||
+      row.name.trim() === '' ||
+      !optionalText(row.description) ||
+      extras.some(([, source]) => !optionalText(row[source]))
+    ) {
+      return unavailable
     }
     const fields: Found['fields'] = [
       { name: 'name', value: text(row.name) },
       { name: 'description', value: text(row.description) },
-      ...(EXTRA_FIELDS[mapped.model] ?? []).map(([name, source]) => ({
-        name,
-        value: text(row[source]),
-      })),
+      ...extras.map(([name, source]) => ({ name, value: text(row[source]) })),
     ]
     return { key, status: 'found', fields }
   } catch {
     // Transport, body and decoding failures are unavailability, never an empty record.
-    return { key, status: 'unavailable' }
+    return unavailable
   }
 }
 
@@ -100,7 +137,9 @@ export function existingValuesReader(target: ExistingValuesTarget) {
         const index = next++
         const { key, mapped: record } = chosen[index]
         results[index] =
-          now() > deadline ? { key, status: 'unavailable' } : await readOne(target, key, record)
+          now() >= deadline
+            ? { key, status: 'unavailable' }
+            : await readOne(target, key, record, () => deadline - now())
       }
     }
 

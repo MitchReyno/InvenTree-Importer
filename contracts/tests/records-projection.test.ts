@@ -256,7 +256,18 @@ test('an excluded lot has no records; a Part only it used is left out too', () =
     of(result.records, 'stock_item').map((record) => record.label),
     ['Lot 1', 'Lot 4', 'Lot 5'],
   )
-  // Part B's only lot is excluded; Part A keeps Lot 1 alone.
+  // Part B's only lot is excluded, so neither it nor its own records are listed.
+  assert.equal(
+    result.records.some(
+      (record) => record.part_ids.includes(partB) && record.part_ids.length === 1,
+    ),
+    false,
+  )
+  assert.equal(
+    result.records.some((record) => record.key === `part:${partB}`),
+    false,
+  )
+  // Part A keeps Lot 1 alone.
   const partLots = of(result.records, 'part').map((record) => record.lot_ids)
   assert.equal(
     partLots.some((lots) => lots.includes(id(103))),

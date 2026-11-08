@@ -341,6 +341,11 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
 
   // Retired and excluded lots add nothing to the target.
   const activeLots = capture.lots.filter((lot) => !lot.retired && !lot.excluded)
+  // A Part only excluded lots use adds nothing either; one no lot uses yet is still listed.
+  const parts = capture.parts.filter((part) => {
+    const using = capture.lots.filter((lot) => !lot.retired && lot.part_subject_id === part.id)
+    return using.length === 0 || using.some((lot) => !lot.excluded)
+  })
 
   const lotsOf = (partIds: readonly string[]) =>
     activeLots
@@ -367,7 +372,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       ...value,
     })
 
-  const created = capture.parts.flatMap((part) =>
+  const created = parts.flatMap((part) =>
     part.choice.mode === 'create' ? [{ id: part.id, spec: part.choice.spec }] : [],
   )
   // Shared records: one per category, company role and template, listing every Part using it.
@@ -446,7 +451,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     })
   }
 
-  for (const part of capture.parts) {
+  for (const part of parts) {
     if (part.choice.mode === 'create') {
       const spec = part.choice.spec
       // A lot's proposal can set its Part's values (suggested tags), so those count too.
@@ -592,7 +597,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         : [],
     )
 
-  for (const part of capture.parts) {
+  for (const part of parts) {
     const catalogue = catalogueOf([part.id, ...lotsOf([part.id])])
     if (!catalogue) {
       continue
@@ -780,7 +785,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     return resolved.mode === 'set' ? resolved.value : null
   }
 
-  const partIds = new Set(capture.parts.map((part) => part.id))
+  const partIds = new Set(parts.map((part) => part.id))
   for (const lot of activeLots) {
     // An AI lot's count is only an estimate until the operator accepts or replaces it on the lot,
     // so it never takes the batch default, as approval reads it.

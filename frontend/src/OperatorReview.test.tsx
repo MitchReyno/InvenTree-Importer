@@ -412,6 +412,21 @@ test('the Table shows its selection bar above the rows only while lots are selec
   expect(screen.queryByRole('region', { name: 'Selected lots' })).toBeNull()
 })
 
+test('the Table gives an excluded lot’s reason beside its state', async () => {
+  const user = userEvent.setup()
+  const review = structuredClone(operatorReview)
+  Object.assign(review.lots[0], {
+    excluded: { reason: 'Bent leads', at: '2026-11-08T05:00:00.000Z' },
+  })
+  renderReview({ review })
+  await user.click(await screen.findByRole('button', { name: 'Table' }))
+  const table = screen.getByRole('region', { name: 'Lot table' })
+  const row = within(table)
+    .getAllByRole('row')
+    .find((item) => item.textContent?.includes('Excluded'))!
+  expect(row).toHaveTextContent(/Excluded\s*Bent leads/)
+})
+
 test('an uncertain dismissal retries the exact intent, then closes and reloads', async () => {
   const user = userEvent.setup()
   const operator = operatorClient()

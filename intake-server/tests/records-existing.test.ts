@@ -104,9 +104,7 @@ test('reads at most the request limit and says the rest were left', async () => 
 
 test('records not reached within the request’s budget read as unavailable', async () => {
   let clock = 0
-  const { target: fake } = target({
-    'get_category:1': { status: 200, body: { pk: 1, name: 'Resistors' } },
-  })
+  const { target: fake, reads } = target({})
   const slow = {
     ...fake,
     now: () => clock,
@@ -115,13 +113,47 @@ test('records not reached within the request’s budget read as unavailable', as
       return fake.read(operation)
     },
   }
-  const result = await existingValuesReader(slow)([
-    mappedRecord('category:1', 'category', '1'),
-    mappedRecord('category:2', 'category', '2'),
-    mappedRecord('category:3', 'category', '3'),
-    mappedRecord('category:4', 'category', '4'),
-    mappedRecord('category:5', 'category', '5'),
+  const result = await existingValuesReader(slow)(
+    Array.from({ length: 6 }, (_, n) => mappedRecord(`category:${n}`, 'category', String(n))),
+  )
+  // The first read spends the whole budget, so no other read starts.
+  assert.equal(reads.length, 1)
+  assert.ok(result.records.slice(1).every((item) => item.status === 'unavailable'))
+})
+
+test('a body without the record’s fields is unavailable, not an empty record', async () => {
+  const { target: fake } = target({
+    'get_part:12': { status: 200, body: { pk: 12, error: 'permission denied' } },
+    'get_part:13': { status: 200, body: { pk: 13, name: 'RES', description: 7 } },
+    'get_part:14': { status: 200, body: { pk: 14, name: 'RES', description: '' } },
+    'get_parameter_template:3': { status: 200, body: { pk: 3, name: 'Resistance', units: ['Ω'] } },
+  })
+  const result = await existingValuesReader(fake)([
+    mappedRecord('part:a', 'part', '12'),
+    mappedRecord('part:b', 'part', '13'),
+    mappedRecord('part:c', 'part', '14'),
+    mappedRecord('parameter_template:3', 'parameter_template', '3'),
   ])
-  assert.equal(result.records[0].status, 'found')
-  assert.equal(result.records[4].status, 'unavailable')
+  assert.deepEqual(
+    result.records.map((item) => item.status),
+    ['unavailable', 'unavailable', 'found', 'unavailable'],
+  )
+})
+
+test('a read still in flight when the budget runs out is cut off as unavailable', async () => {
+  let clock = 0
+  const { target: fake } = target({})
+  const hanging = {
+    ...fake,
+    now: () => clock,
+    // The first read never answers; the clock passes the budget meanwhile.
+    read: (operation: ReadOperation) => {
+      clock = 14990
+      return operation.pk === '1' ? new Promise<Response>(() => {}) : fake.read(operation)
+    },
+  }
+  const started = Date.now()
+  const result = await existingValuesReader(hanging)([mappedRecord('category:1', 'category', '1')])
+  assert.deepEqual(result.records, [{ key: 'category:1', status: 'unavailable' }])
+  assert.ok(Date.now() - started < 5000)
 })

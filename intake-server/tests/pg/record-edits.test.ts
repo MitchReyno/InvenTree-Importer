@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import {
   validate,
@@ -377,6 +378,28 @@ test('the existing values read reads each mapped record from the target and stor
         supplier.fields.some((field) => field.name === 'name' && field.value),
     )
     assert.deepEqual(await selections(fixture, batchId), before)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('the existing values read refuses once the target context has rotated', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const { batchId } = await recordBatch(fixture)
+    const next = randomUUID()
+    await fixture.db.pool.query('INSERT INTO target_context VALUES ($1,$2,2,$3)', [
+      next,
+      fixture.identity.target,
+      Buffer.alloc(32, 1),
+    ])
+    await fixture.db.pool.query('UPDATE target SET current_context_id=$1 WHERE id=$2', [
+      next,
+      fixture.identity.target,
+    ])
+    const read = await fixture.http(`/batches/${batchId}/records/existing`)
+    assert.equal(read.status, 409, JSON.stringify(read.value))
+    assert.equal((read.value as { code: string }).code, 'target_context_changed')
   } finally {
     await fixture.dispose()
   }

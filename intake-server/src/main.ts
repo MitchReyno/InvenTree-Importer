@@ -24,6 +24,7 @@ import { attentionReader } from './attention/reader.ts'
 import { registerRecords } from './records/routes.ts'
 import { recordsReader } from './records/reader.ts'
 import { existingValuesReader } from './records/existing.ts'
+import { requireCurrentTargetContext } from './capture/target-context.ts'
 import { inventoryTransport } from './inventory/transport.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
@@ -165,10 +166,13 @@ async function main() {
         config,
         readRecords,
         transport
-          ? existingValuesReader({
-              targetContextId: config.targetContextId,
-              read: (operation) => transport.read(targetBinding, operation),
-            })
+          ? {
+              read: existingValuesReader({
+                targetContextId: config.targetContextId,
+                read: (operation) => transport.read(targetBinding, operation),
+              }),
+              fence: () => requireCurrentTargetContext(db.pool, config),
+            }
           : undefined,
       )
       registerManual(
