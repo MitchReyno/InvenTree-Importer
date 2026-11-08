@@ -5,6 +5,7 @@ import { connect } from 'node:net'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { setTimeout as delay } from 'node:timers/promises'
+const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
 const [vm, port, directory, image, coordinator] = process.argv.slice(2)
 if (
   !/^[a-z0-9-]+$/.test(vm) ||
@@ -82,6 +83,18 @@ for (;;) {
       'type=bind,src=' + directory + '/guest,dst=/run/bench-pair,readonly',
       '--mount',
       'type=bind,src=' + directory + '/sessions,dst=/home/node/sessions',
+      ...(subscription
+        ? [
+            '-e',
+            'INTAKE_VM_CLAUDE_SUBSCRIPTION=1',
+            '--mount',
+            'type=bind,src=' + directory + '/claude-store,dst=/run/claude-store,readonly',
+            '--mount',
+            'type=bind,src=' + directory + '/egress,dst=/run/egress,readonly',
+            '--tmpfs=/home/node/.claude:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=32m',
+            '--tmpfs=/home/node/.config:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=4m',
+          ]
+        : []),
       image,
       'node',
       '--import',

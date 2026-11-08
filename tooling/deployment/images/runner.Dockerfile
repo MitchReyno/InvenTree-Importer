@@ -4,6 +4,7 @@ ARG PERSONAL_TOOLS_IMAGE
 FROM ${APP_IMAGE} AS app
 FROM ${PERSONAL_TOOLS_IMAGE} AS runner
 COPY --from=app /app /app
+COPY tooling/deployment/bridge/claude-egress.py /opt/guest-tools/claude-egress.py
 WORKDIR /app/intake-server
 CMD ["node","--import","tsx","src/agents/shared-vm/guest-main.ts"]
 

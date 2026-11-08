@@ -4,6 +4,7 @@ import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { PageTitle, Panel, Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { PersonalClaudeCredential } from './PersonalClaudeCredential'
 import { AgentSettingsForm } from './AgentSettingsForm'
 
 interface Props {
@@ -35,6 +36,7 @@ export function AgentSettings({ client, onDirtyChange }: Props) {
       {query.isFetchedAfterMount && query.data && (
         <AgentSettingsForm initial={query.data} client={client} onDirtyChange={onDirtyChange} />
       )}
+      {query.isFetchedAfterMount && query.data && <PersonalClaudeCredential />}
     </Panel>
   )
 }

@@ -8,6 +8,7 @@ export interface NativeAgentHost {
   claudeExecutable: string
   stateRoot: string
   env: NodeJS.ProcessEnv
+  guestClaudeToken?: string
 }
 
 /** Explicit host config only. No dotenv discovery, auth-store copying, or inventory credential inheritance. */
@@ -49,12 +50,21 @@ export function agentEnvironment(
       env[name] = host.env[name]
     }
   }
-  // No proxy, alternate API origin, OAuth token, cloud credential or application DB/channel secret crosses this seam.
+  // Ambient provider credentials and outbound proxies never select the billing route.
   if (selection.provider === 'codex') {
     env.CODEX_HOME = join(
       host.stateRoot,
       selection.authentication === 'subscription' ? 'codex' : 'codex-api',
     )
+  }
+  if (
+    selection.provider === 'claude' &&
+    selection.authentication === 'subscription' &&
+    host.guestClaudeToken
+  ) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = host.guestClaudeToken
+    env.HTTPS_PROXY = 'http://127.0.0.1:14316'
+    env.NO_PROXY = 'localhost,127.0.0.1,::1'
   }
   if (selection.authentication === 'api_key') {
     const keyName = selection.provider === 'codex' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'

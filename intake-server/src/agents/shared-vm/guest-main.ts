@@ -1,6 +1,7 @@
 // Entrypoint for one paired session turn. The operator transports opaque TLS bytes over
 // stdio into the network-disabled guest. No host socket or host directory enters the container.
 import { connect } from 'node:tls'
+import { connect as unixConnect, createServer as tcpServer } from 'node:net'
 import { Duplex } from 'node:stream'
 import { once } from 'node:events'
 import { journalTurn, type TurnOutcome } from './journal.ts'
@@ -26,7 +27,21 @@ async function main() {
   try {
     await once(socket, 'secureConnect')
     const frames = new Frames(socket)
-    await frames.send({ ready: protocol })
+    const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
+    if (subscription) {
+      const egress = tcpServer((local) => {
+        const upstream = unixConnect('/run/egress/claude.sock')
+        local.on('error', () => upstream.destroy())
+        upstream.on('error', () => local.destroy())
+        local.on('close', () => upstream.destroy())
+        upstream.on('close', () => local.destroy())
+        local.pipe(upstream).pipe(local)
+      })
+      egress.listen(14316, '127.0.0.1')
+      await once(egress, 'listening')
+      socket.once('close', () => egress.close())
+    }
+    await frames.send({ ready: protocol, claudeSubscription: subscription })
     const command = await frames.read()
     if (
       command.protocol !== protocol ||
@@ -43,6 +58,16 @@ async function main() {
     const manifest = command.manifest as ProcessingInputV6Dto
     if (!['synthetic-session/1', 'shared-vm-agent/1'].includes(manifest.profile_id)) {
       throw new Error('invalid_profile')
+    }
+    if (
+      subscription &&
+      !(
+        manifest.profile_id === 'shared-vm-agent/1' &&
+        manifest.agent?.provider === 'claude' &&
+        manifest.agent.authentication === 'subscription'
+      )
+    ) {
+      throw new Error('wrong_guest_route')
     }
     const identity = { lineage: command.lineage, attemptId: command.attemptId, turn: command.turn }
     const cwd = join('/home/node/sessions', identity.lineage)

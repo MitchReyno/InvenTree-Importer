@@ -206,6 +206,13 @@ export async function runClaudeSession(
           failDelivery,
         )
       }
+      if (
+        message.type === 'assistant' &&
+        message.error === 'authentication_failed' &&
+        host.guestClaudeToken
+      ) {
+        throw new NativeSessionError('agent_login_required')
+      }
       if (message.type === 'assistant') {
         const content = record(message.message).content
         if (!Array.isArray(content)) {

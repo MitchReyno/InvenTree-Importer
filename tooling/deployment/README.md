@@ -94,3 +94,34 @@ Start the coordinator with the VM profile and its pairing directory, then start 
 For an already provisioned installation, layer `host-runner.compose.yaml` over `host.compose.yaml` with Docker Compose's two `-f` arguments. Supply the existing API's private runtime settings in `INTAKE_API_RUNTIME_ENV` and the session coordinator's separately provisioned runtime settings in `INTAKE_COORDINATOR_ENV`. Both need the same actor, target, target context and processing channel secret. The coordinator requires its restricted `INTAKE_AGENT_DATABASE_URL` and its DBOS `INTAKE_AGENT_SCHEDULER_DATABASE_URL`. Set `INTAKE_AGENT_WRITER_DATABASE_URL` to the dedicated Examine writer role for lot formation. The base fixture provisioner creates the API login. Coordinator and scheduler role provisioning and authenticated UI ingress are pending release work.
 
 Set `INTAKE_COORDINATOR_PAIR` to a directory readable by UID 1000 containing only the coordinator's three pairing files. Run the relay against the coordinator container on port 14313. PostgreSQL and the bridge stay on namespace-local loopback. The relay has no network endpoint inside the guest container.
+
+### Personal Claude subscription
+
+Use the final `personal` runner image for this deployment. Run the unmodified `claude setup-token` locally and keep its result private. Agent Settings accepts it for your own Claude Code subscription. The management key below authorizes changes to the VM and is independent of the subscription. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token)
+
+After pairing, provision the guest services once. Choose a new operator-key file in a private host directory. The setup command creates the file. Use the exact browser origin for this installation. A personal HTTPS reverse proxy may front a remote Pi.
+
+```sh
+origin=http://127.0.0.1:4330
+tooling/deployment/bridge/personal-claude.sh "$vm" "$guest_directory" "$personal_image" "$operator_key_file" "$origin"
+```
+
+Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration.
+
+```sh
+ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+  -L 127.0.0.1:14315:127.0.0.1:14315 "lima-$vm"
+```
+
+For `pnpm dev`, export `INTAKE_PERSONAL_MANAGEMENT=1` with the shared VM profile, coordinator pair and port. In a packaged deployment, route the exact same-origin path `/personal-runner/claude` to the private tunnel. Preserve the browser Origin and Authorization headers, disable body and authorization-header logging, and exclude the route from caches. The management service verifies the operator key and exact origin, including on status requests. Keep the guest credential directory and operator key outside backups and image builds.
+
+In **Agent settings → Personal Claude subscription**, enter the management key, choose **Check configuration**, enter the setup token, and explicitly save it. Reopening shows configuration status only. Replace and remove use the last acknowledged revision. Removing the credential blocks future launches. An already running provider process retains its environment until exit.
+
+Start a dedicated subscription relay beside the ordinary relay. The optional final argument is the coordinator container name when the coordinator runs in host Docker.
+
+```sh
+INTAKE_VM_CLAUDE_SUBSCRIPTION=1 node tooling/deployment/bridge/relay.mjs \
+  "$vm" "$INTAKE_VM_PORT" "$guest_directory" "$personal_image"
+```
+
+Choose **Claude**, **Subscription**, and a model in the existing defaults form, then start a new Processing session. Guest management can be offline after the save. The guest egress service must be running during inference. It accepts CONNECT to `api.anthropic.com:443` over a guest Unix socket and pins each outgoing connection to a resolved public IPv4 address. Other session containers receive neither this socket nor the credential volume.
