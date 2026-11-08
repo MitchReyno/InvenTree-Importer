@@ -13,6 +13,7 @@ import { PartEditor } from './PartEditor'
 import { SourcingEditor } from './SourcingEditor'
 import { TemplateEditor } from './TemplateEditor'
 import { RecordStatePill } from '../../ui/RecordStatePill'
+import { SourceChip } from '../../ui/SourceChip'
 import { DataTable, type DataColumn } from '../../ui/DataTable'
 import type { Save } from './draft'
 
@@ -69,7 +70,16 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
       ) : (
         record.lot_ids.length > 0 && (
           <Small>
-            Used by {record.lot_ids.length} {record.lot_ids.length === 1 ? 'lot' : 'lots'}.
+            Used by{' '}
+            {record.lot_ids.map((lotId, index) => (
+              <span key={lotId}>
+                {index > 0 && ', '}
+                <a href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
+                  {batch.lots.find((lot) => lot.id === lotId)?.label ?? 'a retired lot'}
+                </a>
+              </span>
+            ))}
+            .
           </Small>
         )
       )}
@@ -109,13 +119,15 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
                   value: '',
                   content: (
                     <Source>
-                      <Small>
-                        {field.origin.kind === 'step'
-                          ? `Proposed by ${STEP_LABELS[field.origin.step]}`
-                          : field.origin.kind === 'estimate'
-                            ? `Estimated by ${STEP_LABELS[field.origin.step]}`
-                            : 'Set by you'}
-                      </Small>
+                      {field.origin.kind === 'operator' ? (
+                        <SourceChip source="You" certainty="Your edit" tone="user" />
+                      ) : (
+                        <SourceChip
+                          source={STEP_LABELS[field.origin.step]}
+                          certainty={field.origin.kind === 'estimate' ? 'Estimated' : 'Proposed'}
+                          tone={field.origin.kind === 'estimate' ? 'likely' : 'default'}
+                        />
+                      )}
                       {field.origin.kind === 'step' &&
                         (() => {
                           const send = ask?.(field.origin.step)

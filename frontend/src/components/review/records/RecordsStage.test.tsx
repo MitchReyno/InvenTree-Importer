@@ -284,6 +284,20 @@ describe('RecordsStage', () => {
     )
   })
 
+  it('places a record in its breadcrumb, steps between records and links each lot using it', async () => {
+    const user = userEvent.setup()
+    stage()
+    await user.click(await screen.findByRole('button', { name: /^Parts/ }))
+    const list = screen.getByRole('region', { name: 'Parts' })
+    const rows = within(list).getAllByRole('button')
+    await user.click(rows[0])
+    const crumbs = screen.getByRole('navigation', { name: 'Record' })
+    expect(crumbs).toHaveTextContent(`Records›Parts›${rows[0].getAttribute('aria-label')}`)
+    await user.click(screen.getByRole('button', { name: /^Next record/ }))
+    expect(rows[1]).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: /^Previous record/ })).toBeEnabled()
+  })
+
   it('maps a shared company to another in the same role, stating every Part it reaches', async () => {
     const user = userEvent.setup()
     const { edit } = stage()
@@ -358,9 +372,9 @@ describe('RecordsStage', () => {
 
     expect(detail).toHaveTextContent('Applies to Carbon film resistor, used by 2 lots.')
     expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
-      'Proposed by Research',
+      'Research · Proposed',
     )
-    expect(within(detail).getByRole('row', { name: /Name/ })).toHaveTextContent('Set by you')
+    expect(within(detail).getByRole('row', { name: /Name/ })).toHaveTextContent('You · Your edit')
     expect(within(detail).queryByRole('button', { name: /^Ask/ })).not.toBeInTheDocument()
 
     const name = within(detail).getByLabelText('Name')
@@ -659,7 +673,7 @@ describe('RecordsStage', () => {
     const detail = screen.getByRole('region', { name: 'Lot 10' })
 
     expect(within(detail).getByRole('row', { name: 'Quantity as saved' })).toHaveTextContent(
-      '12Estimated by Examine',
+      '12Examine · Estimated',
     )
     expect(detail).toHaveTextContent('Accept or replace the estimated quantity')
     expect(within(detail).getByRole('link', { name: 'Open this lot' })).toBeInTheDocument()

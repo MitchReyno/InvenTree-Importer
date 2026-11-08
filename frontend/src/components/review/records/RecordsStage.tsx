@@ -298,6 +298,44 @@ export function RecordsStage({
                 </Banner>
               </div>
             )}
+            {selected && (
+              <RecordNav aria-label="Record">
+                <a href={batchHref(batch.id, { tab: 'review', view: 'records' })}>Records</a>
+                <span aria-hidden="true">›</span>
+                <span>{TYPE_LABELS[type]}</span>
+                <span aria-hidden="true">›</span>
+                <strong>{selected.label}</strong>
+                <Steps>
+                  {(() => {
+                    const index = shown.findIndex((record) => record.key === selected.key)
+                    const previous = index > 0 ? shown[index - 1] : undefined
+                    const next = index >= 0 ? shown[index + 1] : undefined
+                    return (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!previous}
+                          aria-label={`Previous record${previous ? `: ${previous.label}` : ''}`}
+                          onClick={() => previous && choose(type, previous.key)}
+                        >
+                          ‹
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!next}
+                          aria-label={`Next record${next ? `: ${next.label}` : ''}`}
+                          onClick={() => next && choose(type, next.key)}
+                        >
+                          ›
+                        </Button>
+                      </>
+                    )
+                  })()}
+                </Steps>
+              </RecordNav>
+            )}
             {selected ? (
               <RecordDetail
                 key={`${selected.key}:${discards}:${discarded}`}
@@ -355,6 +393,22 @@ const Header = styled.div`
   align-items: flex-end;
   gap: ${space[4]} ${space[8]};
   margin-bottom: ${space[6]};
+`
+const RecordNav = styled.nav`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+  strong {
+    color: ${color.fg};
+  }
+`
+const Steps = styled.span`
+  display: inline-flex;
+  gap: ${space[2]};
+  margin-left: auto;
 `
 const PageHeading = styled.h2`
   margin: 0;
