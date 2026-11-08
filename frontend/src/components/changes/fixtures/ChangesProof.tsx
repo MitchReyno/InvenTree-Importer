@@ -259,6 +259,7 @@ const runBase = (n: number) => ({
   batch_id: batchId,
   revision: '4',
   round_number: String(n),
+  approved_at: new Date(Date.UTC(2026, 10, 8, 9, 30 + n * 12)).toISOString(),
   cancellation_requested: false,
   attributed_stock_ids: [] as string[],
   cursor: { stream_id: '70000000-0000-4000-8000-000000000007', sequence: String(n) },

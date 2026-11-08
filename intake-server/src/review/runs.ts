@@ -489,6 +489,7 @@ export async function runIdentity(client: PoolClient, config: ManualConfig, runI
         preparation_id: manualApprovals.preparationId,
         actor_id: manualApprovals.actorId,
         round_number: sql<string>`${manualApprovals.roundNumber}::text`,
+        approved_at: manualApprovals.createdAt,
       })
       .from(manualRuns)
       .innerJoin(
@@ -662,6 +663,7 @@ export async function manualRunSnapshot(
     approval_id: row.approval_id,
     preparation_id: row.preparation_id,
     round_number: row.round_number,
+    approved_at: row.approved_at.toISOString(),
     revision: row.revision,
     state,
     effect_certainty: effectCertainty,

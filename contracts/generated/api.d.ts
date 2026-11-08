@@ -6739,6 +6739,7 @@ export interface components {
             revision: string;
             /** Format: int64 */
             round_number: string;
+            approved_at?: string;
             state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
             effect_certainty: "none" | "confirmed" | "unknown" | "mixed";
             part_attachments?: ({
@@ -6863,6 +6864,7 @@ export interface components {
                 revision: string;
                 /** Format: int64 */
                 round_number: string;
+                approved_at?: string;
                 state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
                 effect_certainty: "none" | "confirmed" | "unknown" | "mixed";
                 part_attachments?: ({

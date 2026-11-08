@@ -416,6 +416,24 @@ describe('Added', () => {
     ])
   })
 
+  it('gives each round in the activity log the time it was approved', () => {
+    const at = (iso: string) =>
+      new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    setup([
+      { ...confirmed, approved_at: '2026-11-08T09:42:00.000Z' },
+      { ...uncertain, approved_at: '2026-11-08T10:05:00.000Z' },
+    ])
+    const log = screen.getByRole('list', { name: 'Activity' })
+    expect(
+      within(log)
+        .getAllByRole('listitem')
+        .map((item) => item.querySelector('time')?.textContent),
+    ).toEqual([at('2026-11-08T09:42:00.000Z'), at('2026-11-08T10:05:00.000Z')])
+    expect(log.querySelector('time')).toHaveAttribute('datetime', '2026-11-08T09:42:00.000Z')
+    expect(screen.queryByText(/no times are kept/)).toBeNull()
+  })
+
   it('says when nothing has been added yet', () => {
     setup([])
     expect(
