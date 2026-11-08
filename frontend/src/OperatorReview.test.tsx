@@ -1093,12 +1093,11 @@ test('a blocked lot cannot be marked reviewed and says how many problems to fix'
   expect(within(details).getByText('Fix 2 blocking problems first')).toBeVisible()
 })
 
-test('lot details show Exclude with its reason and no internal identifiers inline', async () => {
+test('lot details offer Exclude and show no internal identifiers inline', async () => {
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })
 
-  expect(within(details).getByRole('button', { name: 'Exclude' })).toBeDisabled()
-  expect(within(details).getByText(/Excluding a lot arrives with record edits/)).toBeVisible()
+  expect(within(details).getByRole('button', { name: 'Exclude…' })).toBeEnabled()
   expect(details.textContent).not.toMatch(UUID)
 })
 
@@ -1147,7 +1146,7 @@ test('the lot detail ends in its action footer and holds the lot edits', async (
     'aria-keyshortcuts',
     'R',
   )
-  expect(within(footer).getByRole('button', { name: 'Exclude' })).toBeDisabled()
+  expect(within(footer).getByRole('button', { name: 'Exclude…' })).toBeEnabled()
   expect(screen.getAllByRole('button', { name: 'Edit lot details' })).toEqual([
     within(details).getByRole('button', { name: 'Edit lot details' }),
   ])

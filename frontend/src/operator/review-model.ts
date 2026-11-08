@@ -21,6 +21,7 @@ export const REVIEW_FILTERS = [
   'warnings',
   'changed',
   'reviewed',
+  'excluded',
   'retired',
 ] as const
 
@@ -35,6 +36,7 @@ export const FILTER_LABELS: Record<ReviewFilter, string> = {
   warnings: 'Warnings',
   changed: 'Changed after review',
   reviewed: 'Reviewed',
+  excluded: 'Excluded',
   retired: 'Retired',
 }
 
@@ -138,9 +140,15 @@ export function matchesFilter(
   filter: ReviewFilter,
   questionLotIds: LotIds = NO_QUESTIONS,
 ): boolean {
+  // An excluded lot waits on nothing but being included again.
+  if (lot.excluded) {
+    return filter === 'all' || filter === 'excluded'
+  }
   switch (filter) {
     case 'all':
       return true
+    case 'excluded':
+      return false
     case 'needs_review':
       return lot.review_state !== 'reviewed' && !lot.approved
     case 'needs_answer':
@@ -159,7 +167,7 @@ export function matchesFilter(
 }
 
 export type QueueGroup =
-  'blocking' | 'warnings' | 'changed' | 'needs_review' | 'reviewed' | 'approved'
+  'blocking' | 'warnings' | 'changed' | 'needs_review' | 'reviewed' | 'approved' | 'excluded'
 
 export const GROUP_LABELS: Record<QueueGroup, string> = {
   blocking: 'Blocking',
@@ -168,10 +176,14 @@ export const GROUP_LABELS: Record<QueueGroup, string> = {
   needs_review: 'Needs review',
   reviewed: 'Reviewed',
   approved: 'Already approved',
+  excluded: 'Excluded',
 }
 
 /** One queue group per lot, most urgent first. */
 export function queueGroup(lot: OperatorLotDto): QueueGroup {
+  if (lot.excluded) {
+    return 'excluded'
+  }
   if (lot.approved) {
     return 'approved'
   }
@@ -194,6 +206,7 @@ export const GROUP_ORDER: QueueGroup[] = [
   'needs_review',
   'reviewed',
   'approved',
+  'excluded',
 ]
 
 /** Union of the operator projection and the capture snapshot's own retired flag. */

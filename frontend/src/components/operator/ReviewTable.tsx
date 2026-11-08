@@ -32,10 +32,13 @@ export interface ReviewTableProps {
   inspect: (lotId: string) => void
 }
 
-/** One state per lot, most pressing first; Excluded follows the Exclude command (task 22.4). */
+/** One state per lot, most pressing first. */
 function LotState({ lot }: { lot: OperatorLotDto }) {
   const blocking = blockingIssues(lot).length
   const warnings = openWarnings(lot).length
+  if (lot.excluded) {
+    return <Pill status="excluded">Excluded</Pill>
+  }
   if (lot.approved) {
     return <Pill tone="ok">Approved</Pill>
   }

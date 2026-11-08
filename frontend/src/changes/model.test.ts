@@ -201,6 +201,32 @@ describe('lots for Ready to add', () => {
     ],
   }
 
+  it('leaves an excluded lot out with its reason, linked to the Excluded filter', () => {
+    const excluded = {
+      lots: [
+        {
+          lot_id: lot(7),
+          reviewed: false,
+          issues: [
+            {
+              code: 'lot_excluded',
+              message: 'Excluded: Bent leads. Include it again to add it.',
+              lot_id: lot(7),
+              run_id: null,
+            },
+          ],
+        },
+      ],
+    } as never
+    expect(leftOutLots(excluded)).toEqual([
+      {
+        lotId: lot(7),
+        reason: 'Excluded: Bent leads. Include it again to add it.',
+        filter: 'excluded',
+      },
+    ])
+  })
+
   it('offers reviewed lots without problems, and names why others are left out', () => {
     expect(readyLotIds(workspace)).toEqual([lot(1)])
     expect(leftOutLots(workspace)).toEqual([
