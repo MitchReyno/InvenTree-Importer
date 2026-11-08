@@ -25,7 +25,7 @@ All bundles target `interactive-app`, in A through D order. Use independent exac
 
 - [ ] 3.1 Write failing API, UI and guest tests for unauthorized, stale and offline secret writes, failed deletion, interrupted sign-in and accidental logging of a synthetic sentinel.
 - [x] 3.2 Deliver explicit Claude save, replace and remove actions and the private guest credential lifecycle. Verify no replay from autosave, no read-back, no secret-bearing backups and no alternate billing fallback.
-- [ ] 3.3 Add Sign in with ChatGPT using the pinned app-server RPC. Test phone URL/code display, cancellation, denial, late completion, disconnect, reauthentication and persistence after guest container replacement.
+- [x] 3.3 Add Sign in with ChatGPT using the pinned app-server RPC. Test phone URL/code display, cancellation, denial, late completion, disconnect, reauthentication and persistence after guest container replacement.
 - [ ] 3.4 Run frontend typecheck, lint, tests and build plus affected contract, PG and process tests. Verify settings reads never launch inference.
 
 ## 4. Qualify personal installations

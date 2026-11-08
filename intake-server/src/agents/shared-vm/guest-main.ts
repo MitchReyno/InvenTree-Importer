@@ -1,7 +1,7 @@
 // Entrypoint for one paired session turn. The operator transports opaque TLS bytes over
 // stdio into the network-disabled guest. No host socket or host directory enters the container.
 import { connect } from 'node:tls'
-import { connect as unixConnect, createServer as tcpServer } from 'node:net'
+import { providerProxy } from './provider-proxy.ts'
 import { Duplex } from 'node:stream'
 import { once } from 'node:events'
 import { journalTurn, type TurnOutcome } from './journal.ts'
@@ -28,20 +28,17 @@ async function main() {
     await once(socket, 'secureConnect')
     const frames = new Frames(socket)
     const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
-    if (subscription) {
-      const egress = tcpServer((local) => {
-        const upstream = unixConnect('/run/egress/claude.sock')
-        local.on('error', () => upstream.destroy())
-        upstream.on('error', () => local.destroy())
-        local.on('close', () => upstream.destroy())
-        upstream.on('close', () => local.destroy())
-        local.pipe(upstream).pipe(local)
-      })
-      egress.listen(14316, '127.0.0.1')
-      await once(egress, 'listening')
+    const codex = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1'
+    const provider = codex ? 'codex' : subscription ? 'claude' : undefined
+    if (provider) {
+      const egress = await providerProxy(provider)
       socket.once('close', () => egress.close())
     }
-    await frames.send({ ready: protocol, claudeSubscription: subscription })
+    await frames.send({
+      ready: protocol,
+      claudeSubscription: subscription,
+      codexSubscription: codex,
+    })
     const command = await frames.read()
     if (
       command.protocol !== protocol ||
@@ -60,10 +57,10 @@ async function main() {
       throw new Error('invalid_profile')
     }
     if (
-      subscription &&
+      provider &&
       !(
         manifest.profile_id === 'shared-vm-agent/1' &&
-        manifest.agent?.provider === 'claude' &&
+        manifest.agent?.provider === provider &&
         manifest.agent.authentication === 'subscription'
       )
     ) {

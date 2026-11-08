@@ -5,8 +5,9 @@ import os
 import socket
 from pathlib import Path
 
-HOST = "api.anthropic.com"
-SOCKET = Path("/run/egress/claude.sock")
+CODEX = os.environ.get("INTAKE_VM_CODEX_SUBSCRIPTION") == "1"
+HOSTS = {"auth.openai.com", "chatgpt.com"} if CODEX else {"api.anthropic.com"}
+SOCKET = Path("/run/egress/codex.sock" if CODEX else "/run/egress/claude.sock")
 
 
 async def copy(source, target):
@@ -21,13 +22,14 @@ async def handle(reader, client):
     try:
         headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 5)
         fields = headers.split(b"\r\n", 1)[0].split()
-        if fields not in ([b"CONNECT", b"api.anthropic.com:443", b"HTTP/1.1"],
-                          [b"CONNECT", b"api.anthropic.com:443", b"HTTP/1.0"]):
+        allowed = {f"{host}:443".encode(): host for host in HOSTS}
+        if (len(fields) != 3 or fields[0] != b"CONNECT" or fields[1] not in allowed
+                or fields[2] not in (b"HTTP/1.0", b"HTTP/1.1")):
             client.write(b"HTTP/1.1 403 Forbidden\r\n\r\n")
             await client.drain()
             return
         addresses = await asyncio.get_running_loop().getaddrinfo(
-            HOST, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
+            allowed[fields[1]], 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
         address = addresses[0][4][0]
         if not ipaddress.ip_address(address).is_global:
             return

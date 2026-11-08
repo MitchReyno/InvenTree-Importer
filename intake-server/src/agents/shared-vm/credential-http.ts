@@ -2,11 +2,18 @@ import { createServer } from 'node:http'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { credentialStore } from './claude-credential.ts'
 
+import type { CodexAccount } from './codex-login.ts'
+
 export const credentialPath = '/personal-runner/claude'
 
 const digest = (s: string) => createHash('sha256').update(s).digest()
 
-export function managementServer(directory: string, origin: string, key: string) {
+export function managementServer(
+  directory: string,
+  origin: string,
+  key: string,
+  codex?: CodexAccount,
+) {
   const url = new URL(origin)
   if (
     url.origin !== origin ||
@@ -16,7 +23,7 @@ export function managementServer(directory: string, origin: string, key: string)
   ) {
     throw new Error('invalid_personal_management_configuration')
   }
-  const store = credentialStore(directory)
+  const store = codex ? undefined : credentialStore(directory)
   const expected = digest('Bearer ' + key)
   const server = createServer({ requestTimeout: 10000, maxHeaderSize: 8192 }, async (req, res) => {
     res.setHeader('cache-control', 'no-store')
@@ -25,7 +32,7 @@ export function managementServer(directory: string, origin: string, key: string)
 
     const fail = (status: number) => res.writeHead(status).end('{}')
 
-    if (req.url !== credentialPath || req.method !== 'POST') {
+    if (req.url !== (codex ? '/personal-runner/codex' : credentialPath) || req.method !== 'POST') {
       return void fail(404)
     }
     if (
@@ -46,6 +53,17 @@ export function managementServer(directory: string, origin: string, key: string)
         chunks.push(chunk)
       }
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+      if (codex) {
+        try {
+          res.end(JSON.stringify(await codex.action(body?.action, body?.loginId)))
+        } catch {
+          fail(409)
+        }
+        return
+      }
+      if (!store) {
+        return void fail(503)
+      }
       if (body?.action !== 'status') {
         if (
           !['remove', 'save'].includes(body?.action) ||
@@ -66,6 +84,6 @@ export function managementServer(directory: string, origin: string, key: string)
       fail(400)
     }
   })
-  server.once('close', () => store.close())
+  server.once('close', () => store?.close())
   return server
 }

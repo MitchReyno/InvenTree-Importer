@@ -202,3 +202,5 @@ Agent history and Processing session panels share `SessionFailureDetails`. Summa
 
 
 Personal Claude credential entry in Agent Settings uses uncontrolled password inputs and an explicit same-origin management request outside the ordinary settings client, React Query and autosave. The guest authenticates a separate operator key. Only the configured flag and revision return to the component. [Personal runner setup](../tooling/deployment/README.md#personal-claude-subscription)
+
+Agent Settings starts the Codex device login through the paired guest management endpoint. The panel polls the current login ID, displays the OpenAI verification URL and temporary code, and supports cancellation and disconnect. The browser only keeps the challenge in component memory.

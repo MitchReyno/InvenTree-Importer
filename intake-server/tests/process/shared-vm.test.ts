@@ -9,15 +9,17 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { saveAgentSettings } from '../../src/agents/settings.ts'
 
-for (const route of ['claude', 'codex', 'personal-subscription'] as const) {
-  const live = route === 'personal-subscription'
-  const provider = live ? 'claude' : route
+for (const route of ['claude', 'codex', 'personal-subscription', 'chatgpt-subscription'] as const) {
+  const chatgpt = route === 'chatgpt-subscription'
+  const live = chatgpt || route === 'personal-subscription'
+  const provider = chatgpt ? 'codex' : live ? 'claude' : route
   test(
     'paired guest runs a sealed ' + route + ' session through Processing',
     {
       skip:
         !process.env.INTAKE_VM_PAIR ||
-        (live && process.env.INTAKE_TEST_LIVE_CLAUDE !== 'personal-subscription'),
+        (chatgpt && process.env.INTAKE_TEST_LIVE_CODEX !== 'chatgpt-subscription') ||
+        (live && !chatgpt && process.env.INTAKE_TEST_LIVE_CLAUDE !== 'personal-subscription'),
       timeout: live ? 240000 : 120000,
     },
     async (t) => {
@@ -31,7 +33,7 @@ for (const route of ['claude', 'codex', 'personal-subscription'] as const) {
       await saveAgentSettings(fixture.api.pool, fixture.config, {
         expected_revision: '0',
         selection: live
-          ? { provider, authentication: 'subscription', model: 'haiku' }
+          ? { provider, authentication: 'subscription', model: chatgpt ? 'gpt-6.1-sol' : 'haiku' }
           : { provider, authentication: 'api_key', model: 'fake-' + provider + '-model' },
         session_concurrency: 1,
       })
@@ -94,9 +96,14 @@ for (const route of ['claude', 'codex', 'personal-subscription'] as const) {
           )
         }
         if (live) {
-          assert.match(state.actual_model, /^claude-haiku[-a-z0-9.]*$/)
+          assert.match(state.actual_model, chatgpt ? /^gpt-6\.1-sol$/ : /^claude-haiku[-a-z0-9.]*$/)
           t.diagnostic(
-            'Guest Claude subscription turn: ' + state.actual_model + ', ' + state.session_state,
+            'Guest ' +
+              provider +
+              ' subscription turn: ' +
+              state.actual_model +
+              ', ' +
+              state.session_state,
           )
         }
         assert.ok(state.native_session_id)

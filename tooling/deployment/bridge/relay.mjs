@@ -5,9 +5,11 @@ import { connect } from 'node:net'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { setTimeout as delay } from 'node:timers/promises'
+const codex = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1'
 const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
 const [vm, port, directory, image, coordinator] = process.argv.slice(2)
 if (
+  (codex && subscription) ||
   !/^[a-z0-9-]+$/.test(vm) ||
   !isAbsolute(directory) ||
   !/^\/[a-zA-Z0-9_./-]+$/.test(directory) ||
@@ -83,6 +85,16 @@ for (;;) {
       'type=bind,src=' + directory + '/guest,dst=/run/bench-pair,readonly',
       '--mount',
       'type=bind,src=' + directory + '/sessions,dst=/home/node/sessions',
+      ...(codex
+        ? [
+            '-e',
+            'INTAKE_VM_CODEX_SUBSCRIPTION=1',
+            '--mount',
+            'type=bind,src=' + directory + '/codex-state,dst=/run/codex-state',
+            '--mount',
+            'type=bind,src=' + directory + '/codex-egress,dst=/run/egress,readonly',
+          ]
+        : []),
       ...(subscription
         ? [
             '-e',

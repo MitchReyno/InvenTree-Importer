@@ -8,6 +8,7 @@ export interface NativeAgentHost {
   claudeExecutable: string
   stateRoot: string
   env: NodeJS.ProcessEnv
+  guestCodexSubscription?: boolean
   guestClaudeToken?: string
 }
 
@@ -65,6 +66,15 @@ export function agentEnvironment(
     env.CLAUDE_CODE_OAUTH_TOKEN = host.guestClaudeToken
     env.HTTPS_PROXY = 'http://127.0.0.1:14316'
     env.NO_PROXY = 'localhost,127.0.0.1,::1'
+  }
+  if (
+    host.guestCodexSubscription &&
+    selection.provider === 'codex' &&
+    selection.authentication === 'subscription'
+  ) {
+    env.CODEX_HOME = '/run/codex-state/account'
+    env.HTTPS_PROXY = 'http://127.0.0.1:14316'
+    env.NO_PROXY = '127.0.0.1,localhost'
   }
   if (selection.authentication === 'api_key') {
     const keyName = selection.provider === 'codex' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'

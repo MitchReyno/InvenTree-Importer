@@ -125,3 +125,24 @@ INTAKE_VM_CLAUDE_SUBSCRIPTION=1 node tooling/deployment/bridge/relay.mjs \
 ```
 
 Choose **Claude**, **Subscription**, and a model in the existing defaults form, then start a new Processing session. Guest management can be offline after the save. The guest egress service must be running during inference. It accepts CONNECT to `api.anthropic.com:443` over a guest Unix socket and pins each outgoing connection to a resolved public IPv4 address. Other session containers receive neither this socket nor the credential volume.
+
+### Sign in with ChatGPT
+
+Run `personal-codex.sh` once in an installation paired with `pair.sh`. It reuses the personal operator management key when one exists. For a first installation supply a new private key file outside the checkout. The fourth argument must match the exact browser origin.
+
+```sh
+tooling/deployment/bridge/personal-codex.sh "$vm" "$guest_directory" "$personal_image" "$origin" "$operator_key_file"
+ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+  -L 127.0.0.1:14317:127.0.0.1:14317 "lima-$vm"
+```
+
+For the dev UI set `INTAKE_PERSONAL_MANAGEMENT=1`. For a packaged installation, route the exact same-origin path `/personal-runner/codex` through the private tunnel, using the same header preservation and logging rules as the Claude endpoint. In **Agent settings → ChatGPT subscription**, enter the management key and choose **Sign in with ChatGPT**. Enter the displayed code at OpenAI's verification page and approve it. Before starting, enable device code sign-in for Codex in [ChatGPT Security Settings](https://chatgpt.com/#settings/Security) or ask the workspace administrator to enable it. If you enabled the setting after requesting a code, cancel that login and request a new code. The settings panel waits for the guest to confirm a ChatGPT account. **Check ChatGPT connection** reopens an outstanding challenge, and **Disconnect ChatGPT** logs out the guest account. The guest refuses credential changes while a Codex subscription turn holds the account lock. [Codex app-server authentication](https://developers.openai.com/codex/app-server#authentication)
+
+Start a dedicated Codex subscription relay alongside any other relays. The guest’s persistent `codex-state` directory holds Codex credentials and session data. Keep it private and exclude it from backups. The subscription container receives a provider-specific HTTPS proxy that accepts `auth.openai.com` and `chatgpt.com` on port 443.
+
+```sh
+INTAKE_VM_CODEX_SUBSCRIPTION=1 node tooling/deployment/bridge/relay.mjs \
+  "$vm" "$INTAKE_VM_PORT" "$guest_directory" "$personal_image"
+```
+
+Choose **Codex** and **Subscription** in the default settings form before starting a new Processing session. The opt-in process test uses `INTAKE_TEST_LIVE_CODEX=chatgpt-subscription` and requires the paired guest and a disposable PostgreSQL instance.

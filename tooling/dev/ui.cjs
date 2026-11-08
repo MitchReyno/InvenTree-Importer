@@ -27,7 +27,10 @@ async function main() {
       proxy: {
         '/api': { target: `http://127.0.0.1:${apiPort}`, ws: true, changeOrigin: false },
         ...(process.env.INTAKE_PERSONAL_MANAGEMENT === '1'
-          ? { '/personal-runner/claude': { target: 'http://127.0.0.1:14315', changeOrigin: false } }
+          ? {
+              '/personal-runner/codex': { target: 'http://127.0.0.1:14317', changeOrigin: false },
+              '/personal-runner/claude': { target: 'http://127.0.0.1:14315', changeOrigin: false },
+            }
           : {}),
       },
     },

@@ -16,7 +16,7 @@ export async function startSessionBridge(directory: string, port: number) {
     throw new Error('invalid_bridge_port')
   }
   const idle = new Map<TLSSocket, Frames>()
-  const subscriptions = new WeakSet<TLSSocket>()
+  const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
   const server = createServer(
     { ...(await pairing(directory)), requestCert: true },
@@ -40,7 +40,10 @@ export async function startSessionBridge(directory: string, port: number) {
         const frames = new Frames(socket)
         const greeting = await frames.read()
         if (greeting.claudeSubscription === true) {
-          subscriptions.add(socket)
+          subscriptions.set(socket, 'claude')
+        }
+        if (greeting.codexSubscription === true) {
+          subscriptions.set(socket, 'codex')
         }
         if (greeting.ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
@@ -65,10 +68,11 @@ export async function startSessionBridge(directory: string, port: number) {
     const deadline = Date.now() + 15000
     const subscription =
       context.manifest.profile_id === 'shared-vm-agent/1' &&
-      context.manifest.agent?.provider === 'claude' &&
-      context.manifest.agent.authentication === 'subscription'
+      context.manifest.agent?.authentication === 'subscription'
+        ? context.manifest.agent.provider
+        : undefined
 
-    const available = () => [...idle].find(([socket]) => subscriptions.has(socket) === subscription)
+    const available = () => [...idle].find(([socket]) => subscriptions.get(socket) === subscription)
 
     let connection = available()
     while (!connection && Date.now() < deadline) {

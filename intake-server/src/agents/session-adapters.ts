@@ -314,8 +314,10 @@ export async function runCodexSession(
 
   const turnSignal = AbortSignal.any([signal, local.signal])
   const child = new AgentChild(
-    host.codexExecutable,
-    args,
+    host.guestCodexSubscription ? 'flock' : host.codexExecutable,
+    host.guestCodexSubscription
+      ? ['-s', '-n', '-F', '/run/codex-state/use.lock', host.codexExecutable, ...args]
+      : args,
     cwd,
     { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
     turnSignal,
