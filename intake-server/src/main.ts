@@ -130,6 +130,13 @@ async function main() {
             ? () =>
                 transport.probe({ targetId: config.targetId, contextId: config.targetContextId })
             : undefined,
+          transport
+            ? () =>
+                transport.serverVersion({
+                  targetId: config.targetId,
+                  contextId: config.targetContextId,
+                })
+            : undefined,
         ),
         (batchId) => headerWork(headerPool, headerConfig, batchId),
       )

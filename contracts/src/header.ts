@@ -31,6 +31,13 @@ export const ConnectionStatus = Type.Object(
         ]),
         navigation_url: Type.Union([Type.String({ maxLength: 2048 }), Type.Null()]),
         label: Type.Union([Type.String({ maxLength: 256 }), Type.Null()]),
+        /** InvenTree's own version string; null when the root read gave none. */
+        version: Type.Optional(
+          Type.Union([
+            Type.String({ minLength: 1, maxLength: 64, pattern: '^[ -~]+$' }),
+            Type.Null(),
+          ]),
+        ),
         /** The owned test target or a configured InvenTree; absent means configured. */
         kind: Type.Optional(choice(['owned_test', 'configured'])),
       },

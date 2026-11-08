@@ -92,6 +92,7 @@ export function HeaderStatusProof() {
         navigation_url:
           scenario.current === 'unconfigured' ? null : 'https://inventory.example.test/',
         label: 'Synthetic bench target',
+        version: ['unconfigured', 'unavailable'].includes(scenario.current) ? null : '0.17.10',
       }
       return { ...identity, target }
     },

@@ -16980,6 +16980,19 @@
                   }
                 ]
               },
+              "version": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[ -~]+$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "kind": {
                 "anyOf": [
                   {

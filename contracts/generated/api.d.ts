@@ -6079,6 +6079,7 @@ export interface components {
                 failure_code: ("invalid_configuration" | "timeout" | "http_error" | "redirect_refused" | "unexpected_response" | "unavailable") | null;
                 navigation_url: string | null;
                 label: string | null;
+                version?: string | null;
                 kind?: "owned_test" | "configured";
             };
         };

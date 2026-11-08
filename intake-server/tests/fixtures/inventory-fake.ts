@@ -75,6 +75,10 @@ export async function inventoryFake(
             await new Promise((resolve) => setTimeout(resolve, 25))
           }
         }
+        if (request.url === '/api/') {
+          response.end(JSON.stringify({ server: 'InvenTree', version: '0.17.10', apiVersion: 300 }))
+          return
+        }
         if (request.url === '/api/part/?limit=1') {
           response.end(
             JSON.stringify({

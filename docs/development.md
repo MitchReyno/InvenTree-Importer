@@ -129,7 +129,7 @@ The authorized live qualification flow is reproducible with [the qualification d
 
 ## Connection status and Capture uploads
 
-The fake inventory serves the same bounded Part-list GET used by the header connection probe, so a healthy fake reports reachable. Reachability does not prove write permission or real-server compatibility.
+The fake inventory serves the same bounded Part-list GET used by the header connection probe, and an API root naming a version, so a healthy fake reports reachable with that version. Reachability does not prove write permission or real-server compatibility.
 
 On startup and source reload, dev setup migrates its owned database and reapplies the complete current API Capture/media permissions, plus the Processing/decoder grants. Retained namespaces upgraded through new Capture/evidence tables therefore receive the required read and upload/group/note privileges without reseeding data. JPEG/PNG originals are retained before preview decoding; a failed save keeps the original selected file and request key for an exact retry. After updating this launcher, restart `pnpm dev` to reconcile an older dev namespace. This does not alter a real InvenTree server.
 

@@ -699,6 +699,33 @@ test('the connection panel leads with host, last check and Open InvenTree, and n
   expect(within(panel).getByText(/Application API/)).not.toBeVisible()
 })
 
+test('the connection panel names the InvenTree version when the check read one, and leaves it out otherwise', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const at = new Date().toISOString()
+  const reachable = { ...connection().target, state: 'reachable' as const, observed_at: at }
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: { ...reachable, version: '0.17.10' },
+  })
+  const view = render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
+    'VersionInvenTree 0.17.10',
+  )
+  view.unmount()
+
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: { ...reachable, version: null },
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).not.toHaveTextContent(
+    'Version',
+  )
+})
+
 test('at phone width a failed job still draws a word, never an empty pill', async () => {
   const api = client()
   const busy = processingWork()

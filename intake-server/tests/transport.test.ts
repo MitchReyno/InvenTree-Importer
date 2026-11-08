@@ -291,6 +291,33 @@ test('fixed binding probe uses one harmless bounded GET, refuses redirects and n
   ])
 })
 
+test('the server version is one bounded GET of the API root on the fixed binding', async () => {
+  const binding = { targetId: 'version-target', contextId: 'version-context' }
+  const calls: string[] = []
+  const transport = inventoryTransport(
+    {
+      ...binding,
+      kind: 'protected-read-only',
+      origin: 'https://inventory.example.invalid/',
+      protectedOrigins: [],
+      credential: 'synthetic-version-key',
+    },
+    async (url, init) => {
+      calls.push(`${init?.method} ${String(url)} ${init?.redirect}`)
+      return new Response('{"version":"0.17.10"}', {
+        headers: { 'content-type': 'application/json' },
+      })
+    },
+  )
+  await assert.rejects(
+    transport.serverVersion({ ...binding, contextId: 'foreign' }),
+    /target_binding_mismatch/,
+  )
+  const response = await transport.serverVersion(binding)
+  assert.equal(response.status, 200)
+  assert.deepEqual(calls, ['GET https://inventory.example.invalid/api/ manual'])
+})
+
 test('record creates need the /2 capability on an owned loopback target and never reach others', async () => {
   const observed: string[] = []
   const endpoint = createServer((req, res) => {
