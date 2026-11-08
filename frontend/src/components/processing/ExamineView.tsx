@@ -86,21 +86,31 @@ function ReadingEdit({
   locked: boolean
   onDirty: (dirty: boolean) => void
 }) {
-  const name = observation.readings.markings.join(' · ') || 'this region'
-  // One marking per line: a marking may hold a comma, never a line break.
-  const saved = observation.readings.markings.join('\n')
-  const [value, setValue] = useState(saved)
+  const { readings } = observation
+  const name = (readings.markings.join(' · ') || readings.text || 'this region').replace(
+    /\s+/g,
+    ' ',
+  )
+  // One field per marking keeps each marking whole, whatever characters it holds.
+  const [markings, setMarkings] = useState<string[]>(readings.markings)
+  const [text, setText] = useState(readings.text ?? '')
   const [saving, setSaving] = useState(false)
-  const dirty = value !== saved
+  const dirty =
+    text !== (readings.text ?? '') ||
+    markings.length !== readings.markings.length ||
+    markings.some((marking, index) => marking !== readings.markings[index])
   useEffect(() => {
     onDirty(dirty)
   }, [dirty, onDirty])
   useEffect(() => () => onDirty(false), [onDirty])
+  const busy = saving || locked
   return (
     <ReadingForm
+      aria-label={`Readings for ${name}`}
       onSubmit={(event) => {
         event.preventDefault()
         setSaving(true)
+        const kept = text.trim()
         void save({
           kind: 'observation',
           observation_id: observation.id,
@@ -108,37 +118,72 @@ function ReadingEdit({
           page: observation.page,
           region: observation.region,
           readings: {
-            ...observation.readings,
-            markings: value
-              .split('\n')
-              .map((part) => part.trim())
-              .filter(Boolean),
+            markings: markings.map((marking) => marking.trim()).filter(Boolean),
+            ...(kept ? { text: kept } : {}),
           },
         }).finally(() => setSaving(false))
       }}
     >
-      <Label>
-        <VisuallyHidden>Markings for {name}</VisuallyHidden>
-        <TextArea
-          rows={Math.max(2, value.split('\n').length)}
-          value={value}
-          disabled={saving || locked}
-          onChange={(event) => setValue(event.target.value)}
-        />
-      </Label>
-      <Button
-        size="sm"
-        type="submit"
-        disabled={saving || locked || !dirty}
-        aria-label={`Save readings for ${name}`}
-      >
-        Save
-      </Button>
-      {dirty && (
-        <Button size="sm" variant="ghost" disabled={saving} onClick={() => setValue(saved)}>
-          Discard
+      {markings.map((marking, index) => (
+        <Label key={index}>
+          <VisuallyHidden>
+            Marking {index + 1} for {name}
+          </VisuallyHidden>
+          <TextArea
+            rows={Math.max(1, marking.split('\n').length)}
+            value={marking}
+            disabled={busy}
+            onChange={(event) =>
+              setMarkings(markings.map((value, at) => (at === index ? event.target.value : value)))
+            }
+          />
+        </Label>
+      ))}
+      {markings.length < 32 && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          aria-label={`Add a marking for ${name}`}
+          onClick={() => setMarkings([...markings, ''])}
+        >
+          Add a marking
         </Button>
       )}
+      <Label>
+        <VisuallyHidden>Text for {name}</VisuallyHidden>
+        <TextArea
+          rows={2}
+          placeholder="Other text read from the photo"
+          value={text}
+          disabled={busy}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </Label>
+      <Small>Clear a marking to remove it.</Small>
+      <span>
+        <Button
+          size="sm"
+          type="submit"
+          disabled={busy || !dirty}
+          aria-label={`Save readings for ${name}`}
+        >
+          Save
+        </Button>{' '}
+        {dirty && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => {
+              setMarkings(readings.markings)
+              setText(readings.text ?? '')
+            }}
+          >
+            Discard
+          </Button>
+        )}
+      </span>
     </ReadingForm>
   )
 }
@@ -658,8 +703,7 @@ const Candidate = styled.div`
 `
 
 const ReadingForm = styled.form`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: ${space[3]};
+  max-width: 28rem;
 `

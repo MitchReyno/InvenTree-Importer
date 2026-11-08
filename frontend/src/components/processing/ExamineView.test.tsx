@@ -191,10 +191,11 @@ it('corrects a photo’s readings, marking the correction and the lot to re-exam
   expect(within(screen.getByLabelText('Lot LED reel')).getByText('Re-examine')).toBeVisible()
 
   await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
-  const field = within(first).getByLabelText('Markings for 16 MHz crystal')
+  const field = within(first).getByLabelText('Marking 1 for 16 MHz crystal')
   await user.clear(field)
-  // One marking per line, so a marking may itself hold a comma.
-  await user.type(field, '16.000 MHz crystal{Enter}HC-49')
+  await user.type(field, '16.000 MHz crystal')
+  await user.click(within(first).getByRole('button', { name: 'Add a marking for 16 MHz crystal' }))
+  await user.type(within(first).getByLabelText('Marking 2 for 16 MHz crystal'), 'HC-49')
   await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
   expect(edits).toEqual([
     {
@@ -243,16 +244,16 @@ it('reports an unsaved reading and locks other corrections until it is saved or 
   )
   const first = screen.getByLabelText('Photo 1')
   await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
-  await user.type(within(first).getByLabelText('Markings for 16 MHz crystal'), ' 2')
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' 2')
   expect(dirty.at(-1)).toBe(true)
-  expect(within(first).getByLabelText('Markings for LED 0603 red')).toBeDisabled()
+  expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeDisabled()
   // The editor cannot be closed or left while it holds an unsaved draft.
   expect(within(first).getByRole('button', { name: 'Edit readings' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'By lot' }))
-  expect(screen.getByLabelText('Markings for 16 MHz crystal')).toBeVisible()
+  expect(screen.getByLabelText('Marking 1 for 16 MHz crystal')).toBeVisible()
   // A save that is not confirmed keeps the draft.
   await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
-  expect(within(first).getByLabelText('Markings for 16 MHz crystal')).toHaveValue(
+  expect(within(first).getByLabelText('Marking 1 for 16 MHz crystal')).toHaveValue(
     '16 MHz crystal 2',
   )
 })
@@ -369,7 +370,7 @@ it('keeps a marking that contains a comma when another marking is corrected', as
   )
   const photo = screen.getByLabelText('Photo 1')
   await user.click(within(photo).getByRole('button', { name: 'Edit readings' }))
-  await user.type(within(photo).getByLabelText('Markings for 4,7 kΩ · R1'), '0')
+  await user.type(within(photo).getByLabelText('Marking 2 for 4,7 kΩ · R1'), '0')
   await user.click(within(photo).getByRole('button', { name: 'Save readings for 4,7 kΩ · R1' }))
   expect(edits).toEqual([
     expect.objectContaining({ readings: expect.objectContaining({ markings: ['4,7 kΩ', 'R10'] }) }),
@@ -423,4 +424,53 @@ it('keeps a region draft while the media read fails, and saves once it returns',
   expect(within(bench()).getByLabelText('Left')).toHaveValue(10)
   await user.click(within(bench()).getByRole('button', { name: 'Save region' }))
   expect(edits).toHaveLength(1)
+})
+
+const readingsBatch = {
+  ...batch,
+  evidence_observations: [
+    {
+      ...observation('o8', 'v1', 'x', 'l1'),
+      readings: { markings: ['ABC\n123', 'XYZ'], text: 'Lot 4S' },
+    },
+    { ...observation('o7', 'v2', 'y', 'l1'), readings: { markings: [], text: 'Bacth 12' } },
+  ],
+} as unknown as CaptureSnapshotDto
+
+it('corrects the text of a reading that has no markings', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+  render(
+    <ExamineView
+      batch={readingsBatch}
+      lead={lead}
+      edit={async (change) => void edits.push(change)}
+    />,
+  )
+  const second = screen.getByLabelText('Photo 2')
+  await user.click(within(second).getByRole('button', { name: 'Edit readings' }))
+  const text = within(second).getByLabelText('Text for Bacth 12')
+  await user.clear(text)
+  await user.type(text, 'Batch 12')
+  await user.click(within(second).getByRole('button', { name: 'Save readings for Bacth 12' }))
+  expect(edits).toEqual([expect.objectContaining({ readings: { markings: [], text: 'Batch 12' } })])
+})
+
+it('keeps a marking that spans lines whole when another is corrected', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+  render(
+    <ExamineView
+      batch={readingsBatch}
+      lead={lead}
+      edit={async (change) => void edits.push(change)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 2 for ABC 123 · XYZ'), 'Z')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for ABC 123 · XYZ' }))
+  expect(edits).toEqual([
+    expect.objectContaining({ readings: { markings: ['ABC\n123', 'XYZZ'], text: 'Lot 4S' } }),
+  ])
 })
