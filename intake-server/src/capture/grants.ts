@@ -32,7 +32,7 @@ export async function grantCapture(pool: Pool, role: string) {
     GRANT UPDATE(part_subject_id,operator_edited,reexamine,excluded_reason,excluded_at,observation_set_version,changed_revision) ON capture_lot TO ${role};
     GRANT INSERT,DELETE ON capture_edit_publication TO ${role};
     GRANT SELECT(id) ON capture_edit_publication TO ${role};
-    GRANT INSERT,DELETE,UPDATE(region,readings,visible_count,status,operator_edited,revision)
+    GRANT INSERT,DELETE,UPDATE(region,readings,visible_count,status,operator_edited,revision,same_item_as)
       ON capture_evidence_observation TO ${role};
     GRANT INSERT,DELETE,UPDATE(status,revision) ON capture_lot_evidence_observation TO ${role};`)
 }

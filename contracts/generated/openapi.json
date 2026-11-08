@@ -10371,6 +10371,36 @@
                 "required": [
                   "kind",
                   "observation_id",
+                  "same_as"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "observation_same_item",
+                    "type": "string"
+                  },
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "same_as": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "observation_id",
                   "lot_id"
                 ],
                 "properties": {
@@ -12880,6 +12910,10 @@
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                     "type": "string"
                   }
+                },
+                "same_item_as": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
                 }
               }
             }
@@ -72277,6 +72311,10 @@
                         },
                         "operator_edited": {
                           "type": "boolean"
+                        },
+                        "same_item_as": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
                         }
                       }
                     }
@@ -73752,6 +73790,10 @@
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
               "type": "string"
             }
+          },
+          "same_item_as": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
           }
         }
       },
@@ -74416,6 +74458,10 @@
                 },
                 "operator_edited": {
                   "type": "boolean"
+                },
+                "same_item_as": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
                 }
               }
             }

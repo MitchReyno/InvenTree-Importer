@@ -58,7 +58,7 @@ const LEAD_INSTRUCTIONS = [
   'Fetch each photo with fetch_evidence. Previews arrive downscaled; give regions in the page sizes it returns. A photo can hold several items, and one item can appear in several photos.',
   'Record each item you see with record_observation: one region per item, with its markings and any visible count. Say in its readings what the markings were read from (source_kind) and how sure you are (agreement).',
   'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
-  'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items.',
+  'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items, and count an observation with same_item_as once with the one it names.',
   'An identity relies on the lot’s current observation set: cite it in relies_on as {kind: "observation_set", lot_id, version} with the observation_set_version read_batch returns. That makes the identity stable, which starts the lot’s Research and Images; after you regroup a lot, publish its identity again.',
   'Call read_batch for the current lots, Parts and observations. Pass the revision from your last tool response as base_revision. On a stale result, read_batch again and re-plan. Lots and observations the operator edited only accept suggestions; a response with suggested: true changed nothing else.',
   'Evidence notes and groups are hints, not lot boundaries. When new evidence arrives in the inbox, examine only that evidence.',

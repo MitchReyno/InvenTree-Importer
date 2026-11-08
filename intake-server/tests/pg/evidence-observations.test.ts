@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { lotItemCount, type CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { leadSession, seedPhoto } from '../support/sessions.ts'
 import { transaction } from '../../src/db/database.ts'
@@ -1278,6 +1278,127 @@ test('a lot keeps when it was formed, set by the database and never changed', as
           .formed_at as Date,
     )
     assert.equal(stored.toISOString(), formed)
+  })
+})
+
+test('the operator marks one bag seen twice as the same item, so the lot counts it once', async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const observe = async (x: number, count: number) => {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings('1N4148'),
+          visible_count: count,
+        }),
+      )
+      assert.ok(seen.ok)
+      return seen
+    }
+    const first = await observe(0, 200)
+    const second = await observe(200, 200)
+    const lone = await observe(400, 50)
+    const bag = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: lone.revision,
+        label: '1N4148 diodes',
+        observation_ids: [first.id, second.id],
+      }),
+    )
+    assert.ok(bag.ok)
+    const other = await write(async (client) =>
+      proposeLot(client, writer, {
+        base_revision: bag.revision,
+        label: 'Loose diodes',
+        observation_ids: [lone.id],
+      }),
+    )
+    assert.ok(other.ok)
+    const count = async () => lotItemCount((await read()).evidence_observations ?? [], bag.id!)
+    assert.equal(await count(), 400)
+
+    const marked = await edit({
+      kind: 'observation_same_item',
+      observation_id: second.id,
+      same_as: first.id,
+    })
+    assert.equal(marked.status, 200, JSON.stringify(marked.value))
+    const after = await read()
+    assert.equal(
+      after.evidence_observations?.find((item) => item.id === second.id)?.same_item_as,
+      first.id,
+    )
+    assert.deepEqual(
+      after.lots.find((item) => item.id === bag.id)?.evidence_observation_ids?.sort(),
+      [first.id, second.id].sort(),
+    )
+    assert.equal(await count(), 200)
+
+    // The lead session has no grant on the mark.
+    await assert.rejects(
+      write((client) =>
+        client.query('UPDATE capture_evidence_observation SET same_item_as=NULL WHERE id=$1', [
+          second.id,
+        ]),
+      ),
+      (error: { code?: string }) => error.code === '42501',
+    )
+
+    const across = await edit({
+      kind: 'observation_same_item',
+      observation_id: lone.id,
+      same_as: first.id,
+    })
+    assert.equal(across.status, 409)
+    assert.equal((across.value as { code?: string }).code, 'same_item_different_lots')
+    const itself = await edit({
+      kind: 'observation_same_item',
+      observation_id: first.id,
+      same_as: first.id,
+    })
+    assert.equal(itself.status, 400)
+
+    const cleared = await edit({
+      kind: 'observation_same_item',
+      observation_id: second.id,
+      same_as: null,
+    })
+    assert.equal(cleared.status, 200, JSON.stringify(cleared.value))
+    assert.equal(
+      (await read()).evidence_observations?.find((item) => item.id === second.id)?.same_item_as,
+      undefined,
+    )
+    assert.equal(await count(), 400)
+
+    // Moving one of a marked pair to another lot ends the mark.
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    const moved = await edit({
+      kind: 'observation_move',
+      observation_id: second.id,
+      lot_id: other.id!,
+    })
+    assert.equal(moved.status, 200, JSON.stringify(moved.value))
+    const final = await read()
+    assert.equal(
+      final.evidence_observations?.find((item) => item.id === second.id)?.same_item_as,
+      undefined,
+    )
+    assert.equal(
+      (
+        await write(
+          async (client) =>
+            (
+              await client.query(
+                'SELECT same_item_as FROM capture_evidence_observation WHERE id=$1',
+                [second.id],
+              )
+            ).rows[0],
+        )
+      ).same_item_as,
+      null,
+    )
   })
 })
 

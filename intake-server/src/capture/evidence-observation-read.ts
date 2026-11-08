@@ -54,6 +54,13 @@ export async function readEvidenceObservations(
       ])
     }
   }
+
+  // A mark counts only while both observations are active in the same lot.
+  const sameItem = (row: (typeof rows)[number]) =>
+    row.sameItemAs && lotOf.get(row.id) && lotOf.get(row.id) === lotOf.get(row.sameItemAs)
+      ? { same_item_as: row.sameItemAs }
+      : {}
+
   return {
     activeByLot,
     observations: rows.map((row) => ({
@@ -71,6 +78,7 @@ export async function readEvidenceObservations(
       revision: row.revision.toString(),
       lot_id: lotOf.get(row.id) ?? null,
       suggested_lot_ids: suggested.get(row.id) ?? [],
+      ...sameItem(row),
     })),
   }
 }

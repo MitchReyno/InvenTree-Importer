@@ -4844,6 +4844,11 @@ export interface components {
                 lot_id?: string | null;
             } | {
                 /** @constant */
+                kind: "observation_same_item";
+                observation_id: string;
+                same_as: string | null;
+            } | {
+                /** @constant */
                 kind: "observation_move";
                 observation_id: string;
                 lot_id: string | null;
@@ -5356,6 +5361,7 @@ export interface components {
                 revision: string;
                 lot_id: string | null;
                 suggested_lot_ids: string[];
+                same_item_as?: string;
             }[];
             notes: {
                 id: string;
@@ -16297,6 +16303,7 @@ export interface components {
                     supersedes_observation_id: string | null;
                     lot_id: string | null;
                     operator_edited: boolean;
+                    same_item_as?: string;
                 }[];
             };
         } | {
@@ -16546,6 +16553,7 @@ export interface components {
             revision: string;
             lot_id: string | null;
             suggested_lot_ids: string[];
+            same_item_as?: string;
         };
         RecordObservationArgs: {
             /** Format: int64 */
@@ -16654,6 +16662,7 @@ export interface components {
                 supersedes_observation_id: string | null;
                 lot_id: string | null;
                 operator_edited: boolean;
+                same_item_as?: string;
             }[];
         };
         SessionReadBatchArgs: Record<string, never>;

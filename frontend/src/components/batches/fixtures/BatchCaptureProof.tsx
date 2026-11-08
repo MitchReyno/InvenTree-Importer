@@ -344,6 +344,16 @@ function applyEdit(change: Change) {
         ? { ...lot, evidence_observation_ids: ids, operator_edited: true }
         : lot
     })
+  } else if (change.kind === 'observation_same_item') {
+    batch.evidence_observations = observations.map((item) => {
+      if (item.id !== change.observation_id) {
+        return item
+      }
+      const { same_item_as: _was, ...unmarked } = item
+      return change.same_as === null
+        ? { ...unmarked, operator_edited: true }
+        : { ...item, same_item_as: change.same_as, operator_edited: true }
+    })
   } else if (change.kind === 'lot_exclusion') {
     batch.lots = batch.lots.map((lot) => {
       if (lot.id !== change.lot_id) {
@@ -469,16 +479,18 @@ const region = (x: number) => ({
 if (agents) {
   Object.assign(batch, {
     evidence_observations: [
-      ['e1', 3, 40, ['100nF X7R 50V'], null, 'label', 'read'],
-      ['e2', 3, 420, ['CL21B104KBCNNNC'], null, 'label', 'likely'],
-      ['e3', 9, 60, ['1N4148'], lotId(4), 'handwriting', 'disagree'],
-    ].map(([id, version, x, markings, lot, sourceKind, agreement]) => ({
+      ['e1', 3, 40, ['100nF X7R 50V'], null, 'label', 'read', null],
+      ['e2', 3, 420, ['CL21B104KBCNNNC'], null, 'label', 'likely', null],
+      ['e3', 9, 60, ['1N4148'], lotId(4), 'handwriting', 'disagree', 200],
+      // The same bag again, from closer; "Same item as…" counts it once.
+      ['e4', 10, 80, ['1N4148 bag, close'], lotId(4), 'handwriting', 'likely', 200],
+    ].map(([id, version, x, markings, lot, sourceKind, agreement, count]) => ({
       id: `e0000000-0000-4000-8000-0000000000${String(id).slice(1).padStart(2, '0')}`,
       evidence_version_id: versionId(version as number),
       page: 1,
       region: region(x as number),
       readings: { markings, source_kind: sourceKind, agreement },
-      visible_count: null,
+      visible_count: count as number | null,
       status: 'active',
       origin: 'agent',
       agent_session_id: '90000000-0000-4000-8000-000000000001',
@@ -494,7 +506,10 @@ if (agents) {
         ? {
             ...lot,
             origin: 'agent',
-            evidence_observation_ids: ['e0000000-0000-4000-8000-000000000003'],
+            evidence_observation_ids: [
+              'e0000000-0000-4000-8000-000000000003',
+              'e0000000-0000-4000-8000-000000000004',
+            ],
           }
         : lot,
     ),

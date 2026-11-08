@@ -58,6 +58,8 @@ export const CaptureEvidenceObservation = object({
   lot_id: Type.Union([Id, Type.Null()]),
   /** Lots the lead session suggested it for; the operator accepts or dismisses each. */
   suggested_lot_ids: Type.Array(Id, { maxItems: 100 }),
+  /** The observation of its lot that shows the same physical item; the item counts once. */
+  same_item_as: Type.Optional(Id),
 })
 
 const baseRevision = { base_revision: Revision }
@@ -130,6 +132,8 @@ export const LeadBatchView = object({
       supersedes_observation_id: Type.Union([Id, Type.Null()]),
       lot_id: Type.Union([Id, Type.Null()]),
       operator_edited: Type.Boolean(),
+      /** The operator marked it as the same physical item as this observation of its lot. */
+      same_item_as: Type.Optional(Id),
     }),
     { maxItems: 1000 },
   ),
@@ -172,3 +176,27 @@ export type ProposeLotArgsDto = Static<typeof ProposeLotArgs>
 export type RegroupArgsDto = Static<typeof RegroupArgs>
 export type LotFormingConflictDto = Static<typeof LotFormingConflict>
 export type LeadBatchViewDto = Static<typeof LeadBatchView>
+
+/**
+ * The items a lot's observations count, each physical item once: a group marked as one item counts
+ * its largest visible count. Null when no active observation of the lot has a count.
+ */
+export function lotItemCount(
+  observations: readonly CaptureEvidenceObservationDto[],
+  lotId: string,
+): number | null {
+  const own = observations.filter((item) => item.status === 'active' && item.lot_id === lotId)
+  const ids = new Set(own.map((item) => item.id))
+  const groups = new Map<string, number | null>()
+  for (const item of own) {
+    const root = item.same_item_as && ids.has(item.same_item_as) ? item.same_item_as : item.id
+    const counted = groups.get(root) ?? null
+    groups.set(
+      root,
+      item.visible_count === null ? counted : Math.max(counted ?? 0, item.visible_count),
+    )
+  }
+  const counts = [...groups.values()].filter((count): count is number => count !== null)
+
+  return counts.length ? counts.reduce((total, count) => total + count, 0) : null
+}

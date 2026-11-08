@@ -115,6 +115,7 @@ interface LockedObservation {
   origin: 'agent' | 'operator'
   revision: bigint
   evidenceVersionId: string
+  sameItemAs: string | null
   lotId: string | null
 }
 
@@ -132,6 +133,7 @@ async function lockObservations(client: PoolClient, batchId: string, ids: readon
         origin: captureEvidenceObservations.origin,
         revision: captureEvidenceObservations.revision,
         evidenceVersionId: captureEvidenceObservations.evidenceVersionId,
+        sameItemAs: captureEvidenceObservations.sameItemAs,
       })
       .from(captureEvidenceObservations)
       .where(
@@ -688,7 +690,7 @@ export async function regroup(
 
 type ObservationChange = Extract<
   CaptureEditDto['change'],
-  { kind: 'observation' | 'observation_move' | 'observation_suggestion' }
+  { kind: 'observation' | 'observation_move' | 'observation_suggestion' | 'observation_same_item' }
 >
 
 /** Marks a lot as changed by the operator, so the lead session only suggests for it from now on. */
@@ -773,6 +775,19 @@ async function moveByOperator(
   }
 }
 
+/** A same-item mark holds only while both observations are active in one lot; moves end it. */
+async function dropBrokenSameItems(client: PoolClient, batchId: string) {
+  await executeDatabaseQuery(
+    queryDatabase(client).execute(sql`
+      UPDATE capture_evidence_observation o SET same_item_as = NULL
+      WHERE o.batch_id = ${batchId} AND o.same_item_as IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM capture_lot_evidence_observation a
+        JOIN capture_lot_evidence_observation b ON b.batch_id = a.batch_id AND b.lot_id = a.lot_id
+        WHERE a.batch_id = o.batch_id AND a.evidence_observation_id = o.id AND a.status = 'active'
+          AND b.evidence_observation_id = o.same_item_as AND b.status = 'active')`),
+  )
+}
+
 async function lockActiveObservation(client: PoolClient, batchId: string, id: string) {
   const rows = await lockObservations(client, batchId, [id])
   const row = rows.get(id)
@@ -782,8 +797,84 @@ async function lockActiveObservation(client: PoolClient, batchId: string, id: st
   return row
 }
 
+/**
+ * Marks an observation as showing the same physical item as another of its lot, or clears the mark.
+ * Groups stay flat: every mark names the group's first observation. Both rows become operator-edited,
+ * so the lead session cannot move either out from under the mark.
+ */
+async function markSameItem(
+  client: PoolClient,
+  batchId: string,
+  change: Extract<ObservationChange, { kind: 'observation_same_item' }>,
+  revision: bigint,
+) {
+  const db = queryDatabase(client)
+  if (change.same_as === change.observation_id) {
+    fail('same_item_self', 400)
+  }
+  const rows = await lockObservations(
+    client,
+    batchId,
+    change.same_as ? [change.observation_id, change.same_as] : [change.observation_id],
+  )
+  const row = rows.get(change.observation_id)
+  const target = change.same_as ? rows.get(change.same_as) : undefined
+  if (row?.status !== 'active' || (change.same_as && target?.status !== 'active')) {
+    fail('observation_not_found', 404)
+  }
+
+  const edited = (ids: string[], sameItemAs?: string | null) =>
+    executeDatabaseQuery(
+      db
+        .update(captureEvidenceObservations)
+        .set({
+          operatorEdited: true,
+          revision,
+          ...(sameItemAs !== undefined ? { sameItemAs } : {}),
+        })
+        .where(inArray(captureEvidenceObservations.id, ids)),
+    )
+
+  if (!target) {
+    await edited([row.id], null)
+  } else {
+    if (!row.lotId || row.lotId !== target.lotId) {
+      fail('same_item_different_lots', 409)
+    }
+    const root = target.sameItemAs ?? target.id
+    if (root !== row.id) {
+      const followers = await executeDatabaseQuery(
+        db
+          .select({ id: captureEvidenceObservations.id })
+          .from(captureEvidenceObservations)
+          .where(
+            and(
+              eq(captureEvidenceObservations.batchId, batchId),
+              eq(captureEvidenceObservations.sameItemAs, row.id),
+            ),
+          ),
+      )
+      await edited([row.id, ...followers.map((follower) => follower.id)], root)
+    }
+    await edited([target.id])
+  }
+  if (row.lotId) {
+    await markLotEdited(client, row.lotId, revision)
+  }
+}
+
 /** Operator observation edits; each marks the observation and the lots it touches as edited. */
 export async function applyObservationEdit(
+  client: PoolClient,
+  batchId: string,
+  change: ObservationChange,
+  nextRevision: string,
+) {
+  await applyOneObservationEdit(client, batchId, change, nextRevision)
+  await dropBrokenSameItems(client, batchId)
+}
+
+async function applyOneObservationEdit(
   client: PoolClient,
   batchId: string,
   change: ObservationChange,
@@ -839,6 +930,10 @@ export async function applyObservationEdit(
     if (change.lot_id !== undefined) {
       await moveByOperator(client, batchId, id, from, change.lot_id, revision)
     }
+    return
+  }
+  if (change.kind === 'observation_same_item') {
+    await markSameItem(client, batchId, change, revision)
     return
   }
   if (change.kind === 'observation_move') {
@@ -970,6 +1065,8 @@ export async function moveObservationsByOperator(
     )
     await moveByOperator(client, batchId, observationId, from, to, revision)
   }
+  // After every move, so a marked pair that moves together keeps its mark.
+  await dropBrokenSameItems(client, batchId)
 }
 
 /** The lead session's view of its batch: what `read_batch` returns and its messages carry. */
@@ -1010,8 +1107,9 @@ export async function leadBatchView(
     status: 'active' | 'suggested'
     supersedes_observation_id: string | null
     operator_edited: boolean
+    same_item_as: string | null
   }>(
-    `SELECT id,evidence_version_id,page,region,readings,visible_count,status,supersedes_observation_id,operator_edited
+    `SELECT id,evidence_version_id,page,region,readings,visible_count,status,supersedes_observation_id,operator_edited,same_item_as
      FROM public.capture_evidence_observation WHERE batch_id=$1 ORDER BY created_at,id`,
     [batchId],
   )
@@ -1058,6 +1156,12 @@ export async function leadBatchView(
       supersedes_observation_id: row.supersedes_observation_id,
       lot_id: activeLot.get(row.id) ?? null,
       operator_edited: row.operator_edited,
+      // Only a mark whose two observations are active in one lot holds.
+      ...(row.same_item_as &&
+      activeLot.get(row.id) &&
+      activeLot.get(row.id) === activeLot.get(row.same_item_as)
+        ? { same_item_as: row.same_item_as }
+        : {}),
     })),
   }
 }

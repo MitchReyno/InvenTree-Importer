@@ -749,6 +749,7 @@ async function applyLockedCaptureEdit(
     case 'observation':
     case 'observation_move':
     case 'observation_suggestion':
+    case 'observation_same_item':
       await applyObservationEdit(c, id, change, nextRevision)
       break
   }

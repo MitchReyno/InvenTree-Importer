@@ -139,6 +139,12 @@ export const CaptureEdit = object({
       ),
       lot_id: Type.Optional(Type.Union([Id, Type.Null()])),
     }),
+    /** Marks an observation as the same physical item as another of its lot; null clears it. */
+    object({
+      kind: Type.Literal('observation_same_item'),
+      observation_id: Id,
+      same_as: Type.Union([Id, Type.Null()]),
+    }),
     /** Moves an observation to another lot, or out of any lot. */
     object({
       kind: Type.Literal('observation_move'),

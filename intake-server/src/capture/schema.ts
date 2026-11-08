@@ -138,6 +138,8 @@ export const captureEvidenceObservations = pgTable('capture_evidence_observation
   region: jsonb().$type<Record<string, unknown>>().notNull(),
   readings: jsonb().$type<Record<string, unknown>>().notNull(),
   visibleCount: integer('visible_count'),
+  /** The observation of the same lot this one shows again; it counts once. */
+  sameItemAs: uuid('same_item_as'),
   status: text().$type<'active' | 'suggested'>().notNull().default('active'),
   supersedesObservationId: uuid('supersedes_observation_id'),
   origin: text().$type<'agent' | 'operator'>().notNull(),
