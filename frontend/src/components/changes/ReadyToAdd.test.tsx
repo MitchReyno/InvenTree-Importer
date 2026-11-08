@@ -273,6 +273,36 @@ describe('ReadyToAdd', () => {
     )
   })
 
+  it('the tree counts its changes, expands or collapses all, and can show only changes', async () => {
+    const user = userEvent.setup()
+    setup({
+      tree: [
+        ...treeNodes,
+        node({ key: 'category:82', kind: 'category', label: 'Capacitors', state: 'exists' }),
+      ],
+    })
+    await user.click(await screen.findByRole('button', { name: 'Tree' }))
+    const counts = screen.getByRole('group', { name: 'Tree counts' })
+    expect(counts).toHaveTextContent('3 new')
+    expect(counts).toHaveTextContent('1 update')
+    expect(counts).toHaveTextContent('2 existing')
+    const tree = screen.getByRole('tree', { name: 'By category' })
+
+    const items = () => within(tree).getAllByRole('treeitem')
+
+    expect(items()[1]).toHaveTextContent(/^.?part/i)
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(items()).toHaveLength(2)
+    expect(items()[0]).toHaveTextContent('3 new · 1 update')
+    await user.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(items()).toHaveLength(6)
+
+    await user.click(screen.getByRole('checkbox', { name: 'Only changes' }))
+    expect(items()).toHaveLength(5)
+    expect(tree).not.toHaveTextContent('Capacitors')
+  })
+
   it('the tree follows the WAI-ARIA keyboard pattern and states each node in text', async () => {
     const user = userEvent.setup()
     setup()
