@@ -193,7 +193,8 @@ it('corrects a photo’s readings, marking the correction and the lot to re-exam
   await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
   const field = within(first).getByLabelText('Markings for 16 MHz crystal')
   await user.clear(field)
-  await user.type(field, '16.000 MHz crystal, HC-49')
+  // One marking per line, so a marking may itself hold a comma.
+  await user.type(field, '16.000 MHz crystal{Enter}HC-49')
   await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
   expect(edits).toEqual([
     {
@@ -343,4 +344,34 @@ it('a request still sending when the view remounts settles in the new view', asy
   expect(sent).toEqual([sent[0], sent[0]])
   await act(async () => settle!.resolve())
   expect(within(reel()).getByRole('status')).toHaveTextContent('Asked Examine for a sharper photo')
+})
+
+it('keeps a marking that contains a comma when another marking is corrected', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+  const comma = {
+    ...batch,
+    evidence_observations: [
+      {
+        ...observation('o9', 'v1', '4,7 kΩ', 'l1'),
+        readings: { markings: ['4,7 kΩ', 'R1'] },
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(
+    <ExamineView
+      batch={comma}
+      lead={lead}
+      edit={async (change) => {
+        edits.push(change)
+      }}
+    />,
+  )
+  const photo = screen.getByLabelText('Photo 1')
+  await user.click(within(photo).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(photo).getByLabelText('Markings for 4,7 kΩ · R1'), '0')
+  await user.click(within(photo).getByRole('button', { name: 'Save readings for 4,7 kΩ · R1' }))
+  expect(edits).toEqual([
+    expect.objectContaining({ readings: expect.objectContaining({ markings: ['4,7 kΩ', 'R10'] }) }),
+  ])
 })

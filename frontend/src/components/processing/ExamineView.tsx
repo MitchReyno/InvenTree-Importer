@@ -14,7 +14,7 @@ import { Button } from '../ui/Button'
 import { Count, Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { SourceChip } from '../ui/SourceChip'
-import { Input, Label, linkTouchArea, Small, Summary } from '../ui/primitives'
+import { Label, linkTouchArea, Small, Summary, TextArea } from '../ui/primitives'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
 import { RegionStage } from '../review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
@@ -87,7 +87,8 @@ function ReadingEdit({
   onDirty: (dirty: boolean) => void
 }) {
   const name = observation.readings.markings.join(' · ') || 'this region'
-  const saved = observation.readings.markings.join(', ')
+  // One marking per line: a marking may hold a comma, never a line break.
+  const saved = observation.readings.markings.join('\n')
   const [value, setValue] = useState(saved)
   const [saving, setSaving] = useState(false)
   const dirty = value !== saved
@@ -109,7 +110,7 @@ function ReadingEdit({
           readings: {
             ...observation.readings,
             markings: value
-              .split(',')
+              .split('\n')
               .map((part) => part.trim())
               .filter(Boolean),
           },
@@ -118,7 +119,8 @@ function ReadingEdit({
     >
       <Label>
         <VisuallyHidden>Markings for {name}</VisuallyHidden>
-        <Input
+        <TextArea
+          rows={Math.max(2, value.split('\n').length)}
           value={value}
           disabled={saving || locked}
           onChange={(event) => setValue(event.target.value)}

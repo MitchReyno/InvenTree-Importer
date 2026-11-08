@@ -240,7 +240,8 @@ export function AgentSessions({ client, batches }: Props) {
                               processingStepFor(session.stage),
                               session.job_id,
                             )}
-                            aria-label={`Open session: ${step} · ${subject}`}
+                            // The drawer shows a job's latest attempt, so an earlier row says so.
+                            aria-label={`${session.latest_on_job ? 'Open session' : 'Open latest session'}: ${step} · ${subject}`}
                           >
                             {step}
                           </Link>
