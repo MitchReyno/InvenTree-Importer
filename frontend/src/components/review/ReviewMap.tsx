@@ -20,6 +20,9 @@ type Props = {
   disabled: boolean
   link: (evidenceId: string, lotId: string, linked: boolean) => Promise<void>
   newLotFrom: (evidenceId: string, label: string) => Promise<void>
+  /** Moves a region's observation to another lot, or out of any (`observation_move`). */
+  moveRegion?: (observationId: string, lotId: string | null) => Promise<void>
+  newLotFromRegion?: (observationId: string, label: string) => Promise<void>
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
@@ -44,6 +47,8 @@ export function ReviewMap({
   disabled,
   link,
   newLotFrom,
+  moveRegion,
+  newLotFromRegion,
   openRestructure,
   approvedLotIds,
   restructureUnavailable = false,
@@ -198,9 +203,20 @@ export function ReviewMap({
                   <Regions aria-label={`Regions of ${file.label}`}>
                     {file.regions.map((region) => (
                       <li key={region.id}>
-                        {region.label} <span aria-hidden="true">→</span>
-                        {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
-                        {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                        <span>
+                          {region.label} <span aria-hidden="true">→</span>
+                          {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
+                          {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                        </span>
+                        {moveRegion && (
+                          <RegionMove
+                            region={region}
+                            lots={map.lots}
+                            disabled={disabled}
+                            move={moveRegion}
+                            newLot={newLotFromRegion}
+                          />
+                        )}
                       </li>
                     ))}
                   </Regions>
@@ -352,6 +368,61 @@ export function ReviewMap({
         </Muted>
       }
     />
+  )
+}
+
+/** Moves one region to another lot, or makes a new lot from it. */
+function RegionMove({
+  region,
+  lots,
+  disabled,
+  move,
+  newLot,
+}: {
+  region: { id: string; label: string; lotId: string | null }
+  lots: { id: string; label: string }[]
+  disabled: boolean
+  move: (observationId: string, lotId: string | null) => Promise<void>
+  newLot?: (observationId: string, label: string) => Promise<void>
+}) {
+  const [target, setTarget] = useState('')
+  const targets = lots.filter((lot) => lot.id !== region.lotId)
+  return (
+    <Controls>
+      <LinkSelect
+        aria-label={`Move ${region.label} to`}
+        value={target}
+        disabled={disabled}
+        onChange={(event) => setTarget(event.target.value)}
+      >
+        <option value="">Move to a lot…</option>
+        {targets.map((lot) => (
+          <option key={lot.id} value={lot.id}>
+            {lot.label}
+          </option>
+        ))}
+        {region.lotId !== null && <option value="none">No lot</option>}
+      </LinkSelect>
+      <Button
+        size="sm"
+        disabled={disabled || !target}
+        aria-label={`Move ${region.label}`}
+        onClick={() => void move(region.id, target === 'none' ? null : target)}
+      >
+        Move
+      </Button>
+      {newLot && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={disabled}
+          aria-label={`New lot from region: ${region.label}`}
+          onClick={() => void newLot(region.id, region.label)}
+        >
+          New lot from this
+        </Button>
+      )}
+    </Controls>
   )
 }
 
@@ -686,7 +757,7 @@ const Controls = styled.div`
 
 const Regions = styled.ul`
   display: grid;
-  gap: ${space[1]};
+  gap: ${space[3]};
   margin: 0;
   padding-left: ${space[8]};
 `

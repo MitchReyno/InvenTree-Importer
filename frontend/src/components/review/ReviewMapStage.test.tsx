@@ -178,6 +178,101 @@ describe('ReviewMapStage', () => {
     )
   })
 
+  const regioned = {
+    ...batch,
+    lots: [lot('a', 'Packet A'), lot('b', 'Packet B')],
+    evidence_observations: [
+      {
+        id: 'o1',
+        evidence_version_id: 'v1',
+        page: null,
+        region: {
+          kind: 'pixels',
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          source_width: 9,
+          source_height: 9,
+        },
+        readings: { markings: ['1N4148'], text: null },
+        visible_count: null,
+        status: 'active',
+        lot_id: 'a',
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+
+  const versioned = () => ({
+    ...media(),
+    snapshot: vi.fn(
+      async () =>
+        ({
+          ...snapshot,
+          evidence: snapshot.evidence.map((item) =>
+            item.id === 'f1' ? { ...item, versions: [{ id: 'v1', evidence_id: 'f1' }] } : item,
+          ),
+        }) as unknown as MediaSnapshotDto,
+    ),
+  })
+
+  it('moves a region to another lot', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    render(
+      <ReviewMapStage
+        batch={regioned}
+        media={versioned()}
+        edit={edit}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await user.selectOptions(await screen.findByLabelText('Move 1N4148 to'), 'b')
+    await user.click(screen.getByRole('button', { name: 'Move 1N4148' }))
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'observation_move',
+      observation_id: 'o1',
+      lot_id: 'b',
+    })
+  })
+
+  it('makes a lot from a region, then moves the region into it', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    const props = {
+      media: versioned(),
+      edit,
+      retiredLotIds: new Set<string>(),
+      reload: vi.fn(async () => undefined),
+      onDirtyChange: vi.fn(),
+    }
+    const view = render(<ReviewMapStage batch={regioned} {...props} />)
+    await user.click(await screen.findByRole('button', { name: 'New lot from region: 1N4148' }))
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'add_lot',
+      label: '1N4148',
+      note: 'Made from region “1N4148”.',
+      part_subject_id: null,
+    })
+    view.rerender(
+      <ReviewMapStage
+        batch={
+          { ...regioned, revision: '5', lots: [...regioned.lots, lot('n', '1N4148')] } as never
+        }
+        {...props}
+      />,
+    )
+    await waitFor(() =>
+      expect(edit).toHaveBeenCalledWith({
+        kind: 'observation_move',
+        observation_id: 'o1',
+        lot_id: 'n',
+      }),
+    )
+  })
+
   it('forgets a new lot that was not saved, so a later lot is never linked by mistake', async () => {
     const user = userEvent.setup()
     const client = media()

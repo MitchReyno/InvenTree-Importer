@@ -28,7 +28,12 @@ type Props = {
   processing?: ProcessingClient
 }
 
-type PendingLot = { evidenceId: string; label: string; knownLotIds: string[] }
+/** A lot made from a file (linked once it exists) or a region (moved into it once it exists). */
+type PendingLot = {
+  from: { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
+  label: string
+  knownLotIds: string[]
+}
 
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
@@ -90,13 +95,62 @@ export function ReviewMapStage({
   async function newLotFrom(evidenceId: string, label: string) {
     setBusy(true)
     setError('')
-    pending.current = { evidenceId, label, knownLotIds: batch.lots.map((lot) => lot.id) }
+    pending.current = {
+      from: { kind: 'file', evidenceId },
+      label,
+      knownLotIds: batch.lots.map((lot) => lot.id),
+    }
     try {
       // The batch edit reports failure as false rather than throwing.
       const saved = await edit({
         kind: 'add_lot',
         label,
         note: `Made from evidence “${label}”.`,
+        part_subject_id: null,
+      })
+      if (saved === false) {
+        pending.current = null
+      }
+    } catch {
+      pending.current = null
+      setError('The lot could not be made. Refresh and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function moveRegion(observationId: string, lotId: string | null) {
+    setBusy(true)
+    setError('')
+    try {
+      const saved = await edit({
+        kind: 'observation_move',
+        observation_id: observationId,
+        lot_id: lotId,
+      })
+      if (saved === false) {
+        setError('The region could not be moved. Refresh and try again.')
+      }
+    } catch {
+      setError('The region could not be moved. Refresh and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function newLotFromRegion(observationId: string, label: string) {
+    setBusy(true)
+    setError('')
+    pending.current = {
+      from: { kind: 'region', observationId },
+      label,
+      knownLotIds: batch.lots.map((lot) => lot.id),
+    }
+    try {
+      const saved = await edit({
+        kind: 'add_lot',
+        label,
+        note: `Made from region “${label}”.`,
         part_subject_id: null,
       })
       if (saved === false) {
@@ -120,7 +174,11 @@ export function ReviewMapStage({
     )
     if (created) {
       pending.current = null
-      void link(waiting.evidenceId, created.id, true)
+      if (waiting.from.kind === 'file') {
+        void link(waiting.from.evidenceId, created.id, true)
+      } else {
+        void moveRegion(waiting.from.observationId, created.id)
+      }
     }
   })
 
@@ -157,6 +215,8 @@ export function ReviewMapStage({
           disabled={disabled}
           link={link}
           newLotFrom={newLotFrom}
+          moveRegion={moveRegion}
+          newLotFromRegion={newLotFromRegion}
           openRestructure={
             operator ? (kind, lotIds) => setRestructure({ kind, lotIds }) : undefined
           }
