@@ -1,0 +1,21 @@
+# Offline package qualification until the paired supervisor is installed.
+services:
+  tools:
+    image: ${INTAKE_GUEST_IMAGE:?select the locally built personal guest image}
+    pull_policy: never
+    platform: linux/arm64
+    command: ["sleep", "infinity"]
+    user: "1000:1000"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./guest/browser-seccomp.json
+    pids_limit: 192
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    volumes:
+      - guest-home:/home/node
+volumes:
+  guest-home: {}
