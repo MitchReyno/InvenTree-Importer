@@ -250,6 +250,8 @@ export const CaptureSnapshot = object({
       reexamine: Type.Optional(Type.Literal(true)),
       /** Left out of the batch by the operator; included lots omit it. */
       excluded: Type.Optional(LotExclusion),
+      /** When the lot was formed; lots formed before it was kept omit it. */
+      formed_at: Type.Optional(IsoTime),
       /** The lead session's estimate and its basis; never a counted quantity. */
       estimated_quantity: Type.Optional(Quantity),
       quantity_basis: Type.Optional(unicodeText(1, 512)),

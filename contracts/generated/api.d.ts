@@ -5312,6 +5312,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7401,6 +7402,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7871,6 +7873,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -8783,6 +8786,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9239,6 +9243,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9599,6 +9604,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9962,6 +9968,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10675,6 +10682,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11034,6 +11042,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11396,6 +11405,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11758,6 +11768,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -12121,6 +12132,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -12490,6 +12502,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];

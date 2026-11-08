@@ -35,6 +35,8 @@ type Props = {
   unusedFiles?: number
   /** When this batch's first agent session started, as a clock time. */
   started?: string
+  /** "N lots formed by HH:MM", when every current lot's time is known. */
+  lotsFormed?: string
   /** How many sessions may run at once, from the agent settings. */
   sessionLimit?: number
   onOpenSession: (jobId: string) => void
@@ -79,6 +81,7 @@ export function ProcessingOverview({
   queue,
   unusedFiles,
   started,
+  lotsFormed,
   sessionLimit,
   onOpenSession,
 }: Props) {
@@ -95,7 +98,11 @@ export function ProcessingOverview({
             <CardTitle>
               {working ? `${plural(working, 'agent')} working` : 'No agents working'}
             </CardTitle>
-            {started && <Muted>Started {started}</Muted>}
+            {(started || lotsFormed) && (
+              <Muted>
+                {[started && `Started ${started}`, lotsFormed].filter(Boolean).join(' · ')}
+              </Muted>
+            )}
           </TitleRow>
           <ProgressSegments size="lg" steps={source.steps.map(segment)} />
           <StepLabels aria-label="Steps">

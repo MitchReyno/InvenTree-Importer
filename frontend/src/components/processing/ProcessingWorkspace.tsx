@@ -27,6 +27,7 @@ import { InstructionField } from './InstructionField'
 import { Muted, STEP_LABEL } from './ProcessingParts'
 import { Dialog } from '../ui/Dialog'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
+import { lotsFormed } from '../../processing/lots-formed'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { openQuestionsByLot } from '../../operator/review-model'
@@ -593,6 +594,7 @@ export function ProcessingWorkspace({
               queue={queue}
               unusedFiles={unusedFiles}
               started={started}
+              lotsFormed={lotsFormed(batch.lots)}
               sessionLimit={sessionLimit}
             />
           ) : (

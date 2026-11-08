@@ -174,6 +174,7 @@ async function snapshot(
         reexamine: captureLots.reexamine,
         excluded_reason: captureLots.excludedReason,
         excluded_at: captureLots.excludedAt,
+        formed_at: captureLots.formedAt,
         estimated_quantity: captureLots.estimatedQuantity,
         quantity_basis: captureLots.quantityBasis,
         observation_set_version: captureLots.observationSetVersion,
@@ -262,6 +263,7 @@ async function snapshot(
         reexamine,
         excluded_reason,
         excluded_at,
+        formed_at,
         estimated_quantity,
         quantity_basis,
         observation_set_version,
@@ -278,6 +280,7 @@ async function snapshot(
         ...(excluded_reason && excluded_at
           ? { excluded: { reason: excluded_reason, at: excluded_at.toISOString() } }
           : {}),
+        ...(formed_at ? { formed_at: formed_at.toISOString() } : {}),
         ...(estimated_quantity ? { estimated_quantity } : {}),
         ...(quantity_basis ? { quantity_basis } : {}),
         ...(members.length ? { evidence_observation_ids: members } : {}),

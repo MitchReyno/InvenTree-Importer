@@ -60,6 +60,7 @@ const batch: CaptureSnapshotDto = {
     part_subject_id: null,
     quantity: { mode: 'unknown' },
     location: { mode: 'inherit' },
+    formed_at: new Date(Date.UTC(2026, 10, 8, 9, 4 + index * 3)).toISOString(),
   })),
   notes: [],
   observations: [],

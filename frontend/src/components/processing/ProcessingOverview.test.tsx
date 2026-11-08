@@ -382,6 +382,13 @@ describe('InstructionField', () => {
     )
   })
 
+  it('says how many lots were formed and by when, beside the start time', () => {
+    overview({ started: '13:02', lotsFormed: '5 lots formed by 13:20' })
+    expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent(
+      'Started 13:02 · 5 lots formed by 13:20',
+    )
+  })
+
   it('calls only running work running', () => {
     overview({
       source: {

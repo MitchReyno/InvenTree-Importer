@@ -119,6 +119,8 @@ export const captureLots = pgTable('capture_lot', {
   reexamine: boolean().notNull().default(false),
   excludedReason: text('excluded_reason'),
   excludedAt: timestamp('excluded_at', { withTimezone: true }),
+  /** Set by the database on insert; null for lots formed before it was kept. */
+  formedAt: timestamp('formed_at', { withTimezone: true }),
   estimatedQuantity: text('estimated_quantity'),
   quantityBasis: text('quantity_basis'),
   observationSetVersion: bigint('observation_set_version', { mode: 'bigint' })

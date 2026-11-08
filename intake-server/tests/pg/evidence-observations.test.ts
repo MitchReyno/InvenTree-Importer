@@ -1239,6 +1239,48 @@ test('the operator excludes a lot with a reason and includes it again; the lead 
   })
 })
 
+test('a lot keeps when it was formed, set by the database and never changed', async () => {
+  await withLead(async ({ writer, photo, write, read }) => {
+    const start = await read()
+    const seen = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: start.revision,
+        evidence_version_id: photo.version,
+        region: region(0),
+        readings: readings('BC547'),
+      }),
+    )
+    assert.ok(seen.ok)
+    const before = Date.now()
+    const lot = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: seen.revision,
+        label: 'BC547 transistors',
+        observation_ids: [seen.id],
+      }),
+    )
+    assert.ok(lot.ok)
+    const formed = (await read()).lots.find((item) => item.id === lot.id)!.formed_at
+    assert.ok(formed)
+    assert.ok(Date.parse(formed) >= before - 1000 && Date.parse(formed) <= Date.now() + 1000)
+
+    await assert.rejects(
+      write((client) =>
+        client.query("UPDATE capture_lot SET formed_at='2000-01-01T00:00:00Z' WHERE id=$1", [
+          lot.id,
+        ]),
+      ),
+      (error: { code?: string }) => error.code === '42501' || error.code === '23000',
+    )
+    const stored = await write(
+      async (client) =>
+        (await client.query(`SELECT formed_at FROM capture_lot WHERE id=$1`, [lot.id])).rows[0]
+          .formed_at as Date,
+    )
+    assert.equal(stored.toISOString(), formed)
+  })
+})
+
 test('a reading keeps what kind of source it came from and how well it agrees', async () => {
   await withLead(async ({ writer, photo, write, read }) => {
     const start = await read()

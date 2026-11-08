@@ -485,7 +485,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [ ] 23.7 Add a command that joins observations as one physical item, and turn on the Map's "Same item as…" (R22).
 - [x] 23.8 Retain the InvenTree server's version in the connection status, and show it in the connection details (M18).
 - [x] 23.9 Retain completed and total counts per step in the header's activity read, and show the running step's partial fill and "Research: 3 of 5" in the activity indicator (M16).
-- [ ] 23.10 Retain when each lot was formed, and show "N lots formed by HH:MM" on the Processing overview (P16).
+- [x] 23.10 Retain when each lot was formed, and show "N lots formed by HH:MM" on the Processing overview (P16).
 - [ ] 23.11 Deliver a changed batch instruction to the batch's running sessions and wake finished ones to apply it, and change the instruction's help text to say so (P16).
 - [ ] 23.12 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
