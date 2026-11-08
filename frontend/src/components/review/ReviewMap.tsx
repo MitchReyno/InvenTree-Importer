@@ -411,15 +411,20 @@ function RegionMove({
   move: (observationId: string, lotId: string | null) => Promise<unknown>
   newLot?: (observationId: string, label: string) => Promise<void>
 }) {
-  const [target, setTarget] = useState('')
+  const [chosen, setChosen] = useState('')
   const targets = lots.filter((lot) => lot.id !== region.lotId)
+  // A choice that is no longer offered (moved there already, or retired) is not kept.
+  const target =
+    (chosen === 'none' && region.lotId !== null) || targets.some((lot) => lot.id === chosen)
+      ? chosen
+      : ''
   return (
     <Controls>
       <LinkSelect
         aria-label={`Move ${region.label} to`}
         value={target}
         disabled={disabled}
-        onChange={(event) => setTarget(event.target.value)}
+        onChange={(event) => setChosen(event.target.value)}
       >
         <option value="">Move to a lot…</option>
         {targets.map((lot) => (

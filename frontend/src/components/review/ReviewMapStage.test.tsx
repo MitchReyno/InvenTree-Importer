@@ -239,7 +239,7 @@ describe('ReviewMapStage', () => {
   it('moves a region to another lot', async () => {
     const user = userEvent.setup()
     const edit = vi.fn(async () => true)
-    render(
+    const view = render(
       <ReviewMapStage
         batch={regioned}
         media={versioned()}
@@ -256,6 +256,26 @@ describe('ReviewMapStage', () => {
       observation_id: 'o1',
       lot_id: 'b',
     })
+    // Once refreshed into Packet B, B is no longer a destination, so Move cannot send it again.
+    const moved = {
+      ...regioned,
+      revision: '5',
+      evidence_observations: regioned.evidence_observations!.map((item) =>
+        item.id === 'o1' ? { ...item, lot_id: 'b' } : item,
+      ),
+    } as CaptureSnapshotDto
+    view.rerender(
+      <ReviewMapStage
+        batch={moved}
+        media={versioned()}
+        edit={edit}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Move 1N4148 to')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Move 1N4148' })).toBeDisabled()
   })
 
   it('makes a lot from a region, then moves the region into it', async () => {
