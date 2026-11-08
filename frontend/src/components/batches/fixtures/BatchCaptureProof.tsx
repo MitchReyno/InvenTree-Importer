@@ -252,7 +252,32 @@ const manualClient = {
 
 const operatorClient = {
   // Follows the batch, which `?agents` edits advance.
-  read: async () => ({ ...operatorReview, revision: batch.revision }),
+  read: async () => ({
+    ...operatorReview,
+    revision: batch.revision,
+    lots: operatorReview.lots.map((lot) => {
+      const excluded = batch.lots.find((item) => item.id === lot.lot_id)?.excluded
+      // As on the server, an excluded lot's only issue is its exclusion.
+      return excluded
+        ? {
+            ...lot,
+            excluded,
+            issues: [
+              {
+                code: 'lot_excluded',
+                severity: 'blocking',
+                message: `Excluded: ${excluded.reason}. Include it again to add it.`,
+                subject_id: lot.lot_id,
+                lot_id: lot.lot_id,
+                run_id: null,
+                dependency_digest: null,
+                disposition: null,
+              },
+            ],
+          }
+        : lot
+    }),
+  }),
   dismiss: unsupported,
   bulkEdit: unsupported,
   restructure: unsupported,
@@ -311,6 +336,16 @@ function applyEdit(change: Change) {
       return lot.id === moved?.lot_id
         ? { ...lot, evidence_observation_ids: ids, operator_edited: true }
         : lot
+    })
+  } else if (change.kind === 'lot_exclusion') {
+    batch.lots = batch.lots.map((lot) => {
+      if (lot.id !== change.lot_id) {
+        return lot
+      }
+      const { excluded: _was, ...included } = lot
+      return change.reason === null
+        ? included
+        : { ...lot, excluded: { reason: change.reason, at: new Date().toISOString() } }
     })
   } else if (change.kind === 'add_lot') {
     const index = batch.lots.length + 1
@@ -427,15 +462,15 @@ const region = (x: number) => ({
 if (agents) {
   Object.assign(batch, {
     evidence_observations: [
-      ['e1', 3, 40, ['100nF X7R 50V'], null],
-      ['e2', 3, 420, ['CL21B104KBCNNNC'], null],
-      ['e3', 9, 60, ['1N4148'], lotId(4)],
-    ].map(([id, version, x, markings, lot]) => ({
+      ['e1', 3, 40, ['100nF X7R 50V'], null, 'label', 'read'],
+      ['e2', 3, 420, ['CL21B104KBCNNNC'], null, 'label', 'likely'],
+      ['e3', 9, 60, ['1N4148'], lotId(4), 'handwriting', 'disagree'],
+    ].map(([id, version, x, markings, lot, sourceKind, agreement]) => ({
       id: `e0000000-0000-4000-8000-0000000000${String(id).slice(1).padStart(2, '0')}`,
       evidence_version_id: versionId(version as number),
       page: 1,
       region: region(x as number),
-      readings: { markings, text: null },
+      readings: { markings, source_kind: sourceKind, agreement },
       visible_count: null,
       status: 'active',
       origin: 'agent',
@@ -487,13 +522,34 @@ const processingSnapshot = {
   capture_revision: batch.revision,
   cursor: batch.cursor,
   jobs: [
-    sessionJob(
-      '90000000-0000-4000-8000-000000000001',
-      'examine',
-      null,
-      'Grouping the reel photos',
-      '2026-11-06T09:05:00.000Z',
-    ),
+    {
+      ...sessionJob(
+        '90000000-0000-4000-8000-000000000001',
+        'examine',
+        null,
+        'Grouping the reel photos',
+        '2026-11-06T09:05:00.000Z',
+      ),
+      // Asked before packet B's count, so Needs you lists it first.
+      questions: [
+        {
+          id: 'a0000000-0000-4000-8000-000000000002',
+          job_id: '90000000-0000-4000-8000-000000000001',
+          attempt_id: '80000000-0000-4000-8000-000000000001',
+          input_sha256: 'a'.repeat(64),
+          revision: '1',
+          state: 'open',
+          spec: {
+            kind: 'clarification',
+            subject_id: null,
+            prompt: 'Is the capacitor reel label the same part as the loose capacitors?',
+            reason: 'Both read 100nF, but only the reel shows a part number.',
+          },
+          assumption: 'Treating them as separate lots until answered.',
+          asked_at: '2026-11-06T09:02:00.000Z',
+        },
+      ],
+    },
     sessionJob(
       '90000000-0000-4000-8000-000000000002',
       'research',
@@ -524,6 +580,7 @@ const processingSnapshot = {
             prompt: 'How many resistors are in packet B?',
             reason: 'The label is torn where the count is printed.',
           },
+          asked_at: '2026-11-06T09:07:00.000Z',
         },
       ],
     },
