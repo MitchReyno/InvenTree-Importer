@@ -58,21 +58,25 @@ export function ReviewMap({
 
   if (loading) {
     return (
-      <>
-        <Muted role="status">Reading evidence…</Muted>
-        {aside}
-      </>
+      <MapShell
+        canvas={canvas}
+        aside={aside}
+        notice={<Muted role="status">Reading evidence…</Muted>}
+      />
     )
   }
   if (!evidence) {
     return (
-      <>
-        <Banner tone="bad">
-          Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still in
-          Lots.
-        </Banner>
-        {aside}
-      </>
+      <MapShell
+        canvas={canvas}
+        aside={aside}
+        notice={
+          <Banner tone="bad">
+            Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still
+            in Lots.
+          </Banner>
+        }
+      />
     )
   }
 
@@ -112,242 +116,286 @@ export function ReviewMap({
   )
 
   return (
-    <Diagram>
-      <TitleRow>
-        <DiagramTitle>How photos became lots</DiagramTitle>
-        {unusedCount > 0 && (
-          <Pill status="warning">
-            {unusedCount} {unusedCount === 1 ? 'file' : 'files'} in no lot
-          </Pill>
-        )}
-        {singleObservation > 0 && (
-          <Pill status="warning">
-            {singleObservation} {singleObservation === 1 ? 'lot' : 'lots'} on a single observation
-          </Pill>
-        )}
-        {singleFile > 0 && (
-          <Pill status="warning">
-            {singleFile} {singleFile === 1 ? 'lot' : 'lots'} on a single file
-          </Pill>
-        )}
-      </TitleRow>
-      <Scroller>
-        <Layout ref={canvas}>
-          <Column aria-labelledby="map-evidence">
-            <Title id="map-evidence">Evidence</Title>
-            <Rows>
-              {map.files.map((file, index) => (
-                <li
-                  key={file.id}
-                  aria-label={file.label}
-                  data-selected={selectedFile === file.id || undefined}
-                  data-unused={file.unused || undefined}
-                >
-                  <Head data-file-anchor={file.id}>
-                    <FileToggle
-                      type="button"
-                      aria-pressed={selectedFile === file.id}
-                      aria-label={`Show links for ${file.label}`}
-                      onClick={() => setSelectedFile(selectedFile === file.id ? null : file.id)}
-                    >
-                      <Number>{index + 1}</Number>
-                      <strong>{file.label}</strong>
-                    </FileToggle>
-                    {file.unused && (
-                      <Pill tone="warn">
-                        {lineagePending && fromRetired.has(file.id)
-                          ? 'No lot yet · checking history'
-                          : 'Used by no lot'}
-                      </Pill>
-                    )}
-                  </Head>
-                  {file.links.length > 0 && (
-                    <Links>
-                      Supports:
-                      {file.links.map(({ lotId, via }) => (
-                        <Chip key={lotId}>
-                          {lotLabel.get(lotId)}
-                          {via !== 'direct' ? (
-                            <Muted>
-                              {via === 'part' ? ' via shared Part' : ' via earlier lot'}
-                            </Muted>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={disabled}
-                              aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
-                              onClick={() => void link(file.id, lotId, false)}
-                            >
-                              ×
-                            </button>
-                          )}
-                        </Chip>
-                      ))}
-                    </Links>
+    <MapShell
+      canvas={canvas}
+      aside={aside}
+      ready
+      title={
+        <>
+          <TitleRow>
+            <DiagramTitle>How photos became lots</DiagramTitle>
+            {unusedCount > 0 && (
+              <Pill status="warning">
+                {unusedCount} {unusedCount === 1 ? 'file' : 'files'} in no lot
+              </Pill>
+            )}
+            {singleObservation > 0 && (
+              <Pill status="warning">
+                {singleObservation} {singleObservation === 1 ? 'lot' : 'lots'} on a single
+                observation
+              </Pill>
+            )}
+            {singleFile > 0 && (
+              <Pill status="warning">
+                {singleFile} {singleFile === 1 ? 'lot' : 'lots'} on a single file
+              </Pill>
+            )}
+          </TitleRow>
+        </>
+      }
+      evidence={
+        <Column aria-labelledby="map-evidence">
+          <Title id="map-evidence">Evidence</Title>
+          <Rows>
+            {map.files.map((file, index) => (
+              <li
+                key={file.id}
+                aria-label={file.label}
+                data-selected={selectedFile === file.id || undefined}
+                data-unused={file.unused || undefined}
+              >
+                <Head data-file-anchor={file.id}>
+                  <FileToggle
+                    type="button"
+                    aria-pressed={selectedFile === file.id}
+                    aria-label={`Show links for ${file.label}`}
+                    onClick={() => setSelectedFile(selectedFile === file.id ? null : file.id)}
+                  >
+                    <Number>{index + 1}</Number>
+                    <strong>{file.label}</strong>
+                  </FileToggle>
+                  {file.unused && (
+                    <Pill tone="warn">
+                      {lineagePending && fromRetired.has(file.id)
+                        ? 'No lot yet · checking history'
+                        : 'Used by no lot'}
+                    </Pill>
                   )}
-                  {file.regions.length > 0 && (
-                    <Regions aria-label={`Regions of ${file.label}`}>
-                      {file.regions.map((region) => (
-                        <li key={region.id}>
-                          {region.label} <span aria-hidden="true">→</span>
-                          {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
-                          {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
-                        </li>
-                      ))}
-                    </Regions>
-                  )}
-                  <Controls>
-                    <LinkSelect
-                      aria-label={`Link ${file.label} to a lot`}
-                      value={targetFor(file)}
-                      disabled={disabled}
-                      onChange={(event) =>
-                        setTargets({ ...targets, [file.id]: event.target.value })
-                      }
-                    >
-                      <option value="">Link to a lot…</option>
-                      {linkOptions(file).map((lot) => (
-                        <option key={lot.id} value={lot.id}>
-                          {lot.label}
-                        </option>
-                      ))}
-                    </LinkSelect>
+                </Head>
+                {file.links.length > 0 && (
+                  <Links>
+                    Supports:
+                    {file.links.map(({ lotId, via }) => (
+                      <Chip key={lotId}>
+                        {lotLabel.get(lotId)}
+                        {via !== 'direct' ? (
+                          <Muted>{via === 'part' ? ' via shared Part' : ' via earlier lot'}</Muted>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
+                            onClick={() => void link(file.id, lotId, false)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </Chip>
+                    ))}
+                  </Links>
+                )}
+                {file.regions.length > 0 && (
+                  <Regions aria-label={`Regions of ${file.label}`}>
+                    {file.regions.map((region) => (
+                      <li key={region.id}>
+                        {region.label} <span aria-hidden="true">→</span>
+                        {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
+                        {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                      </li>
+                    ))}
+                  </Regions>
+                )}
+                <Controls>
+                  <LinkSelect
+                    aria-label={`Link ${file.label} to a lot`}
+                    value={targetFor(file)}
+                    disabled={disabled}
+                    onChange={(event) => setTargets({ ...targets, [file.id]: event.target.value })}
+                  >
+                    <option value="">Link to a lot…</option>
+                    {linkOptions(file).map((lot) => (
+                      <option key={lot.id} value={lot.id}>
+                        {lot.label}
+                      </option>
+                    ))}
+                  </LinkSelect>
+                  <Button
+                    size="sm"
+                    disabled={disabled || !targetFor(file)}
+                    onClick={() => void link(file.id, targetFor(file), true)}
+                  >
+                    Link
+                  </Button>
+                  {file.unused && (
                     <Button
                       size="sm"
-                      disabled={disabled || !targetFor(file)}
-                      onClick={() => void link(file.id, targetFor(file), true)}
+                      variant="ghost"
+                      disabled={disabled || (lineagePending && fromRetired.has(file.id))}
+                      aria-label={`New lot from this: ${file.label}`}
+                      onClick={() => void newLotFrom(file.id, file.label)}
                     >
-                      Link
+                      New lot from this
                     </Button>
-                    {file.unused && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={disabled || (lineagePending && fromRetired.has(file.id))}
-                        aria-label={`New lot from this: ${file.label}`}
-                        onClick={() => void newLotFrom(file.id, file.label)}
-                      >
-                        New lot from this
-                      </Button>
-                    )}
+                  )}
+                </Controls>
+              </li>
+            ))}
+          </Rows>
+        </Column>
+      }
+      lots={
+        <>
+          <Rows>
+            {map.lots.map((lot) => (
+              <li
+                key={lot.id}
+                aria-label={lot.label}
+                data-selected={
+                  (selectedFile !== null &&
+                    map.files.find((file) => file.id === selectedFile)?.lotIds.includes(lot.id)) ||
+                  undefined
+                }
+              >
+                <Head data-lot-anchor={lot.id}>
+                  {openRestructure && (
+                    <CheckHit>
+                      <input
+                        type="checkbox"
+                        aria-label={`Choose ${lot.label} to merge or move`}
+                        checked={chosen.includes(lot.id)}
+                        disabled={restructureLocked || approvedLotIds.has(lot.id)}
+                        onChange={() =>
+                          setMerging(
+                            merging.includes(lot.id)
+                              ? merging.filter((id) => id !== lot.id)
+                              : [...merging, lot.id],
+                          )
+                        }
+                      />
+                    </CheckHit>
+                  )}
+                  <strong>{lot.label}</strong>
+                  {lot.observations > 0 && <Muted>· {lot.observations} obs.</Muted>}
+                  {lot.singleSource &&
+                    (lot.observations > 0 ? (
+                      <Pill status="warning">1 obs.</Pill>
+                    ) : (
+                      <Pill status="warning">Rests on one file</Pill>
+                    ))}
+                  {lot.fileIds.length === 0 && (
+                    <Pill tone="warn">
+                      {lineagePending ? 'No evidence yet · checking history' : 'No evidence'}
+                    </Pill>
+                  )}
+                </Head>
+                {lot.fileIds.length > 0 && (
+                  <Muted>From: {lot.fileIds.map((id) => fileLabel.get(id)).join(', ')}</Muted>
+                )}
+                {openRestructure && (
+                  <Controls>
+                    <Button
+                      size="sm"
+                      disabled={restructureLocked || approvedLotIds.has(lot.id)}
+                      aria-label={`Split ${lot.label}`}
+                      onClick={() => openRestructure('split', [lot.id])}
+                    >
+                      Split
+                    </Button>
                   </Controls>
-                </li>
-              ))}
-            </Rows>
-          </Column>
+                )}
+              </li>
+            ))}
+          </Rows>
+          {openRestructure && restructureUnavailable && (
+            <Muted role="status">
+              Split, merge and move, and evidence inherited through them, wait for the latest review
+              to load.
+            </Muted>
+          )}
+          {openRestructure && (
+            <Fix role="group" aria-labelledby="map-fix">
+              <FixTitle id="map-fix">Fix lots directly</FixTitle>
+              <Button
+                size="sm"
+                disabled={restructureLocked || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
+                onClick={() => openRestructure('merge', chosen)}
+              >
+                Merge {chosen.length} lots
+              </Button>
+              <Button
+                size="sm"
+                disabled={restructureLocked || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
+                onClick={() => openRestructure('move', chosen)}
+              >
+                Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal
+              </Button>
+            </Fix>
+          )}
+        </>
+      }
+      drawing={
+        <Drawing aria-hidden="true">
+          {edges.map((edge) => (
+            <Connector
+              key={`${edge.fileId}:${edge.lotId}`}
+              edge={edge}
+              d={paths[`${edge.fileId}:${edge.lotId}`]}
+              selected={edge.fileId === selectedFile}
+            />
+          ))}
+        </Drawing>
+      }
+      caption={
+        <Muted>
+          Solid: the file shows the lot. Dotted: a document line, the lot&apos;s shared Part or an
+          earlier lot supports it. Choose a file to highlight its links.
+        </Muted>
+      }
+    />
+  )
+}
 
+/**
+ * The Map's frame in every state. Tell Examine (`aside`) keeps one place at the foot of the Lots
+ * column, so loading finishing never remounts it mid-send.
+ */
+function MapShell({
+  canvas,
+  aside,
+  ready = false,
+  notice,
+  title,
+  evidence,
+  lots,
+  drawing,
+  caption,
+}: {
+  canvas: React.RefObject<HTMLDivElement | null>
+  aside: ReactNode
+  ready?: boolean
+  notice?: ReactNode
+  title?: ReactNode
+  evidence?: ReactNode
+  lots?: ReactNode
+  drawing?: ReactNode
+  caption?: ReactNode
+}) {
+  return (
+    <Diagram>
+      {notice}
+      {title}
+      <Scroller>
+        <Layout ref={canvas} data-ready={ready || undefined}>
+          {evidence}
           <Column aria-labelledby="map-lots">
             <Title id="map-lots">Lots</Title>
-            <Rows>
-              {map.lots.map((lot) => (
-                <li
-                  key={lot.id}
-                  aria-label={lot.label}
-                  data-selected={
-                    (selectedFile !== null &&
-                      map.files
-                        .find((file) => file.id === selectedFile)
-                        ?.lotIds.includes(lot.id)) ||
-                    undefined
-                  }
-                >
-                  <Head data-lot-anchor={lot.id}>
-                    {openRestructure && (
-                      <CheckHit>
-                        <input
-                          type="checkbox"
-                          aria-label={`Choose ${lot.label} to merge or move`}
-                          checked={chosen.includes(lot.id)}
-                          disabled={restructureLocked || approvedLotIds.has(lot.id)}
-                          onChange={() =>
-                            setMerging(
-                              merging.includes(lot.id)
-                                ? merging.filter((id) => id !== lot.id)
-                                : [...merging, lot.id],
-                            )
-                          }
-                        />
-                      </CheckHit>
-                    )}
-                    <strong>{lot.label}</strong>
-                    {lot.observations > 0 && <Muted>· {lot.observations} obs.</Muted>}
-                    {lot.singleSource &&
-                      (lot.observations > 0 ? (
-                        <Pill status="warning">1 obs.</Pill>
-                      ) : (
-                        <Pill status="warning">Rests on one file</Pill>
-                      ))}
-                    {lot.fileIds.length === 0 && (
-                      <Pill tone="warn">
-                        {lineagePending ? 'No evidence yet · checking history' : 'No evidence'}
-                      </Pill>
-                    )}
-                  </Head>
-                  {lot.fileIds.length > 0 && (
-                    <Muted>From: {lot.fileIds.map((id) => fileLabel.get(id)).join(', ')}</Muted>
-                  )}
-                  {openRestructure && (
-                    <Controls>
-                      <Button
-                        size="sm"
-                        disabled={restructureLocked || approvedLotIds.has(lot.id)}
-                        aria-label={`Split ${lot.label}`}
-                        onClick={() => openRestructure('split', [lot.id])}
-                      >
-                        Split
-                      </Button>
-                    </Controls>
-                  )}
-                </li>
-              ))}
-            </Rows>
-            {openRestructure && restructureUnavailable && (
-              <Muted role="status">
-                Split, merge and move, and evidence inherited through them, wait for the latest
-                review to load.
-              </Muted>
-            )}
-            {openRestructure && (
-              <Fix role="group" aria-labelledby="map-fix">
-                <FixTitle id="map-fix">Fix lots directly</FixTitle>
-                <Button
-                  size="sm"
-                  disabled={
-                    restructureLocked || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS
-                  }
-                  onClick={() => openRestructure('merge', chosen)}
-                >
-                  Merge {chosen.length} lots
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={
-                    restructureLocked || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS
-                  }
-                  onClick={() => openRestructure('move', chosen)}
-                >
-                  Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal
-                </Button>
-              </Fix>
-            )}
+            {lots}
             {aside}
           </Column>
-          <Drawing aria-hidden="true">
-            {edges.map((edge) => (
-              <Connector
-                key={`${edge.fileId}:${edge.lotId}`}
-                edge={edge}
-                d={paths[`${edge.fileId}:${edge.lotId}`]}
-                selected={edge.fileId === selectedFile}
-              />
-            ))}
-          </Drawing>
+          {drawing}
         </Layout>
       </Scroller>
-      <Muted>
-        Solid: the file shows the lot. Dotted: a document line, the lot&apos;s shared Part or an
-        earlier lot supports it. Choose a file to highlight its links.
-      </Muted>
+      {caption}
     </Diagram>
   )
 }
@@ -443,11 +491,13 @@ const Scroller = styled.div`
 const Layout = styled.div`
   position: relative;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) ${CONNECTOR_GUTTER} minmax(260px, 1fr);
   align-items: start;
-  /* literal-allowed: two 260px columns and the connector gutter */
-  min-width: 660px;
-  > section:last-of-type {
+  &[data-ready] {
+    grid-template-columns: minmax(260px, 1fr) ${CONNECTOR_GUTTER} minmax(260px, 1fr);
+    /* literal-allowed: two 260px columns and the connector gutter */
+    min-width: 660px;
+  }
+  &[data-ready] > section:last-of-type {
     grid-column: 3;
   }
 `
