@@ -5760,6 +5760,11 @@ export interface components {
                 why: string;
                 reason: string | null;
             }[];
+            mapped?: {
+                model: "part" | "company" | "category" | "parameter_template" | "location";
+                /** Format: int64 */
+                pk: string;
+            };
         };
         BatchRecords: {
             batch_id: string;
@@ -5853,7 +5858,33 @@ export interface components {
                     why: string;
                     reason: string | null;
                 }[];
+                mapped?: {
+                    model: "part" | "company" | "category" | "parameter_template" | "location";
+                    /** Format: int64 */
+                    pk: string;
+                };
             }[];
+        };
+        RecordMapped: {
+            model: "part" | "company" | "category" | "parameter_template" | "location";
+            /** Format: int64 */
+            pk: string;
+        };
+        RecordExistingValues: {
+            target_context_id: string;
+            records: ({
+                key: string;
+                /** @constant */
+                status: "found";
+                fields: {
+                    name: string;
+                    value: string | null;
+                }[];
+            } | {
+                key: string;
+                status: "not_found" | "unavailable";
+            })[];
+            truncated: boolean;
         };
         CatalogueModel: "location" | "supplier";
         CatalogueQuery: {
@@ -16594,6 +16625,8 @@ export type RecordOrigin = components['schemas']['RecordOrigin']
 export type RecordField = components['schemas']['RecordField']
 export type BatchRecord = components['schemas']['BatchRecord']
 export type BatchRecords = components['schemas']['BatchRecords']
+export type RecordMapped = components['schemas']['RecordMapped']
+export type RecordExistingValues = components['schemas']['RecordExistingValues']
 export type CatalogueModel = components['schemas']['CatalogueModel']
 export type CatalogueQuery = components['schemas']['CatalogueQuery']
 export type CatalogueLocation = components['schemas']['CatalogueLocation']

@@ -15230,6 +15230,45 @@
                 }
               }
             }
+          },
+          "mapped": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "model",
+              "pk"
+            ],
+            "properties": {
+              "model": {
+                "anyOf": [
+                  {
+                    "const": "part",
+                    "type": "string"
+                  },
+                  {
+                    "const": "company",
+                    "type": "string"
+                  },
+                  {
+                    "const": "category",
+                    "type": "string"
+                  },
+                  {
+                    "const": "parameter_template",
+                    "type": "string"
+                  },
+                  {
+                    "const": "location",
+                    "type": "string"
+                  }
+                ]
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              }
+            }
           }
         }
       },
@@ -15920,9 +15959,190 @@
                       }
                     }
                   }
+                },
+                "mapped": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "model",
+                    "pk"
+                  ],
+                  "properties": {
+                    "model": {
+                      "anyOf": [
+                        {
+                          "const": "part",
+                          "type": "string"
+                        },
+                        {
+                          "const": "company",
+                          "type": "string"
+                        },
+                        {
+                          "const": "category",
+                          "type": "string"
+                        },
+                        {
+                          "const": "parameter_template",
+                          "type": "string"
+                        },
+                        {
+                          "const": "location",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
+          }
+        }
+      },
+      "RecordMapped": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "pk"
+        ],
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "const": "part",
+                "type": "string"
+              },
+              {
+                "const": "company",
+                "type": "string"
+              },
+              {
+                "const": "category",
+                "type": "string"
+              },
+              {
+                "const": "parameter_template",
+                "type": "string"
+              },
+              {
+                "const": "location",
+                "type": "string"
+              }
+            ]
+          },
+          "pk": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          }
+        }
+      },
+      "RecordExistingValues": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target_context_id",
+          "records",
+          "truncated"
+        ],
+        "properties": {
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "records": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "status",
+                    "fields"
+                  ],
+                  "properties": {
+                    "key": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "status": {
+                      "const": "found",
+                      "type": "string"
+                    },
+                    "fields": {
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "properties": {
+                          "name": {
+                            "minLength": 1,
+                            "maxLength": 64,
+                            "type": "string"
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "maxLength": 512,
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "status"
+                  ],
+                  "properties": {
+                    "key": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "const": "not_found",
+                          "type": "string"
+                        },
+                        {
+                          "const": "unavailable",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

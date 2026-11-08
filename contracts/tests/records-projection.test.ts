@@ -1077,3 +1077,46 @@ test('a field credited to a proposal says what kind of source it came from and h
     ],
   )
 })
+
+test('a record that already exists in the target names the record it maps to', () => {
+  const result = projectRecords({ capture, processing: undefined, lotGroups: null })
+  validate('BatchRecords', result)
+  const mapped = (key: string) => result.records.find((record) => record.key === key)?.mapped
+  assert.deepEqual(mapped('category:' + ref(901, 'category').pk), {
+    model: 'category',
+    pk: ref(901, 'category').pk,
+  })
+  assert.deepEqual(mapped(`part:${partD}`), { model: 'part', pk: ref(912, 'part').pk })
+  assert.deepEqual(mapped('location:' + ref(913, 'location').pk), {
+    model: 'location',
+    pk: ref(913, 'location').pk,
+  })
+  // A Part the batch creates is not in the target yet.
+  assert.equal(mapped(`part:${partA}`), undefined)
+})
+
+test('existing values come back per mapped record, or say why they could not be read', () => {
+  validate('RecordExistingValues', {
+    target_context_id: context,
+    records: [
+      {
+        key: `part:${partD}`,
+        status: 'found',
+        fields: [
+          { name: 'name', value: 'RES 1k 0603' },
+          { name: 'description', value: null },
+        ],
+      },
+      { key: 'company:manufacturer:909', status: 'not_found' },
+      { key: 'category:901', status: 'unavailable' },
+    ],
+    truncated: false,
+  })
+  assert.throws(() =>
+    validate('RecordExistingValues', {
+      target_context_id: context,
+      records: [{ key: 'x', status: 'found' }],
+      truncated: false,
+    }),
+  )
+})

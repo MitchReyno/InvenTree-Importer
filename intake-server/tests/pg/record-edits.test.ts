@@ -1,13 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import type {
-  BatchRecordsDto,
-  CaptureObservationDto,
-  CaptureSnapshotDto,
-  InventoryPartSpecDto,
-  OperatorReviewDto,
-  RecordChangeDto,
+import {
+  validate,
+  type BatchRecordsDto,
+  type CaptureObservationDto,
+  type CaptureSnapshotDto,
+  type InventoryPartSpecDto,
+  type OperatorReviewDto,
+  type RecordChangeDto,
+  type RecordExistingValuesDto,
 } from '@invimport/contracts'
 import { manualFixture } from '../support/manual.ts'
 
@@ -346,6 +348,35 @@ test('the records read lists the batch’s records, follows edits and writes not
       [...after.records.find((item) => item.key === 'company:supplier:602')!.part_ids].sort(),
       [partA, partB].sort(),
     )
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('the existing values read reads each mapped record from the target and stores nothing', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const { batchId } = await recordBatch(fixture)
+    const before = await selections(fixture, batchId)
+    const records = (await fixture.http(`/batches/${batchId}/records`)).value as BatchRecordsDto
+    const mapped = records.records.filter((item) => item.mapped)
+    assert.ok(mapped.some((item) => item.key === 'company:supplier:12'))
+
+    const read = await fixture.http(`/batches/${batchId}/records/existing`)
+    assert.equal(read.status, 200, JSON.stringify(read.value))
+    const existing = read.value as RecordExistingValuesDto
+    validate('RecordExistingValues', existing)
+    assert.deepEqual(
+      existing.records.map((item) => item.key),
+      mapped.slice(0, existing.records.length).map((item) => item.key),
+    )
+    const supplier = existing.records.find((item) => item.key === 'company:supplier:12')!
+    assert.equal(supplier.status, 'found')
+    assert.ok(
+      supplier.status === 'found' &&
+        supplier.fields.some((field) => field.name === 'name' && field.value),
+    )
+    assert.deepEqual(await selections(fixture, batchId), before)
   } finally {
     await fixture.dispose()
   }

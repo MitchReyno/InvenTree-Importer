@@ -377,6 +377,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       type: BatchRecordDto['type']
       label: string
       target: BatchRecordDto['target']
+      mapped: BatchRecordDto['mapped']
       parts: string[]
     }
   >()
@@ -387,8 +388,9 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     recordLabel: string,
     target: BatchRecordDto['target'],
     partId: string,
+    mapped?: BatchRecordDto['mapped'],
   ) => {
-    const current = shared.get(key) ?? { type, label: recordLabel, target, parts: [] }
+    const current = shared.get(key) ?? { type, label: recordLabel, target, mapped, parts: [] }
     if (!current.parts.includes(partId)) {
       current.parts.push(partId)
     }
@@ -402,6 +404,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       label(spec.category.observation_id, `Category ${spec.category.pk}`),
       null,
       id,
+      { model: 'category', pk: spec.category.pk },
     )
     for (const role of ['manufacturer', 'supplier'] as const) {
       const company = spec[role]?.company
@@ -412,6 +415,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           label(company.observation_id, `Company ${company.pk}`),
           { kind: 'company', role, pk: company.pk },
           id,
+          { model: 'company', pk: company.pk },
         )
       }
     }
@@ -422,6 +426,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         label(parameter.template.observation_id, `Template ${parameter.template.pk}`),
         { kind: 'parameter_template', pk: parameter.template.pk },
         id,
+        { model: 'parameter_template', pk: parameter.template.pk },
       )
     }
     for (const tag of spec.tags) {
@@ -437,6 +442,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       state: value.type === 'tag' ? 'update' : 'exists',
       target: value.target,
       part_ids: value.parts,
+      ...(value.mapped ? { mapped: value.mapped } : {}),
     })
   }
 
@@ -532,6 +538,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         state: 'exists',
         target: null,
         part_ids: [part.id],
+        mapped: { model: 'part', pk: part.choice.value.pk },
       })
     } else {
       // Unset, unknown or cleared: no Part is chosen yet.
@@ -666,6 +673,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       lots: string[]
       state: BatchRecordDto['state']
       decision: BatchRecordDto['decision']
+      mapped?: BatchRecordDto['mapped']
     }
   >()
 
@@ -718,6 +726,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           label: label(value.observation_id, `Location ${value.pk}`),
           state: 'exists',
           decision: null,
+          mapped: { model: 'location', pk: value.pk },
         },
         lot.id,
       )
@@ -761,6 +770,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       part_ids: [],
       lot_ids: value.lots,
       decision: value.decision,
+      ...(value.mapped ? { mapped: value.mapped } : {}),
     })
   }
 

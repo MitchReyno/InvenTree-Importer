@@ -4,6 +4,7 @@ import { registerAttention } from '../../src/attention/routes.ts'
 import { attentionReader } from '../../src/attention/reader.ts'
 import { registerRecords } from '../../src/records/routes.ts'
 import { recordsReader } from '../../src/records/reader.ts'
+import { existingValuesReader } from '../../src/records/existing.ts'
 import { grantProcessing } from '../../src/processing/grants.ts'
 import { lockCaptureForEdit } from '../../src/capture/repository.ts'
 import {
@@ -216,7 +217,16 @@ export async function manualFixture(
       lockCaptureForEdit,
       Boolean(store),
     )
-    registerRecords(app, config, readRecords)
+    registerRecords(
+      app,
+      config,
+      readRecords,
+      existingValuesReader({
+        targetContextId: identity.context,
+        read: (operation) =>
+          transport.read({ targetId: identity.target, contextId: identity.context }, operation),
+      }),
+    )
     if (options.processing) {
       registerProcessing(app, api.pool, config as never, lockCaptureForEdit)
       registerAttention(
