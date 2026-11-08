@@ -826,3 +826,38 @@ test('an excluded lot carries its reason, cannot be reviewed into a preparation,
     await fixture.dispose()
   }
 })
+
+test('excluding refuses a lot whose original contribution is approved', async () => {
+  const fixture = await manualFixture()
+  try {
+    const seeded = await fixture.seedCapture()
+    const batchId = seeded.batch.id
+    assert.equal((await review(fixture, batchId, [seeded.a.id])).status, 200)
+    const prepared = await fixture.http(`/batches/${batchId}/preparations`, {
+      expected_batch_revision: (await capture(fixture, batchId)).revision,
+      selected_lot_ids: [seeded.a.id],
+    })
+    const preview = prepared.value.preparation as ManualPreviewDto
+    const approved = await fixture.http(`/preparations/${preview.id}/approvals`, {
+      preparation_id: preview.id,
+      expected_plan_sha256: preview.plan_sha256,
+      expected_review_fingerprint: preview.review_fingerprint,
+      selected_lot_ids: preview.selected_lot_ids,
+      expected_target_revision: preview.target_revision,
+    })
+    assert.equal(approved.status, 200, JSON.stringify(approved.value))
+
+    const before = await capture(fixture, batchId)
+    const refused = await fixture.http(`/batches/${batchId}/edits`, {
+      expected_revision: before.revision,
+      change: { kind: 'lot_exclusion', lot_id: seeded.a.id, reason: 'Changed my mind' },
+    })
+    assert.equal(refused.status, 409, JSON.stringify(refused.value))
+    assert.equal(refused.value.code, 'lot_already_approved')
+    const after = await capture(fixture, batchId)
+    assert.equal(after.revision, before.revision)
+    assert.equal(after.lots.find((lot) => lot.id === seeded.a.id)?.excluded, undefined)
+  } finally {
+    await fixture.dispose()
+  }
+})

@@ -2,7 +2,7 @@
 ALTER TABLE capture_lot
   ADD COLUMN excluded_reason text
     CHECK (char_length(excluded_reason) BETWEEN 1 AND 500 AND excluded_reason !~ '[\r\n]'),
-  ADD COLUMN excluded_at timestamptz(3),
+  ADD COLUMN excluded_at timestamptz,
   ADD CONSTRAINT capture_lot_exclusion_pair CHECK ((excluded_reason IS NULL) = (excluded_at IS NULL));
 
 -- The exclusion is draft state, like the re-examination mark.

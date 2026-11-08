@@ -674,6 +674,34 @@ async function applyLockedCaptureEdit(
       break
     case 'lot_exclusion':
       subject(change.lot_id, 'lot')
+      // An approval may already be importing the lot, so it can no longer be excluded.
+      if (change.reason !== null) {
+        const [lot] = await executeDatabaseQuery(
+          queryDatabase(c)
+            .select({ key: captureLots.contributionKey })
+            .from(captureLots)
+            .where(eq(captureLots.id, change.lot_id)),
+        )
+        // A deployment that cannot read the executor's history has no executor, so no approvals.
+        const privilege = await executeDatabaseQuery(
+          queryDatabase(c).execute<{ executor: boolean }>(
+            sql`SELECT has_table_privilege('executor_run', 'SELECT') AS executor`,
+          ),
+        )
+        const executor = privilege.rows[0]?.executor === true
+        if (executor) {
+          // Loaded on use: execution depends on capture, so capture must not import it eagerly.
+          const { stockSourceHistory } = await import('../execution/source.ts')
+          const history = await stockSourceHistory(
+            c,
+            { targetId: b.target_id, sourceId: b.source_id, originalSourceKey: b.source_id },
+            [lot.key],
+          )
+          if (history.contributions.length) {
+            fail('lot_already_approved', 409)
+          }
+        }
+      }
       await executeDatabaseQuery(
         queryDatabase(c)
           .update(captureLots)

@@ -188,6 +188,28 @@ describe('excluding a lot', () => {
     expect(screen.getByRole('button', { name: 'Exclude…' })).toBeEnabled()
   })
 
+  it('offers no Exclude for a lot an approval already includes', () => {
+    const batch = batchWith()
+    render(
+      <DecisionPanel
+        batch={batch}
+        lot={batch.lots[0]}
+        part={undefined}
+        workspace={{ lots: [], preparations: [], runs: [] } as never}
+        operatorLot={{ ...(operatorLot() as object), approved: true } as never}
+        activeLotIds={['l']}
+        disabled={false}
+        edit={async () => true}
+        reload={async () => {}}
+        inspect={() => {}}
+        markReviewed={() => {}}
+      />,
+    )
+    const footer = screen.getByRole('region', { name: 'Lot actions' })
+    expect(within(footer).getByRole('button', { name: 'Exclude…' })).toBeDisabled()
+    expect(within(footer).getByText('Already added')).toBeVisible()
+  })
+
   it('says why an excluded lot is out, and includes it again', async () => {
     const user = userEvent.setup()
     const changes: unknown[] = []
