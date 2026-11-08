@@ -25,6 +25,7 @@ import { Pill } from '../../ui/Pill'
 import { Small, Summary } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
+import { ParameterMatrix } from './ParameterMatrix'
 import { RecordStatePill } from '../../ui/RecordStatePill'
 import { FilterChips } from '../../ui/FilterChips'
 import { VisuallyHidden } from '../../ui/VisuallyHidden'
@@ -297,6 +298,13 @@ export function RecordsStage({
                   Save or discard this record’s changes before opening another.
                 </Banner>
               </div>
+            )}
+            {type === 'parameter' && (
+              <ParameterMatrix
+                batch={batch}
+                records={records.records}
+                open={(nextType, key) => choose(nextType, key)}
+              />
             )}
             {selected && (
               <RecordNav aria-label="Record">

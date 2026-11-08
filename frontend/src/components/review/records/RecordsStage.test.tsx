@@ -298,6 +298,15 @@ describe('RecordsStage', () => {
     expect(screen.getByRole('button', { name: /^Previous record/ })).toBeEnabled()
   })
 
+  it('shows Parameters as a Part by template matrix per category, with its legend', async () => {
+    const user = userEvent.setup()
+    stage()
+    await user.click(await screen.findByRole('button', { name: /^Parameters/ }))
+    const matrix = screen.getByRole('region', { name: 'Parameters by category' })
+    expect(within(matrix).getAllByRole('table').length).toBeGreaterThan(0)
+    expect(matrix).toHaveTextContent(/missing/)
+  })
+
   it('maps a shared company to another in the same role, stating every Part it reaches', async () => {
     const user = userEvent.setup()
     const { edit } = stage()
