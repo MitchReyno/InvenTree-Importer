@@ -174,6 +174,23 @@ describe('ReadyToAdd', () => {
     expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
   })
 
+  it('groups left-out lots by reason, with a count and a link to review them', () => {
+    const { props, rerender } = setup({ shown: null })
+    const unreviewed = {
+      ...props.workspace,
+      lots: props.workspace.lots.map((lot) =>
+        lot.lot_id === lots[0] ? lot : { ...lot, reviewed: false },
+      ),
+    } as ManualWorkspaceDto
+    rerender(<ReadyToAdd {...props} workspace={unreviewed} />)
+    const group = screen.getByText('Not reviewed').closest('li')!
+    expect(group).toHaveTextContent('2 lots')
+    expect(within(group).getByRole('link', { name: 'Review them' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('filter=needs_review'),
+    )
+  })
+
   it('a ticked lot that stops being ready drops out of the ticks', async () => {
     const user = userEvent.setup()
     const { prepareLots, props, rerender } = setup({ shown: null })
@@ -244,7 +261,9 @@ describe('ReadyToAdd', () => {
       />,
     )
     expect(screen.queryByRole('checkbox', { name: 'Packet B' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Packet B' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Review it' }).closest('li')).toHaveTextContent(
+      'Packet B',
+    )
     await user.click(screen.getByRole('button', { name: 'Show what will change' }))
     expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
   })

@@ -189,22 +189,20 @@ export function ReadyToAdd({
         {leftOut.length > 0 && (
           <>
             <SectionHeading as="h3">Left out</SectionHeading>
-            <ul>
-              {leftOut.map((lot) => (
-                <li key={lot.lotId}>
-                  <Link
-                    href={reviewHash(batch.id, {
-                      lotId: lot.lotId,
-                      view: 'evidence',
-                      filter: lot.filter,
-                    })}
-                  >
-                    {lotLabel(lot.lotId)}
-                  </Link>{' '}
-                  <Small>{lot.reason}</Small>
+            <LeftOut>
+              {groupByReason(leftOut).map(({ reason, filter, lotIds }) => (
+                <li key={reason}>
+                  <strong>{reason}</strong>
+                  <Small>
+                    {lotIds.length} {lotIds.length === 1 ? 'lot' : 'lots'}:{' '}
+                    {lotIds.map(lotLabel).join(', ')}
+                  </Small>
+                  <Link href={reviewHash(batch.id, { lotId: lotIds[0], view: 'evidence', filter })}>
+                    Review {lotIds.length === 1 ? 'it' : 'them'}
+                  </Link>
                 </li>
               ))}
-            </ul>
+            </LeftOut>
           </>
         )}
         {(workspace.preparations.length > 1 || (workspace.preparations.length > 0 && !current)) && (
@@ -335,6 +333,20 @@ export function ReadyToAdd({
   )
 }
 
+/** Left-out lots under each reason, in the order the reasons first appear. */
+function groupByReason(lots: ReturnType<typeof leftOutLots>) {
+  const groups = new Map<
+    string,
+    { reason: string; filter: (typeof lots)[number]['filter']; lotIds: string[] }
+  >()
+  for (const lot of lots) {
+    const group = groups.get(lot.reason) ?? { reason: lot.reason, filter: lot.filter, lotIds: [] }
+    group.lotIds.push(lot.lotId)
+    groups.set(lot.reason, group)
+  }
+  return [...groups.values()]
+}
+
 /** Lots beside what will change; one column below bp-stacked. */
 const Layout = styled.div`
   display: grid;
@@ -346,6 +358,19 @@ const Layout = styled.div`
   }
   ${media.stacked} {
     grid-template-columns: minmax(0, 1fr);
+  }
+`
+const LeftOut = styled.ul`
+  display: grid;
+  margin: ${space[3]} 0 0;
+  padding: 0;
+  list-style: none;
+  li {
+    display: grid;
+    justify-items: start;
+    gap: ${space[1]};
+    padding: ${space[4]} 0;
+    border-top: 1px solid ${color.line};
   }
 `
 const LotRows = styled.div`

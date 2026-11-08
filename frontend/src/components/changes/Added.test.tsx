@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type {
   CaptureSnapshotDto,
@@ -338,6 +339,28 @@ describe('Added', () => {
     expect(
       within(round).getByRole('link', { name: 'See in Review: Attach selected file to Part' }),
     ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
+  })
+
+  it('puts rounds needing attention first, filters to them, and keeps batch context aside', async () => {
+    const user = userEvent.setup()
+    setup([confirmed, uncertain])
+
+    const rounds = () =>
+      screen.getAllByRole('heading', { name: /^Round \d/ }).map((heading) => heading.textContent)
+
+    expect(rounds()[0]).toMatch(/^Round 2/)
+    await user.click(screen.getByRole('button', { name: 'Needs attention, 1' }))
+    expect(rounds()).toEqual([expect.stringMatching(/^Round 2/)])
+
+    const aside = screen.getByRole('complementary', { name: 'Batch outcome' })
+    expect(within(aside).getByRole('link', { name: /^Ready to add/ })).toHaveAttribute(
+      'href',
+      `#${batch.id}/changes/ready`,
+    )
+    const notIncluded = within(aside).getByRole('region', { name: 'Not included' })
+    expect(
+      within(notIncluded).getByRole('link', { name: 'Packet D' }).closest('li'),
+    ).toHaveTextContent(/^Packet D\s*\S/)
   })
 
   it('lists pending changes, lots not included and the activity log', () => {
