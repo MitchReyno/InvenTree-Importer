@@ -12,6 +12,7 @@ import type {
 } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
 import type { ProcessingClient } from '../../processing/types'
+import type { ProcessingAnswerDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import {
@@ -240,6 +241,17 @@ export function ManualWorkspace({
     })
   }
 
+  /** Answers a lot's open question; Processing and the review are read again once accepted. */
+  async function answerQuestion(questionId: string, input: ProcessingAnswerDto, key: string) {
+    await processing!.answer(batch.id, questionId, input, key)
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'processing', batch.id) }),
+      queryClient.invalidateQueries({
+        queryKey: serverQueryKey(scope, 'operator-review', batch.id),
+      }),
+    ])
+  }
+
   function review() {
     reviewLots(selected)
   }
@@ -341,6 +353,7 @@ export function ManualWorkspace({
         toggle={toggle}
         review={review}
         reviewLots={reviewLots}
+        answerQuestion={processing ? answerQuestion : undefined}
         prepare={prepare}
         edit={edit}
         reload={reload}

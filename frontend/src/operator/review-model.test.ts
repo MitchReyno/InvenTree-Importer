@@ -62,7 +62,7 @@ describe('the Needs answer filter', () => {
     const questions = openQuestionsByLot(processing, batch)
 
     expect([...questions.keys()]).toEqual(['a', 'c', 'd'])
-    expect(questions.get('c')).toEqual({ id: 'q-part', step: 'examine' })
+    expect(questions.get('c')).toMatchObject({ id: 'q-part', step: 'examine' })
     expect(matchesFilter(lot('a'), 'needs_answer', questions)).toBe(true)
     expect(matchesFilter(lot('b'), 'needs_answer', questions)).toBe(false)
   })

@@ -89,7 +89,13 @@ export type LotIds = Pick<ReadonlySet<string>, 'has'>
 
 const NO_QUESTIONS: LotIds = new Set()
 
-export type OpenQuestion = { id: string; step: ProcessingStep }
+export type OpenQuestion = {
+  id: string
+  step: ProcessingStep
+  /** The question itself and the capture revision it was read at, for answering in place. */
+  question: ProcessingSnapshotDto['jobs'][number]['questions'][number]
+  captureRevision: string
+}
 
 /**
  * Each active lot's first open Processing question: its own, else its Part's, since a job can be
@@ -104,7 +110,12 @@ export function openQuestionsByLot(
     for (const question of job.questions) {
       const subject = question.spec.subject_id
       if (question.state === 'open' && subject && !bySubject.has(subject)) {
-        bySubject.set(subject, { id: question.id, step: processingStepFor(job.stage) })
+        bySubject.set(subject, {
+          id: question.id,
+          step: processingStepFor(job.stage),
+          question,
+          captureRevision: processing!.capture_revision,
+        })
       }
     }
   }

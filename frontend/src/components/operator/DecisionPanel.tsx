@@ -8,14 +8,21 @@ import type {
   ManualWorkspaceDto,
   MediaSnapshotDto,
   OperatorLotDto,
+  ProcessingAnswerDto,
 } from '@invimport/contracts'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
-import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
+import {
+  lotLocationFact,
+  lotProvenance,
+  partProvenance,
+  type OpenQuestion,
+} from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Heading, Link, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Kbd } from '../ui/Kbd'
+import { QuestionAnswer } from '../processing/QuestionAnswer'
 import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
 import { KeyValue } from '../ui/KeyValue'
@@ -27,7 +34,7 @@ import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
-import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
+import { batchHref } from '../../navigation/batch-route'
 import { RecordChain, type RecordLink } from '../ui/RecordChain'
 import { AgentLine } from './AgentLine'
 import type { LotStatus } from '../../processing/source'
@@ -53,7 +60,9 @@ interface Props {
   reload: () => Promise<void>
   inspect: (lotId: string) => void
   /** The lot's open Processing question, which problems can offer to answer. */
-  openQuestion?: { id: string; step: ProcessingStep } | null
+  openQuestion?: OpenQuestion | null
+  /** Answers the open question in place, queued to the asking session. */
+  answerQuestion?: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
   /** Marks this one lot reviewed; refused while it has unresolved problems. */
   markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
@@ -165,6 +174,7 @@ export function DecisionPanel({
   inspect,
   markReviewed,
   openQuestion = null,
+  answerQuestion,
   editPart,
   subjectsDisabled = false,
   openEvidence,
@@ -175,6 +185,7 @@ export function DecisionPanel({
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [answering, setAnswering] = useState(false)
   const [restructure, setRestructure] = useState<RestructureKind | null>(null)
   const sharing = batch.lots.filter(
     (other) =>
@@ -205,6 +216,13 @@ export function DecisionPanel({
       {openQuestion && (
         <Paragraph>
           Processing has an open question about this lot.{' '}
+          {answerQuestion && !answering && (
+            <>
+              <Button size="sm" onClick={() => setAnswering(true)}>
+                Answer here
+              </Button>{' '}
+            </>
+          )}
           <Link
             href={batchHref(batch.id, {
               tab: 'processing',
@@ -215,6 +233,22 @@ export function DecisionPanel({
             Answer the open question
           </Link>
         </Paragraph>
+      )}
+      {openQuestion && answerQuestion && answering && (
+        <QuestionAnswer
+          key={openQuestion.id}
+          question={openQuestion.question}
+          captureRevision={openQuestion.captureRevision}
+          currentQuestion={openQuestion.question}
+          currentCaptureRevision={openQuestion.captureRevision}
+          disabled={disabled}
+          answer={async (questionId, input, key) => {
+            await answerQuestion(questionId, input, key)
+            drafts.forSource('answer')(false)
+            setAnswering(false)
+          }}
+          onDirtyChange={drafts.forSource('answer')}
+        />
       )}
       <KeyValue
         rows={[
