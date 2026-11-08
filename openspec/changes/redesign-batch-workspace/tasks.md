@@ -444,7 +444,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `pnpm test:intake:pg` and `pnpm test:intake:process` (for any server change, such as the re-examination mark) and the frontend checks; a browser check of each correction against the owned fixtures; screenshots and a demo video in the PR description. Departures from this plan go in the change's `notes.md`.
 
 - [ ] 21.1 On Examine, correct a photo's readings and regions ("Edit readings", "Adjust regions") through the capture edit `kind: 'observation'`, shown as "Your edit" and "Corrected by you"; mark the lots that used the reading for re-examination, adding that mark on the server if it has none; and send "Ask for a sharper photo" to the Examine lead session's chat.
-- [ ] 21.2 On the Map, show the selected photo's stage with its regions, and adjust a region by its corners or add one, through the same edit (R21).
+- [x] 21.2 On the Map, show the selected photo's stage with its regions, and adjust a region by its corners or add one, through the same edit (R21).
 - [x] 21.3 On the Map, move a region to another lot with `observation_move`, and create a lot from a region with `add_lot` and then the move (R22).
 - [x] 21.4 Answer a lot's open question in Review ("Answer here"), queued to the asking session, with the problem updating when the answer is accepted.
 - [x] 21.5 Open a session from Agents: a route parameter for the session opens its drawer on Processing (A6).

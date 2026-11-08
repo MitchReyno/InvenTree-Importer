@@ -217,6 +217,7 @@ export function ReviewMapStage({
           newLotFrom={newLotFrom}
           moveRegion={moveRegion}
           newLotFromRegion={newLotFromRegion}
+          editRegion={edit}
           openRestructure={
             operator ? (kind, lotIds) => setRestructure({ kind, lotIds }) : undefined
           }

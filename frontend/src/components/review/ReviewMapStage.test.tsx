@@ -210,7 +210,27 @@ describe('ReviewMapStage', () => {
         ({
           ...snapshot,
           evidence: snapshot.evidence.map((item) =>
-            item.id === 'f1' ? { ...item, versions: [{ id: 'v1', evidence_id: 'f1' }] } : item,
+            item.id === 'f1'
+              ? {
+                  ...item,
+                  versions: [
+                    {
+                      id: 'v1',
+                      evidence_id: 'f1',
+                      kind: 'original',
+                      state: 'ready',
+                      pages: [
+                        {
+                          page: 1,
+                          width: 900,
+                          height: 600,
+                          preview_id: 'd0000000-0000-4000-8000-000000000001',
+                        },
+                      ],
+                    },
+                  ],
+                }
+              : item,
           ),
         }) as unknown as MediaSnapshotDto,
     ),
@@ -271,6 +291,76 @@ describe('ReviewMapStage', () => {
         lot_id: 'n',
       }),
     )
+  })
+
+  it('adjusts a region on the selected photo through the observation edit', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    render(
+      <ReviewMapStage
+        batch={regioned}
+        media={versioned()}
+        edit={edit}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
+    const stage = screen.getByRole('region', { name: 'Regions of Front label' })
+    await user.click(within(stage).getByRole('button', { name: 'Adjust 1N4148' }))
+    const x = within(stage).getByLabelText('Left')
+    await user.clear(x)
+    await user.type(x, '3')
+    await user.click(within(stage).getByRole('button', { name: 'Save region' }))
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'observation',
+      observation_id: 'o1',
+      evidence_version_id: 'v1',
+      page: 1,
+      region: {
+        kind: 'pixels',
+        x: 3,
+        y: 0,
+        width: 1,
+        height: 1,
+        source_width: 9,
+        source_height: 9,
+      },
+    })
+  })
+
+  it('adds a region to the selected photo', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    render(
+      <ReviewMapStage
+        batch={regioned}
+        media={versioned()}
+        edit={edit}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
+    const stage = screen.getByRole('region', { name: 'Regions of Front label' })
+    await user.click(within(stage).getByRole('button', { name: 'Add a region' }))
+    await user.click(within(stage).getByRole('button', { name: 'Save region' }))
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'observation',
+      evidence_version_id: 'v1',
+      page: 1,
+      region: {
+        kind: 'pixels',
+        x: 225,
+        y: 150,
+        width: 450,
+        height: 300,
+        source_width: 900,
+        source_height: 600,
+      },
+    })
   })
 
   it('forgets a new lot that was not saved, so a later lot is never linked by mistake', async () => {

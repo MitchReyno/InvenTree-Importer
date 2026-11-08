@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
-import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import { RegionStage } from './RegionStage'
 import { reviewMap, type MapEdge } from '../../operator/review-map'
 import { color, radius, size, space, type, typeVar, zIndex } from '../../theme/generated/tokens'
 import { media } from '../ui/media'
@@ -23,6 +24,8 @@ type Props = {
   /** Moves a region's observation to another lot, or out of any (`observation_move`). */
   moveRegion?: (observationId: string, lotId: string | null) => Promise<void>
   newLotFromRegion?: (observationId: string, label: string) => Promise<void>
+  /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
+  editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
@@ -49,6 +52,7 @@ export function ReviewMap({
   newLotFrom,
   moveRegion,
   newLotFromRegion,
+  editRegion,
   openRestructure,
   approvedLotIds,
   restructureUnavailable = false,
@@ -146,6 +150,17 @@ export function ReviewMap({
               </Pill>
             )}
           </TitleRow>
+          {editRegion && selectedFile && evidence.find((file) => file.id === selectedFile) && (
+            <RegionStage
+              key={selectedFile}
+              batchId={batch.id}
+              evidence={evidence.find((file) => file.id === selectedFile)!}
+              label={fileLabel.get(selectedFile) ?? 'Selected file'}
+              observations={batch.evidence_observations ?? []}
+              disabled={disabled}
+              save={editRegion}
+            />
+          )}
         </>
       }
       evidence={
