@@ -12,6 +12,7 @@ import { ProcessingError } from '../processing/model.ts'
 import { readAgentSettings, saveAgentSettings } from './settings.ts'
 import { listAgentSessions } from './sessions.ts'
 import { setAllPause, setBatchPause } from './pause.ts'
+import { deliverInstructions } from './instructions.ts'
 
 export function registerAgents(app: FastifyInstance, pool: Pool, config: ProcessingConfig) {
   app.register(async (scope) => {
@@ -49,6 +50,16 @@ export function registerAgents(app: FastifyInstance, pool: Pool, config: Process
           throw new ProcessingError('not_found', 404)
         }
         return setBatchPause(pool, config, request.params.id, request.body.paused)
+      },
+    )
+    scope.post<{ Params: { id: string } }>(
+      '/api/v1/batches/:id/agents/instructions',
+      { schema: { response: { 200: schemas.InstructionDelivery } } },
+      (request) => {
+        if (!new RegExp(Id.pattern!).test(request.params.id)) {
+          throw new ProcessingError('not_found', 404)
+        }
+        return deliverInstructions(pool, config, request.params.id)
       },
     )
     scope.get<{ Params: { attemptId: string; failureId: string } }>(

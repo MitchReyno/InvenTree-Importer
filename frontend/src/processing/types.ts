@@ -53,4 +53,6 @@ export type AgentsRead = {
   settings: () => Promise<AgentSettingsDto>
   /** Pauses or resumes the batch's sessions; absent where this setup cannot. */
   pause?: (batchId: string, paused: boolean) => Promise<unknown>
+  /** Sends the batch's saved instructions to its sessions. */
+  deliverInstructions?: (batchId: string) => Promise<{ sessions: number; woken: number }>
 }

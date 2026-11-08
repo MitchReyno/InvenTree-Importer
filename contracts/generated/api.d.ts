@@ -1048,6 +1048,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/agents/instructions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description InstructionDelivery */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InstructionDelivery"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{id}/agents/pause": {
         parameters: {
             query?: never;
@@ -16041,6 +16134,10 @@ export interface components {
             paused: boolean;
             batch_ids: string[];
         };
+        InstructionDelivery: {
+            sessions: number;
+            woken: number;
+        };
         SessionReplacement: {
             /** Format: int64 */
             expected_capture_revision: string;
@@ -16175,6 +16272,17 @@ export interface components {
                 payload: {
                     evidence_id: string;
                     version_id: string;
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "instruction";
+                payload: {
+                    text: string;
+                    group_id: string | null;
                 };
             } | {
                 id: string;
@@ -17063,6 +17171,17 @@ export interface components {
                 seq: string;
                 created_at: string;
                 /** @constant */
+                kind: "instruction";
+                payload: {
+                    text: string;
+                    group_id: string | null;
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
                 kind: "revision";
                 payload: {
                     fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -17262,6 +17381,17 @@ export interface components {
             payload: {
                 evidence_id: string;
                 version_id: string;
+            };
+        } | {
+            id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "instruction";
+            payload: {
+                text: string;
+                group_id: string | null;
             };
         } | {
             id: string;
@@ -17669,6 +17799,7 @@ export type AgentSessionList = components['schemas']['AgentSessionList']
 export type AgentPauseUpdate = components['schemas']['AgentPauseUpdate']
 export type AgentPause = components['schemas']['AgentPause']
 export type AgentPauseAll = components['schemas']['AgentPauseAll']
+export type InstructionDelivery = components['schemas']['InstructionDelivery']
 export type SessionReplacement = components['schemas']['SessionReplacement']
 export type SessionLatestStatus = components['schemas']['SessionLatestStatus']
 export type SessionTimeline = components['schemas']['SessionTimeline']

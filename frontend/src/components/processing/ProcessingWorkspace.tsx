@@ -588,6 +588,11 @@ export function ProcessingWorkspace({
                   instruct={
                     batch.archived || !instructions?.instruct ? undefined : saveInstructions
                   }
+                  deliver={
+                    agents?.deliverInstructions && !batch.archived
+                      ? () => agents.deliverInstructions!(batch.id)
+                      : undefined
+                  }
                   locked={saving === 'answer'}
                   unavailable={instructions?.unavailable}
                   readOnlyReason={

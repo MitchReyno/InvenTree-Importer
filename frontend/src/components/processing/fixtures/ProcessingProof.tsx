@@ -328,6 +328,7 @@ export function ProcessingProof() {
                 settings: async () =>
                   ({ revision: '2', selection, session_concurrency: 3 }) as never,
                 pause: pauseClient.pause,
+                deliverInstructions: async () => ({ sessions: 2, woken: 1 }),
               }}
             />
           )}

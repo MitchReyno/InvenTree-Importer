@@ -11,6 +11,8 @@ type Props = {
   revision: string
   /** Absent where this setup cannot save instructions. */
   instruct: ((text: string, revision: string, key: string) => Promise<unknown>) | undefined
+  /** Sends the saved instructions to the batch's agents; absent where this setup has none. */
+  deliver?: () => Promise<{ sessions: number; woken: number } | unknown>
   onDirtyChange: (dirty: boolean) => void
   /** The saved instructions could not be read, so they are not assumed empty. */
   unavailable?: boolean
@@ -29,6 +31,7 @@ export function InstructionField({
   text,
   revision,
   instruct,
+  deliver,
   onDirtyChange,
   unavailable = false,
   readOnlyReason,
@@ -39,7 +42,33 @@ export function InstructionField({
   const [edited, setEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [delivery, setDelivery] = useState<'idle' | 'sending' | 'failed' | string>('idle')
   const loaded = text !== undefined
+
+  // The instruction is saved before this runs, so a failed send keeps it and offers a retry.
+  async function send() {
+    if (!deliver) {
+      return
+    }
+    setDelivery('sending')
+    try {
+      const sent = (await deliver()) as { sessions?: number; woken?: number } | undefined
+      const sessions = sent?.sessions ?? 0
+      const woken = sent?.woken ?? 0
+      setDelivery(
+        sessions === 0
+          ? 'No session is working on the batch yet; new ones start with it.'
+          : `Sent to ${sessions} ${sessions === 1 ? 'session' : 'sessions'}${
+              woken
+                ? `; ${woken} finished ${woken === 1 ? 'one is' : 'ones are'} woken to apply it.`
+                : '.'
+            }`,
+      )
+    } catch {
+      setDelivery('failed')
+    }
+  }
+
   const dirty = loaded && edited && draft !== text
 
   // Saved instructions can arrive after mount; take them unless the operator is editing.
@@ -66,6 +95,7 @@ export function InstructionField({
       await instruct(draft, revision, crypto.randomUUID())
       setEdited(false)
       onDirtyChange(false)
+      void send()
     } catch (caught) {
       setError(
         caught instanceof IntakeRequestError && caught.code === 'revision_conflict'
@@ -92,6 +122,17 @@ export function InstructionField({
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
+      {delivery === 'failed' && (
+        <Problem role="alert">
+          Saved, but the agents could not be told yet.{' '}
+          <Button size="sm" variant="link" onClick={() => void send()}>
+            Send to the agents again
+          </Button>
+        </Problem>
+      )}
+      {delivery !== 'idle' && delivery !== 'failed' && delivery !== 'sending' && (
+        <Small role="status">{delivery}</Small>
+      )}
       {!loaded && unavailable && (
         <Problem role="alert">
           The saved instructions are unavailable, so they cannot be changed here right now.
@@ -117,8 +158,8 @@ export function InstructionField({
         <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}
       <Small>
-        Saved for the batch. Running agents are not told of a change yet. Instructions do not
-        approve inventory values.
+        Saved for the batch and sent to its agents: running ones pick it up as they work, and
+        finished ones are woken to apply it. Instructions do not approve inventory values.
       </Small>
     </Field>
   )

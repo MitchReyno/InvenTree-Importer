@@ -151,6 +151,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "POST /api/v1/batches/{id}/agents/instructions",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "InstructionDelivery"
+    }
+  ],
+  [
     "PUT /api/v1/batches/{id}/agents/pause",
     {
       "timeoutMs": 10000,

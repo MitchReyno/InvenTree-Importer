@@ -292,13 +292,45 @@ describe('InstructionField', () => {
     expect(screen.getByText(/not available in this setup/)).toBeInTheDocument()
   })
 
-  it('says the instruction is saved for the batch, not yet sent to running agents', () => {
+  it('says a saved instruction reaches running agents and wakes finished ones', () => {
     render(<InstructionField text="" revision="4" instruct={undefined} onDirtyChange={vi.fn()} />)
     expect(
       screen.getByText(
-        'Saved for the batch. Running agents are not told of a change yet. Instructions do not approve inventory values.',
+        'Saved for the batch and sent to its agents: running ones pick it up as they work, and finished ones are woken to apply it. Instructions do not approve inventory values.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('sends a saved instruction to the agents, and a failed send says so with the instruction kept', async () => {
+    const user = userEvent.setup()
+    const instruct = vi.fn(async () => undefined)
+    const deliver = vi
+      .fn<() => Promise<unknown>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ sessions: 2, woken: 1 })
+    render(
+      <InstructionField
+        text=""
+        revision="4"
+        instruct={instruct}
+        deliver={deliver}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await user.type(
+      screen.getByLabelText('Instructions for the whole batch'),
+      'Keep packets apart.',
+    )
+    await user.click(screen.getByRole('button', { name: 'Save instructions' }))
+    expect(instruct).toHaveBeenCalled()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Saved, but the agents could not be told yet.',
+    )
+    await user.click(screen.getByRole('button', { name: 'Send to the agents again' }))
+    expect(deliver).toHaveBeenCalledTimes(2)
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Sent to 2 sessions; 1 finished one is woken to apply it.',
+    )
   })
 
   it('heads the progress card with who is working and draws the steps as one bar', () => {

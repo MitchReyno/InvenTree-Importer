@@ -104,6 +104,15 @@ export const SessionInboxItem = Type.Union([
     kind: Type.Literal('evidence'),
     payload: object({ evidence_id: Id, version_id: Id }),
   }),
+  /** The batch's saved instruction for its agents; empty text clears an earlier one. */
+  object({
+    ...inboxBase,
+    kind: Type.Literal('instruction'),
+    payload: object({
+      text: Type.String({ maxLength: 8192 }),
+      group_id: Type.Union([Id, Type.Null()]),
+    }),
+  }),
   object({
     ...inboxBase,
     kind: Type.Literal('revision'),

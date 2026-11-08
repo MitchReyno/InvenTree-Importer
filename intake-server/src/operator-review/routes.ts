@@ -12,6 +12,7 @@ import { CommandPayloadConflict } from '../db/authority.ts'
 import { CaptureError, fail } from '../capture/repository.ts'
 import type { ManualConfig } from '../review/authority.ts'
 import { operatorRepository } from './repository.ts'
+import { deliverInstructions } from '../agents/instructions.ts'
 
 const ID_PATTERN = new RegExp(Id.pattern!)
 
@@ -92,7 +93,14 @@ export function registerOperatorReview(app: FastifyInstance, pool: Pool, config:
     scope.post<{ Body: InstructionEditDto }>(
       '/api/v1/batches/:id/instructions',
       { schema: { body: schemas.InstructionEdit, response: { 200: schemas.OperatorReview } } },
-      (request) => repository.instruct(batchId(request), commandKey(request), request.body),
+      async (request) => {
+        const id = batchId(request)
+        const review = await repository.instruct(id, commandKey(request), request.body)
+        // Best effort once saved, so Capture's autosave reaches the agents too; Processing
+        // sends again through the delivery route to report it and retry.
+        await deliverInstructions(pool, config, id).catch(() => undefined)
+        return review
+      },
     )
   })
 }

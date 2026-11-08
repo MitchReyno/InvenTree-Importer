@@ -1022,3 +1022,67 @@ test('a paused batch keeps its sessions queued and their messages, and resuming 
     )
   })
 })
+
+test('a saved batch instruction reaches the running session and wakes the finished one, once', async () => {
+  const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
+  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, a, b, capture }) => {
+    const batchId = capture.batch.id
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='running' WHERE attempt_id=$1",
+      [a.attempt],
+    )
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='finished',turn_count=1 WHERE attempt_id=$1",
+      [b.attempt],
+    )
+    const instruction = randomUUID()
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES($1,$2,NULL,(SELECT revision FROM capture_batch WHERE id=$2),$3,$4)`,
+      [instruction, batchId, 'Keep the two resistor packets apart.', fixture.identity.actor],
+    )
+    const delivered = await deliverInstructions(fixture.api.pool, fixture.config, batchId)
+    assert.deepEqual(delivered, { sessions: 2, woken: 1 })
+    const items = await fixture.db.pool.query<{ session_lineage_id: string; payload: unknown }>(
+      "SELECT session_lineage_id,payload FROM agent_session_inbox WHERE kind='instruction' ORDER BY session_lineage_id",
+    )
+    assert.deepEqual(
+      items.rows.map((row) => row.payload),
+      [
+        { text: 'Keep the two resistor packets apart.', group_id: null },
+        { text: 'Keep the two resistor packets apart.', group_id: null },
+      ],
+    )
+    // Delivering again sends nothing new.
+    assert.deepEqual(await deliverInstructions(fixture.api.pool, fixture.config, batchId), {
+      sessions: 2,
+      woken: 1,
+    })
+    assert.equal(
+      (await fixture.db.pool.query("SELECT 1 FROM agent_session_inbox WHERE kind='instruction'"))
+        .rowCount,
+      2,
+    )
+    // The finished session is woken to apply it; the running one reads it as it works.
+    const enqueued: string[] = []
+    await wakePendingSessions(fixture.runner.pool, fixture.config, {
+      getWorkflow: async () => undefined,
+      enqueue: async (options: { workflowID: string }) => {
+        enqueued.push(options.workflowID)
+      },
+    } as never)
+    const states = await fixture.db.pool.query<{ attempt_id: string; session_state: string }>(
+      'SELECT attempt_id,session_state FROM agent_session WHERE attempt_id=ANY($1)',
+      [[a.attempt, b.attempt]],
+    )
+    assert.equal(states.rows.find((row) => row.attempt_id === a.attempt)?.session_state, 'running')
+    assert.equal(states.rows.find((row) => row.attempt_id === b.attempt)?.session_state, 'queued')
+    assert.ok(enqueued.some((workflow) => workflow.includes(b.attempt)))
+
+    await assert.rejects(
+      deliverInstructions(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }, batchId),
+      (error: { code?: string }) => error.code === 'not_found',
+    )
+  })
+})

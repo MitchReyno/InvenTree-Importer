@@ -254,6 +254,12 @@ async function main() {
       '/api/v1/agents/pause': {
         put: post('AgentPauseUpdate', 'AgentPauseAll', '200', CAPTURE_TIMEOUT_MS),
       },
+      '/api/v1/batches/{id}/agents/instructions': {
+        post: {
+          'x-intake-client': { timeoutMs: CAPTURE_TIMEOUT_MS, errorMode: 'typed' },
+          responses: commandResponses('InstructionDelivery', '200'),
+        },
+      },
       '/api/v1/batches/{id}/agents/pause': {
         put: post('AgentPauseUpdate', 'AgentPause', '200', CAPTURE_TIMEOUT_MS),
       },

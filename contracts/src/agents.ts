@@ -68,6 +68,11 @@ export const AgentSessionList = object({
   /** False when the configured profile runs no agent sessions, so an empty list means nothing. */
   sessions_supported: Type.Boolean(),
 })
+/** A saved instruction sent to the batch's sessions; finished ones are woken to apply it. */
+export const InstructionDelivery = object({
+  sessions: Type.Integer({ minimum: 0, maximum: 100000 }),
+  woken: Type.Integer({ minimum: 0, maximum: 100000 }),
+})
 /** Pauses or resumes agent sessions; pausing cancels nothing. */
 export const AgentPauseUpdate = object({ paused: Type.Boolean() })
 export const AgentPause = object({ batch_id: Id, paused: Type.Boolean() })
@@ -90,7 +95,9 @@ export const agentSchemas = {
   AgentPauseUpdate,
   AgentPause,
   AgentPauseAll,
+  InstructionDelivery,
 }
+export type InstructionDeliveryDto = Static<typeof InstructionDelivery>
 export type AgentPauseUpdateDto = Static<typeof AgentPauseUpdate>
 export type AgentPauseDto = Static<typeof AgentPause>
 export type AgentPauseAllDto = Static<typeof AgentPauseAll>

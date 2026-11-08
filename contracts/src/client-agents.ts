@@ -24,6 +24,13 @@ export function agentsClient(baseUrl: string, csrfToken: string, transport: type
           body: { paused },
         }),
       ),
+    /** Sends the batch's saved instructions to its sessions; finished ones are woken to apply them. */
+    deliverInstructions: (batchId: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/agents/instructions', {
+          params: { path: { id: batchId } },
+        }),
+      ),
     /** Pauses or resumes every batch's agent sessions at once. */
     pauseAll: (paused: boolean) =>
       successfulData(client.PUT('/api/v1/agents/pause', { body: { paused } })),

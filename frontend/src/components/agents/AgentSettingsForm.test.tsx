@@ -18,6 +18,7 @@ function client() {
     failure: vi.fn(),
     pause: vi.fn(),
     pauseAll: vi.fn(),
+    deliverInstructions: vi.fn(),
   } satisfies ReturnType<typeof agentsClient>
 }
 
