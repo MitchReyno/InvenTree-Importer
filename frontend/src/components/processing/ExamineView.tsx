@@ -141,6 +141,12 @@ function ReadingEdit({
   )
 }
 
+export type SharperRequests = Record<
+  string,
+  { key: string; name: string; state: 'sending' | 'failed' | 'sent' }
+>
+export type SharperRequestStore = { current: SharperRequests }
+
 export function ExamineView({
   batch,
   lead,
@@ -150,6 +156,7 @@ export function ExamineView({
   askSharper,
   onDirtyChange,
   locked = false,
+  requestStore,
 }: {
   batch: CaptureSnapshotDto
   lead: Job | undefined
@@ -165,6 +172,8 @@ export function ExamineView({
   onDirtyChange?: (dirty: boolean) => void
   /** Another unsaved Processing draft would be lost when a correction reloads Processing. */
   locked?: boolean
+  /** Outlives Processing's reload on each capture revision, so a retry keeps its key. */
+  requestStore?: SharperRequestStore
 }) {
   const [lens, setLens] = useState<'photo' | 'lot'>('photo')
   const [editing, setEditing] = useState<string | null>(null)
@@ -206,21 +215,29 @@ export function ExamineView({
     onDirtyChange?.(dirtyEditors.size > 0)
   }, [dirtyEditors, onDirtyChange])
   // Requests are kept per evidence version with their key and wording until confirmed, so a retry
-  // resends exactly the same request even after the photo's name arrives.
-  const [requests, setRequests] = useState<
-    Record<string, { key: string; name: string; state: 'sending' | 'failed' | 'sent' }>
-  >({})
+  // resends exactly the same request, even after the photo's name arrives or Processing reloads.
+  const [requests, setRequestState] = useState<SharperRequests>(() => ({
+    ...requestStore?.current,
+  }))
+
+  // Written to the store directly: a reload mid-send unmounts this view before the reply lands.
+  function record(version: string, entry: SharperRequests[string]) {
+    if (requestStore) {
+      requestStore.current = { ...requestStore.current, [version]: entry }
+    }
+    setRequestState((value) => ({ ...value, [version]: entry }))
+  }
 
   async function requestSharper(version: string, shownName: string) {
     const previous = requests[version]
     const retry = previous?.state === 'failed' ? previous : null
     const request = { key: retry?.key ?? crypto.randomUUID(), name: retry?.name ?? shownName }
-    setRequests((value) => ({ ...value, [version]: { ...request, state: 'sending' } }))
+    record(version, { ...request, state: 'sending' })
     try {
       await askSharper!(request.name, request.key)
-      setRequests((value) => ({ ...value, [version]: { ...request, state: 'sent' } }))
+      record(version, { ...request, state: 'sent' })
     } catch {
-      setRequests((value) => ({ ...value, [version]: { ...request, state: 'failed' } }))
+      record(version, { ...request, state: 'failed' })
     }
   }
 

@@ -43,6 +43,7 @@ import { PageContent } from '../AppLayout'
 import { RecordsStage } from '../review/records/RecordsStage'
 import type { RecordsClient } from '../../records/useBatchRecords'
 import { ReviewMapStage } from '../review/ReviewMapStage'
+import type { SharperRequestStore } from '../processing/ExamineView'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -118,6 +119,8 @@ export function Batch({
 
   // Remembered across tabs, which unmount the workspace, so bare Ready to add can return to it.
   const shownPreparation = useRef<string | null>(null)
+  // Sharper-photo requests awaiting confirmation, kept across Processing's revision remounts.
+  const sharperRequests = useMemo<SharperRequestStore>(() => ({ current: {} }), [id])
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -462,6 +465,7 @@ export function Batch({
         step={batchRoute.step}
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
+        sharperRequests={sharperRequests}
         edit={edit}
         reload={reloadForStage}
         onDirtyChange={reportDirty}

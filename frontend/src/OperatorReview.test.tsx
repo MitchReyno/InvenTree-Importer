@@ -1426,6 +1426,43 @@ test('a lot answers its open question in place, queued to the asking session', a
   expect(reload).toHaveBeenCalledTimes(1)
 })
 
+test('a warning cannot be dismissed while an inline answer is unsaved', async () => {
+  const user = userEvent.setup()
+  const question = {
+    id: 'c0000000-0000-4000-8000-0000000000c1',
+    job_id: 'c0000000-0000-4000-8000-0000000000c2',
+    attempt_id: 'c0000000-0000-4000-8000-0000000000c3',
+    input_sha256: 'c'.repeat(64),
+    revision: '1',
+    state: 'open',
+    spec: { kind: 'quantity', subject_id: b, prompt: 'How many?', reason: 'Torn label.' },
+  }
+  const snapshot = {
+    batch_id: batchId,
+    capture_revision: batch.revision,
+    jobs: [
+      {
+        id: question.job_id,
+        stage: 'examine',
+        subject_id: b,
+        proposals: [],
+        questions: [question],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+  renderReview({
+    processing: {
+      read: vi.fn(async () => snapshot),
+      answer: vi.fn(),
+    } as unknown as ProcessingClient,
+  })
+  await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
+  const details = screen.getByRole('region', { name: 'Decision' })
+  await user.click(await within(details).findByRole('button', { name: 'Answer here' }))
+  await user.type(within(details).getByLabelText('Quantity'), '9')
+  expect(screen.getByRole('button', { name: 'Dismiss…' })).toBeDisabled()
+})
+
 test('Needs answer lists only lots with an open question, in the Workspace and the Table', async () => {
   const user = userEvent.setup()
   const snapshot = {

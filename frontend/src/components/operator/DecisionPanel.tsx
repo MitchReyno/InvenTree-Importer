@@ -243,7 +243,6 @@ export function DecisionPanel({
             captureRevision={answering.captureRevision}
             currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}
             currentCaptureRevision={openQuestion?.captureRevision ?? answering.captureRevision}
-            // A save remounts Review, so the answer waits for an unsaved lot edit and vice versa.
             disabled={disabled || drafts.hasOtherSources('answer')}
             answer={async (questionId, input, key) => {
               await answerQuestion(questionId, input, key)
@@ -345,12 +344,8 @@ export function DecisionPanel({
           }
           onEditValues={() => setEditing(true)}
           onEditPart={editPart && part ? () => editPart(part.id) : undefined}
-          disabled={
-            disabled ||
-            drafts.isDirty('quick') ||
-            drafts.isDirty('restructure') ||
-            drafts.isDirty('compare')
-          }
+          // Any save remounts Review, so each draft waits for the others.
+          disabled={disabled || drafts.hasOtherSources('warning')}
           reload={reload}
           onDirtyChange={drafts.forSource('warning')}
         />
@@ -412,13 +407,7 @@ export function DecisionPanel({
         <QuickLotEdit
           batch={batch}
           lot={lot}
-          disabled={
-            disabled ||
-            drafts.isDirty('warning') ||
-            drafts.isDirty('restructure') ||
-            drafts.isDirty('compare') ||
-            drafts.isDirty('answer')
-          }
+          disabled={disabled || drafts.hasOtherSources('quick')}
           edit={edit}
           onDirtyChange={drafts.forSource('quick')}
         />
@@ -428,7 +417,7 @@ export function DecisionPanel({
           batch={batch}
           part={part}
           affectedLotIds={[lot.id, ...sharing.map((other) => other.id)]}
-          disabled={disabled}
+          disabled={disabled || drafts.hasOtherSources('compare')}
           edit={edit}
           onClose={() => setComparing(false)}
           onDirtyChange={drafts.forSource('compare')}

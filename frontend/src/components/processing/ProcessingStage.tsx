@@ -4,6 +4,7 @@ import type { MediaClient } from '../../media/types'
 import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
 import type { AgentsRead, ProcessingClient } from '../../processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
+import type { SharperRequestStore } from './ExamineView'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -12,6 +13,7 @@ interface Props {
   step: ProcessingStep
   questionId?: string
   sessionId?: string | null
+  sharperRequests?: SharperRequestStore
   reload: () => Promise<void>
   /** The batch's capture edit, for Examine's reading and region corrections. */
   edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
@@ -35,6 +37,7 @@ export function ProcessingStage({
   step,
   questionId,
   sessionId,
+  sharperRequests,
   reload,
   edit,
   onDirtyChange,
@@ -58,6 +61,7 @@ export function ProcessingStage({
       view={step}
       questionId={questionId}
       sessionId={sessionId}
+      sharperRequests={sharperRequests}
       navigate={navigateProcessing}
       onDirtyChange={onDirtyChange}
       onSaved={reload}

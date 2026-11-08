@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import type {
   CaptureSnapshotDto,
@@ -303,5 +303,62 @@ it('keeps a failed request with its photo when the photo’s name arrives', asyn
   const named = screen.getByRole('region', { name: 'reel.jpg' })
   expect(within(named).getByRole('alert')).toHaveTextContent(/not confirmed/)
   await user.click(within(named).getByRole('button', { name: 'Retry the request' }))
+  expect(sent).toEqual([sent[0], sent[0]])
+})
+
+it('a request store keeps a request across a remount, even one still sending', async () => {
+  const user = userEvent.setup()
+  const sent: [string, string][] = []
+  let fail = true
+
+  const askSharper = async (name: string, key: string) => {
+    sent.push([name, key])
+    if (fail) {
+      throw new Error('lost')
+    }
+  }
+
+  const store = { current: {} }
+  const first = render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      media={media}
+      askSharper={askSharper}
+      requestStore={store}
+    />,
+  )
+
+  const reel = () => screen.getByRole('region', { name: 'reel.jpg' })
+
+  let reject: (reason: Error) => void = () => {}
+
+  fail = false
+  const pending = new Promise<void>((_, no) => {
+    reject = no
+  })
+
+  const slow = async (name: string, key: string) => {
+    sent.push([name, key])
+    return pending
+  }
+
+  first.rerender(
+    <ExamineView batch={batch} lead={lead} media={media} askSharper={slow} requestStore={store} />,
+  )
+  await user.click(within(reel()).getByRole('button', { name: 'Ask for a sharper photo' }))
+  first.unmount()
+  await act(async () => reject(new Error('lost')))
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      media={media}
+      askSharper={askSharper}
+      requestStore={store}
+    />,
+  )
+  fail = false
+  await user.click(within(reel()).getByRole('button', { name: 'Retry the request' }))
   expect(sent).toEqual([sent[0], sent[0]])
 })

@@ -22,7 +22,7 @@ import { SessionPanel } from './SessionPanel'
 import { QuestionAnswer } from './QuestionAnswer'
 import { ProcessingOverview } from './ProcessingOverview'
 import { StepPage } from './StepPage'
-import { ExamineView } from './ExamineView'
+import { ExamineView, type SharperRequestStore } from './ExamineView'
 import { InstructionField } from './InstructionField'
 import { Muted, STEP_LABEL } from './ProcessingParts'
 import { Dialog } from '../ui/Dialog'
@@ -75,6 +75,7 @@ interface Props {
   edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
   /** A job whose session drawer opens on arrival, from a session link. */
   sessionId?: string | null
+  sharperRequests?: SharperRequestStore
   batch: CaptureSnapshotDto
   media?: MediaClient
   client: ProcessingClient
@@ -118,6 +119,7 @@ export function ProcessingWorkspace({
   unusedFiles,
   instructions,
   sessionId = null,
+  sharperRequests,
   edit,
 }: Props) {
   const [sessionJobId, setSessionJobId] = useState<string | null>(sessionId)
@@ -613,6 +615,7 @@ export function ProcessingWorkspace({
                       edit={batch.archived ? undefined : edit}
                       locked={drafts.isDirty('answer') || drafts.isDirty('instructions')}
                       askSharper={askSharper}
+                      requestStore={sharperRequests}
                       onDirtyChange={drafts.forSource('correction')}
                     />
                   )}
