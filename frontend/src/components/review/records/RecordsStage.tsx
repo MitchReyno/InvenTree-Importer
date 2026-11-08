@@ -26,6 +26,7 @@ import { Small, Summary } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { RecordStatePill } from '../../ui/RecordStatePill'
+import { FilterChips } from '../../ui/FilterChips'
 import { VisuallyHidden } from '../../ui/VisuallyHidden'
 import { ReloadContext, SavingContext, type Save } from './draft'
 
@@ -67,6 +68,7 @@ export function RecordsStage({
   const [chosenKey, setChosenKey] = useState<string | null>(
     routeType && initialRecord ? `${routeType}:${initialRecord}` : null,
   )
+  const [filter, setFilter] = useState<RecordFilter>('all')
   const [blocked, setBlocked] = useState(false)
   const [discards, setDiscards] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -163,6 +165,7 @@ export function RecordsStage({
   )
   const type: RecordTypeDto = chosenType ?? withRecords[0]?.type ?? 'part'
   const ofType = records.records.filter((record) => record.type === type)
+  const shown = ofType.filter((record) => matchesFilter(record, filter))
   const selected = ofType.find((record) => record.key === chosenKey) ?? null
 
   function choose(nextType: RecordTypeDto, key: string | null) {
@@ -184,6 +187,22 @@ export function RecordsStage({
   return (
     <ReloadContext.Provider value={reload}>
       <SavingContext.Provider value={{ saving, setSaving }}>
+        <Header>
+          <div>
+            <PageHeading>Every InvenTree record this batch touches</PageHeading>
+            <Small>Each record names who set its values; edits wait for a save.</Small>
+          </div>
+          <FilterChips
+            label="Filter records"
+            value={filter}
+            onChange={(id) => setFilter(id as RecordFilter)}
+            options={RECORD_FILTERS.map(([id, label]) => ({
+              id,
+              label,
+              count: ofType.filter((record) => matchesFilter(record, id)).length,
+            }))}
+          />
+        </Header>
         <Layout>
           <Rail aria-label="Record types">
             {records.counts.map((count) => (
@@ -214,7 +233,10 @@ export function RecordsStage({
             {ofType.length === 0 && (
               <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
             )}
-            {ofType.map((record) => (
+            {ofType.length > 0 && shown.length === 0 && (
+              <Small>No {TYPE_LABELS[type].toLowerCase()} match this filter.</Small>
+            )}
+            {shown.map((record) => (
               <RecordButton
                 key={record.key}
                 type="button"
@@ -300,11 +322,44 @@ export function RecordsStage({
   )
 }
 
+type RecordFilter = 'all' | 'new' | 'update' | 'choose' | 'edited'
+
+const RECORD_FILTERS: [RecordFilter, string][] = [
+  ['all', 'All'],
+  ['new', 'New'],
+  ['update', 'Updates'],
+  ['choose', 'Needs a decision'],
+  ['edited', 'Edited by you'],
+]
+
+function matchesFilter(record: BatchRecordDto, filter: RecordFilter) {
+  if (filter === 'all') {
+    return true
+  }
+  if (filter === 'edited') {
+    return record.fields.some((field) => field.origin.kind === 'operator')
+  }
+
+  return record.state === filter
+}
+
 function lotsText(record: BatchRecordDto) {
   const lots = record.lot_ids.length
   return lots ? `Used by ${lots} ${lots === 1 ? 'lot' : 'lots'}` : ''
 }
 
+const Header = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: ${space[4]} ${space[8]};
+  margin-bottom: ${space[6]};
+`
+const PageHeading = styled.h2`
+  margin: 0;
+  ${type.h2}
+`
 const Layout = styled.div`
   display: grid;
   grid-template-columns: minmax(200px, 240px) minmax(220px, 320px) minmax(0, 1fr);

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, RecordChangeDto } from '@invimport/contracts'
 import { refusal } from '../../../records/model'
-import { color, space } from '../../../theme/generated/tokens'
+import { color, space, typeVar } from '../../../theme/generated/tokens'
 import { Button } from '../../ui/Button'
 
 export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
@@ -140,5 +140,5 @@ const Row = styled.div`
 
 const Problem = styled.span`
   color: ${color.bad};
-  font-size: 13px;
+  font-size: ${typeVar.small.size};
 `

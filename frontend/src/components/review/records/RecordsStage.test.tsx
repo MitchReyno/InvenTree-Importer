@@ -266,6 +266,24 @@ describe('RecordsStage', () => {
     )
   })
 
+  it('heads the records and filters the chosen type by state', async () => {
+    const user = userEvent.setup()
+    stage()
+    expect(
+      await screen.findByRole('heading', { name: 'Every InvenTree record this batch touches' }),
+    ).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /^Parts/ }))
+    const filters = screen.getByRole('group', { name: 'Filter records' })
+    const list = screen.getByRole('region', { name: 'Parts' })
+    const all = within(list).getAllByRole('button').length
+    await user.click(within(filters).getByRole('button', { name: /^Needs a decision/ }))
+    const deciding = within(list).getAllByRole('button')
+    expect(deciding.length).toBeLessThan(all)
+    deciding.forEach((row) =>
+      expect(row).toHaveAttribute('aria-description', expect.stringMatching(/^Needs a decision/)),
+    )
+  })
+
   it('maps a shared company to another in the same role, stating every Part it reaches', async () => {
     const user = userEvent.setup()
     const { edit } = stage()
