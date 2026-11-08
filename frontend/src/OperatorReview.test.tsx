@@ -1405,7 +1405,7 @@ test('a lot answers its open question in place, queued to the asking session', a
     read: vi.fn(async () => snapshot),
     answer: vi.fn(async () => ({ status: 'accepted' })),
   } as unknown as ProcessingClient
-  renderReview({ processing })
+  const { reload } = renderReview({ processing })
   await user.click(await screen.findByRole('button', { name: 'Show Packet B' }))
   const details = screen.getByRole('region', { name: 'Decision' })
   await user.click(await within(details).findByRole('button', { name: 'Answer here' }))
@@ -1422,6 +1422,8 @@ test('a lot answers its open question in place, queued to the asking session', a
     ),
   )
   await waitFor(() => expect(processing.read).toHaveBeenCalledTimes(2))
+  // The answer changed the lot, so Review adopts the new capture.
+  expect(reload).toHaveBeenCalledTimes(1)
 })
 
 test('Needs answer lists only lots with an open question, in the Workspace and the Table', async () => {

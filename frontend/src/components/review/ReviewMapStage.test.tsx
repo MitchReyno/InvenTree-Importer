@@ -351,6 +351,9 @@ describe('ReviewMapStage', () => {
     await user.clear(x)
     await user.type(x, '3')
     expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+    // Another region or file cannot replace the unsaved draft.
+    expect(within(stage).getByRole('button', { name: 'Add a region' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Show links for Front label' })).toBeDisabled()
     await user.click(within(stage).getByRole('button', { name: 'Save region' }))
     expect(edit).toHaveBeenCalledTimes(1)
     expect(within(stage).getByLabelText('Left')).toHaveValue(3)

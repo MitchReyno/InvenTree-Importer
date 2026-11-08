@@ -243,7 +243,8 @@ export function DecisionPanel({
             captureRevision={answering.captureRevision}
             currentQuestion={openQuestion?.id === answering.id ? openQuestion.question : undefined}
             currentCaptureRevision={openQuestion?.captureRevision ?? answering.captureRevision}
-            disabled={disabled}
+            // A save remounts Review, so the answer waits for an unsaved lot edit and vice versa.
+            disabled={disabled || drafts.hasOtherSources('answer')}
             answer={async (questionId, input, key) => {
               await answerQuestion(questionId, input, key)
               drafts.forSource('answer')(false)
@@ -415,7 +416,8 @@ export function DecisionPanel({
             disabled ||
             drafts.isDirty('warning') ||
             drafts.isDirty('restructure') ||
-            drafts.isDirty('compare')
+            drafts.isDirty('compare') ||
+            drafts.isDirty('answer')
           }
           edit={edit}
           onDirtyChange={drafts.forSource('quick')}

@@ -245,6 +245,10 @@ it('reports an unsaved reading and locks other corrections until it is saved or 
   await user.type(within(first).getByLabelText('Markings for 16 MHz crystal'), ' 2')
   expect(dirty.at(-1)).toBe(true)
   expect(within(first).getByLabelText('Markings for LED 0603 red')).toBeDisabled()
+  // The editor cannot be closed or left while it holds an unsaved draft.
+  expect(within(first).getByRole('button', { name: 'Edit readings' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'By lot' }))
+  expect(screen.getByLabelText('Markings for 16 MHz crystal')).toBeVisible()
   // A save that is not confirmed keeps the draft.
   await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
   expect(within(first).getByLabelText('Markings for 16 MHz crystal')).toHaveValue(
@@ -277,4 +281,27 @@ it('retries an unconfirmed sharper-photo request with the same key, and says whe
   expect(keys).toHaveLength(2)
   expect(keys[1]).toBe(keys[0])
   expect(within(second).getByRole('status')).toHaveTextContent('Asked Examine for a sharper photo')
+})
+
+it('keeps a failed request with its photo when the photo’s name arrives', async () => {
+  const user = userEvent.setup()
+  const sent: [string, string][] = []
+  let fail = true
+
+  const askSharper = async (name: string, key: string) => {
+    sent.push([name, key])
+    if (fail) {
+      throw new Error('lost')
+    }
+  }
+
+  const view = render(<ExamineView batch={batch} lead={lead} askSharper={askSharper} />)
+  const unnamed = screen.getByLabelText('Photo 2')
+  await user.click(within(unnamed).getByRole('button', { name: 'Ask for a sharper photo' }))
+  view.rerender(<ExamineView batch={batch} lead={lead} media={media} askSharper={askSharper} />)
+  fail = false
+  const named = screen.getByRole('region', { name: 'reel.jpg' })
+  expect(within(named).getByRole('alert')).toHaveTextContent(/not confirmed/)
+  await user.click(within(named).getByRole('button', { name: 'Retry the request' }))
+  expect(sent).toEqual([sent[0], sent[0]])
 })

@@ -1,5 +1,5 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { render } from '../../test/render'
@@ -78,6 +78,26 @@ describe('the inline answer', () => {
       answerQuestion={async () => {}}
     />
   )
+
+  it('waits for the lot editor, and the lot editor waits for it', async () => {
+    const user = userEvent.setup()
+    render(panel(open))
+    await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
+    await user.click(screen.getByRole('button', { name: 'Answer here' }))
+    const lotForm = screen.getByRole('form', { name: 'Edit Packet B' })
+
+    const answerField = () =>
+      screen.getAllByLabelText('Quantity').find((field) => !lotForm.contains(field))!
+
+    await user.type(answerField(), '9')
+    expect(lotForm.querySelector('fieldset')).toBeDisabled()
+    await user.clear(answerField())
+    expect(lotForm.querySelector('fieldset')).not.toBeDisabled()
+    await user.type(within(lotForm).getByLabelText('Quantity'), '1')
+    expect(
+      screen.getByRole('button', { name: 'Save answer and queue continuation' }),
+    ).toBeDisabled()
+  })
 
   it('keeps its draft when a later read no longer lists the question', async () => {
     const user = userEvent.setup()

@@ -197,25 +197,30 @@ export function ExamineView({
     return callback
   }
 
+  const anyDirty = dirtyEditors.size > 0
+
   const lockedFor = (editor: string) =>
     locked || (dirtyEditors.size > 0 && !dirtyEditors.has(editor))
 
   useEffect(() => {
     onDirtyChange?.(dirtyEditors.size > 0)
   }, [dirtyEditors, onDirtyChange])
-  // A request keeps its key until confirmed, so a retry cannot queue it twice.
+  // Requests are kept per evidence version with their key and wording until confirmed, so a retry
+  // resends exactly the same request even after the photo's name arrives.
   const [requests, setRequests] = useState<
-    Record<string, { key: string; state: 'sending' | 'failed' | 'sent' }>
+    Record<string, { key: string; name: string; state: 'sending' | 'failed' | 'sent' }>
   >({})
 
-  async function requestSharper(name: string) {
-    const key = requests[name]?.state === 'failed' ? requests[name].key : crypto.randomUUID()
-    setRequests((value) => ({ ...value, [name]: { key, state: 'sending' } }))
+  async function requestSharper(version: string, shownName: string) {
+    const previous = requests[version]
+    const retry = previous?.state === 'failed' ? previous : null
+    const request = { key: retry?.key ?? crypto.randomUUID(), name: retry?.name ?? shownName }
+    setRequests((value) => ({ ...value, [version]: { ...request, state: 'sending' } }))
     try {
-      await askSharper!(name, key)
-      setRequests((value) => ({ ...value, [name]: { key, state: 'sent' } }))
+      await askSharper!(request.name, request.key)
+      setRequests((value) => ({ ...value, [version]: { ...request, state: 'sent' } }))
     } catch {
-      setRequests((value) => ({ ...value, [name]: { key, state: 'failed' } }))
+      setRequests((value) => ({ ...value, [version]: { ...request, state: 'failed' } }))
     }
   }
 
@@ -266,8 +271,14 @@ export function ExamineView({
             { id: 'lot', label: 'By lot' },
           ]}
           value={lens}
-          onChange={(id) => setLens(id as 'photo' | 'lot')}
+          onChange={(id) => {
+            // Switching lens would unmount an unsaved correction.
+            if (!anyDirty) {
+              setLens(id as 'photo' | 'lot')
+            }
+          }}
         />
+        {anyDirty && <Muted>Save or discard the correction first.</Muted>}
       </Lens>
       {lens === 'photo' && (
         <Card aria-label="Regions by photo">
@@ -300,6 +311,7 @@ export function ExamineView({
                       <Button
                         size="sm"
                         aria-pressed={editing === version}
+                        disabled={anyDirty}
                         onClick={() => setEditing(editing === version ? null : version)}
                       >
                         Edit readings
@@ -308,6 +320,7 @@ export function ExamineView({
                         <Button
                           size="sm"
                           aria-pressed={adjusting === version}
+                          disabled={anyDirty}
                           onClick={() => setAdjusting(adjusting === version ? null : version)}
                         >
                           Adjust regions
@@ -319,16 +332,18 @@ export function ExamineView({
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={requests[named?.name ?? `Photo ${index + 1}`]?.state === 'sending'}
-                      onClick={() => void requestSharper(named?.name ?? `Photo ${index + 1}`)}
+                      disabled={requests[version]?.state === 'sending'}
+                      onClick={() =>
+                        void requestSharper(version, named?.name ?? `Photo ${index + 1}`)
+                      }
                     >
-                      {requests[named?.name ?? `Photo ${index + 1}`]?.state === 'failed'
+                      {requests[version]?.state === 'failed'
                         ? 'Retry the request'
                         : 'Ask for a sharper photo'}
                     </Button>
                   )}
                 </PhotoHead>
-                {requests[named?.name ?? `Photo ${index + 1}`]?.state === 'failed' && (
+                {requests[version]?.state === 'failed' && (
                   <div role="alert">
                     <Small>
                       The request was not confirmed and may already be queued; retrying sends the
@@ -336,7 +351,7 @@ export function ExamineView({
                     </Small>
                   </div>
                 )}
-                {requests[named?.name ?? `Photo ${index + 1}`]?.state === 'sent' && (
+                {requests[version]?.state === 'sent' && (
                   <Small role="status">Asked Examine for a sharper photo.</Small>
                 )}
                 {edit && adjusting === version && evidenceOf(version) && (

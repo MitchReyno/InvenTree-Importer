@@ -249,6 +249,8 @@ export function ManualWorkspace({
       queryClient.invalidateQueries({
         queryKey: serverQueryKey(scope, 'operator-review', batch.id),
       }),
+      // The answer changes the lot in Capture; adopt it rather than wait for an update push.
+      reload(),
     ])
   }
 

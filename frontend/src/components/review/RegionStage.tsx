@@ -240,7 +240,7 @@ export function RegionStage({
             <Button
               key={item.id}
               size="sm"
-              disabled={locked}
+              disabled={locked || draft !== null}
               aria-pressed={draft?.observationId === item.id}
               aria-label={`Adjust ${nameOf(item, index)}`}
               onClick={() =>
@@ -263,7 +263,7 @@ export function RegionStage({
         <Button
           size="sm"
           variant="ghost"
-          disabled={locked}
+          disabled={locked || draft !== null}
           onClick={() =>
             setDraft({
               x: Math.round(page.width / 4),

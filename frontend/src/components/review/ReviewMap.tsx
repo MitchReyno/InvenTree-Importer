@@ -27,6 +27,8 @@ type Props = {
   /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
   editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
   onRegionDirtyChange?: (dirty: boolean) => void
+  /** An unsaved region draft holds the selected photo until it is saved or discarded. */
+  selectionLocked?: boolean
   /** Opens the existing split or merge command; absent where restructuring is unavailable. */
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
@@ -55,6 +57,7 @@ export function ReviewMap({
   newLotFromRegion,
   editRegion,
   onRegionDirtyChange,
+  selectionLocked = false,
   openRestructure,
   approvedLotIds,
   restructureUnavailable = false,
@@ -181,6 +184,7 @@ export function ReviewMap({
                   <FileToggle
                     type="button"
                     aria-pressed={selectedFile === file.id}
+                    disabled={selectionLocked}
                     aria-label={`Show links for ${file.label}`}
                     onClick={() => setSelectedFile(selectedFile === file.id ? null : file.id)}
                   >
