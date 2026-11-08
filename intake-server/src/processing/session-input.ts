@@ -31,7 +31,11 @@ export function sessionLotInputManifest(
   stage: SessionLotStage,
   media: RetainedMediaDescriptor,
   profile:
-    | { id: 'native-agent/2'; agent: AgentSelectionDto; settingsRevision: string }
+    | {
+        id: 'native-agent/2' | 'shared-vm-agent/1'
+        agent: AgentSelectionDto
+        settingsRevision: string
+      }
     | { id: 'synthetic-session/1' },
   pinnedProposalIds: readonly string[] = [],
 ): ProcessingInputV6Dto {
@@ -56,8 +60,8 @@ export function sessionLotInputManifest(
     instruction_sha256: policy.instructionDigest,
     tool_profile_version: sessionToolProfileVersion,
     media: { ...media },
-    agent: profile.id === 'native-agent/2' ? profile.agent : null,
-    settings_revision: profile.id === 'native-agent/2' ? profile.settingsRevision : null,
+    agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
+    settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
     pinned_proposal_ids: [...pinnedProposalIds].sort(),
   }
   validate('ProcessingInputV6', manifest)
@@ -132,8 +136,8 @@ export function sessionLeadInputManifest(
     instruction_sha256: policy.instructionDigest,
     tool_profile_version: sessionToolProfileVersion,
     media: { ...media },
-    agent: profile.id === 'native-agent/2' ? profile.agent : null,
-    settings_revision: profile.id === 'native-agent/2' ? profile.settingsRevision : null,
+    agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
+    settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
     pinned_proposal_ids: [],
   }
   validate('ProcessingInputV6', manifest)

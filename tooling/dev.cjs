@@ -358,12 +358,15 @@ async function main() {
       ).ready()
       if (worker) {
         const providerEnv = Object.fromEntries(
-          [
-            'OPENAI_API_KEY',
-            'ANTHROPIC_API_KEY',
-            'INTAKE_CODEX_EXECUTABLE',
-            'INTAKE_CLAUDE_EXECUTABLE',
-          ]
+          (profile === 'shared-vm-agent/1'
+            ? ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
+            : [
+                'OPENAI_API_KEY',
+                'ANTHROPIC_API_KEY',
+                'INTAKE_CODEX_EXECUTABLE',
+                'INTAKE_CLAUDE_EXECUTABLE',
+              ]
+          )
             .filter((key) => settings[key])
             .map((key) => [key, settings[key]]),
         )

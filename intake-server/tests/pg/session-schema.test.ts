@@ -78,7 +78,7 @@ async function newBatch(fixture: Fixture) {
   return (created.value as { id: string }).id
 }
 
-test('both session profiles are stored with instruction bytes matching their digests', async () => {
+test('session profiles are stored with instruction bytes matching their digests', async () => {
   const fixture = await processingFixture({ autoStart: false })
   try {
     const rows = await fixture.db.pool.query<{
@@ -93,6 +93,7 @@ test('both session profiles are stored with instruction bytes matching their dig
       rows.rows.map((row) => [row.id, row.qualification, row.tool_profile_version]),
       [
         ['native-agent/2', 'native_unverified', 'native-session-tools/1'],
+        ['shared-vm-agent/1', 'native_unverified', 'native-session-tools/1'],
         ['synthetic-session/1', 'fixture_only', 'native-session-tools/1'],
       ],
     )
@@ -422,7 +423,7 @@ test('the session migration upgrades a database already at the previous migratio
     const after = await db.pool.query<{ id: string }>(
       'SELECT id FROM processing_profile ORDER BY id',
     )
-    assert.equal(after.rows.length, Number(before.rows[0].count) + 2)
+    assert.equal(after.rows.length, Number(before.rows[0].count) + 3)
     const nullable = await db.pool.query<{ is_nullable: string }>(
       "SELECT is_nullable FROM information_schema.columns WHERE table_name='processing_job' AND column_name='subject_id'",
     )

@@ -81,3 +81,9 @@ Session failures use typed application codes to construct a bounded diagnostic b
 
 History and Processing timeline reads expose only the current turn's category, summary and detail availability. The details endpoint checks the retained command's actor, target and target context. Legacy records have unavailable details. Causes are bounded to four and the stored object to 16 KiB; raw exception messages, stacks, stderr, prompts, capability values, SQL and private paths are never serialized. A persistence failure emits only a correlation ID and a fixed operational event name.
 
+
+### Shared VM session driver
+
+The opt-in `shared-vm-agent/1` profile seals the provider, authentication route and model in a v6 input. The session coordinator owns the queue, slot and MCP capability. Its VM driver accepts a guest-initiated TLS 1.3 connection on loopback with a dedicated pairing CA and a verified peer identity. The one-turn guest container runs on its own VM Docker engine. The relay transports TLS bytes over Lima stdio. Only session files and the guest pairing identity are mounted, both from the guest filesystem.
+
+The provider gets a per-turn loopback MCP proxy in the guest. The coordinator fixes its destination to the host session tool service and attaches the attempt capability. Each host operation revalidates its scope. Native adapters retain their current restricted tool policy. A lost transport after dispatch reports an uncertain reap and retains the slot. Completed guest journals prevent a duplicate execution of identical command bytes. Automatic reconciliation of an uncertain launch, larger evidence transfers, public egress and managed subscriptions are open parts of the OpenSpec change.

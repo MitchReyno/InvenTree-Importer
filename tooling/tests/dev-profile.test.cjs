@@ -25,3 +25,8 @@ test('any other profile is still refused', () => {
     /unsupported_development_profile/,
   )
 })
+
+test('the shared VM profile selects the session coordinator', () => {
+  const profile = developmentProfile({ INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/1' })
+  assert.equal(processingWorker(profile).entry, 'src/agents/session-worker-main.ts')
+})

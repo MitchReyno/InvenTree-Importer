@@ -38,7 +38,7 @@ COPY intake-server/src intake-server/src
 COPY intake-server/migrations intake-server/migrations
 ENV PATH="/app/backend/.venv/bin:${PATH}"
 COPY LICENSE LICENSE
-RUN mkdir -p /var/lib/intake/blobs && chown 1000:1000 /var/lib/intake/blobs
+RUN install -d -o 1000 -g 1000 -m 0700 /var/lib/intake/agent /var/lib/intake/blobs
 USER 1000:1000
 WORKDIR /app/intake-server
 CMD ["node", "--import", "tsx", "src/main.ts"]
