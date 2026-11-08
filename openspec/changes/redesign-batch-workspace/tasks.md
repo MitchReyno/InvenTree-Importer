@@ -428,7 +428,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 20.1 Swap exact values for tokens in Records and Changes, with the screenshot diff unchanged, recording in the PR description each inclusive 860px query that moves to just below `bp-stacked`.
 - [x] 20.2 Restyle the Records type rail (R15), `RecordDetail`'s table onto `DataTable`, its empty state (G16), and the Ready to add layout and lot rows (X1, X2); give New, Update and Exists the same colours on both screens (G4); and give these screens' controls a 44px hit area below `bp-compact` (G15).
 - [x] 20.3 Move the remaining `primitives.Notice` users, including Added's (G12), onto `Banner` and remove the unused legacy primitives.
-- [ ] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
+- [x] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
 - [ ] 20.5 Close R25, R26's per-category matrix, grouping and new-template aside, X7 and X9 (without activity times, task 23.5), with Records' source chips keyed by step and operator edits (G18).
 - [ ] 20.6 Empty the literal-value baseline and make the lint strict.
 - [ ] 20.7 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.

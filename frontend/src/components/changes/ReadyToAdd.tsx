@@ -26,9 +26,9 @@ import { color, radius, size, space } from '../../theme/generated/tokens'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { ChangeSummary } from '../ui/ChangeSummary'
-import { Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { StickyFooter } from '../ui/StickyFooter'
+import { TargetChip } from '../ui/TargetChip'
 import { Heading, Label, Link, Panel, Paragraph, Select, Small, Summary } from '../ui/primitives'
 import { PreparationTreeView } from './PreparationTreeView'
 import { RecordStatePill } from '../ui/RecordStatePill'
@@ -230,11 +230,16 @@ export function ReadyToAdd({
         )}
       </Panel>
       <Panel aria-labelledby="what-will-change">
-        <Heading id="what-will-change">What will change in InvenTree</Heading>
-        {!preview ? (
-          <Paragraph>Nothing is prepared yet.</Paragraph>
-        ) : (
-          <>
+        <HeadRow>
+          <div>
+            <Heading id="what-will-change">What will change in InvenTree</Heading>
+            {preview && (
+              <Small>
+                {counts.new} new · {counts.update} update to InvenTree
+              </Small>
+            )}
+          </div>
+          {preview && (
             <Controls>
               <SegmentedControl
                 label="View"
@@ -257,6 +262,12 @@ export function ReadyToAdd({
                 />
               )}
             </Controls>
+          )}
+        </HeadRow>
+        {!preview ? (
+          <Paragraph>Nothing is prepared yet.</Paragraph>
+        ) : (
+          <>
             {treeQuery.isPending && readTree && <Small role="status">Reading every record…</Small>}
             {(treeQuery.isError || tree?.nodes === null) && (
               <Small>The full list isn’t available, so only stock, Parts and locations show.</Small>
@@ -278,13 +289,11 @@ export function ReadyToAdd({
                     label: node.label,
                     href: hrefFor(node),
                     pill: (
-                      <>
-                        <RecordStatePill state={node.state}>
-                          {STATE_LABELS[node.state]}
-                        </RecordStatePill>
-                        {node.detail && <Small>{node.detail}</Small>}
-                      </>
+                      <RecordStatePill state={node.state}>
+                        {STATE_LABELS[node.state]}
+                      </RecordStatePill>
                     ),
+                    detail: node.detail ?? undefined,
                   })),
                 }))}
               />
@@ -306,7 +315,7 @@ export function ReadyToAdd({
       </Panel>
       <StickyFooter
         label="Approve"
-        leading={<Pill tone="info">Test InvenTree</Pill>}
+        leading={<TargetChip>Test InvenTree</TargetChip>}
         summary={
           preview ? (
             <Small>
@@ -380,6 +389,13 @@ const LotText = styled.span`
 `
 const SectionHeading = styled(Heading)`
   margin-top: ${space[6]};
+`
+const HeadRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: ${space[4]};
 `
 const Controls = styled.div`
   display: flex;

@@ -4,6 +4,7 @@ import { Button } from './Button'
 import { ChangeSummary } from './ChangeSummary'
 import { Pill } from './Pill'
 import { StickyFooter } from './StickyFooter'
+import { TargetChip } from './TargetChip'
 
 describe('ChangeSummary', () => {
   it('groups changes under titled sections with counts and links', () => {
@@ -34,6 +35,39 @@ describe('ChangeSummary', () => {
     )
     expect(within(section).getByText('GRM188R71H104KA93D')).toBeInTheDocument()
     expect(within(section).getByText('New')).toBeInTheDocument()
+  })
+})
+
+describe('ChangeSummary rows', () => {
+  it('puts the state pill before the record and its detail after', () => {
+    render(
+      <ChangeSummary
+        sections={[
+          {
+            title: 'Parts',
+            count: 1,
+            items: [
+              {
+                id: 'p1',
+                label: 'RC0603FR-0710KL',
+                href: '#review/p1',
+                pill: <Pill tone="info">New</Pill>,
+                detail: 'Through-hole',
+              },
+            ],
+          },
+        ]}
+      />,
+    )
+    const row = screen.getByRole('listitem')
+    expect(row).toHaveTextContent(/^＋NewRC0603FR-0710KLThrough-hole$/)
+  })
+})
+
+describe('TargetChip', () => {
+  it('names the target beside a status dot', () => {
+    render(<TargetChip>Test InvenTree</TargetChip>)
+    expect(screen.getByText('Test InvenTree').closest('[data-target]')).toBeInTheDocument()
   })
 })
 

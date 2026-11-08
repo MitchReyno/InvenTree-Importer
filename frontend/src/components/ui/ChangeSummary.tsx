@@ -3,7 +3,14 @@ import styled from 'styled-components'
 import { color, font, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { formatCount, media } from './media'
 
-export type ChangeItem = { id: string; label: string; href?: string; pill?: ReactNode }
+/** The pill leads the row; `detail` is a muted note after the record. */
+export type ChangeItem = {
+  id: string
+  label: string
+  href?: string
+  pill?: ReactNode
+  detail?: string
+}
 
 export type ChangeSection = { title: string; count: number; items: ChangeItem[] }
 
@@ -19,8 +26,9 @@ export function ChangeSummary({ sections }: { sections: ChangeSection[] }) {
           <ul>
             {section.items.map((item) => (
               <li key={item.id}>
-                {item.href ? <a href={item.href}>{item.label}</a> : <span>{item.label}</span>}
                 {item.pill}
+                {item.href ? <a href={item.href}>{item.label}</a> : <span>{item.label}</span>}
+                {item.detail && <Detail>{item.detail}</Detail>}
               </li>
             ))}
           </ul>
@@ -46,7 +54,7 @@ const Section = styled.section`
   ul {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: ${space[2]};
     margin: ${space[4]} 0 0;
     padding: 0;
     list-style: none;
@@ -69,9 +77,13 @@ const Section = styled.section`
   }
 `
 
+const Detail = styled.span`
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+`
 const Total = styled.span`
   font-family: ${font.mono};
-  font-size: 13px;
+  font-size: ${typeVar.mono.size};
   font-weight: ${typeVar.mono.weight};
   color: ${color.muted};
 `

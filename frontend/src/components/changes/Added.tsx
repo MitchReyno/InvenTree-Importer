@@ -3,10 +3,11 @@ import { Banner } from '../ui/Banner'
 import type { CaptureSnapshotDto, ManualRunDto, ManualWorkspaceDto } from '@invimport/contracts'
 import type { RunRecoverySelection } from '../../manual/types'
 import { batchHref } from '../../navigation/batch-route'
-import { space } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import { Pill } from '../ui/Pill'
 import { StatusTimeline } from '../ui/StatusTimeline'
 import { Heading, Link, Panel, Paragraph, Small } from '../ui/primitives'
+import { TargetChip } from '../ui/TargetChip'
 import { activeRun, checking, refused, roundSummary, RoundOutcome } from './RoundOutcome'
 
 interface Props {
@@ -44,10 +45,10 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
   return (
     <Layout>
       <Strip role="region" aria-label="Outcome">
-        <Pill tone="info">Test InvenTree</Pill>
-        <strong>{plural(added, 'stock item')} added</strong>
-        <span>{beingChecked} being checked</span>
-        <span>{refusals} refused by InvenTree</span>
+        <TargetChip>Test InvenTree</TargetChip>
+        <Pill tone={added ? 'ok' : 'neutral'}>{plural(added, 'stock item')} added</Pill>
+        <Pill tone={beingChecked ? 'warn' : 'neutral'}>{beingChecked} being checked</Pill>
+        <Pill tone={refusals ? 'bad' : 'neutral'}>{refusals} refused by InvenTree</Pill>
         {runs.some(activeRun) && <span>Adding now</span>}
       </Strip>
       {runs.length === 0 && (
@@ -75,7 +76,7 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
       {workspace.preparations.length > 0 && (
         <Panel aria-labelledby="pending-changes">
           <Heading id="pending-changes">Pending changes</Heading>
-          <ul>
+          <Rows>
             {workspace.preparations.map((preparation) => {
               const lots = preparation.effects.map((effect) => effect.lot_label).join(', ')
               return (
@@ -94,13 +95,13 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
                 </li>
               )
             })}
-          </ul>
+          </Rows>
         </Panel>
       )}
       {notIncluded.length > 0 && (
         <Panel aria-label="Not included">
           <Heading as="h3">Not included</Heading>
-          <ul>
+          <Rows>
             {notIncluded.map((lot) => (
               <li key={lot.id}>
                 <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
@@ -108,7 +109,7 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
                 </Link>
               </li>
             ))}
-          </ul>
+          </Rows>
         </Panel>
       )}
       {runs.length > 0 && (
@@ -134,6 +135,21 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
 const Layout = styled.div`
   display: grid;
   gap: ${space[6]};
+`
+/** List rows with dividers, in place of bullets. */
+const Rows = styled.ul`
+  display: grid;
+  margin: ${space[4]} 0 0;
+  padding: 0;
+  list-style: none;
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: ${space[4]};
+    padding: ${space[4]} 0;
+    border-top: 1px solid ${color.line};
+  }
 `
 const Strip = styled.div`
   display: flex;

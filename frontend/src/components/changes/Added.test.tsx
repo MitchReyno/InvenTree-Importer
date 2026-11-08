@@ -191,6 +191,12 @@ describe('Added', () => {
     expect(strip).toHaveTextContent('1 being checked')
     expect(strip).toHaveTextContent('1 refused by InvenTree')
     expect(within(strip).getByText('Test InvenTree')).toBeVisible()
+
+    const tone = (text: string) => within(strip).getByText(text).closest('[data-tone]')
+
+    expect(tone('1 stock item added')).toHaveAttribute('data-tone', 'ok')
+    expect(tone('1 being checked')).toHaveAttribute('data-tone', 'warn')
+    expect(tone('1 refused by InvenTree')).toHaveAttribute('data-tone', 'bad')
   })
 
   it('links confirmed records into InvenTree', () => {
