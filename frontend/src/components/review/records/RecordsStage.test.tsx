@@ -266,6 +266,47 @@ describe('RecordsStage', () => {
     )
   })
 
+  it('heads the records and filters the chosen type by state', async () => {
+    const user = userEvent.setup()
+    stage()
+    expect(
+      await screen.findByRole('heading', { name: 'Every InvenTree record this batch touches' }),
+    ).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /^Parts/ }))
+    const filters = screen.getByRole('group', { name: 'Filter records' })
+    const list = screen.getByRole('region', { name: 'Parts' })
+    const all = within(list).getAllByRole('button').length
+    await user.click(within(filters).getByRole('button', { name: /^Needs a decision/ }))
+    const deciding = within(list).getAllByRole('button')
+    expect(deciding.length).toBeLessThan(all)
+    deciding.forEach((row) =>
+      expect(row).toHaveAttribute('aria-description', expect.stringMatching(/^Needs a decision/)),
+    )
+  })
+
+  it('places a record in its breadcrumb, steps between records and links each lot using it', async () => {
+    const user = userEvent.setup()
+    stage()
+    await user.click(await screen.findByRole('button', { name: /^Parts/ }))
+    const list = screen.getByRole('region', { name: 'Parts' })
+    const rows = within(list).getAllByRole('button')
+    await user.click(rows[0])
+    const crumbs = screen.getByRole('navigation', { name: 'Record' })
+    expect(crumbs).toHaveTextContent(`Records›Parts›${rows[0].getAttribute('aria-label')}`)
+    await user.click(screen.getByRole('button', { name: /^Next record/ }))
+    expect(rows[1]).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: /^Previous record/ })).toBeEnabled()
+  })
+
+  it('shows Parameters as a Part by template matrix per category, with its legend', async () => {
+    const user = userEvent.setup()
+    stage()
+    await user.click(await screen.findByRole('button', { name: /^Parameters/ }))
+    const matrix = screen.getByRole('region', { name: 'Parameters by category' })
+    expect(within(matrix).getAllByRole('table').length).toBeGreaterThan(0)
+    expect(matrix).toHaveTextContent(/missing/)
+  })
+
   it('maps a shared company to another in the same role, stating every Part it reaches', async () => {
     const user = userEvent.setup()
     const { edit } = stage()
@@ -339,10 +380,14 @@ describe('RecordsStage', () => {
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
 
     expect(detail).toHaveTextContent('Applies to Carbon film resistor, used by 2 lots.')
-    expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
-      'Proposed by Research',
+    expect(within(detail).getByRole('link', { name: 'Lot 1' })).toHaveAttribute(
+      'href',
+      expect.stringContaining(`/review/lots/${id(101)}`),
     )
-    expect(within(detail).getByRole('row', { name: /Name/ })).toHaveTextContent('Set by you')
+    expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
+      'Research · Proposed',
+    )
+    expect(within(detail).getByRole('row', { name: /Name/ })).toHaveTextContent('You · Your edit')
     expect(within(detail).queryByRole('button', { name: /^Ask/ })).not.toBeInTheDocument()
 
     const name = within(detail).getByLabelText('Name')
@@ -641,7 +686,7 @@ describe('RecordsStage', () => {
     const detail = screen.getByRole('region', { name: 'Lot 10' })
 
     expect(within(detail).getByRole('row', { name: 'Quantity as saved' })).toHaveTextContent(
-      '12Estimated by Examine',
+      '12Examine · Estimated',
     )
     expect(detail).toHaveTextContent('Accept or replace the estimated quantity')
     expect(within(detail).getByRole('link', { name: 'Open this lot' })).toBeInTheDocument()

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '../../theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -11,9 +11,13 @@ import {
   PROVENANCE_LABELS,
   blockingIssues,
   lotLocationFact,
+  lotProvenance,
   openWarnings,
+  type Provenance,
 } from '../../operator/review-model'
-import { StatusChip } from './StatusChip'
+import { partFacts } from '../../operator/part-facts'
+import { Pill } from '../ui/Pill'
+import { DataTable, type DataColumn, type DataRow } from '../ui/DataTable'
 
 export interface ReviewTableProps {
   batch: CaptureSnapshotDto
@@ -28,35 +32,35 @@ export interface ReviewTableProps {
   inspect: (lotId: string) => void
 }
 
-function ReviewStateChip({ lot }: { lot: OperatorLotDto }) {
-  if (lot.approved) {
-    return <StatusChip $tone="green">Approved</StatusChip>
-  }
-  if (lot.review_state === 'reviewed') {
-    return <StatusChip $tone="green">✓ Reviewed</StatusChip>
-  }
-  if (lot.review_state === 'changed_after_review') {
-    return <StatusChip $tone="amber">! Changed</StatusChip>
-  }
-  return <StatusChip $tone="neutral">Needs review</StatusChip>
-}
-
-function Problems({ lot }: { lot: OperatorLotDto }) {
+/** One state per lot, most pressing first; Excluded follows the Exclude command (task 22.4). */
+function LotState({ lot }: { lot: OperatorLotDto }) {
   const blocking = blockingIssues(lot).length
   const warnings = openWarnings(lot).length
-  if (!blocking && !warnings) {
-    return <span>None</span>
+  if (lot.approved) {
+    return <Pill tone="ok">Approved</Pill>
   }
-  return (
-    <ProblemList>
-      {blocking > 0 && <StatusChip $tone="red">× {blocking} blocking</StatusChip>}
-      {warnings > 0 && (
-        <StatusChip $tone="amber">
-          ! {warnings} warning{warnings === 1 ? '' : 's'}
-        </StatusChip>
-      )}
-    </ProblemList>
-  )
+  if (blocking) {
+    return <Pill status="blocking">{blocking} blocking</Pill>
+  }
+  if (warnings) {
+    return (
+      <Pill status="warning">
+        {warnings} warning{warnings === 1 ? '' : 's'}
+      </Pill>
+    )
+  }
+  if (lot.review_state === 'changed_after_review') {
+    return <Pill status="warning">Changed</Pill>
+  }
+  if (lot.review_state === 'reviewed') {
+    return <Pill status="ready">Reviewed</Pill>
+  }
+  return <Pill tone="neutral">Needs review</Pill>
+}
+
+/** ◆ marks a lot value that overrides the batch; an underline marks the operator's own edit. */
+function markers(provenance: Provenance) {
+  return { override: provenance === 'override', edited: provenance === 'human' }
 }
 
 function partCell(batch: CaptureSnapshotDto, lot: OperatorLotDto) {
@@ -67,6 +71,17 @@ function partCell(batch: CaptureSnapshotDto, lot: OperatorLotDto) {
   const chosen = part.choice.mode === 'set' ? ` · #${part.choice.value.pk}` : ' · not chosen'
   return `${part.label}${chosen}`
 }
+
+const COLUMNS: DataColumn[] = [
+  { id: 'state', header: 'State', nowrap: true },
+  { id: 'item', header: 'Item' },
+  { id: 'mpn', header: 'MPN', mono: true },
+  { id: 'dateCode', header: 'D/C', mono: true, nowrap: true },
+  { id: 'sku', header: 'Supplier SKU', mono: true },
+  { id: 'qty', header: 'Qty', nowrap: true },
+  { id: 'location', header: 'Location' },
+  { id: 'part', header: 'Part' },
+]
 
 /** A second projection of the same retained facts; selection here is explicit and per row. */
 export function ReviewTable({
@@ -83,141 +98,106 @@ export function ReviewTable({
   const lots = lotIds
     .map((id) => review.lots.find((lot) => lot.lot_id === id))
     .filter((lot): lot is OperatorLotDto => lot !== undefined)
-  const allSelected = lots.length > 0 && lots.every((lot) => selected.has(lot.lot_id))
+  const rows: DataRow[] = lots.map((lot) => {
+    const capture = batch.lots.find((value) => value.id === lot.lot_id)!
+    const location = lotLocationFact(batch, capture, media)
+    const part = partCell(batch, lot)
+    const facts = partFacts(
+      batch,
+      batch.parts.find((value) => value.id === lot.part_subject_id),
+    )
+    return {
+      id: lot.lot_id,
+      label: lot.label,
+      cells: {
+        state: { value: '', content: <LotState lot={lot} /> },
+        mpn: { value: facts.mpn ?? '' },
+        dateCode: { value: facts.dateCode ?? '' },
+        sku: { value: facts.supplierSku ?? '' },
+        item: {
+          value: lot.label,
+          content: (
+            <ItemButton type="button" onClick={() => inspect(lot.lot_id)}>
+              {lot.label}
+            </ItemButton>
+          ),
+        },
+        qty: {
+          value: display(capture.quantity, batch, 'quantity'),
+          ...markers(lotProvenance(capture.quantity, batch.defaults.quantity)),
+        },
+        location: {
+          value: `${location.value} · ${PROVENANCE_LABELS[location.provenance]}`,
+          ...markers(location.provenance),
+        },
+        part: {
+          value: part,
+          content: (
+            <>
+              {part}
+              {lot.shared_lot_ids.length > 0 && (
+                <SharedCount> ×{lot.shared_lot_ids.length + 1} lots</SharedCount>
+              )}
+            </>
+          ),
+        },
+      },
+    }
+  })
   return (
-    <Scroll role="region" aria-label="Lot table" tabIndex={0}>
-      <Table>
-        <caption>
-          Select rows to edit several at once. Per-lot overrides show as Override in the evidence
-          view.
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">
-              <input
-                type="checkbox"
-                aria-label="Select all shown lots"
-                checked={allSelected}
-                disabled={disabled || !lots.length}
-                onChange={() => toggleAll(lots.map((lot) => lot.lot_id))}
-              />
-            </th>
-            <th scope="col">Status</th>
-            <th scope="col">Problems</th>
-            <th scope="col">Item</th>
-            <th scope="col">Qty</th>
-            <th scope="col">Location</th>
-            <th scope="col">Part</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lots.map((lot) => {
-            const capture = batch.lots.find((value) => value.id === lot.lot_id)!
-            const location = lotLocationFact(batch, capture, media)
-            return (
-              <tr key={lot.lot_id} aria-selected={selected.has(lot.lot_id)}>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${lot.label}`}
-                    checked={selected.has(lot.lot_id)}
-                    disabled={disabled}
-                    onChange={() => toggle(lot.lot_id)}
-                  />
-                </td>
-                <td>
-                  <ReviewStateChip lot={lot} />
-                </td>
-                <td>
-                  <Problems lot={lot} />
-                </td>
-                <td>
-                  <ItemButton type="button" onClick={() => inspect(lot.lot_id)}>
-                    {lot.label}
-                  </ItemButton>
-                </td>
-                <td>{display(capture.quantity, batch, 'quantity')}</td>
-                <td>
-                  {location.value} · {PROVENANCE_LABELS[location.provenance]}
-                </td>
-                <td>
-                  {partCell(batch, lot)}
-                  {lot.shared_lot_ids.length > 0 && (
-                    <SharedCount> ×{lot.shared_lot_ids.length + 1} lots</SharedCount>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </Table>
+    <>
+      <DataTable
+        caption="Lots in this filter. Select rows to act on several at once."
+        region="Lot table"
+        onRowOpen={inspect}
+        columns={COLUMNS}
+        rows={rows}
+        selection={{
+          selected,
+          disabled,
+          onToggle: toggle,
+          onToggleAll: () => toggleAll(lots.map((lot) => lot.lot_id)),
+        }}
+      />
       {!lots.length && <Empty>No lots match this filter.</Empty>}
-    </Scroll>
+      <Legend>
+        <span aria-hidden="true">◆</span> overrides the batch value · <Edited>underline</Edited>:
+        your edit
+      </Legend>
+    </>
   )
 }
 
-const Scroll = styled.div`
-  overflow-x: auto;
-  max-width: 100%;
-  background: ${color.surface};
-  border: 1px solid ${color.line};
-  border-radius: 6px;
-  &:focus-visible {
-    outline: 3px solid ${color.accent};
-  }
+const Legend = styled.p`
+  margin: ${space[3]} 0 0;
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
 `
-const Table = styled.table`
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 860px;
-  caption {
-    padding: 10px 12px;
-    text-align: left;
-    color: ${color.muted};
-    font-size: 13px;
-  }
-  th,
-  td {
-    padding: 10px 12px;
-    text-align: left;
-    vertical-align: top;
-    border-top: 1px solid ${color.line};
-  }
-  thead th {
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: ${color.muted};
-  }
-  tr[aria-selected='true'] td {
-    background: ${color.accentWeak};
-  }
-  input[type='checkbox'] {
-    width: 20px;
-    height: 20px;
-  }
+const Edited = styled.span`
+  text-decoration: underline;
+  text-decoration-color: ${color.accent};
+  text-decoration-thickness: 2px;
 `
-const ProblemList = styled.span`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-`
+/** Plain text that opens the lot, so the row stays reachable by keyboard. */
 const ItemButton = styled.button`
   padding: 0;
   border: 0;
   background: none;
-  color: ${color.accent};
-  text-decoration: underline;
+  color: ${color.fg};
   text-align: left;
   font: inherit;
+  font-weight: ${typeVar.bodyStrong.weight};
   cursor: pointer;
-  min-height: 32px;
+  min-height: ${size.control};
+  &:hover {
+    text-decoration: underline;
+  }
 `
 const SharedCount = styled.span`
   color: ${color.muted};
-  font-size: 13px;
+  font-size: ${typeVar.small.size};
 `
 const Empty = styled.p`
-  padding: 12px;
+  padding: ${space[6]};
   color: ${color.muted};
 `

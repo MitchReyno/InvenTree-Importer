@@ -5,23 +5,17 @@ import { AskControl } from './AskControl'
 import { ProposedCompanyEditor } from './ProposedCompanyEditor'
 import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '../../../records/model'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
-import { Pill, type PillTone } from '../../ui/Pill'
-import { Small } from '../../ui/primitives'
+import { Link, Small } from '../../ui/primitives'
 import { CompanyEditor } from './CompanyEditor'
 import { ParameterEditor } from './ParameterEditor'
 import { PartDecision } from './PartDecision'
 import { PartEditor } from './PartEditor'
 import { SourcingEditor } from './SourcingEditor'
 import { TemplateEditor } from './TemplateEditor'
+import { RecordStatePill } from '../../ui/RecordStatePill'
+import { SourceChip } from '../../ui/SourceChip'
+import { DataTable, type DataColumn } from '../../ui/DataTable'
 import type { Save } from './draft'
-
-export const STATE_TONE: Record<BatchRecordDto['state'], PillTone> = {
-  new: 'info',
-  exists: 'neutral',
-  update: 'acc',
-  choose: 'warn',
-  unsupported: 'bad',
-}
 
 const FIELD_LABELS: Record<string, string> = {
   name: 'Name',
@@ -69,16 +63,22 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
     <Card aria-label={record.label}>
       <Head>
         <Title>{record.label}</Title>
-        <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
+        <RecordStatePill state={record.state}>{STATE_LABELS[record.state]}</RecordStatePill>
       </Head>
-      {target ? (
-        <Small>{scopeText(batch, target)}</Small>
-      ) : (
-        record.lot_ids.length > 0 && (
-          <Small>
-            Used by {record.lot_ids.length} {record.lot_ids.length === 1 ? 'lot' : 'lots'}.
-          </Small>
-        )
+      {target && <Small>{scopeText(batch, target)}</Small>}
+      {record.lot_ids.length > 0 && (
+        <Small>
+          Used by{' '}
+          {record.lot_ids.map((lotId, index) => (
+            <span key={lotId}>
+              {index > 0 && ', '}
+              <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
+                {batch.lots.find((lot) => lot.id === lotId)?.label ?? 'a retired lot'}
+              </Link>
+            </span>
+          ))}
+          .
+        </Small>
       )}
       {record.decision && record.type !== 'part' && !record.proposed && (
         <Small>
@@ -100,51 +100,61 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
         </Small>
       )}
       {record.fields.length > 0 && (
-        <Fields>
-          <tbody>
-            {record.fields.map((field) => (
-              <tr
-                key={field.name}
-                aria-label={`${FIELD_LABELS[field.name] ?? field.name} as saved`}
-              >
-                <th scope="row">{FIELD_LABELS[field.name] ?? field.name}</th>
-                <td>{field.value ?? '—'}</td>
-                <td>
-                  <Small>
-                    {field.origin.kind === 'step'
-                      ? `Proposed by ${STEP_LABELS[field.origin.step]}`
-                      : field.origin.kind === 'estimate'
-                        ? `Estimated by ${STEP_LABELS[field.origin.step]}`
-                        : 'Set by you'}
-                  </Small>
-                  {field.origin.kind === 'step' &&
-                    (() => {
-                      const send = ask?.(field.origin.step)
-                      const step = STEP_LABELS[field.origin.step]
-                      return send ? (
-                        <AskControl
-                          step={step}
-                          value={field.value}
-                          prefill={`Please check the ${(FIELD_LABELS[field.name] ?? field.name).toLowerCase()} of ${record.label}.`}
-                          send={send}
-                          storeKey={`${batch.id}:ask:${record.key}:${field.name}`}
-                          report={reportFor(`ask:${field.name}`)}
+        <DataTable
+          caption={`${record.label}: saved values and who set them`}
+          columns={FIELD_COLUMNS}
+          rows={record.fields.map((field) => {
+            const label = FIELD_LABELS[field.name] ?? field.name
+            return {
+              id: field.name,
+              label,
+              name: `${label} as saved`,
+              cells: {
+                field: { value: label },
+                value: { value: field.value ?? '—' },
+                source: {
+                  value: '',
+                  content: (
+                    <Source>
+                      {field.origin.kind === 'operator' ? (
+                        <SourceChip source="You" certainty="Your edit" tone="user" />
+                      ) : (
+                        <SourceChip
+                          source={STEP_LABELS[field.origin.step]}
+                          certainty={field.origin.kind === 'estimate' ? 'Estimated' : 'Proposed'}
+                          tone={field.origin.kind === 'estimate' ? 'likely' : 'default'}
                         />
-                      ) : null
-                    })()}
-                  {atField
-                    .filter((item) => item.field === field.name)
-                    .map((item, index) => (
-                      <Small key={index}>
-                        Proposed {item.value}: {item.why}
-                        {item.reason && ` Proposed because: ${item.reason}`}
-                      </Small>
-                    ))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Fields>
+                      )}
+                      {field.origin.kind === 'step' &&
+                        (() => {
+                          const send = ask?.(field.origin.step)
+                          const step = STEP_LABELS[field.origin.step]
+                          return send ? (
+                            <AskControl
+                              step={step}
+                              value={field.value}
+                              prefill={`Please check the ${label.toLowerCase()} of ${record.label}.`}
+                              send={send}
+                              storeKey={`${batch.id}:ask:${record.key}:${field.name}`}
+                              report={reportFor(`ask:${field.name}`)}
+                            />
+                          ) : null
+                        })()}
+                      {atField
+                        .filter((item) => item.field === field.name)
+                        .map((item, index) => (
+                          <Small key={index}>
+                            Proposed {item.value}: {item.why}
+                            {item.reason && ` Proposed because: ${item.reason}`}
+                          </Small>
+                        ))}
+                    </Source>
+                  ),
+                },
+              },
+            }
+          })}
+        />
       )}
       {elsewhere.length > 0 && (
         <Unsupported aria-label="Not supported yet">
@@ -263,14 +273,16 @@ const Title = styled.h2`
   margin: 0;
   ${type.h2}
 `
-const Fields = styled.table`
-  border-collapse: collapse;
-  th,
-  td {
-    padding: ${space[2]} ${space[4]} ${space[2]} 0;
-    text-align: left;
-    vertical-align: top;
-  }
+const FIELD_COLUMNS: DataColumn[] = [
+  { id: 'field', header: 'Field', nowrap: true },
+  { id: 'value', header: 'Value' },
+  { id: 'source', header: 'Source' },
+]
+
+const Source = styled.div`
+  display: grid;
+  gap: ${space[2]};
+  justify-items: start;
 `
 
 const Unsupported = styled.section`
@@ -281,6 +293,6 @@ const Unsupported = styled.section`
   border-radius: ${radius.card};
   div {
     display: grid;
-    gap: 2px;
+    gap: ${space[1]};
   }
 `

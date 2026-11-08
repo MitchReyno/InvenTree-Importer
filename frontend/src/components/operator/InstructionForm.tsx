@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
+import { Banner } from '../ui/Banner'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import { ErrorNotice, Form, Label, Small, TextArea } from '../ui/primitives'
+import { Form, Label, Small, TextArea } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
 const MAX_INSTRUCTION_LENGTH = 8192
@@ -88,7 +89,11 @@ export function InstructionForm({
           ? `Version ${latest.version} · ${new Date(latest.created_at).toLocaleString()}`
           : 'No instructions saved yet.'}
       </Small>
-      {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
+      {command.message && (
+        <div role="alert">
+          <Banner tone="bad">{command.message}</Banner>
+        </div>
+      )}
       <Button
         type="button"
         disabled={command.busy || (!isDirty && !command.pending)}

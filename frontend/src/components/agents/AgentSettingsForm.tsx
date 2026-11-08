@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
-import { Notice, Paragraph } from '../ui/primitives'
+import { Paragraph } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { space } from '../../theme/generated/tokens'
 import { TextField } from '../ui/TextField'
@@ -187,7 +188,11 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
           Discard and reload
         </Button>
       </Actions>
-      {message && <Notice role="status">{message}</Notice>}
+      {message && (
+        <div role="status">
+          <Banner tone="warn">{message}</Banner>
+        </div>
+      )}
     </Form>
   )
 }

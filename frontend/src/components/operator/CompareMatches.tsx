@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
-import { Modal } from './Modal'
+import { OptionRow } from '../ui/OptionRow'
+import { Dialog } from '../ui/Dialog'
+import { localTime } from '../ui/RelativeTime'
 
 type Part = CaptureSnapshotDto['parts'][number]
 type Observation = CaptureSnapshotDto['observations'][number]
@@ -82,7 +84,7 @@ export function CompareMatches({
   }
 
   return (
-    <Modal
+    <Dialog
       title={`Compare matches · ${part.label}`}
       onClose={onClose}
       closeDisabled={pending !== null || saving}
@@ -95,7 +97,8 @@ export function CompareMatches({
         <Paragraph>
           No existing Parts have been read for this batch yet.{' '}
           {onEditPart ? (
-            <InlineButton
+            <Button
+              variant="link"
               type="button"
               onClick={() => {
                 onClose()
@@ -103,7 +106,7 @@ export function CompareMatches({
               }}
             >
               Read an existing Part in the shared Part editor
-            </InlineButton>
+            </Button>
           ) : (
             'Read one in the shared Part editor in Review.'
           )}
@@ -135,7 +138,7 @@ export function CompareMatches({
                 <th scope="row">Read</th>
                 <td>—</td>
                 {candidates.map((candidate) => (
-                  <td key={candidate.id}>{new Date(candidate.observed_at).toLocaleString()}</td>
+                  <td key={candidate.id}>{localTime(candidate.observed_at) ?? 'Unknown'}</td>
                 ))}
               </tr>
               <tr>
@@ -152,26 +155,35 @@ export function CompareMatches({
                   )
                 })}
               </tr>
-              <tr>
-                <th scope="row">Choice</th>
-                <td>{current ? `Currently #${current}` : 'Not chosen'}</td>
-                {candidates.map((candidate) => (
-                  <td key={candidate.id}>
-                    <Button
-                      disabled={disabled || saving || candidate.pk === current}
-                      onClick={() => {
-                        setPending(candidate)
-                        onDirtyChange?.(true)
-                      }}
-                    >
-                      Use #{candidate.pk}
-                    </Button>
-                  </td>
-                ))}
-              </tr>
             </tbody>
           </Table>
         </Scroll>
+      )}
+      {candidates.length > 0 && (
+        <ChoiceSet disabled={disabled || saving}>
+          <legend>Use a candidate for this shared Part</legend>
+          <OptionRow
+            name={`match-${part.id}`}
+            options={candidates
+              .filter((candidate) => candidate.pk !== current)
+              .map((candidate) => ({
+                id: candidate.id,
+                title: `#${candidate.pk}`,
+                detail: candidate.label,
+              }))}
+            escape={{
+              id: KEEP,
+              title: 'Keep the current choice',
+              detail: current ? `#${current}` : 'Not chosen',
+            }}
+            value={pending?.id ?? KEEP}
+            onChange={(id) => {
+              const candidate = candidates.find((value) => value.id === id) ?? null
+              setPending(candidate)
+              onDirtyChange?.(candidate !== null)
+            }}
+          />
+        </ChoiceSet>
       )}
       {pending && (
         <Confirm role="alertdialog" aria-label="Confirm shared Part choice">
@@ -200,10 +212,21 @@ export function CompareMatches({
           </span>
         </Confirm>
       )}
-    </Modal>
+    </Dialog>
   )
 }
 
+const KEEP = 'keep'
+
+const ChoiceSet = styled.fieldset`
+  margin: ${space[6]} 0 0;
+  padding: 0;
+  border: 0;
+  legend {
+    margin-bottom: ${space[3]};
+    font-weight: ${typeVar.bodyStrong.weight};
+  }
+`
 const Scroll = styled.div`
   overflow-x: auto;
   max-width: 100%;
@@ -213,32 +236,21 @@ const Table = styled.table`
   min-width: 100%;
   th,
   td {
-    padding: 8px 10px;
+    padding: ${space[4]} ${space[5]};
     text-align: left;
     vertical-align: top;
     border-bottom: 1px solid ${color.line};
     overflow-wrap: anywhere;
   }
   thead th {
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    ${type.label}
     color: ${color.muted};
   }
 `
 const Confirm = styled.section`
-  margin-top: 14px;
-  padding: 12px;
+  margin-top: ${space[7]};
+  padding: ${space[6]};
   border: 1px solid ${color.warn};
   background: ${color.warnWeak};
-  border-radius: 6px;
-`
-const InlineButton = styled.button`
-  padding: 0;
-  border: 0;
-  background: none;
-  color: ${color.accent};
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
+  border-radius: ${radius.card};
 `

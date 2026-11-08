@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Banner } from '../ui/Banner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -20,7 +21,9 @@ import {
   type RunRecoverySelection,
 } from '../../manual/types'
 import { useDirtySources } from '../../operator/useDirtySources'
-import { ErrorNotice, Notice, Paragraph, Heading, HeadingRow } from '../ui/primitives'
+import { Paragraph, Heading, HeadingRow } from '../ui/primitives'
+import { VisuallyHidden } from '../ui/VisuallyHidden'
+import { useConfirmation } from '../ui/Confirmation'
 import { Button } from '../ui/Button'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
@@ -114,6 +117,7 @@ export function ManualWorkspace({
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
   const [busy, setBusy] = useState('')
+  const confirm = useConfirmation()
   const [error, setError] = useState('')
 
   async function refresh() {
@@ -231,6 +235,8 @@ export function ManualWorkspace({
         { expected_batch_revision: batch.revision, selected_lot_ids: ids },
         crypto.randomUUID(),
       )
+      // No command un-reviews a lot, so the confirmation offers no Undo.
+      confirm(`Marked ${ids.length} lot${ids.length === 1 ? '' : 's'} reviewed`)
     })
   }
 
@@ -371,48 +377,55 @@ export function ManualWorkspace({
   }
   return (
     <>
-      <HeadingRow>
-        <Heading>
-          {
-            {
-              review: 'Review selected lots',
-              approve: 'Ready to add',
-              results: 'Added',
-            }[stage]
-          }
-        </Heading>
-      </HeadingRow>
+      {stage === 'review' ? (
+        // Review's tabs already name the page; the heading stays for screen readers.
+        <VisuallyHidden as="div">
+          <Heading>Review selected lots</Heading>
+        </VisuallyHidden>
+      ) : (
+        <HeadingRow>
+          <Heading>{stage === 'approve' ? 'Ready to add' : 'Added'}</Heading>
+        </HeadingRow>
+      )}
       {workspace?.preparations_truncated && (
-        <Notice>
+        <Banner tone="warn">
           Only the 20 most recent unapproved preparations are considered here. Older exact plans
           remain retained; prepare current scope again if needed.
-        </Notice>
+        </Banner>
       )}
-      {busy && <Notice role="status">{busy}</Notice>}
+      {busy && (
+        <div role="status">
+          <Banner tone="warn">{busy}</Banner>
+        </div>
+      )}
       {workspace && waitingForFirstRead && !connectionLost && (
-        <Notice role="status">Verifying current retained state; commands are disabled.</Notice>
+        <div role="status">
+          <Banner tone="warn">Verifying current retained state; commands are disabled.</Banner>
+        </div>
       )}
       {(connectionLost || error) && (
-        <ErrorNotice role="alert">
-          {connectionLost && (
-            <Paragraph>
-              Status unavailable. Showing the last retained snapshot; commands are disabled until
-              the application can verify current state.
-            </Paragraph>
-          )}
-          {error && <Paragraph>{error}</Paragraph>}
-          <Button
-            disabled={Boolean(busy)}
-            onClick={() => {
-              void refresh().catch(() => undefined)
-            }}
-          >
-            Refresh retained state
-          </Button>
-        </ErrorNotice>
+        <div role="alert">
+          <Banner tone="bad">
+            {connectionLost && (
+              <Paragraph>
+                Status unavailable. Showing the last retained snapshot; commands are disabled until
+                the application can verify current state.
+              </Paragraph>
+            )}
+            {error && <Paragraph>{error}</Paragraph>}
+            <Button
+              disabled={Boolean(busy)}
+              onClick={() => {
+                void refresh().catch(() => undefined)
+              }}
+            >
+              Refresh retained state
+            </Button>
+          </Banner>
+        </div>
       )}
       {stale && workspace && (
-        <Notice>
+        <Banner tone="warn">
           Saved capture changed in another client. Your review display has not silently changed.
           <br />
           <Button
@@ -423,7 +436,7 @@ export function ManualWorkspace({
           >
             Load current saved choices
           </Button>
-        </Notice>
+        </Banner>
       )}
       {content}
     </>

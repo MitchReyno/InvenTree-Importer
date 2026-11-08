@@ -95,7 +95,7 @@ const Message = styled.p<{ $mine: boolean }>`
 const Who = styled.span`
   display: block;
   margin-bottom: ${space[1]};
-  font-size: 11px;
+  font-size: ${typeVar.label.size};
   font-weight: ${typeVar.bodyStrong.weight};
   color: ${color.muted};
 `

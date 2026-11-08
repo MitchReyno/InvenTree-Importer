@@ -1,24 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type { BulkEditDto, CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import {
-  ErrorNotice,
-  Fieldset,
-  Form,
-  Input,
-  Label,
-  Panel,
-  Paragraph,
-  Select,
-  Small,
-} from '../ui/primitives'
+import { Fieldset, Form, Input, Label, Panel, Paragraph, Select, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
+import { useConfirmation } from '../ui/Confirmation'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 
@@ -100,6 +92,7 @@ export function BulkEditPanel({
   const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
+  const confirm = useConfirmation()
   const apply = useRetainedCommand(
     (input: { lotIds: string[]; change: BulkChange; revision: string }, key: string) =>
       client.bulkEdit(
@@ -163,9 +156,11 @@ export function BulkEditPanel({
     }
   }
 
-  async function finish(result: unknown) {
+  async function finish(result: unknown, count: number) {
     if (result) {
       onDirtyChange?.(false)
+      // An applied bulk edit has no inverse command, so the confirmation offers no Undo.
+      confirm(`Applied to ${count} lot${count === 1 ? '' : 's'}`)
       await reload()
     }
   }
@@ -235,7 +230,11 @@ export function BulkEditPanel({
         </Row>
       </Form>
       {errors.quantity && <Small role="alert">{errors.quantity.message}</Small>}
-      {previewError && <ErrorNotice role="alert">{previewError}</ErrorNotice>}
+      {previewError && (
+        <div role="alert">
+          <Banner tone="bad">{previewError}</Banner>
+        </div>
+      )}
       {preview && (
         <PreviewBox>
           <ImpactSummary
@@ -244,10 +243,19 @@ export function BulkEditPanel({
             selectedLotIds={preview.lotIds}
             excludedLotIds={activeLotIds.filter((id) => !preview.lotIds.includes(id))}
           />
-          {apply.message && <ErrorNotice role="alert">{apply.message}</ErrorNotice>}
+          {apply.message && (
+            <div role="alert">
+              <Banner tone="bad">{apply.message}</Banner>
+            </div>
+          )}
           {apply.pending ? (
             <span>
-              <Button disabled={apply.busy} onClick={() => void apply.retry().then(finish)}>
+              <Button
+                disabled={apply.busy}
+                onClick={() =>
+                  void apply.retry().then((result) => finish(result, preview.lotIds.length))
+                }
+              >
                 Retry exact bulk edit
               </Button>{' '}
               <Button disabled={apply.busy} onClick={apply.discard}>
@@ -264,7 +272,7 @@ export function BulkEditPanel({
                     change: preview.change,
                     revision: preview.revision,
                   })
-                  .then(finish)
+                  .then((result) => finish(result, preview.lotIds.length))
               }
             >
               Apply to {preview.lotIds.length} lot{preview.lotIds.length === 1 ? '' : 's'}
@@ -281,9 +289,9 @@ const Row = styled(Fieldset)`
   align-items: end;
 `
 const PreviewBox = styled.section`
-  margin-top: 14px;
-  padding: 12px;
+  margin-top: ${space[7]};
+  padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
   background: ${color.accentWeak};
-  border-radius: 6px;
+  border-radius: ${radius.card};
 `

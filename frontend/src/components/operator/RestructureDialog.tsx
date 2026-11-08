@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import {
   CheckboxLabel,
-  ErrorNotice,
   Fieldset,
   Form,
   Input,
@@ -19,7 +20,7 @@ import {
 } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { ImpactSummary } from './ImpactSummary'
-import { Modal } from './Modal'
+import { Dialog } from '../ui/Dialog'
 import { observationNames } from './observation-names'
 
 export type RestructureKind = 'split' | 'merge' | 'move'
@@ -247,7 +248,7 @@ export function RestructureDialog({
   }
 
   return (
-    <Modal title={TITLES[kind]} onClose={onClose} closeDisabled={locked || isDirty}>
+    <Dialog title={TITLES[kind]} onClose={onClose} closeDisabled={locked || isDirty}>
       <Paragraph>
         {kind === 'split' &&
           `Split ${lotLabels(batch, lotIds)[0]} into separate physical lots. The original is retired and kept as history.`}
@@ -400,7 +401,11 @@ export function RestructureDialog({
           </Button>
         </Fieldset>
       </Form>
-      {previewError && <ErrorNotice role="alert">{previewError}</ErrorNotice>}
+      {previewError && (
+        <div role="alert">
+          <Banner tone="bad">{previewError}</Banner>
+        </div>
+      )}
       {preview && (
         <PreviewBox>
           <ImpactSummary
@@ -409,7 +414,11 @@ export function RestructureDialog({
             selectedLotIds={lotIds}
             excludedLotIds={excludedLotIds}
           />
-          {apply.message && <ErrorNotice role="alert">{apply.message}</ErrorNotice>}
+          {apply.message && (
+            <div role="alert">
+              <Banner tone="bad">{apply.message}</Banner>
+            </div>
+          )}
           {apply.pending ? (
             <span>
               <Button disabled={apply.busy} onClick={() => void retryApply()}>
@@ -426,7 +435,7 @@ export function RestructureDialog({
           )}
         </PreviewBox>
       )}
-    </Modal>
+    </Dialog>
   )
 }
 
@@ -457,30 +466,32 @@ function RestructureErrors({ errors }: { errors: FieldErrors<Values> }) {
     return null
   }
   return (
-    <ErrorNotice role="alert">
-      {[...messages].map((message) => (
-        <Paragraph key={message}>{message}</Paragraph>
-      ))}
-    </ErrorNotice>
+    <div role="alert">
+      <Banner tone="bad">
+        {[...messages].map((message) => (
+          <Paragraph key={message}>{message}</Paragraph>
+        ))}
+      </Banner>
+    </div>
   )
 }
 
 const ChildRow = styled.fieldset`
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 10px;
+  gap: ${space[5]};
   align-items: end;
   border: 1px solid ${color.line};
-  border-radius: 6px;
-  padding: 10px;
-  @media (max-width: 600px) {
+  border-radius: ${radius.card};
+  padding: ${space[5]};
+  ${media.narrow} {
     grid-template-columns: 1fr;
   }
 `
 const PreviewBox = styled.section`
-  margin-top: 14px;
-  padding: 12px;
+  margin-top: ${space[7]};
+  padding: ${space[6]};
   border: 1px solid ${color.lineStrong};
   background: ${color.accentWeak};
-  border-radius: 6px;
+  border-radius: ${radius.card};
 `

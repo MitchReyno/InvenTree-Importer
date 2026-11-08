@@ -2,16 +2,11 @@ import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
 import type { TreeItem } from '../../changes/model'
 import { STATE_LABELS } from '../../changes/model'
-import { color, radius, space } from '../../theme/generated/tokens'
-import { Pill, type PillTone } from '../ui/Pill'
-import { Small } from '../ui/primitives'
-
-export const STATE_TONE: Record<keyof typeof STATE_LABELS, PillTone> = {
-  new: 'acc',
-  update: 'info',
-  exists: 'neutral',
-  choose: 'warn',
-}
+import { RecordStatePill } from '../ui/RecordStatePill'
+import { color, radius, space, type } from '../../theme/generated/tokens'
+import { CheckboxLabel, Small } from '../ui/primitives'
+import { Button } from '../ui/Button'
+import { Pill } from '../ui/Pill'
 
 type Visible = {
   item: TreeItem
@@ -21,9 +16,64 @@ type Visible = {
   size: number
 }
 
+type Tally = { new: number; update: number; exists: number }
+
+/** Every node's state below (and including) these items. */
+function tally(list: TreeItem[], into: Tally = { new: 0, update: 0, exists: 0 }): Tally {
+  for (const item of list) {
+    const state = item.node.state as keyof Tally
+    if (state in into) {
+      into[state] += 1
+    }
+    tally(item.children, into)
+  }
+  return into
+}
+
+function changed(item: TreeItem): boolean {
+  return item.node.state !== 'exists' || item.children.some(changed)
+}
+
+/** Keeps only nodes that change, with the parents that lead to them. */
+function onlyChanges(list: TreeItem[]): TreeItem[] {
+  return list.filter(changed).map((item) => ({ ...item, children: onlyChanges(item.children) }))
+}
+
+function expandable(list: TreeItem[]): string[] {
+  return list.flatMap((item) =>
+    item.children.length ? [item.node.key, ...expandable(item.children)] : [],
+  )
+}
+
+function summary(counts: Tally) {
+  return [
+    counts.new && `${counts.new} new`,
+    counts.update && `${counts.update} update`,
+    counts.exists && `${counts.exists} existing`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+const KIND_LABELS: Record<string, string> = {
+  category: 'Category',
+  part: 'Part',
+  parameter: 'Parameter',
+  company: 'Company',
+  manufacturer_part: 'Manufacturer part',
+  supplier_part: 'Supplier part',
+  stock_item: 'Stock item',
+  location: 'Location',
+}
+
 /** A WAI-ARIA tree: one tab stop; arrows move, expand and collapse; Home and End jump. */
-export function PreparationTreeView({ label, items }: { label: string; items: TreeItem[] }) {
+export function PreparationTreeView({ label, items: all }: { label: string; items: TreeItem[] }) {
+  const [changesOnly, setChangesOnly] = useState(false)
+  const items = useMemo(() => (changesOnly ? onlyChanges(all) : all), [all, changesOnly])
+  const counts = useMemo(() => tally(all), [all])
+  const parents = expandable(items)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const anyOpen = parents.some((key) => !collapsed.has(key))
   const [focused, setFocused] = useState<string | null>(items[0]?.node.key ?? null)
   const refs = useRef(new Map<string, HTMLLIElement>())
 
@@ -101,58 +151,87 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
   }
 
   return (
-    <Tree role="tree" aria-label={label}>
-      {visible.map((row) => {
-        const { node, children } = row.item
-        return (
-          <Row
-            key={node.key}
-            ref={(element) => {
-              if (element) {
-                refs.current.set(node.key, element)
-              } else {
-                refs.current.delete(node.key)
-              }
-            }}
-            role="treeitem"
-            aria-level={row.level}
-            aria-setsize={row.size}
-            aria-posinset={row.position}
-            aria-expanded={children.length ? !collapsed.has(node.key) : undefined}
-            aria-selected={node.key === current}
-            tabIndex={node.key === current ? 0 : -1}
-            $level={row.level}
-            onKeyDown={(event) => onKeyDown(event, row)}
-            onFocus={() => setFocused(node.key)}
-            onClick={() => {
-              move(node.key)
-              if (children.length) {
-                toggle(node.key)
-              }
-            }}
-          >
-            <span aria-hidden="true">
-              {children.length ? (collapsed.has(node.key) ? '▸' : '▾') : '·'}
-            </span>
-            <Label>
-              {node.label}
-              {node.detail && <Small>{node.detail}</Small>}
-            </Label>
-            <Pill tone={STATE_TONE[node.state]}>{STATE_LABELS[node.state]}</Pill>
-          </Row>
-        )
-      })}
-    </Tree>
+    <>
+      <Toolbar>
+        <Counts role="group" aria-label="Tree counts">
+          <Pill status="new">{counts.new} new</Pill>
+          <Pill status="update">{counts.update} update</Pill>
+          <Pill status="exists">{counts.exists} existing</Pill>
+        </Counts>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!parents.length}
+          onClick={() => setCollapsed(anyOpen ? new Set(parents) : new Set())}
+        >
+          {anyOpen ? 'Collapse all' : 'Expand all'}
+        </Button>
+        <CheckboxLabel>
+          <input
+            type="checkbox"
+            checked={changesOnly}
+            onChange={(event) => setChangesOnly(event.target.checked)}
+          />
+          Only changes
+        </CheckboxLabel>
+      </Toolbar>
+      <Tree role="tree" aria-label={label}>
+        {visible.map((row) => {
+          const { node, children } = row.item
+          return (
+            <Row
+              key={node.key}
+              ref={(element) => {
+                if (element) {
+                  refs.current.set(node.key, element)
+                } else {
+                  refs.current.delete(node.key)
+                }
+              }}
+              role="treeitem"
+              aria-level={row.level}
+              aria-setsize={row.size}
+              aria-posinset={row.position}
+              aria-expanded={children.length ? !collapsed.has(node.key) : undefined}
+              aria-selected={node.key === current}
+              tabIndex={node.key === current ? 0 : -1}
+              $level={row.level}
+              onKeyDown={(event) => onKeyDown(event, row)}
+              onFocus={() => setFocused(node.key)}
+              onClick={() => {
+                move(node.key)
+                if (children.length) {
+                  toggle(node.key)
+                }
+              }}
+            >
+              <span aria-hidden="true">
+                {children.length ? (collapsed.has(node.key) ? '▸' : '▾') : '·'}
+              </span>
+              <Label>
+                <Kind>{KIND_LABELS[node.kind] ?? node.kind.replaceAll('_', ' ')}</Kind>
+                {node.label}
+                {node.detail && <Small>{node.detail}</Small>}
+                {children.length > 0 && collapsed.has(node.key) && (
+                  <Small>{summary(tally(children))}</Small>
+                )}
+              </Label>
+              <RecordStatePill state={node.state}>{STATE_LABELS[node.state]}</RecordStatePill>
+            </Row>
+          )
+        })}
+      </Tree>
+    </>
   )
 }
 
 const Label = styled.span`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
 `
 const Tree = styled.ul`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   margin: 0;
   padding: ${space[2]};
   list-style: none;
@@ -173,4 +252,23 @@ const Row = styled.li<{ $level: number }>`
   &[aria-selected='true'] {
     background: ${color.surface2};
   }
+`
+
+const Toolbar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]} ${space[5]};
+  margin-bottom: ${space[4]};
+`
+const Counts = styled.span`
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: ${space[2]};
+  margin-right: auto;
+`
+const Kind = styled.span`
+  ${type.label}
+  margin-right: ${space[3]};
+  color: ${color.muted};
 `

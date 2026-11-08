@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { subjectStatuses, type LotStatus } from '../../processing/source'
+import { SegmentedControl } from '../ui/SegmentedControl'
+import { Kbd } from '../ui/Kbd'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { color, radius, space } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -10,7 +14,7 @@ import type {
   OperatorReviewDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Panel, Paragraph, Small, Notice } from '../ui/primitives'
+import { Panel, Paragraph, Small, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { CaptureContextSummary } from '../capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
@@ -211,6 +215,7 @@ export function ReviewWorkspace({
 
   // Review opens on the first queued lot, so its evidence shows without a separate step.
   const autoShown = useRef(false)
+  const skipEvidenceFocus = useRef(false)
   useEffect(() => {
     if (
       autoShown.current ||
@@ -222,11 +227,15 @@ export function ReviewWorkspace({
       return
     }
     autoShown.current = true
+    // Opening the first lot for the operator is not their move, so focus stays where it is.
+    skipEvidenceFocus.current = true
     navigate({ lotId: visibleIds[0] })
   })
 
   useEffect(() => {
-    if (focused) {
+    if (focused && skipEvidenceFocus.current) {
+      skipEvidenceFocus.current = false
+    } else if (focused) {
       evidenceRef.current?.focus({ preventScroll: true })
     } else if (previousFocus.current) {
       queueRef.current?.focus({ preventScroll: true })
@@ -319,17 +328,24 @@ export function ReviewWorkspace({
   return (
     <>
       {navigationBlocked && drafts.dirty && (
-        <Notice role="status">
-          Save or explicitly discard local edits before switching lots or views.
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            Save or explicitly discard local edits before switching lots or views.
+          </Banner>
+        </div>
       )}
       {reviewUnavailable && (
-        <Notice role="status">
-          Current operator review is unavailable or changed. Local drafts and exact retry intents
-          are retained; reload saved values deliberately before new commands.
-        </Notice>
+        <div role="status">
+          <Banner tone="warn">
+            Current operator review is unavailable or changed. Local drafts and exact retry intents
+            are retained; reload saved values deliberately before new commands.
+          </Banner>
+        </div>
       )}
-      <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
+      <ContextFold>
+        <Summary>Batch context</Summary>
+        <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
+      </ContextFold>
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
@@ -337,6 +353,7 @@ export function ReviewWorkspace({
           {problem && <Small role="status">{problem}</Small>}
         </div>
         <Button
+          size="sm"
           disabled={
             drafts.dirty ||
             reviewUnavailable ||
@@ -350,6 +367,7 @@ export function ReviewWorkspace({
           Mark selected reviewed
         </Button>
         <Button
+          size="sm"
           disabled={
             drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
           }
@@ -359,57 +377,10 @@ export function ReviewWorkspace({
         </Button>
       </ScopeBar>
       {!workspace.supported && (
-        <Notice>
+        <Banner tone="warn">
           Adding stock isn’t available for this target, so lots can be reviewed but not added.
-        </Notice>
+        </Banner>
       )}
-      <SubjectActions aria-label="Manual subjects">
-        <Button
-          type="button"
-          disabled={busy || batch.archived || !observe || drafts.dirty}
-          onClick={() => openEditor(ADD_LOT)}
-        >
-          Add physical lot
-        </Button>
-        <Button
-          type="button"
-          disabled={busy || batch.archived || !observe || drafts.dirty}
-          onClick={() => openEditor(ADD_PART)}
-        >
-          Add shared Part proposal
-        </Button>
-        {lot && (
-          <Button
-            type="button"
-            disabled={busy || batch.archived || !observe || drafts.dirty}
-            onClick={() => openEditor(lot.id)}
-          >
-            Edit lot details
-          </Button>
-        )}
-        {part && (
-          <Button
-            type="button"
-            disabled={busy || batch.archived || !observe || drafts.dirty}
-            onClick={() => openEditor(part.id)}
-          >
-            Edit shared Part
-          </Button>
-        )}
-        {/* A Part linked to no lot has no lot to focus, so it keeps its own entry point. */}
-        {batch.parts
-          .filter((item) => !batch.lots.some((value) => value.part_subject_id === item.id))
-          .map((item) => (
-            <Button
-              key={item.id}
-              type="button"
-              disabled={busy || batch.archived || !observe || drafts.dirty}
-              onClick={() => openEditor(item.id)}
-            >
-              Edit unlinked shared Part: {item.label}
-            </Button>
-          ))}
-      </SubjectActions>
       {editing && observe && (
         <ReviewSubjectEditor
           batch={batch}
@@ -429,26 +400,57 @@ export function ReviewWorkspace({
           retainRoute={retainEditorRoute}
         />
       )}
-      {operatorReview && (
-        <Toolbar>
-          <ModeSwitch role="tablist" aria-label="Review view">
-            {(['evidence', 'table'] as ReviewView[]).map((view) => (
-              <ModeTab
-                key={view}
+      <Toolbar>
+        {operatorReview && (
+          <SegmentedControl
+            label="Review view"
+            options={[
+              { id: 'evidence', label: 'Workspace' },
+              { id: 'table', label: 'Table' },
+            ]}
+            value={route.view}
+            onChange={(view) => navigate({ view: view as ReviewView })}
+          />
+        )}
+        <SubjectActions aria-label="Manual subjects">
+          <Button
+            size="sm"
+            type="button"
+            disabled={busy || batch.archived || !observe || drafts.dirty}
+            onClick={() => openEditor(ADD_LOT)}
+          >
+            Add physical lot
+          </Button>
+          <Button
+            size="sm"
+            type="button"
+            disabled={busy || batch.archived || !observe || drafts.dirty}
+            onClick={() => openEditor(ADD_PART)}
+          >
+            Add shared Part proposal
+          </Button>
+          {/* A Part linked to no lot has no lot to focus, so it keeps its own entry point. */}
+          {batch.parts
+            .filter((item) => !batch.lots.some((value) => value.part_subject_id === item.id))
+            .map((item) => (
+              <Button
+                key={item.id}
+                size="sm"
                 type="button"
-                role="tab"
-                aria-selected={route.view === view}
-                onClick={() => navigate({ view })}
+                disabled={busy || batch.archived || !observe || drafts.dirty}
+                onClick={() => openEditor(item.id)}
               >
-                {view === 'evidence' ? 'Evidence' : 'Table'}
-              </ModeTab>
+                Edit unlinked shared Part: {item.label}
+              </Button>
             ))}
-          </ModeSwitch>
+        </SubjectActions>
+        {operatorReview && (
           <KeyboardHint>
-            J/K move · R mark reviewed · E edit quantity · V view evidence
+            <Kbd>J</Kbd>/<Kbd>K</Kbd> move · <Kbd>R</Kbd> mark reviewed · <Kbd>E</Kbd> edit quantity
+            · <Kbd>V</Kbd> view evidence
           </KeyboardHint>
-        </Toolbar>
-      )}
+        )}
+      </Toolbar>
       {operatorReview && (
         <ReviewFilters
           review={operatorReview}
@@ -554,6 +556,8 @@ export function ReviewWorkspace({
                 openQuestion={openQuestions.get(lot.id) ?? null}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
+                subjectsDisabled={busy || batch.archived || !observe || drafts.dirty}
+                openEvidence={() => evidenceRef.current?.focus()}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}
               />
@@ -573,20 +577,20 @@ export function ReviewWorkspace({
 const ScopeBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: ${space[6]};
   flex-wrap: wrap;
-  margin-bottom: 8px;
-  padding: 6px 10px;
+  margin-bottom: ${space[4]};
+  padding: ${space[3]} ${space[5]};
   background: ${color.surface};
   border: 1px solid ${color.line};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   > div {
     margin-right: auto;
   }
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    gap: ${space[3]};
     > div {
       grid-column: 1 / -1;
       margin-right: 0;
@@ -594,20 +598,21 @@ const ScopeBar = styled.div`
     > button {
       min-width: 0;
       width: 100%;
-      padding: 6px 8px;
-      font-size: 13px;
-      line-height: 1.3;
     }
   }
 `
 const SubjectActions = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: ${space[3]};
+  margin-right: auto;
+`
+const ContextFold = styled.details`
+  margin-bottom: ${space[4]};
+  color: ${color.muted};
 `
 const KeyboardHint = styled(Small)`
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: none;
   }
 `
@@ -616,35 +621,16 @@ const Toolbar = styled.div`
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-bottom: 6px;
-`
-const ModeSwitch = styled.div`
-  display: inline-flex;
-  border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  overflow: hidden;
-`
-const ModeTab = styled.button`
-  min-height: 40px;
-  padding: 8px 16px;
-  border: 0;
-  background: ${color.surface};
-  color: ${color.fg};
-  cursor: pointer;
-  &[aria-selected='true'] {
-    background: ${color.accentWeak};
-    color: ${color.accent};
-    font-weight: 600;
-  }
+  gap: ${space[4]} ${space[8]};
+  margin-bottom: ${space[3]};
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
-  grid-template-columns: minmax(200px, 0.75fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
-  gap: 12px;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
+  gap: ${space[6]};
   align-items: start;
-  @media (max-width: 1000px) {
-    grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr);
+  ${media.wide} {
+    grid-template-columns: minmax(260px, 0.8fr) minmax(260px, 1.2fr);
     [data-area='evidence'] {
       grid-column: 2;
     }
@@ -656,7 +642,7 @@ const ReviewGrid = styled.div<{ $focused: boolean }>`
       grid-row: 1/3;
     }
   }
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: block;
     [data-area='queue'] {
       display: ${(p) => (p.$focused ? 'none' : 'block')};
@@ -669,9 +655,9 @@ const ReviewGrid = styled.div<{ $focused: boolean }>`
 `
 const BackButton = styled(Button)`
   display: none;
-  @media (max-width: 700px) {
+  ${media.compact} {
     display: block;
-    margin-bottom: 12px;
+    margin-bottom: ${space[6]};
   }
 `
 const QueueFocus = styled.div`

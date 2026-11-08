@@ -1,5 +1,6 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 
@@ -83,23 +84,23 @@ export function ImpactSummary({ batch, impact, selectedLotIds, excludedLotIds = 
 
 const List = styled.dl`
   display: grid;
-  gap: 6px;
-  margin: 0 0 12px;
+  gap: ${space[3]};
+  margin: 0 0 ${space[6]};
 `
 const Row = styled.div`
   display: grid;
   grid-template-columns: minmax(140px, 220px) 1fr;
-  gap: 12px;
+  gap: ${space[6]};
   dt {
     color: ${color.muted};
-    font-size: 13px;
+    font-size: ${typeVar.small.size};
   }
   dd {
     margin: 0;
     overflow-wrap: anywhere;
   }
-  @media (max-width: 600px) {
+  ${media.narrow} {
     grid-template-columns: 1fr;
-    gap: 2px;
+    gap: ${space[1]};
   }
 `

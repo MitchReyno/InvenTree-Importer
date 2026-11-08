@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { blockingIssues, openWarnings } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
-import { Small } from '../ui/primitives'
+import { BulkBar } from '../ui/BulkBar'
 import { Button } from '../ui/Button'
 import { BulkEditPanel } from './BulkEditPanel'
 import { RestructureDialog } from './RestructureDialog'
@@ -90,6 +91,48 @@ export function TableWorkspace({
 
   return (
     <>
+      {selected.length > 0 && (
+        <SelectionBar>
+          <BulkBar
+            label="Selected lots"
+            count={selected.length}
+            onClear={() => setSelection(shared.filter((id) => !activeLotIds.includes(id)))}
+            extraActions={
+              <>
+                <Button
+                  size="sm"
+                  disabled={disabled || drafts.dirty || Boolean(blocker)}
+                  onClick={() => reviewLots(selected)}
+                >
+                  Mark {selected.length} reviewed
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={
+                    disabled ||
+                    drafts.dirty ||
+                    selected.length < 2 ||
+                    selected.length > MAX_MERGE_LOTS ||
+                    approvedSelected
+                  }
+                  onClick={() => setDialog('merge')}
+                >
+                  Merge selected…
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={disabled || drafts.dirty || approvedSelected}
+                  onClick={() => setDialog('move')}
+                >
+                  Move selected to Part proposal…
+                </Button>
+                {blocker && <span role="status">{blocker}</span>}
+                {approvedSelected && <span>Approved lots cannot be merged or moved.</span>}
+              </>
+            }
+          />
+        </SelectionBar>
+      )}
       <ReviewTable
         batch={batch}
         review={review}
@@ -101,34 +144,6 @@ export function TableWorkspace({
         toggleAll={toggleAll}
         inspect={inspect}
       />
-      <Actions aria-label="Selected lot actions">
-        <Button
-          disabled={disabled || drafts.dirty || !selected.length || Boolean(blocker)}
-          onClick={() => reviewLots(selected)}
-        >
-          Mark {selected.length} reviewed
-        </Button>
-        <Button
-          disabled={
-            disabled ||
-            drafts.dirty ||
-            selected.length < 2 ||
-            selected.length > MAX_MERGE_LOTS ||
-            approvedSelected
-          }
-          onClick={() => setDialog('merge')}
-        >
-          Merge selected…
-        </Button>
-        <Button
-          disabled={disabled || drafts.dirty || !selected.length || approvedSelected}
-          onClick={() => setDialog('move')}
-        >
-          Move selected to Part proposal…
-        </Button>
-        {selected.length > 0 && blocker && <Small role="status">{blocker}</Small>}
-        {approvedSelected && <Small>Approved lots cannot be merged or moved.</Small>}
-      </Actions>
       <BulkEditPanel
         batch={batch}
         selectedIds={selected}
@@ -155,10 +170,6 @@ export function TableWorkspace({
   )
 }
 
-const Actions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0;
+const SelectionBar = styled.div`
+  margin-bottom: ${space[4]};
 `

@@ -20,7 +20,9 @@ describe('KeyValue', () => {
     expect(screen.getByText('RC0603FR-0710KL')).toBeInTheDocument()
     expect(screen.getByText('· overrides batch')).toBeInTheDocument()
     expect(screen.getByText('· from batch')).toBeInTheDocument()
-    expect(screen.getByText('· edited')).toBeInTheDocument()
+    // The operator's own edit carries the "You" source chip, not a muted note.
+    expect(screen.queryByText('· edited')).toBeNull()
+    expect(screen.getByText('You · Your edit')).toBeInTheDocument()
   })
 
   it('keeps the source chip outside the edit trigger', async () => {

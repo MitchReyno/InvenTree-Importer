@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -12,10 +13,16 @@ import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
 import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
-import { Heading, Link, Notice, Paragraph, Small } from '../ui/primitives'
+import { Heading, Link, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { Kbd } from '../ui/Kbd'
+import { StickyFooter } from '../ui/StickyFooter'
 import { CompareMatches } from './CompareMatches'
-import { FactRow } from './FactRow'
+import { KeyValue } from '../ui/KeyValue'
+import { ProvenancePill } from './ProvenancePill'
+import { SourceChip } from '../ui/SourceChip'
+import { partFacts, type PartFacts } from '../../operator/part-facts'
+import type { KeyValueRow } from '../ui/KeyValue'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
@@ -50,7 +57,12 @@ interface Props {
   /** Marks this one lot reviewed; refused while it has unresolved problems. */
   markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
+  /** Opens the subject editor for a lot or Part; also the lot's "Edit lot details". */
   editPart?: (partId: string) => void
+  /** Locks the subject editor entry points (no observe client, archived or unsaved work). */
+  subjectsDisabled?: boolean
+  /** Moves focus to the lot's evidence, where a proposed value's source is shown. */
+  openEvidence?: () => void
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
   /** The lot's latest agent status line, where a session works on it. */
@@ -154,6 +166,8 @@ export function DecisionPanel({
   markReviewed,
   openQuestion = null,
   editPart,
+  subjectsDisabled = false,
+  openEvidence,
   editSignal = 0,
   onDirtyChange,
   agent = null,
@@ -182,12 +196,11 @@ export function DecisionPanel({
 
   const restructureLocked = disabled || drafts.dirty || !operator || Boolean(operatorLot?.approved)
   const reviewBlock = reviewBlockReason(operatorLot)
+  const location = lotLocationFact(batch, lot, media)
   return (
     <>
       <Heading>{lot.label}</Heading>
-      <RecordChain
-        links={recordLinks(batch, lot, part, operatorLot, lotLocationFact(batch, lot, media))}
-      />
+      <RecordChain links={recordLinks(batch, lot, part, operatorLot, location)} />
       <AgentLine batchId={batch.id} status={agent} />
       {openQuestion && (
         <Paragraph>
@@ -203,62 +216,74 @@ export function DecisionPanel({
           </Link>
         </Paragraph>
       )}
-      {markReviewed && operatorLot && (
-        <LotActions>
-          <Button
-            disabled={disabled || drafts.dirty || reviewBlock !== null}
-            onClick={markReviewed}
-          >
-            Mark reviewed
-          </Button>
-          <Button disabled>Exclude</Button>
-          {reviewBlock && <Small>{reviewBlock}</Small>}
-          <Small>Excluding a lot arrives with record edits.</Small>
-        </LotActions>
-      )}
-      <dl>
-        <FactRow
-          label={part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part'}
-          value={partValue(batch, part)}
-          provenance={part ? partProvenance(part.choice) : 'unset'}
-        >
-          <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
-          {sharing.length > 0 && (
-            <SharedLine aria-label="Lots sharing this Part proposal">
-              Shared with {sharing.length} other lot{sharing.length === 1 ? '' : 's'}:{' '}
-              {sharing.map((other, index) => (
-                <span key={other.id}>
-                  {index > 0 && ', '}
-                  <LinkButton type="button" onClick={() => inspect(other.id)}>
-                    {other.label}
-                  </LinkButton>
-                </span>
-              ))}
-            </SharedLine>
-          )}
-          {part && (
-            <SharedTagsChoice
-              batch={batch}
-              part={part}
+      <KeyValue
+        rows={[
+          {
+            label: part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part',
+            value: partValue(batch, part),
+            state: 'plain',
+            source: valueSource(part ? partProvenance(part.choice) : 'unset', false, openEvidence),
+          },
+          ...partFactRows(partFacts(batch, part), part),
+          {
+            label: 'Quantity',
+            value: display(lot.quantity, batch, 'quantity'),
+            state: 'plain',
+            source: valueSource(lotProvenance(lot.quantity, batch.defaults.quantity), false),
+          },
+          ...(lot.estimated_quantity
+            ? [
+                {
+                  label: 'Examine estimate',
+                  value: `${lot.estimated_quantity}${lot.quantity_basis ? ` · ${lot.quantity_basis}` : ''}`,
+                  state: 'plain' as const,
+                  source: valueSource('unset', true, openEvidence),
+                },
+              ]
+            : []),
+          {
+            label: 'Location',
+            value: location.value,
+            state: 'plain',
+            source: valueSource(location.provenance, false, openEvidence),
+          },
+        ]}
+      />
+      <PartExtras aria-label="Shared Part proposal">
+        <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
+        {sharing.length > 0 && (
+          <SharedLine aria-label="Lots sharing this Part proposal">
+            Shared with {sharing.length} other lot{sharing.length === 1 ? '' : 's'}:{' '}
+            {sharing.map((other, index) => (
+              <span key={other.id}>
+                {index > 0 && ', '}
+                <Button variant="link" type="button" onClick={() => inspect(other.id)}>
+                  {other.label}
+                </Button>
+              </span>
+            ))}
+          </SharedLine>
+        )}
+        {part && (
+          <SharedTagsChoice
+            batch={batch}
+            part={part}
+            disabled={disabled || drafts.dirty}
+            edit={edit}
+          />
+        )}
+        {part && part.choice.mode !== 'create' && (
+          <span>
+            <Button
+              size="sm"
               disabled={disabled || drafts.dirty}
-              edit={edit}
-            />
-          )}
-          {part && part.choice.mode !== 'create' && (
-            <span>
-              <Button disabled={disabled || drafts.dirty} onClick={() => setComparing(true)}>
-                Compare matches
-              </Button>
-            </span>
-          )}
-        </FactRow>
-        <FactRow
-          label="Quantity"
-          value={display(lot.quantity, batch, 'quantity')}
-          provenance={lotProvenance(lot.quantity, batch.defaults.quantity)}
-        />
-        <FactRow label="Location" {...lotLocationFact(batch, lot, media)} />
-      </dl>
+              onClick={() => setComparing(true)}
+            >
+              Compare matches
+            </Button>
+          </span>
+        )}
+      </PartExtras>
       {operatorLot ? (
         <IssuePanel
           batch={batch}
@@ -288,7 +313,7 @@ export function DecisionPanel({
         />
       ) : (
         legacyIssues(workspace, lot).map((problem, index) => (
-          <Notice key={`${problem.code}:${index}`}>
+          <Banner tone="warn" key={`${problem.code}:${index}`}>
             {problem.message}
             {problem.run_id && (
               <>
@@ -304,24 +329,34 @@ export function DecisionPanel({
                 </Link>
               </>
             )}
-          </Notice>
+          </Banner>
         ))
       )}
-      <Paragraph>{reviewSentence(operatorLot, workspace, lot)}</Paragraph>
-      <Actions>
+      <Actions aria-label="Edit this lot">
         <Button
+          size="sm"
           disabled={disabled || (editing ? drafts.isDirty('quick') : drafts.dirty)}
           aria-expanded={editing}
           onClick={() => setEditing(!editing)}
         >
           {editing ? 'Close lot editor' : 'Edit lot values'}
         </Button>
+        {editPart && (
+          <Button size="sm" disabled={subjectsDisabled} onClick={() => editPart(lot.id)}>
+            Edit lot details
+          </Button>
+        )}
+        {editPart && part && (
+          <Button size="sm" disabled={subjectsDisabled} onClick={() => editPart(part.id)}>
+            Edit shared Part
+          </Button>
+        )}
         {operator && (
           <>
-            <Button disabled={restructureLocked} onClick={() => setRestructure('split')}>
+            <Button size="sm" disabled={restructureLocked} onClick={() => setRestructure('split')}>
               Split lot…
             </Button>
-            <Button disabled={restructureLocked} onClick={() => setRestructure('move')}>
+            <Button size="sm" disabled={restructureLocked} onClick={() => setRestructure('move')}>
               Move to Part proposal…
             </Button>
           </>
@@ -356,6 +391,34 @@ export function DecisionPanel({
           onEditPart={editPart && (() => editPart(part.id))}
         />
       )}
+      {markReviewed && operatorLot ? (
+        <StickyFooter
+          label="Lot actions"
+          leading={
+            <Button size="sm" variant="ghost" disabled>
+              Exclude
+            </Button>
+          }
+          summary={
+            <>
+              <Small>{reviewBlock ?? reviewSentence(operatorLot, workspace, lot)}</Small>
+              <Small>Excluding a lot arrives with record edits.</Small>
+            </>
+          }
+          primary={
+            <Button
+              variant="primary"
+              aria-keyshortcuts="R"
+              disabled={disabled || drafts.dirty || reviewBlock !== null}
+              onClick={markReviewed}
+            >
+              Mark reviewed <ButtonKbd aria-hidden="true">R</ButtonKbd>
+            </Button>
+          }
+        />
+      ) : (
+        <Paragraph>{reviewSentence(operatorLot, workspace, lot)}</Paragraph>
+      )}
       {restructure && operator && (
         <RestructureDialog
           kind={restructure}
@@ -370,6 +433,34 @@ export function DecisionPanel({
         />
       )}
     </>
+  )
+}
+
+/**
+ * Who a value came from: the operator's own choice, Examine's estimate (which opens the evidence),
+ * or, for an inherited, missing or uncertain value, its provenance in words.
+ */
+function valueSource(provenance: Provenance, proposed: boolean, openEvidence?: () => void) {
+  if (proposed) {
+    return <SourceChip source="Examine" certainty="Estimated" tone="likely" onOpen={openEvidence} />
+  }
+  if (provenance === 'human' || provenance === 'override') {
+    return <SourceChip source="You" certainty="Your edit" tone="user" />
+  }
+  return <ProvenancePill provenance={provenance} />
+}
+
+/** The new Part's maker and markings; supplier prices stay out (review-records). */
+function partFactRows(facts: PartFacts, part: Part | undefined): KeyValueRow[] {
+  const source = part ? valueSource(partProvenance(part.choice), false) : undefined
+  const rows: [string, string | undefined, boolean][] = [
+    ['Manufacturer', facts.manufacturer, false],
+    ['MPN', facts.mpn, true],
+    ['Package', facts.package, false],
+    ['Date code', facts.dateCode, true],
+  ]
+  return rows.flatMap(([label, value, mono]) =>
+    value ? [{ label, value, mono, state: 'plain' as const, source }] : [],
   )
 }
 
@@ -390,31 +481,28 @@ function reviewSentence(
   return 'Review binds these saved choices, relevant human notes and any warning dismissals.'
 }
 
+/** The shortcut drawn in the button's own ink, on any variant or state. */
+const ButtonKbd = styled(Kbd)`
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+`
+const PartExtras = styled.div`
+  display: grid;
+  justify-items: start;
+  gap: ${space[3]};
+  margin: ${space[4]} 0;
+  padding-bottom: ${space[5]};
+  border-bottom: 1px solid ${color.line};
+`
 const SharedLine = styled.p`
   margin: 0;
-  font-size: 14px;
-`
-const LinkButton = styled.button`
-  padding: 0;
-  border: 0;
-  background: none;
-  color: ${color.accent};
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
+  font-size: ${typeVar.body.size};
 `
 const Actions = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0;
-`
-
-const LotActions = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 0 12px;
+  gap: ${space[4]};
+  margin: ${space[4]} 0;
 `

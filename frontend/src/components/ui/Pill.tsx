@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, icon, radius, space, type } from '../../theme/generated/tokens'
+import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
 import { formatCount } from './media'
 
 export type PillTone = 'ok' | 'warn' | 'bad' | 'info' | 'acc' | 'neutral' | 'outline'
@@ -114,6 +114,7 @@ const PillBody = styled.span<{ $tone: PillTone }>`
   i {
     width: ${icon.sm};
     font-style: normal;
+    /* literal-allowed: the status glyph, a step under the pill text */
     font-size: 11px;
     text-align: center;
   }
@@ -140,8 +141,8 @@ const countTones = {
 
 const CountBody = styled.span<{ $tone: CountTone }>`
   padding: 1px calc(${space[4]} - 1px);
-  border-radius: 10px;
-  font-size: 11.5px;
+  border-radius: ${radius.pill};
+  font-size: ${typeVar.pill.size};
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   ${({ $tone }) => countTones[$tone]}

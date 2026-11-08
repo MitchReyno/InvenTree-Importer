@@ -41,6 +41,29 @@ function lotState(review: OperatorReviewDto | undefined, lotId: string): Propose
   return lot.review_state === 'reviewed' ? 'ready' : 'to_review'
 }
 
+type CaptureLot = CaptureSnapshotDto['lots'][number]
+
+/** The lot's pixel observation crops, sized to cover a thumbnail box. */
+export function lotCrops(
+  batch: CaptureSnapshotDto,
+  lot: CaptureLot,
+  box: { width: number; height: number },
+): ImageAttributes[] {
+  const members = new Set(lot.evidence_observation_ids ?? [])
+  return (batch.evidence_observations ?? []).flatMap((observation) =>
+    members.has(observation.id) && observation.region.kind === 'pixels'
+      ? [
+          observationImage(
+            batch.id,
+            { ...observation, region: observation.region },
+            'thumbnail',
+            coverSizes(box, observation.region),
+          ),
+        ]
+      : [],
+  )
+}
+
 /** The batch's active lots for the Capture glance, including the lead session's live lots. */
 export function proposedLots(
   batch: CaptureSnapshotDto,
@@ -52,21 +75,7 @@ export function proposedLots(
     .map((lot) => {
       const members = new Set(lot.evidence_observation_ids ?? [])
       const observations = batch.evidence_observations ?? []
-      const crops = observations
-        .filter(
-          (observation) => members.has(observation.id) && observation.region.kind === 'pixels',
-        )
-        .map((observation) =>
-          observation.region.kind === 'pixels'
-            ? observationImage(
-                batch.id,
-                { ...observation, region: observation.region },
-                'thumbnail',
-                coverSizes({ width: 44, height: 34 }, observation.region),
-              )
-            : null,
-        )
-        .filter((image): image is ImageAttributes => image !== null)
+      const crops = lotCrops(batch, lot, { width: 44, height: 34 })
       const suggestions = observations.filter((observation) =>
         observation.suggested_lot_ids.includes(lot.id),
       ).length

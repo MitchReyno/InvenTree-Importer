@@ -117,7 +117,7 @@ const Closeups = styled.div`
     border-radius: ${radius.sm};
     background: ${color.photoScrim};
     color: ${color.photoFg};
-    font-size: 11px;
+    font-size: ${typeVar.label.size};
   }
 `
 

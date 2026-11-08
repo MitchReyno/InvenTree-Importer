@@ -5,11 +5,13 @@ import { formatCount, media } from './media'
 
 type BulkBarProps = {
   count: number
-  field: string
+  /** Several fields add a field select. Without a field and `onApply` the bar carries only the selection actions. */
+  field?: string | string[]
   value?: string
-  onApply: (value: string) => void
+  onApply?: (value: string, field: string) => void
   onClear: () => void
   extraActions?: ReactNode
+  label?: string
 }
 
 /** Applies one field value to every selected row; the apply label states its scope. */
@@ -20,21 +22,39 @@ export function BulkBar({
   onApply,
   onClear,
   extraActions,
+  label = 'Bulk edit',
 }: BulkBarProps) {
   const inputId = useId()
   const [draft, setDraft] = useState(value)
+  const fields = field === undefined ? [] : [field].flat()
+  const [chosen, setChosen] = useState(fields[0] ?? '')
 
   return (
-    <Bar role="region" aria-label="Bulk edit">
+    <Bar role="region" aria-label={label}>
       <strong>{formatCount(count)} selected</strong>
-      <label htmlFor={inputId}>{field}</label>
-      <input id={inputId} value={draft} onChange={(event) => setDraft(event.target.value)} />
-      <BarButton type="button" onClick={() => onApply(draft)}>
-        Apply to {formatCount(count)}
-      </BarButton>
+      {chosen && onApply && (
+        <>
+          {fields.length > 1 && (
+            <select
+              aria-label="Field"
+              value={chosen}
+              onChange={(event) => setChosen(event.target.value)}
+            >
+              {fields.map((name) => (
+                <option key={name}>{name}</option>
+              ))}
+            </select>
+          )}
+          <label htmlFor={inputId}>{chosen}</label>
+          <input id={inputId} value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <BarButton type="button" onClick={() => onApply(draft, chosen)}>
+            Apply to {formatCount(count)}
+          </BarButton>
+        </>
+      )}
       {extraActions}
-      <BarButton type="button" onClick={onClear}>
-        Clear selection
+      <BarButton type="button" aria-label="Clear selection" onClick={onClear}>
+        Clear
       </BarButton>
     </Bar>
   )

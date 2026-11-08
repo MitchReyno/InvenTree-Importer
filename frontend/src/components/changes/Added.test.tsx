@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type {
   CaptureSnapshotDto,
@@ -191,6 +192,12 @@ describe('Added', () => {
     expect(strip).toHaveTextContent('1 being checked')
     expect(strip).toHaveTextContent('1 refused by InvenTree')
     expect(within(strip).getByText('Test InvenTree')).toBeVisible()
+
+    const tone = (text: string) => within(strip).getByText(text).closest('[data-tone]')
+
+    expect(tone('1 stock item added')).toHaveAttribute('data-tone', 'ok')
+    expect(tone('1 being checked')).toHaveAttribute('data-tone', 'warn')
+    expect(tone('1 refused by InvenTree')).toHaveAttribute('data-tone', 'bad')
   })
 
   it('links confirmed records into InvenTree', () => {
@@ -332,6 +339,51 @@ describe('Added', () => {
     expect(
       within(round).getByRole('link', { name: 'See in Review: Attach selected file to Part' }),
     ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
+  })
+
+  it('puts rounds needing attention first, filters to them, and keeps batch context aside', async () => {
+    const user = userEvent.setup()
+    setup([confirmed, uncertain])
+
+    const rounds = () =>
+      screen.getAllByRole('heading', { name: /^Round \d/ }).map((heading) => heading.textContent)
+
+    expect(rounds()[0]).toMatch(/^Round 2/)
+    await user.click(screen.getByRole('button', { name: 'Needs attention, 1' }))
+    expect(rounds()).toEqual([expect.stringMatching(/^Round 2/)])
+
+    const aside = screen.getByRole('complementary', { name: 'Batch outcome' })
+    expect(within(aside).getByRole('link', { name: /^Ready to add/ })).toHaveAttribute(
+      'href',
+      `#${batch.id}/changes/ready`,
+    )
+    const notIncluded = within(aside).getByRole('region', { name: 'Not included' })
+    expect(
+      within(notIncluded).getByRole('link', { name: 'Packet D' }).closest('li'),
+    ).toHaveTextContent(/^Packet D\s*\S/)
+  })
+
+  it('counts a stopped round to resume and an attachment to repair as needing attention', async () => {
+    const user = userEvent.setup()
+    const stopped = run(3, {
+      state: 'settled_incomplete',
+      effect_certainty: 'confirmed',
+      operations: [{ ...operation(lotA, 'none', null), recovery_allowed: true }],
+    })
+    const repair = run(4, {
+      attachments: [
+        {
+          certainty: 'confirmed',
+          verification: 'missing_or_changed',
+          recovery_action: 'repair_attachment',
+        },
+      ] as never,
+    })
+    setup([confirmed, stopped, repair])
+    await user.click(screen.getByRole('button', { name: 'Needs attention, 2' }))
+    expect(
+      screen.getAllByRole('heading', { name: /^Round \d/ }).map((heading) => heading.textContent),
+    ).toEqual([expect.stringMatching(/^Round 3/), expect.stringMatching(/^Round 4/)])
   })
 
   it('lists pending changes, lots not included and the activity log', () => {

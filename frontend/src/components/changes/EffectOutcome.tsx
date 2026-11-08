@@ -1,5 +1,7 @@
+import styled from 'styled-components'
+import { color, space } from '../../theme/generated/tokens'
 import type { SupportedEffectResultDto } from '@invimport/contracts'
-import { Field, Link, Paragraph, Small } from '../ui/primitives'
+import { Link, Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 
 interface Props {
@@ -40,7 +42,7 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, fix }:
       : 'Effect is unknown; no create retry is allowed'
   }
   return (
-    <Field>
+    <EffectRow>
       <strong>{effect.label}</strong>
       <Paragraph>{status}</Paragraph>
       {effect.remote_pks.length > 0 && (
@@ -62,6 +64,15 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, fix }:
           See in {fix.place}: {effect.label}
         </Link>
       )}
-    </Field>
+    </EffectRow>
   )
 }
+
+/** One effect as a divided row on the round's surface, not a nested box. */
+const EffectRow = styled.div`
+  display: grid;
+  gap: ${space[3]};
+  justify-items: start;
+  padding: ${space[5]} 0;
+  border-top: 1px solid ${color.line};
+`

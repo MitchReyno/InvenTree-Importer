@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Rejects literal colours in frontend source; colours come from src/theme tokens. Also finds
-// literal styling values that equal a token meant for their CSS property (design D11), which may
-// not grow beyond the recorded baseline.
-// Usage: node scripts/check-literal-colors.cjs [--update-baseline]
-const { existsSync, readdirSync, readFileSync, writeFileSync } = require('node:fs')
+// Rejects literal colours in frontend source; colours come from src/theme tokens. Also rejects
+// literal styling values that equal a token meant for their CSS property (design D11), unless a
+// literal-allowed: comment says why the token's role does not fit.
+// Usage: node scripts/check-literal-colors.cjs
+const { readdirSync, readFileSync } = require('node:fs')
 const { join, relative, sep } = require('node:path')
 
 const SOURCE_DIR = join(__dirname, '..', 'src')
@@ -14,7 +14,6 @@ const SKIPPED_DIRECTORIES = new Set(['theme', 'fixtures'])
 // The masthead scene's palette and geometry are not CSS and have no tokens.
 const VALUE_SKIPPED_DIRECTORIES = new Set([...SKIPPED_DIRECTORIES, 'electronics-current'])
 const TOKENS_PATH = join(__dirname, '..', 'src', 'theme', 'tokens.json')
-const BASELINE_PATH = join(__dirname, 'literal-values.baseline.json')
 const ALLOW = /literal-allowed:\s*\S/
 // A comment-only line with the allowance covers the line after it.
 const ALLOW_LINE = /^\s*(?:\/\/|\/\*).*literal-allowed:\s*\S/
@@ -397,76 +396,23 @@ function scanValues(root = SOURCE_DIR) {
     )
 }
 
-function baselineKey({ file, property, literal }) {
-  return `${file} | ${property} | ${literal}`
-}
-
-function counts(findings) {
-  const result = {}
-  for (const finding of findings) {
-    const key = baselineKey(finding)
-    result[key] = (result[key] ?? 0) + 1
-  }
-  return result
-}
-
-// Keys whose count grew beyond the baseline, and keys the baseline still holds more of.
-function compareBaseline(baseline, findings) {
-  const current = counts(findings)
-  const keys = [...new Set([...Object.keys(baseline), ...Object.keys(current)])].sort()
-  return {
-    grown: keys.filter((key) => (current[key] ?? 0) > (baseline[key] ?? 0)),
-    shrunk: keys.filter((key) => (current[key] ?? 0) < (baseline[key] ?? 0)),
-  }
-}
-
-function sortedCounts(findings) {
-  return Object.fromEntries(Object.entries(counts(findings)).sort(([a], [b]) => a.localeCompare(b)))
-}
-
-function main(argv) {
-  const colours = scan()
+function main(argv, root = SOURCE_DIR, out = console) {
+  const colours = scan(root)
   for (const { file, line, literal } of colours) {
-    console.error(`src/${file}:${line}: literal colour ${literal}; use a token from src/theme`)
+    out.error(`src/${file}:${line}: literal colour ${literal}; use a token from src/theme`)
   }
-
-  const values = scanValues()
-  const baseline = existsSync(BASELINE_PATH)
-    ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
-    : null
-  const { grown, shrunk } = compareBaseline(baseline ?? {}, values)
-  if (argv.includes('--update-baseline')) {
-    if (baseline && grown.length > 0) {
-      console.error(`The baseline may only shrink; these grew: ${grown.join('; ')}`)
-      return 1
-    }
-    writeFileSync(BASELINE_PATH, `${JSON.stringify(sortedCounts(values), null, 2)}\n`)
-    console.log(`Recorded ${values.length} literal values in ${BASELINE_PATH}`)
-    return colours.length > 0 ? 1 : 0
-  }
-  if (!baseline) {
-    console.error(
-      'No literal-value baseline. Record it with: node scripts/check-literal-colors.cjs --update-baseline',
-    )
-    return 1
-  }
-  const grownKeys = new Set(grown)
-  for (const finding of values.filter((value) => grownKeys.has(baselineKey(value)))) {
-    console.error(
+  const values = scanValues(root)
+  for (const finding of values) {
+    out.error(
       `src/${finding.file}:${finding.line}: ${finding.property} ${finding.literal} equals ${finding.tokens.join(' or ')}; use the token, or say why not with a literal-allowed: comment`,
     )
   }
-  if (shrunk.length > 0) {
-    console.error(
-      `The literal-value baseline is stale (${shrunk.length} entries shrank). Record the smaller baseline: node scripts/check-literal-colors.cjs --update-baseline`,
-    )
-  }
 
-  return colours.length > 0 || grown.length > 0 || shrunk.length > 0 ? 1 : 0
+  return colours.length > 0 || values.length > 0 ? 1 : 0
 }
 
 if (require.main === module) {
   process.exitCode = main(process.argv.slice(2))
 }
 
-module.exports = { compareBaseline, literalColours, literalValues, scan, scanValues }
+module.exports = { literalColours, literalValues, main, scan, scanValues }

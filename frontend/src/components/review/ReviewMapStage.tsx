@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { Banner } from '../ui/Banner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RestructureDialog } from '../operator/RestructureDialog'
-import { ErrorNotice } from '../ui/primitives'
+
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '../../operator/useDirtySources'
@@ -125,11 +126,25 @@ export function ReviewMapStage({
 
   const disabled = busy || batch.archived || !media || !query.data
 
+  const tellExamine = !batch.archived && (
+    <TellExamine
+      batchId={batch.id}
+      processing={processing}
+      onDirtyChange={drafts.forSource('tell-examine')}
+    />
+  )
+
   return (
     <>
-      {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+      {error && (
+        <div role="alert">
+          <Banner tone="bad">{error}</Banner>
+        </div>
+      )}
       {!media ? (
-        <ErrorNotice role="status">Evidence is not available in this setup.</ErrorNotice>
+        <div role="status">
+          <Banner tone="bad">Evidence is not available in this setup.</Banner>
+        </div>
       ) : (
         <ReviewMap
           batch={batch}
@@ -145,15 +160,10 @@ export function ReviewMapStage({
           openRestructure={
             operator ? (kind, lotIds) => setRestructure({ kind, lotIds }) : undefined
           }
+          aside={tellExamine}
         />
       )}
-      {!batch.archived && (
-        <TellExamine
-          batchId={batch.id}
-          processing={processing}
-          onDirtyChange={drafts.forSource('tell-examine')}
-        />
-      )}
+      {!media && tellExamine}
       {restructure && operator && (
         <RestructureDialog
           kind={restructure.kind}

@@ -1,9 +1,10 @@
 import styled from 'styled-components'
+import { Banner } from '../ui/Banner'
 import type { ManualRunDto, PartOutputDto } from '@invimport/contracts'
 import type { RunRecoverySelection } from '../../manual/types'
 import { batchHref } from '../../navigation/batch-route'
 import { color, space } from '../../theme/generated/tokens'
-import { Field, Heading, Link, Notice, Panel, Paragraph, Small, Summary } from '../ui/primitives'
+import { Field, Heading, Link, Panel, Paragraph, Small, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { AttachmentOutcome } from './AttachmentOutcome'
 import { EffectOutcome } from './EffectOutcome'
@@ -54,6 +55,22 @@ export function checking(run: ManualRunDto) {
       (value) => value.kind !== 'create_stock' && value.certainty === 'unknown' && !value.rejected,
     ).length +
     (run.attachments ?? []).filter((value) => value.certainty === 'unknown').length
+  )
+}
+
+/** Unfinished work the operator can act on: checks, refusals, stops, resumes and repairs. */
+export function needsAttention(run: ManualRunDto) {
+  return (
+    checking(run) > 0 ||
+    refused(run).length > 0 ||
+    run.state === 'recovery_required' ||
+    run.state === 'settled_incomplete' ||
+    run.operations.some((operation) => operation.recovery_allowed) ||
+    (run.supported_effects ?? []).some((effect) => Boolean(effect.recovery_action)) ||
+    (run.attachments ?? []).some(
+      (attachment) =>
+        Boolean(attachment.recovery_action) || attachment.verification === 'missing_or_changed',
+    )
   )
 }
 
@@ -160,15 +177,15 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
       </Heading>
       {run.state === 'recovery_required' &&
         (heldByRefusal(run) ? (
-          <Notice>
+          <Banner tone="warn">
             InvenTree refused a value in this round, so nothing was created for it. The round stays
             open and holds this batch’s source, so a corrected value cannot be sent yet.
-          </Notice>
+          </Banner>
         ) : (
-          <Notice>
+          <Banner tone="warn">
             Stock may have been created, or the original physical owner may still be active. Nothing
             is created again; each record is checked by its import reference first.
-          </Notice>
+          </Banner>
         ))}
       {unstarted && (
         <>

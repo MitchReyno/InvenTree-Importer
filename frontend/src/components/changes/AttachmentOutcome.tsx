@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type { ManualRunDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
@@ -47,8 +47,8 @@ export function AttachmentOutcome({ attachment, busy, recover }: Props) {
 
 const AttachmentRow = styled.div`
   display: grid;
-  gap: 10px;
-  padding: 16px 0;
+  gap: ${space[5]};
+  padding: ${space[8]} 0;
   border-top: 1px solid ${color.line};
   overflow-wrap: anywhere;
   button {

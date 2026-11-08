@@ -23,6 +23,12 @@ export function relativeTime(at: string, now = Date.now()) {
   return 'just now'
 }
 
+/** The local date and time, or null for a missing or unreadable timestamp. */
+export function localTime(at: string | null | undefined) {
+  const time = at ? Date.parse(at) : NaN
+  return Number.isNaN(time) ? null : new Date(time).toLocaleString()
+}
+
 const MINUTE_MS = 60_000
 const listeners = new Set<() => void>()
 let minute = Date.now()
@@ -57,7 +63,7 @@ export function RelativeTime({ at, now }: { at: string; now?: number }) {
   const clock = useMinute()
 
   return (
-    <time dateTime={at} title={new Date(at).toLocaleString()}>
+    <time dateTime={at} title={localTime(at) ?? undefined}>
       {relativeTime(at, now ?? clock)}
     </time>
   )

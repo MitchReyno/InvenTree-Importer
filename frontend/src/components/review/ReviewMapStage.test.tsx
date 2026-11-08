@@ -4,6 +4,7 @@ import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '../../test/render'
 import type { MediaClient } from '../../media/types'
+import type { ProcessingClient } from '../../processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
 
 const lot = (id: string, label: string) => ({ id, label, part_subject_id: null })
@@ -37,6 +38,73 @@ function media(): MediaClient {
 }
 
 describe('ReviewMapStage', () => {
+  it('keeps a pending Tell Examine send through the map finishing loading', async () => {
+    const user = userEvent.setup()
+
+    let loaded: (value: MediaSnapshotDto) => void = () => {}
+
+    let sent: (value: unknown) => void = () => {}
+
+    const client = {
+      ...media(),
+      snapshot: vi.fn(() => new Promise<MediaSnapshotDto>((resolve) => (loaded = resolve))),
+    }
+    const chat = vi.fn(() => new Promise((resolve) => (sent = resolve)))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [{ id: 'lead', stage: 'examine', subject_id: null, session_state: 'running' }],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    render(
+      <ReviewMapStage
+        batch={batch}
+        media={client}
+        processing={processing}
+        edit={vi.fn(async () => true)}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    const field = await screen.findByLabelText('Instruction for Examine')
+    await user.type(field, 'The two reels are one lot')
+    await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+    loaded(snapshot)
+    await screen.findByRole('heading', { name: 'How photos became lots' })
+    expect(screen.getByRole('button', { name: 'Tell Examine' })).toBeDisabled()
+    sent({ id: 'inbox-1' })
+    await waitFor(() => expect(screen.getByLabelText('Instruction for Examine')).toHaveValue(''))
+    expect(chat).toHaveBeenCalledTimes(1)
+  })
+
+  it('numbers the evidence and puts Tell Examine inside the Lots column', async () => {
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [{ id: 'lead', stage: 'examine', subject_id: null, session_state: 'running' }],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(),
+    } as unknown as ProcessingClient
+    render(
+      <ReviewMapStage
+        batch={batch}
+        media={media()}
+        processing={processing}
+        edit={vi.fn(async () => true)}
+        retiredLotIds={new Set()}
+        reload={vi.fn(async () => undefined)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    const lots = await screen.findByRole('region', { name: 'Lots' })
+    expect(await within(lots).findByLabelText('Instruction for Examine')).toBeVisible()
+    const files = within(screen.getByRole('region', { name: 'Evidence' })).getAllByRole('listitem')
+    expect(files[0]).toHaveTextContent(/^1/)
+    expect(files[1]).toHaveTextContent(/^2/)
+  })
+
   it('links a file to a lot at the media revision it read', async () => {
     const user = userEvent.setup()
     const client = media()

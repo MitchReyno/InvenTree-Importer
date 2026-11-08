@@ -1,5 +1,5 @@
-import { ErrorNotice } from '../ui/primitives'
 import { Paragraph, Summary } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -580,56 +580,60 @@ export function Batch({
       )}
       <PageContent $width={batchRoute?.tab === 'review' ? 'review' : 'content'}>
         {operatorUnavailable && acceptedOperatorReview && !visibleError && (
-          <ErrorNotice role="status">
-            <Paragraph>
-              Current operator review is unavailable or changed. Local input is retained until exact
-              retry or explicit discard.
-            </Paragraph>
-            <Button
-              disabled={busy || captureQuery.isFetching}
-              onClick={() => void discardLocalEdits()}
-            >
-              Discard local edits and load saved values
-            </Button>
-          </ErrorNotice>
+          <div role="status">
+            <Banner tone="bad">
+              <Paragraph>
+                Current operator review is unavailable or changed. Local input is retained until
+                exact retry or explicit discard.
+              </Paragraph>
+              <Button
+                disabled={busy || captureQuery.isFetching}
+                onClick={() => void discardLocalEdits()}
+              >
+                Discard local edits and load saved values
+              </Button>
+            </Banner>
+          </div>
         )}
         {visibleError && (
-          <ErrorNotice role="alert">
-            <Paragraph>{visibleError}</Paragraph>
-            {current && (
-              <>
-                <Paragraph>
-                  <strong>Current saved title:</strong> {current.title} · revision{' '}
-                  {current.revision}
-                </Paragraph>
-                <details>
-                  <Summary>Current saved revision {current.revision} · exact fields</Summary>
-                  <SnapshotFields>
-                    {JSON.stringify(
-                      {
-                        title: current.title,
-                        defaults: current.defaults,
-                        context: current.context,
-                        notes: current.notes,
-                        lots: current.lots,
-                        parts: current.parts,
-                      },
-                      null,
-                      2,
-                    )}
-                  </SnapshotFields>
-                </details>
-              </>
-            )}
-            <Button
-              disabled={readOrCommandBusy}
-              onClick={() => {
-                void discardLocalEdits()
-              }}
-            >
-              Discard local edits and load saved values
-            </Button>
-          </ErrorNotice>
+          <div role="alert">
+            <Banner tone="bad">
+              <Paragraph>{visibleError}</Paragraph>
+              {current && (
+                <>
+                  <Paragraph>
+                    <strong>Current saved title:</strong> {current.title} · revision{' '}
+                    {current.revision}
+                  </Paragraph>
+                  <details>
+                    <Summary>Current saved revision {current.revision} · exact fields</Summary>
+                    <SnapshotFields>
+                      {JSON.stringify(
+                        {
+                          title: current.title,
+                          defaults: current.defaults,
+                          context: current.context,
+                          notes: current.notes,
+                          lots: current.lots,
+                          parts: current.parts,
+                        },
+                        null,
+                        2,
+                      )}
+                    </SnapshotFields>
+                  </details>
+                </>
+              )}
+              <Button
+                disabled={readOrCommandBusy}
+                onClick={() => {
+                  void discardLocalEdits()
+                }}
+              >
+                Discard local edits and load saved values
+              </Button>
+            </Banner>
+          </div>
         )}
         {content}
       </PageContent>

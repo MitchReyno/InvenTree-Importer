@@ -351,6 +351,25 @@ afterEach(() => {
   focusManager.setFocused(true)
 })
 
+test('a review confirmation survives the remount its new revision causes', async () => {
+  const client = fakeClient()
+  const user = userEvent.setup()
+  const props = {
+    batch,
+    client,
+    edit: vi.fn(async () => undefined),
+    navigate: vi.fn(),
+    reload: vi.fn(async () => undefined),
+  }
+  const view = render(<ManualWorkspace {...props} stage="review" />)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  expect(await screen.findByText('Marked 1 lot reviewed')).toBeVisible()
+  // Batch keys the workspace by revision, so the confirmed review's reload remounts it.
+  view.rerender(<ManualWorkspace key="next-revision" {...props} stage="review" />)
+  expect(screen.getByText('Marked 1 lot reviewed')).toBeVisible()
+})
+
 test('manual review and approval keep exact A-only scope, scalar text and server digest while leaving B outside', async () => {
   const client = fakeClient()
   const navigate = vi.fn()
@@ -373,6 +392,7 @@ test('manual review and approval keep exact A-only scope, scalar text and server
     { expected_batch_revision: '9007199254740993', selected_lot_ids: [a] },
     expect.any(String),
   )
+  expect(await screen.findByText('Marked 1 lot reviewed')).toBeVisible()
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Prepare exact selected effects' })).toBeEnabled(),
   )
@@ -386,10 +406,9 @@ test('manual review and approval keep exact A-only scope, scalar text and server
   )
   expect(screen.getByRole('checkbox', { name: 'Packet A' })).toBeChecked()
   expect(screen.getByText('Left out')).toBeVisible()
-  expect(screen.getByRole('link', { name: 'Packet B' })).toHaveAttribute(
-    'href',
-    `#${batchId}/review/lots/${b}?filter=needs_review`,
-  )
+  const leftOut = screen.getByRole('link', { name: 'Review it' })
+  expect(leftOut.closest('li')).toHaveTextContent('Packet B')
+  expect(leftOut).toHaveAttribute('href', `#${batchId}/review/lots/${b}?filter=needs_review`)
   expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }))
   expect(client.approve).toHaveBeenCalledWith(

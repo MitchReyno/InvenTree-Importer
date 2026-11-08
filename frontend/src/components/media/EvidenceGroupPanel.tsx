@@ -19,7 +19,7 @@ import { EvidenceGroup } from '../ui/EvidenceGroup'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
 import { EvidenceFileTile } from './EvidenceFileTile'
-import { Modal } from '../operator/Modal'
+import { Dialog } from '../ui/Dialog'
 import { EvidenceGrid } from '../ui/EvidenceTile'
 import { MediaEvidenceRelations } from './MediaEvidenceRelations'
 import { MediaTextEditor } from './MediaTextEditor'
@@ -269,7 +269,7 @@ export function EvidenceGroupPanel({
         })}
       </EvidenceGrid>
       {opened && (
-        <Modal title={fileName(opened)} onClose={closeViewer} closeDisabled={noteDirty}>
+        <Dialog title={fileName(opened)} onClose={closeViewer} closeDisabled={noteDirty}>
           <MediaEvidenceCard
             labels={labels}
             batchId={batch.id}
@@ -309,7 +309,7 @@ export function EvidenceGroupPanel({
             disabled={blocked('relations')}
             edit={edit}
           />
-        </Modal>
+        </Dialog>
       )}
     </EvidenceGroup>
   )

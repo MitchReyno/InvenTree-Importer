@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { VisuallyHidden } from '../ui/VisuallyHidden'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
-import { reviewMap } from '../../operator/review-map'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { reviewMap, type MapEdge } from '../../operator/review-map'
+import { color, radius, size, space, type, typeVar, zIndex } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { Select } from '../ui/primitives'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { Pill } from '../ui/Pill'
@@ -25,9 +27,13 @@ type Props = {
   /** Locks split, merge and move until the latest operator review is read. */
   restructureUnavailable?: boolean
   loading: boolean
+  /** Drawn at the foot of the Lots column, e.g. the Tell Examine composer. */
+  aside?: ReactNode
 }
 
 const MAX_MERGE_LOTS = 10
+/* literal-allowed: the canvas's connector gutter */
+const CONNECTOR_GUTTER = '140px'
 
 /** How the evidence became lots, with the direct edits that change it. */
 export function ReviewMap({
@@ -42,19 +48,35 @@ export function ReviewMap({
   approvedLotIds,
   restructureUnavailable = false,
   loading,
+  aside,
 }: Props) {
   const [targets, setTargets] = useState<Record<string, string>>({})
   const [merging, setMerging] = useState<string[]>([])
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const canvas = useRef<HTMLDivElement>(null)
+  const paths = useConnectorPaths(canvas, [batch, evidence, retiredLotIds, predecessors])
 
   if (loading) {
-    return <Muted role="status">Reading evidence…</Muted>
+    return (
+      <MapShell
+        canvas={canvas}
+        aside={aside}
+        notice={<Muted role="status">Reading evidence…</Muted>}
+      />
+    )
   }
   if (!evidence) {
     return (
-      <Banner tone="bad">
-        Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still in
-        Lots.
-      </Banner>
+      <MapShell
+        canvas={canvas}
+        aside={aside}
+        notice={
+          <Banner tone="bad">
+            Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still
+            in Lots.
+          </Banner>
+        }
+      />
     )
   }
 
@@ -84,175 +106,428 @@ export function ReviewMap({
       .map((file) => file.id),
   )
 
-  return (
-    <Layout>
-      <Column aria-labelledby="map-evidence">
-        <Title id="map-evidence">Evidence</Title>
-        <Rows>
-          {map.files.map((file) => (
-            <li key={file.id} aria-label={file.label}>
-              <Head>
-                <strong>{file.label}</strong>
-                {file.unused && (
-                  <Pill tone="warn">
-                    {lineagePending && fromRetired.has(file.id)
-                      ? 'No lot yet · checking history'
-                      : 'Used by no lot'}
-                  </Pill>
-                )}
-              </Head>
-              {file.links.length > 0 && (
-                <Links>
-                  Supports:
-                  {file.links.map(({ lotId, via }) => (
-                    <Chip key={lotId}>
-                      {lotLabel.get(lotId)}
-                      {via !== 'direct' ? (
-                        <Muted>{via === 'part' ? ' via shared Part' : ' via earlier lot'}</Muted>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={disabled}
-                          aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
-                          onClick={() => void link(file.id, lotId, false)}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </Chip>
-                  ))}
-                </Links>
-              )}
-              {file.regions.length > 0 && (
-                <Regions aria-label={`Regions of ${file.label}`}>
-                  {file.regions.map((region) => (
-                    <li key={region.id}>
-                      {region.label} <span aria-hidden="true">→</span>
-                      {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
-                      {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
-                    </li>
-                  ))}
-                </Regions>
-              )}
-              <Controls>
-                <select
-                  aria-label={`Link ${file.label} to a lot`}
-                  value={targetFor(file)}
-                  disabled={disabled}
-                  onChange={(event) => setTargets({ ...targets, [file.id]: event.target.value })}
-                >
-                  <option value="">Link to a lot…</option>
-                  {linkOptions(file).map((lot) => (
-                    <option key={lot.id} value={lot.id}>
-                      {lot.label}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  size="sm"
-                  disabled={disabled || !targetFor(file)}
-                  onClick={() => void link(file.id, targetFor(file), true)}
-                >
-                  Link
-                </Button>
-                {file.unused && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={disabled || (lineagePending && fromRetired.has(file.id))}
-                    aria-label={`New lot from this: ${file.label}`}
-                    onClick={() => void newLotFrom(file.id, file.label)}
-                  >
-                    New lot from this
-                  </Button>
-                )}
-              </Controls>
-            </li>
-          ))}
-        </Rows>
-      </Column>
+  const unusedCount = map.files.filter((file) => file.unused).length
+  const singleObservation = map.lots.filter(
+    (lot) => lot.singleSource && lot.observations > 0,
+  ).length
+  const singleFile = map.lots.filter((lot) => lot.singleSource && lot.observations === 0).length
+  const edges = map.files.flatMap((file) =>
+    file.edges.map((edge) => ({ ...edge, fileId: file.id })),
+  )
 
-      <Column aria-labelledby="map-lots">
-        <Title id="map-lots">Lots</Title>
-        <Rows>
-          {map.lots.map((lot) => (
-            <li key={lot.id} aria-label={lot.label}>
-              <Head>
-                {openRestructure && (
-                  <input
-                    type="checkbox"
-                    aria-label={`Choose ${lot.label} to merge or move`}
-                    checked={chosen.includes(lot.id)}
-                    disabled={restructureLocked || approvedLotIds.has(lot.id)}
-                    onChange={() =>
-                      setMerging(
-                        merging.includes(lot.id)
-                          ? merging.filter((id) => id !== lot.id)
-                          : [...merging, lot.id],
-                      )
-                    }
-                  />
+  return (
+    <MapShell
+      canvas={canvas}
+      aside={aside}
+      ready
+      title={
+        <>
+          <TitleRow>
+            <DiagramTitle>How photos became lots</DiagramTitle>
+            {unusedCount > 0 && (
+              <Pill status="warning">
+                {unusedCount} {unusedCount === 1 ? 'file' : 'files'} in no lot
+              </Pill>
+            )}
+            {singleObservation > 0 && (
+              <Pill status="warning">
+                {singleObservation} {singleObservation === 1 ? 'lot' : 'lots'} on a single
+                observation
+              </Pill>
+            )}
+            {singleFile > 0 && (
+              <Pill status="warning">
+                {singleFile} {singleFile === 1 ? 'lot' : 'lots'} on a single file
+              </Pill>
+            )}
+          </TitleRow>
+        </>
+      }
+      evidence={
+        <Column aria-labelledby="map-evidence">
+          <Title id="map-evidence">Evidence</Title>
+          <Rows>
+            {map.files.map((file, index) => (
+              <li
+                key={file.id}
+                aria-label={file.label}
+                data-selected={selectedFile === file.id || undefined}
+                data-unused={file.unused || undefined}
+              >
+                <Head data-file-anchor={file.id}>
+                  <FileToggle
+                    type="button"
+                    aria-pressed={selectedFile === file.id}
+                    aria-label={`Show links for ${file.label}`}
+                    onClick={() => setSelectedFile(selectedFile === file.id ? null : file.id)}
+                  >
+                    <Number>{index + 1}</Number>
+                    <strong>{file.label}</strong>
+                  </FileToggle>
+                  {file.unused && (
+                    <Pill tone="warn">
+                      {lineagePending && fromRetired.has(file.id)
+                        ? 'No lot yet · checking history'
+                        : 'Used by no lot'}
+                    </Pill>
+                  )}
+                </Head>
+                {file.links.length > 0 && (
+                  <Links>
+                    Supports:
+                    {file.links.map(({ lotId, via }) => (
+                      <Chip key={lotId}>
+                        {lotLabel.get(lotId)}
+                        {via !== 'direct' ? (
+                          <Muted>{via === 'part' ? ' via shared Part' : ' via earlier lot'}</Muted>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
+                            onClick={() => void link(file.id, lotId, false)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </Chip>
+                    ))}
+                  </Links>
                 )}
-                <strong>{lot.label}</strong>
-                {lot.singleSource && <Pill tone="info">Rests on one file</Pill>}
-                {lot.fileIds.length === 0 && (
-                  <Pill tone="warn">
-                    {lineagePending ? 'No evidence yet · checking history' : 'No evidence'}
-                  </Pill>
+                {file.regions.length > 0 && (
+                  <Regions aria-label={`Regions of ${file.label}`}>
+                    {file.regions.map((region) => (
+                      <li key={region.id}>
+                        {region.label} <span aria-hidden="true">→</span>
+                        {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
+                        {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
+                      </li>
+                    ))}
+                  </Regions>
                 )}
-              </Head>
-              {lot.fileIds.length > 0 && (
-                <Muted>From: {lot.fileIds.map((id) => fileLabel.get(id)).join(', ')}</Muted>
-              )}
-              {openRestructure && (
                 <Controls>
+                  <LinkSelect
+                    aria-label={`Link ${file.label} to a lot`}
+                    value={targetFor(file)}
+                    disabled={disabled}
+                    onChange={(event) => setTargets({ ...targets, [file.id]: event.target.value })}
+                  >
+                    <option value="">Link to a lot…</option>
+                    {linkOptions(file).map((lot) => (
+                      <option key={lot.id} value={lot.id}>
+                        {lot.label}
+                      </option>
+                    ))}
+                  </LinkSelect>
                   <Button
                     size="sm"
-                    variant="ghost"
-                    disabled={restructureLocked || approvedLotIds.has(lot.id)}
-                    aria-label={`Split ${lot.label}`}
-                    onClick={() => openRestructure('split', [lot.id])}
+                    disabled={disabled || !targetFor(file)}
+                    onClick={() => void link(file.id, targetFor(file), true)}
                   >
-                    Split
+                    Link
                   </Button>
+                  {file.unused && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={disabled || (lineagePending && fromRetired.has(file.id))}
+                      aria-label={`New lot from this: ${file.label}`}
+                      onClick={() => void newLotFrom(file.id, file.label)}
+                    >
+                      New lot from this
+                    </Button>
+                  )}
                 </Controls>
-              )}
-            </li>
+              </li>
+            ))}
+          </Rows>
+        </Column>
+      }
+      lots={
+        <>
+          <Rows>
+            {map.lots.map((lot) => (
+              <li
+                key={lot.id}
+                aria-label={lot.label}
+                data-selected={
+                  (selectedFile !== null &&
+                    map.files.find((file) => file.id === selectedFile)?.lotIds.includes(lot.id)) ||
+                  undefined
+                }
+              >
+                <Head data-lot-anchor={lot.id}>
+                  {openRestructure && (
+                    <CheckHit>
+                      <input
+                        type="checkbox"
+                        aria-label={`Choose ${lot.label} to merge or move`}
+                        checked={chosen.includes(lot.id)}
+                        disabled={restructureLocked || approvedLotIds.has(lot.id)}
+                        onChange={() =>
+                          setMerging(
+                            merging.includes(lot.id)
+                              ? merging.filter((id) => id !== lot.id)
+                              : [...merging, lot.id],
+                          )
+                        }
+                      />
+                    </CheckHit>
+                  )}
+                  <strong>{lot.label}</strong>
+                  {lot.observations > 0 && <Muted>· {lot.observations} obs.</Muted>}
+                  {lot.singleSource &&
+                    (lot.observations > 0 ? (
+                      <Pill status="warning">1 obs.</Pill>
+                    ) : (
+                      <Pill status="warning">Rests on one file</Pill>
+                    ))}
+                  {lot.fileIds.length === 0 && (
+                    <Pill tone="warn">
+                      {lineagePending ? 'No evidence yet · checking history' : 'No evidence'}
+                    </Pill>
+                  )}
+                </Head>
+                {lot.fileIds.length > 0 && (
+                  <Muted>From: {lot.fileIds.map((id) => fileLabel.get(id)).join(', ')}</Muted>
+                )}
+                {openRestructure && (
+                  <Controls>
+                    <Button
+                      size="sm"
+                      disabled={restructureLocked || approvedLotIds.has(lot.id)}
+                      aria-label={`Split ${lot.label}`}
+                      onClick={() => openRestructure('split', [lot.id])}
+                    >
+                      Split
+                    </Button>
+                  </Controls>
+                )}
+              </li>
+            ))}
+          </Rows>
+          {openRestructure && restructureUnavailable && (
+            <Muted role="status">
+              Split, merge and move, and evidence inherited through them, wait for the latest review
+              to load.
+            </Muted>
+          )}
+          {openRestructure && (
+            <Fix role="group" aria-labelledby="map-fix">
+              <FixTitle id="map-fix">Fix lots directly</FixTitle>
+              <Button
+                size="sm"
+                disabled={restructureLocked || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
+                onClick={() => openRestructure('merge', chosen)}
+              >
+                Merge {chosen.length} lots
+              </Button>
+              <Button
+                size="sm"
+                disabled={restructureLocked || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
+                onClick={() => openRestructure('move', chosen)}
+              >
+                Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal
+              </Button>
+            </Fix>
+          )}
+        </>
+      }
+      drawing={
+        <Drawing aria-hidden="true">
+          {edges.map((edge) => (
+            <Connector
+              key={`${edge.fileId}:${edge.lotId}`}
+              edge={edge}
+              d={paths[`${edge.fileId}:${edge.lotId}`]}
+              selected={edge.fileId === selectedFile}
+            />
           ))}
-        </Rows>
-        {openRestructure && restructureUnavailable && (
-          <Muted role="status">
-            Split, merge and move, and evidence inherited through them, wait for the latest review
-            to load.
-          </Muted>
-        )}
-        {openRestructure && (
-          <Controls>
-            <Button
-              disabled={restructureLocked || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
-              onClick={() => openRestructure('merge', chosen)}
-            >
-              Merge {chosen.length} lots
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={restructureLocked || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
-              onClick={() => openRestructure('move', chosen)}
-            >
-              Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal
-            </Button>
-          </Controls>
-        )}
-      </Column>
-    </Layout>
+        </Drawing>
+      }
+      caption={
+        <Muted>
+          Solid: the file shows the lot. Dotted: a document line, the lot&apos;s shared Part or an
+          earlier lot supports it. Choose a file to highlight its links.
+        </Muted>
+      }
+    />
   )
 }
 
-const Layout = styled.div`
+/**
+ * The Map's frame in every state. Tell Examine (`aside`) keeps one place at the foot of the Lots
+ * column, so loading finishing never remounts it mid-send.
+ */
+function MapShell({
+  canvas,
+  aside,
+  ready = false,
+  notice,
+  title,
+  evidence,
+  lots,
+  drawing,
+  caption,
+}: {
+  canvas: React.RefObject<HTMLDivElement | null>
+  aside: ReactNode
+  ready?: boolean
+  notice?: ReactNode
+  title?: ReactNode
+  evidence?: ReactNode
+  lots?: ReactNode
+  drawing?: ReactNode
+  caption?: ReactNode
+}) {
+  return (
+    <Diagram>
+      {notice}
+      {title}
+      <Scroller>
+        <Layout ref={canvas} data-ready={ready || undefined}>
+          {evidence}
+          <Column aria-labelledby="map-lots">
+            <Title id="map-lots">Lots</Title>
+            {lots}
+            {aside}
+          </Column>
+          {drawing}
+        </Layout>
+      </Scroller>
+      {caption}
+    </Diagram>
+  )
+}
+
+/** One decorative curve from a file card to a lot card; the cards say the same in words. */
+function Connector({
+  edge,
+  d,
+  selected,
+}: {
+  edge: MapEdge
+  d: string | undefined
+  selected: boolean
+}) {
+  return (
+    <path
+      d={d ?? 'M0 0'}
+      data-style={edge.style}
+      data-selected={selected || undefined}
+      fill="none"
+      style={{
+        stroke: selected ? color.accent : color.lineStrong,
+        strokeWidth: selected ? 2 : 1.5,
+        strokeDasharray: edge.style === 'dotted' ? '2 4' : undefined,
+      }}
+    />
+  )
+}
+
+/** Measures each card's heading after layout and on resize, and curves between the two. */
+function useConnectorPaths(
+  canvas: React.RefObject<HTMLDivElement | null>,
+  inputs: readonly unknown[],
+) {
+  const [paths, setPaths] = useState<Record<string, string>>({})
+  useLayoutEffect(() => {
+    const root = canvas.current
+    if (!root) {
+      return
+    }
+
+    const measure = () => {
+      const origin = root.getBoundingClientRect()
+      const next: Record<string, string> = {}
+      root.querySelectorAll<HTMLElement>('[data-file-anchor]').forEach((fileHead) => {
+        const from = fileHead.getBoundingClientRect()
+        const fileId = fileHead.dataset.fileAnchor!
+        root.querySelectorAll<HTMLElement>('[data-lot-anchor]').forEach((lotHead) => {
+          const to = lotHead.getBoundingClientRect()
+          const x1 = from.right - origin.left
+          const y1 = from.top + from.height / 2 - origin.top
+          const x2 = to.left - origin.left
+          const y2 = to.top + to.height / 2 - origin.top
+          const bend = Math.max((x2 - x1) / 2, 0)
+          next[`${fileId}:${lotHead.dataset.lotAnchor}`] =
+            `M${x1} ${y1} C${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`
+        })
+      })
+      setPaths(next)
+    }
+
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(root)
+    return () => observer?.disconnect()
+  }, inputs)
+  return paths
+}
+
+const Diagram = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: ${space[6]};
+  gap: ${space[4]};
+`
+
+const TitleRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]} ${space[4]};
+`
+
+const DiagramTitle = styled.h2`
+  margin: 0;
+  ${type.h2}
+`
+
+/** At phone width the diagram keeps its three columns and scrolls sideways. */
+const Scroller = styled.div`
+  overflow-x: auto;
+`
+
+/** Evidence, a gutter the connectors cross, and lots. */
+const Layout = styled.div`
+  position: relative;
+  display: grid;
   align-items: start;
+  &[data-ready] {
+    grid-template-columns: minmax(260px, 1fr) ${CONNECTOR_GUTTER} minmax(260px, 1fr);
+    /* literal-allowed: two 260px columns and the connector gutter */
+    min-width: 660px;
+  }
+  &[data-ready] > section:last-of-type {
+    grid-column: 3;
+  }
+`
+
+const Drawing = styled.svg`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+`
+
+const FileToggle = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: ${space[4]};
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:hover strong {
+    text-decoration: underline;
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
+  }
 `
 
 const Column = styled.section`
@@ -267,7 +542,8 @@ const Column = styled.section`
 
 const Title = styled.h2`
   margin: 0;
-  ${type.h2}
+  ${type.label}
+  color: ${color.muted};
 `
 
 const Rows = styled.ul`
@@ -275,15 +551,78 @@ const Rows = styled.ul`
   margin: 0;
   padding: 0;
   list-style: none;
+  gap: ${space[4]};
   > li {
     display: grid;
-    gap: ${space[2]};
-    padding: ${space[5]} 0;
-    border-top: 1px solid ${color.line};
+    gap: ${space[3]};
+    padding: ${space[5]} ${space[6]};
+    border: 1px solid ${color.line};
+    border-radius: ${radius.btn};
+    background: ${color.surface};
+    position: relative;
+    z-index: ${zIndex.raised};
   }
-  > li:first-child {
-    border-top: 0;
+  > li[data-unused] {
+    border-style: dashed;
+    border-color: ${color.warn};
   }
+  > li[data-selected] {
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
+    /* Clears the unlink button's 44px hit area off the controls below it. */
+    ${media.compact} {
+      gap: ${space[5]};
+    }
+  }
+`
+
+/** The file's place in the list, so a region or lot can name it by number. */
+const Number = styled.span`
+  display: inline-grid;
+  place-items: center;
+  min-width: ${space[10]};
+  height: ${space[10]};
+  padding: 0 ${space[2]};
+  border-radius: ${radius.pill};
+  background: ${color.fg};
+  color: ${color.bg};
+  font-size: ${typeVar.small.size};
+  font-weight: ${typeVar.bodyStrong.weight};
+`
+
+/** A checkbox's clickable area, 44px square below 760px. */
+const CheckHit = styled.label`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  ${media.compact} {
+    min-width: ${size.touch};
+    min-height: ${size.touch};
+    margin: calc((${space[10]} - ${size.touch}) / 2) 0;
+  }
+`
+
+/** Sized with the small Link button beside it. */
+const LinkSelect = styled(Select)`
+  flex: 1 1 160px;
+  width: auto;
+  min-width: 0;
+  padding: ${space[2]} ${space[4]};
+  font-size: ${typeVar.small.size};
+`
+
+const Fix = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
+`
+
+const FixTitle = styled.span`
+  flex-basis: 100%;
+  ${type.label}
+  color: ${color.muted};
 `
 
 const Head = styled.div`
@@ -298,7 +637,7 @@ const Links = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[3]};
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 
@@ -311,10 +650,30 @@ const Chip = styled.span`
   background: ${color.surface2};
   color: ${color.fg};
   button {
+    display: inline-grid;
+    place-items: center;
+    min-width: ${space[12]};
+    min-height: ${space[12]};
     border: 0;
+    border-radius: ${radius.pill};
     background: none;
     color: ${color.muted};
     cursor: pointer;
+  }
+  button:hover {
+    background: ${color.line};
+    color: ${color.fg};
+  }
+  /* A 44px hit area around the 24px glyph, without growing the chip. */
+  ${media.compact} {
+    button {
+      position: relative;
+    }
+    button::after {
+      content: '';
+      position: absolute;
+      inset: calc((${space[12]} - ${size.touch}) / 2);
+    }
   }
 `
 
@@ -327,11 +686,11 @@ const Controls = styled.div`
 
 const Regions = styled.ul`
   display: grid;
-  gap: 2px;
+  gap: ${space[1]};
   margin: 0;
   padding-left: ${space[8]};
 `
 const Muted = styled.span`
-  font-size: 12.5px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `

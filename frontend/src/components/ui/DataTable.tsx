@@ -18,12 +18,14 @@ export type DataColumn = {
 /** `content` shows in place of the plain value, e.g. a status pill. */
 export type DataCell = { value: string; content?: ReactNode; override?: boolean; edited?: boolean }
 
-export type DataRow = { id: string; label: string; cells: Record<string, DataCell> }
+/** `label` names the row's checkbox; `name` names the row itself, where a screen needs it. */
+export type DataRow = { id: string; label: string; name?: string; cells: Record<string, DataCell> }
 
 export type TableSelection = {
   selected: ReadonlySet<string>
   onToggle: (rowId: string) => void
   onToggleAll: () => void
+  disabled?: boolean
 }
 
 type DataTableProps = {
@@ -32,6 +34,10 @@ type DataTableProps = {
   rows: DataRow[]
   selection?: TableSelection
   onCellEdit?: (rowId: string, columnId: string, value: string) => void
+  /** Names the scroll container as a region keyboard users can focus and scroll. */
+  region?: string
+  /** A click on the row's open space opens it; a control in the row keeps its own click. */
+  onRowOpen?: (rowId: string) => void
 }
 
 function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelection }) {
@@ -52,6 +58,7 @@ function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelec
         type="checkbox"
         aria-label="Select all rows"
         checked={all}
+        disabled={selection.disabled || rows.length === 0}
         onChange={selection.onToggleAll}
       />
     </Hit>
@@ -73,15 +80,23 @@ function CellContent({ cell, mono }: { cell: DataCell; mono: boolean }) {
 }
 
 /** A scrolling table; ◆ marks an override and an underline marks an edit, both also in words. */
-export function DataTable({ caption, columns, rows, selection, onCellEdit }: DataTableProps) {
+export function DataTable({
+  caption,
+  columns,
+  rows,
+  selection,
+  onCellEdit,
+  region,
+  onRowOpen,
+}: DataTableProps) {
   return (
-    <TableWrap>
+    <TableWrap {...(region && { role: 'region', 'aria-label': region, tabIndex: 0 })}>
       <Table>
         <VisuallyHidden as="caption">{caption}</VisuallyHidden>
         <thead>
           <tr>
             {selection && (
-              <th scope="col">
+              <th scope="col" data-select>
                 <SelectAll rows={rows} selection={selection} />
               </th>
             )}
@@ -97,14 +112,28 @@ export function DataTable({ caption, columns, rows, selection, onCellEdit }: Dat
             const selected = selection?.selected.has(row.id) ?? false
 
             return (
-              <tr key={row.id} data-selected={selected}>
+              <tr
+                key={row.id}
+                aria-label={row.name}
+                data-selected={selected}
+                data-opens={onRowOpen ? true : undefined}
+                onClick={
+                  onRowOpen &&
+                  ((event) => {
+                    if (!(event.target as Element).closest('button, input, a, label')) {
+                      onRowOpen(row.id)
+                    }
+                  })
+                }
+              >
                 {selection && (
-                  <td>
+                  <td data-select>
                     <Hit>
                       <input
                         type="checkbox"
                         aria-label={`Select ${row.label}`}
                         checked={selected}
+                        disabled={selection.disabled}
                         onChange={() => selection.onToggle(row.id)}
                       />
                     </Hit>
@@ -181,11 +210,18 @@ const Table = styled.table`
     vertical-align: middle;
     ${hoverTransition}
   }
+  [data-select] {
+    width: ${space[20]};
+    padding-right: 0;
+  }
   td[data-nowrap] {
     white-space: nowrap;
   }
   tbody tr:hover td {
     background: ${color.surface2};
+  }
+  tr[data-opens] {
+    cursor: pointer;
   }
   tr[data-selected='true'] td {
     background: ${color.accentWeak};
@@ -204,7 +240,7 @@ const CellText = styled.span<{ $override: boolean; $edited: boolean; $mono: bool
     $override &&
     css`
       color: ${color.warn};
-      font-weight: 600;
+      font-weight: ${typeVar.bodyStrong.weight};
     `}
   ${({ $edited }) =>
     $edited &&

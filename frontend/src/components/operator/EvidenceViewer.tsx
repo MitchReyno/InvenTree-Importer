@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
@@ -14,7 +15,7 @@ import {
   type MediaIdentityLabels,
 } from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
-import { Label, Select, Small } from '../ui/primitives'
+import { Label, Select, Small, Summary } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { batchHref } from '../../navigation/batch-route'
 
@@ -223,7 +224,13 @@ export function EvidenceViewer({
             tabIndex={0}
             aria-label="Evidence image; scroll to inspect when zoomed"
           >
-            {stageWidth !== null && (
+            {failed && (
+              <Missing>
+                <span aria-hidden="true">▧</span>
+                {labels.versions.get(version.id) ?? source.label}
+              </Missing>
+            )}
+            {stageWidth !== null && !failed && (
               <PreviewImage
                 key={`${page.preview_id}:${loadAttempt}`}
                 $zoom={zoom}
@@ -350,7 +357,7 @@ export function EvidenceViewer({
           />
         ))}
       <details>
-        <summary>Details</summary>
+        <Summary>Details</Summary>
         {evidence.flatMap((item) =>
           item.versions.map((value) => (
             <Small key={value.id}>
@@ -365,15 +372,15 @@ export function EvidenceViewer({
 
 const Viewer = styled.section`
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: ${space[4]};
+  margin-bottom: ${space[6]};
   min-width: 0;
 `
 const Controls = styled.div`
   display: flex;
   align-items: end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${space[4]};
   > label {
     flex: 1;
     min-width: 110px;
@@ -382,20 +389,34 @@ const Controls = styled.div`
 const Zoom = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: ${space[3]};
   button {
-    padding: 6px 10px;
-    min-width: 44px;
+    padding: ${space[3]} ${space[5]};
+    min-width: ${size.touch};
   }
 `
+/** A preview that failed to load: the file's name on the stage, never a broken image. */
+const Missing = styled.div`
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: ${space[4]};
+  height: 100%;
+  color: ${color.photoFg};
+  font-size: ${typeVar.small.size};
+  span {
+    font-size: ${typeVar.h1.size};
+  }
+`
+
 const Preview = styled.div`
   width: 100%;
   height: clamp(240px, 40vw, 460px);
   overflow: auto;
   background: ${color.photoStage};
   border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  @media (max-width: 700px) {
+  border-radius: ${radius.card};
+  ${media.compact} {
     height: 280px;
   }
 `
@@ -406,9 +427,9 @@ const PreviewImage = styled.img<{ $zoom: number }>`
   height: auto;
 `
 const Empty = styled.div`
-  padding: 24px 12px;
+  padding: ${space[12]} ${space[6]};
   background: ${color.surface2};
   color: ${color.muted};
-  border-radius: 6px;
-  line-height: 1.5;
+  border-radius: ${radius.card};
+  line-height: ${typeVar.body.lineHeight};
 `

@@ -31,10 +31,10 @@ export function ProblemCard({ severity, title, summary, issues }: ProblemCardPro
         <Severity>{word}</Severity>
         {summary && <Summary>{summary}</Summary>}
       </Header>
-      {issues.map((issue) => (
-        <Issue key={issue.title}>
+      {issues.map((issue, index) => (
+        <Issue key={`${index}:${issue.title}`}>
           <strong>{issue.title}</strong>
-          <span>{issue.text}</span>
+          {issue.text && <span>{issue.text}</span>}
           {issue.actions && <Actions>{issue.actions}</Actions>}
         </Issue>
       ))}

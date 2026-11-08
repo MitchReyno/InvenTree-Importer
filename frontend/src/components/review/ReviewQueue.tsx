@@ -1,5 +1,6 @@
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space, type } from '../../theme/generated/tokens'
+import { lotCrops } from '../../processing/proposed-lots'
 import type {
   CaptureSnapshotDto,
   ManualWorkspaceDto,
@@ -7,7 +8,6 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
 import { display } from '../../capture/display'
 import {
   GROUP_LABELS,
@@ -18,8 +18,9 @@ import {
   type QueueGroup,
   type ReviewFilter,
 } from '../../operator/review-model'
-import { StatusChip } from '../operator/StatusChip'
+import { Pill } from '../ui/Pill'
 import { LotStatusChips } from '../operator/LotStatusChips'
+import { ItemRow } from '../ui/ItemRow'
 import { RetiredLots } from '../operator/RetiredLots'
 
 interface Props {
@@ -128,9 +129,19 @@ export function ReviewQueue({
                 (value) => value.code === 'original_contribution_already_approved',
               )
             const atCapacity = !selected.includes(lot.id) && selected.length >= maxSelected
+            const current = focused === lot.id
             return (
-              <QueueRow key={lot.id} $focused={focused === lot.id}>
-                <CheckLabel>
+              <ItemRow
+                key={lot.id}
+                id={lot.id}
+                title={lot.label}
+                meta={display(lot.quantity, batch, 'quantity')}
+                thumb={lotCrops(batch, lot, { width: 48, height: 48 })[0]}
+                openLabel={`Show ${lot.label}`}
+                current={current}
+                disabled={busy}
+                onOpen={() => inspect(lot.id)}
+                leading={
                   <input
                     type="checkbox"
                     aria-label={`Select ${lot.label}`}
@@ -138,28 +149,22 @@ export function ReviewQueue({
                     disabled={busy || batch.archived || Boolean(approved) || atCapacity}
                     onChange={() => toggle(lot.id)}
                   />
-                  <strong>{lot.label}</strong>
-                </CheckLabel>
-                {lot.origin === 'agent' && (
-                  <StatusChip $tone={lot.operator_edited ? 'neutral' : 'blue'}>
-                    {lot.operator_edited ? 'Edited' : 'AI-proposed'}
-                  </StatusChip>
-                )}
-                <Small>{display(lot.quantity, batch, 'quantity')}</Small>
-                {operatorLot ? (
-                  <LotStatusChips lot={operatorLot} />
-                ) : (
-                  <Small>{legacyStatus(approved, status?.reviewed)}</Small>
-                )}
-                <Button
-                  disabled={busy}
-                  aria-label={`Show ${lot.label}`}
-                  aria-current={focused === lot.id ? 'true' : undefined}
-                  onClick={() => inspect(lot.id)}
-                >
-                  Show
-                </Button>
-              </QueueRow>
+                }
+                state={
+                  <>
+                    {lot.origin === 'agent' && (
+                      <Pill tone={lot.operator_edited ? 'neutral' : 'acc'}>
+                        {lot.operator_edited ? 'Edited' : 'AI-proposed'}
+                      </Pill>
+                    )}
+                    {operatorLot ? (
+                      <LotStatusChips lot={operatorLot} />
+                    ) : (
+                      <Small>{legacyStatus(approved, status?.reviewed)}</Small>
+                    )}
+                  </>
+                }
+              />
             )
           })}
         </Group>
@@ -169,38 +174,10 @@ export function ReviewQueue({
 }
 
 const Group = styled.section`
-  margin-top: 12px;
+  margin-top: ${space[6]};
 `
 const GroupTitle = styled.h3`
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  ${type.label}
   color: ${color.muted};
-`
-const QueueRow = styled.div<{ $focused: boolean }>`
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  margin-top: 10px;
-  border: 1px solid ${(p) => (p.$focused ? color.accent : color.line)};
-  border-left-width: ${(p) => (p.$focused ? '4px' : '1px')};
-  border-radius: 5px;
-  background: ${(p) => (p.$focused ? color.accentWeak : color.surface2)};
-  button {
-    margin-top: 3px;
-    width: 100%;
-    text-align: left;
-  }
-`
-const CheckLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  input {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-  }
 `

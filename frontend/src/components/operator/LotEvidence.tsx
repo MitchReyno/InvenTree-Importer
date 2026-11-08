@@ -6,13 +6,15 @@ import type {
   OperatorLotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Field, Heading, Paragraph, Small, Subheading } from '../ui/primitives'
+import { Field, Paragraph, Small, Subheading } from '../ui/primitives'
+import { color, type } from '../../theme/generated/tokens'
 import { mediaDisplayLabels } from '../../media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
-import { StatusChip } from './StatusChip'
+import { Pill } from '../ui/Pill'
 import { LotObservations } from './LotObservations'
+import { localTime } from '../ui/RelativeTime'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -95,9 +97,18 @@ export function LotEvidence({
         .filter((proposal) => subjects.has(job.subject_id ?? proposal.value.subject_id))
         .map((proposal) => ({ job, proposal })),
     ) ?? []
+  const members = new Set(lot.evidence_observation_ids ?? [])
+  const observations = (batch.evidence_observations ?? []).filter(
+    (observation) => members.has(observation.id) && observation.status === 'active',
+  ).length
+  const files = media ? `${evidence.length} file${evidence.length === 1 ? '' : 's'}` : null
   return (
     <>
-      <Heading>Human evidence</Heading>
+      <PaneTitle>
+        {observations > 0
+          ? `This lot's observations · ${observations}${files ? ` from ${files}` : ''}`
+          : `This lot's evidence${files ? ` · ${files}` : ''}`}
+      </PaneTitle>
       {!media && (mediaUnavailable || mediaLoading) && (
         <Small role="status">
           {mediaUnavailable
@@ -121,7 +132,10 @@ export function LotEvidence({
         <Field key={note.id}>
           <strong>{source}</strong>
           <OriginalNote>{note.text || 'Empty original note'}</OriginalNote>
-          <Small>Human · {new Date(note.created_at).toLocaleString()}</Small>
+          <Small>
+            Human
+            {localTime(note.created_at) && ` · ${localTime(note.created_at)}`}
+          </Small>
         </Field>
       ))}
       {proposals.length > 0 && (
@@ -130,8 +144,7 @@ export function LotEvidence({
           {proposals.map(({ job, proposal }) => (
             <Field key={proposal.id}>
               <span>
-                <StatusChip $tone="neutral">Fixture-only</StatusChip> {job.stage} · attempt{' '}
-                {job.attempt_number}
+                <Pill tone="neutral">Fixture-only</Pill> {job.stage} · attempt {job.attempt_number}
               </span>
               <Paragraph>{proposal.value.summary}</Paragraph>
               <ProcessingSources proposal={proposal.value} />
@@ -156,4 +169,10 @@ export function LotEvidence({
 const OriginalNote = styled(Paragraph)`
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+`
+
+const PaneTitle = styled.h2`
+  margin: 0;
+  ${type.label}
+  color: ${color.muted};
 `

@@ -69,7 +69,7 @@ describe('literal colour check', () => {
   })
 })
 
-const { literalValues, compareBaseline, scanValues } = check
+const { literalValues, main, scanValues } = check
 
 function values(source) {
   return literalValues(source).map(({ line, property, literal, tokens }) =>
@@ -284,21 +284,19 @@ describe('literal value check', () => {
     )
   })
 
-  it('lets the baseline only shrink', () => {
-    const finding = (file, property, literal) => ({ file, line: 1, property, literal, tokens: [] })
-    const baseline = { 'a.tsx | gap | 8px': 2, 'b.tsx | padding | 12px': 1 }
+  it('fails on any token-equal literal that says nothing of why', () => {
+    const errors = []
+    const quiet = { error: (line) => errors.push(line), log: () => {} }
+    const bare = tree({ 'components/Card.tsx': 'const A = styled.div`\n  gap: 8px;\n`' })
+    const allowed = tree({
+      'components/Card.tsx':
+        'const A = styled.div`\n  gap: 8px; /* literal-allowed: matches the frame */\n`',
+    })
 
-    expect(
-      compareBaseline(baseline, [finding('a.tsx', 'gap', '8px'), finding('a.tsx', 'gap', '8px')]),
-    ).toEqual({ grown: [], shrunk: ['b.tsx | padding | 12px'] })
-    expect(
-      compareBaseline(baseline, [
-        finding('a.tsx', 'gap', '8px'),
-        finding('a.tsx', 'gap', '8px'),
-        finding('a.tsx', 'gap', '8px'),
-        finding('b.tsx', 'padding', '12px'),
-        finding('c.tsx', 'gap', '4px'),
-      ]),
-    ).toEqual({ grown: ['a.tsx | gap | 8px', 'c.tsx | gap | 4px'], shrunk: [] })
+    expect(main([], bare, quiet)).toBe(1)
+    expect(errors).toEqual([
+      expect.stringMatching(/^src\/components\/Card\.tsx:2: gap 8px equals space-4/),
+    ])
+    expect(main([], allowed, quiet)).toBe(0)
   })
 })

@@ -81,7 +81,7 @@ const Trigger = styled.button`
   padding: 3px ${space[3]};
   margin: 0 -6px;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: ${radius.input};
   background: none;
   text-align: left;
   cursor: text;

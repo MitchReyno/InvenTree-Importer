@@ -64,7 +64,8 @@ const Footer = styled.div`
   box-shadow: ${shadow};
 `
 
+/** Takes its own line when the footer is too narrow for it beside the actions. */
 const Summary = styled.div`
-  flex: 1;
+  flex: 1 1 14rem;
   min-width: 0;
 `

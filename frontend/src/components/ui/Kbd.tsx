@@ -9,5 +9,6 @@ export const Kbd = styled.kbd`
   border-radius: ${radius.xs};
   background: ${color.surface};
   font-family: ${font.mono};
+  /* literal-allowed: the keycap glyph, a step under the label size it sits beside */
   font-size: 11px;
 `

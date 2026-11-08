@@ -17,13 +17,18 @@ import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
 import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
-import { color, radius, space, type } from '../../../theme/generated/tokens'
+import { color, radius, size, space, type, typeVar } from '../../../theme/generated/tokens'
+import { media } from '../../ui/media'
 import { Banner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
 import { Pill } from '../../ui/Pill'
-import { Small } from '../../ui/primitives'
+import { Link, Small, Summary } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
-import { RecordDetail, STATE_TONE } from './RecordDetail'
+import { RecordDetail } from './RecordDetail'
+import { ParameterMatrix } from './ParameterMatrix'
+import { RecordStatePill } from '../../ui/RecordStatePill'
+import { FilterChips } from '../../ui/FilterChips'
+import { VisuallyHidden } from '../../ui/VisuallyHidden'
 import { ReloadContext, SavingContext, type Save } from './draft'
 
 type Props = {
@@ -64,6 +69,7 @@ export function RecordsStage({
   const [chosenKey, setChosenKey] = useState<string | null>(
     routeType && initialRecord ? `${routeType}:${initialRecord}` : null,
   )
+  const [filter, setFilter] = useState<RecordFilter>('all')
   const [blocked, setBlocked] = useState(false)
   const [discards, setDiscards] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -160,6 +166,7 @@ export function RecordsStage({
   )
   const type: RecordTypeDto = chosenType ?? withRecords[0]?.type ?? 'part'
   const ofType = records.records.filter((record) => record.type === type)
+  const shown = ofType.filter((record) => matchesFilter(record, filter))
   const selected = ofType.find((record) => record.key === chosenKey) ?? null
 
   function choose(nextType: RecordTypeDto, key: string | null) {
@@ -181,6 +188,22 @@ export function RecordsStage({
   return (
     <ReloadContext.Provider value={reload}>
       <SavingContext.Provider value={{ saving, setSaving }}>
+        <Header>
+          <div>
+            <PageHeading>Every InvenTree record this batch touches</PageHeading>
+            <Small>Each record names who set its values; edits wait for a save.</Small>
+          </div>
+          <FilterChips
+            label="Filter records"
+            value={filter}
+            onChange={(id) => setFilter(id as RecordFilter)}
+            options={RECORD_FILTERS.map(([id, label]) => ({
+              id,
+              label,
+              count: ofType.filter((record) => matchesFilter(record, id)).length,
+            }))}
+          />
+        </Header>
         <Layout>
           <Rail aria-label="Record types">
             {records.counts.map((count) => (
@@ -191,10 +214,19 @@ export function RecordsStage({
                 onClick={() => choose(count.type, null)}
               >
                 <strong>{TYPE_LABELS[count.type]}</strong>
-                <Small>
-                  {count.new} new · {count.existing} existing
-                </Small>
-                {count.decide > 0 && <Pill tone="warn">{count.decide} to decide</Pill>}
+                {count.decide > 0 ? (
+                  <Counts>
+                    <VisuallyHidden>
+                      {count.new} new · {count.existing} existing,{' '}
+                    </VisuallyHidden>
+                    <Pill tone="warn">{count.decide} to decide</Pill>
+                  </Counts>
+                ) : (
+                  <Counts>
+                    {count.new} new · {count.existing}
+                    <VisuallyHidden> existing</VisuallyHidden>
+                  </Counts>
+                )}
               </TypeButton>
             ))}
           </Rail>
@@ -202,7 +234,10 @@ export function RecordsStage({
             {ofType.length === 0 && (
               <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
             )}
-            {ofType.map((record) => (
+            {ofType.length > 0 && shown.length === 0 && (
+              <Small>No {TYPE_LABELS[type].toLowerCase()} match this filter.</Small>
+            )}
+            {shown.map((record) => (
               <RecordButton
                 key={record.key}
                 type="button"
@@ -211,9 +246,9 @@ export function RecordsStage({
                 aria-current={record.key === selected?.key ? 'true' : undefined}
                 onClick={() => choose(type, record.key)}
               >
-                <span>{record.label}</span>
-                <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
-                <Small>{lotsText(record)}</Small>
+                <strong>{record.label}</strong>
+                <RecordStatePill state={record.state}>{STATE_LABELS[record.state]}</RecordStatePill>
+                {lotsText(record) && <RowDetail>{lotsText(record)}</RowDetail>}
               </RecordButton>
             ))}
           </List>
@@ -264,6 +299,51 @@ export function RecordsStage({
                 </Banner>
               </div>
             )}
+            {type === 'parameter' && (
+              <ParameterMatrix
+                batch={batch}
+                records={records.records}
+                open={(key) => choose('parameter', key)}
+              />
+            )}
+            {selected && (
+              <RecordNav aria-label="Record">
+                <Link href={batchHref(batch.id, { tab: 'review', view: 'records' })}>Records</Link>
+                <span aria-hidden="true">›</span>
+                <span>{TYPE_LABELS[type]}</span>
+                <span aria-hidden="true">›</span>
+                <strong>{selected.label}</strong>
+                <Steps>
+                  {(() => {
+                    const index = shown.findIndex((record) => record.key === selected.key)
+                    const previous = index > 0 ? shown[index - 1] : undefined
+                    const next = index >= 0 ? shown[index + 1] : undefined
+                    return (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!previous}
+                          aria-label={`Previous record${previous ? `: ${previous.label}` : ''}`}
+                          onClick={() => previous && choose(type, previous.key)}
+                        >
+                          ‹
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!next}
+                          aria-label={`Next record${next ? `: ${next.label}` : ''}`}
+                          onClick={() => next && choose(type, next.key)}
+                        >
+                          ›
+                        </Button>
+                      </>
+                    )
+                  })()}
+                </Steps>
+              </RecordNav>
+            )}
             {selected ? (
               <RecordDetail
                 key={`${selected.key}:${discards}:${discarded}`}
@@ -275,10 +355,10 @@ export function RecordsStage({
                 ask={askFor(selected)}
               />
             ) : (
-              <Small>Choose a record to see its values and who set them.</Small>
+              <Empty>Choose a record to see its values and who set them.</Empty>
             )}
             <details>
-              <summary>Read another existing record</summary>
+              <Summary>Read another existing record</Summary>
               <MappingReader observe={observe} />
             </details>
           </Detail>
@@ -288,17 +368,66 @@ export function RecordsStage({
   )
 }
 
+type RecordFilter = 'all' | 'new' | 'update' | 'choose' | 'edited'
+
+const RECORD_FILTERS: [RecordFilter, string][] = [
+  ['all', 'All'],
+  ['new', 'New'],
+  ['update', 'Updates'],
+  ['choose', 'Needs a decision'],
+  ['edited', 'Edited by you'],
+]
+
+function matchesFilter(record: BatchRecordDto, filter: RecordFilter) {
+  if (filter === 'all') {
+    return true
+  }
+  if (filter === 'edited') {
+    return record.fields.some((field) => field.origin.kind === 'operator')
+  }
+
+  return record.state === filter
+}
+
 function lotsText(record: BatchRecordDto) {
   const lots = record.lot_ids.length
   return lots ? `Used by ${lots} ${lots === 1 ? 'lot' : 'lots'}` : ''
 }
 
+const Header = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: ${space[4]} ${space[8]};
+  margin-bottom: ${space[6]};
+`
+const RecordNav = styled.nav`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[3]};
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+  strong {
+    color: ${color.fg};
+  }
+`
+const Steps = styled.span`
+  display: inline-flex;
+  gap: ${space[2]};
+  margin-left: auto;
+`
+const PageHeading = styled.h2`
+  margin: 0;
+  ${type.h2}
+`
 const Layout = styled.div`
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(220px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 240px) minmax(220px, 320px) minmax(0, 1fr);
   gap: ${space[6]};
   align-items: start;
-  @media (max-width: 860px) {
+  ${media.stacked} {
     grid-template-columns: 1fr;
   }
 `
@@ -321,25 +450,68 @@ const Detail = styled.div`
   gap: ${space[4]};
   min-width: 0;
 `
+/** A selectable row: name left, counts or state right; the current row is accent-weak. */
 const choice = `
   display: grid;
-  gap: 2px;
-  justify-items: start;
-  padding: ${space[4]};
-  border: 0;
-  border-radius: ${radius.card};
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${space[1]} ${space[4]};
+  padding: ${space[4]} ${space[7]};
+  border: 1px solid transparent;
+  border-radius: ${radius.btn};
   background: none;
   color: ${color.fg};
   text-align: left;
   cursor: pointer;
-  &[aria-current='true'] {
+  &:hover {
     background: ${color.surface2};
+  }
+  &[aria-current='true'] {
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
   }
 `
 const TypeButton = styled.button`
   ${choice}
   ${type.body}
 `
+const Counts = styled.span`
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: ${space[3]};
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+  white-space: nowrap;
+`
 const RecordButton = styled.button`
   ${choice}
+  ${type.body}
+  border-top-color: ${color.line};
+  border-radius: 0;
+  &:first-of-type {
+    border-top-color: transparent;
+  }
+  &[aria-current='true'] {
+    border-radius: ${radius.btn};
+  }
+`
+/** An empty state sits in a muted card, never as bare text beside the columns. */
+const Empty = styled.p`
+  margin: 0;
+  padding: ${space[7]} ${space[8]};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
+`
+const RowDetail = styled.span`
+  grid-column: 1 / -1;
+  color: ${color.muted};
+  font-size: ${typeVar.small.size};
 `

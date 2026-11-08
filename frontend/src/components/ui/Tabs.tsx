@@ -147,7 +147,7 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   max-width: 260px;
   border-bottom: 2px solid transparent;
   color: ${color.muted};
-  font-weight: 500;
+  font-weight: ${typeVar.buttonLg.weight};
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;

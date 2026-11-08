@@ -125,6 +125,17 @@ function setup(
 }
 
 describe('ReadyToAdd', () => {
+  it('lists each lot as a row with its thumbnail and what it adds', () => {
+    setup()
+    const row = screen.getByRole('checkbox', { name: 'Packet B' }).closest('label')!
+    expect(row.querySelector('[data-thumb]')).not.toBeNull()
+    expect(row).toHaveTextContent('10 pcs · Bin 43')
+    expect(screen.getByRole('region', { name: 'Lots to add' }).parentElement).toHaveAttribute(
+      'data-columns',
+      'two',
+    )
+  })
+
   it('unticking a lot prepares the rest, and approval waits for that preparation', async () => {
     const user = userEvent.setup()
     const { prepareLots, props, rerender } = setup()
@@ -161,6 +172,23 @@ describe('ReadyToAdd', () => {
     expect(prepareLots).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Show what will change' }))
     expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
+  })
+
+  it('groups left-out lots by reason, with a count and a link to review them', () => {
+    const { props, rerender } = setup({ shown: null })
+    const unreviewed = {
+      ...props.workspace,
+      lots: props.workspace.lots.map((lot) =>
+        lot.lot_id === lots[0] ? lot : { ...lot, reviewed: false },
+      ),
+    } as ManualWorkspaceDto
+    rerender(<ReadyToAdd {...props} workspace={unreviewed} />)
+    const group = screen.getByText('Not reviewed').closest('li')!
+    expect(group).toHaveTextContent('2 lots')
+    expect(within(group).getByRole('link', { name: 'Review them' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('filter=needs_review'),
+    )
   })
 
   it('a ticked lot that stops being ready drops out of the ticks', async () => {
@@ -233,7 +261,9 @@ describe('ReadyToAdd', () => {
       />,
     )
     expect(screen.queryByRole('checkbox', { name: 'Packet B' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Packet B' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Review it' }).closest('li')).toHaveTextContent(
+      'Packet B',
+    )
     await user.click(screen.getByRole('button', { name: 'Show what will change' }))
     expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
   })
@@ -260,6 +290,36 @@ describe('ReadyToAdd', () => {
       'href',
       `#${batch.id}/review/lots/${lots[0]}`,
     )
+  })
+
+  it('the tree counts its changes, expands or collapses all, and can show only changes', async () => {
+    const user = userEvent.setup()
+    setup({
+      tree: [
+        ...treeNodes,
+        node({ key: 'category:82', kind: 'category', label: 'Capacitors', state: 'exists' }),
+      ],
+    })
+    await user.click(await screen.findByRole('button', { name: 'Tree' }))
+    const counts = screen.getByRole('group', { name: 'Tree counts' })
+    expect(counts).toHaveTextContent('3 new')
+    expect(counts).toHaveTextContent('1 update')
+    expect(counts).toHaveTextContent('2 existing')
+    const tree = screen.getByRole('tree', { name: 'By category' })
+
+    const items = () => within(tree).getAllByRole('treeitem')
+
+    expect(items()[1]).toHaveTextContent(/^.?part/i)
+
+    await user.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(items()).toHaveLength(2)
+    expect(items()[0]).toHaveTextContent('3 new · 1 update')
+    await user.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(items()).toHaveLength(6)
+
+    await user.click(screen.getByRole('checkbox', { name: 'Only changes' }))
+    expect(items()).toHaveLength(5)
+    expect(tree).not.toHaveTextContent('Capacitors')
   })
 
   it('the tree follows the WAI-ARIA keyboard pattern and states each node in text', async () => {

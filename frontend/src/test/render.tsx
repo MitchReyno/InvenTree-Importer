@@ -1,6 +1,7 @@
 import { render as renderUi, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { ServerStateProvider } from '../components/query/ServerStateProvider'
+import { ConfirmationProvider } from '../components/ui/Confirmation'
 import type { ServerScope } from '../queries/scope'
 
 export const fixtureScope: ServerScope = {
@@ -13,7 +14,11 @@ export const fixtureScope: ServerScope = {
 /** Use the same explicit query provider as production, with a fresh cache per render. */
 export function render(ui: ReactElement, options?: RenderOptions) {
   function Wrapper({ children }: { children: ReactNode }) {
-    return <ServerStateProvider scope={fixtureScope}>{children}</ServerStateProvider>
+    return (
+      <ServerStateProvider scope={fixtureScope}>
+        <ConfirmationProvider>{children}</ConfirmationProvider>
+      </ServerStateProvider>
+    )
   }
 
   return renderUi(ui, { wrapper: Wrapper, ...options })

@@ -1,7 +1,8 @@
 import styled from 'styled-components'
+import { space } from '../../theme/generated/tokens'
 import type { OperatorLotDto } from '@invimport/contracts'
 import { blockingIssues, dismissedWarnings, openWarnings } from '../../operator/review-model'
-import { StatusChip } from './StatusChip'
+import { Pill } from '../ui/Pill'
 
 /** Compact lot state for queue rows and table cells. */
 export function LotStatusChips({ lot }: { lot: OperatorLotDto }) {
@@ -10,22 +11,22 @@ export function LotStatusChips({ lot }: { lot: OperatorLotDto }) {
   const dismissed = dismissedWarnings(lot).length
   return (
     <Chips>
-      {lot.approved && <StatusChip $tone="green">Approved</StatusChip>}
-      {lot.review_state === 'reviewed' && <StatusChip $tone="green">✓ Reviewed</StatusChip>}
+      {lot.approved && <Pill tone="ok">Approved</Pill>}
+      {lot.review_state === 'reviewed' && <Pill status="ready">Reviewed</Pill>}
       {lot.review_state === 'changed_after_review' && (
-        <StatusChip $tone="amber">! Changed after review</StatusChip>
+        <Pill status="warning">Changed after review</Pill>
       )}
-      {blocking > 0 && <StatusChip $tone="red">× {blocking} blocking</StatusChip>}
+      {blocking > 0 && <Pill status="blocking">{blocking} blocking</Pill>}
       {warnings > 0 && (
-        <StatusChip $tone="amber">
-          ! {warnings} warning{warnings === 1 ? '' : 's'}
-        </StatusChip>
+        <Pill status="warning">
+          {warnings} warning{warnings === 1 ? '' : 's'}
+        </Pill>
       )}
-      {dismissed > 0 && <StatusChip $tone="neutral">{dismissed} dismissed</StatusChip>}
+      {dismissed > 0 && <Pill tone="neutral">{dismissed} dismissed</Pill>}
       {lot.shared_lot_ids.length > 0 && (
-        <StatusChip $tone="blue">Shared Part ×{lot.shared_lot_ids.length + 1}</StatusChip>
+        <Pill tone="acc">Shared Part ×{lot.shared_lot_ids.length + 1}</Pill>
       )}
-      {lot.predecessor_lot_ids.length > 0 && <StatusChip $tone="neutral">From lineage</StatusChip>}
+      {lot.predecessor_lot_ids.length > 0 && <Pill tone="neutral">From lineage</Pill>}
     </Chips>
   )
 }
@@ -33,5 +34,5 @@ export function LotStatusChips({ lot }: { lot: OperatorLotDto }) {
 const Chips = styled.span`
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: ${space[2]};
 `

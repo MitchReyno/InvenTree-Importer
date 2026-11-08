@@ -1,7 +1,5 @@
 [
   "frontend/src/capture/context.ts | export | batchContext",
-  "frontend/src/components/ui/primitives.tsx | export | Eyebrow",
-  "frontend/src/components/ui/primitives.tsx | export | Intro",
   "intake-server/src/capture/settings-intent.ts | export | hasSettingsIntent",
   "intake-server/src/media/schema.ts | export | mediaStoreIdentity",
   "intake-server/src/operations/archive.ts | type | ArchiveManifest",

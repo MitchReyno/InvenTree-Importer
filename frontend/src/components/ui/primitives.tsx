@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, icon, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
 /** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
@@ -135,20 +135,13 @@ export const HeadingRow = styled.div`
     margin-bottom: ${space[4]};
   }
 `
-export const Eyebrow = styled(Paragraph)`
-  ${type.label}
-  color: ${color.muted};
-`
-export const Intro = styled(Paragraph)`
-  max-width: 700px;
-  color: ${color.muted};
-`
 export const CheckboxLabel = styled(Label)`
   display: flex;
   align-items: center;
+  /* literal-allowed: a choice reads one step heavier than body text; no medium body weight token */
   font-weight: 500;
   ${Input} {
-    width: 20px;
+    width: ${icon.md};
   }
   ${media.compact} {
     min-height: ${size.touch};
@@ -161,18 +154,4 @@ export const Field = styled.div`
   border: 1px solid ${color.line};
   background: ${color.surface2};
   border-radius: ${radius.card};
-`
-export const Notice = styled(Paragraph)`
-  padding: ${space[5]} ${space[7]};
-  border: 1px solid transparent;
-  background: ${color.warnWeak};
-  border-radius: ${radius.card};
-  margin-bottom: ${space[9]};
-`
-export const ErrorNotice = styled.div`
-  padding: ${space[5]} ${space[7]};
-  border: 1px solid ${color.bad};
-  background: ${color.badWeak};
-  border-radius: ${radius.card};
-  margin-bottom: ${space[9]};
 `
