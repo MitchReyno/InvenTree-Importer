@@ -109,3 +109,120 @@ describe('the inline answer', () => {
     expect(screen.getByText(/superseded or its saved context changed/)).toBeVisible()
   })
 })
+
+describe('excluding a lot', () => {
+  const lot = {
+    id: 'l',
+    label: 'Packet B',
+    quantity: { mode: 'set', value: '17' },
+    location: { mode: 'inherit' },
+    part_subject_id: null,
+  }
+
+  const batchWith = (excluded?: object) =>
+    ({
+      id: 'b',
+      revision: '4',
+      archived: false,
+      lots: [{ ...lot, ...(excluded ? { excluded } : {}) }],
+      parts: [],
+      defaults: { quantity: { mode: 'unset' }, location: { mode: 'clear' } },
+      observations: [],
+      notes: [],
+    }) as unknown as CaptureSnapshotDto
+
+  const operatorLot = (excluded?: object) =>
+    ({
+      lot_id: 'l',
+      label: 'Packet B',
+      part_subject_id: null,
+      shared_lot_ids: [],
+      review_state: 'needs_review',
+      approved: false,
+      issues: [],
+      predecessor_lot_ids: [],
+      ...(excluded ? { excluded } : {}),
+    }) as never
+
+  const panel = (edit: (change: unknown) => Promise<boolean>, excluded?: object) => {
+    const batch = batchWith(excluded)
+    return (
+      <DecisionPanel
+        batch={batch}
+        lot={batch.lots[0]}
+        part={undefined}
+        workspace={{ lots: [], preparations: [], runs: [] } as never}
+        operatorLot={operatorLot(excluded)}
+        activeLotIds={['l']}
+        disabled={false}
+        edit={edit as never}
+        reload={async () => {}}
+        inspect={() => {}}
+        markReviewed={() => {}}
+      />
+    )
+  }
+
+  it('excludes the lot with a reason', async () => {
+    const user = userEvent.setup()
+    const changes: unknown[] = []
+    render(panel(async (change) => (changes.push(change), true)))
+    await user.click(screen.getByRole('button', { name: 'Exclude…' }))
+    expect(screen.getByRole('button', { name: 'Exclude this lot' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Why leave Packet B out?'), 'Bent leads')
+    await user.click(screen.getByRole('button', { name: 'Exclude this lot' }))
+    expect(changes).toEqual([{ kind: 'lot_exclusion', lot_id: 'l', reason: 'Bent leads' }])
+  })
+
+  it('keeps a typed reason until it is sent or cancelled', async () => {
+    const user = userEvent.setup()
+    render(panel(async () => false))
+    await user.click(screen.getByRole('button', { name: 'Exclude…' }))
+    await user.type(screen.getByLabelText('Why leave Packet B out?'), 'Bent leads')
+    expect(screen.getByRole('button', { name: 'Exclude…' })).toBeDisabled()
+    // An unconfirmed save keeps the reason for an exact retry.
+    await user.click(screen.getByRole('button', { name: 'Exclude this lot' }))
+    expect(screen.getByLabelText('Why leave Packet B out?')).toHaveValue('Bent leads')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByLabelText('Why leave Packet B out?')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Exclude…' })).toBeEnabled()
+  })
+
+  it('offers no Exclude for a lot an approval already includes', () => {
+    const batch = batchWith()
+    render(
+      <DecisionPanel
+        batch={batch}
+        lot={batch.lots[0]}
+        part={undefined}
+        workspace={{ lots: [], preparations: [], runs: [] } as never}
+        operatorLot={{ ...(operatorLot() as object), approved: true } as never}
+        activeLotIds={['l']}
+        disabled={false}
+        edit={async () => true}
+        reload={async () => {}}
+        inspect={() => {}}
+        markReviewed={() => {}}
+      />,
+    )
+    const footer = screen.getByRole('region', { name: 'Lot actions' })
+    expect(within(footer).getByRole('button', { name: 'Exclude…' })).toBeDisabled()
+    expect(within(footer).getByText('Already added')).toBeVisible()
+  })
+
+  it('says why an excluded lot is out, and includes it again', async () => {
+    const user = userEvent.setup()
+    const changes: unknown[] = []
+    render(
+      panel(async (change) => (changes.push(change), true), {
+        reason: 'Bent leads',
+        at: '2026-11-08T05:00:00.000Z',
+      }),
+    )
+    const footer = screen.getByRole('region', { name: 'Lot actions' })
+    expect(within(footer).getByText('Excluded: Bent leads')).toBeVisible()
+    expect(within(footer).getByRole('button', { name: /Mark reviewed/ })).toBeDisabled()
+    await user.click(within(footer).getByRole('button', { name: 'Include again' }))
+    expect(changes).toEqual([{ kind: 'lot_exclusion', lot_id: 'l', reason: null }])
+  })
+})

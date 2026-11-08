@@ -16,7 +16,11 @@ import type { ProcessingClient } from '../../../processing/types'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
-import { useBatchRecords, type RecordsClient } from '../../../records/useBatchRecords'
+import {
+  useBatchRecords,
+  useExistingValues,
+  type RecordsClient,
+} from '../../../records/useBatchRecords'
 import { color, radius, size, space, type, typeVar } from '../../../theme/generated/tokens'
 import { media } from '../../ui/media'
 import { Banner } from '../../ui/Banner'
@@ -86,6 +90,13 @@ export function RecordsStage({
     lastGood.current = query.data
   }
   const records = query.data ?? lastGood.current
+  // The target is read only while a record it already holds is open.
+  const existing = useExistingValues(
+    client,
+    batch.id,
+    batch.revision,
+    Boolean(records?.records.find((record) => record.key === chosenKey)?.mapped),
+  )
 
   const scope = useServerScope()
   const pollInterval = useRetainedPollInterval()
@@ -353,6 +364,7 @@ export function RecordsStage({
                 disabled={disabled}
                 reportFor={drafts.forSource}
                 ask={askFor(selected)}
+                existing={selected.mapped && client?.existing ? existing : undefined}
               />
             ) : (
               <Empty>Choose a record to see its values and who set them.</Empty>

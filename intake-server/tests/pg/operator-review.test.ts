@@ -791,3 +791,73 @@ test('move preview reports a preparation blocked only by a new sibling duplicate
     await fixture.dispose()
   }
 })
+
+test('an excluded lot carries its reason, cannot be reviewed into a preparation, and returns when included', async () => {
+  const fixture = await manualFixture()
+  try {
+    const seeded = await fixture.seedCapture()
+    const batchId = seeded.batch.id
+    const { a } = seeded
+    const exclude = async (reason: string | null) => {
+      const current = await capture(fixture, batchId)
+      const result = await fixture.http(`/batches/${batchId}/edits`, {
+        expected_revision: current.revision,
+        change: { kind: 'lot_exclusion', lot_id: a.id, reason },
+      })
+      assert.equal(result.status, 200, JSON.stringify(result.value))
+    }
+
+    await exclude('Bent leads')
+    let current = await operator(fixture, batchId)
+    const lot = current.lots.find((item) => item.lot_id === a.id)!
+    assert.equal(lot.excluded?.reason, 'Bent leads')
+    assert.ok(lot.issues.some((item) => item.code === 'lot_excluded'))
+    assert.notEqual((await review(fixture, batchId, [a.id])).status, 200)
+
+    await exclude(null)
+    current = await operator(fixture, batchId)
+    const back = current.lots.find((item) => item.lot_id === a.id)!
+    assert.equal(back.excluded, undefined)
+    assert.equal(
+      back.issues.some((item) => item.code === 'lot_excluded'),
+      false,
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('excluding refuses a lot whose original contribution is approved', async () => {
+  const fixture = await manualFixture()
+  try {
+    const seeded = await fixture.seedCapture()
+    const batchId = seeded.batch.id
+    assert.equal((await review(fixture, batchId, [seeded.a.id])).status, 200)
+    const prepared = await fixture.http(`/batches/${batchId}/preparations`, {
+      expected_batch_revision: (await capture(fixture, batchId)).revision,
+      selected_lot_ids: [seeded.a.id],
+    })
+    const preview = prepared.value.preparation as ManualPreviewDto
+    const approved = await fixture.http(`/preparations/${preview.id}/approvals`, {
+      preparation_id: preview.id,
+      expected_plan_sha256: preview.plan_sha256,
+      expected_review_fingerprint: preview.review_fingerprint,
+      selected_lot_ids: preview.selected_lot_ids,
+      expected_target_revision: preview.target_revision,
+    })
+    assert.equal(approved.status, 200, JSON.stringify(approved.value))
+
+    const before = await capture(fixture, batchId)
+    const refused = await fixture.http(`/batches/${batchId}/edits`, {
+      expected_revision: before.revision,
+      change: { kind: 'lot_exclusion', lot_id: seeded.a.id, reason: 'Changed my mind' },
+    })
+    assert.equal(refused.status, 409, JSON.stringify(refused.value))
+    assert.equal(refused.value.code, 'lot_already_approved')
+    const after = await capture(fixture, batchId)
+    assert.equal(after.revision, before.revision)
+    assert.equal(after.lots.find((lot) => lot.id === seeded.a.id)?.excluded, undefined)
+  } finally {
+    await fixture.dispose()
+  }
+})

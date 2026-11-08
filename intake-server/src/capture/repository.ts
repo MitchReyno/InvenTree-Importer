@@ -172,6 +172,8 @@ async function snapshot(
         agent_session_id: captureLots.agentSessionId,
         operator_edited: captureLots.operatorEdited,
         reexamine: captureLots.reexamine,
+        excluded_reason: captureLots.excludedReason,
+        excluded_at: captureLots.excludedAt,
         estimated_quantity: captureLots.estimatedQuantity,
         quantity_basis: captureLots.quantityBasis,
         observation_set_version: captureLots.observationSetVersion,
@@ -258,6 +260,8 @@ async function snapshot(
         agent_session_id,
         operator_edited,
         reexamine,
+        excluded_reason,
+        excluded_at,
         estimated_quantity,
         quantity_basis,
         observation_set_version,
@@ -271,6 +275,9 @@ async function snapshot(
           : {}),
         ...(operator_edited && origin === 'agent' ? { operator_edited: true as const } : {}),
         ...(reexamine ? { reexamine: true as const } : {}),
+        ...(excluded_reason && excluded_at
+          ? { excluded: { reason: excluded_reason, at: excluded_at.toISOString() } }
+          : {}),
         ...(estimated_quantity ? { estimated_quantity } : {}),
         ...(quantity_basis ? { quantity_basis } : {}),
         ...(members.length ? { evidence_observation_ids: members } : {}),
@@ -524,6 +531,8 @@ async function applyLockedCaptureEdit(
   let editedSubject: string | null = null
   if (change.kind === 'lot') {
     editedSubject = change.id
+  } else if (change.kind === 'lot_exclusion') {
+    editedSubject = change.lot_id
   } else if (change.kind === 'note') {
     editedSubject = change.subject_id
   } else if (change.kind === 'settings') {
@@ -661,6 +670,47 @@ async function applyLockedCaptureEdit(
             revision: sql`${captureSubjects.revision}+1`,
           })
           .where(eq(captureSubjects.id, change.id)),
+      )
+      break
+    case 'lot_exclusion':
+      subject(change.lot_id, 'lot')
+      // An approval may already be importing the lot, so it can no longer be excluded.
+      if (change.reason !== null) {
+        const [lot] = await executeDatabaseQuery(
+          queryDatabase(c)
+            .select({ key: captureLots.contributionKey })
+            .from(captureLots)
+            .where(eq(captureLots.id, change.lot_id)),
+        )
+        // A deployment that cannot read the executor's history has no executor, so no approvals.
+        const privilege = await executeDatabaseQuery(
+          queryDatabase(c).execute<{ executor: boolean }>(
+            sql`SELECT has_table_privilege('executor_run', 'SELECT') AS executor`,
+          ),
+        )
+        const executor = privilege.rows[0]?.executor === true
+        if (executor) {
+          // Loaded on use: execution depends on capture, so capture must not import it eagerly.
+          const { stockSourceHistory } = await import('../execution/source.ts')
+          const history = await stockSourceHistory(
+            c,
+            { targetId: b.target_id, sourceId: b.source_id, originalSourceKey: b.source_id },
+            [lot.key],
+          )
+          if (history.contributions.length) {
+            fail('lot_already_approved', 409)
+          }
+        }
+      }
+      await executeDatabaseQuery(
+        queryDatabase(c)
+          .update(captureLots)
+          .set(
+            change.reason === null
+              ? { excludedReason: null, excludedAt: null }
+              : { excludedReason: change.reason, excludedAt: sql`now()` },
+          )
+          .where(eq(captureLots.id, change.lot_id)),
       )
       break
     case 'part':

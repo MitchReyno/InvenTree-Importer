@@ -1,5 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { Id, schemas, type BatchRecordsDto } from '@invimport/contracts'
+import {
+  Id,
+  schemas,
+  type BatchRecordDto,
+  type BatchRecordsDto,
+  type RecordExistingValuesDto,
+} from '@invimport/contracts'
 import { bootstrap, type DevConfig } from '../config.ts'
 import { CaptureError, fail } from '../capture/repository.ts'
 import { ProcessingError } from '../processing/model.ts'
@@ -19,6 +25,12 @@ export function registerRecords(
   app: FastifyInstance,
   config: DevConfig,
   read: (batchId: string) => Promise<BatchRecordsDto>,
+  /** Absent where no target is configured; the route then says the values are unavailable. */
+  existing?: {
+    read: (records: readonly BatchRecordDto[]) => Promise<RecordExistingValuesDto>
+    /** Refuses once the target context has rotated, before and after target traffic. */
+    fence: () => Promise<void>
+  },
 ) {
   const configured = bootstrap(config).status === 'configured'
   app.register(async (scope) => {
@@ -42,6 +54,25 @@ export function registerRecords(
           fail('setup_required', 503)
         }
         return read(id)
+      },
+    )
+    // Read only when Records asks, so opening Records never waits on the target.
+    scope.get(
+      '/api/v1/batches/:id/records/existing',
+      { schema: { response: { 200: schemas.RecordExistingValues } } },
+      async (request) => {
+        const id = batchId(request)
+        if (!configured) {
+          fail('setup_required', 503)
+        }
+        if (!existing) {
+          fail('target_unavailable', 503)
+        }
+        const records = (await read(id)).records
+        await existing.fence()
+        const result = await existing.read(records)
+        await existing.fence()
+        return result
       },
     )
   })

@@ -266,8 +266,29 @@ const captureClient = {
   list: async () => ({ batches: [], truncated: false }),
   create: async () => current,
 }
+/** The fixture's InvenTree: each mapped record's current values, as the target would return them. */
 const records = {
   read: async () => projectRecords({ capture: current, processing, lotGroups: null }),
+  existing: async () => {
+    const mapped = projectRecords({ capture: current, processing, lotGroups: null }).records.filter(
+      (record) => record.mapped,
+    )
+    return {
+      target_context_id: current.target_context_id,
+      records: mapped.slice(0, 50).map((record) => ({
+        key: record.key,
+        status: 'found' as const,
+        fields: [
+          { name: 'name', value: record.label },
+          {
+            name: 'description',
+            value: record.type === 'company' ? 'Stocked supplier since 2024' : null,
+          },
+        ],
+      })),
+      truncated: mapped.length > 50,
+    }
+  },
 }
 
 const unsupported = async () => {
@@ -339,7 +360,7 @@ export function RecordsProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-<Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
+      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
       <Main>
         <Batch
           id={batchId}

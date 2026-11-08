@@ -29,7 +29,7 @@ export async function grantCapture(pool: Pool, role: string) {
   await pool.query(`GRANT INSERT ON capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,capture_group_location TO ${role};
     GRANT UPDATE(title,revision,archived,updated_at) ON capture_batch TO ${role};
     GRANT UPDATE(label,revision) ON capture_subject TO ${role};
-    GRANT UPDATE(part_subject_id,operator_edited,reexamine,observation_set_version,changed_revision) ON capture_lot TO ${role};
+    GRANT UPDATE(part_subject_id,operator_edited,reexamine,excluded_reason,excluded_at,observation_set_version,changed_revision) ON capture_lot TO ${role};
     GRANT INSERT,DELETE ON capture_edit_publication TO ${role};
     GRANT SELECT(id) ON capture_edit_publication TO ${role};
     GRANT INSERT,DELETE,UPDATE(region,readings,visible_count,status,operator_edited,revision)

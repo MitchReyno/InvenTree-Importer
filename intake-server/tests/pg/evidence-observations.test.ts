@@ -1191,3 +1191,72 @@ test('correcting a reading marks only the lot that used it for re-examination, u
     assert.equal((await read()).lots.find((lot) => lot.id === lotA.id)!.reexamine, undefined)
   })
 })
+
+test('the operator excludes a lot with a reason and includes it again; the lead session cannot', async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const start = await read()
+    const seen = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: start.revision,
+        evidence_version_id: photo.version,
+        region: region(0),
+        readings: readings('BC547'),
+      }),
+    )
+    assert.ok(seen.ok)
+    const lot = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: seen.revision,
+        label: 'BC547 transistors',
+        observation_ids: [seen.id],
+      }),
+    )
+    assert.ok(lot.ok)
+
+    const excluded = await edit({ kind: 'lot_exclusion', lot_id: lot.id!, reason: 'Bent leads' })
+    assert.equal(excluded.status, 200, JSON.stringify(excluded.value))
+    const after = await read()
+    const mark = after.lots.find((item) => item.id === lot.id)!.excluded
+    assert.equal(mark?.reason, 'Bent leads')
+    assert.ok(Number.isFinite(Date.parse(mark?.at ?? '')))
+
+    // The lead session has no grant on the exclusion, so it can neither clear nor set it.
+    await assert.rejects(
+      write((client) =>
+        client.query('UPDATE capture_lot SET excluded_reason=NULL, excluded_at=NULL WHERE id=$1', [
+          lot.id,
+        ]),
+      ),
+      (error: { code?: string }) => error.code === '42501',
+    )
+
+    const included = await edit({ kind: 'lot_exclusion', lot_id: lot.id!, reason: null })
+    assert.equal(included.status, 200, JSON.stringify(included.value))
+    assert.equal((await read()).lots.find((item) => item.id === lot.id)!.excluded, undefined)
+
+    const notALot = await edit({ kind: 'lot_exclusion', lot_id: photo.version, reason: 'Nope' })
+    assert.equal(notALot.status, 404)
+  })
+})
+
+test('a reading keeps what kind of source it came from and how well it agrees', async () => {
+  await withLead(async ({ writer, photo, write, read }) => {
+    const start = await read()
+    const seen = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: start.revision,
+        evidence_version_id: photo.version,
+        region: region(0),
+        readings: { markings: ['BC547'], source_kind: 'label', agreement: 'likely' },
+      }),
+    )
+    assert.ok(seen.ok)
+    const after = await read()
+    const kept = after.evidence_observations?.find((item) => item.id === seen.id)
+    assert.deepEqual(kept?.readings, {
+      markings: ['BC547'],
+      source_kind: 'label',
+      agreement: 'likely',
+    })
+  })
+})

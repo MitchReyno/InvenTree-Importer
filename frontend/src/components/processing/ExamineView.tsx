@@ -7,6 +7,7 @@ import type {
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { evidenceDisplayNames } from '../../media/identity-labels'
+import { readingSource } from '../../operator/value-evidence'
 import { coverSizes, observationImage } from '../../media/images'
 import { batchHref } from '../../navigation/batch-route'
 import { color, radius, space, type } from '../../theme/generated/tokens'
@@ -38,19 +39,6 @@ function readings(observation: Observation) {
   return observation.visible_count === null
     ? markings
     : `${markings} · ${observation.visible_count} visible`
-}
-
-/** Who a reading comes from: the Examine step, or the operator who corrected it. */
-function source(observation: Observation) {
-  return observation.origin === 'operator' || observation.operator_edited
-    ? { source: 'You', certainty: 'Your edit', tone: 'user' as const }
-    : {
-        source: 'Examine',
-        // Line regions are a document's lines; pixel regions are part of a photo.
-        certainty:
-          observation.region.kind === 'lines' ? 'Read from the document' : 'Read from the photo',
-        tone: 'default' as const,
-      }
 }
 
 /** Each photo's file name and group, from the media snapshot when it has been read. */
@@ -455,7 +443,7 @@ export function ExamineView({
                 <List>
                   {shown.map((observation) => {
                     const lot = observation.lot_id ? lots.get(observation.lot_id) : undefined
-                    const chip = source(observation)
+                    const chip = readingSource(observation)
                     return (
                       <li key={observation.id}>
                         {crop(observation)}

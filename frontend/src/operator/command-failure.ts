@@ -27,6 +27,7 @@ export function classifyFailure(error: unknown): CommandFailure {
 
 const REJECTION_MESSAGES: Record<string, string> = {
   lot_retired: 'One of these lots was split or merged. Reload to see its successor lots.',
+  lot_excluded: 'One of these lots is excluded. Include it again to review or add it.',
   lot_already_approved:
     'An approved lot cannot be restructured. Its original run keeps its identity.',
   issue_not_found: 'This warning no longer applies. Reload to see current issues.',

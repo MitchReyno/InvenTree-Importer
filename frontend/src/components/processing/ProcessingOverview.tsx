@@ -115,7 +115,12 @@ export function ProcessingOverview({
         <Card aria-label="Needs you">
           <TitleRow>
             <CardTitle>Needs you</CardTitle>
-            {source.questions.length > 0 && <Count value={source.questions.length} tone="warn" />}
+            {source.questions.length > 0 && (
+              <>
+                <Count value={source.questions.length} tone="warn" />
+                <Muted>Oldest first</Muted>
+              </>
+            )}
           </TitleRow>
           {source.questions.length === 0 ? (
             <Muted>No open questions.</Muted>

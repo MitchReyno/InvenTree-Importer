@@ -5,6 +5,7 @@ import {
   type LotLocationGroups,
 } from './capture-location.ts'
 import type { InventoryPartSpecDto } from './effects.ts'
+import type { SourceAgreementDto, SourceKindDto } from './value-evidence.ts'
 import type { CatalogueProposalDto, ProcessingSnapshotDto } from './processing.ts'
 import { assessCatalogue, type CatalogueUnsupportedReason } from './catalogue-assessment.ts'
 import {
@@ -178,22 +179,34 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
       sku: none,
     }
   }
+  type Said = { source_kind?: SourceKindDto; agreement?: SourceAgreementDto }
+  type Choice = Said & { choice: string; reference?: { pk: string } }
   const value = latest.proposal.value as Record<string, unknown> & {
     tags?: string[]
     catalogue?: {
-      category: { choice: string; reference?: { pk: string } } | null
-      parameters: { template: { pk: string } | null; value: string }[]
-      manufacturer: { company: { choice: string; reference?: { pk: string } }; mpn: string } | null
-      supplier: {
-        company: { choice: string; reference?: { pk: string } }
-        sku: string | null
-      } | null
-      description: { text: string } | null
+      category: Choice | null
+      parameters: (Said & { template: { pk: string } | null; value: string })[]
+      manufacturer: (Said & { company: Choice; mpn: string }) | null
+      supplier: (Said & { company: Choice; sku: string | null }) | null
+      description: (Said & { text: string }) | null
     }
   }
   const step: Origin = { kind: 'step', step: latest.step, proposal_id: latest.proposal.id }
 
-  const when = (matches: boolean) => (matches ? step : OPERATOR)
+  // A match is credited with what the matched value says about its own source.
+  const when = (matches: boolean, said?: Said | null): Origin =>
+    matches
+      ? {
+          ...step,
+          ...(said?.source_kind ? { source_kind: said.source_kind } : {}),
+          ...(said?.agreement ? { agreement: said.agreement } : {}),
+        }
+      : OPERATOR
+
+  const company = (item: { company: Said } & Said) => ({
+    source_kind: item.company.source_kind ?? item.source_kind,
+    agreement: item.company.agreement ?? item.agreement,
+  })
 
   const catalogue = value.catalogue
 
@@ -205,31 +218,41 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
     value.tags.length === spec.tags.length &&
     spec.tags.every((tag) => value.tags!.includes(tag))
   return {
-    category: () => when(existingPk(catalogue?.category) === spec.category.pk),
+    category: () => when(existingPk(catalogue?.category) === spec.category.pk, catalogue?.category),
     tags: () => when(spec.tags.length > 0 && sameTags),
     description: () =>
-      when(spec.description !== undefined && catalogue?.description?.text === spec.description),
-    parameter: (templatePk: string, parameterValue: string) =>
       when(
-        Boolean(
-          catalogue?.parameters.some(
-            (item) => item.template?.pk === templatePk && item.value === parameterValue,
-          ),
-        ),
+        spec.description !== undefined && catalogue?.description?.text === spec.description,
+        catalogue?.description,
       ),
+    parameter: (templatePk: string, parameterValue: string) => {
+      const item = catalogue?.parameters.find(
+        (candidate) => candidate.template?.pk === templatePk && candidate.value === parameterValue,
+      )
+      return when(item !== undefined, item)
+    },
     manufacturer: () =>
       when(
         spec.manufacturer !== null &&
           existingPk(catalogue?.manufacturer?.company) === spec.manufacturer.company.pk,
+        catalogue?.manufacturer && company(catalogue.manufacturer),
       ),
     mpn: () =>
-      when(spec.manufacturer !== null && catalogue?.manufacturer?.mpn === spec.manufacturer.mpn),
+      when(
+        spec.manufacturer !== null && catalogue?.manufacturer?.mpn === spec.manufacturer.mpn,
+        catalogue?.manufacturer,
+      ),
     supplier: () =>
       when(
         spec.supplier !== null &&
           existingPk(catalogue?.supplier?.company) === spec.supplier.company.pk,
+        catalogue?.supplier && company(catalogue.supplier),
       ),
-    sku: () => when(spec.supplier !== null && catalogue?.supplier?.sku === spec.supplier.sku),
+    sku: () =>
+      when(
+        spec.supplier !== null && catalogue?.supplier?.sku === spec.supplier.sku,
+        catalogue?.supplier,
+      ),
   }
 }
 
@@ -316,7 +339,13 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   const label = (observationId: string, fallback: string) =>
     capture.observations.find((item) => item.id === observationId)?.label ?? fallback
 
-  const activeLots = capture.lots.filter((lot) => !lot.retired)
+  // Retired and excluded lots add nothing to the target.
+  const activeLots = capture.lots.filter((lot) => !lot.retired && !lot.excluded)
+  // A Part only excluded lots use adds nothing either; one no lot uses yet is still listed.
+  const parts = capture.parts.filter((part) => {
+    const using = capture.lots.filter((lot) => !lot.retired && lot.part_subject_id === part.id)
+    return using.length === 0 || using.some((lot) => !lot.excluded)
+  })
 
   const lotsOf = (partIds: readonly string[]) =>
     activeLots
@@ -343,7 +372,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       ...value,
     })
 
-  const created = capture.parts.flatMap((part) =>
+  const created = parts.flatMap((part) =>
     part.choice.mode === 'create' ? [{ id: part.id, spec: part.choice.spec }] : [],
   )
   // Shared records: one per category, company role and template, listing every Part using it.
@@ -353,6 +382,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       type: BatchRecordDto['type']
       label: string
       target: BatchRecordDto['target']
+      mapped: BatchRecordDto['mapped']
       parts: string[]
     }
   >()
@@ -363,8 +393,9 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     recordLabel: string,
     target: BatchRecordDto['target'],
     partId: string,
+    mapped?: BatchRecordDto['mapped'],
   ) => {
-    const current = shared.get(key) ?? { type, label: recordLabel, target, parts: [] }
+    const current = shared.get(key) ?? { type, label: recordLabel, target, mapped, parts: [] }
     if (!current.parts.includes(partId)) {
       current.parts.push(partId)
     }
@@ -378,6 +409,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       label(spec.category.observation_id, `Category ${spec.category.pk}`),
       null,
       id,
+      { model: 'category', pk: spec.category.pk },
     )
     for (const role of ['manufacturer', 'supplier'] as const) {
       const company = spec[role]?.company
@@ -388,6 +420,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           label(company.observation_id, `Company ${company.pk}`),
           { kind: 'company', role, pk: company.pk },
           id,
+          { model: 'company', pk: company.pk },
         )
       }
     }
@@ -398,6 +431,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         label(parameter.template.observation_id, `Template ${parameter.template.pk}`),
         { kind: 'parameter_template', pk: parameter.template.pk },
         id,
+        { model: 'parameter_template', pk: parameter.template.pk },
       )
     }
     for (const tag of spec.tags) {
@@ -413,10 +447,11 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       state: value.type === 'tag' ? 'update' : 'exists',
       target: value.target,
       part_ids: value.parts,
+      ...(value.mapped ? { mapped: value.mapped } : {}),
     })
   }
 
-  for (const part of capture.parts) {
+  for (const part of parts) {
     if (part.choice.mode === 'create') {
       const spec = part.choice.spec
       // A lot's proposal can set its Part's values (suggested tags), so those count too.
@@ -508,6 +543,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         state: 'exists',
         target: null,
         part_ids: [part.id],
+        mapped: { model: 'part', pk: part.choice.value.pk },
       })
     } else {
       // Unset, unknown or cleared: no Part is chosen yet.
@@ -561,7 +597,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         : [],
     )
 
-  for (const part of capture.parts) {
+  for (const part of parts) {
     const catalogue = catalogueOf([part.id, ...lotsOf([part.id])])
     if (!catalogue) {
       continue
@@ -642,6 +678,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       lots: string[]
       state: BatchRecordDto['state']
       decision: BatchRecordDto['decision']
+      mapped?: BatchRecordDto['mapped']
     }
   >()
 
@@ -694,6 +731,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           label: label(value.observation_id, `Location ${value.pk}`),
           state: 'exists',
           decision: null,
+          mapped: { model: 'location', pk: value.pk },
         },
         lot.id,
       )
@@ -737,6 +775,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       part_ids: [],
       lot_ids: value.lots,
       decision: value.decision,
+      ...(value.mapped ? { mapped: value.mapped } : {}),
     })
   }
 
@@ -746,7 +785,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     return resolved.mode === 'set' ? resolved.value : null
   }
 
-  const partIds = new Set(capture.parts.map((part) => part.id))
+  const partIds = new Set(parts.map((part) => part.id))
   for (const lot of activeLots) {
     // An AI lot's count is only an estimate until the operator accepts or replaces it on the lot,
     // so it never takes the batch default, as approval reads it.

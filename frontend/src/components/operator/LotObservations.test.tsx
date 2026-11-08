@@ -150,3 +150,17 @@ it('requests the new crop when a mounted observation’s region is edited', () =
     expect(candidate).toContain('rev=v-1-40-0-1800-1200')
   }
 })
+
+it('says in words what each reading came from and how well it agrees', () => {
+  const said = {
+    ...batch,
+    evidence_observations: [
+      {
+        ...observation('o1', 'LED 0603 red', 'l1'),
+        readings: { markings: ['LED 0603 red'], source_kind: 'label', agreement: 'likely' },
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(<LotObservations batch={said} lot={lot} disabled={false} />)
+  expect(screen.getByText('Examine · Label · Likely')).toBeInTheDocument()
+})

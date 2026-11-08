@@ -242,6 +242,40 @@ test('stock items and locations follow active lots; a lot with no location needs
   assert.equal(of(result.records, 'location')[1].decision?.code, 'location_required')
 })
 
+test('an excluded lot has no records; a Part only it used is left out too', () => {
+  const excluded = {
+    ...capture,
+    lots: capture.lots.map((item) =>
+      item.id === id(103) || item.id === id(102)
+        ? { ...item, excluded: { reason: 'Damaged', at: '2026-11-08T05:00:00.000Z' } }
+        : item,
+    ),
+  } as CaptureSnapshotDto
+  const result = projectRecords({ capture: excluded, processing: undefined, lotGroups: null })
+  assert.deepEqual(
+    of(result.records, 'stock_item').map((record) => record.label),
+    ['Lot 1', 'Lot 4', 'Lot 5'],
+  )
+  // Part B's only lot is excluded, so neither it nor its own records are listed.
+  assert.equal(
+    result.records.some(
+      (record) => record.part_ids.includes(partB) && record.part_ids.length === 1,
+    ),
+    false,
+  )
+  assert.equal(
+    result.records.some((record) => record.key === `part:${partB}`),
+    false,
+  )
+  // Part A keeps Lot 1 alone.
+  const partLots = of(result.records, 'part').map((record) => record.lot_ids)
+  assert.equal(
+    partLots.some((lots) => lots.includes(id(103))),
+    false,
+  )
+  assert.ok(partLots.some((lots) => lots.length === 1 && lots[0] === id(101)))
+})
+
 test('a lot taking a new default location draft is placed under that draft, not a decision', () => {
   const draftId = id(950)
   const withDraft = {
@@ -1003,5 +1037,97 @@ test('a stale catalogue gives way to the current one from the same job', () => {
   assert.equal(
     of(result.records, 'company').some((record) => record.proposed?.name === 'GCT'),
     false,
+  )
+})
+
+test('a field credited to a proposal says what kind of source it came from and how well it agrees', () => {
+  const said = structuredClone(processing) as unknown as {
+    jobs: { proposals: { value: { catalogue: Record<string, Record<string, unknown>> } }[] }[]
+  }
+  const catalogue = said.jobs[0].proposals[0].value.catalogue
+  Object.assign(catalogue.category, { source_kind: 'label', agreement: 'read' })
+  Object.assign(catalogue.manufacturer, { source_kind: 'distributor_page', agreement: 'disagree' })
+  const result = projectRecords({
+    capture,
+    processing: said as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const part = of(result.records, 'part')[0]
+  assert.deepEqual(part.fields.find((field) => field.name === 'category')?.origin, {
+    kind: 'step',
+    step: 'research',
+    proposal_id: id(710),
+    source_kind: 'label',
+    agreement: 'read',
+  })
+  // Tags were not given a kind, so their origin names the step alone.
+  assert.deepEqual(part.fields.find((field) => field.name === 'tags')?.origin, {
+    kind: 'step',
+    step: 'research',
+    proposal_id: id(710),
+  })
+  const manufacturer = of(result.records, 'manufacturer_part')[0]
+  assert.deepEqual(
+    manufacturer.fields.map((field) => field.origin),
+    [
+      {
+        kind: 'step',
+        step: 'research',
+        proposal_id: id(710),
+        source_kind: 'distributor_page',
+        agreement: 'disagree',
+      },
+      {
+        kind: 'step',
+        step: 'research',
+        proposal_id: id(710),
+        source_kind: 'distributor_page',
+        agreement: 'disagree',
+      },
+    ],
+  )
+})
+
+test('a record that already exists in the target names the record it maps to', () => {
+  const result = projectRecords({ capture, processing: undefined, lotGroups: null })
+  validate('BatchRecords', result)
+  const mapped = (key: string) => result.records.find((record) => record.key === key)?.mapped
+  assert.deepEqual(mapped('category:' + ref(901, 'category').pk), {
+    model: 'category',
+    pk: ref(901, 'category').pk,
+  })
+  assert.deepEqual(mapped(`part:${partD}`), { model: 'part', pk: ref(912, 'part').pk })
+  assert.deepEqual(mapped('location:' + ref(913, 'location').pk), {
+    model: 'location',
+    pk: ref(913, 'location').pk,
+  })
+  // A Part the batch creates is not in the target yet.
+  assert.equal(mapped(`part:${partA}`), undefined)
+})
+
+test('existing values come back per mapped record, or say why they could not be read', () => {
+  validate('RecordExistingValues', {
+    target_context_id: context,
+    records: [
+      {
+        key: `part:${partD}`,
+        status: 'found',
+        fields: [
+          { name: 'name', value: 'RES 1k 0603' },
+          { name: 'description', value: null },
+        ],
+      },
+      { key: 'company:manufacturer:909', status: 'not_found' },
+      { key: 'category:901', status: 'unavailable' },
+    ],
+    truncated: false,
+  })
+  assert.throws(() =>
+    validate('RecordExistingValues', {
+      target_context_id: context,
+      records: [{ key: 'x', status: 'found' }],
+      truncated: false,
+    }),
   )
 })

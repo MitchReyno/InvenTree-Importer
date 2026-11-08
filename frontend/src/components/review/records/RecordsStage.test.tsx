@@ -254,6 +254,18 @@ async function open(user: ReturnType<typeof userEvent.setup>, type: RegExp, reco
   await user.click(screen.getByRole('button', { name: record }))
 }
 
+function stageWith(read: BatchRecordsDto) {
+  render(
+    <RecordsStage
+      batch={batch}
+      client={{ read: vi.fn(async () => read) }}
+      edit={vi.fn(async () => true)}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+}
+
 describe('RecordsStage', () => {
   it('lists types with their counts and decisions waiting', async () => {
     stage()
@@ -371,6 +383,94 @@ describe('RecordsStage', () => {
         exclude_parts: [partB],
       },
     })
+  })
+
+  it('says in words what a proposed value came from and how well its sources agree', async () => {
+    const user = userEvent.setup()
+    const said = structuredClone(records)
+    for (const record of said.records) {
+      for (const field of record.fields) {
+        if (field.name === 'category' && field.origin.kind === 'step') {
+          Object.assign(field.origin, { source_kind: 'distributor_page', agreement: 'disagree' })
+        }
+      }
+    }
+    stageWith(said)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
+      'Research · Distributor page · Sources disagree',
+    )
+  })
+
+  it('shows a mapped record’s current values in InvenTree beside this batch', async () => {
+    const user = userEvent.setup()
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === 'company:supplier:12')!,
+      {
+        mapped: { model: 'company', pk: '12' },
+      },
+    )
+    const existing = vi.fn(async () => ({
+      target_context_id: id(1),
+      records: [
+        {
+          key: 'company:supplier:12',
+          status: 'found' as const,
+          fields: [
+            { name: 'name', value: 'Yageo Corporation' },
+            { name: 'description', value: null },
+          ],
+        },
+      ],
+      truncated: false,
+    }))
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => read), existing }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    const detail = screen.getByRole('region', { name: 'Yageo' })
+    const table = await within(detail).findByRole('table', { name: 'In InvenTree' })
+    expect(within(table).getByRole('row', { name: /Name/ })).toHaveTextContent('Yageo Corporation')
+    expect(within(table).getByRole('row', { name: /Description/ })).toHaveTextContent('—')
+    expect(existing).toHaveBeenCalledWith(batch.id)
+  })
+
+  it('says when InvenTree could not be read, and reads again on request', async () => {
+    const user = userEvent.setup()
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === 'company:supplier:12')!,
+      {
+        mapped: { model: 'company', pk: '12' },
+      },
+    )
+    const existing = vi.fn(async () => ({
+      target_context_id: id(1),
+      records: [{ key: 'company:supplier:12', status: 'unavailable' as const }],
+      truncated: false,
+    }))
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => read), existing }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    const detail = screen.getByRole('region', { name: 'Yageo' })
+    expect(await within(detail).findByText(/InvenTree could not be read/)).toBeVisible()
+    await user.click(within(detail).getByRole('button', { name: 'Read InvenTree again' }))
+    expect(existing).toHaveBeenCalledTimes(2)
   })
 
   it('edits a Part’s name and clears its description; each field shows who proposed it', async () => {

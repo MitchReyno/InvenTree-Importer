@@ -5,7 +5,15 @@ import type {
   OperatorReviewDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { approvedLotIds, matchesFilter, openQuestionsByLot } from './review-model'
+import {
+  approvedLotIds,
+  FILTER_LABELS,
+  GROUP_LABELS,
+  matchesFilter,
+  openQuestionsByLot,
+  queueGroup,
+  REVIEW_FILTERS,
+} from './review-model'
 
 const review = (lots: [string, boolean][]) =>
   ({
@@ -67,8 +75,59 @@ describe('the Needs answer filter', () => {
     expect(matchesFilter(lot('b'), 'needs_answer', questions)).toBe(false)
   })
 
+  it('offers a lot its oldest open question, whichever job asked it', () => {
+    const asked = {
+      jobs: [
+        {
+          stage: 'research',
+          questions: [
+            {
+              id: 'q-new',
+              state: 'open',
+              spec: { subject_id: 'a' },
+              asked_at: '2026-11-08T05:00:00Z',
+            },
+          ],
+        },
+        {
+          stage: 'identifying',
+          questions: [
+            {
+              id: 'q-old',
+              state: 'open',
+              spec: { subject_id: 'a' },
+              asked_at: '2026-11-08T04:00:00Z',
+            },
+          ],
+        },
+      ],
+    } as unknown as ProcessingSnapshotDto
+    expect(openQuestionsByLot(asked, batch).get('a')).toMatchObject({
+      id: 'q-old',
+      step: 'examine',
+    })
+  })
+
   it('shows nothing before Processing is read', () => {
     expect(matchesFilter(lot('a'), 'needs_answer')).toBe(false)
     expect(openQuestionsByLot(undefined, batch).size).toBe(0)
+  })
+})
+
+describe('excluded lots', () => {
+  const excluded = {
+    lot_id: 'x',
+    review_state: 'needs_review',
+    approved: false,
+    issues: [{ code: 'lot_excluded', severity: 'blocking', message: 'Excluded: Bent leads.' }],
+    excluded: { reason: 'Bent leads', at: '2026-11-08T05:00:00.000Z' },
+  } as unknown as OperatorLotDto
+
+  it('match only All and Excluded, and sit in their own group', () => {
+    const matching = REVIEW_FILTERS.filter((filter) => matchesFilter(excluded, filter))
+    expect(matching).toEqual(['all', 'excluded'])
+    expect(FILTER_LABELS.excluded).toBe('Excluded')
+    expect(queueGroup(excluded)).toBe('excluded')
+    expect(GROUP_LABELS.excluded).toBe('Excluded')
   })
 })

@@ -17,6 +17,7 @@ import {
 } from '../../operator/review-model'
 import { partFacts } from '../../operator/part-facts'
 import { Pill } from '../ui/Pill'
+import { Small } from '../ui/primitives'
 import { DataTable, type DataColumn, type DataRow } from '../ui/DataTable'
 
 export interface ReviewTableProps {
@@ -32,10 +33,17 @@ export interface ReviewTableProps {
   inspect: (lotId: string) => void
 }
 
-/** One state per lot, most pressing first; Excluded follows the Exclude command (task 22.4). */
+/** One state per lot, most pressing first. */
 function LotState({ lot }: { lot: OperatorLotDto }) {
   const blocking = blockingIssues(lot).length
   const warnings = openWarnings(lot).length
+  if (lot.excluded) {
+    return (
+      <>
+        <Pill status="excluded">Excluded</Pill> <Small>{lot.excluded.reason}</Small>
+      </>
+    )
+  }
   if (lot.approved) {
     return <Pill tone="ok">Approved</Pill>
   }

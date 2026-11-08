@@ -201,6 +201,27 @@ describe('retainedJobsSource', () => {
     expect(source.steps.find((step) => step.step === 'examine')?.questions).toBe(1)
   })
 
+  it('lists open questions oldest first across jobs, with untimed questions last', () => {
+    const timed = (n: number, askedAt?: string) => ({
+      ...question(n, 'open'),
+      ...(askedAt ? { asked_at: askedAt } : {}),
+    })
+
+    const source = retainedJobsSource(
+      snapshot([
+        job(1, 'identifying', 'waiting_for_user', {
+          questions: [timed(1, '2026-11-08T04:00:00.000Z'), timed(2)],
+        } as Partial<Job>),
+        job(3, 'research', 'waiting_for_user', {
+          questions: [timed(3, '2026-11-08T03:00:00.000Z')],
+        } as Partial<Job>),
+      ]),
+      subjects,
+      lots,
+    )
+    expect(source.questions.map((item) => item.id)).toEqual([id(3), id(1), id(2)])
+  })
+
   it('names the batch-level job and an unknown subject without inventing one', () => {
     const source = retainedJobsSource(
       snapshot([

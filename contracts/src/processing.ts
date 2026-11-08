@@ -1,10 +1,11 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { CursorSequence, Digest, Id, Quantity, Revision } from './scalars.ts'
+import { CursorSequence, Digest, Id, IsoTime, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
 import { captureTags } from './capture-primitives.ts'
 import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
+import { valueEvidence } from './value-evidence.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -324,12 +325,14 @@ const catalogueChoice = <M extends 'category' | 'company'>(model: M) =>
       choice: Type.Literal('existing'),
       reference: mappedReference(model),
       sources: catalogueSources,
+      ...valueEvidence,
     }),
     object({
       choice: Type.Literal('proposed_new'),
       name: catalogueText,
       reason: text,
       sources: catalogueSources,
+      ...valueEvidence,
     }),
   ])
 
@@ -347,11 +350,17 @@ export const CatalogueProposal = object({
       template: Type.Union([mappedReference('parameter_template'), Type.Null()]),
       category_mapping: Type.Union([mappedReference('category_parameter'), Type.Null()]),
       sources: catalogueSources,
+      ...valueEvidence,
     }),
     { maxItems: 32 },
   ),
   manufacturer: Type.Union([
-    object({ company: catalogueChoice('company'), mpn: catalogueText, sources: catalogueSources }),
+    object({
+      company: catalogueChoice('company'),
+      mpn: catalogueText,
+      sources: catalogueSources,
+      ...valueEvidence,
+    }),
     Type.Null(),
   ]),
   supplier: Type.Union([
@@ -363,10 +372,14 @@ export const CatalogueProposal = object({
         Type.Null(),
       ]),
       sources: catalogueSources,
+      ...valueEvidence,
     }),
     Type.Null(),
   ]),
-  description: Type.Union([object({ text, sources: catalogueSources }), Type.Null()]),
+  description: Type.Union([
+    object({ text, sources: catalogueSources, ...valueEvidence }),
+    Type.Null(),
+  ]),
 })
 /** A session proposal: `/4` plus what it relies on and a structured catalogue block. */
 export const ProcessingProposalV5 = object({
@@ -483,7 +496,24 @@ export const ProcessingQuestion = object({
   /** Session questions only: the fields affected and the assumption the agent continues with. */
   fields: Type.Optional(ProcessingFields),
   assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+  /** When the question was asked; absent for questions retained before the time was kept. */
+  asked_at: Type.Optional(IsoTime),
 })
+
+/** Orders questions oldest first; a question retained before its time was kept comes last. */
+export function oldestQuestionFirst(a: { asked_at?: string }, b: { asked_at?: string }): number {
+  if (a.asked_at === b.asked_at) {
+    return 0
+  }
+  if (!a.asked_at) {
+    return 1
+  }
+  if (!b.asked_at) {
+    return -1
+  }
+  return Date.parse(a.asked_at) - Date.parse(b.asked_at)
+}
+
 export const STATUS_LINE_MAX_CHARACTERS = 120
 /** One status line: no line breaks, at most 120 characters. */
 export const statusLine = Type.String({

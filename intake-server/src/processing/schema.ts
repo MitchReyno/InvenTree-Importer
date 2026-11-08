@@ -110,6 +110,7 @@ export const processingQuestions = pgTable('processing_question', {
   state: text().$type<ProcessingQuestionDto['state']>().notNull(),
   specBytes: bytea('spec_bytes').notNull(),
   specDigest: bytea('spec_digest').notNull(),
+  askedAt: timestamp('asked_at', { withTimezone: true, precision: 3 }).defaultNow(),
 })
 
 export const processingAnswers = pgTable('processing_answer', {

@@ -377,6 +377,41 @@ test('session proposals and questions stay readable in Processing and the sessio
   })
 })
 
+test('questions keep when they were asked, and are read oldest first', async () => {
+  await withSessions(async ({ fixture, url, a, capture }) => {
+    const session = await connect(url, a.token)
+    try {
+      for (const prompt of ['First: how many are in the packet?', 'Second: which reel is it?']) {
+        const asked = await call(session, 'ask', {
+          kind: 'quantity',
+          subject_id: capture.packetA.id,
+          prompt,
+          reason: 'The label is torn.',
+          fields: ['quantity'],
+          assumption: 'Using 20 until counted.',
+        })
+        assert.equal(asked.ok, true)
+      }
+    } finally {
+      await session.close()
+    }
+    const snapshot = await fixture.http(`/batches/${capture.batch.id}/processing`)
+    assert.equal(snapshot.status, 200)
+    const job = (
+      snapshot.value as {
+        jobs: { id: string; questions: { spec: { prompt: string }; asked_at?: string }[] }[]
+      }
+    ).jobs.find((item) => item.id === a.job)!
+    assert.deepEqual(
+      job.questions.map((item) => item.spec.prompt),
+      ['First: how many are in the packet?', 'Second: which reel is it?'],
+    )
+    const times = job.questions.map((item) => Date.parse(item.asked_at ?? ''))
+    assert.ok(times.every(Number.isFinite))
+    assert.ok(times[0] <= times[1])
+  })
+})
+
 test('answers and chat reach the running session once, through the inbox', async () => {
   await withSessions(async ({ fixture, url, a, capture }) => {
     const session = await connect(url, a.token)

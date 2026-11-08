@@ -6,6 +6,7 @@ import {
   mappedReference,
   type InventoryPartSpecDto,
 } from './effects.ts'
+import { valueEvidence } from './value-evidence.ts'
 import { object } from './capture-primitives.ts'
 
 const text = Type.String({ minLength: 1, maxLength: 256 })
@@ -91,6 +92,8 @@ export const RecordOrigin = Type.Union([
     kind: Type.Literal('step'),
     step: choice(['examine', 'research', 'images', 'inventory']),
     proposal_id: Id,
+    /** What the matched value came from and how well its sources agree, when the step said. */
+    ...valueEvidence,
   }),
   /** The Examine lead session's estimate, which the operator accepts or replaces. */
   object({ kind: Type.Literal('estimate'), step: Type.Literal('examine') }),
@@ -120,6 +123,11 @@ export const RecordUnsupported = object({
   why: reasonText,
   reason: Type.Union([reasonText, Type.Null()]),
 })
+/** The target record a record already is, so its current values can be read beside the batch's. */
+export const RecordMapped = object({
+  model: choice(['part', 'company', 'category', 'parameter_template', 'location']),
+  pk: PositivePk,
+})
 export const BatchRecord = object({
   /** Stable within the projection, e.g. `company:supplier:12`. */
   key: Type.String({ minLength: 1, maxLength: 256 }),
@@ -148,6 +156,8 @@ export const BatchRecord = object({
   ]),
   proposed: Type.Optional(RecordProposedCompany),
   unsupported: Type.Optional(Type.Array(RecordUnsupported, { maxItems: 40 })),
+  /** Present when the record already exists in the target. */
+  mapped: Type.Optional(RecordMapped),
 })
 /** Every record a batch touches, read from capture state; it never changes a stored row. */
 export const BatchRecords = object({
@@ -162,6 +172,36 @@ export const BatchRecords = object({
   records: Type.Array(BatchRecord, { maxItems: 12000 }),
 })
 
+/** At most this many mapped records are read from the target in one request. */
+export const MAX_EXISTING_RECORDS = 50
+
+/** Each mapped record's current values in the target, read on request; nothing is stored. */
+export const RecordExistingValues = object({
+  target_context_id: Id,
+  records: Type.Array(
+    Type.Union([
+      object({
+        key: Type.String({ minLength: 1, maxLength: 256 }),
+        status: Type.Literal('found'),
+        fields: Type.Array(
+          object({
+            name: Type.String({ minLength: 1, maxLength: 64 }),
+            value: Type.Union([Type.String({ maxLength: 512 }), Type.Null()]),
+          }),
+          { maxItems: 8 },
+        ),
+      }),
+      object({
+        key: Type.String({ minLength: 1, maxLength: 256 }),
+        status: Type.Union([Type.Literal('not_found'), Type.Literal('unavailable')]),
+      }),
+    ]),
+    { maxItems: MAX_EXISTING_RECORDS },
+  ),
+  /** More records were mapped than one request reads. */
+  truncated: Type.Boolean(),
+})
+
 export const recordSchemas = {
   RecordRef,
   RecordOperation,
@@ -172,6 +212,8 @@ export const recordSchemas = {
   RecordField,
   BatchRecord,
   BatchRecords,
+  RecordMapped,
+  RecordExistingValues,
 }
 
 export type RecordRefDto = Static<typeof RecordRef>
@@ -183,6 +225,8 @@ export type RecordOriginDto = Static<typeof RecordOrigin>
 export type RecordFieldDto = Static<typeof RecordField>
 export type BatchRecordDto = Static<typeof BatchRecord>
 export type BatchRecordsDto = Static<typeof BatchRecords>
+export type RecordMappedDto = Static<typeof RecordMapped>
+export type RecordExistingValuesDto = Static<typeof RecordExistingValues>
 
 /** A refusal; `partId` names the Part that caused it, when there is one. */
 export class RecordEditError extends Error {

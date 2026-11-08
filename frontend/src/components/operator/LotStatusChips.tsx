@@ -9,6 +9,13 @@ export function LotStatusChips({ lot }: { lot: OperatorLotDto }) {
   const blocking = blockingIssues(lot).length
   const warnings = openWarnings(lot).length
   const dismissed = dismissedWarnings(lot).length
+  if (lot.excluded) {
+    return (
+      <Chips>
+        <Pill status="excluded">Excluded</Pill>
+      </Chips>
+    )
+  }
   return (
     <Chips>
       {lot.approved && <Pill tone="ok">Approved</Pill>}

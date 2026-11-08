@@ -209,6 +209,30 @@ test('a retired lot is blocking and produces no subject dependency or effect', (
   assert.equal(material.effects.length, 0)
 })
 
+test('an excluded lot is blocking with its reason and produces no subject dependency or effect', () => {
+  const capture = snapshot()
+  const lotA = capture.lots[0]
+  Object.assign(lotA, { excluded: { reason: 'Bent leads', at: '2026-11-08T05:00:00.000Z' } })
+  const material = materialize(capture, [lotA.id], new Map())
+
+  assert.deepEqual(
+    material.issues.map((value) => [value.code, value.message]),
+    [['lot_excluded', 'Excluded: Bent leads. Include it again to add it.']],
+  )
+  assert.equal(material.subjects.length, 0)
+  assert.equal(material.effects.length, 0)
+})
+
+test('an excluded lot’s issue fits its contract even with the longest reason', () => {
+  const capture = snapshot()
+  const lotA = capture.lots[0]
+  Object.assign(lotA, { excluded: { reason: 'x'.repeat(500), at: '2026-11-08T05:00:00.000Z' } })
+  const material = materialize(capture, [lotA.id], new Map())
+  const message = material.issues[0].message
+  assert.ok(Array.from(message).length <= 256, `${Array.from(message).length}`)
+  assert.match(message, /^Excluded: x+…\. Include it again to add it\.$/)
+})
+
 test('lineage alone seals /3 bytes so a successor review never matches its predecessor', () => {
   const capture = snapshot()
   const [lotA, lotB] = capture.lots

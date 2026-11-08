@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox'
-import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
+import { Id, IsoTime, PositivePk, Quantity, Revision } from './scalars.ts'
 import { unicodeText } from './unicode-text.ts'
 import {
   CaptureEvidenceObservation,
@@ -61,6 +61,16 @@ export const CaptureContextRecord = object({
   actor_id: Id,
   created_at: Type.String(),
 })
+/** Why a lot is left out: one line, as the operator wrote it. */
+const ExclusionReason = Type.String({
+  minLength: 1,
+  maxLength: 500,
+  pattern: '^[^\\r\\n\\u2028\\u2029]*$',
+})
+
+/** A lot the operator left out of the batch, with why and when. */
+export const LotExclusion = object({ reason: ExclusionReason, at: IsoTime })
+
 export const CaptureEdit = object({
   expected_revision: Revision,
   change: Type.Union([
@@ -98,6 +108,12 @@ export const CaptureEdit = object({
       context: Type.Optional(CaptureLotContext),
       quantity: Type.Optional(CaptureQuantity),
       location: Type.Optional(CaptureLocation),
+    }),
+    /** Leaves a lot out of the batch with a reason, or includes it again with a null reason. */
+    object({
+      kind: Type.Literal('lot_exclusion'),
+      lot_id: Id,
+      reason: Type.Union([ExclusionReason, Type.Null()]),
     }),
     object({
       kind: Type.Literal('part'),
@@ -232,6 +248,8 @@ export const CaptureSnapshot = object({
       operator_edited: Type.Optional(Type.Literal(true)),
       /** The operator corrected a reading this lot used; the lead session has not looked again. */
       reexamine: Type.Optional(Type.Literal(true)),
+      /** Left out of the batch by the operator; included lots omit it. */
+      excluded: Type.Optional(LotExclusion),
       /** The lead session's estimate and its basis; never a counted quantity. */
       estimated_quantity: Type.Optional(Quantity),
       quantity_basis: Type.Optional(unicodeText(1, 512)),

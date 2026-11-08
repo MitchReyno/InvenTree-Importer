@@ -132,6 +132,7 @@ const ISSUE_FILTERS: Record<string, ReviewFilter> = {
   location_draft_parent_invalid: 'blocking',
   warning_unresolved: 'warnings',
   changed_after_review: 'changed',
+  lot_excluded: 'excluded',
 }
 
 export function leftOutLots(workspace: Pick<ManualWorkspaceDto, 'lots'>): LeftOutLot[] {

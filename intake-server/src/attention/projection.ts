@@ -1,5 +1,6 @@
 import {
   MAX_ATTENTION_ITEMS,
+  oldestQuestionFirst,
   type AttentionItemDto,
   type BatchAttentionDto,
   type BatchRecordsDto,
@@ -39,18 +40,21 @@ const FAILED_RUN_STATES = new Set(['recovery_required', 'settled_incomplete'])
 const UNCERTAIN_CERTAINTY = new Set(['unknown', 'mixed'])
 
 function questionItems({ batchId, processing }: AttentionSources): AttentionItemDto[] {
-  return (processing?.jobs ?? []).flatMap((job) =>
-    job.questions
-      .filter((question) => question.state === 'open')
-      .map((question) => ({
-        key: `question:${question.id}`,
-        group: 'question' as const,
-        tab: 'processing' as const,
-        title: question.spec.prompt,
-        detail: question.assumption ?? null,
-        route: `${batchId}/processing/${STEP_BY_STAGE[job.stage] ?? 'overview'}/${question.id}`,
-      })),
-  )
+  return (processing?.jobs ?? [])
+    .flatMap((job) =>
+      job.questions
+        .filter((question) => question.state === 'open')
+        .map((question) => ({ job, question })),
+    )
+    .sort((a, b) => oldestQuestionFirst(a.question, b.question))
+    .map(({ job, question }) => ({
+      key: `question:${question.id}`,
+      group: 'question' as const,
+      tab: 'processing' as const,
+      title: question.spec.prompt,
+      detail: question.assumption ?? null,
+      route: `${batchId}/processing/${STEP_BY_STAGE[job.stage] ?? 'overview'}/${question.id}`,
+    }))
 }
 
 function failedJobItems({ batchId, processing }: AttentionSources): AttentionItemDto[] {
@@ -86,7 +90,8 @@ function changedLotItems({ batchId, review }: AttentionSources): AttentionItemDt
 
 /** Lots still to approve; an approved lot needs nothing more from Review. */
 function openLots(review: OperatorReviewDto) {
-  return review.lots.filter((lot) => !lot.approved)
+  // An excluded lot waits on nothing but being included again.
+  return review.lots.filter((lot) => !lot.approved && !lot.excluded)
 }
 
 /** A record waiting for a choice, as Review › Records counts it: once per record, not per lot. */

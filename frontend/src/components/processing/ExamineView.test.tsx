@@ -474,3 +474,17 @@ it('keeps a marking that spans lines whole when another is corrected', async () 
     expect.objectContaining({ readings: { markings: ['ABC\n123', 'XYZZ'], text: 'Lot 4S' } }),
   ])
 })
+
+it('says in words what a reading came from and how well it agrees', () => {
+  const said = {
+    ...batch,
+    evidence_observations: [
+      {
+        ...observation('o6', 'v1', 'BC547', 'l1'),
+        readings: { markings: ['BC547'], source_kind: 'handwriting', agreement: 'disagree' },
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(<ExamineView batch={said} lead={lead} />)
+  expect(screen.getByText('Examine · Handwriting · Sources disagree')).toBeInTheDocument()
+})

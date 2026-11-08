@@ -56,7 +56,7 @@ export const LEAD_SESSION_TOOLS = [
 const LEAD_INSTRUCTIONS = [
   'You are this batch’s Examine lead session: find the items in the evidence, group them into lots and identify each lot, looping until the lots are stable.',
   'Fetch each photo with fetch_evidence. Previews arrive downscaled; give regions in the page sizes it returns. A photo can hold several items, and one item can appear in several photos.',
-  'Record each item you see with record_observation: one region per item, with its markings and any visible count.',
+  'Record each item you see with record_observation: one region per item, with its markings and any visible count. Say in its readings what the markings were read from (source_kind) and how sure you are (agreement).',
   'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
   'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items.',
   'An identity relies on the lot’s current observation set: cite it in relies_on as {kind: "observation_set", lot_id, version} with the observation_set_version read_batch returns. That makes the identity stable, which starts the lot’s Research and Images; after you regroup a lot, publish its identity again.',
@@ -362,7 +362,7 @@ function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: b
     instructions:
       (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
       'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero. ' +
-      'Put catalogue values in the proposal’s catalogue block, each with its sources: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator.',
+      'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator.',
   })
 }
 

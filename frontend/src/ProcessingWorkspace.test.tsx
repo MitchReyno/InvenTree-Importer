@@ -460,6 +460,9 @@ test('the fixture profile shows its jobs and questions by step, and claims no li
       name: 'Answer: How many are in Packet A?',
     }),
   ).toHaveAttribute('href', `#${batchId}/processing/examine/${questionId}`)
+  expect(
+    within(screen.getByRole('region', { name: 'Needs you' })).getByText('Oldest first'),
+  ).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()
   cleanup()
 

@@ -33,6 +33,7 @@ import type { KeyValueRow } from '../ui/KeyValue'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
+import { ExcludeForm } from './ExcludeLot'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
 import { batchHref } from '../../navigation/batch-route'
 import { RecordChain, type RecordLink } from '../ui/RecordChain'
@@ -83,6 +84,9 @@ interface Props {
 function reviewBlockReason(lot: OperatorLotDto | undefined) {
   if (!lot) {
     return null
+  }
+  if (lot.excluded) {
+    return 'Include it again to review it'
   }
   if (lot.approved) {
     return 'Already added'
@@ -185,6 +189,7 @@ export function DecisionPanel({
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [excluding, setExcluding] = useState(false)
   // The question being answered is pinned, so a later read cannot drop the draft or its retry.
   const [answering, setAnswering] = useState<OpenQuestion | null>(null)
   const [restructure, setRestructure] = useState<RestructureKind | null>(null)
@@ -424,18 +429,49 @@ export function DecisionPanel({
           onEditPart={editPart && (() => editPart(part.id))}
         />
       )}
+      {excluding && !lot.excluded && (
+        <ExcludeForm
+          lot={lot}
+          disabled={disabled || drafts.hasOtherSources('exclude')}
+          edit={edit}
+          onDone={() => setExcluding(false)}
+          onDirtyChange={drafts.forSource('exclude')}
+        />
+      )}
       {markReviewed && operatorLot ? (
         <StickyFooter
           label="Lot actions"
           leading={
-            <Button size="sm" variant="ghost" disabled>
-              Exclude
-            </Button>
+            lot.excluded ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={disabled || drafts.dirty}
+                onClick={() => void edit({ kind: 'lot_exclusion', lot_id: lot.id, reason: null })}
+              >
+                Include again
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-expanded={excluding}
+                // A typed reason closes only through Cancel, so it is never dropped unseen.
+                disabled={
+                  disabled ||
+                  operatorLot.approved ||
+                  (excluding ? drafts.isDirty('exclude') : drafts.dirty)
+                }
+                onClick={() => setExcluding(!excluding)}
+              >
+                Exclude…
+              </Button>
+            )
           }
           summary={
             <>
+              {lot.excluded && <Small>Excluded: {lot.excluded.reason}</Small>}
               <Small>{reviewBlock ?? reviewSentence(operatorLot, workspace, lot)}</Small>
-              <Small>Excluding a lot arrives with record edits.</Small>
             </>
           }
           primary={
