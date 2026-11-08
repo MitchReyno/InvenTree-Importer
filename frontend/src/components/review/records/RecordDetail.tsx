@@ -1,5 +1,13 @@
 import styled from 'styled-components'
-import type { BatchRecordDto, CaptureSnapshotDto, RecordOriginDto } from '@invimport/contracts'
+import type { UseQueryResult } from '@tanstack/react-query'
+import type {
+  BatchRecordDto,
+  CaptureSnapshotDto,
+  RecordExistingValuesDto,
+  RecordOriginDto,
+} from '@invimport/contracts'
+import { Banner } from '../../ui/Banner'
+import { Button } from '../../ui/Button'
 import { batchHref } from '../../../navigation/batch-route'
 import { AskControl } from './AskControl'
 import { ProposedCompanyEditor } from './ProposedCompanyEditor'
@@ -31,6 +39,8 @@ const FIELD_LABELS: Record<string, string> = {
   parameter: 'Parameter',
   manufacturer: 'Manufacturer',
   supplier: 'Supplier',
+  units: 'Units',
+  path: 'Path',
 }
 
 /** Where other records are edited, for types Records shows but does not edit. */
@@ -49,6 +59,8 @@ type Props = {
   reportFor: (source: string) => (dirty: boolean) => void
   /** Present with agent sessions: sends a message to the step's session working on this record. */
   ask?: (step: string) => ((text: string, key: string) => Promise<void>) | undefined
+  /** The target's current values, for a record it already holds. */
+  existing?: UseQueryResult<RecordExistingValuesDto>
 }
 
 /** One record: its values with who set them, what an edit reaches, and its editor. */
@@ -66,7 +78,72 @@ function stepSource(origin: Exclude<RecordOriginDto, { kind: 'operator' }>) {
   }
 }
 
-export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: Props) {
+const EXISTING_COLUMNS: DataColumn[] = [
+  { id: 'field', header: 'Field' },
+  { id: 'existing', header: 'In InvenTree' },
+  { id: 'batch', header: 'This batch' },
+]
+
+/** A mapped record's current values in InvenTree beside what this batch sets, read on request. */
+function ExistingValues({
+  record,
+  query,
+}: {
+  record: BatchRecordDto
+  query: UseQueryResult<RecordExistingValuesDto>
+}) {
+  const entry = query.data?.records.find((item) => item.key === record.key)
+  if (query.isPending) {
+    return <Small role="status">Reading this record in InvenTree…</Small>
+  }
+  if (query.isError || entry?.status === 'unavailable') {
+    return (
+      <div role="alert">
+        <Banner
+          tone="warn"
+          action={
+            <Button size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
+              Read InvenTree again
+            </Button>
+          }
+        >
+          InvenTree could not be read, so this record’s current values are not shown.
+        </Banner>
+      </div>
+    )
+  }
+  if (!entry) {
+    // Only records past the per-request limit are left unread.
+    return query.data?.truncated ? (
+      <Small>This batch maps more records than one read covers; this one was not read.</Small>
+    ) : null
+  }
+  if (entry.status !== 'found') {
+    return <Banner tone="bad">This record was not found in InvenTree.</Banner>
+  }
+  return (
+    <DataTable
+      caption="In InvenTree"
+      columns={EXISTING_COLUMNS}
+      rows={entry.fields.map((field) => {
+        const label = FIELD_LABELS[field.name] ?? field.name
+        const set = record.fields.find((item) => item.name === field.name)
+        return {
+          id: field.name,
+          label,
+          name: label,
+          cells: {
+            field: { value: label },
+            existing: { value: field.value ?? '—' },
+            batch: { value: set ? (set.value ?? '—') : 'No change' },
+          },
+        }
+      })}
+    />
+  )
+}
+
+export function RecordDetail({ batch, record, save, disabled, reportFor, ask, existing }: Props) {
   // A value not supported yet shows at its field when the record lists that field.
   const listed = new Set(record.fields.map((field) => field.name))
   const atField = (record.unsupported ?? []).filter((item) => listed.has(item.field))
@@ -114,6 +191,7 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
           )}
         </Small>
       )}
+      {existing && <ExistingValues record={record} query={existing} />}
       {record.fields.length > 0 && (
         <DataTable
           caption={`${record.label}: saved values and who set them`}

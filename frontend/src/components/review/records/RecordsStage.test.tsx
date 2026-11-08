@@ -403,6 +403,76 @@ describe('RecordsStage', () => {
     )
   })
 
+  it('shows a mapped record’s current values in InvenTree beside this batch', async () => {
+    const user = userEvent.setup()
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === 'company:supplier:12')!,
+      {
+        mapped: { model: 'company', pk: '12' },
+      },
+    )
+    const existing = vi.fn(async () => ({
+      target_context_id: id(1),
+      records: [
+        {
+          key: 'company:supplier:12',
+          status: 'found' as const,
+          fields: [
+            { name: 'name', value: 'Yageo Corporation' },
+            { name: 'description', value: null },
+          ],
+        },
+      ],
+      truncated: false,
+    }))
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => read), existing }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    const detail = screen.getByRole('region', { name: 'Yageo' })
+    const table = await within(detail).findByRole('table', { name: 'In InvenTree' })
+    expect(within(table).getByRole('row', { name: /Name/ })).toHaveTextContent('Yageo Corporation')
+    expect(within(table).getByRole('row', { name: /Description/ })).toHaveTextContent('—')
+    expect(existing).toHaveBeenCalledWith(batch.id)
+  })
+
+  it('says when InvenTree could not be read, and reads again on request', async () => {
+    const user = userEvent.setup()
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === 'company:supplier:12')!,
+      {
+        mapped: { model: 'company', pk: '12' },
+      },
+    )
+    const existing = vi.fn(async () => ({
+      target_context_id: id(1),
+      records: [{ key: 'company:supplier:12', status: 'unavailable' as const }],
+      truncated: false,
+    }))
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => read), existing }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    const detail = screen.getByRole('region', { name: 'Yageo' })
+    expect(await within(detail).findByText(/InvenTree could not be read/)).toBeVisible()
+    await user.click(within(detail).getByRole('button', { name: 'Read InvenTree again' }))
+    expect(existing).toHaveBeenCalledTimes(2)
+  })
+
   it('edits a Part’s name and clears its description; each field shows who proposed it', async () => {
     const user = userEvent.setup()
     const { edit } = stage()

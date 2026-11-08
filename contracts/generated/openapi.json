@@ -2967,6 +2967,47 @@
         }
       ]
     },
+    "/api/v1/batches/{id}/records/existing": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 20000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "RecordExistingValues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordExistingValues"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/batches/{id}/issue-dispositions": {
       "post": {
         "x-intake-client": {

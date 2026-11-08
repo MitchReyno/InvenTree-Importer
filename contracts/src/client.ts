@@ -228,6 +228,13 @@ export function recordsClient(baseUrl: string, csrfToken: string, transport: typ
       successfulData(
         client.GET('/api/v1/batches/{id}/records', { params: { path: { id: batchId } } }),
       ),
+    /** Mapped records' current values in the target, read on request. */
+    existing: (batchId: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/records/existing', {
+          params: { path: { id: batchId } },
+        }),
+      ),
   }
 }
 

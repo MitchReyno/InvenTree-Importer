@@ -101,3 +101,27 @@ test('reads at most the request limit and says the rest were left', async () => 
   assert.equal(result.truncated, true)
   assert.equal(reads.length, MAX_EXISTING_RECORDS)
 })
+
+test('records not reached within the request’s budget read as unavailable', async () => {
+  let clock = 0
+  const { target: fake } = target({
+    'get_category:1': { status: 200, body: { pk: 1, name: 'Resistors' } },
+  })
+  const slow = {
+    ...fake,
+    now: () => clock,
+    read: async (operation: ReadOperation) => {
+      clock += 20000
+      return fake.read(operation)
+    },
+  }
+  const result = await existingValuesReader(slow)([
+    mappedRecord('category:1', 'category', '1'),
+    mappedRecord('category:2', 'category', '2'),
+    mappedRecord('category:3', 'category', '3'),
+    mappedRecord('category:4', 'category', '4'),
+    mappedRecord('category:5', 'category', '5'),
+  ])
+  assert.equal(result.records[0].status, 'found')
+  assert.equal(result.records[4].status, 'unavailable')
+})

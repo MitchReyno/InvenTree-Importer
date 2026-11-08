@@ -14,6 +14,8 @@ const BODY_DEADLINE_MS = 5000
 /** Reads run a few at a time, so one Records view cannot flood the target. */
 const CONCURRENT_READS = 4
 const TEXT_MAX = 512
+/** Whole-request budget, inside the client's 20 s; records not reached by then are unavailable. */
+const TOTAL_BUDGET_MS = 15000
 
 const READ_KIND: Record<RecordMappedDto['model'], ReadOperation['kind']> = {
   part: 'get_part',
@@ -32,6 +34,7 @@ const EXTRA_FIELDS: Partial<Record<RecordMappedDto['model'], [string, string][]>
 export interface ExistingValuesTarget {
   targetContextId: string
   read: (operation: ReadOperation) => Promise<Response>
+  now?: () => number
 }
 
 type Found = Extract<RecordExistingValuesDto['records'][number], { status: 'found' }>
@@ -89,11 +92,15 @@ export function existingValuesReader(target: ExistingValuesTarget) {
     const chosen = mapped.slice(0, MAX_EXISTING_RECORDS)
     const results: RecordExistingValuesDto['records'] = new Array(chosen.length)
     let next = 0
+    const now = target.now ?? (() => performance.now())
+    const deadline = now() + TOTAL_BUDGET_MS
 
     async function worker() {
       while (next < chosen.length) {
         const index = next++
-        results[index] = await readOne(target, chosen[index].key, chosen[index].mapped)
+        const { key, mapped: record } = chosen[index]
+        results[index] =
+          now() > deadline ? { key, status: 'unavailable' } : await readOne(target, key, record)
       }
     }
 

@@ -344,6 +344,10 @@ async function main() {
       '/api/v1/batches/{id}/operator-review': { get: get('OperatorReview') },
       '/api/v1/batches/{id}/attention': { get: get('BatchAttention', CAPTURE_TIMEOUT_MS) },
       '/api/v1/batches/{id}/records': { get: get('BatchRecords', CAPTURE_TIMEOUT_MS) },
+      // Reads the target record by record, so it takes the catalogue snapshot's budget.
+      '/api/v1/batches/{id}/records/existing': {
+        get: get('RecordExistingValues', CATALOGUE_SNAPSHOT_TIMEOUT_MS),
+      },
       '/api/v1/batches/{id}/issue-dispositions': {
         post: post('IssueDisposition', 'OperatorReview'),
       },
