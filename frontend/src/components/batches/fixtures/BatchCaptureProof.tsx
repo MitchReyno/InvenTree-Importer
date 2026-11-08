@@ -288,13 +288,30 @@ function applyEdit(change: Change) {
       : [...observations, next]
     if (next.lot_id) {
       batch.lots = batch.lots.map((lot) =>
-        lot.id === next.lot_id ? { ...lot, reexamine: true } : lot,
+        lot.id === next.lot_id ? { ...lot, reexamine: true, operator_edited: true } : lot,
       )
     }
   } else if (change.kind === 'observation_move') {
+    const moved = observations.find((item) => item.id === change.observation_id)
     batch.evidence_observations = observations.map((item) =>
-      item.id === change.observation_id ? { ...item, lot_id: change.lot_id } : item,
+      item.id === change.observation_id
+        ? { ...item, lot_id: change.lot_id, operator_edited: true }
+        : item,
     )
+    // Both lots' membership follows the move, and both count as edited.
+    batch.lots = batch.lots.map((lot) => {
+      const ids = (lot.evidence_observation_ids ?? []).filter((id) => id !== change.observation_id)
+      if (lot.id === change.lot_id) {
+        return {
+          ...lot,
+          evidence_observation_ids: [...ids, change.observation_id],
+          operator_edited: true,
+        }
+      }
+      return lot.id === moved?.lot_id
+        ? { ...lot, evidence_observation_ids: ids, operator_edited: true }
+        : lot
+    })
   } else if (change.kind === 'add_lot') {
     const index = batch.lots.length + 1
     batch.lots = [
