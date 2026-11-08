@@ -11,7 +11,7 @@ All bundles target `interactive-app`, in A through D order. Use independent exac
 
 ## 1. Package portable services
 
-- [ ] 1.1 Establish a clean deployment fixture with disposable data. Show that the existing development Compose stack cannot deploy the app and guest from release images.
+- [x] 1.1 Establish a clean deployment fixture with disposable data. Show that the existing development Compose stack cannot deploy the app and guest from release images.
 - [ ] 1.2 Build pinned ARM64 image stages and two Compose manifests. Include static UI, server, contracts, Python adapter, decoder dispatch and separate least-privilege service entries. Verify executable distribution and license notices.
 - [ ] 1.3 Provision one private Lima guest on each host. Verify host/guest kernel boundary, denied mounts, origin checks, restricted DB roles, existing dev startup and persistence across image replacement. Publish reproducible build instructions and digest manifest.
 
