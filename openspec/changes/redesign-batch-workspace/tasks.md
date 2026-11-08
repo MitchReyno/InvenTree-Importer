@@ -413,7 +413,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 19.4 Restyle the lot rows (R4), the observation cards and their small buttons (R14), the Map's selects (G13) and Tell Examine placement, the evidence pane's broken-preview and date text (G14, G17), and phone-width hit areas (G15).
 - [x] 19.5 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Lots and Map: R3, R5, R6, R7, R8, R9, R10 and R13.
 - [x] 19.6 Draw the Map's connector diagram (R18, design D12) with each link also as text, and flag single-observation lots (R23); add the lot detail values (R19) and the Table's columns, State column, cell markers and legend (R20); retire `IssuePanel` and `FactRow` and extract `ItemRow` (design D12); add Lots' source chips keyed by step and operator edits (G18 with R8); and close G24 for Review's undoable actions, G25 (`CompareMatches`), G27, G29 and G30.
-- [ ] 19.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 19.7 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## 20. Records and Changes, then strict lint
 
@@ -431,7 +431,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
 - [x] 20.5 Close R25, R26's per-category matrix, grouping and new-template aside, X7 and X9 (without activity times, task 23.5), with Records' source chips keyed by step and operator edits (G18).
 - [x] 20.6 Empty the literal-value baseline and make the lint strict.
-- [ ] 20.7 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
+- [x] 20.7 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
 
 ## 21. Corrections, region edits and the inline answer
 
