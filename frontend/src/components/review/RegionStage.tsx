@@ -1,5 +1,5 @@
 import Moveable from 'react-moveable'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { previewImage } from '../../media/images'
@@ -54,20 +54,22 @@ export function RegionStage({
   // A resize gesture measures from where the box stood when it began.
   const gestureStart = useRef<Box | null>(null)
   const [saving, setSaving] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const surface = useRef<HTMLDivElement>(null)
+  // Scoped to one preview, so another page still loads after a failure.
+  const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const target = useRef<HTMLDivElement>(null)
   const moveable = useRef<Moveable>(null)
   const [surfaceWidth, setSurfaceWidth] = useState(0)
 
-  useEffect(() => {
-    const element = surface.current
+  // A callback ref: the surface may first appear once the photo's pages decode.
+  const observer = useRef<ResizeObserver | null>(null)
+  const surface = useCallback((element: HTMLDivElement | null) => {
+    observer.current?.disconnect()
+    observer.current = null
     if (!element || typeof ResizeObserver !== 'function') {
       return
     }
-    const observer = new ResizeObserver(([entry]) => setSurfaceWidth(entry.contentRect.width))
-    observer.observe(element)
-    return () => observer.disconnect()
+    observer.current = new ResizeObserver(([entry]) => setSurfaceWidth(entry.contentRect.width))
+    observer.current.observe(element)
   }, [])
 
   useEffect(() => {
@@ -151,7 +153,7 @@ export function RegionStage({
         </Label>
       )}
       <Surface ref={surface} $ratio={page.width / page.height}>
-        {failed ? (
+        {failedPreview === page.preview_id ? (
           <Missing>
             <span aria-hidden="true">▧</span>
             {label}
@@ -161,7 +163,7 @@ export function RegionStage({
             {...previewImage(batchId, page, 'viewer')}
             alt={`${label}, page ${page.page}`}
             draggable={false}
-            onError={() => setFailed(true)}
+            onError={() => setFailedPreview(page.preview_id)}
           />
         )}
         {regions.map((item, index) => {
