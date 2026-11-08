@@ -16,5 +16,16 @@ export function agentsClient(baseUrl: string, csrfToken: string, transport: type
       successfulData(client.PUT('/api/v1/agent-settings', { body: input })),
     sessions: (before?: string) =>
       successfulData(client.GET('/api/v1/agent-sessions', { params: { query: { before } } })),
+    /** Pauses or resumes one batch's agent sessions; pausing cancels nothing. */
+    pause: (batchId: string, paused: boolean) =>
+      successfulData(
+        client.PUT('/api/v1/batches/{id}/agents/pause', {
+          params: { path: { id: batchId } },
+          body: { paused },
+        }),
+      ),
+    /** Pauses or resumes every batch's agent sessions at once. */
+    pauseAll: (paused: boolean) =>
+      successfulData(client.PUT('/api/v1/agents/pause', { body: { paused } })),
   }
 }

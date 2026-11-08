@@ -294,3 +294,51 @@ test('an earlier attempt’s link says it opens the latest session on its job', 
     within(row).getByRole('link', { name: 'Open latest session: Research · Packet A' }),
   ).toHaveAttribute('href', '#batch-a/processing/research?session=job')
 })
+
+test('Pause all agents pauses every batch, each batch pauses on its own, and paused sessions say so', async () => {
+  vi.useRealTimers()
+  const api = {
+    ...client(),
+    pause: vi.fn(async (batchId: string, paused: boolean) => ({ batch_id: batchId, paused })),
+    pauseAll: vi.fn(async (paused: boolean) => ({ paused, batch_ids: ['batch-a', 'batch-b'] })),
+  }
+  render(<AgentSessions client={api} batches={batches} />)
+  const summary = await screen.findByRole('region', { name: 'Summary' })
+  fireEvent.click(within(summary).getByRole('button', { name: 'Pause all agents' }))
+  await waitFor(() => expect(api.pauseAll).toHaveBeenCalledWith(true))
+
+  // The list read after the pause says which batches are paused.
+  api.sessions.mockResolvedValue({
+    sessions: sessions.map((session) =>
+      session.batch_id === 'batch-a' ? { ...session, paused: true as const } : session,
+    ),
+    paused_batch_ids: ['batch-a'],
+    next_before: null,
+    sessions_supported: true,
+  })
+  const group = await screen.findByRole('region', { name: 'Mouser order' })
+  fireEvent.click(within(group).getByRole('button', { name: 'Pause all' }))
+  await waitFor(() => expect(api.pause).toHaveBeenCalledWith('batch-a', true))
+  const paused = await screen.findByRole('region', { name: 'Mouser order' })
+  await within(paused).findByRole('button', { name: 'Resume' })
+  expect(within(paused).getAllByText('Paused').length).toBeGreaterThan(0)
+  expect(within(summary).getByRole('button', { name: 'Resume all agents' })).toBeVisible()
+  // A finished session is not paused, whatever its batch.
+  expect(within(paused).getAllByText('Finished').length).toBeGreaterThan(0)
+})
+
+test('a pause that fails says so and leaves the agents as they were', async () => {
+  vi.useRealTimers()
+  const api = {
+    ...client(),
+    pause: vi.fn().mockRejectedValue(new Error('offline')),
+    pauseAll: vi.fn(),
+  }
+  render(<AgentSessions client={api} batches={batches} />)
+  const group = await screen.findByRole('region', { name: 'Mouser order' })
+  fireEvent.click(within(group).getByRole('button', { name: 'Pause all' }))
+  expect(await within(group).findByRole('alert')).toHaveTextContent(
+    'Pausing failed; the agents are still running.',
+  )
+  expect(within(group).getByRole('button', { name: 'Pause all' })).toBeVisible()
+})

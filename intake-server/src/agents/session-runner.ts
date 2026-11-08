@@ -23,7 +23,7 @@ import { lockProcessingAttempt, transitionAttempt } from '../processing/state.ts
 import { decodeSessionInput } from '../processing/session-input.ts'
 import { evidenceNotes } from '../capture/context-input.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
-import { agentSessions, agentSessionInbox } from './schema.ts'
+import { agentBatchPauses, agentSessionInbox, agentSessions } from './schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from './environment.ts'
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from './tools/capability.ts'
@@ -430,6 +430,16 @@ export async function runSessionTurn(
         // Archived work does not run; it stays queued and is not woken while archived.
         return 'archived' as const
       }
+      // A paused batch's sessions stay queued, their inbox kept, until Resume.
+      const paused = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ batchId: agentBatchPauses.batchId })
+          .from(agentBatchPauses)
+          .where(eq(agentBatchPauses.batchId, row.batchId)),
+      )
+      if (paused.length) {
+        return 'paused' as const
+      }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
       if (
         row.instructionDigest.toString('hex') !== manifest.instruction_sha256 ||
@@ -504,7 +514,7 @@ export async function runSessionTurn(
   if (claimed === 'cancelled') {
     return 'cancelled' as const
   }
-  if (claimed === 'archived' || claimed === 'waiting') {
+  if (claimed === 'archived' || claimed === 'paused' || claimed === 'waiting') {
     return 'queued' as const
   }
   const current = claimed

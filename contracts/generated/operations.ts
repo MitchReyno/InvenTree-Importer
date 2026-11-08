@@ -142,6 +142,24 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "PUT /api/v1/agents/pause",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentPauseAll",
+      "requestSchema": "AgentPauseUpdate"
+    }
+  ],
+  [
+    "PUT /api/v1/batches/{id}/agents/pause",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentPause",
+      "requestSchema": "AgentPauseUpdate"
+    }
+  ],
+  [
     "GET /api/v1/processing-activity",
     {
       "timeoutMs": 10000,

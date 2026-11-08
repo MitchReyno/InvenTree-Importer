@@ -173,17 +173,43 @@ function session(n: number, stage: string, subject: string | null, extra: object
 }
 
 const failure: SessionFailureDto = {
-  id: id(90), category: 'tool_policy', summary: 'The provider attempted an operation outside the allowed tool policy.', details_available: true,
-  attempt_id: id(24), lineage_id: id(4), turn: '2', timestamp: '2026-11-07T01:42:00.000Z', correlation_id: id(91),
-  code: 'agent_tool_refused', stage: 'turn', provider: 'claude', model: 'claude-opus-5-5', cli_version: '2.1.319',
-  provider_session_id: null, causes: [], recovery: 'Check the supported CLI configuration. Keep this conversation stopped and start a fresh session after correcting it.', truncated: false,
+  id: id(90),
+  category: 'tool_policy',
+  summary: 'The provider attempted an operation outside the allowed tool policy.',
+  details_available: true,
+  attempt_id: id(24),
+  lineage_id: id(4),
+  turn: '2',
+  timestamp: '2026-11-07T01:42:00.000Z',
+  correlation_id: id(91),
+  code: 'agent_tool_refused',
+  stage: 'turn',
+  provider: 'claude',
+  model: 'claude-opus-5-5',
+  cli_version: '2.1.319',
+  provider_session_id: null,
+  causes: [],
+  recovery:
+    'Check the supported CLI configuration. Keep this conversation stopped and start a fresh session after correcting it.',
+  truncated: false,
 }
+
+/** Paused batches; Pause all and Resume change it, and the next list read shows it. */
+const paused = new Set<string>()
 
 const sessionList = (supported: boolean) =>
   ({
-    sessions: supported
+    paused_batch_ids: [...paused],
+    sessions: (supported
       ? [
-          session(4, 'images', lot(1), { state: 'failed', session_state: 'failed', occupies_lane: false, progress: 'settled', finished_at: failure.timestamp, failure }),
+          session(4, 'images', lot(1), {
+            state: 'failed',
+            session_state: 'failed',
+            occupies_lane: false,
+            progress: 'settled',
+            finished_at: failure.timestamp,
+            failure,
+          }),
           session(3, 'research', lot(3), {
             latest_status: {
               text: 'Comparing two supplier listings',
@@ -197,10 +223,30 @@ const sessionList = (supported: boolean) =>
             latest_status: { text: 'Asked about the last letter', at: '2026-11-06T08:04:00.000Z' },
           }),
         ]
-      : [],
+      : []
+    ).map((item) => (paused.has(item.batch_id) ? { ...item, paused: true } : item)),
     next_before: null,
     sessions_supported: supported,
   }) as unknown as AgentSessionListDto
+
+const pauseClient = {
+  pause: async (batchId: string, pause: boolean) => {
+    if (pause) {
+      paused.add(batchId)
+    } else {
+      paused.delete(batchId)
+    }
+    return { batch_id: batchId, paused: pause }
+  },
+  pauseAll: async (pause: boolean) => {
+    if (pause) {
+      paused.add(batch.id)
+    } else {
+      paused.clear()
+    }
+    return { paused: pause, batch_ids: [batch.id] }
+  },
+}
 
 function useHash() {
   const [hash, setHash] = useState(() => location.hash.slice(1))
@@ -246,40 +292,47 @@ export function ProcessingProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-<Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: batch.title }]} />
+      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: batch.title }]} />
       <PageContent $width="content">
-<Main>
-        {page.startsWith('agents') ? (
-          <AgentSessions
-            key={view}
-            client={{
-              sessions: async () => sessionList(sessions),
-              failure: async () => failure,
-              settings: async () => ({ revision: '2', selection, session_concurrency: 3 }),
-            }}
-            batches={async () => ({
-              title: batch.title,
-              subjects: new Map(batch.lots.map((item) => [item.id, item.label])),
-            })}
-          />
-        ) : (
-          <ProcessingWorkspace
-            key={view}
-            batch={batch}
-            client={client as never}
-            view={page as never}
-            navigate={() => {}}
-            onDirtyChange={() => {}}
-            onSaved={async () => {}}
-            attention={attention}
-            instructions={{
-              text: 'Keep the two resistor packets apart.',
-              instruct: async () => {},
-            }}
-          />
-        )}
-      </Main>
-</PageContent>
+        <Main>
+          {page.startsWith('agents') ? (
+            <AgentSessions
+              key={view}
+              client={{
+                sessions: async () => sessionList(sessions),
+                failure: async () => failure,
+                settings: async () => ({ revision: '2', selection, session_concurrency: 3 }),
+                ...pauseClient,
+              }}
+              batches={async () => ({
+                title: batch.title,
+                subjects: new Map(batch.lots.map((item) => [item.id, item.label])),
+              })}
+            />
+          ) : (
+            <ProcessingWorkspace
+              key={view}
+              batch={batch}
+              client={client as never}
+              view={page as never}
+              navigate={() => {}}
+              onDirtyChange={() => {}}
+              onSaved={async () => {}}
+              attention={attention}
+              instructions={{
+                text: 'Keep the two resistor packets apart.',
+                instruct: async () => {},
+              }}
+              agents={{
+                sessions: async () => sessionList(sessions),
+                settings: async () =>
+                  ({ revision: '2', selection, session_concurrency: 3 }) as never,
+                pause: pauseClient.pause,
+              }}
+            />
+          )}
+        </Main>
+      </PageContent>
     </ServerStateProvider>
   )
 }

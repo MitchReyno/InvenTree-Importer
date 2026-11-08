@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -387,6 +387,26 @@ describe('InstructionField', () => {
     expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent(
       'Started 13:02 · 5 lots formed by 13:20',
     )
+  })
+
+  it('pauses the batch sessions from the sessions card, and says while they are paused', async () => {
+    const pause = vi.fn(async () => undefined)
+    const withSession = {
+      ...source,
+      sessions: [
+        { jobId: 'j3', step: 'images', subject: 'C', lotId: null, state: 'running', status: null },
+      ],
+    } as typeof source
+    const { unmount } = overview({ source: withSession, pause: { paused: false, change: pause } })
+    const card = screen.getByRole('region', { name: 'Agent sessions' })
+    within(card).getByRole('button', { name: 'Pause all' }).click()
+    await waitFor(() => expect(pause).toHaveBeenCalledWith(true))
+    unmount()
+
+    overview({ source: withSession, pause: { paused: true, change: pause } })
+    const paused = screen.getByRole('region', { name: 'Agent sessions' })
+    expect(paused).toHaveTextContent('Paused: no session starts new work until you resume.')
+    expect(within(paused).getByRole('button', { name: 'Resume' })).toBeVisible()
   })
 
   it('calls only running work running', () => {

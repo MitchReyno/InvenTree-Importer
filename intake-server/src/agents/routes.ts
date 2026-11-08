@@ -1,11 +1,17 @@
 import { readSessionFailure } from './failures.ts'
 import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
-import { Id, schemas, type AgentSettingsUpdateDto } from '@invimport/contracts'
+import {
+  Id,
+  schemas,
+  type AgentPauseUpdateDto,
+  type AgentSettingsUpdateDto,
+} from '@invimport/contracts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { ProcessingError } from '../processing/model.ts'
 import { readAgentSettings, saveAgentSettings } from './settings.ts'
 import { listAgentSessions } from './sessions.ts'
+import { setAllPause, setBatchPause } from './pause.ts'
 
 export function registerAgents(app: FastifyInstance, pool: Pool, config: ProcessingConfig) {
   app.register(async (scope) => {
@@ -29,6 +35,21 @@ export function registerAgents(app: FastifyInstance, pool: Pool, config: Process
       '/api/v1/agent-settings',
       { schema: { body: schemas.AgentSettingsUpdate, response: { 200: schemas.AgentSettings } } },
       (request) => saveAgentSettings(pool, config, request.body),
+    )
+    scope.put<{ Body: AgentPauseUpdateDto }>(
+      '/api/v1/agents/pause',
+      { schema: { body: schemas.AgentPauseUpdate, response: { 200: schemas.AgentPauseAll } } },
+      (request) => setAllPause(pool, config, request.body.paused),
+    )
+    scope.put<{ Params: { id: string }; Body: AgentPauseUpdateDto }>(
+      '/api/v1/batches/:id/agents/pause',
+      { schema: { body: schemas.AgentPauseUpdate, response: { 200: schemas.AgentPause } } },
+      (request) => {
+        if (!new RegExp(Id.pattern!).test(request.params.id)) {
+          throw new ProcessingError('not_found', 404)
+        }
+        return setBatchPause(pool, config, request.params.id, request.body.paused)
+      },
     )
     scope.get<{ Params: { attemptId: string; failureId: string } }>(
       '/api/v1/agent-sessions/:attemptId/failures/:failureId',

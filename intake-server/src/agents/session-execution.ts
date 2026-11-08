@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, notInArray, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, notExists, notInArray, sql } from 'drizzle-orm'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { validate, type ProcessingCommandV5Dto } from '@invimport/contracts'
@@ -11,7 +11,12 @@ import type { ProcessingConfig } from '../processing/attempts.ts'
 import { fail } from '../processing/model.ts'
 import { processingAttempts } from '../processing/schema.ts'
 import { sessionCommandQueue, sessionHandlerVersion } from '../processing/session-policy.ts'
-import { agentSessionCursors, agentSessionInbox, agentSessions } from './schema.ts'
+import {
+  agentBatchPauses,
+  agentSessionCursors,
+  agentSessionInbox,
+  agentSessions,
+} from './schema.ts'
 import {
   queueSessionResume,
   runSessionTurn,
@@ -92,6 +97,13 @@ export async function wakePendingSessions(
   scheduler: DBOSClient,
 ) {
   const db = queryDatabase(pool)
+  // A paused batch's sessions are neither resumed nor woken until Resume.
+  const notPaused = notExists(
+    db
+      .select({ batchId: agentBatchPauses.batchId })
+      .from(agentBatchPauses)
+      .where(eq(agentBatchPauses.batchId, processingAttempts.batchId)),
+  )
   const scope = and(
     eq(commands.actorId, config.actorId),
     eq(commands.targetId, config.targetId),
@@ -112,6 +124,7 @@ export async function wakePendingSessions(
         and(
           scope,
           eq(captureBatches.archived, false),
+          notPaused,
           // Only a lineage's latest session can be resumed.
           sql`${processingAttempts.number} = (SELECT max(latest.number) FROM ${processingAttempts} latest WHERE latest.job_id = ${processingAttempts.jobId})`,
           inArray(agentSessions.sessionState, ['waiting_input', 'finished', 'interrupted']),
@@ -145,6 +158,7 @@ export async function wakePendingSessions(
       .where(
         and(
           eq(captureBatches.archived, false),
+          notPaused,
           scope,
           eq(agentSessions.sessionState, 'queued'),
           notInArray(processingAttempts.state, ['cancelled', 'superseded']),

@@ -92,3 +92,10 @@ export const agentSlots = pgTable(
   },
   (table) => [primaryKey({ columns: [table.actorId, table.slotIndex] })],
 )
+
+/** A batch whose agent sessions start no new work until resumed. */
+export const agentBatchPauses = pgTable('agent_batch_pause', {
+  batchId: uuid('batch_id').primaryKey(),
+  actorId: uuid('actor_id').notNull(),
+  pausedAt: timestamp('paused_at', { withTimezone: true }).notNull().defaultNow(),
+})

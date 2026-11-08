@@ -923,3 +923,102 @@ test('cancelling an idle session settles it, with or without pending chat', asyn
     )
   })
 })
+
+test('a paused batch keeps its sessions queued and their messages, and resuming lets them run', async () => {
+  const { runSessionTurn } = await import('../../src/agents/session-runner.ts')
+  const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
+  const { setBatchPause, setAllPause } = await import('../../src/agents/pause.ts')
+  const { listAgentSessions } = await import('../../src/agents/sessions.ts')
+  await withSessions(async ({ fixture, url, a, b, capture }) => {
+    const batchId = capture.batch.id
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='queued',turn_count=1 WHERE attempt_id=ANY($1)",
+      [[a.attempt, b.attempt]],
+    )
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='queued' WHERE id=ANY($1)", [
+      [a.attempt, b.attempt],
+    ])
+    await submitSessionInbox(fixture.api.pool, {
+      binding: fixture.config,
+      lineageId: a.job,
+      actorId: fixture.identity.actor,
+      idempotencyKey: 'while-paused',
+      kind: 'chat',
+      payload: { text: 'Use the datasheet values.' },
+    })
+    const before = await counts(fixture, a.attempt, a.job)
+
+    assert.deepEqual(await setBatchPause(fixture.api.pool, fixture.config, batchId, true), {
+      batch_id: batchId,
+      paused: true,
+    })
+    // Pausing twice is the same pause.
+    await setBatchPause(fixture.api.pool, fixture.config, batchId, true)
+    const deps = {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot: '/x', env: {} },
+      toolUrl: url,
+    }
+    assert.equal(await runSessionTurn(deps, a.attempt, new AbortController().signal), 'queued')
+    const enqueued: string[] = []
+    const scheduler = {
+      getWorkflow: async () => undefined,
+      enqueue: async (options: { workflowID: string }) => {
+        enqueued.push(options.workflowID)
+      },
+    }
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    assert.deepEqual(enqueued, [])
+    // Nothing is cancelled and the queued message is kept.
+    const states = await fixture.db.pool.query<{ session_state: string; state: string }>(
+      `SELECT s.session_state, a.state FROM agent_session s JOIN processing_attempt a ON a.id=s.attempt_id
+        WHERE s.attempt_id=ANY($1) ORDER BY s.attempt_id`,
+      [[a.attempt, b.attempt]],
+    )
+    assert.deepEqual(
+      states.rows.map((row) => [row.session_state, row.state]),
+      [
+        ['queued', 'queued'],
+        ['queued', 'queued'],
+      ],
+    )
+    assert.deepEqual(await counts(fixture, a.attempt, a.job), before)
+    const listed = await listAgentSessions(fixture.api.pool, fixture.config)
+    assert.ok(
+      listed.sessions.filter((item) => item.batch_id === batchId).every((item) => item.paused),
+    )
+    assert.deepEqual(listed.paused_batch_ids, [batchId])
+
+    assert.deepEqual(await setBatchPause(fixture.api.pool, fixture.config, batchId, false), {
+      batch_id: batchId,
+      paused: false,
+    })
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    assert.equal(enqueued.length, 2)
+    const resumed = await listAgentSessions(fixture.api.pool, fixture.config)
+    assert.ok(resumed.sessions.every((item) => !item.paused))
+    assert.deepEqual(resumed.paused_batch_ids, [])
+
+    // Pause all reaches every live batch of the account, and Resume all clears them.
+    const other = await fixture.seedCapture()
+    const all = await setAllPause(fixture.api.pool, fixture.config, true)
+    assert.deepEqual(all.batch_ids.sort(), [batchId, other.batch.id].sort())
+    assert.equal(all.paused, true)
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids?.sort(),
+      [batchId, other.batch.id].sort(),
+    )
+    await setAllPause(fixture.api.pool, fixture.config, false)
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids,
+      [],
+    )
+
+    // Another account's batch is not found.
+    await assert.rejects(
+      setBatchPause(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }, batchId, true),
+      (error: { code?: string }) => error.code === 'not_found',
+    )
+  })
+})

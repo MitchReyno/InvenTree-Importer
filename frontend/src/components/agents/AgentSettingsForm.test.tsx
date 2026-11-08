@@ -16,6 +16,8 @@ function client() {
     saveSettings: vi.fn(async () => ({ ...initial, revision: '8' })),
     sessions: vi.fn(),
     failure: vi.fn(),
+    pause: vi.fn(),
+    pauseAll: vi.fn(),
   } satisfies ReturnType<typeof agentsClient>
 }
 

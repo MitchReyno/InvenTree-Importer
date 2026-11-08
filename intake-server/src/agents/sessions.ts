@@ -18,6 +18,7 @@ import { latestStatuses } from './tools/outbox.ts'
 import { latestSessionFailures } from './failures.ts'
 import { agentSessions, agentSlots } from './schema.ts'
 import { isSessionProfile } from '../processing/session-policy.ts'
+import { pausedBatchIds } from './pause.ts'
 
 const SESSION_PAGE_SIZE = 50
 
@@ -100,6 +101,8 @@ export async function listAgentSessions(
       client,
       rows.slice(0, SESSION_PAGE_SIZE).map((row) => row.attempt.id),
     )
+    const paused = await pausedBatchIds(client, binding)
+    const pausedSet = new Set(paused)
     const sessions: AgentSessionListDto['sessions'] = []
     for (const row of rows.slice(0, SESSION_PAGE_SIZE)) {
       const manifest = decodeJobInput(row.bytes, row.digest)
@@ -129,10 +132,12 @@ export async function listAgentSessions(
         occupies_lane: row.laneAttempt === row.attempt.id || row.slotAttempt === row.attempt.id,
         session_state: row.session.sessionState,
         latest_status: statuses.get(row.attempt.id) ?? null,
+        ...(pausedSet.has(row.attempt.batchId) ? { paused: true as const } : {}),
       })
     }
     return {
       sessions,
+      paused_batch_ids: paused,
       next_before: rows.length > SESSION_PAGE_SIZE ? sessions.at(-1)!.attempt_id : null,
       sessions_supported: sessionsSupported(binding),
     }

@@ -251,6 +251,12 @@ async function main() {
           parameters: [{ name: 'before', in: 'query', schema: Id }],
         },
       },
+      '/api/v1/agents/pause': {
+        put: post('AgentPauseUpdate', 'AgentPauseAll', '200', CAPTURE_TIMEOUT_MS),
+      },
+      '/api/v1/batches/{id}/agents/pause': {
+        put: post('AgentPauseUpdate', 'AgentPause', '200', CAPTURE_TIMEOUT_MS),
+      },
       '/api/v1/processing-activity': { get: get('ProcessingActivity', CAPTURE_TIMEOUT_MS) },
       '/api/v1/batches/{id}/processing': {
         get: get('ProcessingSnapshot', CAPTURE_TIMEOUT_MS),

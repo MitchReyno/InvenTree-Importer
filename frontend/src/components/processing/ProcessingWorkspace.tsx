@@ -186,6 +186,19 @@ export function ProcessingWorkspace({
       ? firstStart(agentSessions.data.sessions, batch.id)
       : undefined
   const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
+  // Paused only while the session read is live; a pause shows once the list is read again.
+  const pause =
+    agents?.pause && liveRead(agentSessions)
+      ? {
+          paused: agentSessions.data?.paused_batch_ids?.includes(batch.id) ?? false,
+          change: async (paused: boolean) => {
+            await agents.pause!(batch.id, paused)
+            await queryClient.invalidateQueries({
+              queryKey: serverQueryKey(scope, 'agent-sessions'),
+            })
+          },
+        }
+      : undefined
   // Capture's media read names Examine's photos by file and group.
   const mediaSnapshot = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
@@ -596,6 +609,7 @@ export function ProcessingWorkspace({
               started={started}
               lotsFormed={lotsFormed(batch.lots)}
               sessionLimit={sessionLimit}
+              pause={pause}
             />
           ) : (
             <StepPage
