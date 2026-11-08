@@ -254,6 +254,18 @@ async function open(user: ReturnType<typeof userEvent.setup>, type: RegExp, reco
   await user.click(screen.getByRole('button', { name: record }))
 }
 
+function stageWith(read: BatchRecordsDto) {
+  render(
+    <RecordsStage
+      batch={batch}
+      client={{ read: vi.fn(async () => read) }}
+      edit={vi.fn(async () => true)}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+}
+
 describe('RecordsStage', () => {
   it('lists types with their counts and decisions waiting', async () => {
     stage()
@@ -371,6 +383,24 @@ describe('RecordsStage', () => {
         exclude_parts: [partB],
       },
     })
+  })
+
+  it('says in words what a proposed value came from and how well its sources agree', async () => {
+    const user = userEvent.setup()
+    const said = structuredClone(records)
+    for (const record of said.records) {
+      for (const field of record.fields) {
+        if (field.name === 'category' && field.origin.kind === 'step') {
+          Object.assign(field.origin, { source_kind: 'distributor_page', agreement: 'disagree' })
+        }
+      }
+    }
+    stageWith(said)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
+      'Research · Distributor page · Sources disagree',
+    )
   })
 
   it('edits a Part’s name and clears its description; each field shows who proposed it', async () => {

@@ -5,6 +5,7 @@ import { captureTags } from './capture-primitives.ts'
 import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 import { mappedReference } from './effects.ts'
+import { valueEvidence } from './value-evidence.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -324,12 +325,14 @@ const catalogueChoice = <M extends 'category' | 'company'>(model: M) =>
       choice: Type.Literal('existing'),
       reference: mappedReference(model),
       sources: catalogueSources,
+      ...valueEvidence,
     }),
     object({
       choice: Type.Literal('proposed_new'),
       name: catalogueText,
       reason: text,
       sources: catalogueSources,
+      ...valueEvidence,
     }),
   ])
 
@@ -347,11 +350,17 @@ export const CatalogueProposal = object({
       template: Type.Union([mappedReference('parameter_template'), Type.Null()]),
       category_mapping: Type.Union([mappedReference('category_parameter'), Type.Null()]),
       sources: catalogueSources,
+      ...valueEvidence,
     }),
     { maxItems: 32 },
   ),
   manufacturer: Type.Union([
-    object({ company: catalogueChoice('company'), mpn: catalogueText, sources: catalogueSources }),
+    object({
+      company: catalogueChoice('company'),
+      mpn: catalogueText,
+      sources: catalogueSources,
+      ...valueEvidence,
+    }),
     Type.Null(),
   ]),
   supplier: Type.Union([
@@ -363,10 +372,14 @@ export const CatalogueProposal = object({
         Type.Null(),
       ]),
       sources: catalogueSources,
+      ...valueEvidence,
     }),
     Type.Null(),
   ]),
-  description: Type.Union([object({ text, sources: catalogueSources }), Type.Null()]),
+  description: Type.Union([
+    object({ text, sources: catalogueSources, ...valueEvidence }),
+    Type.Null(),
+  ]),
 })
 /** A session proposal: `/4` plus what it relies on and a structured catalogue block. */
 export const ProcessingProposalV5 = object({

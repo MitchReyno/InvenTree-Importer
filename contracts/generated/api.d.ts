@@ -4787,6 +4787,10 @@ export interface components {
                 readings?: {
                     markings: string[];
                     text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 };
                 visible_count?: number | null;
                 lot_id?: string | null;
@@ -5288,6 +5292,10 @@ export interface components {
                 readings: {
                     markings: string[];
                     text?: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 };
                 visible_count: number | null;
                 status: "active" | "suggested";
@@ -5638,6 +5646,10 @@ export interface components {
             kind: "step";
             step: "examine" | "research" | "images" | "inventory";
             proposal_id: string;
+            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+            agreement?: "read" | "likely" | "disagree";
         } | {
             /** @constant */
             kind: "estimate";
@@ -5655,6 +5667,10 @@ export interface components {
                 kind: "step";
                 step: "examine" | "research" | "images" | "inventory";
                 proposal_id: string;
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             } | {
                 /** @constant */
                 kind: "estimate";
@@ -5703,6 +5719,10 @@ export interface components {
                     kind: "step";
                     step: "examine" | "research" | "images" | "inventory";
                     proposal_id: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | {
                     /** @constant */
                     kind: "estimate";
@@ -5792,6 +5812,10 @@ export interface components {
                         kind: "step";
                         step: "examine" | "research" | "images" | "inventory";
                         proposal_id: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         kind: "estimate";
@@ -8012,6 +8036,10 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             } | {
                 /** @constant */
                 choice: "proposed_new";
@@ -8029,6 +8057,10 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             }) | null;
             parameters: {
                 name: string;
@@ -8061,6 +8093,10 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             }[];
             manufacturer: {
                 company: {
@@ -8086,6 +8122,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -8103,6 +8143,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 };
                 mpn: string;
                 sources: ({
@@ -8117,6 +8161,10 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             } | null;
             supplier: {
                 company: {
@@ -8142,6 +8190,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -8159,6 +8211,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 };
                 sku: string | null;
                 price: {
@@ -8177,6 +8233,10 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             } | null;
             description: {
                 text: string;
@@ -8192,6 +8252,10 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             } | null;
         };
         ProcessingProposalV5: {
@@ -8276,6 +8340,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -8293,6 +8361,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 }) | null;
                 parameters: {
                     name: string;
@@ -8325,6 +8397,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 }[];
                 manufacturer: {
                     company: {
@@ -8350,6 +8426,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -8367,6 +8447,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     };
                     mpn: string;
                     sources: ({
@@ -8381,6 +8465,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | null;
                 supplier: {
                     company: {
@@ -8406,6 +8494,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -8423,6 +8515,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     };
                     sku: string | null;
                     price: {
@@ -8441,6 +8537,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | null;
                 description: {
                     text: string;
@@ -8456,6 +8556,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | null;
             };
         };
@@ -12801,6 +12905,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -12818,6 +12926,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 }) | null;
                 parameters: {
                     name: string;
@@ -12850,6 +12962,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 }[];
                 manufacturer: {
                     company: {
@@ -12875,6 +12991,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -12892,6 +13012,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     };
                     mpn: string;
                     sources: ({
@@ -12906,6 +13030,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | null;
                 supplier: {
                     company: {
@@ -12931,6 +13059,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -12948,6 +13080,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     };
                     sku: string | null;
                     price: {
@@ -12966,6 +13102,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | null;
                 description: {
                     text: string;
@@ -12981,6 +13121,10 @@ export interface components {
                         version_id: string;
                         sha256: string;
                     })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
                 } | null;
             };
         };
@@ -13500,6 +13644,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -13517,6 +13665,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         }) | null;
                         parameters: {
                             name: string;
@@ -13549,6 +13701,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         }[];
                         manufacturer: {
                             company: {
@@ -13574,6 +13730,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -13591,6 +13751,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             };
                             mpn: string;
                             sources: ({
@@ -13605,6 +13769,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | null;
                         supplier: {
                             company: {
@@ -13630,6 +13798,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -13647,6 +13819,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             };
                             sku: string | null;
                             price: {
@@ -13665,6 +13841,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | null;
                         description: {
                             text: string;
@@ -13680,6 +13860,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | null;
                     };
                 };
@@ -13889,6 +14073,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -13906,6 +14094,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             }) | null;
                             parameters: {
                                 name: string;
@@ -13938,6 +14130,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             }[];
                             manufacturer: {
                                 company: {
@@ -13963,6 +14159,10 @@ export interface components {
                                         version_id: string;
                                         sha256: string;
                                     })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
                                 } | {
                                     /** @constant */
                                     choice: "proposed_new";
@@ -13980,6 +14180,10 @@ export interface components {
                                         version_id: string;
                                         sha256: string;
                                     })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
                                 };
                                 mpn: string;
                                 sources: ({
@@ -13994,6 +14198,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             } | null;
                             supplier: {
                                 company: {
@@ -14019,6 +14227,10 @@ export interface components {
                                         version_id: string;
                                         sha256: string;
                                     })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
                                 } | {
                                     /** @constant */
                                     choice: "proposed_new";
@@ -14036,6 +14248,10 @@ export interface components {
                                         version_id: string;
                                         sha256: string;
                                     })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
                                 };
                                 sku: string | null;
                                 price: {
@@ -14054,6 +14270,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             } | null;
                             description: {
                                 text: string;
@@ -14069,6 +14289,10 @@ export interface components {
                                     version_id: string;
                                     sha256: string;
                                 })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
                             } | null;
                         };
                     };
@@ -15246,6 +15470,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -15263,6 +15491,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     }) | null;
                     parameters: {
                         name: string;
@@ -15295,6 +15527,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     }[];
                     manufacturer: {
                         company: {
@@ -15320,6 +15556,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -15337,6 +15577,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         };
                         mpn: string;
                         sources: ({
@@ -15351,6 +15595,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | null;
                     supplier: {
                         company: {
@@ -15376,6 +15624,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -15393,6 +15645,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         };
                         sku: string | null;
                         price: {
@@ -15411,6 +15667,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | null;
                     description: {
                         text: string;
@@ -15426,6 +15686,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | null;
                 };
             };
@@ -15565,6 +15829,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -15582,6 +15850,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     }) | null;
                     parameters: {
                         name: string;
@@ -15614,6 +15886,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     }[];
                     manufacturer: {
                         company: {
@@ -15639,6 +15915,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -15656,6 +15936,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         };
                         mpn: string;
                         sources: ({
@@ -15670,6 +15954,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | null;
                     supplier: {
                         company: {
@@ -15695,6 +15983,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -15712,6 +16004,10 @@ export interface components {
                                 version_id: string;
                                 sha256: string;
                             })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
                         };
                         sku: string | null;
                         price: {
@@ -15730,6 +16026,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | null;
                     description: {
                         text: string;
@@ -15745,6 +16045,10 @@ export interface components {
                             version_id: string;
                             sha256: string;
                         })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
                     } | null;
                 };
             };
@@ -16080,6 +16384,10 @@ export interface components {
         EvidenceReadings: {
             markings: string[];
             text?: string;
+            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+            agreement?: "read" | "likely" | "disagree";
         };
         CaptureEvidenceObservation: {
             id: string;
@@ -16103,6 +16411,10 @@ export interface components {
             readings: {
                 markings: string[];
                 text?: string;
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             };
             visible_count: number | null;
             status: "active" | "suggested";
@@ -16139,6 +16451,10 @@ export interface components {
             readings: {
                 markings: string[];
                 text?: string;
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
             };
             visible_count?: number;
         };

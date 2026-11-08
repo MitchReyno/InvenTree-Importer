@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { BatchRecordDto, CaptureSnapshotDto, RecordOriginDto } from '@invimport/contracts'
 import { batchHref } from '../../../navigation/batch-route'
 import { AskControl } from './AskControl'
 import { ProposedCompanyEditor } from './ProposedCompanyEditor'
@@ -14,6 +14,7 @@ import { SourcingEditor } from './SourcingEditor'
 import { TemplateEditor } from './TemplateEditor'
 import { RecordStatePill } from '../../ui/RecordStatePill'
 import { SourceChip } from '../../ui/SourceChip'
+import { evidenceWords } from '../../../operator/value-evidence'
 import { DataTable, type DataColumn } from '../../ui/DataTable'
 import type { Save } from './draft'
 
@@ -51,6 +52,20 @@ type Props = {
 }
 
 /** One record: its values with who set them, what an edit reaches, and its editor. */
+/** A step's value in words: what it came from and how well its sources agree, when it said. */
+function stepSource(origin: Exclude<RecordOriginDto, { kind: 'operator' }>) {
+  const step = STEP_LABELS[origin.step]
+  if (origin.kind === 'estimate') {
+    return { source: step, certainty: 'Estimated', tone: 'likely' as const }
+  }
+  const said = evidenceWords(origin)
+  return {
+    source: said.kind ? `${step} · ${said.kind}` : step,
+    certainty: said.certainty ?? 'Proposed',
+    tone: said.tone,
+  }
+}
+
 export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: Props) {
   // A value not supported yet shows at its field when the record lists that field.
   const listed = new Set(record.fields.map((field) => field.name))
@@ -119,11 +134,7 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
                       {field.origin.kind === 'operator' ? (
                         <SourceChip source="You" certainty="Your edit" tone="user" />
                       ) : (
-                        <SourceChip
-                          source={STEP_LABELS[field.origin.step]}
-                          certainty={field.origin.kind === 'estimate' ? 'Estimated' : 'Proposed'}
-                          tone={field.origin.kind === 'estimate' ? 'likely' : 'default'}
-                        />
+                        <SourceChip {...stepSource(field.origin)} />
                       )}
                       {field.origin.kind === 'step' &&
                         (() => {

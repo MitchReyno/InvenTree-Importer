@@ -1028,3 +1028,52 @@ test('a stale catalogue gives way to the current one from the same job', () => {
     false,
   )
 })
+
+test('a field credited to a proposal says what kind of source it came from and how well it agrees', () => {
+  const said = structuredClone(processing) as unknown as {
+    jobs: { proposals: { value: { catalogue: Record<string, Record<string, unknown>> } }[] }[]
+  }
+  const catalogue = said.jobs[0].proposals[0].value.catalogue
+  Object.assign(catalogue.category, { source_kind: 'label', agreement: 'read' })
+  Object.assign(catalogue.manufacturer, { source_kind: 'distributor_page', agreement: 'disagree' })
+  const result = projectRecords({
+    capture,
+    processing: said as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const part = of(result.records, 'part')[0]
+  assert.deepEqual(part.fields.find((field) => field.name === 'category')?.origin, {
+    kind: 'step',
+    step: 'research',
+    proposal_id: id(710),
+    source_kind: 'label',
+    agreement: 'read',
+  })
+  // Tags were not given a kind, so their origin names the step alone.
+  assert.deepEqual(part.fields.find((field) => field.name === 'tags')?.origin, {
+    kind: 'step',
+    step: 'research',
+    proposal_id: id(710),
+  })
+  const manufacturer = of(result.records, 'manufacturer_part')[0]
+  assert.deepEqual(
+    manufacturer.fields.map((field) => field.origin),
+    [
+      {
+        kind: 'step',
+        step: 'research',
+        proposal_id: id(710),
+        source_kind: 'distributor_page',
+        agreement: 'disagree',
+      },
+      {
+        kind: 'step',
+        step: 'research',
+        proposal_id: id(710),
+        source_kind: 'distributor_page',
+        agreement: 'disagree',
+      },
+    ],
+  )
+})

@@ -31,7 +31,7 @@ it('an excluded lot shows Excluded alone, not the block its exclusion raises', (
   render(
     <LotStatusChips
       lot={lot({
-        review_state: 'needs_review',
+        review_state: 'unreviewed',
         issues: [
           { id: 'i', code: 'lot_excluded', severity: 'blocking', disposition: null },
         ] as never,

@@ -406,3 +406,68 @@ test('a question keeps when it was asked, and an older question without the time
   assert.throws(() => validate('ProcessingQuestion', { ...question, asked_at: '' }))
   assert.throws(() => validate('ProcessingQuestion', { ...question, asked_at: 'yesterday' }))
 })
+
+test('readings and catalogue values may say what kind of source they came from and how well it agrees', () => {
+  const said = { source_kind: 'packing_slip', agreement: 'disagree' }
+  validate('ProcessingProposalV5', {
+    ...proposalV5,
+    catalogue: {
+      ...catalogue,
+      category: { ...catalogue.category, ...said },
+      parameters: catalogue.parameters.map((item) => ({
+        ...item,
+        source_kind: 'label',
+        agreement: 'read',
+      })),
+      manufacturer: {
+        ...catalogue.manufacturer,
+        source_kind: 'distributor_page',
+        agreement: 'likely',
+      },
+      description: {
+        text: 'Thick film resistor',
+        sources: [mediaSource],
+        source_kind: 'handwriting',
+      },
+    },
+  })
+  assert.throws(() =>
+    validate('ProcessingProposalV5', {
+      ...proposalV5,
+      catalogue: { ...catalogue, category: { ...catalogue.category, source_kind: 'rumour' } },
+    }),
+  )
+  assert.throws(() =>
+    validate('ProcessingProposalV5', {
+      ...proposalV5,
+      catalogue: { ...catalogue, category: { ...catalogue.category, agreement: 'certain' } },
+    }),
+  )
+
+  const region = {
+    kind: 'pixels',
+    x: 1,
+    y: 1,
+    width: 10,
+    height: 10,
+    source_width: 100,
+    source_height: 100,
+  }
+  const args = {
+    base_revision: '1',
+    evidence_version_id: id(12),
+    region,
+    readings: { markings: ['BC547'] },
+  }
+  validate('RecordObservationArgs', args)
+  validate('RecordObservationArgs', {
+    ...args,
+    readings: { markings: ['BC547'], source_kind: 'label', agreement: 'likely' },
+  })
+  assert.throws(() =>
+    validate('RecordObservationArgs', {
+      ...args,
+      readings: { markings: ['BC547'], source_kind: 'photo' },
+    }),
+  )
+})

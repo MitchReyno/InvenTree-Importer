@@ -6,6 +6,8 @@ import { Field, Small, Subheading } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import { Pill } from '../ui/Pill'
 import { ObservationMove } from './ObservationMove'
+import { readingSource } from '../../operator/value-evidence'
+import { SourceChip } from '../ui/SourceChip'
 import { observationNames } from './observation-names'
 
 type Lot = CaptureSnapshotDto['lots'][number]
@@ -20,6 +22,8 @@ interface Props {
 
 function Reading({ observation }: { observation: Observation }) {
   const markings = observation.readings.markings.join(' · ')
+  // Provenance shows when the reading said what it came from or how sure it is.
+  const said = observation.readings.source_kind || observation.readings.agreement
   return (
     <span>
       {markings || 'No markings read'}
@@ -28,6 +32,12 @@ function Reading({ observation }: { observation: Observation }) {
         <>
           {' '}
           · lines {observation.region.from_line}–{observation.region.to_line}
+        </>
+      )}
+      {said && (
+        <>
+          {' '}
+          <SourceChip {...readingSource(observation)} />
         </>
       )}
     </span>

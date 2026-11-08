@@ -5,6 +5,7 @@ import {
   type LotLocationGroups,
 } from './capture-location.ts'
 import type { InventoryPartSpecDto } from './effects.ts'
+import type { SourceAgreementDto, SourceKindDto } from './value-evidence.ts'
 import type { CatalogueProposalDto, ProcessingSnapshotDto } from './processing.ts'
 import { assessCatalogue, type CatalogueUnsupportedReason } from './catalogue-assessment.ts'
 import {
@@ -178,22 +179,34 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
       sku: none,
     }
   }
+  type Said = { source_kind?: SourceKindDto; agreement?: SourceAgreementDto }
+  type Choice = Said & { choice: string; reference?: { pk: string } }
   const value = latest.proposal.value as Record<string, unknown> & {
     tags?: string[]
     catalogue?: {
-      category: { choice: string; reference?: { pk: string } } | null
-      parameters: { template: { pk: string } | null; value: string }[]
-      manufacturer: { company: { choice: string; reference?: { pk: string } }; mpn: string } | null
-      supplier: {
-        company: { choice: string; reference?: { pk: string } }
-        sku: string | null
-      } | null
-      description: { text: string } | null
+      category: Choice | null
+      parameters: (Said & { template: { pk: string } | null; value: string })[]
+      manufacturer: (Said & { company: Choice; mpn: string }) | null
+      supplier: (Said & { company: Choice; sku: string | null }) | null
+      description: (Said & { text: string }) | null
     }
   }
   const step: Origin = { kind: 'step', step: latest.step, proposal_id: latest.proposal.id }
 
-  const when = (matches: boolean) => (matches ? step : OPERATOR)
+  // A match is credited with what the matched value says about its own source.
+  const when = (matches: boolean, said?: Said | null): Origin =>
+    matches
+      ? {
+          ...step,
+          ...(said?.source_kind ? { source_kind: said.source_kind } : {}),
+          ...(said?.agreement ? { agreement: said.agreement } : {}),
+        }
+      : OPERATOR
+
+  const company = (item: { company: Said } & Said) => ({
+    source_kind: item.company.source_kind ?? item.source_kind,
+    agreement: item.company.agreement ?? item.agreement,
+  })
 
   const catalogue = value.catalogue
 
@@ -205,31 +218,41 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
     value.tags.length === spec.tags.length &&
     spec.tags.every((tag) => value.tags!.includes(tag))
   return {
-    category: () => when(existingPk(catalogue?.category) === spec.category.pk),
+    category: () => when(existingPk(catalogue?.category) === spec.category.pk, catalogue?.category),
     tags: () => when(spec.tags.length > 0 && sameTags),
     description: () =>
-      when(spec.description !== undefined && catalogue?.description?.text === spec.description),
-    parameter: (templatePk: string, parameterValue: string) =>
       when(
-        Boolean(
-          catalogue?.parameters.some(
-            (item) => item.template?.pk === templatePk && item.value === parameterValue,
-          ),
-        ),
+        spec.description !== undefined && catalogue?.description?.text === spec.description,
+        catalogue?.description,
       ),
+    parameter: (templatePk: string, parameterValue: string) => {
+      const item = catalogue?.parameters.find(
+        (candidate) => candidate.template?.pk === templatePk && candidate.value === parameterValue,
+      )
+      return when(item !== undefined, item)
+    },
     manufacturer: () =>
       when(
         spec.manufacturer !== null &&
           existingPk(catalogue?.manufacturer?.company) === spec.manufacturer.company.pk,
+        catalogue?.manufacturer && company(catalogue.manufacturer),
       ),
     mpn: () =>
-      when(spec.manufacturer !== null && catalogue?.manufacturer?.mpn === spec.manufacturer.mpn),
+      when(
+        spec.manufacturer !== null && catalogue?.manufacturer?.mpn === spec.manufacturer.mpn,
+        catalogue?.manufacturer,
+      ),
     supplier: () =>
       when(
         spec.supplier !== null &&
           existingPk(catalogue?.supplier?.company) === spec.supplier.company.pk,
+        catalogue?.supplier && company(catalogue.supplier),
       ),
-    sku: () => when(spec.supplier !== null && catalogue?.supplier?.sku === spec.supplier.sku),
+    sku: () =>
+      when(
+        spec.supplier !== null && catalogue?.supplier?.sku === spec.supplier.sku,
+        catalogue?.supplier,
+      ),
   }
 }
 

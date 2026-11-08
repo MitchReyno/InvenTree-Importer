@@ -1238,3 +1238,25 @@ test('the operator excludes a lot with a reason and includes it again; the lead 
     assert.equal(notALot.status, 404)
   })
 })
+
+test('a reading keeps what kind of source it came from and how well it agrees', async () => {
+  await withLead(async ({ writer, photo, write, read }) => {
+    const start = await read()
+    const seen = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: start.revision,
+        evidence_version_id: photo.version,
+        region: region(0),
+        readings: { markings: ['BC547'], source_kind: 'label', agreement: 'likely' },
+      }),
+    )
+    assert.ok(seen.ok)
+    const after = await read()
+    const kept = after.evidence_observations?.find((item) => item.id === seen.id)
+    assert.deepEqual(kept?.readings, {
+      markings: ['BC547'],
+      source_kind: 'label',
+      agreement: 'likely',
+    })
+  })
+})

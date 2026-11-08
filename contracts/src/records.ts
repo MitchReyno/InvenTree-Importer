@@ -6,6 +6,7 @@ import {
   mappedReference,
   type InventoryPartSpecDto,
 } from './effects.ts'
+import { valueEvidence } from './value-evidence.ts'
 import { object } from './capture-primitives.ts'
 
 const text = Type.String({ minLength: 1, maxLength: 256 })
@@ -91,6 +92,8 @@ export const RecordOrigin = Type.Union([
     kind: Type.Literal('step'),
     step: choice(['examine', 'research', 'images', 'inventory']),
     proposal_id: Id,
+    /** What the matched value came from and how well its sources agree, when the step said. */
+    ...valueEvidence,
   }),
   /** The Examine lead session's estimate, which the operator accepts or replaces. */
   object({ kind: Type.Literal('estimate'), step: Type.Literal('examine') }),

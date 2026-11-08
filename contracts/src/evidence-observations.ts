@@ -1,5 +1,6 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id, Quantity, Revision } from './scalars.ts'
+import { valueEvidence } from './value-evidence.ts'
 import { unicodeText } from './unicode-text.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -31,6 +32,7 @@ export const EvidenceRegion = Type.Union([
 export const EvidenceReadings = object({
   markings: Type.Array(label, { maxItems: 32 }),
   text: Type.Optional(unicodeText(1, 2048)),
+  ...valueEvidence,
 })
 
 export const EvidenceObservationStatus = Type.Union([

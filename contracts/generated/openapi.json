@@ -10258,6 +10258,44 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 2048
+                      },
+                      "source_kind": {
+                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                        "anyOf": [
+                          {
+                            "const": "label",
+                            "type": "string"
+                          },
+                          {
+                            "const": "packing_slip",
+                            "type": "string"
+                          },
+                          {
+                            "const": "handwriting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "distributor_page",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "agreement": {
+                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                        "anyOf": [
+                          {
+                            "const": "read",
+                            "type": "string"
+                          },
+                          {
+                            "const": "likely",
+                            "type": "string"
+                          },
+                          {
+                            "const": "disagree",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   },
@@ -12671,6 +12709,44 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 2048
+                    },
+                    "source_kind": {
+                      "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                      "anyOf": [
+                        {
+                          "const": "label",
+                          "type": "string"
+                        },
+                        {
+                          "const": "packing_slip",
+                          "type": "string"
+                        },
+                        {
+                          "const": "handwriting",
+                          "type": "string"
+                        },
+                        {
+                          "const": "distributor_page",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "agreement": {
+                      "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                      "anyOf": [
+                        {
+                          "const": "read",
+                          "type": "string"
+                        },
+                        {
+                          "const": "likely",
+                          "type": "string"
+                        },
+                        {
+                          "const": "disagree",
+                          "type": "string"
+                        }
+                      ]
                     }
                   }
                 },
@@ -14363,6 +14439,44 @@
               "proposal_id": {
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
+              },
+              "source_kind": {
+                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                "anyOf": [
+                  {
+                    "const": "label",
+                    "type": "string"
+                  },
+                  {
+                    "const": "packing_slip",
+                    "type": "string"
+                  },
+                  {
+                    "const": "handwriting",
+                    "type": "string"
+                  },
+                  {
+                    "const": "distributor_page",
+                    "type": "string"
+                  }
+                ]
+              },
+              "agreement": {
+                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                "anyOf": [
+                  {
+                    "const": "read",
+                    "type": "string"
+                  },
+                  {
+                    "const": "likely",
+                    "type": "string"
+                  },
+                  {
+                    "const": "disagree",
+                    "type": "string"
+                  }
+                ]
               }
             }
           },
@@ -14463,6 +14577,44 @@
                   "proposal_id": {
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                     "type": "string"
+                  },
+                  "source_kind": {
+                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                    "anyOf": [
+                      {
+                        "const": "label",
+                        "type": "string"
+                      },
+                      {
+                        "const": "packing_slip",
+                        "type": "string"
+                      },
+                      {
+                        "const": "handwriting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "distributor_page",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "agreement": {
+                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                    "anyOf": [
+                      {
+                        "const": "read",
+                        "type": "string"
+                      },
+                      {
+                        "const": "likely",
+                        "type": "string"
+                      },
+                      {
+                        "const": "disagree",
+                        "type": "string"
+                      }
+                    ]
                   }
                 }
               },
@@ -14791,6 +14943,44 @@
                         "proposal_id": {
                           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                           "type": "string"
+                        },
+                        "source_kind": {
+                          "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                          "anyOf": [
+                            {
+                              "const": "label",
+                              "type": "string"
+                            },
+                            {
+                              "const": "packing_slip",
+                              "type": "string"
+                            },
+                            {
+                              "const": "handwriting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "distributor_page",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "agreement": {
+                          "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                          "anyOf": [
+                            {
+                              "const": "read",
+                              "type": "string"
+                            },
+                            {
+                              "const": "likely",
+                              "type": "string"
+                            },
+                            {
+                              "const": "disagree",
+                              "type": "string"
+                            }
+                          ]
                         }
                       }
                     },
@@ -15443,6 +15633,44 @@
                               "proposal_id": {
                                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                 "type": "string"
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -28755,6 +28983,44 @@
                             }
                           ]
                         }
+                      },
+                      "source_kind": {
+                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                        "anyOf": [
+                          {
+                            "const": "label",
+                            "type": "string"
+                          },
+                          {
+                            "const": "packing_slip",
+                            "type": "string"
+                          },
+                          {
+                            "const": "handwriting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "distributor_page",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "agreement": {
+                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                        "anyOf": [
+                          {
+                            "const": "read",
+                            "type": "string"
+                          },
+                          {
+                            "const": "likely",
+                            "type": "string"
+                          },
+                          {
+                            "const": "disagree",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   },
@@ -28842,6 +29108,44 @@
                             }
                           ]
                         }
+                      },
+                      "source_kind": {
+                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                        "anyOf": [
+                          {
+                            "const": "label",
+                            "type": "string"
+                          },
+                          {
+                            "const": "packing_slip",
+                            "type": "string"
+                          },
+                          {
+                            "const": "handwriting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "distributor_page",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "agreement": {
+                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                        "anyOf": [
+                          {
+                            "const": "read",
+                            "type": "string"
+                          },
+                          {
+                            "const": "likely",
+                            "type": "string"
+                          },
+                          {
+                            "const": "disagree",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   }
@@ -29008,6 +29312,44 @@
                       }
                     ]
                   }
+                },
+                "source_kind": {
+                  "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                  "anyOf": [
+                    {
+                      "const": "label",
+                      "type": "string"
+                    },
+                    {
+                      "const": "packing_slip",
+                      "type": "string"
+                    },
+                    {
+                      "const": "handwriting",
+                      "type": "string"
+                    },
+                    {
+                      "const": "distributor_page",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "agreement": {
+                  "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                  "anyOf": [
+                    {
+                      "const": "read",
+                      "type": "string"
+                    },
+                    {
+                      "const": "likely",
+                      "type": "string"
+                    },
+                    {
+                      "const": "disagree",
+                      "type": "string"
+                    }
+                  ]
                 }
               }
             }
@@ -29127,6 +29469,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -29214,6 +29594,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       }
@@ -29284,6 +29702,44 @@
                         }
                       ]
                     }
+                  },
+                  "source_kind": {
+                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                    "anyOf": [
+                      {
+                        "const": "label",
+                        "type": "string"
+                      },
+                      {
+                        "const": "packing_slip",
+                        "type": "string"
+                      },
+                      {
+                        "const": "handwriting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "distributor_page",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "agreement": {
+                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                    "anyOf": [
+                      {
+                        "const": "read",
+                        "type": "string"
+                      },
+                      {
+                        "const": "likely",
+                        "type": "string"
+                      },
+                      {
+                        "const": "disagree",
+                        "type": "string"
+                      }
+                    ]
                   }
                 }
               },
@@ -29408,6 +29864,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -29495,6 +29989,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       }
@@ -29597,6 +30129,44 @@
                         }
                       ]
                     }
+                  },
+                  "source_kind": {
+                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                    "anyOf": [
+                      {
+                        "const": "label",
+                        "type": "string"
+                      },
+                      {
+                        "const": "packing_slip",
+                        "type": "string"
+                      },
+                      {
+                        "const": "handwriting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "distributor_page",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "agreement": {
+                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                    "anyOf": [
+                      {
+                        "const": "read",
+                        "type": "string"
+                      },
+                      {
+                        "const": "likely",
+                        "type": "string"
+                      },
+                      {
+                        "const": "disagree",
+                        "type": "string"
+                      }
+                    ]
                   }
                 }
               },
@@ -29680,6 +30250,44 @@
                         }
                       ]
                     }
+                  },
+                  "source_kind": {
+                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                    "anyOf": [
+                      {
+                        "const": "label",
+                        "type": "string"
+                      },
+                      {
+                        "const": "packing_slip",
+                        "type": "string"
+                      },
+                      {
+                        "const": "handwriting",
+                        "type": "string"
+                      },
+                      {
+                        "const": "distributor_page",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "agreement": {
+                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                    "anyOf": [
+                      {
+                        "const": "read",
+                        "type": "string"
+                      },
+                      {
+                        "const": "likely",
+                        "type": "string"
+                      },
+                      {
+                        "const": "disagree",
+                        "type": "string"
+                      }
+                    ]
                   }
                 }
               },
@@ -30106,6 +30714,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -30193,6 +30839,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       }
@@ -30359,6 +31043,44 @@
                           }
                         ]
                       }
+                    },
+                    "source_kind": {
+                      "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                      "anyOf": [
+                        {
+                          "const": "label",
+                          "type": "string"
+                        },
+                        {
+                          "const": "packing_slip",
+                          "type": "string"
+                        },
+                        {
+                          "const": "handwriting",
+                          "type": "string"
+                        },
+                        {
+                          "const": "distributor_page",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "agreement": {
+                      "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                      "anyOf": [
+                        {
+                          "const": "read",
+                          "type": "string"
+                        },
+                        {
+                          "const": "likely",
+                          "type": "string"
+                        },
+                        {
+                          "const": "disagree",
+                          "type": "string"
+                        }
+                      ]
                     }
                   }
                 }
@@ -30478,6 +31200,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -30565,6 +31325,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           }
@@ -30635,6 +31433,44 @@
                             }
                           ]
                         }
+                      },
+                      "source_kind": {
+                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                        "anyOf": [
+                          {
+                            "const": "label",
+                            "type": "string"
+                          },
+                          {
+                            "const": "packing_slip",
+                            "type": "string"
+                          },
+                          {
+                            "const": "handwriting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "distributor_page",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "agreement": {
+                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                        "anyOf": [
+                          {
+                            "const": "read",
+                            "type": "string"
+                          },
+                          {
+                            "const": "likely",
+                            "type": "string"
+                          },
+                          {
+                            "const": "disagree",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   },
@@ -30759,6 +31595,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -30846,6 +31720,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           }
@@ -30948,6 +31860,44 @@
                             }
                           ]
                         }
+                      },
+                      "source_kind": {
+                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                        "anyOf": [
+                          {
+                            "const": "label",
+                            "type": "string"
+                          },
+                          {
+                            "const": "packing_slip",
+                            "type": "string"
+                          },
+                          {
+                            "const": "handwriting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "distributor_page",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "agreement": {
+                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                        "anyOf": [
+                          {
+                            "const": "read",
+                            "type": "string"
+                          },
+                          {
+                            "const": "likely",
+                            "type": "string"
+                          },
+                          {
+                            "const": "disagree",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   },
@@ -31031,6 +31981,44 @@
                             }
                           ]
                         }
+                      },
+                      "source_kind": {
+                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                        "anyOf": [
+                          {
+                            "const": "label",
+                            "type": "string"
+                          },
+                          {
+                            "const": "packing_slip",
+                            "type": "string"
+                          },
+                          {
+                            "const": "handwriting",
+                            "type": "string"
+                          },
+                          {
+                            "const": "distributor_page",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "agreement": {
+                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                        "anyOf": [
+                          {
+                            "const": "read",
+                            "type": "string"
+                          },
+                          {
+                            "const": "likely",
+                            "type": "string"
+                          },
+                          {
+                            "const": "disagree",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   },
@@ -51731,6 +52719,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -51818,6 +52844,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           }
@@ -51984,6 +53048,44 @@
                               }
                             ]
                           }
+                        },
+                        "source_kind": {
+                          "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                          "anyOf": [
+                            {
+                              "const": "label",
+                              "type": "string"
+                            },
+                            {
+                              "const": "packing_slip",
+                              "type": "string"
+                            },
+                            {
+                              "const": "handwriting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "distributor_page",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "agreement": {
+                          "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                          "anyOf": [
+                            {
+                              "const": "read",
+                              "type": "string"
+                            },
+                            {
+                              "const": "likely",
+                              "type": "string"
+                            },
+                            {
+                              "const": "disagree",
+                              "type": "string"
+                            }
+                          ]
                         }
                       }
                     }
@@ -52103,6 +53205,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               },
@@ -52190,6 +53330,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               }
@@ -52260,6 +53438,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -52384,6 +53600,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               },
@@ -52471,6 +53725,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               }
@@ -52573,6 +53865,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -52656,6 +53986,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -55324,6 +56692,44 @@
                                               }
                                             ]
                                           }
+                                        },
+                                        "source_kind": {
+                                          "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                          "anyOf": [
+                                            {
+                                              "const": "label",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "packing_slip",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "handwriting",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "distributor_page",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "agreement": {
+                                          "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                          "anyOf": [
+                                            {
+                                              "const": "read",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "likely",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "disagree",
+                                              "type": "string"
+                                            }
+                                          ]
                                         }
                                       }
                                     },
@@ -55411,6 +56817,44 @@
                                               }
                                             ]
                                           }
+                                        },
+                                        "source_kind": {
+                                          "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                          "anyOf": [
+                                            {
+                                              "const": "label",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "packing_slip",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "handwriting",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "distributor_page",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "agreement": {
+                                          "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                          "anyOf": [
+                                            {
+                                              "const": "read",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "likely",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "disagree",
+                                              "type": "string"
+                                            }
+                                          ]
                                         }
                                       }
                                     }
@@ -55577,6 +57021,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               }
@@ -55696,6 +57178,44 @@
                                                   }
                                                 ]
                                               }
+                                            },
+                                            "source_kind": {
+                                              "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "label",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "packing_slip",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "handwriting",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "distributor_page",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "agreement": {
+                                              "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "read",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "likely",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "disagree",
+                                                  "type": "string"
+                                                }
+                                              ]
                                             }
                                           }
                                         },
@@ -55783,6 +57303,44 @@
                                                   }
                                                 ]
                                               }
+                                            },
+                                            "source_kind": {
+                                              "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "label",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "packing_slip",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "handwriting",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "distributor_page",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "agreement": {
+                                              "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "read",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "likely",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "disagree",
+                                                  "type": "string"
+                                                }
+                                              ]
                                             }
                                           }
                                         }
@@ -55853,6 +57411,44 @@
                                           }
                                         ]
                                       }
+                                    },
+                                    "source_kind": {
+                                      "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                      "anyOf": [
+                                        {
+                                          "const": "label",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "packing_slip",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "handwriting",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "distributor_page",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "agreement": {
+                                      "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                      "anyOf": [
+                                        {
+                                          "const": "read",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "likely",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "disagree",
+                                          "type": "string"
+                                        }
+                                      ]
                                     }
                                   }
                                 },
@@ -55977,6 +57573,44 @@
                                                   }
                                                 ]
                                               }
+                                            },
+                                            "source_kind": {
+                                              "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "label",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "packing_slip",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "handwriting",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "distributor_page",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "agreement": {
+                                              "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "read",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "likely",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "disagree",
+                                                  "type": "string"
+                                                }
+                                              ]
                                             }
                                           }
                                         },
@@ -56064,6 +57698,44 @@
                                                   }
                                                 ]
                                               }
+                                            },
+                                            "source_kind": {
+                                              "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "label",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "packing_slip",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "handwriting",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "distributor_page",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "agreement": {
+                                              "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                              "anyOf": [
+                                                {
+                                                  "const": "read",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "likely",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "const": "disagree",
+                                                  "type": "string"
+                                                }
+                                              ]
                                             }
                                           }
                                         }
@@ -56166,6 +57838,44 @@
                                           }
                                         ]
                                       }
+                                    },
+                                    "source_kind": {
+                                      "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                      "anyOf": [
+                                        {
+                                          "const": "label",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "packing_slip",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "handwriting",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "distributor_page",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "agreement": {
+                                      "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                      "anyOf": [
+                                        {
+                                          "const": "read",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "likely",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "disagree",
+                                          "type": "string"
+                                        }
+                                      ]
                                     }
                                   }
                                 },
@@ -56249,6 +57959,44 @@
                                           }
                                         ]
                                       }
+                                    },
+                                    "source_kind": {
+                                      "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                      "anyOf": [
+                                        {
+                                          "const": "label",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "packing_slip",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "handwriting",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "distributor_page",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "agreement": {
+                                      "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                      "anyOf": [
+                                        {
+                                          "const": "read",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "likely",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "disagree",
+                                          "type": "string"
+                                        }
+                                      ]
                                     }
                                   }
                                 },
@@ -57523,6 +59271,44 @@
                                                     }
                                                   ]
                                                 }
+                                              },
+                                              "source_kind": {
+                                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                                "anyOf": [
+                                                  {
+                                                    "const": "label",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "packing_slip",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "handwriting",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "distributor_page",
+                                                    "type": "string"
+                                                  }
+                                                ]
+                                              },
+                                              "agreement": {
+                                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                                "anyOf": [
+                                                  {
+                                                    "const": "read",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "likely",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "disagree",
+                                                    "type": "string"
+                                                  }
+                                                ]
                                               }
                                             }
                                           },
@@ -57610,6 +59396,44 @@
                                                     }
                                                   ]
                                                 }
+                                              },
+                                              "source_kind": {
+                                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                                "anyOf": [
+                                                  {
+                                                    "const": "label",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "packing_slip",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "handwriting",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "distributor_page",
+                                                    "type": "string"
+                                                  }
+                                                ]
+                                              },
+                                              "agreement": {
+                                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                                "anyOf": [
+                                                  {
+                                                    "const": "read",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "likely",
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "const": "disagree",
+                                                    "type": "string"
+                                                  }
+                                                ]
                                               }
                                             }
                                           }
@@ -57776,6 +59600,44 @@
                                               }
                                             ]
                                           }
+                                        },
+                                        "source_kind": {
+                                          "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                          "anyOf": [
+                                            {
+                                              "const": "label",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "packing_slip",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "handwriting",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "distributor_page",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "agreement": {
+                                          "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                          "anyOf": [
+                                            {
+                                              "const": "read",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "likely",
+                                              "type": "string"
+                                            },
+                                            {
+                                              "const": "disagree",
+                                              "type": "string"
+                                            }
+                                          ]
                                         }
                                       }
                                     }
@@ -57895,6 +59757,44 @@
                                                         }
                                                       ]
                                                     }
+                                                  },
+                                                  "source_kind": {
+                                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "label",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "packing_slip",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "handwriting",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "distributor_page",
+                                                        "type": "string"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "agreement": {
+                                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "read",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "likely",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "disagree",
+                                                        "type": "string"
+                                                      }
+                                                    ]
                                                   }
                                                 }
                                               },
@@ -57982,6 +59882,44 @@
                                                         }
                                                       ]
                                                     }
+                                                  },
+                                                  "source_kind": {
+                                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "label",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "packing_slip",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "handwriting",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "distributor_page",
+                                                        "type": "string"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "agreement": {
+                                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "read",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "likely",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "disagree",
+                                                        "type": "string"
+                                                      }
+                                                    ]
                                                   }
                                                 }
                                               }
@@ -58052,6 +59990,44 @@
                                                 }
                                               ]
                                             }
+                                          },
+                                          "source_kind": {
+                                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                            "anyOf": [
+                                              {
+                                                "const": "label",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "packing_slip",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "handwriting",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "distributor_page",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "agreement": {
+                                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                            "anyOf": [
+                                              {
+                                                "const": "read",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "likely",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "disagree",
+                                                "type": "string"
+                                              }
+                                            ]
                                           }
                                         }
                                       },
@@ -58176,6 +60152,44 @@
                                                         }
                                                       ]
                                                     }
+                                                  },
+                                                  "source_kind": {
+                                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "label",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "packing_slip",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "handwriting",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "distributor_page",
+                                                        "type": "string"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "agreement": {
+                                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "read",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "likely",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "disagree",
+                                                        "type": "string"
+                                                      }
+                                                    ]
                                                   }
                                                 }
                                               },
@@ -58263,6 +60277,44 @@
                                                         }
                                                       ]
                                                     }
+                                                  },
+                                                  "source_kind": {
+                                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "label",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "packing_slip",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "handwriting",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "distributor_page",
+                                                        "type": "string"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "agreement": {
+                                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                                    "anyOf": [
+                                                      {
+                                                        "const": "read",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "likely",
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "const": "disagree",
+                                                        "type": "string"
+                                                      }
+                                                    ]
                                                   }
                                                 }
                                               }
@@ -58365,6 +60417,44 @@
                                                 }
                                               ]
                                             }
+                                          },
+                                          "source_kind": {
+                                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                            "anyOf": [
+                                              {
+                                                "const": "label",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "packing_slip",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "handwriting",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "distributor_page",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "agreement": {
+                                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                            "anyOf": [
+                                              {
+                                                "const": "read",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "likely",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "disagree",
+                                                "type": "string"
+                                              }
+                                            ]
                                           }
                                         }
                                       },
@@ -58448,6 +60538,44 @@
                                                 }
                                               ]
                                             }
+                                          },
+                                          "source_kind": {
+                                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                            "anyOf": [
+                                              {
+                                                "const": "label",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "packing_slip",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "handwriting",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "distributor_page",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "agreement": {
+                                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                            "anyOf": [
+                                              {
+                                                "const": "read",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "likely",
+                                                "type": "string"
+                                              },
+                                              {
+                                                "const": "disagree",
+                                                "type": "string"
+                                              }
+                                            ]
                                           }
                                         }
                                       },
@@ -65509,6 +67637,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               },
@@ -65596,6 +67762,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               }
@@ -65762,6 +67966,44 @@
                                   }
                                 ]
                               }
+                            },
+                            "source_kind": {
+                              "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                              "anyOf": [
+                                {
+                                  "const": "label",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "packing_slip",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "handwriting",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "distributor_page",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "agreement": {
+                              "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                              "anyOf": [
+                                {
+                                  "const": "read",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "likely",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "disagree",
+                                  "type": "string"
+                                }
+                              ]
                             }
                           }
                         }
@@ -65881,6 +68123,44 @@
                                             }
                                           ]
                                         }
+                                      },
+                                      "source_kind": {
+                                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                        "anyOf": [
+                                          {
+                                            "const": "label",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "packing_slip",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "handwriting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "distributor_page",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "agreement": {
+                                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                        "anyOf": [
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "likely",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "disagree",
+                                            "type": "string"
+                                          }
+                                        ]
                                       }
                                     }
                                   },
@@ -65968,6 +68248,44 @@
                                             }
                                           ]
                                         }
+                                      },
+                                      "source_kind": {
+                                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                        "anyOf": [
+                                          {
+                                            "const": "label",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "packing_slip",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "handwriting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "distributor_page",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "agreement": {
+                                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                        "anyOf": [
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "likely",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "disagree",
+                                            "type": "string"
+                                          }
+                                        ]
                                       }
                                     }
                                   }
@@ -66038,6 +68356,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -66162,6 +68518,44 @@
                                             }
                                           ]
                                         }
+                                      },
+                                      "source_kind": {
+                                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                        "anyOf": [
+                                          {
+                                            "const": "label",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "packing_slip",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "handwriting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "distributor_page",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "agreement": {
+                                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                        "anyOf": [
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "likely",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "disagree",
+                                            "type": "string"
+                                          }
+                                        ]
                                       }
                                     }
                                   },
@@ -66249,6 +68643,44 @@
                                             }
                                           ]
                                         }
+                                      },
+                                      "source_kind": {
+                                        "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                        "anyOf": [
+                                          {
+                                            "const": "label",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "packing_slip",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "handwriting",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "distributor_page",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "agreement": {
+                                        "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                        "anyOf": [
+                                          {
+                                            "const": "read",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "likely",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "disagree",
+                                            "type": "string"
+                                          }
+                                        ]
                                       }
                                     }
                                   }
@@ -66351,6 +68783,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -66434,6 +68904,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -67244,6 +69752,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -67331,6 +69877,44 @@
                                     }
                                   ]
                                 }
+                              },
+                              "source_kind": {
+                                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                "anyOf": [
+                                  {
+                                    "const": "label",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "packing_slip",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "handwriting",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "distributor_page",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "agreement": {
+                                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                "anyOf": [
+                                  {
+                                    "const": "read",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "likely",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "disagree",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           }
@@ -67497,6 +70081,44 @@
                               }
                             ]
                           }
+                        },
+                        "source_kind": {
+                          "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                          "anyOf": [
+                            {
+                              "const": "label",
+                              "type": "string"
+                            },
+                            {
+                              "const": "packing_slip",
+                              "type": "string"
+                            },
+                            {
+                              "const": "handwriting",
+                              "type": "string"
+                            },
+                            {
+                              "const": "distributor_page",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "agreement": {
+                          "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                          "anyOf": [
+                            {
+                              "const": "read",
+                              "type": "string"
+                            },
+                            {
+                              "const": "likely",
+                              "type": "string"
+                            },
+                            {
+                              "const": "disagree",
+                              "type": "string"
+                            }
+                          ]
                         }
                       }
                     }
@@ -67616,6 +70238,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               },
@@ -67703,6 +70363,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               }
@@ -67773,6 +70471,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -67897,6 +70633,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               },
@@ -67984,6 +70758,44 @@
                                         }
                                       ]
                                     }
+                                  },
+                                  "source_kind": {
+                                    "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                                    "anyOf": [
+                                      {
+                                        "const": "label",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "packing_slip",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "handwriting",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "distributor_page",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "agreement": {
+                                    "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                                    "anyOf": [
+                                      {
+                                        "const": "read",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "likely",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "disagree",
+                                        "type": "string"
+                                      }
+                                    ]
                                   }
                                 }
                               }
@@ -68086,6 +70898,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -68169,6 +71019,44 @@
                                 }
                               ]
                             }
+                          },
+                          "source_kind": {
+                            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                            "anyOf": [
+                              {
+                                "const": "label",
+                                "type": "string"
+                              },
+                              {
+                                "const": "packing_slip",
+                                "type": "string"
+                              },
+                              {
+                                "const": "handwriting",
+                                "type": "string"
+                              },
+                              {
+                                "const": "distributor_page",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "agreement": {
+                            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                            "anyOf": [
+                              {
+                                "const": "read",
+                                "type": "string"
+                              },
+                              {
+                                "const": "likely",
+                                "type": "string"
+                              },
+                              {
+                                "const": "disagree",
+                                "type": "string"
+                              }
+                            ]
                           }
                         }
                       },
@@ -70084,6 +72972,44 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2048
+          },
+          "source_kind": {
+            "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+            "anyOf": [
+              {
+                "const": "label",
+                "type": "string"
+              },
+              {
+                "const": "packing_slip",
+                "type": "string"
+              },
+              {
+                "const": "handwriting",
+                "type": "string"
+              },
+              {
+                "const": "distributor_page",
+                "type": "string"
+              }
+            ]
+          },
+          "agreement": {
+            "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+            "anyOf": [
+              {
+                "const": "read",
+                "type": "string"
+              },
+              {
+                "const": "likely",
+                "type": "string"
+              },
+              {
+                "const": "disagree",
+                "type": "string"
+              }
+            ]
           }
         }
       },
@@ -70218,6 +73144,44 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2048
+              },
+              "source_kind": {
+                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                "anyOf": [
+                  {
+                    "const": "label",
+                    "type": "string"
+                  },
+                  {
+                    "const": "packing_slip",
+                    "type": "string"
+                  },
+                  {
+                    "const": "handwriting",
+                    "type": "string"
+                  },
+                  {
+                    "const": "distributor_page",
+                    "type": "string"
+                  }
+                ]
+              },
+              "agreement": {
+                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                "anyOf": [
+                  {
+                    "const": "read",
+                    "type": "string"
+                  },
+                  {
+                    "const": "likely",
+                    "type": "string"
+                  },
+                  {
+                    "const": "disagree",
+                    "type": "string"
+                  }
+                ]
               }
             }
           },
@@ -70434,6 +73398,44 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2048
+              },
+              "source_kind": {
+                "description": "Where the value was read: a printed label, a packing slip, handwriting, or a distributor page.",
+                "anyOf": [
+                  {
+                    "const": "label",
+                    "type": "string"
+                  },
+                  {
+                    "const": "packing_slip",
+                    "type": "string"
+                  },
+                  {
+                    "const": "handwriting",
+                    "type": "string"
+                  },
+                  {
+                    "const": "distributor_page",
+                    "type": "string"
+                  }
+                ]
+              },
+              "agreement": {
+                "description": "read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict.",
+                "anyOf": [
+                  {
+                    "const": "read",
+                    "type": "string"
+                  },
+                  {
+                    "const": "likely",
+                    "type": "string"
+                  },
+                  {
+                    "const": "disagree",
+                    "type": "string"
+                  }
+                ]
               }
             }
           },
