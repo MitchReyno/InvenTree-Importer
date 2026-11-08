@@ -206,6 +206,7 @@ const Content = styled(Popover.Content)`
   z-index: ${zIndex.popover};
   display: grid;
   gap: ${space[6]};
+  /* literal-allowed: a 12px viewport gutter either side; no gutter token */
   width: min(320px, calc(100vw - 24px));
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
@@ -247,7 +248,7 @@ const Choice = styled.label`
 `
 const Hint = styled.span`
   grid-column: 2;
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 const ManualArea = styled.div`

@@ -430,7 +430,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] 20.3 Move the remaining `primitives.Notice` users, including Added's (G12), onto `Banner` and remove the unused legacy primitives.
 - [x] 20.4 Move this area's near values and visible cluster changes (C3, C4, C9, C10, C15–C17) onto tokens, local button look-alikes onto `Button` (C1), with before-and-after screenshots, and close the remaining V7 gaps for Records and the V8 gaps: R16, R17, X3, X4, X5 and X6.
 - [x] 20.5 Close R25, R26's per-category matrix, grouping and new-template aside, X7 and X9 (without activity times, task 23.5), with Records' source chips keyed by step and operator edits (G18).
-- [ ] 20.6 Empty the literal-value baseline and make the lint strict.
+- [x] 20.6 Empty the literal-value baseline and make the lint strict.
 - [ ] 20.7 Update `frontend/ARCHITECTURE.md`'s styling paragraph, and record the final screenshot pass and results in the PR description and any departure from this plan in `notes.md`.
 
 ## 21. Corrections, region edits and the inline answer

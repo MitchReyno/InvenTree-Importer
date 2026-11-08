@@ -121,6 +121,7 @@ const Editable = styled.div`
 `
 
 const ValueText = styled.span<{ $state: ValueState; $mono: boolean }>`
+  /* literal-allowed: a value reads one step heavier than its label; no medium body weight token */
   font-weight: 500;
   overflow-wrap: anywhere;
   ${({ $mono }) =>
@@ -140,6 +141,6 @@ const ValueText = styled.span<{ $state: ValueState; $mono: boolean }>`
 `
 
 const Note = styled.span<{ $state: ValueState }>`
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   color: ${({ $state }) => ($state === 'override' ? color.warn : color.muted)};
 `

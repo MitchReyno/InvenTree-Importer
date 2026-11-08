@@ -86,7 +86,7 @@ const Item = styled.li`
 `
 
 const Arrow = styled.span`
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 

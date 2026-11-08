@@ -5,7 +5,7 @@ import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { Paragraph, Small } from '../ui/primitives'
 import { Button } from '../ui/Button'
 import styled from 'styled-components'
-import { color, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
 
 export function Diagnostics() {
   const scope = useServerScope()
@@ -60,9 +60,9 @@ const Container = styled.details`
   margin: ${space[3]} 0;
   padding: 0 ${space[5]} ${space[4]};
   border: 1px solid ${color.line};
-  border-radius: 6px;
+  border-radius: ${radius.card};
   background: ${color.surface};
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   summary {
     cursor: pointer;
     min-height: ${size.touch};

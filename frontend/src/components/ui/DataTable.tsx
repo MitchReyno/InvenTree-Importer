@@ -240,7 +240,7 @@ const CellText = styled.span<{ $override: boolean; $edited: boolean; $mono: bool
     $override &&
     css`
       color: ${color.warn};
-      font-weight: 600;
+      font-weight: ${typeVar.bodyStrong.weight};
     `}
   ${({ $edited }) =>
     $edited &&

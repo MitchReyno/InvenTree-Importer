@@ -289,7 +289,7 @@ const Retry = styled.button`
   border: 0;
   background: none;
   color: ${color.accent};
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   text-decoration: underline;
   cursor: pointer;
   ${media.compact} {
@@ -315,5 +315,5 @@ const NoteLink = styled.button`
 const Note = styled.p`
   margin: 0;
   padding: 0 ${space[3]} ${space[3]};
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
 `

@@ -86,6 +86,7 @@ const List = styled.ul`
 `
 
 const Thumb = styled.span`
+  /* literal-allowed: the canvas's 4:3 row thumbnail; no thumbnail size token */
   width: 44px;
   height: 34px;
   overflow: hidden;
@@ -122,7 +123,7 @@ const Title = styled.b`
 
 const Assumption = styled.span`
   display: block;
-  font-size: 12px;
+  font-size: ${typeVar.small.size};
   color: ${color.muted};
 `
 

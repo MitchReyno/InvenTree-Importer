@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, icon, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
 import { media } from './media'
 
 /** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */
@@ -138,9 +138,10 @@ export const HeadingRow = styled.div`
 export const CheckboxLabel = styled(Label)`
   display: flex;
   align-items: center;
+  /* literal-allowed: a choice reads one step heavier than body text; no medium body weight token */
   font-weight: 500;
   ${Input} {
-    width: 20px;
+    width: ${icon.md};
   }
   ${media.compact} {
     min-height: ${size.touch};
