@@ -54,28 +54,20 @@ const records = [
     target: { kind: 'parameter', part_subject_id: 'a', template_pk: '2' },
     fields: [{ name: 'value', value: '1%', origin: { kind: 'operator' } }],
   } as never),
-  record({
-    key: 'parameter_template:2',
-    type: 'parameter_template',
-    label: 'Tolerance',
-    state: 'choose',
-    target: { kind: 'parameter_template', pk: '2' },
-  } as never),
 ]
 
 describe('parameterMatrix', () => {
-  it('lays each category out as Parts by templates, marking missing, new and added values', () => {
-    const { groups, toDecide } = parameterMatrix(batch, records)
+  it('lays each category out as Parts by templates, marking missing and added values', () => {
+    const groups = parameterMatrix(batch, records)
     expect(groups).toHaveLength(1)
     const [group] = groups
     expect(group.category).toBe('Resistors')
     expect(group.templates).toEqual([
-      { pk: '1', label: 'Resistance', isNew: false },
-      { pk: '2', label: 'Tolerance', isNew: true },
+      { pk: '1', label: 'Resistance' },
+      { pk: '2', label: 'Tolerance' },
     ])
     expect(group.rows.map((row) => row.label)).toEqual(['Resistor A', 'Resistor B'])
     expect(group.rows[0].cells['2']).toMatchObject({ value: '1%', added: true })
     expect(group.rows[1].cells['2']).toMatchObject({ missing: true })
-    expect(toDecide.map((item) => item.label)).toEqual(['Tolerance'])
   })
 })

@@ -71,6 +71,52 @@ describe('ReviewMap', () => {
     expect(screen.getByText(/Solid: the file shows the lot/)).toBeInTheDocument()
   })
 
+  it('counts lots on one observation apart from lots on one file', () => {
+    const observed = {
+      ...batch,
+      lots: [...batch.lots],
+      evidence_observations: [
+        {
+          id: 'o1',
+          evidence_version_id: 'v3',
+          page: null,
+          region: {
+            kind: 'pixels',
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            source_width: 9,
+            source_height: 9,
+          },
+          readings: { markings: ['Bag'], text: null },
+          visible_count: null,
+          status: 'active',
+          lot_id: 'c',
+        },
+      ],
+    } as unknown as CaptureSnapshotDto
+    render(
+      <ReviewMap
+        batch={observed}
+        evidence={
+          evidence.map((item) =>
+            item.id === 'f3' ? { ...item, versions: [{ id: 'v3', evidence_id: 'f3' }] } : item,
+          ) as never
+        }
+        retiredLotIds={new Set()}
+        disabled={false}
+        link={vi.fn(async () => undefined)}
+        newLotFrom={vi.fn(async () => undefined)}
+        approvedLotIds={new Set()}
+        loading={false}
+      />,
+    )
+    const title = screen.getByRole('heading', { name: 'How photos became lots' }).parentElement!
+    expect(title).toHaveTextContent('1 lot on a single observation')
+    expect(title).toHaveTextContent('1 lot on a single file')
+  })
+
   it('selects a file to draw its links in accent', async () => {
     const user = userEvent.setup()
     const { container } = render(

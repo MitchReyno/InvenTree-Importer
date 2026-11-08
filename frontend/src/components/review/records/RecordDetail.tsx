@@ -65,23 +65,20 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
         <Title>{record.label}</Title>
         <RecordStatePill state={record.state}>{STATE_LABELS[record.state]}</RecordStatePill>
       </Head>
-      {target ? (
-        <Small>{scopeText(batch, target)}</Small>
-      ) : (
-        record.lot_ids.length > 0 && (
-          <Small>
-            Used by{' '}
-            {record.lot_ids.map((lotId, index) => (
-              <span key={lotId}>
-                {index > 0 && ', '}
-                <a href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
-                  {batch.lots.find((lot) => lot.id === lotId)?.label ?? 'a retired lot'}
-                </a>
-              </span>
-            ))}
-            .
-          </Small>
-        )
+      {target && <Small>{scopeText(batch, target)}</Small>}
+      {record.lot_ids.length > 0 && (
+        <Small>
+          Used by{' '}
+          {record.lot_ids.map((lotId, index) => (
+            <span key={lotId}>
+              {index > 0 && ', '}
+              <a href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
+                {batch.lots.find((lot) => lot.id === lotId)?.label ?? 'a retired lot'}
+              </a>
+            </span>
+          ))}
+          .
+        </Small>
       )}
       {record.decision && record.type !== 'part' && !record.proposed && (
         <Small>

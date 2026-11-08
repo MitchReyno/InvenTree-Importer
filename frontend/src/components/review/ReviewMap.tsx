@@ -103,8 +103,10 @@ export function ReviewMap({
   )
 
   const unusedCount = map.files.filter((file) => file.unused).length
-  const observed = map.lots.some((lot) => lot.observations > 0)
-  const singleCount = map.lots.filter((lot) => lot.singleSource).length
+  const singleObservation = map.lots.filter(
+    (lot) => lot.singleSource && lot.observations > 0,
+  ).length
+  const singleFile = map.lots.filter((lot) => lot.singleSource && lot.observations === 0).length
   const edges = map.files.flatMap((file) =>
     file.edges.map((edge) => ({ ...edge, fileId: file.id })),
   )
@@ -118,10 +120,14 @@ export function ReviewMap({
             {unusedCount} {unusedCount === 1 ? 'file' : 'files'} in no lot
           </Pill>
         )}
-        {singleCount > 0 && (
+        {singleObservation > 0 && (
           <Pill status="warning">
-            {singleCount} {singleCount === 1 ? 'lot' : 'lots'} on a single{' '}
-            {observed ? 'observation' : 'file'}
+            {singleObservation} {singleObservation === 1 ? 'lot' : 'lots'} on a single observation
+          </Pill>
+        )}
+        {singleFile > 0 && (
+          <Pill status="warning">
+            {singleFile} {singleFile === 1 ? 'lot' : 'lots'} on a single file
           </Pill>
         )}
       </TitleRow>
@@ -468,6 +474,9 @@ const FileToggle = styled.button`
   cursor: pointer;
   &:hover strong {
     text-decoration: underline;
+  }
+  ${media.compact} {
+    min-height: ${size.touch};
   }
 `
 

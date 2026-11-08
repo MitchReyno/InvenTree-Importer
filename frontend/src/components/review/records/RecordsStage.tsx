@@ -303,7 +303,7 @@ export function RecordsStage({
               <ParameterMatrix
                 batch={batch}
                 records={records.records}
-                open={(nextType, key) => choose(nextType, key)}
+                open={(key) => choose('parameter', key)}
               />
             )}
             {selected && (

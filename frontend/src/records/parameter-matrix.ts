@@ -12,15 +12,18 @@ export type MatrixCell = {
 
 export type MatrixGroup = {
   category: string
-  templates: { pk: string; label: string; isNew: boolean }[]
+  templates: { pk: string; label: string }[]
   rows: { partId: string; label: string; cells: Record<string, MatrixCell> }[]
 }
 
 /**
  * Records › Parameters as one Part × template matrix per category, for the batch's new Parts.
- * Source conflicts and required-here markers need per-value alternatives (task 23.3).
+ * New-template, source-conflict and required-here markers need projected data (notes, task 23.3).
  */
-export function parameterMatrix(batch: CaptureSnapshotDto, records: BatchRecordDto[]) {
+export function parameterMatrix(
+  batch: CaptureSnapshotDto,
+  records: BatchRecordDto[],
+): MatrixGroup[] {
   const label = (id: string) => batch.observations.find((item) => item.id === id)?.label
 
   const parameterRecord = (partId: string, pk: string) =>
@@ -29,16 +32,6 @@ export function parameterMatrix(batch: CaptureSnapshotDto, records: BatchRecordD
         record.target?.kind === 'parameter' &&
         record.target.part_subject_id === partId &&
         record.target.template_pk === pk,
-    )
-
-  const templateRecords = records.filter((record) => record.target?.kind === 'parameter_template')
-
-  const isNew = (pk: string) =>
-    templateRecords.some(
-      (record) =>
-        record.target?.kind === 'parameter_template' &&
-        record.target.pk === pk &&
-        record.state !== 'exists',
     )
 
   const groups = new Map<string, MatrixGroup>()
@@ -59,7 +52,6 @@ export function parameterMatrix(batch: CaptureSnapshotDto, records: BatchRecordD
         group.templates.push({
           pk,
           label: label(parameter.template.observation_id) ?? `Template #${pk}`,
-          isNew: isNew(pk),
         })
       }
     }
@@ -85,8 +77,5 @@ export function parameterMatrix(batch: CaptureSnapshotDto, records: BatchRecordD
     }
   }
 
-  return {
-    groups: [...groups.values()],
-    toDecide: templateRecords.filter((record) => record.state === 'choose'),
-  }
+  return [...groups.values()]
 }

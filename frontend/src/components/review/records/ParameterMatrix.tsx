@@ -9,32 +9,17 @@ import { VisuallyHidden } from '../../ui/VisuallyHidden'
 type Props = {
   batch: CaptureSnapshotDto
   records: BatchRecordDto[]
-  open: (type: 'parameter' | 'parameter_template', key: string) => void
+  open: (key: string) => void
 }
 
 /** Each category's new Parts against its templates; a cell opens that parameter's record. */
 export function ParameterMatrix({ batch, records, open }: Props) {
-  const { groups, toDecide } = parameterMatrix(batch, records)
-  if (!groups.length && !toDecide.length) {
+  const groups = parameterMatrix(batch, records)
+  if (!groups.length) {
     return null
   }
   return (
     <Matrix aria-label="Parameters by category">
-      {toDecide.length > 0 && (
-        <Decide aria-label="New parameter templates">
-          <strong>New parameter templates · {toDecide.length} to decide</strong>
-          {toDecide.map((record) => (
-            <Button
-              key={record.key}
-              size="sm"
-              variant="link"
-              onClick={() => open('parameter_template', record.key)}
-            >
-              {record.label}
-            </Button>
-          ))}
-        </Decide>
-      )}
       {groups.map((group) => (
         <Group key={group.category}>
           <GroupTitle>{group.category}</GroupTitle>
@@ -48,9 +33,7 @@ export function ParameterMatrix({ batch, records, open }: Props) {
                   <th scope="col">Part</th>
                   {group.templates.map((template) => (
                     <th key={template.pk} scope="col">
-                      {template.isNew && <span aria-hidden="true">＋ </span>}
                       {template.label}
-                      {template.isNew && <VisuallyHidden> (new template)</VisuallyHidden>}
                     </th>
                   ))}
                 </tr>
@@ -75,7 +58,7 @@ export function ParameterMatrix({ batch, records, open }: Props) {
                               size="sm"
                               variant="link"
                               aria-label={`${row.label}, ${template.label}: ${cell.value}`}
-                              onClick={() => open('parameter', cell.recordKey!)}
+                              onClick={() => open(cell.recordKey!)}
                             >
                               {cell.value}
                             </Button>
@@ -94,8 +77,8 @@ export function ParameterMatrix({ batch, records, open }: Props) {
         </Group>
       ))}
       <Small>
-        ＋ new template · <Added>underline</Added>: your edit · missing: another Part in the
-        category has this template. Source conflicts arrive with per-value alternatives.
+        <Added>underline</Added>: your edit · missing: another Part in the category has this
+        template.
       </Small>
     </Matrix>
   )
@@ -108,15 +91,6 @@ const Matrix = styled.section`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
-`
-const Decide = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${space[3]} ${space[5]};
-  padding: ${space[5]} ${space[6]};
-  border-radius: ${radius.btn};
-  background: ${color.warnWeak};
 `
 const Group = styled.div`
   display: grid;

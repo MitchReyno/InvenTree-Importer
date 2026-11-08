@@ -380,6 +380,10 @@ describe('RecordsStage', () => {
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
 
     expect(detail).toHaveTextContent('Applies to Carbon film resistor, used by 2 lots.')
+    expect(within(detail).getByRole('link', { name: 'Lot 1' })).toHaveAttribute(
+      'href',
+      expect.stringContaining(`/review/lots/${id(101)}`),
+    )
     expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
       'Research · Proposed',
     )
