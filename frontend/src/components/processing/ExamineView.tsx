@@ -129,7 +129,7 @@ function ReadingEdit({
           <VisuallyHidden>
             Marking {index + 1} for {name}
           </VisuallyHidden>
-          <TextArea
+          <MarkingField
             rows={Math.max(1, marking.split('\n').length)}
             value={marking}
             disabled={busy}
@@ -704,6 +704,15 @@ const Candidate = styled.div`
 
 const ReadingForm = styled.form`
   display: grid;
+  justify-items: start;
   gap: ${space[3]};
   max-width: 28rem;
+  label,
+  textarea {
+    width: 100%;
+  }
+`
+/** One line per marking line, rather than the default note height. */
+const MarkingField = styled(TextArea)`
+  min-height: 0;
 `

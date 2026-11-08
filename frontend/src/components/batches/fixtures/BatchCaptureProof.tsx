@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type {
   BatchAttentionDto,
+  CaptureEditDto,
   CaptureSnapshotDto,
   MediaSnapshotDto,
   MediaVersionDto,
@@ -250,16 +251,69 @@ const manualClient = {
 }
 
 const operatorClient = {
-  read: async () => operatorReview,
+  // Follows the batch, which `?agents` edits advance.
+  read: async () => ({ ...operatorReview, revision: batch.revision }),
   dismiss: unsupported,
   bulkEdit: unsupported,
   restructure: unsupported,
   instruct: unsupported,
 }
 
+type Change = CaptureEditDto['change']
+
+/** With `?agents`, region and reading edits apply, so a correction shows once saved. */
+function applyEdit(change: Change) {
+  if (!agents) {
+    return batch
+  }
+  const observations = batch.evidence_observations ?? []
+  if (change.kind === 'observation') {
+    const before = observations.find((item) => item.id === change.observation_id)
+    const next = {
+      ...(before ?? observations[0]),
+      id:
+        before?.id ??
+        `e0000000-0000-4000-8000-0000000001${String(observations.length).padStart(2, '0')}`,
+      evidence_version_id: change.evidence_version_id,
+      page: change.page ?? 1,
+      region: change.region,
+      readings: change.readings ?? before?.readings ?? { markings: [] },
+      // As on the server: an adjusted observation keeps its origin; a new one is the operator's.
+      origin: before?.origin ?? ('operator' as const),
+      operator_edited: true,
+      lot_id: before?.lot_id ?? null,
+    }
+    batch.evidence_observations = before
+      ? observations.map((item) => (item.id === before.id ? next : item))
+      : [...observations, next]
+    if (next.lot_id) {
+      batch.lots = batch.lots.map((lot) =>
+        lot.id === next.lot_id ? { ...lot, reexamine: true } : lot,
+      )
+    }
+  } else if (change.kind === 'observation_move') {
+    batch.evidence_observations = observations.map((item) =>
+      item.id === change.observation_id ? { ...item, lot_id: change.lot_id } : item,
+    )
+  } else if (change.kind === 'add_lot') {
+    const index = batch.lots.length + 1
+    batch.lots = [
+      ...batch.lots,
+      {
+        ...batch.lots[0],
+        id: lotId(index),
+        label: change.label,
+        contribution_key: lotId(index + 40),
+      },
+    ]
+  }
+  batch.revision = String(Number(batch.revision) + 1)
+  return { ...batch }
+}
+
 const captureClient = {
-  read: async () => batch,
-  edit: async () => batch,
+  read: async () => ({ ...batch }),
+  edit: async (_id: string, request: { change: Change }) => applyEdit(request.change),
   list: async () => ({
     batches: [
       {
@@ -375,6 +429,16 @@ if (agents) {
       revision: '1',
       suggested_lot_ids: [],
     })),
+    // The diode lot was formed from its photo's region.
+    lots: batch.lots.map((lot) =>
+      lot.id === lotId(4)
+        ? {
+            ...lot,
+            origin: 'agent',
+            evidence_observation_ids: ['e0000000-0000-4000-8000-000000000003'],
+          }
+        : lot,
+    ),
   })
 }
 
@@ -420,10 +484,36 @@ const processingSnapshot = {
       'Checking the ATmega328P datasheet',
       '2026-11-06T09:06:00.000Z',
     ),
+    {
+      ...sessionJob(
+        '90000000-0000-4000-8000-000000000003',
+        'examine',
+        lotId(2),
+        'Counting Resistor packet B',
+        '2026-11-06T09:07:00.000Z',
+      ),
+      session_state: 'waiting_input',
+      questions: [
+        {
+          id: 'a0000000-0000-4000-8000-000000000001',
+          job_id: '90000000-0000-4000-8000-000000000003',
+          attempt_id: '80000000-0000-4000-8000-000000000003',
+          input_sha256: 'a'.repeat(64),
+          revision: '1',
+          state: 'open',
+          spec: {
+            kind: 'quantity',
+            subject_id: lotId(2),
+            prompt: 'How many resistors are in packet B?',
+            reason: 'The label is torn where the count is printed.',
+          },
+        },
+      ],
+    },
   ],
 }
 const processingClient = {
-  read: async () => processingSnapshot,
+  read: async () => ({ ...processingSnapshot, capture_revision: batch.revision }),
   session: async (_batch: string, jobId: string) => ({
     job_id: jobId,
     attempt_id: jobId.replace(/^9/, '8'),
@@ -433,6 +523,17 @@ const processingClient = {
     truncated: false,
   }),
   chat: async () => ({ id: 'f0000000-0000-4000-8000-000000000001' }),
+  // An accepted answer settles the question and sets the lot's quantity, as the server does.
+  answer: async (_batch: string, _question: string, input: { value: { value: string } }) => {
+    const job = processingSnapshot.jobs[2]
+    job.questions = []
+    job.session_state = 'running'
+    batch.lots = batch.lots.map((lot) =>
+      lot.id === lotId(2) ? { ...lot, quantity: { mode: 'set', value: input.value.value } } : lot,
+    )
+    batch.revision = String(Number(batch.revision) + 1)
+    return { status: 'accepted' }
+  },
 }
 
 /** List times are relative, so they are set from now to keep the screenshots stable. */
