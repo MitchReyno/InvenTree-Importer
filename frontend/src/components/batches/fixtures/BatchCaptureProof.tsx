@@ -250,6 +250,12 @@ const manualClient = {
   recover: unsupported,
 }
 
+/** As the server words it: issue messages hold 256 characters, so a long reason is shortened. */
+function clipReason(reason: string) {
+  const characters = Array.from(reason)
+  return characters.length > 200 ? `${characters.slice(0, 199).join('')}…` : reason
+}
+
 const operatorClient = {
   // Follows the batch, which `?agents` edits advance.
   read: async () => ({
@@ -266,7 +272,7 @@ const operatorClient = {
               {
                 code: 'lot_excluded',
                 severity: 'blocking',
-                message: `Excluded: ${excluded.reason}. Include it again to add it.`,
+                message: `Excluded: ${clipReason(excluded.reason)}. Include it again to add it.`,
                 subject_id: lot.lot_id,
                 lot_id: lot.lot_id,
                 run_id: null,
@@ -598,13 +604,30 @@ const processingClient = {
   }),
   chat: async () => ({ id: 'f0000000-0000-4000-8000-000000000001' }),
   // An accepted answer settles the question and sets the lot's quantity, as the server does.
-  answer: async (_batch: string, _question: string, input: { value: { value: string } }) => {
-    const job = processingSnapshot.jobs[2]
-    job.questions = []
+  // An accepted answer settles its question; a quantity answer also sets the lot, as the server does.
+  answer: async (
+    _batch: string,
+    questionId: string,
+    input: { value: { kind: string; value?: string } },
+  ) => {
+    // The fixture's jobs differ in shape, so they are read through what an answer touches.
+    const jobs = processingSnapshot.jobs as {
+      questions: { id: string; spec: { subject_id: string | null } }[]
+      session_state: string
+    }[]
+    const job = jobs.find((item) => item.questions.some((question) => question.id === questionId))
+    if (!job) {
+      throw new Error('fixture question not found')
+    }
+    const subject = job.questions.find((question) => question.id === questionId)!.spec.subject_id
+    job.questions = job.questions.filter((question) => question.id !== questionId)
     job.session_state = 'running'
-    batch.lots = batch.lots.map((lot) =>
-      lot.id === lotId(2) ? { ...lot, quantity: { mode: 'set', value: input.value.value } } : lot,
-    )
+    if (input.value.kind === 'quantity' && input.value.value && subject) {
+      const value = input.value.value
+      batch.lots = batch.lots.map((lot) =>
+        lot.id === subject ? { ...lot, quantity: { mode: 'set', value } } : lot,
+      )
+    }
     batch.revision = String(Number(batch.revision) + 1)
     return { status: 'accepted' }
   },
