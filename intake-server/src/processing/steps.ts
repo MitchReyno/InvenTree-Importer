@@ -15,11 +15,19 @@ export const STEP_BY_STAGE: Record<string, Step> = {
 
 export type StepJobs = { jobs: number; ready: number; running: number }
 
-/** Each step's job count and how many of them are ready or running. */
+/** Attempts that will not finish: replaced, cancelled or failed. A failure is reported on its own. */
+const ENDED_STATES = new Set(['superseded', 'cancelled', 'failed'])
+
+/**
+ * Each step's job count and how many of them are ready or running. Ended attempts are left out, so
+ * the count is the work still to finish and a step can reach done.
+ */
 export function countSteps(jobs: readonly { stage: string; state: string }[]) {
   return Object.fromEntries(
     STEPS.map((step) => {
-      const own = jobs.filter((job) => STEP_BY_STAGE[job.stage] === step)
+      const own = jobs.filter(
+        (job) => STEP_BY_STAGE[job.stage] === step && !ENDED_STATES.has(job.state),
+      )
       return [
         step,
         {

@@ -85,6 +85,26 @@ function openLots(review: OperatorReviewDto) {
   return review.lots.filter((lot) => !lot.approved && !lot.excluded)
 }
 
+/**
+ * Lots Review's Needs answer filter shows: not excluded, with an open Processing question on the lot
+ * or on its Part, since a job can be about a Part that several lots share.
+ */
+function lotsNeedingAnswer({ processing, review }: AttentionSources) {
+  const asked = new Set(
+    (processing?.jobs ?? [])
+      .flatMap((job) => job.questions)
+      .filter((question) => question.state === 'open')
+      .map((question) => question.spec.subject_id)
+      .filter((subject): subject is string => Boolean(subject)),
+  )
+
+  return review.lots.filter((lot) => {
+    const onPart = lot.part_subject_id !== null && asked.has(lot.part_subject_id)
+
+    return !lot.excluded && (asked.has(lot.lot_id) || onPart)
+  }).length
+}
+
 /** A record waiting for a choice, as Review › Records counts it: once per record, not per lot. */
 function decisionItems({ batchId, records }: AttentionSources): AttentionItemDto[] {
   return records.records
@@ -162,6 +182,7 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,
       changed_after_review: changed.length,
+      needs_answer: lotsNeedingAnswer(sources),
       to_decide: decisions.length,
       records: sources.records.records.length,
     },

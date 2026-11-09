@@ -19287,6 +19287,7 @@
             "required": [
               "to_check",
               "changed_after_review",
+              "needs_answer",
               "to_decide",
               "records"
             ],
@@ -19297,6 +19298,11 @@
                 "type": "integer"
               },
               "changed_after_review": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "needs_answer": {
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"

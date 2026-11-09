@@ -6648,6 +6648,7 @@ export interface components {
             review: {
                 to_check: number;
                 changed_after_review: number;
+                needs_answer: number;
                 to_decide: number;
                 records: number;
             };

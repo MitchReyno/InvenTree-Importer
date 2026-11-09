@@ -53,7 +53,7 @@ function stepCount(step: BatchAttentionDto['processing']['steps'][Step]) {
 }
 
 /**
- * The one count a tab shows (design D3): the thing to act on in its attention tone when there is
+ * The one count a tab shows: the thing to act on in its attention tone when there is
  * one, otherwise its total. Capture and Overview show none; Review always shows lots to check,
  * because its sub-tabs carry the record decisions.
  */
@@ -73,15 +73,22 @@ export function tabCount(tab: TabKey, input: TabCountInput): TabCount | undefine
         ? count(processing.questions, plural(processing.questions, 'question', 'questions'), 'warn')
         : undefined
     case 'processing/examine':
+      return stepCount(processing.steps.examine)
     case 'processing/research':
+      return stepCount(processing.steps.research)
     case 'processing/images':
+      return stepCount(processing.steps.images)
     case 'processing/inventory':
-      return stepCount(processing.steps[tab.slice('processing/'.length) as Step])
+      return stepCount(processing.steps.inventory)
     case 'review':
       return count(review.to_check, 'to check', 'default')
     case 'review/lots':
-      return review.changed_after_review > 0
-        ? count(review.changed_after_review, 'changed since review', 'warn')
+      return review.needs_answer > 0
+        ? count(
+            review.needs_answer,
+            plural(review.needs_answer, 'needs an answer', 'need an answer'),
+            'warn',
+          )
         : count(activeLotCount, plural(activeLotCount, 'lot', 'lots'), 'default')
     case 'review/map':
       return unusedFiles

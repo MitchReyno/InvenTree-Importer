@@ -19,7 +19,7 @@ function attention(overrides: Partial<BatchAttentionDto> = {}): BatchAttentionDt
         inventory: { ...none, questions: 2, failed: 1, jobs: 12, ready: 1 },
       },
     },
-    review: { to_check: 8, changed_after_review: 3, to_decide: 3, records: 46 },
+    review: { to_check: 8, changed_after_review: 1, needs_answer: 3, to_decide: 3, records: 46 },
     changes: { ready: 6, failed: 1, uncertain: 1, runs: 4 },
     items: [],
     items_truncated: false,
@@ -42,7 +42,7 @@ const quiet: TabCountInput = {
         inventory: none,
       },
     },
-    review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 46 },
+    review: { to_check: 0, changed_after_review: 2, needs_answer: 0, to_decide: 0, records: 46 },
     changes: { ready: 0, failed: 0, uncertain: 0, runs: 4 },
   }),
   activeLotCount: 12,
@@ -81,7 +81,7 @@ describe('tabCount follows the one-count table', () => {
     expect(tabCount('processing', busy)?.label).toBe('3 questions')
     expect(tabCount('processing/research', busy)?.label).toBe('7 of 12 ready')
     expect(tabCount('review', busy)?.label).toBe('8 to check')
-    expect(tabCount('review/lots', busy)?.label).toBe('3 changed since review')
+    expect(tabCount('review/lots', busy)?.label).toBe('3 need an answer')
     expect(tabCount('review/lots', quiet)?.label).toBe('12 lots')
     expect(tabCount('review/map', busy)?.label).toBe('1 unused file')
     expect(tabCount('review/records', busy)?.label).toBe('3 to decide')

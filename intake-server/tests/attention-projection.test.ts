@@ -169,6 +169,7 @@ test('counts each tab from the same reads the screens use', () => {
   assert.deepEqual(attention.review, {
     to_check: 2,
     changed_after_review: 1,
+    needs_answer: 1,
     to_decide: 2,
     records: 3,
   })
@@ -258,7 +259,8 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
     failed: 2,
     running: 0,
     steps: {
-      examine: { questions: 1, failed: 1, jobs: 2, ready: 0, running: 0 },
+      // The failed attempt is reported as failed, not counted as work still to finish.
+      examine: { questions: 1, failed: 1, jobs: 1, ready: 0, running: 0 },
       research: { questions: 1, failed: 1, jobs: 3, ready: 0, running: 0 },
       images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
       inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -428,4 +430,61 @@ test('an excluded lot asks nothing of Review', () => {
     result.items.some((item) => item.group === 'changed_lot'),
     false,
   )
+})
+
+test('counts lots needing an answer as the Review queue does: an open question on the lot or its Part', () => {
+  const part = id(7)
+  const onPart = (n: number, state: 'open' | 'answered') => ({
+    ...question(n, state),
+    spec: { ...question(n, state).spec, subject_id: part },
+  })
+  const withPart = {
+    ...review,
+    lots: [
+      { ...operatorLot(1, 'unreviewed'), part_subject_id: null },
+      { ...operatorLot(2, 'reviewed'), part_subject_id: part },
+      { ...operatorLot(3, 'reviewed'), part_subject_id: part },
+      {
+        ...operatorLot(4, 'reviewed'),
+        part_subject_id: part,
+        excluded: { reason: 'Bent leads', at: '2026-11-08T05:00:00.000Z' },
+      },
+    ],
+  } as unknown as OperatorReviewDto
+  const asked = (questions: ReturnType<typeof question>[]) =>
+    ({ ...processing, jobs: [job(1, 'research', questions)] }) as unknown as ProcessingSnapshotDto
+
+  const open = projectAttention({
+    batchId: batch,
+    processing: asked([onPart(1, 'open'), question(2, 'answered')]),
+    review: withPart,
+    manual,
+    records,
+  })
+  validate('BatchAttention', open)
+  // Lots 2 and 3 share the Part; the excluded lot 4 waits on nothing; lot 1's question is answered.
+  assert.equal(open.review.needs_answer, 2)
+
+  const none = projectAttention({ batchId: batch, processing: undefined, review, manual, records })
+  assert.equal(none.review.needs_answer, 0)
+})
+
+test('a step counts only attempts that can still finish, so it can reach done', () => {
+  const states = ['ready', 'ready', 'superseded', 'failed', 'cancelled']
+  const jobs = states.map((state, index) => ({ ...job(10 + index, 'research', []), state }))
+  const attention = projectAttention({
+    batchId: batch,
+    processing: { ...processing, jobs } as unknown as ProcessingSnapshotDto,
+    review,
+    manual,
+    records,
+  })
+
+  assert.deepEqual(attention.processing.steps.research, {
+    questions: 0,
+    failed: 1,
+    jobs: 2,
+    ready: 2,
+    running: 0,
+  })
 })
