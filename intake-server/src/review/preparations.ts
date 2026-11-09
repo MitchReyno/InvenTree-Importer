@@ -1,5 +1,5 @@
-import { effectsCapable, RECORD_EFFECTS_CAPABILITY } from '../execution/effects-plan.ts'
-import { isEffectsPlan } from '../execution/effects-plan.ts'
+import { effectsCapable, RECORD_EFFECTS_CAPABILITY } from '../execution/effects/effects-plan.ts'
+import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { mediaEvidence } from '../media/schema.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
@@ -23,7 +23,7 @@ import {
   observePartTransfers,
   type ManualAttachmentRead,
 } from './part-attachments.ts'
-import type { PartTransfer } from '../execution/part-attachment-plan.ts'
+import type { PartTransfer } from '../execution/attachments/part-attachment-plan.ts'
 import { knownPartBindings, knownRecordBindings, supportedPlan } from './effects-plan.ts'
 import { partSpecReferences } from '../capture/part-spec.ts'
 import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contracts'
@@ -33,7 +33,7 @@ import {
   MAX_PLAN_OPERATIONS,
   MAX_PLAN_PARTS,
   type PartBinding,
-} from '../execution/effects-plan.ts'
+} from '../execution/effects/effects-plan.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import {

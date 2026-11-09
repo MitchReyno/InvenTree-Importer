@@ -1,7 +1,7 @@
 import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
-import { sha256 } from '../db/authority.ts'
+import { sha256 } from '../../db/authority.ts'
 import { attachmentReceipt, receiptMatches } from './attachment-response.ts'
-import type { AttachmentWire } from '../inventory/transport.ts'
+import type { AttachmentWire } from '../../inventory/transport.ts'
 
 export const ATTACHMENT_HEADER_BYTES = 8192
 export const ATTACHMENT_CONTENT_BYTES = MEDIA_SOURCE_MAX_BYTES

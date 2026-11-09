@@ -9,19 +9,19 @@ import { fail } from '../capture/model.ts'
 import type { ManualMaterial } from './model.ts'
 import { issue } from './model.ts'
 import { retainedEvidence } from './media-plan.ts'
-import type { PartBinding, EffectsPlan } from '../execution/effects-plan.ts'
-import { logicalEffectKey } from '../execution/effects-plan.ts'
+import type { PartBinding, EffectsPlan } from '../execution/effects/effects-plan.ts'
+import { logicalEffectKey } from '../execution/effects/effects-plan.ts'
 import {
   partDestinationKey,
   partTransferKey,
   type PartTransfer,
-} from '../execution/part-attachment-plan.ts'
-import { priorPartTransfer } from '../execution/part-attachment-index.ts'
+} from '../execution/attachments/part-attachment-plan.ts'
+import { priorPartTransfer } from '../execution/attachments/part-attachment-index.ts'
 import {
   partAttachmentMetadata,
   samePartAttachmentBytes,
   type PartAttachmentWire,
-} from '../execution/part-attachment-wire.ts'
+} from '../execution/attachments/part-attachment-wire.ts'
 import { inventoryBody } from '../execution/response.ts'
 
 export interface ManualAttachmentRead {

@@ -1,15 +1,15 @@
 import { and, asc, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
-import { partTransferKey } from './part-attachment-plan.ts'
-import { verifyBytes } from '../db/authority.ts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { partTransferKey } from '../attachments/part-attachment-plan.ts'
+import { verifyBytes } from '../../db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
 import type { EffectsPlan } from './effects-plan.ts'
 import {
   supportedAssessments,
   supportedEffects,
   supportedIntents,
   supportedResults,
-} from './schema.ts'
+} from '../schema.ts'
 
 export interface SupportedState {
   operationKey: string

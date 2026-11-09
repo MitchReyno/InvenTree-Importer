@@ -1,7 +1,7 @@
 import { assertAttachmentReceipt, type AttachmentReceiptDto } from '@invimport/contracts/media'
 import { strictJson } from '@invimport/contracts/json'
-import type { AttachmentWire } from '../inventory/transport.ts'
-import { responsePk } from './response.ts'
+import type { AttachmentWire } from '../../inventory/transport.ts'
+import { responsePk } from '../response.ts'
 
 export function attachmentReceipt(bytes: Buffer): AttachmentReceiptDto {
   const value = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))

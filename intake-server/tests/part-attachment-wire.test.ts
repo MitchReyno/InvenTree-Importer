@@ -5,7 +5,7 @@ import {
   partAttachmentMultipart,
   partAttachmentMetadata,
   samePartAttachmentBytes,
-} from '../src/execution/part-attachment-wire.ts'
+} from '../src/execution/attachments/part-attachment-wire.ts'
 import { qualifiedAttachmentPath } from '../src/inventory/transport.ts'
 
 const bytes = Buffer.from('literal approved documentary bytes Ω')

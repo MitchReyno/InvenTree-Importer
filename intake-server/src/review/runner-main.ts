@@ -3,7 +3,7 @@ import {
   EFFECTS_CAPABILITY,
   RECORD_EFFECTS_BUILD,
   RECORD_EFFECTS_CAPABILITY,
-} from '../execution/effects-plan.ts'
+} from '../execution/effects/effects-plan.ts'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { lstat, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

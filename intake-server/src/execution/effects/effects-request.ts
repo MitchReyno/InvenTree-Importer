@@ -1,6 +1,6 @@
-import { sha256 } from '../db/authority.ts'
-import { inventoryBody } from './response.ts'
-import type { ApplyDependencies } from './apply.ts'
+import { sha256 } from '../../db/authority.ts'
+import { inventoryBody } from '../response.ts'
+import type { ApplyDependencies } from '../apply.ts'
 import { supportedResponseEvidence } from './effects-evidence.ts'
 import {
   authorizeSupportedRequest,

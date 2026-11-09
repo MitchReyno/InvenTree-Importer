@@ -3,7 +3,11 @@ import assert from 'node:assert/strict'
 import { validate, type ManualPreviewDto, type InventoryPartSpecDto } from '@invimport/contracts'
 import { preparationTree } from '../src/review/preparation-tree.ts'
 import type { ExecutablePlan } from '../src/execution/media-plan.ts'
-import { logicalEffectKey, partEffects, locationCreateKey } from '../src/execution/effects-plan.ts'
+import {
+  logicalEffectKey,
+  partEffects,
+  locationCreateKey,
+} from '../src/execution/effects/effects-plan.ts'
 
 const context = '0c6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03'
 const id = (n: number) => `0c6f9a52-4e1d-4c1a-9f65-${n.toString(16).padStart(12, '0')}`

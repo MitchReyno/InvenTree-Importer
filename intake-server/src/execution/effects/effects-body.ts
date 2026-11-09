@@ -1,6 +1,6 @@
 import type { Pool } from 'pg'
 import { logicalEffectKey, type EffectsPlan, type EffectOperation } from './effects-plan.ts'
-import { partTransferKey } from './part-attachment-plan.ts'
+import { partTransferKey } from '../attachments/part-attachment-plan.ts'
 import { supportedStates } from './effects-state.ts'
 import type { EffectStep } from './effects-step.ts'
 
