@@ -59,8 +59,6 @@ export function ChatGPTSignIn() {
   const [busy, setBusy] = useState(false)
   // Each new key or sign-in step starts a generation; results of an older one are dropped.
   const [generation, setGeneration] = useState(0)
-  // Counts requests and key edits; a response is kept only if nothing started after it.
-  const startedIn = useRef(0)
   // The runner takes one action at a time, so this panel's calls run one after another. A
   // cancelled poll's result is dropped, but its call still finishes before the next starts.
   const queue = useRef<Promise<unknown>>(Promise.resolve())
@@ -88,6 +86,8 @@ export function ChatGPTSignIn() {
     // The login completes on the OpenAI tab, so polling continues while this one is hidden.
     refetchIntervalInBackground: true,
   })
+  // As when every poll was a request, commands wait for this login's poll: it can end the login.
+  const blocked = busy || status.isFetching
   const pollFailed = polling && status.isError
   const shown = pollFailed ? undefined : polling ? status.data : account
   const shownMessage = pollFailed ? FAILED : message
@@ -107,25 +107,19 @@ export function ChatGPTSignIn() {
   }
 
   async function request(action: string, loginId?: string) {
-    if (busy) {
+    if (blocked) {
       return
     }
-    const current = startedIn.current + 1
-    startedIn.current = current
     setBusy(true)
     try {
       const next = await run(action, loginId)
-      if (startedIn.current === current) {
-        // The new account starts its own polling generation, so no older poll can replace it.
-        setGeneration((value) => value + 1)
-        setAccount(next)
-        setMessage('')
-      }
+      // The new account starts its own polling generation, so no older poll can replace it.
+      setGeneration((value) => value + 1)
+      setAccount(next)
+      setMessage('')
     } catch {
-      if (startedIn.current === current) {
-        setAccount(undefined)
-        setMessage(FAILED)
-      }
+      setAccount(undefined)
+      setMessage(FAILED)
     } finally {
       setBusy(false)
     }
@@ -137,7 +131,6 @@ export function ChatGPTSignIn() {
         aria-expanded={open}
         disabled={busy}
         onClick={() => {
-          startedIn.current += 1
           startGeneration()
           setOpen(!open)
         }}
@@ -159,20 +152,20 @@ export function ChatGPTSignIn() {
             ref={key}
             type="password"
             autoComplete="off"
-            // A command waiting behind a poll is sent with the key it was clicked with.
+            // A command waiting behind an earlier poll is sent with the key it was clicked with.
             readOnly={busy}
-            onChange={() => {
-              startedIn.current += 1
-              startGeneration()
-            }}
+            help={
+              busy ? 'Waiting for the runner. The key can be changed once it answers.' : undefined
+            }
+            onChange={startGeneration}
           />
-          <Button disabled={busy} onClick={() => void request('status')}>
+          <Button disabled={blocked} onClick={() => void request('status')}>
             Check ChatGPT connection
           </Button>
           {shown?.state === 'connected' ? (
             <>
               <p role="status">Connected to ChatGPT</p>
-              <Button disabled={busy} onClick={() => void request('disconnect')}>
+              <Button disabled={blocked} onClick={() => void request('disconnect')}>
                 Disconnect ChatGPT
               </Button>
             </>
@@ -185,13 +178,13 @@ export function ChatGPTSignIn() {
                 </a>{' '}
                 and enter <strong>{shown.userCode}</strong>.
               </p>
-              <Button disabled={busy} onClick={() => void request('cancel', shown.loginId)}>
+              <Button disabled={blocked} onClick={() => void request('cancel', shown.loginId)}>
                 Cancel sign-in
               </Button>
             </>
           ) : (
             <>
-              <Button disabled={busy} onClick={() => void request('start')}>
+              <Button disabled={blocked} onClick={() => void request('start')}>
                 Sign in with ChatGPT
               </Button>
               {shown?.state === 'denied' && <p>Sign-in was declined or expired.</p>}

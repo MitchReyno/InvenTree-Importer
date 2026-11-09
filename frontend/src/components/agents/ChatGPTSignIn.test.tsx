@@ -193,37 +193,6 @@ it('app-wide reconciliation does not re-poll a failed sign-in', async () => {
   }
 })
 
-it('a command waits for a status poll in flight, which the runner would refuse', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
-
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    expect(send).toHaveBeenCalledTimes(2)
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }))
-    await act(() => vi.advanceTimersByTimeAsync(10))
-    expect(send).toHaveBeenCalledTimes(2)
-    await act(async () => answer(challenge()))
-    expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
-    expect(send).toHaveBeenCalledTimes(3)
-    expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({
-      action: 'cancel',
-      loginId: 'device-1',
-    })
-  } finally {
-    vi.useRealTimers()
-  }
-})
-
 it('a poll that reconciliation cancels finishes before the next call starts', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   try {
@@ -254,65 +223,6 @@ it('a poll that reconciliation cancels finishes before the next call starts', as
     expect(send).toHaveBeenCalledTimes(2)
     await act(async () => answer(challenge()))
     await waitFor(() => expect(send).toHaveBeenCalledTimes(3))
-  } finally {
-    vi.useRealTimers()
-  }
-})
-
-it('a command waiting behind a poll locks the key it will be sent with', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
-
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-      .mockImplementation(async () => Response.json({ state: 'disconnected' }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }))
-    expect(screen.getByLabelText('Codex runner management key')).toHaveAttribute('readonly')
-    await act(async () => answer(challenge()))
-    expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
-    expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({
-      action: 'cancel',
-      loginId: 'device-1',
-    })
-    expect(send.mock.calls[2][1].headers.authorization).toBe('Bearer key')
-    expect(screen.getByLabelText('Codex runner management key')).not.toHaveAttribute('readonly')
-  } finally {
-    vi.useRealTimers()
-  }
-})
-
-it('a check after a key edit waits for the poll the edit dropped', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    let answer: (value: Response) => void = () => undefined
-
-    const send = vi
-      .fn()
-      .mockResolvedValueOnce(challenge())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
-    vi.stubGlobal('isSecureContext', true)
-    vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
-    await startSignIn()
-    await act(() => vi.advanceTimersByTimeAsync(3000))
-    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-      target: { value: 'other key' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
-    await act(() => vi.advanceTimersByTimeAsync(10))
-    expect(send).toHaveBeenCalledTimes(2)
-    await act(async () => answer(challenge()))
-    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
-    expect(send.mock.calls[2][1].headers.authorization).toBe('Bearer other key')
   } finally {
     vi.useRealTimers()
   }
@@ -354,6 +264,68 @@ it('no status poll starts while a command is in flight', async () => {
     expect(send).toHaveBeenCalledTimes(2)
     await act(async () => answer(Response.json({ state: 'disconnected' })))
     expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('commands wait for this login’s poll, which can end the login', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    let answer: (value: Response) => void = () => undefined
+
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(<ChatGPTSignIn />)
+    await startSignIn()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(send).toHaveBeenCalledTimes(2)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeDisabled(),
+    )
+    expect(screen.getByRole('button', { name: 'Check ChatGPT connection' })).toBeDisabled()
+    await act(async () => answer(Response.json({ state: 'connected' })))
+    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Disconnect ChatGPT' })).toBeEnabled()
+    expect(send).toHaveBeenCalledTimes(2)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('a check after a key edit waits for the dropped poll, with its key locked and explained', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    let answer: (value: Response) => void = () => undefined
+
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(<ChatGPTSignIn />)
+    await startSignIn()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    const field = screen.getByLabelText('Codex runner management key')
+    fireEvent.change(field, { target: { value: 'other key' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(field).toHaveAttribute('readonly')
+    expect(field).toHaveAccessibleDescription(
+      'Waiting for the runner. The key can be changed once it answers.',
+    )
+    await act(async () => answer(challenge()))
+    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
+    expect(send.mock.calls[2][1].headers.authorization).toBe('Bearer other key')
+    expect(field).not.toHaveAttribute('readonly')
   } finally {
     vi.useRealTimers()
   }
