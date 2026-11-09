@@ -10,6 +10,7 @@ import { strictJson } from '@invimport/contracts/json'
 import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import { serverQueryKey, ServerScopeContext } from '#/queries/scope'
 import { Small } from '#/components/ui'
+import { useOnForeground } from '#/browser/useOnForeground'
 
 const PollInterval = createContext<number | false>(RETAINED_POLL_INTERVAL_MS)
 
@@ -60,6 +61,9 @@ export function LiveUpdates({
   const connection = health.state
   const [truncated, setTruncated] = useState(false)
   const cursors = useRef<LiveCursorDto[]>([])
+  // The live connection's reconciliation, run again whenever the page returns to the foreground.
+  const reconcileNow = useRef<() => void>(() => undefined)
+  useOnForeground(() => reconcileNow.current())
   useEffect(() => {
     if (!scope) {
       return
@@ -209,20 +213,14 @@ export function LiveUpdates({
       )
     }
 
-    const focus = () => {
-      reconcile()
-    }
-
-    window.addEventListener('focus', focus)
-    window.addEventListener('online', focus)
+    reconcileNow.current = reconcile
     connect()
     return () => {
       stopped = true
       clearTimeout(retry)
       clearTimeout(invalidate)
       clearInterval(deadline)
-      window.removeEventListener('focus', focus)
-      window.removeEventListener('online', focus)
+      reconcileNow.current = () => undefined
       socket?.close()
     }
   }, [scope, csrfToken, batchId, queryClient, refreshBootstrap])

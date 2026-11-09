@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
+import { useMountedRef } from '#/lifecycle/useMountedRef'
 
 /**
  * Orders asynchronous choices behind later intent: every new choice or direct edit takes a
@@ -6,13 +7,7 @@ import { useCallback, useEffect, useRef } from 'react'
  */
 export function useIntentTicket() {
   const ticket = useRef(0)
-  const mounted = useRef(false)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
+  const mounted = useMountedRef()
   const take = useCallback(() => {
     ticket.current += 1
     return ticket.current

@@ -1,7 +1,14 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
-import { useSessionStatuses } from './session-status'
+import { SESSION_STATUS_REFRESH_MS, useSessionStatuses } from './session-status'
 import type { ProcessingClient } from './types'
+import type { ReactNode } from 'react'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { fixtureScope } from '#/test/render'
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <ServerStateProvider scope={fixtureScope}>{children}</ServerStateProvider>
+}
 
 const job = (id: string, stage: string, subject: string | null, text: string | null, at = '') => ({
   id,
@@ -25,7 +32,7 @@ it('reads the lead session’s line and each lot’s newest line, re-reading whe
   const client = { read, session: vi.fn() } as unknown as ProcessingClient
   const { result, rerender } = renderHook(
     ({ revision }) => useSessionStatuses(client, 'b', revision),
-    { initialProps: { revision: '4' } },
+    { initialProps: { revision: '4' }, wrapper },
   )
   await waitFor(() => expect(result.current.lead).toBe('Finding items'))
   expect(result.current.leadRunning).toBe(true)
@@ -38,8 +45,9 @@ it('reads the lead session’s line and each lot’s newest line, re-reading whe
 
 it('reads nothing where sessions are not supported', () => {
   const read = vi.fn()
-  const { result } = renderHook(() =>
-    useSessionStatuses({ read } as unknown as ProcessingClient, 'b', '1'),
+  const { result } = renderHook(
+    () => useSessionStatuses({ read } as unknown as ProcessingClient, 'b', '1'),
+    { wrapper },
   )
   expect(result.current).toEqual({ lead: undefined, leadRunning: false, lots: new Map() })
   expect(read).not.toHaveBeenCalled()
@@ -59,7 +67,7 @@ it('leaves out the last line of a session that has finished or ended', async () 
     ],
   })
   const client = { read, session: vi.fn() } as unknown as ProcessingClient
-  const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'))
+  const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'), { wrapper })
   await waitFor(() => expect(result.current.lots.size).toBe(1))
   expect(result.current.lots.get('l3')).toBe('Images · Now')
 })
@@ -72,10 +80,27 @@ it('drops its statuses when a later read fails, so Capture stops claiming sortin
   const client = { read, session: vi.fn() } as unknown as ProcessingClient
   const { result, rerender } = renderHook(
     ({ revision }) => useSessionStatuses(client, 'b', revision),
-    { initialProps: { revision: '1' } },
+    { initialProps: { revision: '1' }, wrapper },
   )
   await waitFor(() => expect(result.current.leadRunning).toBe(true))
   rerender({ revision: '2' })
   await waitFor(() => expect(result.current.leadRunning).toBe(false))
   expect(result.current.lead).toBeUndefined()
+})
+
+it('re-reads on its interval, since status lines move without a capture change', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Finding items')] })
+      .mockResolvedValue({ jobs: [job('lead', 'examine', null, 'Grouping reels')] })
+    const client = { read, session: vi.fn() } as unknown as ProcessingClient
+    const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'), { wrapper })
+    await waitFor(() => expect(result.current.lead).toBe('Finding items'))
+    await vi.advanceTimersByTimeAsync(SESSION_STATUS_REFRESH_MS)
+    await waitFor(() => expect(result.current.lead).toBe('Grouping reels'))
+  } finally {
+    vi.useRealTimers()
+  }
 })

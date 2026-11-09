@@ -221,3 +221,24 @@ test('a live hint during the initial read forces a newer snapshot and ignores th
   expect(screen.getByLabelText('Poll interval')).toHaveTextContent('false')
   view.unmount()
 })
+
+test('returning to the page reconciles retained reads, but a hidden page does not', async () => {
+  const { read } = setup()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  expect(read).toHaveBeenCalledOnce()
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+  await act(async () => {
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(200)
+  })
+  expect(read).toHaveBeenCalledOnce()
+  visibility.mockReturnValue('visible')
+  await act(async () => {
+    window.dispatchEvent(new Event('focus'))
+    await vi.advanceTimersByTimeAsync(200)
+  })
+  expect(read).toHaveBeenCalledTimes(2)
+  visibility.mockRestore()
+})

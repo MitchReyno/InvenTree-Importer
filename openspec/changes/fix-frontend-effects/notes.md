@@ -1,6 +1,6 @@
 # Implementation notes
 
-Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1 and E2 are implemented; E3 is next.
+Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1, E2 and E3 are implemented and awaiting independent review.
 
 ## Changes to the plan
 
@@ -8,6 +8,9 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T20:49+11:00, task 1 (E1):** Item 11, `MediaCropDialog`'s dirty half, moves to task 7. It shares one Effect with the `showModal` call that task 7 fixes, and changing it twice would split one decision across two PRs. The task map in `tasks.md` is updated.
 
 - **2026-11-09T21:35+11:00, task 4 (E2):** Audit item 25 is dropped. (a) If a draft is dirty when lots first appear, Review skips its automatic first lot. A fix would auto-open a lot later, after the operator has started working, moving the view under them. (b) Moving focus to the queue when polling retires the focused lot is correct, because the focused evidence disappears with it. `tasks.md` records the decision in 4.4.
+
+- **2026-11-09T21:49+11:00, task 9 (E3):** Audit item 28 (`SearchableReferencePicker`) is dropped. The picker is a design-system form control that receives a `search` function and knows nothing of batches, models or server scope. A TanStack query inside it would couple the `forms` barrel to server state and every caller's key. Its Effect already synchronizes a timer and a request with a generation guard, which the guidelines allow. The part of the finding that holds is listed under open items.
+- **2026-11-09T21:49+11:00, task 9 (E3):** Session status lines use a query keyed by the capture revision (`processing`, batch, `status`, revision) rather than sharing `ProcessingWorkspace`'s key. That query's function records its own successful-read state, and a different function on the same key would mix the two. A revision change is a new key, so it reads again with no Effect; previous lines stay as placeholder data until it arrives.
 
 ## Unexpected challenges
 
@@ -19,6 +22,8 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 
 - **2026-11-09T21:35+11:00, task 7:** `Dialog`'s StrictMode focus loss depends on inertness, which jsdom does not model. Stubbing `focus` to ignore elements outside an open modal reproduces it, and the test fails on the old code. The fix was also checked in headless Chromium against a temporary StrictMode copy of the component gallery: focus returned to the opener, and with the old `Dialog` it fell to the page body. The temporary page was not committed.
 - **2026-11-09T21:35+11:00, task 8:** Items 22 and 23 had no observable bug in jsdom. The old Effects reached the same end state one render later, so their tests are characterization tests. Item 21 had one: a `MutationObserver` shows the old code inserting the "pinned question is unavailable" text for a commit.
+
+- **2026-11-09T21:49+11:00, task 9:** `ChatGPTSignIn` had no observable bug: the old interval Effect passes the new polling tests. The rewrite follows the guideline, and its tests are characterization tests. A request's result now starts a new polling generation, because bumping the generation before the request captured the old account as the new key's initial data.
 
 ## Decisions made during implementation
 
@@ -33,6 +38,8 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T21:35+11:00, task 5:** The evidence workspace's confirmation counter is replaced by an `onConfirmed` callback passed to `edit`. It is stored with the retained intent, so an exact retry closes the editor that sent the request. Broadcasting to every listener was rejected because it closed editors that had sent nothing.
 - **2026-11-09T21:35+11:00, task 6:** The save queue's `LaneSpec` gains `onRejected`, called once when the server definitely refuses a lane's payload. The logo lane uses it to show its refusal and discard; the unconfirmed-upload message is derived from queue state in render.
 
+- **2026-11-09T21:49+11:00, task 10:** `LiveUpdates` reconciles through `useOnForeground`, which also fires when a hidden tab becomes visible again; it previously listened only for focus and reconnection. A returning tab is when retained reads are most likely stale.
+
 ## Open items
 
-None yet.
+- `useCatalogue.search` does not pass the picker's `AbortSignal` to the catalogue client, so an abandoned search still completes on the network; its result is dropped. The generated client would need to accept a signal. Not tracked elsewhere yet.

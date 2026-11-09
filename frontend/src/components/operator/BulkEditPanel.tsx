@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Banner, Panel, Paragraph, Small, Button, useConfirmation } from '#/components/ui'
 import { Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useForm } from 'react-hook-form'
@@ -10,6 +10,7 @@ import { classifyFailure, failureMessage } from '#/operator/command-failure'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import { ImpactSummary } from './ImpactSummary'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import { useDraftGeneration } from '#/operator/useDraftGeneration'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 
@@ -95,7 +96,6 @@ export function BulkEditPanel({
     /** The revision the preview described; apply sends exactly this revision. */
     revision: string
   } | null>(null)
-  const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
   const confirm = useConfirmation()
@@ -124,13 +124,8 @@ export function BulkEditPanel({
 
   useReportDirty(isDirty || apply.pending, onDirtyChange)
 
-  useEffect(() => {
-    const subscription = watch(() => {
-      draftGeneration.current += 1
-      setPreview(null)
-    })
-    return () => subscription.unsubscribe()
-  }, [watch])
+  // Any edit makes the shown preview stale.
+  const draftGeneration = useDraftGeneration(watch, () => setPreview(null))
 
   async function runPreview(values: Values) {
     const change = bulkChange(batch, values)

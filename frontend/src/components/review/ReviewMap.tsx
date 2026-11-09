@@ -613,6 +613,11 @@ function Connector({
   )
 }
 
+function samePaths(left: Record<string, string>, right: Record<string, string>) {
+  const keys = Object.keys(right)
+  return keys.length === Object.keys(left).length && keys.every((key) => left[key] === right[key])
+}
+
 /** Measures each card's heading after layout and on resize, and curves between the two. */
 function useConnectorPaths(
   canvas: React.RefObject<HTMLDivElement | null>,
@@ -642,7 +647,8 @@ function useConnectorPaths(
             `M${x1} ${y1} C${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`
         })
       })
-      setPaths(next)
+      // An unchanged layout keeps the same paths, so measuring again costs no extra render.
+      setPaths((previous) => (samePaths(previous, next) ? previous : next))
     }
 
     measure()

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Banner, media, Paragraph, Small, Button, Dialog } from '#/components/ui'
 import { CheckboxLabel, Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
@@ -11,6 +11,7 @@ import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import { ImpactSummary } from './ImpactSummary'
 import { observationNames } from './observation-names'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import { useDraftGeneration } from '#/operator/useDraftGeneration'
 
 export type RestructureKind = 'split' | 'merge' | 'move'
 
@@ -158,7 +159,6 @@ export function RestructureDialog({
     impact: OperatorImpactDto
     revision: string
   } | null>(null)
-  const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
   // Apply sends the revision the preview described, so a retry stays byte-identical.
@@ -182,13 +182,8 @@ export function RestructureDialog({
 
   useReportDirty(isDirty || apply.pending, onDirtyChange)
 
-  useEffect(() => {
-    const subscription = watch(() => {
-      draftGeneration.current += 1
-      setPreview(null)
-    })
-    return () => subscription.unsubscribe()
-  }, [watch])
+  // Any edit makes the shown preview stale.
+  const draftGeneration = useDraftGeneration(watch, () => setPreview(null))
 
   async function runPreview(values: Values) {
     const change = restructureChange(kind, lotIds, values)

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { Button } from '#/components/ui'
 import { TextField } from '#/forms'
 
@@ -9,86 +11,111 @@ type Account = {
   verificationUrl?: string
 }
 
+const POLL_MS = 3000
+
+const FAILED =
+  'Could not confirm sign-in status. Check the management key and reconnect to the runner.'
+
+/** One call to the shared VM's Codex runner, outside the validated client facades. */
+async function callRunner(managementKey: string, action: string, loginId?: string) {
+  if (!window.isSecureContext) {
+    throw new Error('insecure_context')
+  }
+  const r = await fetch('/personal-runner/codex', {
+    method: 'POST',
+    cache: 'no-store',
+    credentials: 'omit',
+    redirect: 'error',
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + managementKey,
+    },
+    body: JSON.stringify({ action, loginId }),
+  })
+  if (!r.ok) {
+    throw new Error('runner_refused')
+  }
+  const next = await r.json()
+  if (
+    !['pending', 'connected', 'disconnected', 'denied'].includes(next.state) ||
+    (next.state === 'pending' &&
+      (next.verificationUrl !== 'https://auth.openai.com/codex/device' ||
+        typeof next.loginId !== 'string' ||
+        typeof next.userCode !== 'string'))
+  ) {
+    throw new Error('runner_response_invalid')
+  }
+  return next as Account
+}
+
 export function ChatGPTSignIn() {
   const key = useRef<HTMLInputElement>(null)
+  const scope = useServerScope()
   const [open, setOpen] = useState(false)
   const [account, setAccount] = useState<Account>()
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const generation = useRef(0)
-  const inFlight = useRef(false)
+  // Each new key or sign-in step starts a generation; results of an older one are dropped.
+  const [generation, setGeneration] = useState(0)
+  // Counts requests and key edits; a response is kept only if nothing started after it.
+  const startedIn = useRef(0)
+  const polling = open && account?.state === 'pending'
+  const status = useQuery({
+    // The management key is read from its field and never enters the cache key.
+    queryKey: serverQueryKey(scope, 'codex-login', String(generation), account?.loginId ?? ''),
+    queryFn: () => callRunner(key.current?.value ?? '', 'status', account?.loginId),
+    enabled: polling,
+    initialData: account,
+    initialDataUpdatedAt: Date.now,
+    staleTime: POLL_MS,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.status === 'error' || query.state.data?.state !== 'pending' ? false : POLL_MS,
+  })
+  const pollFailed = polling && status.isError
+  const shown = pollFailed ? undefined : polling ? status.data : account
+  const shownMessage = pollFailed ? FAILED : message
+
+  function startGeneration() {
+    setGeneration((value) => value + 1)
+    setAccount(undefined)
+    setMessage('')
+  }
 
   async function request(action: string, loginId?: string) {
-    if (inFlight.current) {
+    if (busy) {
       return
     }
-    inFlight.current = true
-    const current = generation.current
+    const current = startedIn.current + 1
+    startedIn.current = current
     setBusy(true)
     try {
-      if (!window.isSecureContext) {
-        throw new Error()
-      }
-      const r = await fetch('/personal-runner/codex', {
-        method: 'POST',
-        cache: 'no-store',
-        credentials: 'omit',
-        redirect: 'error',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer ' + key.current?.value,
-        },
-        body: JSON.stringify({ action, loginId }),
-      })
-      if (!r.ok) {
-        throw new Error()
-      }
-      const next = await r.json()
-      if (
-        !['pending', 'connected', 'disconnected', 'denied'].includes(next.state) ||
-        (next.state === 'pending' &&
-          (next.verificationUrl !== 'https://auth.openai.com/codex/device' ||
-            typeof next.loginId !== 'string' ||
-            typeof next.userCode !== 'string'))
-      ) {
-        throw new Error()
-      }
-      if (generation.current === current) {
+      const next = await callRunner(key.current?.value ?? '', action, loginId)
+      if (startedIn.current === current) {
+        // The new account starts its own polling generation, so no older poll can replace it.
+        setGeneration((value) => value + 1)
         setAccount(next)
         setMessage('')
       }
     } catch {
-      if (generation.current === current) {
+      if (startedIn.current === current) {
         setAccount(undefined)
-        setMessage(
-          'Could not confirm sign-in status. Check the management key and reconnect to the runner.',
-        )
+        setMessage(FAILED)
       }
     } finally {
-      inFlight.current = false
       setBusy(false)
     }
   }
 
-  useEffect(() => {
-    if (!open || account?.state !== 'pending') {
-      return
-    }
-    const timer = setInterval(() => {
-      void request('status', account.loginId)
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [open, account?.state, account?.loginId])
   return (
     <section>
       <Button
         aria-expanded={open}
         disabled={busy}
         onClick={() => {
-          generation.current++
+          startedIn.current += 1
+          startGeneration()
           setOpen(!open)
-          setMessage('')
-          setAccount(undefined)
         }}
       >
         ChatGPT subscription
@@ -109,31 +136,30 @@ export function ChatGPTSignIn() {
             type="password"
             autoComplete="off"
             onChange={() => {
-              generation.current++
-              setAccount(undefined)
-              setMessage('')
+              startedIn.current += 1
+              startGeneration()
             }}
           />
           <Button disabled={busy} onClick={() => void request('status')}>
             Check ChatGPT connection
           </Button>
-          {account?.state === 'connected' ? (
+          {shown?.state === 'connected' ? (
             <>
               <p role="status">Connected to ChatGPT</p>
               <Button disabled={busy} onClick={() => void request('disconnect')}>
                 Disconnect ChatGPT
               </Button>
             </>
-          ) : account?.state === 'pending' ? (
+          ) : shown?.state === 'pending' ? (
             <>
               <p>
                 Open{' '}
-                <a href={account.verificationUrl} target="_blank" rel="noreferrer">
+                <a href={shown.verificationUrl} target="_blank" rel="noreferrer">
                   OpenAI device verification
                 </a>{' '}
-                and enter <strong>{account.userCode}</strong>.
+                and enter <strong>{shown.userCode}</strong>.
               </p>
-              <Button disabled={busy} onClick={() => void request('cancel', account.loginId)}>
+              <Button disabled={busy} onClick={() => void request('cancel', shown.loginId)}>
                 Cancel sign-in
               </Button>
             </>
@@ -142,10 +168,10 @@ export function ChatGPTSignIn() {
               <Button disabled={busy} onClick={() => void request('start')}>
                 Sign in with ChatGPT
               </Button>
-              {account?.state === 'denied' && <p>Sign-in was declined or expired.</p>}
+              {shown?.state === 'denied' && <p>Sign-in was declined or expired.</p>}
             </>
           )}
-          {message && <p role="alert">{message}</p>}
+          {shownMessage && <p role="alert">{shownMessage}</p>}
         </fieldset>
       )}
     </section>

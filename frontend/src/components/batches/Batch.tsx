@@ -364,7 +364,11 @@ export function Batch({
   const operatorUnavailable =
     operator !== undefined &&
     (!currentOperatorReview || operatorQuery.isError || operatorQuery.fetchStatus === 'paused')
-  const retired = retiredLotIds(operatorReview, batch ?? undefined)
+  // Memoized so an unchanged poll keeps the same set and the review map does not re-measure.
+  const retired = useMemo(
+    () => retiredLotIds(operatorReview, batch ?? undefined),
+    [operatorReview, batch],
+  )
   const activeBatch = useMemo(
     () =>
       batch && retired.size
@@ -384,7 +388,10 @@ export function Batch({
   const mediaKey = serverQueryKey(scope, 'media', id)
   useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
   const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
-  const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
+  const predecessors = useMemo(
+    () => predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview),
+    [currentOperatorReview, acceptedOperatorReview],
+  )
   const evidence = useMemo(
     () =>
       batch && mediaCurrent

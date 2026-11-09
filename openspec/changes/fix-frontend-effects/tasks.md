@@ -187,11 +187,11 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Verification: the owning checks.
 - Risks and decisions: the management key must never enter a query key. Whether `useCatalogue.search` can take a signal is recorded as a limit if it cannot.
 
-- [ ] 9.1 Confirm each finding against the current code.
-- [ ] 9.2 RED: add the regressions and confirm they fail.
-- [ ] 9.3 GREEN: move each read to TanStack Query.
-- [ ] 9.4 Add tests for any changed file without a test file.
-- [ ] 9.5 Run the owning checks and record the results.
+- [x] 9.1 Confirm each finding against the current code.
+- [x] 9.2 RED: add the regressions and confirm they fail.
+- [x] 9.3 GREEN: move each read to TanStack Query. Item 28 dropped; see `notes.md`.
+- [x] 9.4 Add tests for any changed file without a test file.
+- [x] 9.5 Run the owning checks and record the results.
 
 ## 10. Shared sync hooks
 
@@ -209,11 +209,11 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Verification: the owning checks.
 - Risks and decisions: none.
 
-- [ ] 10.1 Confirm each finding against the current code.
-- [ ] 10.2 RED: add the regressions and confirm they fail.
-- [ ] 10.3 GREEN: implement the hooks and adopt them.
-- [ ] 10.4 Add tests for any changed file without a test file.
-- [ ] 10.5 Run the owning checks and record the results.
+- [x] 10.1 Confirm each finding against the current code.
+- [x] 10.2 RED: add the regressions and confirm they fail.
+- [x] 10.3 GREEN: implement the hooks and adopt them.
+- [x] 10.4 Add tests for any changed file without a test file.
+- [x] 10.5 Run the owning checks and record the results.
 
 ## Delivery evidence and lifecycle follow-up
 

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { CaptureAssignedLocationChangeDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { AssignedLocationField } from '#/components/capture/AssignedLocationField'
 import { Small, Button } from '#/components/ui'
 import type { CaptureEdit } from '#/capture/types'
+import { useMountedRef } from '#/lifecycle/useMountedRef'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -31,13 +32,7 @@ export function GroupLocationControl({
   const [draft, setDraft] = useState<CaptureAssignedLocationChangeDto | null>(null)
   const [state, setState] = useState<'idle' | 'saving' | 'failed' | 'discarding'>('idle')
   const [reloadFailed, setReloadFailed] = useState(false)
-  const mounted = useRef(true)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
+  const mounted = useMountedRef()
   const saved = batch.group_locations?.find((item) => item.group_id === groupId)?.location
 
   async function save(location: CaptureAssignedLocationChangeDto) {

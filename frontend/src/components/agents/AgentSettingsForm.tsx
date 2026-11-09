@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Banner, Paragraph, Button } from '#/components/ui'
 import { TextField } from '#/forms'
 import { useForm } from 'react-hook-form'
@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { space } from '#/theme/generated/tokens'
+import { useMountedRef } from '#/lifecycle/useMountedRef'
 
 interface Props {
   initial: AgentSettingsDto
@@ -21,13 +22,7 @@ const formValues = (settings: AgentSettingsDto): FormValues => ({
 })
 
 export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
-  const mounted = useRef(true)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
+  const mounted = useMountedRef()
   const [revision, setRevision] = useState(initial.revision)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
