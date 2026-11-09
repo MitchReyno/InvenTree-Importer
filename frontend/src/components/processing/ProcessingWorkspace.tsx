@@ -409,9 +409,12 @@ export function ProcessingWorkspace({
   const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
   const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
   // An Inventory session's drawer answers its questions in place; other steps link to the
-  // question on its step page. A question already pinned on the page is answered there.
+  // question on its step page. A question already pinned on the page is answered there. As on
+  // the page, a form pins its question only from this mount's fresh read, never a warm cache.
   const answersInDrawer =
-    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
+    sessionJob !== undefined &&
+    processingStepFor(sessionJob.stage) === 'inventory' &&
+    !waitingForRead
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
     <details>

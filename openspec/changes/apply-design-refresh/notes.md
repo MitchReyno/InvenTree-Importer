@@ -139,7 +139,7 @@ None for task 10.
 
 ### Decisions made during implementation
 
-- **2026-11-10T06:53+11:00, task 9:** Only an Inventory session's drawer answers in place; other steps' drawers keep linking to the question on its step page, so their behaviour is unchanged. A question already pinned on the page keeps its link in the drawer, so one question never has two answer forms.
+- **2026-11-10T06:53+11:00, task 9:** Only an Inventory session's drawer answers in place; other steps' drawers keep linking to the question on its step page, so their behaviour is unchanged. A question already pinned on the page keeps its link in the drawer, so one question never has two answer forms. Like the pinned answer, a drawer answer form appears only after this mount's fresh Processing read, so a warm cache never pins its question; until then the drawer shows the link.
 - **2026-11-10T06:53+11:00, task 9:** Each drawer answer reports to its own navigation-guard source (`answer:<question>`). The workspace treats any answer source as an answer draft (`answerDirty`), so the batch instructions and Examine corrections still wait while one is unsaved, as they do for the pinned answer.
 
 ### Open items
