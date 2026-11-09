@@ -121,34 +121,29 @@ export function ManualWorkspace({
     return result.data
   }
 
-  useEffect(() => {
-    if (!workspace) {
-      return
-    }
-
-    // A retained approval removes a row from a transient review selection, not from history.
-    setSelected((previous) =>
-      previous.filter((id) =>
-        workspace.lots.some(
-          (lot) =>
-            lot.lot_id === id &&
-            !lot.issues.some(
-              (problem) => problem.code === 'original_contribution_already_approved',
-            ),
-        ),
-      ),
+  // A retained approval or a removed lot leaves the selection; history keeps it.
+  const selectable = (id: string) =>
+    !workspace ||
+    workspace.lots.some(
+      (lot) =>
+        lot.lot_id === id &&
+        !lot.issues.some((problem) => problem.code === 'original_contribution_already_approved'),
     )
-  }, [workspace])
 
+  const validSelected = selected.filter(selectable)
+
+  // The preparation a URL names is remembered, so it still shows after it leaves the workspace.
+  const matchingPreview =
+    workspace && stage === 'approve' && preparationId
+      ? workspace.preparations.find((value) => value.id === preparationId)
+      : undefined
+  if (matchingPreview && matchingPreview !== lastPreview) {
+    setLastPreview(matchingPreview)
+  }
+
+  // A bare Ready to add route is replaced once this mount's read shows what to open.
   useEffect(() => {
-    if (!workspace || stage !== 'approve') {
-      return
-    }
-    if (preparationId) {
-      const matching = workspace.preparations.find((value) => value.id === preparationId)
-      if (matching && matching !== lastPreview) {
-        setLastPreview(matching)
-      }
+    if (!workspace || stage !== 'approve' || preparationId) {
       return
     }
     // Bare Ready to add opens the remembered preparation, or the newest once that is gone,
@@ -170,7 +165,6 @@ export function ManualWorkspace({
     stage,
     preparationId,
     rememberedPreparationId,
-    lastPreview,
     navigate,
   ])
   const displayedPreview = preparationId
@@ -212,7 +206,7 @@ export function ManualWorkspace({
       if (previous.includes(id)) {
         return previous.filter((value) => value !== id)
       }
-      if (previous.length >= MAX_SELECTED_LOTS) {
+      if (previous.filter(selectable).length >= MAX_SELECTED_LOTS) {
         return previous
       }
 
@@ -246,11 +240,11 @@ export function ManualWorkspace({
   }
 
   function review() {
-    reviewLots(selected)
+    reviewLots(validSelected)
   }
 
   function prepare() {
-    prepareLots(selected)
+    prepareLots(validSelected)
   }
 
   function prepareLots(lotIds: string[]) {
@@ -337,7 +331,7 @@ export function ManualWorkspace({
           !processingQuery.isFetching &&
           processingQuery.data?.capture_revision === batch.revision
         }
-        selected={selected}
+        selected={validSelected}
         setSelection={setSelected}
         maxSelected={MAX_SELECTED_LOTS}
         busy={disabled}

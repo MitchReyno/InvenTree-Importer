@@ -12,8 +12,15 @@ import type { CatalogueClient } from '#/catalogue/types'
 export type Snapshot = CaptureSnapshotDto
 export type Quantity = Snapshot['lots'][number]['quantity']
 export type Reference = Snapshot['lots'][number]['location']
-/** Resolves false when the change was not saved; the host shows why. */
-export type CaptureEdit = (change: CaptureEditDto['change']) => Promise<boolean | void>
+/**
+ * Resolves false when the change was not saved; the host shows why. `Batch` resolves the accepted
+ * snapshot, so a follow-up command can use what the save created.
+ */
+export type CaptureEdit = (
+  change: CaptureEditDto['change'],
+  /** The revision the change applies to, for a command that follows one just confirmed. */
+  expectedRevision?: string,
+) => Promise<CaptureSnapshotDto | boolean | void>
 export type CaptureObserve = (
   model: InventoryModelDto,
   pk: string,

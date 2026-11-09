@@ -122,20 +122,23 @@ export function ProcessingWorkspace({
   edit,
 }: Props) {
   const { agents, media } = useApiClients()
-  const [sessionJobId, setSessionJobId] = useState<string | null>(sessionId)
+  // A route change shows the session its link names, or none: opening a question navigates, and
+  // the drawer closes only once the route actually changes.
+  const route = `${view}:${questionId}:${sessionId}`
+  const [drawer, setDrawer] = useState({ route, jobId: sessionId })
+  if (drawer.route !== route) {
+    setDrawer({ route, jobId: sessionId })
+  }
+  const sessionJobId = drawer.route === route ? drawer.jobId : sessionId
+
+  function setSessionJobId(jobId: string | null) {
+    setDrawer({ route, jobId })
+  }
+
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
-  // A route change shows the session its link names, or none: opening a question navigates, and
-  // the drawer closes only once the route actually changes.
-  const routeKey = useRef(`${view}:${questionId}:${sessionId}`)
-  useEffect(() => {
-    if (routeKey.current !== `${view}:${questionId}:${sessionId}`) {
-      routeKey.current = `${view}:${questionId}:${sessionId}`
-      setSessionJobId(sessionId)
-    }
-  }, [questionId, view, sessionId])
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
@@ -223,26 +226,20 @@ export function ProcessingWorkspace({
     }
   }, [snapshotQuery.fetchStatus])
 
-  useEffect(() => {
-    if (!questionId) {
+  // Pins the first exact question/context read for this URL, during render so no frame shows it
+  // as unavailable. Polling cannot substitute another; warm cache data cannot establish one.
+  if (!questionId) {
+    if (pinned) {
       setPinned(null)
-      return
     }
-    // Retain the first exact question/context read for this URL. Polling cannot substitute another.
-    if (pinned?.question.id === questionId) {
-      return
-    }
-    // Warm query data is useful for status only; it cannot establish a new answer context.
-    if (waitingForRead || offline) {
-      return
-    }
-    const question = snapshot?.jobs
+  } else if (pinned?.question.id !== questionId && !waitingForRead && !offline && snapshot) {
+    const question = snapshot.jobs
       .flatMap((job) => job.questions)
-      .find((question) => question.id === questionId)
-    if (question && snapshot) {
+      .find((candidate) => candidate.id === questionId)
+    if (question) {
       setPinned({ question, captureRevision: snapshot.capture_revision })
     }
-  }, [questionId, snapshot, pinned, waitingForRead, offline])
+  }
 
   function commandReadAvailable() {
     const current = queryClient.getQueryState(queryKey)

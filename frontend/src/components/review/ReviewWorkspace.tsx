@@ -45,6 +45,8 @@ import { UnassignedObservations } from '#/components/operator/UnassignedObservat
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 import { useApiClients } from '#/clients/api-clients'
 import { useBatchCommands } from '#/capture/batch-commands'
+import { QUICK_QUANTITY_INPUT_ID } from '#/components/operator/QuickLotEdit'
+import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -185,22 +187,15 @@ export function ReviewWorkspace({
 }: Props) {
   const { edit } = useBatchCommands()
   const { operator } = useApiClients()
-  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
-    observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined,
-  )
   const currentOperatorReview =
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
-  const operatorReview = currentOperatorReview ?? acceptedOperatorReview
+  const operatorReview = useAcceptedOperatorReview(currentOperatorReview)
   const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
-  useEffect(() => {
-    if (currentOperatorReview) {
-      setAcceptedOperatorReview(currentOperatorReview)
-    }
-  }, [currentOperatorReview])
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
-  const [editSignal, setEditSignal] = useState(0)
+  // The lot whose quick editor E asked to open; any successful navigation drops the request.
+  const [quickEditLotId, setQuickEditLotId] = useState<string | null>(null)
   const [editing, setEditing] = useState(() => initialEditor(batch))
   const evidenceRef = useRef<HTMLElement>(null)
   const queueRef = useRef<HTMLDivElement>(null)
@@ -248,6 +243,8 @@ export function ReviewWorkspace({
       return false
     }
     setNavigationBlocked(false)
+    // A quick-edit request belongs to the lot and view being left; a blocked move keeps it.
+    setQuickEditLotId(null)
     const value = { ...route, ...next }
     setRoute(value)
     const sameLot = value.lotId === route.lotId
@@ -311,7 +308,8 @@ export function ReviewWorkspace({
       },
       editQuantity: () => {
         if (focused) {
-          setEditSignal((value) => value + 1)
+          setQuickEditLotId(focused)
+          requestAnimationFrame(() => document.getElementById(QUICK_QUANTITY_INPUT_ID)?.focus())
         }
       },
       viewEvidence: () => evidenceRef.current?.focus(),
@@ -550,7 +548,8 @@ export function ReviewWorkspace({
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || drafts.dirty}
                 openEvidence={() => evidenceRef.current?.focus()}
-                editSignal={editSignal}
+                quickEditRequested={quickEditLotId === lot.id}
+                onQuickEditClosed={() => setQuickEditLotId(null)}
                 onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (

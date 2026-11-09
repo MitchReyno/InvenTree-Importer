@@ -21,4 +21,9 @@ export function observationCrop(batchId: string, observationId: string) {
   return `/api/v1/batches/${encodeURIComponent(batchId)}/media/observations/${encodeURIComponent(observationId)}/crop`
 }
 
-export type EditMedia = (change: MediaEditDto['change'], revision?: string) => Promise<boolean>
+/** `onConfirmed` runs once the change is confirmed, whether by this request or its exact retry. */
+export type EditMedia = (
+  change: MediaEditDto['change'],
+  revision?: string,
+  onConfirmed?: () => void,
+) => Promise<boolean>

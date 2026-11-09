@@ -681,3 +681,96 @@ test('a group’s instruction draft reaches the guard and is released when the w
   view.unmount()
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })
+
+function renderNewGroup(client: MediaClient) {
+  const onDirtyChange = vi.fn()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  return { onDirtyChange }
+}
+
+test('a confirmed new group closes its form and releases the guard', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const { onDirtyChange } = renderNewGroup(client)
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
+  await user.type(screen.getByLabelText('New group name'), 'Packet C')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Create group' }))
+  await waitFor(() => expect(screen.queryByLabelText('New group name')).not.toBeInTheDocument())
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+test('an unconfirmed new group closes once its exact retry is confirmed', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new Error('lost'))
+  renderNewGroup(client)
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
+  await user.type(screen.getByLabelText('New group name'), 'Packet C')
+  await user.click(screen.getByRole('button', { name: 'Create group' }))
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  await waitFor(() => expect(screen.queryByLabelText('New group name')).not.toBeInTheDocument())
+  expect(vi.mocked(client.edit).mock.calls[1][2]).toBe(vi.mocked(client.edit).mock.calls[0][2])
+})
+
+test('a refused new group keeps its name for another try', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_group'))
+  renderNewGroup(client)
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
+  await user.type(screen.getByLabelText('New group name'), 'Packet C')
+  await user.click(screen.getByRole('button', { name: 'Create group' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
+  expect(screen.getByLabelText('New group name')).toHaveValue('Packet C')
+})
+
+function renderMoves(client: MediaClient) {
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+}
+
+async function moveFrontToB(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), groupB)
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+}
+
+test('an unconfirmed move that its exact retry confirms is announced with Undo', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new Error('lost'))
+  renderMoves(client)
+  await moveFrontToB(user)
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  expect(await screen.findByText('Moved 1 file to Packet B')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
+})
+
+test('an unconfirmed move that its retry has refused is never announced', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit)
+    .mockRejectedValueOnce(new Error('lost'))
+    .mockRejectedValueOnce(new IntakeRequestError(422, 'group_not_found'))
+  renderMoves(client)
+  await moveFrontToB(user)
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(2))
+  expect(screen.queryByText('Moved 1 file to Packet B')).toBeNull()
+})

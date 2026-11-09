@@ -779,3 +779,82 @@ test('the batch is shown paused from its own read, whatever the account-wide lis
   )
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeVisible()
 })
+
+test('a question URL pins its first read without ever showing the question as unavailable', async () => {
+  const added: string[] = []
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      record.addedNodes.forEach((node) => added.push(node.textContent ?? ''))
+    }
+  })
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  try {
+    const client = clientFixture()
+    const mounted = mount(client)
+    expect(await screen.findByLabelText('Quantity')).toBeVisible()
+    const newer = structuredClone(snapshot)
+    newer.capture_revision = '9'
+    client.read.mockResolvedValue(newer)
+    await act(async () => {
+      await mounted.cache.refetchQueries()
+    })
+    expect(screen.getByLabelText('Quantity')).toBeVisible()
+    observer
+      .takeRecords()
+      .forEach((record) => record.addedNodes.forEach((node) => added.push(node.textContent ?? '')))
+    expect(added.some((text) => text.includes('pinned question is unavailable'))).toBe(false)
+  } finally {
+    observer.disconnect()
+  }
+})
+
+test('returning to a route reopens only the session its link names, not an earlier drawer', async () => {
+  const withSession: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
+  }
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(withSession),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  const cache = createServerQueryClient()
+  const props = {
+    batch,
+    client,
+    questionId,
+    navigate: vi.fn(),
+    onDirtyChange: vi.fn(),
+    onSaved: vi.fn().mockResolvedValue(undefined),
+  }
+  const view = render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="overview" />
+    </ServerStateProvider>,
+  )
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
+  )
+  expect(screen.getByRole('dialog', { name: 'Examine · Packet A' })).toBeInTheDocument()
+
+  // The link's route is the Examine step with the same question.
+  view.rerender(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="examine" />
+    </ServerStateProvider>,
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  view.rerender(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="overview" />
+    </ServerStateProvider>,
+  )
+  expect(screen.queryByRole('dialog', { name: 'Examine · Packet A' })).not.toBeInTheDocument()
+})

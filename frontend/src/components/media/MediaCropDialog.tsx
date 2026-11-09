@@ -14,6 +14,7 @@ import { previewImage } from '#/media/images'
 import { cropRecipe, sameRotatedRecipe, type CropForm, type CropIntent } from '#/media/crop-model'
 import { MediaCropFields } from './MediaCropFields'
 import { RotatedCropSelection } from './RotatedCropSelection'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 interface Props {
   batchId: string
@@ -67,11 +68,15 @@ export function MediaCropDialog({
     // Invalid numeric input remains visible until the user corrects it.
   }
 
+  // An open crop editor is unsaved work until it closes.
+  useReportDirty(true, onDirtyChange)
+  // Opens the native modal once; a replaced callback must not call showModal on an open dialog.
   useEffect(() => {
-    dialog.current?.showModal()
-    onDirtyChange(true)
-    return () => onDirtyChange(false)
-  }, [onDirtyChange])
+    const element = dialog.current
+    if (element && !element.open) {
+      element.showModal()
+    }
+  }, [])
 
   async function prepare() {
     if (!currentRecipe) {

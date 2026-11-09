@@ -576,6 +576,32 @@ test('a refused logo is reported and a replacement file can be chosen', async ()
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
+test('an unconfirmed logo upload says so until the same upload is retried', async () => {
+  const uploadLogo = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('lost'))
+    .mockResolvedValueOnce({ evidence_id: 'e-logo', version: { id: 'v-logo' } })
+  const dirty = vi.fn()
+  const { user, panel } = setup({ uploadLogo, onDirtyChange: dirty })
+  const supplier = within(panel).getByRole('combobox', { name: 'Supplier' })
+  await user.type(supplier, 'Rare Parts')
+  await user.click(await screen.findByRole('option', { name: 'New supplier “Rare Parts”' }))
+  await settle()
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await settle()
+  const file = new File(['png'], 'logo.png', { type: 'image/png' })
+  await user.upload(within(panel).getByLabelText('Supplier logo (optional)'), file)
+  await settle()
+  const unconfirmed = 'Logo upload not confirmed. Retry the same upload or reload saved values.'
+  expect(await within(panel).findByText(unconfirmed)).toBeVisible()
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
+  await settle()
+  expect(uploadLogo).toHaveBeenCalledTimes(2)
+  expect(uploadLogo.mock.calls[1][3]).toBe(uploadLogo.mock.calls[0][3])
+  expect(within(panel).queryByText(unconfirmed)).not.toBeInTheDocument()
+})
+
 test('composing in one field resumes the other lane once composition ends', async () => {
   const { title, panel, user } = setup()
   await user.type(title, ' A')
@@ -874,4 +900,56 @@ test('a newer snapshot after an instruction acknowledgement keeps text being com
   fireEvent.compositionEnd(title)
   await idle()
   expect(title).toHaveValue('In-progress IME title')
+})
+
+test('a read started before a second disconnect is dropped, and reconnection reads again', async () => {
+  const finish: Array<() => void> = []
+  const read = vi.fn(
+    () =>
+      new Promise<CaptureSnapshotDto>((resolve) => {
+        finish.push(() => resolve(batch))
+      }),
+  )
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host read={read} />)
+  await user.type(screen.getByLabelText('Batch title'), ' A')
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  await idle()
+  expect(read).toHaveBeenCalledTimes(2)
+  await act(async () => finish[0]())
+  await settle()
+  expect(saves).toHaveLength(0)
+  await act(async () => finish[1]())
+  await settle()
+  expect(saves.map((item) => item.change.title)).toEqual(['Two packets A'])
+})
+
+test('unmounting while a failed reconnection read waits to retry leaves no timer behind', async () => {
+  const read = vi.fn(async () => Promise.reject(new Error('down')))
+  const scheduled = vi.spyOn(globalThis, 'setTimeout')
+  const cleared = vi.spyOn(globalThis, 'clearTimeout')
+  const view = render(<Host read={read} />)
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  await settle()
+  expect(read).toHaveBeenCalledOnce()
+  const retryAt = scheduled.mock.calls.findIndex(([, delay]) => delay === 2000)
+  expect(retryAt).toBeGreaterThanOrEqual(0)
+  view.unmount()
+  expect(cleared).toHaveBeenCalledWith(scheduled.mock.results[retryAt].value)
+  await act(() => vi.advanceTimersByTimeAsync(5000))
+  expect(read).toHaveBeenCalledOnce()
+})
+
+test('the instructions lane registers when the review projection arrives after Capture', async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host withoutReview />)
+  view.rerender(<Host operatorReview={review} />)
+  await settle()
+  await user.type(screen.getByRole('textbox', { name: 'Custom instructions' }), 'Keep reels apart.')
+  await act(() => vi.advanceTimersByTimeAsync(2000))
+  expect(instructs.map((item) => item.text)).toEqual(['Keep reels apart.'])
 })

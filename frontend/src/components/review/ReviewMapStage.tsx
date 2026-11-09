@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
@@ -23,13 +23,9 @@ type Props = {
   discarded?: number
 }
 
-/** A lot made from a file (linked once it exists) or a region (moved into it once it exists). */
-type PendingLot = {
-  from: { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
-  label: string
-  knownLotIds: string[]
-}
-type Unfinished = Pick<PendingLot, 'from' | 'label'> & { lotId: string; lotLabel: string }
+/** A lot made from a file (then linked to it) or a region (then moved into it). */
+type LotSource = { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
+type Unfinished = { from: LotSource; label: string; lotId: string; lotLabel: string }
 
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
@@ -59,11 +55,10 @@ export function ReviewMapStage({
     kind: 'split' | 'merge' | 'move'
     lotIds: string[]
   } | null>(null)
-  // A new lot gets its id from the server, so its file is linked once the lot appears.
-  const pending = useRef<PendingLot | null>(null)
 
   async function link(evidenceId: string, lotId: string, linked: boolean) {
-    const snapshot = query.data
+    // Read at send time: a handler may run after its closure's media read was replaced.
+    const snapshot = queryClient.getQueryData<MediaSnapshotDto>(key) ?? query.data
     if (!media || !snapshot) {
       return false
     }
@@ -89,31 +84,45 @@ export function ReviewMapStage({
     }
   }
 
-  async function newLotFrom(evidenceId: string, label: string) {
+  /** Makes a lot, then links its file or moves its region into it once the save is confirmed. */
+  async function newLot(from: LotSource, label: string, note: string) {
+    const knownLotIds = batch.lots.map((lot) => lot.id)
     setBusy(true)
     setError('')
-    pending.current = {
-      from: { kind: 'file', evidenceId },
-      label,
-      knownLotIds: batch.lots.map((lot) => lot.id),
-    }
     try {
       // The batch edit reports failure as false rather than throwing.
-      const saved = await edit({
-        kind: 'add_lot',
-        label,
-        note: `Made from evidence “${label}”.`,
-        part_subject_id: null,
-      })
+      const saved = await edit({ kind: 'add_lot', label, note, part_subject_id: null })
       if (saved === false) {
-        pending.current = null
+        return
       }
+      // The server assigns the new lot's id, so it is found in the accepted snapshot.
+      const accepted = typeof saved === 'object' ? saved : undefined
+      const created = accepted?.lots.find(
+        (lot) => !knownLotIds.includes(lot.id) && lot.label === label,
+      )
+      if (!accepted || !created) {
+        setError(
+          from.kind === 'file'
+            ? 'The lot was made, but its file was not linked. Link it from the Map.'
+            : 'The lot was made, but its region was not moved. Move it from the Map.',
+        )
+        return
+      }
+      // This closure's batch predates the new lot, so the move names the accepted revision.
+      await finish({ from, label, lotId: created.id, lotLabel: created.label }, accepted.revision)
     } catch {
-      pending.current = null
       setError('The lot could not be made. Refresh and try again.')
     } finally {
       setBusy(false)
     }
+  }
+
+  function newLotFrom(evidenceId: string, label: string) {
+    return newLot({ kind: 'file', evidenceId }, label, `Made from evidence “${label}”.`)
+  }
+
+  function newLotFromRegion(observationId: string, label: string) {
+    return newLot({ kind: 'region', observationId }, label, `Made from region “${label}”.`)
   }
 
   async function markSameItem(observationId: string, sameAs: string | null) {
@@ -135,15 +144,16 @@ export function ReviewMapStage({
     }
   }
 
-  async function moveRegion(observationId: string, lotId: string | null) {
+  async function moveRegion(observationId: string, lotId: string | null, revision?: string) {
     setBusy(true)
     setError('')
     try {
-      const saved = await edit({
-        kind: 'observation_move',
+      const change = {
+        kind: 'observation_move' as const,
         observation_id: observationId,
         lot_id: lotId,
-      })
+      }
+      const saved = await edit(change, revision)
       if (saved === false) {
         setError('The region could not be moved. Refresh and try again.')
         return false
@@ -157,58 +167,13 @@ export function ReviewMapStage({
     }
   }
 
-  async function newLotFromRegion(observationId: string, label: string) {
-    setBusy(true)
-    setError('')
-    pending.current = {
-      from: { kind: 'region', observationId },
-      label,
-      knownLotIds: batch.lots.map((lot) => lot.id),
-    }
-    try {
-      const saved = await edit({
-        kind: 'add_lot',
-        label,
-        note: `Made from region “${label}”.`,
-        part_subject_id: null,
-      })
-      if (saved === false) {
-        pending.current = null
-      }
-    } catch {
-      pending.current = null
-      setError('The lot could not be made. Refresh and try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  useEffect(() => {
-    const waiting = pending.current
-    if (!waiting) {
-      return
-    }
-    const created = batch.lots.find(
-      (lot) => !waiting.knownLotIds.includes(lot.id) && lot.label === waiting.label,
-    )
-    if (created) {
-      pending.current = null
-      void finish({
-        from: waiting.from,
-        label: waiting.label,
-        lotId: created.id,
-        lotLabel: created.label,
-      })
-    }
-  })
-
   // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
-  async function finish(step: Unfinished) {
+  async function finish(step: Unfinished, revision?: string) {
     setUnfinished(step)
     const done =
       step.from.kind === 'file'
         ? await link(step.from.evidenceId, step.lotId, true)
-        : await moveRegion(step.from.observationId, step.lotId)
+        : await moveRegion(step.from.observationId, step.lotId, revision)
     if (done) {
       setUnfinished(null)
     }

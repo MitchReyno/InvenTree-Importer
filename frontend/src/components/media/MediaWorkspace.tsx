@@ -1,5 +1,5 @@
 import { mediaIdentityLabels } from '#/media/identity-labels'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
@@ -61,14 +61,6 @@ export function MediaWorkspace({
     message: string
     undo?: { ids: string[]; groupId: string | null }
   } | null>(null)
-  const confirmation = useRef(state.confirmation)
-  useEffect(() => {
-    if (confirmation.current !== state.confirmation) {
-      confirmation.current = state.confirmation
-      setNewGroup(false)
-      drafts.forSource('new-group')(false)
-    }
-  }, [state.confirmation, drafts.forSource])
   const [crop, setCrop] = useState<{
     version: MediaVersionDto
     page: number
@@ -79,14 +71,9 @@ export function MediaWorkspace({
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
 
-  // A confirmed move is undoable when its files all came from one group.
+  // A confirmed move is undoable when its files all came from one group. It is forgotten once
+  // nothing is retained: confirmed or refused on retry, or discarded.
   const unconfirmedMove = useRef<typeof moved>(null)
-  // Once nothing is retained (confirmed, refused or discarded), the move is forgotten.
-  useEffect(() => {
-    if (!command.pending) {
-      unconfirmedMove.current = null
-    }
-  }, [command.pending])
 
   async function moveEvidence(ids: string[], groupId: string | null) {
     const origins = new Set(
@@ -120,6 +107,9 @@ export function MediaWorkspace({
           void state.retry().then((saved) => {
             if (saved && move) {
               setMoved(move)
+            }
+            if (!command.hasPendingIntent()) {
+              unconfirmedMove.current = null
             }
           })
         }}
@@ -235,7 +225,12 @@ export function MediaWorkspace({
               pending={command.pending}
               onDirtyChange={drafts.forSource('new-group')}
               onCancel={() => setNewGroup(false)}
-              onSave={(label, revision) => edit({ kind: 'group', label }, revision)}
+              onSave={(label, revision) =>
+                edit({ kind: 'group', label }, revision, () => {
+                  setNewGroup(false)
+                  drafts.forSource('new-group')(false)
+                })
+              }
             />
           )}
           {state.selected.length > 0 && (
@@ -292,7 +287,6 @@ export function MediaWorkspace({
                   batch={batch}
                   snapshot={snapshot}
                   groupId={groupId}
-                  confirmation={state.confirmation}
                   labels={identityLabels}
                   frozen={frozen}
                   pending={command.pending}

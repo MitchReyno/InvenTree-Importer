@@ -1,12 +1,13 @@
 # Implementation notes
 
-Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1 is in progress.
+Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1 and E2 are implemented; E3 is next.
 
 ## Changes to the plan
 
 - **2026-11-09T20:49+11:00, task 1 (E1):** Items 1 and 2 planned a failing-first test for a late dirty report. It cannot fail: React 19 flushes passive Effects synchronously after a discrete event, so the Effect-based report already reached the guard before the event returned. Both are fixed to follow the guideline, with characterization tests instead.
 - **2026-11-09T20:49+11:00, task 1 (E1):** Item 11, `MediaCropDialog`'s dirty half, moves to task 7. It shares one Effect with the `showModal` call that task 7 fixes, and changing it twice would split one decision across two PRs. The task map in `tasks.md` is updated.
 
+- **2026-11-09T21:35+11:00, task 4 (E2):** Audit item 25 is dropped. (a) If a draft is dirty when lots first appear, Review skips its automatic first lot. A fix would auto-open a lot later, after the operator has started working, moving the view under them. (b) Moving focus to the queue when polling retires the focused lot is correct, because the focused evidence disappears with it. `tasks.md` records the decision in 4.4.
 - **2026-11-09T22:28+11:00, task 1 (E1):** The design allowed React Hook Form editors to keep a subscription-driven report for a typed-back `isDirty`. None does: each compares `getValues()` with its baseline in the form's `onChange`. `design.md` and `tasks.md` now say so, and list the three report Effects that remain for a saved value catching up with a draft: `useDraft`, `EvidenceGroup` and `InstructionField`.
 
 ## Unexpected challenges
@@ -23,6 +24,16 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T23:34+11:00, task 1 (review round 8):** ReadingEdit now compares the form Save would send (trimmed, without empty markings) with its baseline, so spacing or an empty marking is not an unsaved change and an untidy unconfirmed draft is released when the readings catch up. The review rounds 5–7 entries say readings arrive by poll; in the app Processing remounts on each revision, so these paths cover the component's prop contract rather than an observed one.
 - **2026-11-09T23:38+11:00, task 1 (review round 9):** The round-8 comparison normalised only the draft, so an agent reading with stray spacing read as unsaved as soon as the editor opened. The baseline is now compared in saved form too.
 
+- **2026-11-09T21:35+11:00, task 7:** `Dialog`'s StrictMode focus loss depends on inertness, which jsdom does not model. Stubbing `focus` to ignore elements outside an open modal reproduces it, and the test fails on the old code. The fix was also checked in headless Chromium against a temporary StrictMode copy of the component gallery: focus returned to the opener, and with the old `Dialog` it fell to the page body. The temporary page was not committed.
+- **2026-11-09T21:35+11:00, task 8:** Items 22 and 23 had no observable bug in jsdom. The old Effects reached the same end state one render later, so their tests are characterization tests. Item 21 had one: a `MutationObserver` shows the old code inserting the "pinned question is unavailable" text for a commit.
+
+- **2026-11-09T22:28+11:00, task 5:** `MediaWorkspace`'s `unconfirmedMove` ref was cleared by an Effect when `pending` turned false. Every path that clears a retained media intent goes through this component's retry and discard handlers, and a new move cannot start while one is retained. So the retry handler now clears the ref once no intent remains, and discard clears it directly. Tests cover undo being offered after a confirmed exact retry and nothing being announced after a refused one.
+- **2026-11-09T22:28+11:00, tasks 4 and 5 (E2 review):** Independent review found two regressions in the first version. A blocked J or K cleared the quick-edit request before the move was refused, closing an E-opened editor and losing its draft; the request now clears only when navigation succeeds. Review › Map's follow-up move ran from a closure that predated its new lot, so it would have sent the old batch revision; `edit` now takes an optional expected revision, the follow-up passes the accepted snapshot's, and the file link reads the media snapshot at send time. The session drawer also now resets to the route's own session on every route change, so returning to a route cannot reopen an earlier drawer.
+- **2026-11-09T22:55+11:00, tasks 6 and 7 (E2 review):** Two planned mechanisms were not built. Batch settings reconnection uses a cancelled flag in the Effect's cleanup instead of a generation counter: the Effect reruns on every connection change, so its cleanup already marks the older read stale and no counter is needed. `MediaCropDialog` keeps its own guarded `showModal` Effect instead of a modal hook shared with `ui/Dialog`. Both open on mount and close on unmount, but `Dialog` also records its opener, closes in its cleanup and returns focus there, while `MediaCropDialog` reconciles native close events itself, so the only shared code would be the two-line `showModal` guard. `design.md` and `tasks.md` now describe the code.
+- **2026-11-09T22:55+11:00, tasks 4 and 5 (E2 review, second round):** A quick-edit request now clears on every successful Review navigation, not only on a lot move, so leaving for Table and returning no longer reopens the editor. When a Map lot is saved but the response does not show the new lot, the Map says its file was not linked or its region was not moved, instead of doing nothing. A test now runs the real `Batch` `edit` and checks that the follow-up region move names the revision that made the lot.
+- **2026-11-09T23:10+11:00, task 6 (review round 3):** The unconfirmed-logo message is derived from queue state, and its new test is a characterization test: the old Effect showed and cleared the same message.
+- **2026-11-09T23:26+11:00, task 8 (review round 5):** Review's selection count and the tenth-selection limit now have tests for a lot that becomes approved while selected. They are characterization tests: the old Effect removed the approved lot from the selection one render later.
+
 ## Decisions made during implementation
 
 - **2026-11-09T20:57+11:00, task 2:** `InstructionForm` takes a plain `(dirty) => void` instead of `(key, dirty)`. Its only caller passes the stable `forSource` callback, so the form reports from its `onChange` and releases on unmount like the other editors.
@@ -31,6 +42,10 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T21:18+11:00, tasks 1–3:** A confirmed command resets its editor before releasing the guard. `InstructionForm` and `QuickLotEdit` reset to the confirmed values, `BulkEditPanel` and `DismissWarning` reset to their empty defaults, and ExamineView's ReadingEdit records the confirmed values as its baseline. Without that, a parent replacing its callback during the follow-up reload heard the stale draft as dirty. After a confirmed bulk apply the panel therefore returns to "Keep".
 
 - **2026-11-09T21:18+11:00, task 3:** `InstructionField` follows the same rule as `useDraft`: a draft equal to the saved text is dropped, both when typed back and when the saved text catches up. Independent review found the first version kept a stale draft.
+
+- **2026-11-09T21:35+11:00, task 5:** `Batch`'s `edit` resolves with the accepted snapshot, or `false`, so `ReviewMapStage` finds the lot it created in the handler that created it. `CaptureEdit`'s type includes the snapshot; its contract is still that `false` means not saved.
+- **2026-11-09T21:35+11:00, task 5:** The evidence workspace's confirmation counter is replaced by an `onConfirmed` callback passed to `edit`. It is stored with the retained intent, so an exact retry closes the editor that sent the request. Broadcasting to every listener was rejected because it closed editors that had sent nothing.
+- **2026-11-09T21:35+11:00, task 6:** The save queue's `LaneSpec` gains `onRejected`, called once when the server definitely refuses a lane's payload. The logo lane uses it to show its refusal and discard; the unconfirmed-upload message is derived from queue state in render.
 
 ## Open items
 

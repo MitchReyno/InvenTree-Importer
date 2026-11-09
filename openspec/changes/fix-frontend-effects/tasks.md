@@ -97,10 +97,10 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Verification: the owning checks; a demo recording for the PR.
 - Risks and decisions: none.
 
-- [ ] 4.1 Confirm the finding against the current code.
-- [ ] 4.2 RED: add the J-after-E regression and confirm it fails.
-- [ ] 4.3 GREEN: implement the quick-edit request.
-- [ ] 4.4 Assess item 25 and fix or drop it with a note.
+- [x] 4.1 Confirm the finding against the current code.
+- [x] 4.2 RED: add the J-after-E regression and confirm it fails.
+- [x] 4.3 GREEN: implement the quick-edit request.
+- [x] 4.4 Assess item 25 and fix or drop it with a note. Dropped; see `notes.md`.
 - [ ] 4.5 Record the demo and run the owning checks.
 
 ## 5. Commands from handlers
@@ -114,11 +114,11 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Verification: the owning checks.
 - Risks and decisions: `MediaWorkspace`'s `unconfirmedMove` ref is low confidence and is changed only with evidence.
 
-- [ ] 5.1 Confirm each finding against the current code.
-- [ ] 5.2 RED: add the save, retry, failure and follow-up regressions and confirm they fail.
-- [ ] 5.3 GREEN: change `edit`'s result and move the commands into handlers.
-- [ ] 5.4 Add tests for any changed file without a test file.
-- [ ] 5.5 Run the owning checks and record the results.
+- [x] 5.1 Confirm each finding against the current code.
+- [x] 5.2 RED: add the save, retry, failure and follow-up regressions and confirm they fail.
+- [x] 5.3 GREEN: change `edit`'s result and move the commands into handlers.
+- [x] 5.4 Add tests for any changed file without a test file.
+- [x] 5.5 Run the owning checks and record the results.
 
 ## 6. Batch settings Effects
 
@@ -131,27 +131,27 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Verification: the owning checks; `save-queue.test.ts` covers `onRejected`.
 - Risks and decisions: none.
 
-- [ ] 6.1 Confirm each finding against the current code.
-- [ ] 6.2 RED: add the reconnection, retry-cancellation and refused-logo regressions and confirm they fail.
-- [ ] 6.3 GREEN: implement the latest-ref, generation and `onRejected` changes.
-- [ ] 6.4 Run the owning checks and record the results.
+- [x] 6.1 Confirm each finding against the current code.
+- [x] 6.2 RED: add the reconnection, retry-cancellation and refused-logo regressions and confirm they fail.
+- [x] 6.3 GREEN: implement the latest-ref, cancelled-read and `onRejected` changes.
+- [x] 6.4 Run the owning checks and record the results.
 
 ## 7. Modal dialog lifecycle
 
 - PR delivery: E2.
 - Outcome: dialogs return focus to their opener after a StrictMode remount, and never call `showModal` on an open dialog.
-- Scope and approach: `ui/Dialog` cleanup and opener recording, and a shared modal hook used by `MediaCropDialog` (19), including its dirty report (11).
+- Scope and approach: `ui/Dialog` cleanup and opener recording, and a mount Effect in `MediaCropDialog` that calls `showModal` only on a closed dialog (19). Its dirty report moves to `useReportDirty` (11).
 - Prerequisites: E1.
 - Acceptance: focus returns to the opener in development StrictMode; a replaced dirty callback does not reopen the crop dialog.
 - TDD approach: the `showModal` guard test fails first in jsdom. Focus return needs a real browser, so it is verified there and recorded as manual evidence.
 - Verification: the owning checks; browser evidence on the PR.
 - Risks and decisions: `reconcileNativeClose` and the disconnected path must keep working; they are checked before adding `close()`.
 
-- [ ] 7.1 Confirm the finding against the current code.
-- [ ] 7.2 RED: add the `showModal` guard regression and confirm it fails.
-- [ ] 7.3 GREEN: implement the dialog lifecycle fix.
-- [ ] 7.4 Verify focus return in a real browser and record it.
-- [ ] 7.5 Run the owning checks and record the results.
+- [x] 7.1 Confirm the finding against the current code.
+- [x] 7.2 RED: add the `showModal` guard regression and confirm it fails.
+- [x] 7.3 GREEN: implement the dialog lifecycle fix.
+- [x] 7.4 Verify focus return in a real browser and record it.
+- [x] 7.5 Run the owning checks and record the results.
 
 ## 8. Derived workspace state
 
@@ -167,11 +167,11 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Verification: the owning checks.
 - Risks and decisions: the pinned-snapshot rules are the main risk, so each fix keeps an explicit test for them.
 
-- [ ] 8.1 Confirm each finding against the current code.
-- [ ] 8.2 RED: add the regressions and confirm they fail.
-- [ ] 8.3 GREEN: implement the render-time derivations and the shared hook.
-- [ ] 8.4 Add tests for any changed file without a test file.
-- [ ] 8.5 Run the owning checks and record the results.
+- [x] 8.1 Confirm each finding against the current code.
+- [x] 8.2 RED: add the regressions and confirm they fail.
+- [x] 8.3 GREEN: implement the render-time derivations and the shared hook.
+- [x] 8.4 Add tests for any changed file without a test file.
+- [x] 8.5 Run the owning checks and record the results.
 
 ## 9. Server reads through TanStack Query
 

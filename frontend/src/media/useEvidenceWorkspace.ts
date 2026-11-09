@@ -25,7 +25,8 @@ export function useEvidenceWorkspace(
   const drafts = useDirtySources(onDirtyChange)
   const accepted = useRef<MediaSnapshotDto | undefined>(undefined)
   const [snapshot, setSnapshot] = useState<MediaSnapshotDto>()
-  const [confirmation, setConfirmation] = useState(0)
+  // The editor waiting on the retained request, closed once it is confirmed.
+  const onRetainedConfirmed = useRef<(() => void) | null>(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const selectionRevision = useRef<string | null>(null)
@@ -65,7 +66,9 @@ export function useEvidenceWorkspace(
       return false
     }
     accept(value)
-    setConfirmation((value) => value + 1)
+    const close = onRetainedConfirmed.current
+    onRetainedConfirmed.current = null
+    close?.()
     try {
       await fresh()
     } catch {
@@ -76,7 +79,11 @@ export function useEvidenceWorkspace(
     return true
   }
 
-  async function edit(change: MediaEditDto['change'], revision = snapshot?.revision) {
+  async function edit(
+    change: MediaEditDto['change'],
+    revision = snapshot?.revision,
+    onConfirmed?: () => void,
+  ) {
     if (disabled || unavailable || command.busy || command.hasPendingIntent() || !revision) {
       return false
     }
@@ -89,6 +96,7 @@ export function useEvidenceWorkspace(
     }
     setError('')
     drafts.forSource('command')(true)
+    onRetainedConfirmed.current = onConfirmed ?? null
     return confirmed(await command.submit(input))
   }
 
@@ -170,7 +178,6 @@ export function useEvidenceWorkspace(
   }, [query.refetch])
 
   return {
-    confirmation,
     snapshot,
     query,
     unavailable,
@@ -196,6 +203,7 @@ export function useEvidenceWorkspace(
     discard: () => {
       if (!command.busy) {
         command.discard()
+        onRetainedConfirmed.current = null
         drafts.forSource('command')(false)
       }
     },

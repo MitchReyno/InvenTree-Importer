@@ -11,6 +11,7 @@ import {
   type CaptureSnapshotDto,
   type ManualWorkspaceDto,
   type OperatorImpactDto,
+  type MediaSnapshotDto,
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
@@ -22,6 +23,7 @@ import type { Client } from './capture/client'
 import { ManualWorkspace } from './components/review/ManualWorkspace'
 import type { ManualClient } from './manual/types'
 import type { OperatorReviewClient } from './operator/types'
+import type { MediaClient } from './media/types'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
 import { batchCommands } from './test/batch-commands'
@@ -1639,4 +1641,166 @@ test('a failed delivery of saved instructions keeps its retry after the save rel
   expect(
     await screen.findByText('Sent to 2 sessions; 1 finished one is woken to apply it.'),
   ).toBeVisible()
+})
+
+test('after E opens the quick editor, J and K still move between lots with their editors closed', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await screen.findByRole('button', { name: 'Show Packet A' })
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${b}`))
+  await user.keyboard('j')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
+  await user.keyboard('e')
+  const quantity = await screen.findByLabelText('Exact pieces')
+  await waitFor(() => expect(quantity).toHaveFocus())
+  quantity.blur()
+  await user.keyboard('j')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${a}`))
+  expect(screen.queryByLabelText('Exact pieces')).not.toBeInTheDocument()
+  await user.keyboard('k')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
+  expect(screen.queryByLabelText('Exact pieces')).not.toBeInTheDocument()
+})
+
+test('J with an unsaved quick edit stays on the lot and keeps the edit open', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await screen.findByRole('button', { name: 'Show Packet A' })
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${b}`))
+  await user.keyboard('j')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
+  await user.keyboard('e')
+  const quantity = await screen.findByLabelText('Exact pieces')
+  await waitFor(() => expect(quantity).toHaveFocus())
+  await user.clear(quantity)
+  await user.type(quantity, '42')
+  quantity.blur()
+  await user.keyboard('j')
+  expect(location.hash).toContain(`/review/lots/${d}`)
+  expect(screen.getByLabelText('Exact pieces')).toHaveValue('42')
+})
+
+test('a quick edit opened with E closes when the operator leaves the lot’s view and returns', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await screen.findByRole('button', { name: 'Show Packet A' })
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${b}`))
+  await user.keyboard('e')
+  const quantity = await screen.findByLabelText('Exact pieces')
+  await waitFor(() => expect(quantity).toHaveFocus())
+  await user.click(screen.getByRole('button', { name: 'Table' }))
+  await user.click(screen.getByRole('button', { name: 'Workspace' }))
+  expect(location.hash).toContain(`/review/lots/${b}`)
+  expect(screen.queryByLabelText('Exact pieces')).not.toBeInTheDocument()
+})
+
+test('Batch sends the region move for a new lot at the revision that made the lot', async () => {
+  const e = '30000000-0000-4000-8000-000000000007'
+  const region = {
+    id: '90000000-0000-4000-8000-000000000001',
+    evidence_version_id: '90000000-0000-4000-8000-000000000002',
+    page: 1,
+    region: {
+      kind: 'pixels',
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      source_width: 9,
+      source_height: 9,
+    },
+    readings: { markings: ['16 MHz crystal'] },
+    visible_count: null,
+    status: 'active',
+    supersedes_observation_id: null,
+    origin: 'agent',
+    agent_session_id: '90000000-0000-4000-8000-000000000003',
+    operator_edited: false,
+    revision: '12',
+    lot_id: a,
+    suggested_lot_ids: [],
+  }
+  const regioned = { ...batch, evidence_observations: [region] } as typeof batch
+  const withLot = {
+    ...regioned,
+    revision: '13',
+    lots: [
+      ...regioned.lots,
+      lot(e, '16 MHz crystal', '70000000-0000-4000-8000-000000000013', null),
+    ],
+  }
+  history.replaceState(null, '', `#${batchId}/review/map`)
+  const user = userEvent.setup()
+  const client = {
+    read: vi.fn(async () => regioned),
+    edit: vi.fn(async (_id: string, request: { change: { kind: string } }) =>
+      request.change.kind === 'add_lot' ? withLot : { ...withLot, revision: '14' },
+    ),
+  } as unknown as Client
+  const media: MediaClient = {
+    snapshot: vi.fn(
+      async () =>
+        ({
+          batch_id: batchId,
+          revision: '9',
+          groups: [],
+          evidence: [
+            {
+              id: '90000000-0000-4000-8000-000000000004',
+              label: 'Front label',
+              linked_subject_ids: [a],
+              versions: [
+                {
+                  id: region.evidence_version_id,
+                  evidence_id: '90000000-0000-4000-8000-000000000004',
+                  kind: 'original',
+                  state: 'ready',
+                  pages: [
+                    {
+                      page: 1,
+                      width: 900,
+                      height: 600,
+                      preview_id: '90000000-0000-4000-8000-000000000005',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+          attachments: [],
+          derivations: [],
+        }) as unknown as MediaSnapshotDto,
+    ),
+    edit: vi.fn(),
+    upload: vi.fn(),
+  }
+  render(
+    <ApiClientsProvider value={{ media }}>
+      <Batch
+        id={batchId}
+        route={`${batchId}/review/map`}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
+  )
+  await user.click(
+    await screen.findByRole('button', { name: 'New lot from region: 16 MHz crystal' }),
+  )
+  await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(2))
+  const [made, moved] = vi.mocked(client.edit).mock.calls
+  expect(made[1]).toEqual({
+    expected_revision: '12',
+    change: {
+      kind: 'add_lot',
+      label: '16 MHz crystal',
+      note: 'Made from region “16 MHz crystal”.',
+      part_subject_id: null,
+    },
+  })
+  expect(moved[1]).toEqual({
+    expected_revision: '13',
+    change: { kind: 'observation_move', observation_id: region.id, lot_id: e },
+  })
 })
