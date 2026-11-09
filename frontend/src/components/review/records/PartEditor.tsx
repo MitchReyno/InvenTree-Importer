@@ -5,6 +5,7 @@ import { batchHref } from '#/navigation/batch-route'
 import { mappingsFor, observed, referenceTo } from '#/records/model'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 import { ParameterEditor, NewParameter } from './ParameterEditor'
+import { PartDescriptionField } from './PartDescriptionField'
 import { SourcingEditor } from './SourcingEditor'
 
 type Props = {
@@ -16,8 +17,12 @@ type Props = {
   reportFor: (source: string) => (dirty: boolean) => void
   /** Some draft on the page is unsaved, such as one of this Part's fields or a question. */
   dirty?: boolean
-  /** The Part's record: the existing Part its step did not reuse, and its category reasoning. */
-  record?: Pick<BatchRecordDto, 'reuse' | 'category_reason'>
+  /**
+   * The Part's record: the existing Part its step did not reuse, its category reasoning and who
+   * set its fields.
+   */
+  record?: Pick<BatchRecordDto, 'reuse' | 'category_reason'> &
+    Partial<Pick<BatchRecordDto, 'fields'>>
 }
 
 /** One Part's own fields; each section saves on its own and says what it applies to. */
@@ -78,22 +83,14 @@ export function PartEditor({
         save={save}
         required
       />
-      <TextField
+      <PartDescriptionField
         batch={batch}
-        label="Description"
+        partId={partId}
         saved={spec.description ?? ''}
-        maxLength={250}
+        field={record?.fields?.find((item) => item.name === 'description')}
+        save={save}
         disabled={disabled}
         report={reportFor('description')}
-        normalize={(value) => value.replace(/\s+/g, ' ').trim()}
-        onSave={(value, send) =>
-          send({
-            kind: 'record',
-            target,
-            operation: { op: 'set_description', value: value || null },
-          })
-        }
-        save={save}
       />
       <TextField
         batch={batch}

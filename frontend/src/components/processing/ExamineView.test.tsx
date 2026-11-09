@@ -76,7 +76,8 @@ it('shows each photo’s regions with their lot, and each lot’s observations, 
   expect(within(screen.getByLabelText('Photo 2')).getAllByRole('img')).toHaveLength(1)
 
   const lot = screen.getByLabelText('Lot LED reel')
-  expect(within(lot).getByText('AI-proposed')).toBeVisible()
+  expect(within(lot).getByText('New')).toBeVisible()
+  expect(lot).not.toHaveTextContent('AI-proposed')
   expect(within(lot).getByText('Estimated 500 · label · same item in 2 photos')).toBeVisible()
   expect(within(lot).getAllByRole('img')).toHaveLength(2)
   expect(within(lot).getByText(/Identity from the label/)).toBeVisible()
@@ -135,6 +136,22 @@ it('names each photo by its file, with its group and what it feeds, and keeps co
   expect(screen.getByText('2 files · 3 observations · 1 lot')).toBeInTheDocument()
 })
 
+it('opens a reading’s source details with its value, why and crop', async () => {
+  render(<ExamineView batch={batch} lead={lead} media={media} />)
+  const bench = screen.getByRole('region', { name: 'bench.jpg' })
+  await userEvent.click(
+    within(bench).getAllByRole('button', {
+      name: 'Source: Examine, Read from the photo. Show details.',
+    })[0],
+  )
+
+  const details = await screen.findByRole('dialog', { name: 'Reading source' })
+  expect(details).toHaveTextContent('Reading · LED 0603 red')
+  expect(details).toHaveTextContent('Examine read it from the photo.')
+  expect(within(details).getByRole('img', { name: 'Region: LED 0603 red' })).toBeInTheDocument()
+  expect(within(details).getByRole('button', { name: 'Open evidence' })).toBeInTheDocument()
+})
+
 it('marks each lot formed as stable or questioned, with a count and the map', () => {
   render(<ExamineView batch={batch} lead={lead} questionedLots={new Set(['led'])} />)
   const formed = screen.getByRole('region', { name: 'Lots formed' })
@@ -144,10 +161,11 @@ it('marks each lot formed as stable or questioned, with a count and the map', ()
   )
   const lot = within(formed).getByLabelText('Lot LED reel')
   expect(within(lot).getByText('Question')).toBeVisible()
-  expect(within(lot).getByText('AI-proposed').closest('[data-tone]')).toHaveAttribute(
-    'data-tone',
-    'acc',
-  )
+  // A new lot's pill is ＋ New: the sparkle never marks pills.
+  const fresh = within(lot).getByText('New').closest('[data-tone]')
+  expect(fresh).toHaveAttribute('data-tone', 'info')
+  expect(fresh).not.toHaveTextContent('✦')
+  expect(lot.querySelector('[data-ai-mark]')).toBeNull()
 })
 
 it('says a reading from document lines came from the document', () => {

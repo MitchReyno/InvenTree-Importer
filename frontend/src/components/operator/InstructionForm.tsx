@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Banner, Small, Button } from '#/components/ui'
+import { AiMark, Banner, Small, Button } from '#/components/ui'
 import { Form, Label, TextArea } from '#/forms'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
@@ -76,7 +76,7 @@ export function InstructionForm({
       aria-label={`${label} instructions`}
     >
       <Label>
-        {label}
+        <AiMark size="sm">{label}</AiMark>
         <TextArea
           disabled={disabled || command.pending}
           maxLength={MAX_INSTRUCTION_LENGTH * 2}

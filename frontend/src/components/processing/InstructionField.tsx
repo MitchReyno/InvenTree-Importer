@@ -2,7 +2,7 @@ import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { Button, Small } from '#/components/ui'
+import { AiMark, Button, Small } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { deliveryMessage, type InstructionDelivery } from '#/processing/instruction-delivery'
 import { useReportDirty } from '#/navigation/useReportDirty'
@@ -93,7 +93,9 @@ export function InstructionField({
 
   return (
     <Field>
-      <label htmlFor="batch-instructions">Instructions for the whole batch</label>
+      <label htmlFor="batch-instructions">
+        <AiMark size="sm">Instructions for the whole batch</AiMark>
+      </label>
       <TextArea
         id="batch-instructions"
         value={value}

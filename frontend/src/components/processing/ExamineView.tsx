@@ -498,9 +498,10 @@ export function ExamineView({
                             />
                           )}
                           <SourceChip
-                            source={chip.source}
-                            certainty={chip.certainty}
-                            tone={chip.tone}
+                            {...chip}
+                            field="Reading"
+                            value={readings(observation)}
+                            evidence={crop(observation) ?? `Document ${region(observation)}`}
                             onOpen={() => {
                               location.hash = capture
                             }}
@@ -568,9 +569,7 @@ export function ExamineView({
                     (lot.operator_edited ? (
                       <Pill tone="neutral">Edited</Pill>
                     ) : (
-                      <Pill tone="acc" glyph="✦">
-                        AI-proposed
-                      </Pill>
+                      <Pill status="new">New</Pill>
                     ))}
                   {lot.reexamine && <Pill status="warning">Re-examine</Pill>}
                   {questionedLots.has(lot.id) ? (

@@ -150,11 +150,12 @@ export function ReviewQueue({
                 }
                 state={
                   <>
-                    {lot.origin === 'agent' && (
-                      <Pill tone={lot.operator_edited ? 'neutral' : 'acc'}>
-                        {lot.operator_edited ? 'Edited' : 'AI-proposed'}
-                      </Pill>
-                    )}
+                    {lot.origin === 'agent' &&
+                      (lot.operator_edited ? (
+                        <Pill tone="neutral">Edited</Pill>
+                      ) : (
+                        <Pill status="new">New</Pill>
+                      ))}
                     {lot.reexamine && <Pill status="warning">Re-examine</Pill>}
                     {operatorLot ? (
                       <LotStatusChips lot={operatorLot} />

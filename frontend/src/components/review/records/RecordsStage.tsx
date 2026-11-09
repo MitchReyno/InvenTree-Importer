@@ -199,10 +199,7 @@ export function RecordsStage({
     <ReloadContext.Provider value={reload}>
       <SavingContext.Provider value={{ saving, setSaving }}>
         <Header>
-          <div>
-            <PageHeading>Every InvenTree record this batch touches</PageHeading>
-            <Small>Each record names who set its values; edits wait for a save.</Small>
-          </div>
+          <PageHeading>Every InvenTree record this batch touches</PageHeading>
           <FilterChips
             label="Filter records"
             value={filter}
@@ -421,7 +418,7 @@ const Header = styled.div`
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   gap: ${space[4]} ${space[8]};
   margin-bottom: ${space[6]};
 `

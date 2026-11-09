@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { VisuallyHidden, media, Banner, Button, Pill } from '#/components/ui'
+import { VisuallyHidden, media, Banner, Button, HelpButton, Pill } from '#/components/ui'
 import { Select } from '#/forms'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
@@ -44,6 +44,9 @@ type Props = {
 const MAX_MERGE_LOTS = 10
 /* literal-allowed: the canvas's connector gutter */
 const CONNECTOR_GUTTER = '140px'
+
+const MAP_LEGEND =
+  "Solid: the file shows the lot. Dotted: a document line, the lot's shared Part or an earlier lot supports it. Choose a file to highlight its links."
 
 /** How the evidence became lots, with the direct edits that change it. */
 export function ReviewMap({
@@ -145,6 +148,7 @@ export function ReviewMap({
         <>
           <TitleRow>
             <DiagramTitle>How photos became lots</DiagramTitle>
+            <HelpButton label="How to read the map" explanation={MAP_LEGEND} />
             {unusedCount > 0 && (
               <Pill status="warning">
                 {unusedCount} {unusedCount === 1 ? 'file' : 'files'} in no lot
@@ -414,12 +418,6 @@ export function ReviewMap({
           ))}
         </Drawing>
       }
-      caption={
-        <Muted>
-          Solid: the file shows the lot. Dotted: a document line, the lot&apos;s shared Part or an
-          earlier lot supports it. Choose a file to highlight its links.
-        </Muted>
-      }
     />
   )
 }
@@ -556,7 +554,6 @@ function MapShell({
   evidence,
   lots,
   drawing,
-  caption,
 }: {
   canvas: React.RefObject<HTMLDivElement | null>
   aside: ReactNode
@@ -566,7 +563,6 @@ function MapShell({
   evidence?: ReactNode
   lots?: ReactNode
   drawing?: ReactNode
-  caption?: ReactNode
 }) {
   return (
     <Diagram>
@@ -583,7 +579,6 @@ function MapShell({
           {drawing}
         </Layout>
       </Scroller>
-      {caption}
     </Diagram>
   )
 }
