@@ -200,3 +200,7 @@ Processing's session chat offers an explicit fresh-conversation action when a se
 
 Agent history and Processing session panels share `SessionFailureDetails`. Summaries display a category; the accessible Show details button lazily reads the immutable failure record using the server scope, attempt and failure IDs in its query key. The disclosure shows safe technical context, recovery guidance and explicit unavailable fields. Loading or failed reads do not retry work, send chat, change the selected session or reset a draft. Legacy failed sessions show an unavailable diagnostic state.
 
+
+Personal Claude credential entry in Agent Settings uses uncontrolled password inputs and an explicit same-origin management request outside the ordinary settings client, React Query and autosave. The guest authenticates a separate operator key. Only the configured flag and revision return to the component. [Personal runner setup](../tooling/deployment/README.md#personal-claude-subscription)
+
+Agent Settings starts the Codex device login through the paired guest management endpoint. The panel polls the current login ID, displays the OpenAI verification URL and temporary code, and supports cancellation and disconnect. The browser only keeps the challenge in component memory.

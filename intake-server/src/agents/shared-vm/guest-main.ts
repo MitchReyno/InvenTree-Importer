@@ -1,6 +1,7 @@
 // Entrypoint for one paired session turn. The operator transports opaque TLS bytes over
 // stdio into the network-disabled guest. No host socket or host directory enters the container.
 import { connect } from 'node:tls'
+import { providerProxy } from './provider-proxy.ts'
 import { Duplex } from 'node:stream'
 import { once } from 'node:events'
 import { journalTurn, type TurnOutcome } from './journal.ts'
@@ -26,7 +27,18 @@ async function main() {
   try {
     await once(socket, 'secureConnect')
     const frames = new Frames(socket)
-    await frames.send({ ready: protocol })
+    const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
+    const codex = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1'
+    const provider = codex ? 'codex' : subscription ? 'claude' : undefined
+    if (provider) {
+      const egress = await providerProxy(provider)
+      socket.once('close', () => egress.close())
+    }
+    await frames.send({
+      ready: protocol,
+      claudeSubscription: subscription,
+      codexSubscription: codex,
+    })
     const command = await frames.read()
     if (
       command.protocol !== protocol ||
@@ -43,6 +55,16 @@ async function main() {
     const manifest = command.manifest as ProcessingInputV6Dto
     if (!['synthetic-session/1', 'shared-vm-agent/1'].includes(manifest.profile_id)) {
       throw new Error('invalid_profile')
+    }
+    if (
+      provider &&
+      !(
+        manifest.profile_id === 'shared-vm-agent/1' &&
+        manifest.agent?.provider === provider &&
+        manifest.agent.authentication === 'subscription'
+      )
+    ) {
+      throw new Error('wrong_guest_route')
     }
     const identity = { lineage: command.lineage, attemptId: command.attemptId, turn: command.turn }
     const cwd = join('/home/node/sessions', identity.lineage)

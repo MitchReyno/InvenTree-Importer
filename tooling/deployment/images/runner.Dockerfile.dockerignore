@@ -3,3 +3,4 @@
 !intake-server/tests/
 !intake-server/tests/fixtures/
 !intake-server/tests/fixtures/session-agent.cjs
+!tooling/deployment/bridge/claude-egress.py

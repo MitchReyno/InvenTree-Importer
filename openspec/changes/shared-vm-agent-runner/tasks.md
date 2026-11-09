@@ -24,12 +24,12 @@ All bundles target `interactive-app`, in A through D order. Use independent exac
 ## 3. Connect providers from Agent Settings
 
 - [ ] 3.1 Write failing API, UI and guest tests for unauthorized, stale and offline secret writes, failed deletion, interrupted sign-in and accidental logging of a synthetic sentinel.
-- [ ] 3.2 Deliver explicit Claude save, replace and remove actions and the private guest credential lifecycle. Verify no replay from autosave, no read-back, no secret-bearing backups and no alternate billing fallback.
-- [ ] 3.3 Add Sign in with ChatGPT using the pinned app-server RPC. Test phone URL/code display, cancellation, denial, late completion, disconnect, reauthentication and persistence after guest container replacement.
+- [x] 3.2 Deliver explicit Claude save, replace and remove actions and the private guest credential lifecycle. Verify no replay from autosave, no read-back, no secret-bearing backups and no alternate billing fallback.
+- [x] 3.3 Add Sign in with ChatGPT using the pinned app-server RPC. Test phone URL/code display, cancellation, denial, late completion, disconnect, reauthentication and persistence after guest container replacement.
 - [ ] 3.4 Run frontend typecheck, lint, tests and build plus affected contract, PG and process tests. Verify settings reads never launch inference.
 
 ## 4. Qualify personal installations
 
 - [ ] 4.1 Run matching image digests on the physical M1 and Pi 5. Exercise concurrent sessions, scripts, image crops, browser, idle resume, cancellation, restart and rollback. Record resource measurements and limits.
-- [ ] 4.2 With explicit live-test authority, complete a turn using each selected subscription, including remote-device approval for the Pi. Report fixture and live evidence separately.
+- [x] 4.2 With explicit live-test authority, complete a turn using each selected subscription, including remote-device approval for the Pi. Report fixture and live evidence separately.
 - [ ] 4.3 Update operator setup, troubleshooting, recovery and owning architecture references. Record actual blockers in notes and attach qualification evidence to the PR. Archive only after implementation acceptance.

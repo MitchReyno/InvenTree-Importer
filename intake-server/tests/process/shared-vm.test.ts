@@ -9,12 +9,18 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { saveAgentSettings } from '../../src/agents/settings.ts'
 
-for (const provider of ['claude', 'codex'] as const) {
+for (const route of ['claude', 'codex', 'personal-subscription', 'chatgpt-subscription'] as const) {
+  const chatgpt = route === 'chatgpt-subscription'
+  const live = chatgpt || route === 'personal-subscription'
+  const provider = chatgpt ? 'codex' : live ? 'claude' : route
   test(
-    'paired guest runs a sealed ' + provider + ' session through Processing',
+    'paired guest runs a sealed ' + route + ' session through Processing',
     {
-      skip: !process.env.INTAKE_VM_PAIR,
-      timeout: 120000,
+      skip:
+        !process.env.INTAKE_VM_PAIR ||
+        (chatgpt && process.env.INTAKE_TEST_LIVE_CODEX !== 'chatgpt-subscription') ||
+        (live && !chatgpt && process.env.INTAKE_TEST_LIVE_CLAUDE !== 'personal-subscription'),
+      timeout: live ? 240000 : 120000,
     },
     async (t) => {
       const fixture = await processingFixture({ profileId: 'shared-vm-agent/1' })
@@ -26,7 +32,9 @@ for (const provider of ['claude', 'codex'] as const) {
       const capture = await fixture.seedCapture()
       await saveAgentSettings(fixture.api.pool, fixture.config, {
         expected_revision: '0',
-        selection: { provider, authentication: 'api_key', model: 'fake-' + provider + '-model' },
+        selection: live
+          ? { provider, authentication: 'subscription', model: chatgpt ? 'gpt-6.1-sol' : 'haiku' }
+          : { provider, authentication: 'api_key', model: 'fake-' + provider + '-model' },
         session_concurrency: 1,
       })
       const worker = spawn(
@@ -65,26 +73,44 @@ for (const provider of ['claude', 'codex'] as const) {
           stages: ['research'],
         })
         assert.equal(start.status, 202, JSON.stringify(start.value))
-        const deadline = Date.now() + 60000
+        const deadline = Date.now() + (live ? 180000 : 60000)
         let state
         while (Date.now() < deadline && worker.exitCode === null) {
           const result = await fixture.db.pool.query(
-            'SELECT session_state,native_session_id FROM agent_session',
+            'SELECT session_state,native_session_id,actual_model FROM agent_session',
           )
           state = result.rows[0]
           if (state && !['running', 'queued'].includes(state.session_state)) break
           await delay(200)
         }
-        assert.equal(
-          state?.session_state,
-          'finished',
-          JSON.stringify(state) + ' ' + logs.slice(-1000),
-        )
+        if (live && state?.session_state === 'waiting_input') {
+          const questions = await fixture.db.pool.query(
+            "SELECT 1 FROM processing_question WHERE state='open'",
+          )
+          assert.ok(questions.rowCount)
+        } else {
+          assert.equal(
+            state?.session_state,
+            'finished',
+            JSON.stringify(state) + ' ' + logs.slice(-1000),
+          )
+        }
+        if (live) {
+          assert.match(state.actual_model, chatgpt ? /^gpt-6\.1-sol$/ : /^claude-haiku[-a-z0-9.]*$/)
+          t.diagnostic(
+            'Guest ' +
+              provider +
+              ' subscription turn: ' +
+              state.actual_model +
+              ', ' +
+              state.session_state,
+          )
+        }
         assert.ok(state.native_session_id)
         const status = await fixture.db.pool.query(
           "SELECT 1 FROM agent_session_outbox WHERE kind='status'",
         )
-        assert.equal(status.rowCount, 1)
+        if (!live) assert.equal(status.rowCount, 1)
       } finally {
         worker.kill('SIGTERM')
         await exited

@@ -401,7 +401,13 @@ async function main() {
       [join(repository, 'tooling/dev/ui.cjs')],
       {
         cwd: repository,
-        env: { ...env, INTAKE_DEV_PUBLIC_PORT: String(port), INTAKE_DEV_API_PORT: String(apiPort) },
+        env: {
+          ...env,
+          INTAKE_PERSONAL_MANAGEMENT:
+            profile === 'shared-vm-agent/1' ? settings.INTAKE_PERSONAL_MANAGEMENT : undefined,
+          INTAKE_DEV_PUBLIC_PORT: String(port),
+          INTAKE_DEV_API_PORT: String(apiPort),
+        },
       },
       (text) => text.includes('DEV_UI_READY'),
     )

@@ -1,10 +1,12 @@
 import { createServer } from 'node:http'
 import { once } from 'node:events'
+import { stat } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { NativeSessionError } from '../failure-model.ts'
 import { nativeAgentHost } from '../environment.ts'
 import { nativeDriver, type SessionDriverContext } from '../session-runner.ts'
 import type { SessionTurn } from '../session-adapters.ts'
+import { readClaudeToken } from './claude-credential.ts'
 import { readBounded } from './frames.ts'
 
 /** Only the current provider's loopback MCP endpoint is exposed inside the guest. */
@@ -19,8 +21,27 @@ export async function nativeTurn(
   if (!selection) {
     throw new Error('missing_agent_selection')
   }
+  const guestCodexSubscription =
+    process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1' &&
+    selection.provider === 'codex' &&
+    selection.authentication === 'subscription'
+  let guestClaudeToken
   if (selection.authentication === 'subscription') {
-    throw new NativeSessionError('agent_login_required')
+    if (selection.provider === 'claude' && process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1') {
+      guestClaudeToken = readClaudeToken('/run/claude-store')
+    }
+    if (
+      !guestClaudeToken &&
+      !(
+        guestCodexSubscription &&
+        (await stat('/run/codex-state/account').then(
+          (s) => s.isDirectory(),
+          () => false,
+        ))
+      )
+    ) {
+      throw new NativeSessionError('agent_login_required')
+    }
   }
   const capability = randomBytes(32).toString('hex')
   const proxy = createServer(async (req, res) => {
@@ -54,6 +75,8 @@ export async function nativeTurn(
       ...process.env,
       INTAKE_AGENT_STATE_ROOT: '/home/node/sessions/provider',
     })
+    host.guestCodexSubscription = guestCodexSubscription
+    host.guestClaudeToken = guestClaudeToken
     await nativeDriver(host, selection)(
       {
         ...opening,

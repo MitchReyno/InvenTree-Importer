@@ -16,6 +16,7 @@ export async function startSessionBridge(directory: string, port: number) {
     throw new Error('invalid_bridge_port')
   }
   const idle = new Map<TLSSocket, Frames>()
+  const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
   const server = createServer(
     { ...(await pairing(directory)), requestCert: true },
@@ -37,7 +38,14 @@ export async function startSessionBridge(directory: string, port: number) {
       socket.setTimeout(60_000, () => socket.destroy())
       try {
         const frames = new Frames(socket)
-        if ((await frames.read()).ready !== protocol) {
+        const greeting = await frames.read()
+        if (greeting.claudeSubscription === true) {
+          subscriptions.set(socket, 'claude')
+        }
+        if (greeting.codexSubscription === true) {
+          subscriptions.set(socket, 'codex')
+        }
+        if (greeting.ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
         }
         socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
@@ -58,11 +66,23 @@ export async function startSessionBridge(directory: string, port: number) {
 
   const driver: SessionDriver = async (turn, context) => {
     const deadline = Date.now() + 15000
-    while (!idle.size && Date.now() < deadline) {
+    const subscription =
+      context.manifest.profile_id === 'shared-vm-agent/1' &&
+      context.manifest.agent?.authentication === 'subscription'
+        ? context.manifest.agent.provider
+        : undefined
+
+    const available = () => [...idle].find(([socket]) => subscriptions.get(socket) === subscription)
+
+    let connection = available()
+    while (!connection && Date.now() < deadline) {
       await delay(100, undefined, { signal: context.signal })
+      connection = available()
     }
-    const connection = idle.entries().next().value
     if (!connection) {
+      if (subscription) {
+        throw new NativeSessionError('agent_login_required')
+      }
       throw new Error('paired_guest_unavailable')
     }
     const [socket, frames] = connection
