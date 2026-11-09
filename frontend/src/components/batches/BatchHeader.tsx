@@ -2,8 +2,21 @@ import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts
 import styled from 'styled-components'
 import { batchHref, type BatchRoute, type ProcessingStep } from '#/navigation/batch-route'
 import { stepStatus, tabCount, type TabCountInput, type TabKey } from '#/attention/tab-count'
-import { color, pageWidth, space, type, typeVar } from '#/theme/generated/tokens'
-import { Button, media, SubTabs, Tabs, type TabItem, Pill, linkTouchArea } from '#/components/ui'
+import { color, pageWidth, shadow, space, type, typeVar, zIndex } from '#/theme/generated/tokens'
+import {
+  BackIcon,
+  Button,
+  IconButton,
+  media,
+  SubTabs,
+  Tabs,
+  type TabItem,
+  Pill,
+  linkTouchArea,
+  useMediaQuery,
+} from '#/components/ui'
+import { useCompactStatus } from '#/components/masthead/CompactStatus'
+import { useOutOfView } from '#/browser/useOutOfView'
 import { NeedsYouPanel } from './NeedsYouPanel'
 
 type BatchHeaderProps = {
@@ -136,7 +149,11 @@ function summary(batch: CaptureSnapshotDto, activeLotCount: number, attention?: 
     .join(' · ')
 }
 
-/** The batch's title, its need-you pill and short summary, then its four tabs and their sub-views. */
+/**
+ * The batch's title, its need-you pill and short summary, then its four tabs and their sub-views.
+ * At phone width, once the header scrolls away, a fixed row condenses it: back, title, need-you
+ * count, the masthead's compact status and menu, with the sub-tabs below.
+ */
 export function BatchHeader({
   batch,
   route,
@@ -150,9 +167,12 @@ export function BatchHeader({
   const input: TabCountInput = { attention, activeLotCount, unusedFiles }
   const row = secondRow(batch.id, route, input)
   const width = route.tab === 'review' ? 'review' : 'content'
+  const phone = useMediaQuery(media.compact)
+  const header = useOutOfView(phone)
+  const compactStatus = useCompactStatus()
 
   return (
-    <Band>
+    <Band ref={header.ref}>
       <Inner $width={width}>
         <BackLink href="#">
           <span aria-hidden="true">←</span> Batches
@@ -179,6 +199,17 @@ export function BatchHeader({
             </TabSlot>
           </SubInner>
         </SubBand>
+      )}
+      {header.outOfView && (
+        <Condensed aria-label="Batch, condensed">
+          <CondensedRow>
+            <IconButton href="#" label="Back to batches" icon={<BackIcon />} />
+            <CondensedTitle title={batch.title}>{batch.title}</CondensedTitle>
+            {attention && <NeedsYouPanel attention={attention} compact />}
+            {compactStatus}
+          </CondensedRow>
+          {row && <SubTabs label={row.label} items={row.items} current={row.current} />}
+        </Condensed>
       )}
     </Band>
   )
@@ -273,4 +304,33 @@ const SubInner = styled.div<{ $width: 'content' | 'review' }>`
   ${media.compact} {
     padding: 0 ${space[8]};
   }
+`
+
+/** Fixed rather than sticky, so showing it never shifts the page it covers. */
+const Condensed = styled.section`
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: ${zIndex.raised};
+  background: ${color.surface};
+  border-bottom: 1px solid ${color.line};
+  box-shadow: ${shadow};
+  > nav {
+    padding-inline: ${space[2]};
+    border-bottom: 0;
+  }
+`
+
+const CondensedRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[2]};
+  padding: ${space[2]} ${space[2]} 0;
+`
+
+const CondensedTitle = styled.b`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `

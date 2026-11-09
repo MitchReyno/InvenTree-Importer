@@ -1,25 +1,41 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import { color, typeVar } from '#/theme/generated/tokens'
-import { Button, IconButton, SettingsIcon } from '#/components/ui'
+import { Button, IconButton, media, SettingsIcon, useMediaQuery } from '#/components/ui'
 import type { HeaderClient } from '#/header/types'
 import { useHeaderObservations } from '#/header/useHeaderObservations'
-import { safeTargetNavigation } from '#/header/observations'
+import { safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useUpdateHealth } from '#/components/operations/LiveUpdates'
 import { ActivityIndicator } from './ActivityIndicator'
+import { ConnectionDetails } from './ConnectionDetails'
 import { ConnectionStatus } from './ConnectionStatus'
+import { PhoneMenu } from './PhoneMenu'
 
 interface Props {
   client: HeaderClient
   batchId?: string
   bootstrapUnavailable?: boolean
+  /** `condensed` is the sticky phone row's copy: the mark and spinner, then the menu. */
+  variant?: 'bar' | 'condensed'
 }
 
-/** The masthead's status group: activity, the connection's server menu and Settings, one panel open at a time. */
-export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: Props) {
+type Panel = 'connection' | 'workflow' | 'menu'
+
+/**
+ * The masthead's status group, one panel open at a time. On a desktop: activity, the connection's
+ * server menu and Settings. At phone width: the agents status button and a menu holding Agents,
+ * Settings, the server and the theme, its button carrying the connection dot.
+ */
+export function HeaderStatus({
+  client,
+  batchId,
+  bootstrapUnavailable = false,
+  variant = 'bar',
+}: Props) {
   const { now, connection, work } = useHeaderObservations(client, batchId)
   const health = useUpdateHealth()
-  const [open, setOpen] = useState<'connection' | 'workflow' | null>(null)
+  const phone = useMediaQuery(media.compact)
+  const [open, setOpen] = useState<Panel | null>(null)
   const connectionUnavailable =
     bootstrapUnavailable || connection.isError || connection.fetchStatus === 'paused'
   const workUnavailable = bootstrapUnavailable || work.isError || work.fetchStatus === 'paused'
@@ -41,20 +57,49 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
     <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
   )
 
+  const apiChecked = connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0
+  const activity = (
+    <ActivityIndicator
+      data={work.isFetchedAfterMount ? work.data : undefined}
+      batchId={batchId}
+      unavailable={workUnavailable}
+      now={now}
+      layout={variant === 'condensed' ? 'condensed' : phone ? 'phone' : 'bar'}
+      open={open === 'workflow'}
+      onOpenChange={(value) => setOpen(value ? 'workflow' : null)}
+    />
+  )
+
+  if (variant === 'condensed' || phone) {
+    return (
+      <StatusRow aria-label="Application status">
+        {activity}
+        <PhoneMenu
+          status={targetStatus(target, connectionUnavailable, now)}
+          server={
+            <ConnectionDetails
+              target={target}
+              apiUnavailable={connectionUnavailable}
+              apiChecked={apiChecked}
+              now={now}
+              health={health}
+              inventree={inventreeLink}
+            />
+          }
+          open={open === 'menu'}
+          onOpenChange={(value) => setOpen(value ? 'menu' : null)}
+        />
+      </StatusRow>
+    )
+  }
+
   return (
     <StatusRow aria-label="Application status">
-      <ActivityIndicator
-        data={work.isFetchedAfterMount ? work.data : undefined}
-        batchId={batchId}
-        unavailable={workUnavailable}
-        now={now}
-        open={open === 'workflow'}
-        onOpenChange={(value) => setOpen(value ? 'workflow' : null)}
-      />
+      {activity}
       <ConnectionStatus
         target={target}
         unavailable={connectionUnavailable}
-        apiChecked={connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0}
+        apiChecked={apiChecked}
         now={now}
         health={health}
         inventree={inventreeLink}

@@ -1,9 +1,10 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useQuery } from '@tanstack/react-query'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { render, fixtureScope } from '#/test/render'
+import { stubPhoneViewport } from '#/test/viewport'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { HeaderStatus } from './HeaderStatus'
@@ -1000,4 +1001,69 @@ test('outside a batch the activity label names the batch it shows, from that bat
   await waitFor(() =>
     expect(trigger).toHaveAccessibleDescription(/^2 agents working Mouser 3381-22 \+ bench bag/),
   )
+})
+
+describe('at phone width', () => {
+  let restore = () => undefined as void
+
+  beforeEach(() => {
+    restore = stubPhoneViewport()
+  })
+
+  afterEach(() => restore())
+
+  test('the bar holds the agents status button and a menu button carrying the connection dot', async () => {
+    const api = client()
+    vi.mocked(api.work).mockResolvedValue(processingWork())
+    render(<HeaderStatus client={api} batchId={batchId} />)
+
+    const menu = await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+    expect(menu.querySelector('[data-tone="bad"]')).not.toBeNull()
+    // The connection control and the Settings gear move into the menu.
+    expect(screen.queryByRole('button', { name: 'Connection status' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull()
+
+    const status = screen.getByRole('button', { name: 'Workflow activity' })
+    expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
+    await waitFor(() =>
+      expect(status).toHaveAccessibleDescription(
+        /Examine: done, Research: running, Images: failed, Inventory: waiting/,
+      ),
+    )
+    expect(status.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('the menu holds Agents, Settings, the server with Open InvenTree, and the theme, and Escape returns focus', async () => {
+    const user = userEvent.setup()
+    render(<HeaderStatus client={client()} batchId={batchId} />)
+    const trigger = await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+
+    await user.click(trigger)
+    const menu = screen.getByRole('dialog', { name: 'Menu' })
+    expect(within(menu).getByRole('link', { name: 'Agents' })).toHaveAttribute('href', '#agents')
+    expect(within(menu).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '#settings',
+    )
+    expect(within(menu).getByText('InvenTree unreachable')).toBeInTheDocument()
+    const link = within(menu).getByRole('link', { name: 'Open InvenTree' })
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(within(menu).getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
+  test('the condensed variant shows only the mark and spinner, with no second live region', async () => {
+    const api = client()
+    vi.mocked(api.work).mockResolvedValue(processingWork())
+    render(<HeaderStatus client={api} batchId={batchId} variant="condensed" />)
+
+    const status = await screen.findByRole('button', { name: 'Workflow activity' })
+    await waitFor(() => expect(status.querySelector('[data-ai-mark]')).not.toBeNull())
+    expect(within(status).queryAllByRole('listitem', { hidden: true })).toHaveLength(0)
+    expect(within(status).queryByRole('status')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Menu, InvenTree unreachable' })).toBeInTheDocument()
+  })
 })

@@ -29,6 +29,11 @@ interface Props {
   batchId?: string
   unavailable: boolean
   now: number
+  /**
+   * `phone` reads the step states into the description, since the labels are hidden there;
+   * `condensed` is the sticky phone row's copy: the mark and spinner only, with no live region.
+   */
+  layout?: 'bar' | 'phone' | 'condensed'
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -37,7 +42,15 @@ interface Props {
  * The masthead's background-work pill: who is working and how far each step is. Inside a batch it
  * leaves out the batch's title and its questions, which the batch header already shows.
  */
-export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpenChange }: Props) {
+export function ActivityIndicator({
+  data,
+  batchId,
+  unavailable,
+  now,
+  layout = 'bar',
+  open,
+  onOpenChange,
+}: Props) {
   const ids = useId()
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
@@ -83,11 +96,14 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
         : 'Active'
   // A held slot outranks the spinner on the phone pill, which has room for one mark.
   const held = fresh && compact === 'Slot held'
+  const showSegments = fresh && !!preferred && layout !== 'condensed'
+  const stepWords = segments.map((step) => `${step.label}: ${step.state}`).join(', ')
   const describedBy = [
     `${ids}-headline`,
     name ? `${ids}-name` : '',
     progress ? `${ids}-progress` : '',
     more ? `${ids}-more` : '',
+    showSegments && layout === 'phone' ? `${ids}-steps` : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -103,24 +119,31 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       onOpenChange={onOpenChange}
       trigger={
         <>
+          {agentWork && <AiMark size="sm" />}
           {running && (
             <SpinnerSlot data-held={held}>
               <Spinner />
             </SpinnerSlot>
           )}
           <Labels data-compact="visually-hidden">
-            <b id={`${ids}-headline`} role="status" aria-live="polite">
-              {agentWork && <AiMark size="sm" />}
-              <Clip>{headline}</Clip>
-            </b>
+            {layout === 'condensed' ? (
+              <b id={`${ids}-headline`}>{headline}</b>
+            ) : (
+              <b id={`${ids}-headline`} role="status" aria-live="polite">
+                {headline}
+              </b>
+            )}
             {name && <Name id={`${ids}-name`}>{name}</Name>}
           </Labels>
-          {/* At phone width one mark shows: a read that is not current says so first, then the
-              spinner or the job's word. */}
+          {/* At phone width a read that is not current says so first, then the spinner or the
+              job's word, beside the step segments. */}
           {(!fresh || !running || held) && <ShortText aria-hidden="true" data-short={compact} />}
+          {showSegments && <ProgressSegments steps={segments} />}
+          {showSegments && layout === 'phone' && (
+            <VisuallyHidden id={`${ids}-steps`}>{stepWords}</VisuallyHidden>
+          )}
           {fresh && preferred && (
             <WideOnly>
-              <ProgressSegments steps={segments} />
               {progress && <Current id={`${ids}-progress`}>{progress}</Current>}
               {more > 0 && (
                 <More>
@@ -177,22 +200,14 @@ const Labels = styled.span`
   line-height: 1.15;
   text-align: left;
   b {
-    display: flex;
-    align-items: center;
-    gap: ${space[3]};
-    min-width: 0;
     font-size: ${typeVar.pill.size};
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   ${media.compact} {
     ${visuallyHidden}
   }
-`
-
-const Clip = styled.span`
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 `
 
 const Name = styled.span`

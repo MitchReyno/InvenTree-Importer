@@ -658,11 +658,7 @@ export function BatchCaptureProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead
-        breadcrumb={
-          route ? [{ label: 'Batches', href: '#' }, { label: batch.title }] : [{ label: 'Batches' }]
-        }
-      />
+      <Masthead breadcrumb={route ? [{ label: 'Batches', href: '#' }] : [{ label: 'Batches' }]} />
       <Main>
         {route ? (
           <ApiClientsProvider

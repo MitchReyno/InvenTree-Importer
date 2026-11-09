@@ -1,6 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CompactStatusContext } from '#/components/masthead/CompactStatus'
+import { stubIntersectionObserver, stubPhoneViewport } from '#/test/viewport'
 import { BatchHeader } from './BatchHeader'
 
 const noSteps = {
@@ -231,5 +233,73 @@ describe('BatchHeader', () => {
     expect(back.compareDocumentPosition(screen.getByRole('heading', { level: 1 }))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
+  })
+})
+
+describe('BatchHeader at phone width', () => {
+  let restore = () => undefined as void
+
+  beforeEach(() => {
+    restore = stubPhoneViewport()
+  })
+
+  afterEach(() => {
+    restore()
+    vi.unstubAllGlobals()
+  })
+
+  const waiting: BatchAttentionDto = {
+    ...attention,
+    items: Array.from({ length: 5 }, (_, index) => ({
+      key: `q${index}`,
+      group: 'question' as const,
+      tab: 'processing' as const,
+      title: `Question ${index}`,
+      detail: null,
+      route: `${batchId}/processing/examine/q${index}`,
+    })),
+  }
+
+  function phoneHeader() {
+    return render(
+      <CompactStatusContext.Provider value={<button type="button">Compact status</button>}>
+        <BatchHeader
+          batch={batch}
+          route={{ tab: 'processing', step: 'overview' }}
+          attention={waiting}
+          activeLotCount={8}
+          busy={false}
+          onArchive={vi.fn()}
+        />
+      </CompactStatusContext.Provider>,
+    )
+  }
+
+  it('condenses to one row of back, title, need-you count, status and menu once the header scrolls away', () => {
+    const observer = stubIntersectionObserver()
+    phoneHeader()
+    expect(screen.queryByRole('region', { name: 'Batch, condensed' })).toBeNull()
+
+    act(() => observer.scroll(false))
+    const row = screen.getByRole('region', { name: 'Batch, condensed' })
+    expect(within(row).getByRole('link', { name: 'Back to batches' })).toHaveAttribute('href', '#')
+    expect(within(row).getByText(batch.title)).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: '5 need you' })).toHaveTextContent('5')
+    expect(within(row).getByRole('button', { name: 'Compact status' })).toBeInTheDocument()
+    // The sub-tabs stay below it.
+    expect(within(row).getByRole('navigation', { name: 'Processing steps' })).toBeInTheDocument()
+
+    act(() => observer.scroll(true))
+    expect(screen.queryByRole('region', { name: 'Batch, condensed' })).toBeNull()
+  })
+
+  it('never condenses on a desktop', () => {
+    restore()
+    const observer = stubIntersectionObserver()
+    phoneHeader()
+
+    expect(observer.observed).toHaveLength(0)
+    act(() => observer.scroll(false))
+    expect(screen.queryByRole('region', { name: 'Batch, condensed' })).toBeNull()
   })
 })

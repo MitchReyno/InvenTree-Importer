@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import { color, radius, space } from '#/theme/generated/tokens'
+import { color, space } from '#/theme/generated/tokens'
 import { targetStatus } from '#/header/observations'
 import type { UpdateHealth } from '#/components/operations/LiveUpdates'
 import { media, visuallyHidden } from '#/components/ui'
 import { ConnectionDetails } from './ConnectionDetails'
+import { ConnectionDot } from './ConnectionDot'
 import { HeaderDisclosure } from './HeaderDisclosure'
 import { ThemeChoice } from './ThemeChoice'
 
@@ -43,7 +44,7 @@ export function ConnectionStatus({
       onOpenChange={onOpenChange}
       trigger={
         <>
-          <Dot data-tone={status.tone} />
+          <ConnectionDot tone={status.tone} />
           <Text
             role="status"
             aria-live="polite"
@@ -72,22 +73,6 @@ export function ConnectionStatus({
     </HeaderDisclosure>
   )
 }
-
-const dotTone = {
-  ok: color.ok,
-  info: color.info,
-  warn: color.warn,
-  bad: color.bad,
-  muted: color.muted,
-}
-
-const Dot = styled.span<{ 'data-tone': keyof typeof dotTone }>`
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: ${radius.round};
-  background: ${(props) => dotTone[props['data-tone']]};
-`
 
 const Text = styled.span`
   min-width: 0;

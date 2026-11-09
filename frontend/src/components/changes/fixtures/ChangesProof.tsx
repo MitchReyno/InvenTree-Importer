@@ -531,7 +531,7 @@ export function ChangesProof() {
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
       <Masthead
-        breadcrumb={[{ label: 'Batches', href: '#' }, { label: capture.title }]}
+        breadcrumb={[{ label: 'Batches', href: '#' }]}
         status={<HeaderStatus client={header as never} batchId={batchId} />}
       />
       <Main>

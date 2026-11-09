@@ -34,6 +34,7 @@ import { appPage, routeBatchId } from './navigation/app-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
+import { CompactStatusContext } from './components/masthead/CompactStatus'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 import type { ApiClients } from './clients/api-clients'
@@ -222,34 +223,48 @@ export default function App() {
                   )
                 }
               />
-              <Main>
-                {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
-                  <PageContent $width={width}>
-                    {bootstrapUnavailable && bootstrap && (
-                      <div role="alert">
-                        <Banner tone="warn">
-                          Application connection unavailable. Showing the last development context;
-                          retained views report their own freshness. Unsaved input is preserved.
-                        </Banner>
-                      </div>
-                    )}
-                    {navigationBlocked && (
-                      <div role="alert">
-                        <Banner tone="warn">
-                          Your unsaved input is preserved. Save this form or discard its unsaved
-                          input before navigating, then choose the destination again.
-                        </Banner>
-                      </div>
-                    )}
-                  </PageContent>
-                )}
-                {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                {manual && (
-                  <PageContent $width={width}>
-                    <Diagnostics />
-                  </PageContent>
-                )}
-              </Main>
+              <CompactStatusContext.Provider
+                value={
+                  header && scope ? (
+                    <HeaderStatus
+                      client={header}
+                      batchId={currentBatch}
+                      bootstrapUnavailable={bootstrapUnavailable}
+                      variant="condensed"
+                    />
+                  ) : null
+                }
+              >
+                <Main>
+                  {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
+                    <PageContent $width={width}>
+                      {bootstrapUnavailable && bootstrap && (
+                        <div role="alert">
+                          <Banner tone="warn">
+                            Application connection unavailable. Showing the last development
+                            context; retained views report their own freshness. Unsaved input is
+                            preserved.
+                          </Banner>
+                        </div>
+                      )}
+                      {navigationBlocked && (
+                        <div role="alert">
+                          <Banner tone="warn">
+                            Your unsaved input is preserved. Save this form or discard its unsaved
+                            input before navigating, then choose the destination again.
+                          </Banner>
+                        </div>
+                      )}
+                    </PageContent>
+                  )}
+                  {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+                  {manual && (
+                    <PageContent $width={width}>
+                      <Diagnostics />
+                    </PageContent>
+                  )}
+                </Main>
+              </CompactStatusContext.Provider>
             </LiveUpdates>
           </ApiClientsProvider>
         </ConfirmationProvider>

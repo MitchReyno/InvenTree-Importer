@@ -61,6 +61,24 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 - **2026-11-10T02:41+11:00, task 3:** `TabItem` now takes one `count` (`value`, `label`, `tone`) and a `status` (`running` or `done`) in place of `count`, `countLabel`, `countTone`, `badge` and `progress`, so a tab cannot show two badges or a phrase. The words go only into the accessible name ("Review, 8 to check"); the tab shows "8". Each count carries `data-tone` for tests and inspection.
 - **2026-11-10T02:41+11:00, task 3:** Each tab row shifts left by its own tab padding (`TAB_INSET`), so the first label lines up with the title, as change log D2 asks. The phone rule that runs the rows into the band's padding is unchanged.
 
+## Task 4: phone header
+
+### Changes to the plan
+
+- **2026-11-10T02:51+11:00, task 4 (PR-B):** The condensed row's status button and menu need the masthead's observations, which `BatchHeader` does not hold. App provides them through `masthead/CompactStatus.ts` as a second `HeaderStatus` with `variant="condensed"`. It shares the masthead's TanStack queries, so it adds no requests, keeps its own open panel, and renders no live region, so state changes are not announced twice.
+- **2026-11-10T02:51+11:00, task 4 (PR-B):** The condensed row is `position: fixed` rather than sticky, and appears once the whole batch header band has left the viewport. A sticky row that replaced the full header would shrink the band and could flip the observer back and forth; the fixed row never shifts the page. Its sub-tabs are a second copy of the row's links while it shows.
+- **2026-11-10T02:51+11:00, task 4 (PR-B):** The phone menu is a `Popover` named "Menu", like the server menu, rather than the canvas's side sheet over an overlay. It keeps the tested Escape, focus-return and viewport bounds; it holds Agents, Settings, the server details (status line, connection details with Open InvenTree) and the theme. It has no Batches link: the brand already links there.
+
+### Unexpected challenges
+
+- **2026-11-10T02:51+11:00, task 4:** Removing the "⋯" menu (Task 2) stopped the header fixtures from applying the stored theme: the menu's `useThemeChoice` was what created the theme controller there. `header-status.html` and `header-disclosure.html` now call `themeController()` as the other fixtures do; the app already does so in `main.tsx`.
+
+### Decisions made during implementation
+
+- **2026-11-10T02:51+11:00, task 4:** `HeaderStatus` picks the phone layout with `useMediaQuery(media.compact)`, so phone and desktop render different controls instead of hiding duplicates with CSS. jsdom has no `matchMedia`, so tests stub it through `test/viewport.ts`, which also drives a fake `IntersectionObserver`.
+- **2026-11-10T02:51+11:00, task 4:** The `AiMark` now leads the activity pill at every width, before the spinner, so it stays visible at phone width where the labels are hidden.
+- **2026-11-10T02:51+11:00, task 4:** At phone width the step segments show beside the spinner, and the pill's description adds the step states ("Examine: done, Research: running, …"). The one-word state (Offline, Stale, Failed, Slot held, Idle) still shows when there is no spinner.
+
 ## Task 10: direct upload
 
 ### Changes to the plan

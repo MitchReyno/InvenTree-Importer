@@ -142,10 +142,10 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; a film at 390px.
 - **Risks and decisions:** `IntersectionObserver` is mocked in jsdom, so real scroll behaviour is checked in the film.
 
-- [ ] 4.1 Confirm the existing viewport helpers and phone tests.
-- [ ] 4.2 RED: write the phone layout, sheet and condensed-row tests.
-- [ ] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
-- [ ] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
+- [x] 4.1 Confirm the existing viewport helpers and phone tests.
+- [x] 4.2 RED: write the phone layout, sheet and condensed-row tests.
+- [x] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
+- [x] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
 - [ ] 4.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 

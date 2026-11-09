@@ -266,7 +266,7 @@ export function ProcessingProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: batch.title }]} />
+      <Masthead breadcrumb={[{ label: 'Batches', href: '#' }]} />
       <PageContent $width="content">
         <Main>
           {page.startsWith('agents') ? (
