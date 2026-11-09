@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import type {
   SessionFailureDto,
   AgentSessionListDto,
@@ -13,6 +12,7 @@ import { AgentSessions } from '#/components/agents/AgentSessions'
 import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
+import { useHashRoute } from '#/navigation/useHashRoute'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
@@ -249,19 +249,8 @@ const pauseClient = {
   },
 }
 
-function useHash() {
-  const [hash, setHash] = useState(() => location.hash.slice(1))
-  useEffect(() => {
-    const follow = () => setHash(location.hash.slice(1))
-
-    addEventListener('hashchange', follow)
-    return () => removeEventListener('hashchange', follow)
-  }, [])
-  return hash
-}
-
 export function ProcessingProof() {
-  const view = useHash() || 'overview'
+  const view = useHashRoute('overview')
   const sessions = !view.endsWith('-fixture')
   const page = view.replace('-fixture', '')
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))

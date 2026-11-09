@@ -10,6 +10,7 @@ import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { chatConfirmation } from '#/components/processing/SessionChatPanel'
 import { Button, Small } from '#/components/ui'
 import { Label, TextArea } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead
@@ -47,7 +48,7 @@ export function TellExamine({
   useEffect(() => {
     onDirtyChange?.(dirty)
   }, [dirty, onDirtyChange])
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(dirty, onDirtyChange)
   if (!lead?.session_state || lead.session_state === 'cancelled' || !chat) {
     return null
   }

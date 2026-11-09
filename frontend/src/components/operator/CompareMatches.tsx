@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small, Button, Dialog, localTime } from '#/components/ui'
 import { OptionRow } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type Part = CaptureSnapshotDto['parts'][number]
 type Observation = CaptureSnapshotDto['observations'][number]
@@ -53,7 +54,7 @@ export function CompareMatches({
 }: Props) {
   const [saving, setSaving] = useState(false)
   const [pending, setPending] = useState<Observation | null>(null)
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(pending !== null, onDirtyChange)
   const candidates = partCandidates(batch)
   const current = part.choice.mode === 'set' ? part.choice.value.pk : null
   const partNotes = batch.notes.filter((note) => note.subject_id === part.id)

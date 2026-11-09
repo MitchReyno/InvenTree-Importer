@@ -4,6 +4,7 @@ import { confirmPending, editPending, pendingMessage, sendKey } from '#/processi
 import { space } from '#/theme/generated/tokens'
 import { Button, Small } from '#/components/ui'
 import { TextArea } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 /**
  * Asks the step that proposed a field, through its session's inbox. "Asked" stays until the
@@ -45,7 +46,7 @@ export function AskControl({
   useEffect(() => {
     report?.(open)
   }, [open, report])
-  useEffect(() => () => report?.(false), [report])
+  useReportDirty(open, report)
   useEffect(() => {
     if (focus.current === 'asked') {
       askedRef.current?.focus()

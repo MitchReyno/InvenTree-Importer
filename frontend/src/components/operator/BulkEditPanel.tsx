@@ -9,6 +9,7 @@ import type { OperatorReviewClient } from '#/operator/types'
 import { classifyFailure, failureMessage } from '#/operator/command-failure'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import { ImpactSummary } from './ImpactSummary'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 
@@ -118,7 +119,7 @@ export function BulkEditPanel({
     onDirtyChange?.(isDirty || apply.pending)
   }, [isDirty, apply.pending, onDirtyChange])
 
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(isDirty || apply.pending, onDirtyChange)
 
   useEffect(() => {
     const subscription = watch(() => {

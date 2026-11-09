@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import type {
   BatchAttentionDto,
   CaptureEditDto,
@@ -13,6 +12,7 @@ import type { MediaClient } from '#/media/types'
 import { Batch } from '#/components/batches/Batch'
 import { Batches } from '#/components/batches/Batches'
 import { Main, PageContent } from '#/components/AppLayout'
+import { useHashRoute } from '#/navigation/useHashRoute'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -455,18 +455,6 @@ const mediaClient: MediaClient = {
   upload: async () => {
     throw new Error('fixture uploads are disabled')
   },
-}
-
-function useHashRoute() {
-  const [route, setRoute] = useState(() => location.hash.slice(1))
-  useEffect(() => {
-    const follow = () => setRoute(location.hash.slice(1))
-
-    addEventListener('hashchange', follow)
-    return () => removeEventListener('hashchange', follow)
-  }, [])
-
-  return route
 }
 
 // `?agents` adds BI-006 agent data: observations, an Examine lead session and a Research session.
