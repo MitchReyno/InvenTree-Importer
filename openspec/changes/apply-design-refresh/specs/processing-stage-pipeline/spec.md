@@ -4,7 +4,7 @@
 
 ### Requirement: Evidence removal and restore notices
 
-When a file is removed, proposals that rely on it SHALL become stale with the reason `evidence_removed`: those citing one of its versions, those citing an observation on one of its versions, and those citing its evidence notes. Its notes SHALL leave new inputs. The Examine lead session SHALL receive a batch notice, and the affected lots' running or resumable Research and Images sessions SHALL receive a notice keyed by the removal revision, so a later removal after a restore is delivered again. A restore SHALL append its own evidence notice to the Examine lead, keyed by the restore revision, because the existing trigger skips versions the lead has already seen. The Examine trigger and agent evidence reads SHALL skip removed versions.
+When a file is removed, proposals that rely on it SHALL become stale with the reason `evidence_removed`: those citing one of its versions, those citing an observation on one of its versions, and those citing its evidence notes. Proposals that depend on a stale proposal SHALL go stale too, as with other removals. Its notes SHALL leave new inputs. The Examine lead session SHALL receive a batch notice, and the affected lots' running or resumable Research and Images sessions SHALL receive a notice keyed by the removal revision, so a later removal after a restore is delivered again. A restore SHALL append its own evidence notice to the Examine lead, keyed by the restore revision, because the existing trigger skips versions the lead has already seen. The Examine trigger and agent evidence reads SHALL skip removed versions.
 
 #### Scenario: Remove, restore, remove
 
@@ -23,3 +23,9 @@ When a file is removed, proposals that rely on it SHALL become stale with the re
 - **GIVEN** an identity proposal citing an observation on a photo, not the photo itself
 - **WHEN** the photo is removed
 - **THEN** the proposal becomes stale with `evidence_removed`
+
+#### Scenario: Downstream proposal goes stale
+
+- **GIVEN** an Inventory proposal built on a Research proposal that cites a photo
+- **WHEN** the photo is removed
+- **THEN** both proposals become stale and Inventory waits for current inputs

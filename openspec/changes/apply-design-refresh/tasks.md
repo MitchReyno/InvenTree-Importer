@@ -89,6 +89,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D2):**
   - `masthead/HeaderStatus.tsx`, `ConnectionStatus.tsx` and `ConnectionDetails.tsx`: Open InvenTree, the development badge line and a Server settings link move into the menu. Check connection now renders disabled (BI-015).
   - `ActivityIndicator.tsx`: `AiMark` first, no needs-you badge, batch name only outside a batch.
+  - Change the route match and `currentBatch` derivation (`App.tsx:123`) to a `settings` prefix here, so the menu's Server settings link (`#settings/inventree`) works before PR-C; until Settings exists, `#settings` routes keep opening today's agent settings page.
   - Remove `MastheadMenu.tsx` in PR-B. The theme choice moves into the server menu as an interim item, which Task 5 (PR-C) moves to Settings › Appearance.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `header-connection-status` › Safe target details and navigation; `header-workflow-status` › Accessible workflow disclosure and layout (desktop); `batch-navigation` › Calm batch header (masthead parts).
@@ -152,14 +153,15 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Outcome:** Settings opens from the gear, with a back link, sections, working agent settings, disabled deferred controls, InvenTree details and Appearance.
 - **Scope and approach (design D4):**
   - A new `components/settings/Settings.tsx` and section components.
-  - `App.tsx` routes `#settings` and `#settings/<section>`; the route match and `currentBatch` derivation at `App.tsx:123` change from an exact match to a `settings` prefix, with a test that `#settings/inventree` isn't read as a batch.
+  - `App.tsx` routes `#settings/<section>` to the new sections (the `settings` prefix match came in Task 2), with a test that `#settings/inventree` opens Settings › InvenTree.
+  - `AiMark` on the Settings › Agents heading and its nav item.
   - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section unchanged, with tests; provider cards show the status of the last check run in those panels, "Not checked" before one, and "Unavailable" without personal management.
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
   - The theme preference moves from the removed menu.
 - **Prerequisites:** Tasks 1 and 2.
-- **Acceptance:** `app-settings`: Settings page and navigation (both scenarios), Agent settings section (both), Deferred settings, InvenTree and appearance sections.
+- **Acceptance:** `app-settings`: Settings page and navigation (both scenarios), Agent settings section (all scenarios), Deferred settings, InvenTree and appearance sections; `ui-design-system` › AI mark at agent touchpoints (Settings parts).
 - **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence. These fail first.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
@@ -181,13 +183,13 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D7):** frontend only. `PartEditor`, `CompanyEditor`, `ProposedCompanyEditor`, `SourcingEditor`, `TemplateEditor`, `ParameterMatrix` and `RecordDetail` use `DescriptionField`. Existing descriptions come from the existing-values query that already feeds `RecordDetail`'s "In InvenTree" table. New locations and suppliers created in Capture show their draft description. A catalogue proposal over the limit (`description_unsupported`) shows the over-limit state and blocks through the existing problem routing.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `ui-design-system` › Descriptions with InvenTree's limits; `review-records` › Descriptions on records.
-- **TDD approach:** UI tests for read-only (from mocked existing values), disabled and editable states, and the over-limit blocking problem. They fail first.
+- **TDD approach:** UI tests for read-only (from mocked existing values), disabled and editable states, and the over-limit state shown for an existing `description_unsupported` problem. They fail first.
 - **Verification:** frontend gate.
 - **Risks and decisions:** InvenTree descriptions set outside the app can exceed 250 characters. Show them with an over-limit count but don't block, because the app doesn't write them.
 
 - [ ] 6.1 Confirm which existing types the existing-values query returns and how `RecordDetail` reads them.
 - [ ] 6.2 RED: write the UI tests for the three description states and the over-limit problem.
-- [ ] 6.3 GREEN: wire `DescriptionField` into the editors and record detail; add the over-limit problem for Parts.
+- [ ] 6.3 GREEN: wire `DescriptionField` into the editors and record detail, and surface the existing `description_unsupported` problem as the field's over-limit state.
 - [ ] 6.4 Refactor; verify the record edit tests are unchanged.
 - [ ] 6.5 Run the frontend gate, update the docs it affects, and record the results.
 
@@ -297,11 +299,12 @@ Tasks 1, 10 and 11 can start in parallel.
   - The media read model returns removed items in a separate list, and each item gains `pinned_by`, `lot_ids` and `sole_evidence_lot_ids`.
   - Other edits on a removed item (`move`, `move_many`, `link`, attachment selection, `derive`, evidence note) are refused with `media_evidence_removed`; `ungroup` also moves removed members; removed items keep counting towards capacity.
   - `requireEvidenceRegion` refuses observations on removed versions; `leadBatchView` omits them.
-  - The delete command appends an `unset` attachment selection for any selected removed version; the projection adds `selected_attachment_of`, and `pinned_by` joins `executor_approval` for its time.
+  - The delete command appends an `unset` attachment selection for any selected removed version; the projection adds `selected_attachment_of`, and `pinned_by` takes its time from `executor_run` → `command.created_at`.
   - `review/model.ts` `hasSupportingEvidence` ignores removed items, so the existing `no_supporting_evidence` warning applies.
   - `evidence_removed` stale reasons through all three joins (media sources, observation sources via `evidence_version_id`, evidence notes); the removed item's notes leave new inputs. A batch notice to the Examine lead, and notices to the lots' Research and Images sessions keyed by removal revision. A restore appends its own lead `evidence` item keyed `restored:<evidence>:<revision>`.
   - Filtering in `processing/examine-trigger.ts`, the agent evidence reads, the processing input builder and preparation.
-  - `media/execution-pins.ts` refuses removed versions with `approval_evidence_removed` (409).
+  - `review/approve-preparation.ts` checks for removed evidence before re-materialising and refuses with `approval_evidence_removed` (409); `media/execution-pins.ts` also refuses removed versions as defence in depth.
+  - Removal cascades staleness through `cascadeAll(..., 'evidence_removed')`.
   - Operator byte routes serve only a removed version's thumbnail; Review projections omit its observations.
 - **Prerequisites:** none.
 - **Acceptance:** `capture-grouped-evidence` › Delete evidence, Restore deleted evidence, Delete refused where history must stay; `capture-media` › Media removed evidence; `processing-stage-pipeline` › Evidence removal and restore notices; `approval-preparation` › Removed evidence blocks approval, Removed evidence doesn't support a lot.
@@ -320,7 +323,7 @@ Tasks 1, 10 and 11 can start in parallel.
     - a snapshot with 200 items, some removed, validates against the contract;
     - deleting a selected attachment clears the selection; `move_many` refuses removed IDs; `ungroup` moves removed members;
     - a lot whose only evidence is removed raises `no_supporting_evidence`;
-    - each of the three stale joins marks a proposal stale;
+    - each of the three stale joins marks a proposal stale, and a downstream proposal goes stale through the cascade;
     - operator routes refuse a removed original and region crop but serve its thumbnail;
     - approval refused with `approval_evidence_removed`;
     - approval of a preparation citing a removed version refused;
@@ -329,7 +332,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** full gate, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm contracts:generate`.
 - **Risks and decisions:** a file selected as an unapproved attachment can be removed; approval then refuses the stale preparation.
 
-- [ ] 11.1 Gate: confirm the user's decision that deletion ships with its backend; if they choose otherwise, move Tasks 11–12 to BI-015 and build the delete UI disabled instead. Then confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
+- [ ] 11.1 Gate: confirm the user's decision that deletion ships with its backend (ask before PR-A starts, so the answer is known early). If they choose otherwise: move Tasks 11–12 to BI-015 and build the delete UI disabled; rewrite the deletion deltas (`capture-media`, `processing-stage-pipeline`, `approval-preparation` and the three `capture-grouped-evidence` deletion requirements) into one disabled-delete requirement; and update BI-014, BI-015 and the `complete-design-refresh-backend` README. Then confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
 - [ ] 11.2 RED: write the Postgres and process tests above and confirm they fail.
 - [ ] 11.3 GREEN: implement the removal backend.
   - [ ] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
@@ -351,7 +354,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** full gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `removed`) cover the dialog, refusal and Deleted files list.
+- [ ] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `selected_attachment_of`, `removed`) cover the dialog, refusal and Deleted files list.
 - [ ] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
 - [ ] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states.
 - [ ] 12.4 Refactor; check focus return after the dialog and toast.
