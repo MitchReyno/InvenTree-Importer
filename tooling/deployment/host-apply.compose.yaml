@@ -1,0 +1,28 @@
+# Explicitly selected for a pre-provisioned, owned disposable target.
+services:
+  apply:
+    image: ${INTAKE_APP_IMAGE:?select the verified app image}
+    platform: linux/arm64
+    pull_policy: never
+    command: [node, --import, tsx, src/review/runner-main.ts]
+    network_mode: service:database
+    depends_on:
+      provision: {condition: service_completed_successfully}
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      INTAKE_RUNNER_CONFIG: /run/apply/config.json
+    volumes:
+      - type: bind
+        source: ${INTAKE_APPLY_CONFIG:?provide the private disposable-target runner configuration}
+        target: /run/apply/config.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - apply-gates:/var/lib/intake/apply
+      - blobs:/var/lib/intake/blobs:ro
+volumes:
+  apply-gates: {}
