@@ -8,6 +8,8 @@ export interface LaneSpec<P, R> {
   /** The batch revision that the acknowledged command produced from the expected revision. */
   revisionOf: (result: R, expectedRevision: string) => string
   onAcknowledged?: (result: R, payload: P) => void
+  /** The server definitely refused this payload; it is not resent until it changes. */
+  onRejected?: (payload: P) => void
 }
 
 export interface QueueState {
@@ -388,6 +390,9 @@ export class SaveQueue {
           lane.rejected = { payload: request.payload }
         }
         this.changed()
+        if (failure.kind === 'rejected') {
+          lane.spec.onRejected?.(request.payload)
+        }
         this.pump()
       },
     )

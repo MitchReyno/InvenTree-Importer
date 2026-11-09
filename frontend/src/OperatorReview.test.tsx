@@ -1640,3 +1640,22 @@ test('a failed delivery of saved instructions keeps its retry after the save rel
     await screen.findByText('Sent to 2 sessions; 1 finished one is woken to apply it.'),
   ).toBeVisible()
 })
+
+test('after E opens the quick editor, J and K still move between lots with their editors closed', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  await screen.findByRole('button', { name: 'Show Packet A' })
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${b}`))
+  await user.keyboard('j')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
+  await user.keyboard('e')
+  const quantity = await screen.findByLabelText('Exact pieces')
+  await waitFor(() => expect(quantity).toHaveFocus())
+  quantity.blur()
+  await user.keyboard('j')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${a}`))
+  expect(screen.queryByLabelText('Exact pieces')).not.toBeInTheDocument()
+  await user.keyboard('k')
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
+  expect(screen.queryByLabelText('Exact pieces')).not.toBeInTheDocument()
+})

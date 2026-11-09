@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { StrictMode, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { Dialog } from './Dialog'
 
@@ -50,4 +50,48 @@ test('Escape cancels unless closing is blocked', async () => {
   fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
   expect(onClose).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
+})
+
+test('focus returns to the opener after a StrictMode replay, while the open modal keeps the page inert', async () => {
+  const realFocus = HTMLElement.prototype.focus
+  // Browsers ignore focus outside an open modal dialog; jsdom does not, so it is modelled here.
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
+    this: HTMLElement,
+    options?: FocusOptions,
+  ) {
+    const modal = document.querySelector('dialog[open]')
+    if (modal && !modal.contains(this)) {
+      return
+    }
+    realFocus.call(this, options)
+  })
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true
+      this.querySelector('button')?.focus()
+    },
+  })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false
+    },
+  })
+  try {
+    const user = userEvent.setup()
+    render(
+      <StrictMode>
+        <Opener />
+      </StrictMode>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Merge lots' }))
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.getByRole('button', { name: 'Merge lots' })).toHaveFocus()
+  } finally {
+    focus.mockRestore()
+    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
+    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).close
+  }
 })

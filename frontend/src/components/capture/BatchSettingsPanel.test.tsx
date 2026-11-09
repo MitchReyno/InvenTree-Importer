@@ -875,3 +875,55 @@ test('a newer snapshot after an instruction acknowledgement keeps text being com
   await idle()
   expect(title).toHaveValue('In-progress IME title')
 })
+
+test('a read started before a second disconnect is dropped, and reconnection reads again', async () => {
+  const finish: Array<() => void> = []
+  const read = vi.fn(
+    () =>
+      new Promise<CaptureSnapshotDto>((resolve) => {
+        finish.push(() => resolve(batch))
+      }),
+  )
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host read={read} />)
+  await user.type(screen.getByLabelText('Batch title'), ' A')
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  await idle()
+  expect(read).toHaveBeenCalledTimes(2)
+  await act(async () => finish[0]())
+  await settle()
+  expect(saves).toHaveLength(0)
+  await act(async () => finish[1]())
+  await settle()
+  expect(saves.map((item) => item.change.title)).toEqual(['Two packets A'])
+})
+
+test('unmounting while a failed reconnection read waits to retry leaves no timer behind', async () => {
+  const read = vi.fn(async () => Promise.reject(new Error('down')))
+  const scheduled = vi.spyOn(globalThis, 'setTimeout')
+  const cleared = vi.spyOn(globalThis, 'clearTimeout')
+  const view = render(<Host read={read} />)
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  await settle()
+  expect(read).toHaveBeenCalledOnce()
+  const retryAt = scheduled.mock.calls.findIndex(([, delay]) => delay === 2000)
+  expect(retryAt).toBeGreaterThanOrEqual(0)
+  view.unmount()
+  expect(cleared).toHaveBeenCalledWith(scheduled.mock.results[retryAt].value)
+  await act(() => vi.advanceTimersByTimeAsync(5000))
+  expect(read).toHaveBeenCalledOnce()
+})
+
+test('the instructions lane registers when the review projection arrives after Capture', async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host withoutReview />)
+  view.rerender(<Host operatorReview={review} />)
+  await settle()
+  await user.type(screen.getByRole('textbox', { name: 'Custom instructions' }), 'Keep reels apart.')
+  await act(() => vi.advanceTimersByTimeAsync(2000))
+  expect(instructs.map((item) => item.text)).toEqual(['Keep reels apart.'])
+})

@@ -144,12 +144,18 @@ describe('ReviewMapStage', () => {
   it('makes a lot from an unused file, then links the file once the lot exists', async () => {
     const user = userEvent.setup()
     const client = media()
-    const edit = vi.fn(async () => true)
+    const withLot = {
+      ...batch,
+      revision: '5',
+      lots: [...batch.lots, lot('n', 'Stray photo')],
+    } as unknown as CaptureSnapshotDto
+    // Batch resolves the accepted snapshot, which holds the new lot's id.
+    const edit = vi.fn(async () => withLot)
     const props = {
       retiredLotIds: new Set<string>(),
       onDirtyChange: vi.fn(),
     }
-    const view = render(<ReviewMapStage batch={batch} {...props} />, {
+    render(<ReviewMapStage batch={batch} {...props} />, {
       commands: { edit, reload: vi.fn(async () => undefined) },
       clients: { media: client },
     })
@@ -161,18 +167,6 @@ describe('ReviewMapStage', () => {
       note: 'Made from evidence “Stray photo”.',
       part_subject_id: null,
     })
-    view.rerender(
-      <ReviewMapStage
-        batch={
-          {
-            ...batch,
-            revision: '5',
-            lots: [...batch.lots, lot('n', 'Stray photo')],
-          } as unknown as CaptureSnapshotDto
-        }
-        {...props}
-      />,
-    )
     await waitFor(() =>
       expect(client.edit).toHaveBeenCalledWith(
         batch.id,
@@ -183,6 +177,20 @@ describe('ReviewMapStage', () => {
         expect.any(String),
       ),
     )
+    expect(client.edit).toHaveBeenCalledOnce()
+  })
+
+  it('sends no link when the new lot was not saved', async () => {
+    const user = userEvent.setup()
+    const client = media()
+    const edit = vi.fn(async () => false as const)
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      commands: { edit, reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
+    await user.click(await screen.findByRole('button', { name: 'New lot from this: Stray photo' }))
+    await waitFor(() => expect(edit).toHaveBeenCalledOnce())
+    expect(client.edit).not.toHaveBeenCalled()
   })
 
   const regioned = {
@@ -346,12 +354,13 @@ describe('ReviewMapStage', () => {
 
   it('makes a lot from a region, then moves the region into it', async () => {
     const user = userEvent.setup()
-    const edit = vi.fn(async () => true)
+    const withLot = { ...regioned, revision: '5', lots: [...regioned.lots, lot('n', '1N4148')] }
+    const edit = vi.fn(async () => withLot as never)
     const props = {
       retiredLotIds: new Set<string>(),
       onDirtyChange: vi.fn(),
     }
-    const view = render(<ReviewMapStage batch={regioned} {...props} />, {
+    render(<ReviewMapStage batch={regioned} {...props} />, {
       commands: { edit, reload: vi.fn(async () => undefined) },
       clients: { media: versioned() },
     })
@@ -362,14 +371,6 @@ describe('ReviewMapStage', () => {
       note: 'Made from region “1N4148”.',
       part_subject_id: null,
     })
-    view.rerender(
-      <ReviewMapStage
-        batch={
-          { ...regioned, revision: '5', lots: [...regioned.lots, lot('n', '1N4148')] } as never
-        }
-        {...props}
-      />,
-    )
     await waitFor(() =>
       expect(edit).toHaveBeenCalledWith({
         kind: 'observation_move',
@@ -381,26 +382,21 @@ describe('ReviewMapStage', () => {
 
   it('offers to finish moving the region when the new lot was made but the move was not', async () => {
     const user = userEvent.setup()
-    const edit = vi.fn(async (change: { kind: string }) => change.kind !== 'observation_move')
+    const withLot = { ...regioned, revision: '5', lots: [...regioned.lots, lot('n', '1N4148')] }
+    const edit = vi.fn(async (change: { kind: string }) =>
+      change.kind === 'observation_move' ? false : (withLot as never),
+    )
     const props = {
       retiredLotIds: new Set<string>(),
       onDirtyChange: vi.fn(),
     }
-    const view = render(<ReviewMapStage batch={regioned} {...props} />, {
+    render(<ReviewMapStage batch={regioned} {...props} />, {
       commands: { edit, reload: vi.fn(async () => undefined) },
       clients: { media: versioned() },
     })
     await user.click(await screen.findByRole('button', { name: 'New lot from region: 1N4148' }))
-    view.rerender(
-      <ReviewMapStage
-        batch={
-          { ...regioned, revision: '5', lots: [...regioned.lots, lot('n', '1N4148')] } as never
-        }
-        {...props}
-      />,
-    )
     const finish = await screen.findByRole('button', { name: 'Move 1N4148 into lot 1N4148' })
-    edit.mockImplementation(async () => true)
+    edit.mockImplementation(async () => true as never)
     await user.click(finish)
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'observation_move',

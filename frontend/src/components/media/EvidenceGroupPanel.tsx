@@ -1,5 +1,5 @@
 import { GroupLocationControl } from './GroupLocationControl'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -27,7 +27,6 @@ type Props = {
   snapshot: MediaSnapshotDto
   groupId: string | null
   labels: MediaIdentityLabels
-  confirmation: number
   frozen: boolean
   pending: boolean
   /** Retry and discard for an unconfirmed request, shown in the viewer that made it. */
@@ -52,7 +51,6 @@ export function EvidenceGroupPanel({
   snapshot,
   groupId,
   labels,
-  confirmation,
   frozen,
   pending,
   retained,
@@ -110,19 +108,6 @@ export function EvidenceGroupPanel({
 
   const instructionKey = `instructions:${groupId}`
   const locationKey = `location:${groupId}`
-
-  const acceptedConfirmation = useRef(confirmation)
-  useEffect(() => {
-    if (confirmation === acceptedConfirmation.current) {
-      return
-    }
-    acceptedConfirmation.current = confirmation
-    if (noteId) {
-      dirty(`note:${noteId}`)(false)
-    }
-    setNoteId(null)
-    setNoteDirty(false)
-  }, [confirmation, dirty, noteId])
 
   function closeViewer() {
     setNoteId(null)
@@ -292,7 +277,11 @@ export function EvidenceGroupPanel({
               }}
               onCancel={() => setNoteId(null)}
               onSave={(text, revision) =>
-                edit({ kind: 'evidence_note', evidence_id: opened.id, text }, revision)
+                edit({ kind: 'evidence_note', evidence_id: opened.id, text }, revision, () => {
+                  dirty(`note:${opened.id}`)(false)
+                  setNoteId(null)
+                  setNoteDirty(false)
+                })
               }
             />
           )}

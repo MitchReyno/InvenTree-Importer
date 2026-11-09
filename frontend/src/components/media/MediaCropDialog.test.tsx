@@ -342,3 +342,28 @@ test('failed native modal restoration leaves the uncertain request and recovery 
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByText('Crop guard released')).toBeVisible()
 })
+
+test('a replaced dirty callback hears the open editor without reopening the modal', () => {
+  const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal')
+  const first = vi.fn()
+  const second = vi.fn()
+  const props = {
+    batchId: snapshot.batch_id,
+    version,
+    pageNumber: 1,
+    revision: '5',
+    snapshot,
+    readUnavailable: false,
+    save: vi.fn(async () => undefined),
+    close: vi.fn(),
+  }
+  const view = render(<MediaCropDialog {...props} onDirtyChange={first} />)
+  expect(showModal).toHaveBeenCalledOnce()
+  expect(first).toHaveBeenLastCalledWith(true)
+  view.rerender(<MediaCropDialog {...props} onDirtyChange={second} />)
+  expect(showModal).toHaveBeenCalledOnce()
+  expect(second).toHaveBeenLastCalledWith(true)
+  expect(first).not.toHaveBeenCalledWith(false)
+  view.unmount()
+  expect(second).toHaveBeenLastCalledWith(false)
+})

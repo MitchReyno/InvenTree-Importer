@@ -61,6 +61,8 @@ type LogoResult = { receipt: MediaReceiptDto; draftId: string }
 
 const MAX_INSTRUCTION_CHARACTERS = 8192
 const RECONCILE_RETRY_MS = 2000
+const LOGO_UNCONFIRMED = 'Logo upload not confirmed. Retry the same upload or reload saved values.'
+const LOGO_REFUSED = 'The logo was refused. Choose a PNG or JPEG image within the size limit.'
 
 const latestInstructions = (review: OperatorReviewDto | undefined) =>
   review?.instructions.find((item) => item.group_id === null)
@@ -109,47 +111,52 @@ export function BatchSettingsPanel({
   const connected = ports?.connected ?? false
   // The mounting read is current; only a later reconnection must reconcile before writes.
   const reconciled = useRef(connected)
-  const reading = useRef(false)
-  const connectedNow = useRef(connected)
   const [readAttempt, setReadAttempt] = useState(0)
-  const mounted = useRef(true)
   const editable = ports !== undefined && connected && !batch.archived && !paused
   const locations = useCatalogue(ports?.catalogue, batch.id, 'location', editable)
   const suppliers = useCatalogue(ports?.catalogue, batch.id, 'supplier', editable)
   const values = watch()
 
+  // Batch rebuilds its ports on every render, so Effects read the latest through these refs.
+  const latest = useRef({ ports, adoptRead, attachLogo })
   useEffect(() => {
-    if (!ports) {
+    latest.current = { ports, adoptRead, attachLogo }
+  })
+  const hasPorts = ports !== undefined
+  const instructionLane = Boolean(ports?.instruct) && operatorReview !== undefined
+  const logoLane = Boolean(ports?.uploadLogo)
+
+  // Registers the save queue's lanes; each lane's spec reads the latest ports when it sends.
+  useEffect(() => {
+    if (!hasPorts) {
       return
     }
     queue.register<CaptureBatchSettingsChangeDto | null, Snapshot>(
       'settings',
       {
-        send: (change, revision, key) => ports.save(change!, revision, key),
+        send: (change, revision, key) => latest.current.ports!.save(change!, revision, key),
         revisionOf: (snapshot) => snapshot.revision,
-        onAcknowledged: (snapshot) => ports.accept(snapshot),
+        onAcknowledged: (snapshot) => latest.current.ports!.accept(snapshot),
       },
       settingsChange(initial.current),
     )
-    const instruct = ports.instruct
-    if (instruct && operatorReview) {
+    if (instructionLane) {
       queue.register<string, OperatorReviewDto>(
         'instructions',
         {
-          send: (text, revision, key) => instruct(text, revision, key),
+          send: (text, revision, key) => latest.current.ports!.instruct!(text, revision, key),
           revisionOf: (review) => review.revision,
-          onAcknowledged: (review) => void adoptRead(review.revision),
+          onAcknowledged: (review) => void latest.current.adoptRead(review.revision),
         },
         instructionRecord?.text ?? '',
       )
     }
-    const upload = ports.uploadLogo
-    if (upload) {
+    if (logoLane) {
       queue.register<LogoPayload | null, LogoResult>(
         'logo',
         {
           send: async (payload, revision, key) => ({
-            receipt: await upload(
+            receipt: await latest.current.ports!.uploadLogo!(
               files.current.get(payload!.upload_id)!,
               'Supplier logo',
               revision,
@@ -159,40 +166,38 @@ export function BatchSettingsPanel({
           }),
           // Every retained command advances the batch revision by exactly one.
           revisionOf: (_result, revision) => (BigInt(revision) + 1n).toString(),
-          onAcknowledged: (result) => attachLogo(result),
+          onAcknowledged: (result) => latest.current.attachLogo(result),
+          onRejected: () => {
+            setLogo({ state: 'failed', message: LOGO_REFUSED })
+            queue.discard('logo')
+          },
         },
         null,
       )
     }
-  })
+    // The registration-time saved values are read once; later changes go through adoption.
+  }, [queue, hasPorts, instructionLane, logoLane])
 
   useEffect(() => {
     onDirty(state.dirty || composingText || tagPending)
   }, [composingText, onDirty, state.dirty, tagPending])
 
-  useEffect(() => {
-    if (state.blocked === 'unconfirmed' && state.lanes.logo === 'pending') {
-      setLogo({
-        state: 'failed',
-        message: 'Logo upload not confirmed. Retry the same upload or reload saved values.',
-      })
-    } else if (state.lanes.logo === 'rejected') {
-      setLogo({
-        state: 'failed',
-        message: 'The logo was refused. Choose a PNG or JPEG image within the size limit.',
-      })
-      queue.discard('logo')
-    }
-  }, [queue, state.blocked, state.lanes.logo])
+  const shownLogo: LogoUpload =
+    state.blocked === 'unconfirmed' && state.lanes.logo === 'pending'
+      ? { state: 'failed', message: LOGO_UNCONFIRMED }
+      : logo
 
   // Instructions can arrive after Capture. A new saved version becomes the lane's acknowledged
   // baseline; the textbox follows it until the operator types, otherwise the draft is compared again.
   const instructionVersion = instructionRecord?.version
+  const savedInstructions = operatorReview
+    ? (latestInstructions(operatorReview)?.text ?? '')
+    : undefined
   useEffect(() => {
-    if (!operatorReview) {
+    if (savedInstructions === undefined) {
       return
     }
-    const text = latestInstructions(operatorReview)?.text ?? ''
+    const text = savedInstructions
     // A clean lane (no draft, nothing unacknowledged) follows the newer saved text without sending;
     // an outstanding draft or a composition in progress keeps the operator's text.
     const clean = queue.adoptSaved('instructions', text)
@@ -201,7 +206,7 @@ export function BatchSettingsPanel({
       setInstructions(text)
     }
     // Only a new saved version (or the projection's first arrival) is adopted.
-  }, [instructionVersion, operatorReview === undefined])
+  }, [instructionVersion, savedInstructions, queue])
 
   // A clean editor follows newer saved values; a dirty one keeps its draft for explicit handling.
   useEffect(() => {
@@ -221,16 +226,9 @@ export function BatchSettingsPanel({
     }
   }, [batch, composingText, operatorReview, queue, reset, state.dirty, state.revision])
 
+  // The queue's connection gate: after a disconnect, current state is read before writes resume.
   useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    connectedNow.current = connected
-    if (!ports) {
+    if (!hasPorts) {
       return
     }
     if (!connected) {
@@ -242,35 +240,29 @@ export function BatchSettingsPanel({
       queue.setConnected(true)
       return
     }
-    if (reading.current) {
-      return
-    }
-    // Reconnection reads current state before admitting writes; it never replays blindly.
-    reading.current = true
-    ports.read().then(
+    // A read that started before a later disconnect is dropped, and a fresh one is issued.
+    let cancelled = false
+    let retry: ReturnType<typeof setTimeout> | undefined
+    latest.current.ports!.read().then(
       (snapshot) => {
-        reading.current = false
-        if (!mounted.current) {
+        if (cancelled) {
           return
         }
-        if (connectedNow.current) {
-          reconciled.current = true
-          ports.accept(snapshot)
-          queue.setConnected(true)
-        }
+        reconciled.current = true
+        latest.current.ports?.accept(snapshot)
+        queue.setConnected(true)
       },
       () => {
-        reading.current = false
-        if (mounted.current) {
-          setTimeout(() => {
-            if (mounted.current) {
-              setReadAttempt((value) => value + 1)
-            }
-          }, RECONCILE_RETRY_MS)
+        if (!cancelled) {
+          retry = setTimeout(() => setReadAttempt((value) => value + 1), RECONCILE_RETRY_MS)
         }
       },
     )
-  }, [connected, ports, queue, readAttempt])
+    return () => {
+      cancelled = true
+      clearTimeout(retry)
+    }
+  }, [connected, hasPorts, queue, readAttempt])
 
   async function adoptRead(revision: string) {
     try {
@@ -578,7 +570,7 @@ export function BatchSettingsPanel({
             catalogue={suppliers}
             observe={observe}
             disabled={!editable}
-            logo={logo}
+            logo={shownLogo}
             onUploadLogo={ports?.uploadLogo ? uploadLogo : undefined}
             onChange={(supplier, drafts) => {
               setValue('intent.supplier', supplier)

@@ -1,11 +1,13 @@
 # Implementation notes
 
-Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1 is in progress.
+Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1 and E2 are implemented; E3 is next.
 
 ## Changes to the plan
 
 - **2026-11-09T20:49+11:00, task 1 (E1):** Items 1 and 2 planned a failing-first test for a late dirty report. It cannot fail: React 19 flushes passive Effects synchronously after a discrete event, so the Effect-based report already reached the guard before the event returned. Both are fixed to follow the guideline, with characterization tests instead. `tasks.md` is unchanged, because its acceptance still holds.
 - **2026-11-09T20:49+11:00, task 1 (E1):** Item 11, `MediaCropDialog`'s dirty half, moves to task 7. It shares one Effect with the `showModal` call that task 7 fixes, and changing it twice would split one decision across two PRs. The task map in `tasks.md` is updated.
+
+- **2026-11-09T21:35+11:00, task 4 (E2):** Audit item 25 is dropped. (a) If a draft is dirty when lots first appear, Review skips its automatic first lot. A fix would auto-open a lot later, after the operator has started working, moving the view under them. (b) Moving focus to the queue when polling retires the focused lot is correct, because the focused evidence disappears with it. `tasks.md` records the decision in 4.4.
 
 ## Unexpected challenges
 
@@ -15,6 +17,9 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T20:57+11:00, task 2:** The audit's low-confidence `EvidenceGroup` finding holds: a polled rename replaced a dirty draft. It now adopts a new name only while the draft is clean, or when the name is the draft's own trimmed rename. Without that second case a rename typed with spaces stayed dirty forever; the test caught it.
 - **2026-11-09T20:57+11:00, task 3:** A derived `useDraft` must drop its draft once the saved value catches up. Otherwise a later save resurrects the stale draft as dirty. A guarded render-time adjustment clears it.
 
+- **2026-11-09T21:35+11:00, task 7:** `Dialog`'s StrictMode focus loss depends on inertness, which jsdom does not model. Stubbing `focus` to ignore elements outside an open modal reproduces it, and the test fails on the old code. The fix was also checked in headless Chromium against a temporary StrictMode copy of the component gallery: focus returned to the opener, and with the old `Dialog` it fell to the page body. The temporary page was not committed.
+- **2026-11-09T21:35+11:00, task 8:** Items 22 and 23 had no observable bug in jsdom. The old Effects reached the same end state one render later, so their tests are characterization tests. Item 21 had one: a `MutationObserver` shows the old code inserting the "pinned question is unavailable" text for a commit.
+
 ## Decisions made during implementation
 
 - **2026-11-09T20:57+11:00, task 2:** `InstructionForm` takes a plain `(dirty) => void` instead of `(key, dirty)`. Its only caller passes the stable `forSource` callback, so the form reports from its `onChange` and releases on unmount like the other editors.
@@ -23,6 +28,10 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T21:18+11:00, tasks 1–3:** A confirmed command resets its editor to the confirmed values before releasing the guard (`BulkEditPanel`, `DismissWarning`, `InstructionForm`, `QuickLotEdit` and ExamineView's ReadingEdit). Without that, a parent replacing its callback during the follow-up reload heard the stale draft as dirty. After a confirmed bulk apply the panel therefore returns to "Keep".
 
 - **2026-11-09T21:18+11:00, task 3:** `InstructionField` follows the same rule as `useDraft`: a draft equal to the saved text is dropped, both when typed back and when the saved text catches up. Independent review found the first version kept a stale draft.
+
+- **2026-11-09T21:35+11:00, task 5:** `Batch`'s `edit` resolves with the accepted snapshot, or `false`, so `ReviewMapStage` finds the lot it created in the handler that created it. `CaptureEdit`'s type includes the snapshot; its contract is still that `false` means not saved.
+- **2026-11-09T21:35+11:00, task 5:** The evidence workspace's confirmation counter is replaced by an `onConfirmed` callback passed to `edit`. It is stored with the retained intent, so an exact retry closes the editor that sent the request. Broadcasting to every listener was rejected because it closed editors that had sent nothing.
+- **2026-11-09T21:35+11:00, task 6:** The save queue's `LaneSpec` gains `onRejected`, called once when the server definitely refuses a lane's payload. The logo lane uses it to show its refusal and discard; the unconfirmed-upload message is derived from queue state in render.
 
 ## Open items
 

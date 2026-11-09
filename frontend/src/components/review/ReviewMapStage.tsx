@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
@@ -23,13 +23,9 @@ type Props = {
   discarded?: number
 }
 
-/** A lot made from a file (linked once it exists) or a region (moved into it once it exists). */
-type PendingLot = {
-  from: { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
-  label: string
-  knownLotIds: string[]
-}
-type Unfinished = Pick<PendingLot, 'from' | 'label'> & { lotId: string; lotLabel: string }
+/** A lot made from a file (then linked to it) or a region (then moved into it). */
+type LotSource = { kind: 'file'; evidenceId: string } | { kind: 'region'; observationId: string }
+type Unfinished = { from: LotSource; label: string; lotId: string; lotLabel: string }
 
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
@@ -59,8 +55,6 @@ export function ReviewMapStage({
     kind: 'split' | 'merge' | 'move'
     lotIds: string[]
   } | null>(null)
-  // A new lot gets its id from the server, so its file is linked once the lot appears.
-  const pending = useRef<PendingLot | null>(null)
 
   async function link(evidenceId: string, lotId: string, linked: boolean) {
     const snapshot = query.data
@@ -89,31 +83,35 @@ export function ReviewMapStage({
     }
   }
 
-  async function newLotFrom(evidenceId: string, label: string) {
+  /** Makes a lot, then links its file or moves its region into it once the save is confirmed. */
+  async function newLot(from: LotSource, label: string, note: string) {
+    const knownLotIds = batch.lots.map((lot) => lot.id)
     setBusy(true)
     setError('')
-    pending.current = {
-      from: { kind: 'file', evidenceId },
-      label,
-      knownLotIds: batch.lots.map((lot) => lot.id),
-    }
     try {
       // The batch edit reports failure as false rather than throwing.
-      const saved = await edit({
-        kind: 'add_lot',
-        label,
-        note: `Made from evidence “${label}”.`,
-        part_subject_id: null,
-      })
-      if (saved === false) {
-        pending.current = null
+      const saved = await edit({ kind: 'add_lot', label, note, part_subject_id: null })
+      // The server assigns the new lot's id, so it is found in the accepted snapshot.
+      const created =
+        saved && typeof saved === 'object'
+          ? saved.lots.find((lot) => !knownLotIds.includes(lot.id) && lot.label === label)
+          : undefined
+      if (created) {
+        await finish({ from, label, lotId: created.id, lotLabel: created.label })
       }
     } catch {
-      pending.current = null
       setError('The lot could not be made. Refresh and try again.')
     } finally {
       setBusy(false)
     }
+  }
+
+  function newLotFrom(evidenceId: string, label: string) {
+    return newLot({ kind: 'file', evidenceId }, label, `Made from evidence “${label}”.`)
+  }
+
+  function newLotFromRegion(observationId: string, label: string) {
+    return newLot({ kind: 'region', observationId }, label, `Made from region “${label}”.`)
   }
 
   async function markSameItem(observationId: string, sameAs: string | null) {
@@ -156,51 +154,6 @@ export function ReviewMapStage({
       setBusy(false)
     }
   }
-
-  async function newLotFromRegion(observationId: string, label: string) {
-    setBusy(true)
-    setError('')
-    pending.current = {
-      from: { kind: 'region', observationId },
-      label,
-      knownLotIds: batch.lots.map((lot) => lot.id),
-    }
-    try {
-      const saved = await edit({
-        kind: 'add_lot',
-        label,
-        note: `Made from region “${label}”.`,
-        part_subject_id: null,
-      })
-      if (saved === false) {
-        pending.current = null
-      }
-    } catch {
-      pending.current = null
-      setError('The lot could not be made. Refresh and try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  useEffect(() => {
-    const waiting = pending.current
-    if (!waiting) {
-      return
-    }
-    const created = batch.lots.find(
-      (lot) => !waiting.knownLotIds.includes(lot.id) && lot.label === waiting.label,
-    )
-    if (created) {
-      pending.current = null
-      void finish({
-        from: waiting.from,
-        label: waiting.label,
-        lotId: created.id,
-        lotLabel: created.label,
-      })
-    }
-  })
 
   // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
   async function finish(step: Unfinished) {

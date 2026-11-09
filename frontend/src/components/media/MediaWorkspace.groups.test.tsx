@@ -681,3 +681,54 @@ test('a group’s instruction draft reaches the guard and is released when the w
   view.unmount()
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })
+
+function renderNewGroup(client: MediaClient) {
+  const onDirtyChange = vi.fn()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  return { onDirtyChange }
+}
+
+test('a confirmed new group closes its form and releases the guard', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const { onDirtyChange } = renderNewGroup(client)
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
+  await user.type(screen.getByLabelText('New group name'), 'Packet C')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Create group' }))
+  await waitFor(() => expect(screen.queryByLabelText('New group name')).not.toBeInTheDocument())
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+test('an unconfirmed new group closes once its exact retry is confirmed', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new Error('lost'))
+  renderNewGroup(client)
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
+  await user.type(screen.getByLabelText('New group name'), 'Packet C')
+  await user.click(screen.getByRole('button', { name: 'Create group' }))
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  await waitFor(() => expect(screen.queryByLabelText('New group name')).not.toBeInTheDocument())
+  expect(vi.mocked(client.edit).mock.calls[1][2]).toBe(vi.mocked(client.edit).mock.calls[0][2])
+})
+
+test('a refused new group keeps its name for another try', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new IntakeRequestError(422, 'invalid_group'))
+  renderNewGroup(client)
+  await user.click(await screen.findByRole('button', { name: 'New group' }))
+  await user.type(screen.getByLabelText('New group name'), 'Packet C')
+  await user.click(screen.getByRole('button', { name: 'Create group' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
+  expect(screen.getByLabelText('New group name')).toHaveValue('Packet C')
+})

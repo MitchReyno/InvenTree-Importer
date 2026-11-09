@@ -13,7 +13,6 @@ import type {
   CaptureSnapshotDto,
   CaptureObservationDto,
   MediaSnapshotDto,
-  OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '#/capture/client'
 import type { SettingsPorts } from '#/capture/types'
@@ -40,6 +39,7 @@ import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { BatchCommandsProvider } from './BatchCommandsProvider'
+import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -110,14 +110,18 @@ export function Batch({
   }
 
   /** Automatic choices replace the entry, so Back never returns to a route that redirects. */
-  function navigate(value: ManualStage, resourceId?: string, options?: { replace?: boolean }) {
-    const href = batchHref(id, stageRoute(value, resourceId))
-    if (options?.replace) {
-      location.replace(href)
-    } else {
-      location.hash = href
-    }
-  }
+  // Stable, because ManualWorkspace's redirect Effect depends on it.
+  const navigate = useCallback(
+    (value: ManualStage, resourceId?: string, options?: { replace?: boolean }) => {
+      const href = batchHref(id, stageRoute(value, resourceId))
+      if (options?.replace) {
+        location.replace(href)
+      } else {
+        location.hash = href
+      }
+    },
+    [id],
+  )
 
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
@@ -141,22 +145,15 @@ export function Batch({
   const editPending = useRef(false)
   const editIntent = useRef<{ request: CaptureEditDto; key: string } | null>(null)
 
-  useEffect(() => {
-    if (
-      !batch &&
-      captureQuery.isFetchedAfterMount &&
-      captureQuery.isSuccess &&
-      !captureQuery.isFetching
-    ) {
-      setBatch(captureQuery.data)
-    }
-  }, [
-    batch,
-    captureQuery.data,
-    captureQuery.isFetchedAfterMount,
-    captureQuery.isSuccess,
-    captureQuery.isFetching,
-  ])
+  // The first fresh read becomes the retained snapshot; later reads never replace it silently.
+  if (
+    !batch &&
+    captureQuery.isFetchedAfterMount &&
+    captureQuery.isSuccess &&
+    !captureQuery.isFetching
+  ) {
+    setBatch(captureQuery.data)
+  }
 
   function acceptSavedBatch(value: CaptureSnapshotDto) {
     queryClient.setQueryData(queryKey, value)
@@ -230,7 +227,7 @@ export function Batch({
     }
   }, [batch, captureQuery.data, processingSelected, stage, reviewing, draftDirty])
 
-  async function edit(change: CaptureEditDto['change']): Promise<boolean> {
+  async function edit(change: CaptureEditDto['change']): Promise<CaptureSnapshotDto | false> {
     if (!batch) {
       return false
     }
@@ -262,9 +259,10 @@ export function Batch({
     setError('')
     setCurrent(null)
     try {
-      acceptSavedBatch(await client.edit(id, intent.request, intent.key))
+      const accepted = await client.edit(id, intent.request, intent.key)
+      acceptSavedBatch(accepted)
       editIntent.current = null
-      return true
+      return accepted
     } catch (error) {
       if (error instanceof IntakeRequestError && error.status === 412) {
         setError(
@@ -350,7 +348,6 @@ export function Batch({
     }
   }
 
-  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState<OperatorReviewDto>()
   const currentOperatorReview =
     batch &&
     operatorQuery.isFetchedAfterMount &&
@@ -359,11 +356,7 @@ export function Batch({
     operatorQuery.data?.revision === batch.revision
       ? operatorQuery.data
       : undefined
-  useEffect(() => {
-    if (currentOperatorReview) {
-      setAcceptedOperatorReview(currentOperatorReview)
-    }
-  }, [currentOperatorReview])
+  const acceptedOperatorReview = useAcceptedOperatorReview(currentOperatorReview)
   // Keep draft owners mounted, but fence new commands when the latest projection is unavailable.
   const operatorReview =
     currentOperatorReview ??

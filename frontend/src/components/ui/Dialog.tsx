@@ -26,9 +26,16 @@ export function Dialog({
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
 
+  // The element that had focus before the dialog opened, which gets it back on close.
+  const opener = useRef<HTMLElement | null>(null)
+
   useEffect(() => {
-    const opener = document.activeElement
     const element = dialog.current
+    const active = document.activeElement
+    // A StrictMode replay starts with focus inside the dialog; the real opener is kept.
+    if (active instanceof HTMLElement && !element?.contains(active)) {
+      opener.current = active
+    }
     if (element && !element.open) {
       if (typeof element.showModal === 'function') {
         element.showModal()
@@ -37,8 +44,16 @@ export function Dialog({
       }
     }
     return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) {
-        opener.focus()
+      // The opener is inert while the modal is open, so the dialog closes before focus returns.
+      if (element?.open) {
+        if (typeof element.close === 'function') {
+          element.close()
+        } else {
+          element.open = false
+        }
+      }
+      if (opener.current?.isConnected) {
+        opener.current.focus()
       }
     }
   }, [])

@@ -45,6 +45,8 @@ import { UnassignedObservations } from '#/components/operator/UnassignedObservat
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 import { useApiClients } from '#/clients/api-clients'
 import { useBatchCommands } from '#/capture/batch-commands'
+import { QUICK_QUANTITY_INPUT_ID } from '#/components/operator/QuickLotEdit'
+import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -185,22 +187,15 @@ export function ReviewWorkspace({
 }: Props) {
   const { edit } = useBatchCommands()
   const { operator } = useApiClients()
-  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
-    observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined,
-  )
   const currentOperatorReview =
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
-  const operatorReview = currentOperatorReview ?? acceptedOperatorReview
+  const operatorReview = useAcceptedOperatorReview(currentOperatorReview)
   const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
-  useEffect(() => {
-    if (currentOperatorReview) {
-      setAcceptedOperatorReview(currentOperatorReview)
-    }
-  }, [currentOperatorReview])
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
-  const [editSignal, setEditSignal] = useState(0)
+  // The lot whose quick editor E asked to open; moving to another lot drops the request.
+  const [quickEditLotId, setQuickEditLotId] = useState<string | null>(null)
   const [editing, setEditing] = useState(() => initialEditor(batch))
   const evidenceRef = useRef<HTMLElement>(null)
   const queueRef = useRef<HTMLDivElement>(null)
@@ -279,6 +274,7 @@ export function ReviewWorkspace({
   }
 
   function inspect(id: string | null) {
+    setQuickEditLotId(null)
     if (navigate({ lotId: id, view: id ? 'evidence' : route.view })) {
       writeHash(location.hash, id === null)
     }
@@ -311,7 +307,8 @@ export function ReviewWorkspace({
       },
       editQuantity: () => {
         if (focused) {
-          setEditSignal((value) => value + 1)
+          setQuickEditLotId(focused)
+          requestAnimationFrame(() => document.getElementById(QUICK_QUANTITY_INPUT_ID)?.focus())
         }
       },
       viewEvidence: () => evidenceRef.current?.focus(),
@@ -550,7 +547,8 @@ export function ReviewWorkspace({
                 editPart={openEditor}
                 subjectsDisabled={busy || batch.archived || drafts.dirty}
                 openEvidence={() => evidenceRef.current?.focus()}
-                editSignal={editSignal}
+                quickEditRequested={quickEditLotId === lot.id}
+                onQuickEditClosed={() => setQuickEditLotId(null)}
                 onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (

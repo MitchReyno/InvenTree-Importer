@@ -779,3 +779,31 @@ test('the batch is shown paused from its own read, whatever the account-wide lis
   )
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeVisible()
 })
+
+test('a question URL pins its first read without ever showing the question as unavailable', async () => {
+  const added: string[] = []
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      record.addedNodes.forEach((node) => added.push(node.textContent ?? ''))
+    }
+  })
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  try {
+    const client = clientFixture()
+    const mounted = mount(client)
+    expect(await screen.findByLabelText('Quantity')).toBeVisible()
+    const newer = structuredClone(snapshot)
+    newer.capture_revision = '9'
+    client.read.mockResolvedValue(newer)
+    await act(async () => {
+      await mounted.cache.refetchQueries()
+    })
+    expect(screen.getByLabelText('Quantity')).toBeVisible()
+    observer
+      .takeRecords()
+      .forEach((record) => record.addedNodes.forEach((node) => added.push(node.textContent ?? '')))
+    expect(added.some((text) => text.includes('pinned question is unavailable'))).toBe(false)
+  } finally {
+    observer.disconnect()
+  }
+})

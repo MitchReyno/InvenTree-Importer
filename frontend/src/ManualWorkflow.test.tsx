@@ -906,3 +906,42 @@ test('an unavailable pinned approval round never substitutes another retained ro
   )
   expect(command).not.toHaveBeenCalled()
 })
+
+test('a selected lot that becomes approved is neither counted nor sent', async () => {
+  const client = fakeClient()
+  const user = userEvent.setup()
+  render(<ManualWorkspace batch={batch} client={client} navigate={vi.fn()} stage="review" />, {
+    commands: { edit: vi.fn(async () => undefined), reload: vi.fn(async () => undefined) },
+  })
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Packet B' }))
+  const read = vi.mocked(client.workspace).getMockImplementation()!
+  vi.mocked(client.workspace).mockImplementation(async (...args) => {
+    const current = await read(...args)
+    return {
+      ...current,
+      lots: current.lots.map((value) =>
+        value.lot_id === a
+          ? {
+              ...value,
+              issues: [
+                {
+                  code: 'original_contribution_already_approved',
+                  message: 'Original approval retained',
+                  lot_id: a,
+                  run_id: runId,
+                },
+              ],
+            }
+          : value,
+      ),
+    } as never
+  })
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Prepare exact selected effects' })).toBeEnabled(),
+  )
+  await user.click(screen.getByRole('button', { name: 'Prepare exact selected effects' }))
+  await waitFor(() => expect(client.prepare).toHaveBeenCalled())
+  expect(vi.mocked(client.prepare).mock.calls[0][1].selected_lot_ids).toEqual([b])
+})

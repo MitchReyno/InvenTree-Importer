@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Banner,
   Heading,
@@ -37,7 +37,7 @@ import { ProvenancePill } from './ProvenancePill'
 import { partFacts, type PartFacts } from '#/operator/part-facts'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
-import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
+import { QuickLotEdit } from './QuickLotEdit'
 import { ExcludeForm } from './ExcludeLot'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
 import { batchHref } from '#/navigation/batch-route'
@@ -76,8 +76,10 @@ interface Props {
   subjectsDisabled?: boolean
   /** Moves focus to the lot's evidence, where a proposed value's source is shown. */
   openEvidence?: () => void
-  /** Increments when the operator asks to edit quantity (E). */
-  editSignal?: number
+  /** The operator pressed E for this lot, so its quick editor is open. */
+  quickEditRequested?: boolean
+  /** The requested quick editor was closed. */
+  onQuickEditClosed?: () => void
   /** The lot's latest agent status line, where a session works on it. */
   agent?: LotStatus | null
   onDirtyChange?: (dirty: boolean) => void
@@ -182,7 +184,8 @@ export function DecisionPanel({
   editPart,
   subjectsDisabled = false,
   openEvidence,
-  editSignal = 0,
+  quickEditRequested = false,
+  onQuickEditClosed,
   onDirtyChange,
   agent = null,
 }: Props) {
@@ -190,7 +193,16 @@ export function DecisionPanel({
   const { operator } = useApiClients()
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
-  const [editing, setEditing] = useState(false)
+  const [editingOwn, setEditingOwn] = useState(false)
+  const editing = editingOwn || quickEditRequested
+
+  function setEditing(open: boolean) {
+    setEditingOwn(open)
+    if (!open) {
+      onQuickEditClosed?.()
+    }
+  }
+
   const [excluding, setExcluding] = useState(false)
   // The question being answered is pinned, so a later read cannot drop the draft or its retry.
   const [answering, setAnswering] = useState<OpenQuestion | null>(null)
@@ -202,16 +214,6 @@ export function DecisionPanel({
       other.part_subject_id === part.id &&
       activeLotIds.includes(other.id),
   )
-  useEffect(() => {
-    if (!editSignal) {
-      return
-    }
-    setEditing(true)
-    const frame = requestAnimationFrame(() =>
-      document.getElementById(QUICK_QUANTITY_INPUT_ID)?.focus(),
-    )
-    return () => cancelAnimationFrame(frame)
-  }, [editSignal])
 
   const restructureLocked = disabled || drafts.dirty || !operator || Boolean(operatorLot?.approved)
   const reviewBlock = reviewBlockReason(operatorLot)
