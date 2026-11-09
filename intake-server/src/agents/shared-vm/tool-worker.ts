@@ -1,3 +1,4 @@
+import { evidenceRequest } from './evidence-request.ts'
 // Only the guest tool container runs this entrypoint. It has no pairing or journal mount.
 import { createServer } from 'node:net'
 import { once } from 'node:events'
@@ -7,7 +8,7 @@ import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { validate } from '@invimport/contracts'
 import { NativeSessionError } from '../failure-model.ts'
 import { ResearchReapPendingError } from '../../research/errors.ts'
-import { Frames } from './frames.ts'
+import { evidenceReplyLimit, Frames } from './frames.ts'
 import { providerProxy } from './provider-proxy.ts'
 import { nativeTurn } from './native-turn.ts'
 import type { SessionDriverContext } from '../session-runner.ts'
@@ -43,7 +44,7 @@ try {
   const request = (body: Record<string, unknown>) => {
     const result = pending.then(async () => {
       await frames.send({ request: body })
-      return frames.read()
+      return frames.read(evidenceRequest(body.mcp) ? evidenceReplyLimit : undefined)
     })
     pending = result.then(
       () => {},

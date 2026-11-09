@@ -1,8 +1,9 @@
+import { evidenceRequest } from './evidence-request.ts'
 import { ResearchReapPendingError } from '../../research/errors.ts'
 import { NativeSessionError } from '../failure-model.ts'
 import { connect } from 'node:net'
 import { once } from 'node:events'
-import { Frames } from './frames.ts'
+import { evidenceReplyLimit, Frames } from './frames.ts'
 import { SessionResumeUnavailable } from '../session-adapters.ts'
 import type { nativeTurn } from './native-turn.ts'
 
@@ -38,7 +39,11 @@ export const isolatedToolTurn: typeof nativeTurn = async (context, opening, requ
       ) {
         throw new Error('tool_worker_refused')
       }
-      await frames.send(await request(body as Record<string, unknown>))
+      const operation = body as Record<string, unknown>
+      await frames.send(
+        await request(operation),
+        evidenceRequest(operation.mcp) ? evidenceReplyLimit : undefined,
+      )
     }
   } finally {
     socket.destroy()

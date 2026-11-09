@@ -1,12 +1,14 @@
+import { evidenceRequest } from './evidence-request.ts'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
-import { stat } from 'node:fs/promises'
+import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { NativeSessionError } from '../failure-model.ts'
 import { nativeAgentHost } from '../environment.ts'
 import { nativeDriver, type SessionDriverContext } from '../session-runner.ts'
 import type { SessionTurn } from '../session-adapters.ts'
 import { readClaudeToken } from './claude-credential.ts'
+import { stageEvidence } from './stage-evidence.ts'
 import { readBounded } from './frames.ts'
 
 /** Only the current provider's loopback MCP endpoint is exposed inside the guest. */
@@ -45,6 +47,7 @@ export async function nativeTurn(
     }
   }
   const capability = randomBytes(32).toString('hex')
+  let evidenceDir: Promise<string> | undefined
   const proxy = createServer(async (req, res) => {
     try {
       if (
@@ -60,7 +63,15 @@ export async function nativeTurn(
       if (typeof reply.body !== 'string' || typeof reply.status !== 'number') {
         throw new Error('invalid_reply')
       }
-      res.writeHead(reply.status, { 'content-type': 'application/json' }).end(reply.body)
+      const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
+      const responseBody = evidence
+        ? await stageEvidence(
+            evidence.id,
+            reply.body,
+            () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-')),
+          )
+        : reply.body
+      res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
     } catch {
       res.writeHead(502).end()
     }
@@ -106,5 +117,6 @@ export async function nativeTurn(
   } finally {
     proxy.closeAllConnections()
     proxy.close()
+    if (evidenceDir) await rm(await evidenceDir, { recursive: true, force: true })
   }
 }

@@ -1,3 +1,4 @@
+import { evidenceRequest } from './evidence-request.ts'
 import { checkServerIdentity, createServer, type TLSSocket } from 'node:tls'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { Socket } from 'node:net'
@@ -5,7 +6,7 @@ import { once } from 'node:events'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { SessionDriver } from '../session-runner.ts'
 import { ResearchReapPendingError } from '../../research/errors.ts'
-import { Frames, protocol, readBounded } from './frames.ts'
+import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '../session-adapters.ts'
 import { NativeSessionError } from '../failure-model.ts'
 import { pairing } from './pair.ts'
@@ -17,6 +18,7 @@ export async function startSessionBridge(directory: string, port: number) {
   }
   const idle = new Map<TLSSocket, Frames>()
   const rich = new WeakSet<TLSSocket>()
+  const evidencePeers = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
   const server = createServer(
@@ -48,6 +50,7 @@ export async function startSessionBridge(directory: string, port: number) {
         }
         if (greeting.builtinTools === true) {
           rich.add(socket)
+          if (greeting.evidenceFiles === true) evidencePeers.add(socket)
         }
         if (greeting.ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
@@ -81,9 +84,7 @@ export async function startSessionBridge(directory: string, port: number) {
 
     const available = () =>
       [...idle].find(
-        ([socket]) =>
-          subscriptions.get(socket) === subscription &&
-          rich.has(socket) === toolWorker,
+        ([socket]) => subscriptions.get(socket) === subscription && rich.has(socket) === toolWorker,
       )
 
     let connection = available()
@@ -192,12 +193,19 @@ export async function startSessionBridge(directory: string, port: number) {
             },
             body: msg.mcp,
           })
-          await frames.send({
-            status: response.status,
-            body: response.body
-              ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>)
-              : '',
-          })
+          const maxBytes =
+            toolWorker && evidencePeers.has(socket) && evidenceRequest(msg.mcp)
+              ? evidenceReplyLimit
+              : undefined
+          await frames.send(
+            {
+              status: response.status,
+              body: response.body
+                ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>, maxBytes)
+                : '',
+            },
+            maxBytes,
+          )
           continue
         }
         if (msg.done === true) {

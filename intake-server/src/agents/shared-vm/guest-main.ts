@@ -1,3 +1,4 @@
+import { evidenceRequest } from './evidence-request.ts'
 // Entrypoint for one paired session turn. The operator transports opaque TLS bytes over
 // stdio into the network-disabled guest. No host socket or host directory enters the container.
 import { connect } from 'node:tls'
@@ -10,7 +11,7 @@ import { join } from 'node:path'
 import { validate } from '@invimport/contracts'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { syntheticTurn, type SyntheticResult } from '../synthetic-turn.ts'
-import { Frames, protocol } from './frames.ts'
+import { evidenceReplyLimit, Frames, protocol } from './frames.ts'
 import { SessionResumeUnavailable } from '../session-adapters.ts'
 import { isolatedToolTurn } from './tool-client.ts'
 import { nativeTurn } from './native-turn.ts'
@@ -39,6 +40,7 @@ async function main() {
     await frames.send({
       ready: protocol,
       builtinTools: isolated,
+      evidenceFiles: isolated,
       claudeSubscription: subscription,
       codexSubscription: codex,
     })
@@ -97,7 +99,9 @@ async function main() {
           const result = pending.then(async () => {
             try {
               await frames.send(body)
-              return await frames.read()
+              return await frames.read(
+                isolated && evidenceRequest(body.mcp) ? evidenceReplyLimit : undefined,
+              )
             } catch (error) {
               abort.abort()
               throw error
