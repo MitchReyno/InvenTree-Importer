@@ -26,6 +26,7 @@
         "src/main.ts",
         "src/**/*-main.ts",
         "src/dev/setup.ts",
+        "src/operations/deployment-provision.ts",
         "scripts/**/*.{cjs,mjs}",
         "tests/**/*.ts",
         "tests/fixtures/**/*.{cjs,mjs}"

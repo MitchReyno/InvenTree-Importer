@@ -10,7 +10,7 @@ import { grantProcessing } from '../processing/grants.ts'
 
 async function provision() {
   const apiPassword = (await readFile('/run/secrets/api_password', 'utf8')).trim()
-  if (!/^[0-9a-f]{64}$/.test(apiPassword)) throw new Error('expected_hex_api_password')
+  if (!/^[0-9a-f]{64}$/.test(apiPassword)) {throw new Error('expected_hex_api_password')}
   const db = database('postgresql://postgres@127.0.0.1/intake')
   try {
     await migrate(db.pool)
