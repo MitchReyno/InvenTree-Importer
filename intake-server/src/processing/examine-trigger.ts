@@ -163,7 +163,7 @@ export async function triggerExamine(
           notified.push(version.version_id)
         }
       } else {
-        if (profileId === 'native-agent/2') {
+        if (profileId !== 'synthetic-session/1') {
           // No saved agent default: the lead session waits until the operator chooses one.
           const settings = await readAgentSettings(client, config)
           if (!settings.selection) {

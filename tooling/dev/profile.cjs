@@ -1,4 +1,9 @@
-const DEVELOPMENT_PROFILES = ['synthetic-research/2', 'native-agent/1', 'native-agent/2']
+const DEVELOPMENT_PROFILES = [
+  'synthetic-research/2',
+  'native-agent/1',
+  'native-agent/2',
+  'shared-vm-agent/1',
+]
 
 function developmentProfile(settings) {
   const profile = settings.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
@@ -10,7 +15,7 @@ function developmentProfile(settings) {
 
 /** The native worker for this profile, or null when the synthetic Processing child runs instead. */
 function processingWorker(profile) {
-  if (profile === 'native-agent/2') {
+  if (profile === 'native-agent/2' || profile === 'shared-vm-agent/1') {
     return {
       entry: 'src/agents/session-worker-main.ts',
       ready: 'session supervisor ready',

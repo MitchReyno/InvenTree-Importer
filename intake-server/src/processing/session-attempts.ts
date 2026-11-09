@@ -56,7 +56,7 @@ export async function createSessionAttempt(
   const commandId = randomUUID()
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   let profile: Parameters<typeof sessionLotInputManifest>[4] = { id: 'synthetic-session/1' }
-  if (profileId === 'native-agent/2') {
+  if (profileId !== 'synthetic-session/1') {
     const settings = await readAgentSettings(client, config, lockSettings)
     if (!settings.selection) {
       fail('agent_settings_required', 409)

@@ -60,3 +60,37 @@ limactl start --tty=false --vm-type=qemu --name="$vm" tooling/deployment/lima/ag
 For a per-user QEMU installation, include the Debian ipxe-qemu ROMs in QEMU's data directory. Pass that directory via QEMU's `-L` option and point Lima's `firmware.images` entry at the extracted AArch64 UEFI code file. Use the same Compose and smoke commands as on the Mac, substituting the Pi VM name. Transfer private images with `docker save` and `docker load`. Load the app into host Docker and the personal tools into guest Docker. Starting the host fixture requires separate synthetic secrets, a fresh Compose project name and its own volumes.
 
 On an installation that shares RAM with live services, stop the fixture after qualification. From the host manifest directory with the same Compose project and password file variables, use `docker compose -p "$project" -f host.compose.yaml stop` and `limactl stop "$vm"`. Both commands retain fixture data.
+
+### App-to-guest dispatch
+
+Set `INTAKE_PROCESSING_PROFILE=shared-vm-agent/1` on the API and session coordinator. Set `INTAKE_VM_PAIR` and `INTAKE_VM_PORT` on the coordinator. The pairing directory contains a dedicated installation CA certificate in `ca.pem`, the coordinator certificate in `cert.pem` with DNS SAN `bench-coordinator`, and its private key in `key.pem`. The guest identity uses the same filenames with SAN `bench-guest`. Keep the CA signing key offline and the private keys readable only by their owners. The bridge listens on IPv4 loopback inside the coordinator's network namespace.
+
+Build the runner from the compatible ARM64 app and personal tools images. The default target includes the provider CLIs. The controlled-provider target substitutes the two CLI protocols with deterministic executables for offline qualification.
+
+```sh
+docker build --build-arg APP_IMAGE="$INTAKE_APP_IMAGE" \
+  --build-arg PERSONAL_TOOLS_IMAGE="$INTAKE_GUEST_IMAGE" \
+  -f tooling/deployment/images/runner.Dockerfile --target controlled-provider \
+  -t bench-intake-runner:controlled .
+docker save bench-intake-runner:controlled | limactl shell --workdir=/ "$vm" sudo docker load
+tooling/deployment/tests/dispatch/smoke.sh "$vm" bench-intake-runner:controlled
+```
+
+The smoke script starts disposable PostgreSQL and issues disposable pairing certificates. It calls the application's Processing HTTP route, lets DBOS deliver each command, and checks retained provider session IDs and MCP status events for Claude and Codex. A separate scripted session submits a proposal, asks a question and resumes after the answer. When testing from the checkout, it requires the pinned Node runtime and installed pnpm workspace dependencies.
+
+For the relay, run `node tooling/deployment/bridge/relay.mjs VM PORT GUEST_DIRECTORY IMAGE` where the coordinator's loopback listener is reachable. The operator-side relay requires Lima management access. Each relay handles one active turn at a time, creating a bounded, network-disabled container in the shared VM and reusing its guest session storage. The guest directory contains `guest/` for the pairing files and `sessions/` writable by UID 1000. Keep it private inside the VM. The current relay qualifies offline execution. Provider internet access and subscription sign-in require the later network and credential work.
+
+To exercise the trusted app in its host Docker image as well, pass the app image as a third argument to the smoke script. It shares only the disposable database's isolated network namespace. For that topology the relay accepts a fifth argument, the coordinator container name, and uses a fixed loopback byte pump inside that container. Host Docker management remains outside both the coordinator and the guest.
+
+
+For a persistent installation, run the pairing command once with a new coordinator directory outside the checkout and a new directory in the guest. Use the same directories on each restart. The certificates last one year. Rotation requires a fresh matched pair.
+
+```sh
+tooling/deployment/bridge/pair.sh "$vm" "$INTAKE_VM_PAIR" "$guest_directory"
+```
+
+Start the coordinator with the VM profile and its pairing directory, then start the relay using the same port and guest directory. The standard dev launcher reads the two bridge variables for the session worker. For the packaged topology supply the coordinator container name to the relay. Each additional relay permits another simultaneous turn, within the application's configured slot limit.
+
+For an already provisioned installation, layer `host-runner.compose.yaml` over `host.compose.yaml` with Docker Compose's two `-f` arguments. Supply the existing API's private runtime settings in `INTAKE_API_RUNTIME_ENV` and the session coordinator's separately provisioned runtime settings in `INTAKE_COORDINATOR_ENV`. Both need the same actor, target, target context and processing channel secret. The coordinator requires its restricted `INTAKE_AGENT_DATABASE_URL` and its DBOS `INTAKE_AGENT_SCHEDULER_DATABASE_URL`. Set `INTAKE_AGENT_WRITER_DATABASE_URL` to the dedicated Examine writer role for lot formation. The base fixture provisioner creates the API login. Coordinator and scheduler role provisioning and authenticated UI ingress are pending release work.
+
+Set `INTAKE_COORDINATOR_PAIR` to a directory readable by UID 1000 containing only the coordinator's three pairing files. Run the relay against the coordinator container on port 14313. PostgreSQL and the bridge stay on namespace-local loopback. The relay has no network endpoint inside the guest container.

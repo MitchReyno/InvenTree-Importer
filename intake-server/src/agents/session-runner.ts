@@ -28,7 +28,7 @@ import { agentEnvironment, privateDirectory, type NativeAgentHost } from './envi
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from './tools/capability.ts'
 import { acknowledgeSessionInbox, pendingSessionInbox } from './tools/inbox.ts'
-import { syntheticLeadTurn } from './synthetic-lead.ts'
+import { syntheticTurn } from './synthetic-turn.ts'
 import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
 import {
   runClaudeSession,
@@ -82,6 +82,7 @@ const attemptStateFor: Record<SessionStateDto, AttemptState> = {
 const RESUMABLE: SessionStateDto[] = ['waiting_input', 'finished', 'interrupted']
 
 export interface SessionDriverContext {
+  identity: { attemptId: string; turn: string; lineage: string }
   manifest: ProcessingInputV6Dto
   cwd: string
   signal: AbortSignal
@@ -431,6 +432,14 @@ export async function runSessionTurn(
         return 'archived' as const
       }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
+      // Drain a sealed VM turn on its paired deployment. A VM worker must also leave
+      // pre-existing host turns for their original worker.
+      if (
+        (manifest.profile_id === 'shared-vm-agent/1' || config.profileId === 'shared-vm-agent/1') &&
+        manifest.profile_id !== config.profileId
+      ) {
+        return 'waiting' as const
+      }
       if (
         row.instructionDigest.toString('hex') !== manifest.instruction_sha256 ||
         !sha256(row.instructions).equals(row.instructionDigest)
@@ -611,12 +620,17 @@ export async function runSessionTurn(
     const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const driver =
       deps.drivers?.[current.manifest.profile_id] ??
-      (current.manifest.agent
+      (current.manifest.profile_id === 'native-agent/2' && current.manifest.agent
         ? nativeDriver(host, current.manifest.agent)
         : (() => {
             throw new NativeSessionError('agent_input_invalid')
           })())
-    await driver(turn, { manifest: current.manifest, cwd, signal: turnControl.signal })
+    await driver(turn, {
+      manifest: current.manifest,
+      cwd,
+      signal: turnControl.signal,
+      identity: { attemptId, turn: (current.turnCount + 1n).toString(), lineage: current.jobId },
+    })
     next = 'finished'
   } catch (error) {
     if (error instanceof ResearchReapPendingError) {
@@ -722,7 +736,7 @@ export async function runSessionTurn(
   })
 }
 
-function nativeDriver(
+export function nativeDriver(
   host: NativeAgentHost,
   selection: NonNullable<ProcessingInputV6Dto['agent']>,
 ): SessionDriver {
@@ -762,99 +776,8 @@ export const syntheticSessionDriver: SessionDriver = async (turn, context) => {
     }
   }
 
-  if (context.manifest.stage === 'examine') {
-    try {
-      await call('status', {
-        text: turn.resume ? 'Examining new evidence' : 'Finding items in the photos',
-      })
-      const read = await call('read_inbox', { after_seq: '0' })
-      const items = read.items ?? []
-      await syntheticLeadTurn(
-        call as unknown as Parameters<typeof syntheticLeadTurn>[0],
-        context.manifest,
-        context.cwd,
-        items,
-      )
-      for (const item of items.filter((entry) => entry.kind === 'chat')) {
-        await call('reply', { inbox_item_id: item.id, text: 'Synthetic reply: noted.' })
-      }
-      const last = items.at(-1)
-      if (last) {
-        await call('read_inbox', { after_seq: last.seq })
-      }
-    } finally {
-      await client.close()
-    }
-    return
-  }
-
   try {
-    await call('status', { text: turn.resume ? 'Reading new inbox items' : 'Reading the evidence' })
-    const read = await call('read_inbox', { after_seq: '0' })
-    const items = read.items ?? []
-    const note = evidenceNotes(context.manifest.notes, context.manifest.batch_id)[0]
-    if (note && context.manifest.subject_id) {
-      const source = {
-        kind: 'note',
-        note_id: note.id,
-        text_sha256: sha256(Buffer.from(note.text, 'utf8')).toString('hex'),
-      }
-      await call('propose', {
-        proposal: {
-          schema_version: 'bench-intake-proposal/5',
-          subject_id: context.manifest.subject_id,
-          summary: 'Synthetic proposal from the delivered note.',
-          sources: [source],
-          relies_on: {
-            fields: ['identity'],
-            sources: [
-              source,
-              // The lead session's identity this session started from.
-              ...context.manifest.pinned_proposal_ids.map((id) => ({
-                kind: 'proposal',
-                proposal_id: id,
-              })),
-              ...items.map((item) => ({ kind: 'inbox_item', inbox_item_id: item.id })),
-            ],
-          },
-          // Research publishes catalogue values; with no observed references they are proposals.
-          ...(context.manifest.stage === 'research'
-            ? {
-                catalogue: {
-                  category: {
-                    choice: 'proposed_new',
-                    name: note.text.slice(0, 64).trim() || 'Uncategorised',
-                    reason: 'No observed category matches the note.',
-                    sources: [source],
-                  },
-                  parameters: [],
-                  manufacturer: null,
-                  supplier: null,
-                  description: null,
-                },
-              }
-            : {}),
-        },
-      })
-    }
-    for (const item of items.filter((entry) => entry.kind === 'chat')) {
-      await call('reply', { inbox_item_id: item.id, text: 'Synthetic reply: noted.' })
-    }
-    const answered = items.some((item) => item.kind === 'answer')
-    if (!answered && !turn.resume && context.manifest.subject_id) {
-      await call('ask', {
-        kind: 'quantity',
-        subject_id: context.manifest.subject_id,
-        prompt: 'How many items are in this lot?',
-        reason: 'The synthetic session cannot count.',
-        fields: ['quantity'],
-        assumption: 'Treating the lot as one item until answered.',
-      })
-    }
-    const last = items.at(-1)
-    if (last) {
-      await call('read_inbox', { after_seq: last.seq })
-    }
+    await syntheticTurn(turn, context, call)
   } finally {
     await client.close()
   }

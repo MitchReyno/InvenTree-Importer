@@ -38,6 +38,8 @@ test(
       {
         cwd: fileURLToPath(new URL('../../', import.meta.url)),
         env: {
+          INTAKE_VM_PAIR: process.env.INTAKE_VM_PAIR,
+          INTAKE_VM_PORT: process.env.INTAKE_VM_PORT,
           PATH: process.env.PATH,
           HOME: root,
           USER: process.env.USER,
