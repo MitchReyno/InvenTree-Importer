@@ -510,6 +510,31 @@ describe('ReadyToAdd', () => {
     )
   })
 
+  it('leaves out a record whose other lot the preparation already left out', async () => {
+    const user = userEvent.setup()
+    const left = id(990)
+    setup({
+      tree: [
+        ...treeNodes,
+        node({
+          key: `unticked:${left}`,
+          kind: 'stock_item',
+          label: 'Packet Z',
+          state: 'not_ticked',
+          detail: 'Changed since review',
+          parent_key: 'part:p',
+          lot_id: left,
+        }),
+      ],
+    })
+    const footer = screen.getByRole('region', { name: 'Approve' })
+    await waitFor(() => expect(footer).toHaveTextContent('3 new · 1 update'))
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // Packet Z makes nothing, so the new Part serves only the unticked Packet A.
+    expect(footer).toHaveTextContent('0 new · 0 update')
+  })
+
   it('flags unticked lots shown as Not ticked while no preparation matches them', async () => {
     const user = userEvent.setup()
     const { props, rerender } = setup()
