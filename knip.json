@@ -25,6 +25,7 @@
       "entry": [
         "src/main.ts",
         "src/**/*-main.ts",
+        "src/agents/shared-vm/tool-worker.ts",
         "src/dev/setup.ts",
         "src/operations/deployment-provision.ts",
         "scripts/**/*.{cjs,mjs}",

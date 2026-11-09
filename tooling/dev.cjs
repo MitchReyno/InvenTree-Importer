@@ -358,7 +358,7 @@ async function main() {
       ).ready()
       if (worker) {
         const providerEnv = Object.fromEntries(
-          (profile === 'shared-vm-agent/1'
+          (profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/2'
             ? ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
             : [
                 'OPENAI_API_KEY',
@@ -404,7 +404,9 @@ async function main() {
         env: {
           ...env,
           INTAKE_PERSONAL_MANAGEMENT:
-            profile === 'shared-vm-agent/1' ? settings.INTAKE_PERSONAL_MANAGEMENT : undefined,
+            profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/2'
+              ? settings.INTAKE_PERSONAL_MANAGEMENT
+              : undefined,
           INTAKE_DEV_PUBLIC_PORT: String(port),
           INTAKE_DEV_API_PORT: String(apiPort),
         },

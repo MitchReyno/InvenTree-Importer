@@ -1,10 +1,12 @@
 """Expose a CONNECT proxy on a guest-only Unix socket for the Claude CLI."""
 import asyncio
-import ipaddress
 import os
 import socket
 from pathlib import Path
 
+from guest_destinations import configured_hosts, permitted_addresses
+
+PROTECTED = configured_hosts("INTAKE_VM_PROTECTED_HOSTS")
 CODEX = os.environ.get("INTAKE_VM_CODEX_SUBSCRIPTION") == "1"
 HOSTS = {"auth.openai.com", "chatgpt.com"} if CODEX else {"api.anthropic.com"}
 SOCKET = Path("/run/egress/codex.sock" if CODEX else "/run/egress/claude.sock")
@@ -30,9 +32,9 @@ async def handle(reader, client):
             return
         addresses = await asyncio.get_running_loop().getaddrinfo(
             allowed[fields[1]], 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
-        address = addresses[0][4][0]
-        if not ipaddress.ip_address(address).is_global:
+        if not await asyncio.to_thread(permitted_addresses, addresses, PROTECTED):
             return
+        address = addresses[0][4][0]
         remote, upstream = await asyncio.wait_for(asyncio.open_connection(address, 443), 10)
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
@@ -58,4 +60,5 @@ async def main():
         await server.serve_forever()
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

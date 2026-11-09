@@ -32,7 +32,7 @@ export function sessionLotInputManifest(
   media: RetainedMediaDescriptor,
   profile:
     | {
-        id: 'native-agent/2' | 'shared-vm-agent/1'
+        id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2'
         agent: AgentSelectionDto
         settingsRevision: string
       }

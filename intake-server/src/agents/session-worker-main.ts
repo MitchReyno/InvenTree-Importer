@@ -90,10 +90,20 @@ async function main() {
       config,
       store,
     })
-    if (config.profileId === 'shared-vm-agent/1' && !process.env.INTAKE_VM_PAIR) {throw new Error('session_agent_configuration_required')}
+    if (
+      (config.profileId === 'shared-vm-agent/1' || config.profileId === 'shared-vm-agent/2') &&
+      !process.env.INTAKE_VM_PAIR
+    ) {
+      throw new Error('session_agent_configuration_required')
+    }
     if (process.env.INTAKE_VM_PAIR) {
-      if (config.profileId !== 'synthetic-session/1' && config.profileId !== 'shared-vm-agent/1')
-        {throw new Error('session_agent_configuration_required')}
+      if (
+        config.profileId !== 'synthetic-session/1' &&
+        config.profileId !== 'shared-vm-agent/1' &&
+        config.profileId !== 'shared-vm-agent/2'
+      ) {
+        throw new Error('session_agent_configuration_required')
+      }
       bridge = await startSessionBridge(
         process.env.INTAKE_VM_PAIR,
         Number(process.env.INTAKE_VM_PORT),
@@ -110,6 +120,7 @@ async function main() {
             ? bridge.driver
             : syntheticSessionDriver,
         'shared-vm-agent/1': bridge?.driver,
+        'shared-vm-agent/2': bridge?.driver,
       },
     }
     DBOS.setConfig({

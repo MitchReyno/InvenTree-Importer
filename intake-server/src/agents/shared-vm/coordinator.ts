@@ -16,6 +16,7 @@ export async function startSessionBridge(directory: string, port: number) {
     throw new Error('invalid_bridge_port')
   }
   const idle = new Map<TLSSocket, Frames>()
+  const rich = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
   const server = createServer(
@@ -45,6 +46,9 @@ export async function startSessionBridge(directory: string, port: number) {
         if (greeting.codexSubscription === true) {
           subscriptions.set(socket, 'codex')
         }
+        if (greeting.builtinTools === true) {
+          rich.add(socket)
+        }
         if (greeting.ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
         }
@@ -65,14 +69,22 @@ export async function startSessionBridge(directory: string, port: number) {
   await once(server, 'listening')
 
   const driver: SessionDriver = async (turn, context) => {
-    const deadline = Date.now() + 15000
+    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/2'
+    // The tool relay starts its provider tunnel, worker and paired supervisor on a cold VM.
+    const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
     const subscription =
-      context.manifest.profile_id === 'shared-vm-agent/1' &&
+      (context.manifest.profile_id === 'shared-vm-agent/1' ||
+        context.manifest.profile_id === 'shared-vm-agent/2') &&
       context.manifest.agent?.authentication === 'subscription'
         ? context.manifest.agent.provider
         : undefined
 
-    const available = () => [...idle].find(([socket]) => subscriptions.get(socket) === subscription)
+    const available = () =>
+      [...idle].find(
+        ([socket]) =>
+          subscriptions.get(socket) === subscription &&
+          rich.has(socket) === toolWorker,
+      )
 
     let connection = available()
     while (!connection && Date.now() < deadline) {
@@ -80,6 +92,9 @@ export async function startSessionBridge(directory: string, port: number) {
       connection = available()
     }
     if (!connection) {
+      if (toolWorker) {
+        throw new NativeSessionError('agent_process_unavailable')
+      }
       if (subscription) {
         throw new NativeSessionError('agent_login_required')
       }
@@ -161,7 +176,11 @@ export async function startSessionBridge(directory: string, port: number) {
           await frames.send({ ok: true })
           continue
         }
-        if (typeof msg.mcp === 'string' && context.manifest.profile_id === 'shared-vm-agent/1') {
+        if (
+          typeof msg.mcp === 'string' &&
+          (context.manifest.profile_id === 'shared-vm-agent/1' ||
+            context.manifest.profile_id === 'shared-vm-agent/2')
+        ) {
           const response = await fetch(turn.toolUrl, {
             method: 'POST',
             redirect: 'error',
