@@ -50,6 +50,7 @@ function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'number' | 
                   <input
                     type="text"
                     defaultValue="BI-"
+                    readOnly
                     onChange={send}
                     onKeyDown={(event) => {
                       if (event.ctrlKey && event.key === 'z') {

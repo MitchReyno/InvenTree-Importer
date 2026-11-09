@@ -19,7 +19,10 @@ export type DisabledControlProps = {
 type Props = {
   /** One line saying why the control is unavailable and what to do instead. */
   explanation: string
-  /** Renders the control (checkbox, select, stepper, text field or button) with these props. */
+  /**
+   * Renders the control (checkbox, select, stepper, text field or button) with these props. A text
+   * field or textarea must also be `readOnly`: IME composition and autofill can't be cancelled.
+   */
   children: (control: DisabledControlProps) => ReactNode
 }
 
@@ -108,9 +111,9 @@ function refuseNativeInput(event: Event) {
 }
 
 /**
- * React's `onBeforeInput` is not the native `beforeinput` event and misses editing commands that
- * come without a key press (macOS Ctrl+H or Ctrl+K, the context menu's Delete), so the wrapper also
- * cancels every native `beforeinput` before it reaches the control.
+ * React's `onBeforeInput` is not the native `beforeinput` event and misses deletions and other
+ * editing commands, including chords the key filter lets through (macOS Ctrl+H, Ctrl+K) and the
+ * context menu's Delete, so the wrapper also cancels every native `beforeinput`.
  */
 function refuseEditingCommands(wrapper: HTMLDivElement | null) {
   if (!wrapper) {
