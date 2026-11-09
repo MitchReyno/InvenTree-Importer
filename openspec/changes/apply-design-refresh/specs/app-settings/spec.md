@@ -24,7 +24,7 @@ The masthead SHALL end with an icon-only Settings button (`aria-label` "Settings
 
 ### Requirement: Agent settings section
 
-Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status, authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. A provider card SHALL show the same status as its credential panel at all times: "Not checked" while the panel shows none (before a check, and after the panel collapses or its key is edited), Claude "Configured" or "Unconfigured", Codex "Connected", "Signing in", "Not connected" or "Declined", and "Check failed" while the panel shows its error. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
+Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status, authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. A provider card SHALL show the same status as its credential panel at all times: "Not checked" while the panel holds no result and no error (before a check, and after the panel collapses or its key is edited), Claude "Configured" or "Unconfigured", Codex "Connected", "Signing in", "Not connected" or "Declined", and "Check failed" while the panel shows its error. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
 
 #### Scenario: Change sessions at once
 
@@ -44,7 +44,7 @@ Settings › Agents SHALL edit the stored agent settings: provider (Claude or Co
 - **WHEN** Settings › Agents opens
 - **THEN** each provider card reads "Not checked", and running the check in its panel updates the card
 
-#### Scenario: Removing the key updates the card
+#### Scenario: Removing the credential updates the card
 
 - **GIVEN** the Claude card reads "Configured"
 - **WHEN** the operator removes the personal Claude credential in its panel and the server confirms
