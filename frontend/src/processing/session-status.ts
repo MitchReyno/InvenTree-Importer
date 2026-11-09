@@ -34,6 +34,8 @@ export function useSessionStatuses(
     // Only a setup with sessions has status lines.
     enabled: Boolean(processing?.session),
     refetchInterval: SESSION_STATUS_REFRESH_MS,
+    // The old timer kept running in a hidden tab; this keeps that cadence.
+    refetchIntervalInBackground: true,
     // A failed read's last lines must not return as current under the next revision.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.state.status === 'error' ? undefined : previous,

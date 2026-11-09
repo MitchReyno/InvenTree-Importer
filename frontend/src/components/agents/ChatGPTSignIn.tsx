@@ -73,16 +73,21 @@ export function ChatGPTSignIn() {
     ),
     queryFn: () => callRunner(key.current?.value ?? '', 'status', account?.loginId),
     // App-wide reconciliation refetches enabled queries, so a failed or finished poll disables
-    // itself rather than relying on the interval alone.
+    // itself rather than relying on the interval alone. The runner takes one action at a time,
+    // so no poll runs during a command.
     enabled: (query) =>
-      polling && query.state.status !== 'error' && query.state.data?.state === 'pending',
+      polling && !busy && query.state.status !== 'error' && query.state.data?.state === 'pending',
     initialData: account,
     initialDataUpdatedAt: Date.now,
     staleTime: POLL_MS,
     retry: false,
     refetchInterval: (query) =>
       query.state.status === 'error' || query.state.data?.state !== 'pending' ? false : POLL_MS,
+    // The login completes on the OpenAI tab, so polling continues while this one is hidden.
+    refetchIntervalInBackground: true,
   })
+  // A command waits for a poll in flight, which the runner would otherwise refuse.
+  const blocked = busy || status.isFetching
   const pollFailed = polling && status.isError
   const shown = pollFailed ? undefined : polling ? status.data : account
   const shownMessage = pollFailed ? FAILED : message
@@ -94,7 +99,7 @@ export function ChatGPTSignIn() {
   }
 
   async function request(action: string, loginId?: string) {
-    if (busy) {
+    if (blocked) {
       return
     }
     const current = startedIn.current + 1
@@ -151,13 +156,13 @@ export function ChatGPTSignIn() {
               startGeneration()
             }}
           />
-          <Button disabled={busy} onClick={() => void request('status')}>
+          <Button disabled={blocked} onClick={() => void request('status')}>
             Check ChatGPT connection
           </Button>
           {shown?.state === 'connected' ? (
             <>
               <p role="status">Connected to ChatGPT</p>
-              <Button disabled={busy} onClick={() => void request('disconnect')}>
+              <Button disabled={blocked} onClick={() => void request('disconnect')}>
                 Disconnect ChatGPT
               </Button>
             </>
@@ -170,13 +175,13 @@ export function ChatGPTSignIn() {
                 </a>{' '}
                 and enter <strong>{shown.userCode}</strong>.
               </p>
-              <Button disabled={busy} onClick={() => void request('cancel', shown.loginId)}>
+              <Button disabled={blocked} onClick={() => void request('cancel', shown.loginId)}>
                 Cancel sign-in
               </Button>
             </>
           ) : (
             <>
-              <Button disabled={busy} onClick={() => void request('start')}>
+              <Button disabled={blocked} onClick={() => void request('start')}>
                 Sign in with ChatGPT
               </Button>
               {shown?.state === 'denied' && <p>Sign-in was declined or expired.</p>}

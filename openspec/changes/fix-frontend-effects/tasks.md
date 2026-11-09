@@ -202,7 +202,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
   - `useDevicePixelRatio` (30) and an `EvidenceViewer` callback ref (31).
   - `useMountedRef` (32) and `useDraftGeneration` (33).
   - A stable `subscribe` in `useMediaQuery` (34).
-  - Memoized retired and predecessor sets, so `ReviewMap` stops re-measuring (35).
+  - `ReviewMap` keeps its connector paths when an unchanged layout is measured again, so a poll adds no render (35).
 - Prerequisites: E2.
 - Acceptance: full resolution is chosen after two pixel-ratio changes; an identical rerender does not re-measure the map; existing `LiveUpdates`, viewer and form tests still pass.
 - TDD approach: the pixel-ratio and re-measure regressions fail first.

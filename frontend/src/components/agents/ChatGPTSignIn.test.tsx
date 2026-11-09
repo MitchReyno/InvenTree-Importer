@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { createServerQueryClient } from '#/queries/client'
 import { render } from '#/test/render'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
@@ -128,7 +128,7 @@ it('a failed poll stops polling and says the status is unconfirmed', async () =>
   }
 })
 
-it('app-wide reconciliation does not re-poll a failed or finished sign-in', async () => {
+it('app-wide reconciliation does not re-poll a finished sign-in', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   try {
     const cache = createServerQueryClient()
@@ -153,6 +153,95 @@ it('app-wide reconciliation does not re-poll a failed or finished sign-in', asyn
     })
     expect(send).toHaveBeenCalledTimes(2)
     expect(screen.getByText('Connected to ChatGPT')).toBeTruthy()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('app-wide reconciliation does not re-poll a failed sign-in', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const cache = createServerQueryClient()
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockResolvedValueOnce(new Response('nope', { status: 500 }))
+      .mockResolvedValue(Response.json({ state: 'connected' }))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        <ChatGPTSignIn />
+      </ServerStateProvider>,
+    )
+    await startSignIn()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+    await act(async () => {
+      await cache.invalidateQueries()
+      await vi.advanceTimersByTimeAsync(10)
+    })
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('a command waits for a status poll in flight, which the runner would refuse', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    let answer: (value: Response) => void = () => undefined
+
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+      .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(<ChatGPTSignIn />)
+    await startSignIn()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(send).toHaveBeenCalledTimes(2)
+    const cancel = screen.getByRole('button', { name: 'Cancel sign-in' })
+    expect(cancel).toBeDisabled()
+    fireEvent.click(cancel)
+    expect(send).toHaveBeenCalledTimes(2)
+    await act(async () => answer(challenge()))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeEnabled(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }))
+    expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
+    expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({
+      action: 'cancel',
+      loginId: 'device-1',
+    })
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('no status poll starts while a command is in flight', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    let answer: (value: Response) => void = () => undefined
+
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(<ChatGPTSignIn />)
+    await startSignIn()
+    fireEvent.click(screen.getByText('Cancel sign-in'))
+    expect(send).toHaveBeenCalledTimes(2)
+    await act(() => vi.advanceTimersByTimeAsync(9000))
+    expect(send).toHaveBeenCalledTimes(2)
+    await act(async () => answer(Response.json({ state: 'disconnected' })))
+    expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
   } finally {
     vi.useRealTimers()
   }
