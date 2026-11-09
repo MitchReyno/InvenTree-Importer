@@ -24,6 +24,7 @@ import {
   Dialog,
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
+import { ProcessingInventory } from './ProcessingInventory'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
 import { QuestionAnswer } from './QuestionAnswer'
@@ -147,6 +148,8 @@ export function ProcessingWorkspace({
 
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
+  // The pinned answer and each drawer answer are the only drafts besides these two.
+  const answerDirty = drafts.hasOtherSources('instructions', 'correction')
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
   const pollInterval = useRetainedPollInterval()
@@ -405,6 +408,10 @@ export function ProcessingWorkspace({
   )
   const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
   const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
+  // An Inventory session's drawer answers its questions in place; other steps link to the
+  // question on its step page. A question already pinned on the page is answered there.
+  const answersInDrawer =
+    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
     <details>
@@ -607,7 +614,7 @@ export function ProcessingWorkspace({
                     batch.archived ? 'Resume the batch to change its instructions.' : undefined
                   }
                   saveBlockedReason={
-                    drafts.isDirty('answer')
+                    answerDirty
                       ? 'Save or discard the answer first; saving reloads Processing.'
                       : drafts.isDirty('correction')
                         ? 'Save or discard the correction first; saving reloads Processing.'
@@ -634,6 +641,13 @@ export function ProcessingWorkspace({
               {view === 'images' || jobs.length > 0 ? (
                 <>
                   {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
+                  {view === 'inventory' && (
+                    <ProcessingInventory
+                      batch={batch}
+                      jobs={jobs}
+                      onOpenSession={setSessionJobId}
+                    />
+                  )}
                   {view === 'examine' && (
                     <ExamineView
                       batch={batch}
@@ -642,7 +656,7 @@ export function ProcessingWorkspace({
                       // A question on a shared Part questions every lot that uses it, as in Review.
                       questionedLots={new Set(openQuestionsByLot(snapshot, batch).keys())}
                       edit={batch.archived ? undefined : edit}
-                      locked={drafts.isDirty('answer') || drafts.isDirty('instructions')}
+                      locked={answerDirty || drafts.isDirty('instructions')}
                       askSharper={askSharper}
                       requestStore={sharperRequests}
                       onDirtyChange={drafts.forSource('correction')}
@@ -673,27 +687,46 @@ export function ProcessingWorkspace({
             >
               {sessionJob.questions
                 .filter((question) => question.state === 'open')
-                .map((question) => (
-                  <Link
-                    key={question.id}
-                    onClick={() => {
-                      // On this question's own step page the link changes no route.
-                      if (
-                        question.id === questionId &&
-                        processingStepFor(sessionJob.stage) === view
-                      ) {
-                        setSessionJobId(null)
+                .map((question) =>
+                  answersInDrawer && question.id !== questionId ? (
+                    <QuestionAnswer
+                      key={question.id}
+                      label="Session question"
+                      question={question}
+                      captureRevision={snapshot.capture_revision}
+                      currentQuestion={question}
+                      currentCaptureRevision={snapshot.capture_revision}
+                      disabled={
+                        runnerDisabled ||
+                        drafts.isDirty('instructions') ||
+                        drafts.isDirty('correction')
                       }
-                    }}
-                    href={batchHref(batch.id, {
-                      tab: 'processing',
-                      step: processingStepFor(sessionJob.stage),
-                      questionId: question.id,
-                    })}
-                  >
-                    {question.spec.prompt}
-                  </Link>
-                ))}
+                      readOnly={batch.archived || saving === 'instructions'}
+                      answer={answer}
+                      onDirtyChange={drafts.forSource(`answer:${question.id}`)}
+                    />
+                  ) : (
+                    <Link
+                      key={question.id}
+                      onClick={() => {
+                        // On this question's own step page the link changes no route.
+                        if (
+                          question.id === questionId &&
+                          processingStepFor(sessionJob.stage) === view
+                        ) {
+                          setSessionJobId(null)
+                        }
+                      }}
+                      href={batchHref(batch.id, {
+                        tab: 'processing',
+                        step: processingStepFor(sessionJob.stage),
+                        questionId: question.id,
+                      })}
+                    >
+                      {question.spec.prompt}
+                    </Link>
+                  ),
+                )}
               <SessionPanel
                 batchId={batch.id}
                 job={sessionJob}

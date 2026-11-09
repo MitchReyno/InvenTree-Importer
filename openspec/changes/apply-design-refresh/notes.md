@@ -126,3 +126,24 @@ None for task 10.
 ### Open items
 
 - Location types and their descriptions need a server read (BI-015).
+
+## Task 9: Processing › Inventory step page
+
+### Changes to the plan
+
+- **2026-11-10T06:53+11:00, task 9 (PR-E):** The retained question carries only its kind (quantity or clarification), subject, prompt, reason and assumption. It names no existing stock item, holds none of its fields and offers no options. So:
+  - **Comparison:** one "Compare before answering" card per open Inventory question about a lot. The "This batch" column shows the lot's Part, location and quantity from the records projection and the capture; the date code and the whole "In InvenTree" column read "Not known". The card isn't titled "Possible duplicate stock", because the app can't tell a duplicate-stock question from a Part or location question. Full data is BI-015.
+  - **Drawer:** the open question is answered in the drawer through `QuestionAnswer`, a clarification text or a quantity with Counted or Estimated, rather than the canvas's option cards, which would need options the question doesn't carry.
+- **2026-11-10T06:53+11:00, task 9 (PR-E):** The Inventory sub-tab already opened its step page (`#<batch>/processing/inventory`), so "link the sub-tab" needed no change; the sub-tab itself belongs to PR-B's batch header.
+- **2026-11-10T06:53+11:00, task 9 (PR-E):** The Part, location and company matches come from Review's records projection, the same records Review › Records edits, rather than from Inventory's proposals, which hold no match fields. The page shows them only while the step has retained work, like the other step pages, and keeps the job cards below them.
+
+### Decisions made during implementation
+
+- **2026-11-10T06:53+11:00, task 9:** Only an Inventory session's drawer answers in place; other steps' drawers keep linking to the question on its step page, so their behaviour is unchanged. A question already pinned on the page keeps its link in the drawer, so one question never has two answer forms.
+- **2026-11-10T06:53+11:00, task 9:** Each drawer answer reports to its own navigation-guard source (`answer:<question>`). The workspace treats any answer source as an answer draft (`answerDirty`), so the batch instructions and Examine corrections still wait while one is unsaved, as they do for the pinned answer.
+
+### Open items
+
+- Closing the drawer discards an unsaved drawer answer, as leaving the pinned question's page does today; keeping it across the drawer closing would need the answer draft stored like unsent chat messages.
+- The comparison's InvenTree column and date code need the question to carry the existing record (BI-015).
+- The Processing fixture (`tests/fixtures/processing.html`) has no Inventory work, so the step page isn't in the screenshot set yet.

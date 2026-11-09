@@ -19,6 +19,8 @@ interface Props {
   readOnly?: boolean
   /** Where to add evidence for this question, offered as "Add a photo". */
   captureHref?: string
+  /** The form's accessible name; a session drawer's answer form names itself apart. */
+  label?: string
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
@@ -67,6 +69,7 @@ export function QuestionAnswer({
   disabled,
   readOnly = false,
   captureHref,
+  label = 'Pinned application question',
   onDirtyChange,
   answer,
 }: Props) {
@@ -181,11 +184,7 @@ export function QuestionAnswer({
   const basis = watch('basis')
 
   return (
-    <Form
-      aria-label="Pinned application question"
-      onChange={reportDirty}
-      onSubmit={handleSubmit(submit)}
-    >
+    <Form aria-label={label} onChange={reportDirty} onSubmit={handleSubmit(submit)}>
       <QuestionCard
         question={question.spec.prompt}
         why={question.spec.reason}

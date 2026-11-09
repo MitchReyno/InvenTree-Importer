@@ -430,7 +430,11 @@ test('stale running input exposes its exact cancel action, while explicit false 
   expect(client.cancel).toHaveBeenCalledTimes(1)
 })
 
-function mountView(client: ProcessingClient, view: 'overview' | 'examine', sessionId?: string) {
+function mountView(
+  client: ProcessingClient,
+  view: 'overview' | 'examine' | 'inventory',
+  sessionId?: string,
+) {
   const queryClient = createServerQueryClient()
 
   const element = (session?: string) => (
@@ -510,6 +514,75 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   ).toBeInTheDocument()
   await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('the Inventory drawer answers its open question through the question path', async () => {
+  const user = userEvent.setup()
+  const inventoryJob = {
+    ...snapshot.jobs[0],
+    stage: 'inventory' as const,
+    session_state: 'waiting_input' as const,
+    questions: [
+      {
+        ...snapshot.jobs[0].questions[0],
+        assumption: 'Treating it as new until you say.',
+        spec: {
+          kind: 'clarification' as const,
+          subject_id: subjectId,
+          prompt: 'Is Packet A already in InvenTree?',
+          reason: 'Stock #1712 has the same Part, date code and bin.',
+        },
+      },
+    ],
+  }
+  const asked: ProcessingSnapshotDto = { ...snapshot, jobs: [inventoryJob] }
+  const answered: ProcessingSnapshotDto = {
+    ...asked,
+    capture_revision: '9',
+    jobs: [
+      {
+        ...inventoryJob,
+        questions: [{ ...inventoryJob.questions[0], state: 'answered' as const }],
+      },
+    ],
+  }
+  validate('ProcessingSnapshot', asked)
+  const read = vi.fn().mockResolvedValue(asked)
+  const client = {
+    ...clientFixture(),
+    read,
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  mountView(client, 'inventory', jobId)
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', { name: 'Session question' })
+  expect(form).toHaveTextContent('Is Packet A already in InvenTree?')
+  expect(within(drawer).getByRole('textbox', { name: 'Message this session' })).toBeVisible()
+
+  await user.type(
+    within(form).getByRole('textbox', { name: 'Clarification' }),
+    'Different tube: add new stock',
+  )
+  read.mockResolvedValue(answered)
+  await user.click(within(form).getByRole('button', { name: 'Send answer to the session' }))
+  expect(client.answer).toHaveBeenCalledWith(
+    batchId,
+    questionId,
+    expect.objectContaining({
+      value: { kind: 'clarification', text: 'Different tube: add new stock' },
+    }),
+    expect.any(String),
+  )
+  await waitFor(() =>
+    expect(within(drawer).queryByRole('form', { name: 'Session question' })).toBeNull(),
+  )
 })
 
 test('a session link opens its drawer on arrival', async () => {

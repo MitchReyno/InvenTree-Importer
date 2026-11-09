@@ -260,10 +260,10 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** if the retained question lacks the existing stock fields, the comparison shows only what's known; full data is BI-015.
 
-- [ ] 9.1 Confirm what the Inventory question payload and step snapshot hold.
-- [ ] 9.2 RED: write the step page tests.
-- [ ] 9.3 GREEN: build the page and drawer wiring; link the sub-tab.
-- [ ] 9.4 Refactor shared step-page parts.
+- [x] 9.1 Confirm what the Inventory question payload and step snapshot hold.
+- [x] 9.2 RED: write the step page tests.
+- [x] 9.3 GREEN: build the page and drawer wiring; link the sub-tab.
+- [x] 9.4 Refactor shared step-page parts.
 - [ ] 9.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 9.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
