@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import {
   applyRecordChange,
   projectRecords,
@@ -13,6 +12,7 @@ import { Masthead } from '#/components/masthead/Masthead'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { Batch } from '#/components/batches/Batch'
 import { Main } from '#/components/AppLayout'
+import { useHashRoute } from '#/navigation/useHashRoute'
 
 /**
  * Owned browser fixture: an in-memory capture client applies record edits with the shared
@@ -381,19 +381,8 @@ const processingClient = {
   chat: async () => ({ id: id('f', 1) }),
 }
 
-function useHashRoute() {
-  const [route, setRoute] = useState(() => location.hash.slice(1) || `${batchId}/review/records`)
-  useEffect(() => {
-    const follow = () => setRoute(location.hash.slice(1))
-
-    addEventListener('hashchange', follow)
-    return () => removeEventListener('hashchange', follow)
-  }, [])
-  return route
-}
-
 export function RecordsProof() {
-  const route = useHashRoute()
+  const route = useHashRoute(`${batchId}/review/records`)
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />

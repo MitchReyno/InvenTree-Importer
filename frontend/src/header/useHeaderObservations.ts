@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { useNow } from '#/browser/useNow'
+import { useOnForeground } from '#/browser/useOnForeground'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { assertHeaderScope, HEADER_POLL_MS } from './observations'
 import type { HeaderClient } from './types'
 
 export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const scope = useServerScope()
+  const now = useNow(1000)
   const poll = useRetainedPollInterval()
-  const [now, setNow] = useState(Date.now)
   const connection = useQuery({
     queryKey: serverQueryKey(scope, 'header-connection'),
     queryFn: async () => {
@@ -27,28 +28,9 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
     },
     refetchInterval: poll === false ? HEADER_POLL_MS : poll,
   })
-  const refreshConnection = connection.refetch
-  const refreshWork = work.refetch
-  useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 1000)
-
-    function foreground() {
-      setNow(Date.now())
-      if (document.visibilityState !== 'hidden') {
-        void refreshConnection()
-        void refreshWork()
-      }
-    }
-
-    window.addEventListener('focus', foreground)
-    window.addEventListener('online', foreground)
-    document.addEventListener('visibilitychange', foreground)
-    return () => {
-      clearInterval(clock)
-      window.removeEventListener('focus', foreground)
-      window.removeEventListener('online', foreground)
-      document.removeEventListener('visibilitychange', foreground)
-    }
-  }, [refreshConnection, refreshWork])
+  useOnForeground(() => {
+    void connection.refetch()
+    void work.refetch()
+  })
   return { now, connection, work }
 }

@@ -33,7 +33,7 @@ Decide by asking why the code runs. Code that runs because the component is on s
 | Read server data | Use TanStack Query, as described in [server reads](#server-reads-and-command-authority). | A fetch in an Effect. |
 | Run app setup once | Call it explicitly from `main.tsx`. Keep import-time setup to entry modules, so importing a component never starts work. If setup must wait for mounting, guard a root Effect with a module-level flag. | An unguarded top-level `useEffect(..., [])`, which runs twice in development. |
 
-The navigation guard is the main case of telling a parent: report unsaved changes from the input event, as [form editing](#form-editing) requires. An Effect may still report clean when the editor unmounts. Hold the callback in a ref so that a new parent callback receives the current state rather than a premature clean report; `operator/useDirtySources.ts` shows the pattern.
+The navigation guard is the main case of telling a parent: report unsaved changes from the input event, as [form editing](#form-editing) requires. An Effect may still report clean when the editor unmounts. Hold the callback in a ref so that a new parent callback receives the current state rather than a premature clean report; `operator/useDirtySources.ts` shows the pattern for several sources, and `navigation/useReportDirty.ts` for a single editor.
 
 When an Effect is the right tool:
 

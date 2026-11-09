@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '#/operator/types'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 const MAX_REASON_LENGTH = 1024
 
@@ -52,7 +53,7 @@ export function DismissWarning({
     onDirtyChange?.(isDirty || command.pending)
   }, [isDirty, command.pending, onDirtyChange])
 
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(isDirty || command.pending, onDirtyChange)
 
   async function finish(result: unknown) {
     if (result) {

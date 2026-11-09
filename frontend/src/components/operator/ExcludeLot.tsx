@@ -4,6 +4,7 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { space } from '#/theme/generated/tokens'
 import { Button } from '#/components/ui'
 import { Input, Label } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 
@@ -27,7 +28,7 @@ export function ExcludeForm({
   useEffect(() => {
     onDirtyChange(reason !== '')
   }, [reason, onDirtyChange])
-  useEffect(() => () => onDirtyChange(false), [onDirtyChange])
+  useReportDirty(reason !== '', onDirtyChange)
 
   return (
     <Form

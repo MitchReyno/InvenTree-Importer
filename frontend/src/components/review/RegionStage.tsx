@@ -6,6 +6,7 @@ import { previewImage } from '#/media/images'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import { Button, Small } from '#/components/ui'
 import { Input, Label, Select } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type Evidence = MediaSnapshotDto['evidence'][number]
 type Box = { x: number; y: number; width: number; height: number }
@@ -81,7 +82,7 @@ export function RegionStage({
   useEffect(() => {
     onDirtyChange?.(draft !== null)
   }, [draft, onDirtyChange])
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(draft !== null, onDirtyChange)
 
   const page = version?.pages.find((value) => value.page === pageNumber) ?? version?.pages[0]
   if (!version || !page) {

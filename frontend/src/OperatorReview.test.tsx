@@ -1602,7 +1602,11 @@ test('a failed delivery of saved instructions keeps its retry after the save rel
       operator={operator}
       agents={{
         sessions: vi.fn(async () => ({ sessions: [], truncated: false })) as never,
-        settings: vi.fn(async () => ({ revision: '1', selection: null, session_concurrency: 1 })) as never,
+        settings: vi.fn(async () => ({
+          revision: '1',
+          selection: null,
+          session_concurrency: 1,
+        })) as never,
         deliverInstructions,
       }}
       onDirtyChange={vi.fn()}

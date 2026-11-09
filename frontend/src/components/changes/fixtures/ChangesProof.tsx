@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import type {
   BatchAttentionDto,
   CaptureSnapshotDto,
@@ -13,6 +12,7 @@ import { HeaderStatus } from '#/components/masthead/HeaderStatus'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { Batch } from '#/components/batches/Batch'
 import { Main } from '#/components/AppLayout'
+import { useHashRoute } from '#/navigation/useHashRoute'
 
 /**
  * Owned browser fixture for Changes: an in-memory manual client prepares exactly the ticked lots,
@@ -524,19 +524,8 @@ const attention = async (): Promise<BatchAttentionDto> => ({
   items_truncated: false,
 })
 
-function useHashRoute() {
-  const [route, setRoute] = useState(() => location.hash.slice(1) || `${batchId}/changes/ready`)
-  useEffect(() => {
-    const follow = () => setRoute(location.hash.slice(1))
-
-    addEventListener('hashchange', follow)
-    return () => removeEventListener('hashchange', follow)
-  }, [])
-  return route
-}
-
 export function ChangesProof() {
-  const route = useHashRoute()
+  const route = useHashRoute(`${batchId}/changes/ready`)
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />

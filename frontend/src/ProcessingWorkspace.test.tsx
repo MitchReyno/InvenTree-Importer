@@ -736,11 +736,14 @@ test('the drawer closes when its link moves from Overview to the step page', asy
 })
 
 test('the batch is shown paused from its own read, whatever the account-wide list holds', async () => {
-  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue({
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue({
       ...snapshot,
       jobs: [{ ...snapshot.jobs[0], session_state: 'running' }],
       paused: true,
-    }) }
+    }),
+  }
   render(
     <ServerStateProvider scope={scope} client={createServerQueryClient()}>
       <ProcessingWorkspace

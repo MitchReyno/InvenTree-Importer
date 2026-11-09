@@ -10,6 +10,7 @@ import { classifyFailure, failureMessage } from '#/operator/command-failure'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import { ImpactSummary } from './ImpactSummary'
 import { observationNames } from './observation-names'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 export type RestructureKind = 'split' | 'merge' | 'move'
 
@@ -173,7 +174,7 @@ export function RestructureDialog({
     onDirtyChange?.(isDirty || apply.pending)
   }, [isDirty, apply.pending, onDirtyChange])
 
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(isDirty || apply.pending, onDirtyChange)
 
   useEffect(() => {
     const subscription = watch(() => {

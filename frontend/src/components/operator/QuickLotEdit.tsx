@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
 import { Fieldset, Form, Input, Label, Select } from '#/forms'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Mode = 'inherit' | 'set' | 'unknown' | 'clear' | 'unset'
@@ -82,7 +83,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useReportDirty(isDirty, onDirtyChange)
 
   async function save(values: Values) {
     const quantityTouched = Boolean(dirtyFields.quantityMode || dirtyFields.quantity)
