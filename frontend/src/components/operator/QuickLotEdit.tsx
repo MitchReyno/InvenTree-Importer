@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
@@ -41,6 +41,11 @@ function initialValues(lot: Lot): Values {
   }
 }
 
+/** Whether the form holds anything other than the values the editor opened with. */
+function differsFrom(defaults: Values, values: Values) {
+  return (Object.keys(defaults) as (keyof Values)[]).some((key) => values[key] !== defaults[key])
+}
+
 function quantityChange(values: Values): Lot['quantity'] {
   if (values.quantityMode === 'set') {
     return { mode: 'set', value: values.quantity.trim() }
@@ -70,35 +75,39 @@ function locationChange(batch: CaptureSnapshotDto, value: string): Lot['location
 
 /** Lot-only edits: no other lot's review depends on these fields. */
 export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Props) {
+  // The editor's baseline: the lot as it was when the editor opened, then each confirmed save.
+  const [defaults, setDefaults] = useState(() => initialValues(lot))
   const {
     register,
     handleSubmit,
     watch,
     reset,
+    getValues,
     formState: { errors, isDirty, dirtyFields, isSubmitting },
-  } = useForm<Values>({ defaultValues: initialValues(lot) })
+  } = useForm<Values>({ defaultValues: defaults })
   const quantityMode = watch('quantityMode')
   const locations = batch.observations.filter((item) => item.model === 'location')
-
-  useEffect(() => {
-    onDirtyChange?.(isDirty)
-  }, [isDirty, onDirtyChange])
 
   useReportDirty(isDirty, onDirtyChange)
 
   async function save(values: Values) {
     const quantityTouched = Boolean(dirtyFields.quantityMode || dirtyFields.quantity)
-    await edit({
+    const saved = await edit({
       kind: 'lot',
       id: lot.id,
       ...(quantityTouched ? { quantity: quantityChange(values) } : {}),
       ...(dirtyFields.location ? { location: locationChange(batch, values.location) } : {}),
     })
+    if (saved !== false) {
+      setDefaults(values)
+      reset(values)
+      onDirtyChange?.(false)
+    }
   }
 
   return (
     <Form
-      onChange={() => onDirtyChange?.(true)}
+      onChange={() => onDirtyChange?.(differsFrom(defaults, getValues()))}
       onSubmit={handleSubmit(save)}
       aria-label={`Edit ${lot.label}`}
     >
@@ -152,7 +161,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
         type="button"
         disabled={!isDirty || isSubmitting}
         onClick={() => {
-          reset(initialValues(lot))
+          reset(defaults)
           onDirtyChange?.(false)
         }}
       >

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Banner, Small, Button } from '#/components/ui'
 import { Form, Label, TextArea } from '#/forms'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '#/operator/types'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 const MAX_INSTRUCTION_LENGTH = 8192
 
@@ -16,7 +17,7 @@ interface FormProps {
   label: string
   disabled: boolean
   reload: () => Promise<void>
-  onDirtyChange: (key: string, dirty: boolean) => void
+  onDirtyChange: (dirty: boolean) => void
 }
 
 export function InstructionForm({
@@ -31,13 +32,15 @@ export function InstructionForm({
 }: FormProps) {
   const revision = useRef(batch.revision)
   const latest = review.instructions.find((item) => item.group_id === groupId)
-  const formKey = groupId ?? 'batch'
+  // The saved text when the form opened, then the text of each confirmed save.
+  const [savedText, setSavedText] = useState(latest?.text ?? '')
   const {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors, isDirty },
-  } = useForm({ defaultValues: { text: latest?.text ?? '' } })
+  } = useForm({ defaultValues: { text: savedText } })
   const command = useRetainedCommand((input: { text: string; revision: string }, key: string) =>
     client.instruct(
       batch.id,
@@ -46,13 +49,14 @@ export function InstructionForm({
     ),
   )
 
-  useEffect(() => {
-    onDirtyChange(formKey, isDirty || command.pending)
-  }, [formKey, isDirty, command.pending, onDirtyChange])
+  useReportDirty(isDirty || command.pending, onDirtyChange)
 
   async function finish(result: unknown) {
     if (result) {
-      onDirtyChange(formKey, false)
+      const confirmed = getValues('text')
+      setSavedText(confirmed)
+      reset({ text: confirmed })
+      onDirtyChange(false)
       await reload()
     }
   }
@@ -67,7 +71,7 @@ export function InstructionForm({
 
   return (
     <Form
-      onChange={() => onDirtyChange(formKey, true)}
+      onChange={() => onDirtyChange(getValues('text') !== savedText || command.pending)}
       onSubmit={handleSubmit(save)}
       aria-label={`${label} instructions`}
     >
@@ -99,7 +103,7 @@ export function InstructionForm({
         onClick={() => {
           command.discard()
           reset()
-          onDirtyChange(formKey, false)
+          onDirtyChange(false)
         }}
       >
         Discard instruction edits

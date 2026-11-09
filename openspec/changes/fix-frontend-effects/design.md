@@ -8,7 +8,7 @@ Three refactors stacked beneath this change provide the building blocks:
 
 - `navigation/useReportDirty` releases the guard on unmount through a ref, and gives a replaced callback the current state (#181).
 - `browser/useOnline`, `browser/useNow` and `browser/useOnForeground` (#181).
-- `useApiClients()` (#182) and `useBatchCommands()` (PR 3) replace client and command props.
+- `useApiClients()` (#182) and `useBatchCommands()` (#183) replace client and command props.
 
 The change is broad but shallow. Each finding is local to one or two components, and the fixes reuse a handful of patterns. Existing architecture suffices; the decisions below are about which pattern each kind of finding uses.
 
@@ -42,7 +42,7 @@ Alternative rejected: keying the editor by the saved revision. That would drop a
 
 ### Send commands from the handler that caused them
 
-A command that follows another command awaits the first one's result in the same handler. One example is linking media to a newly created lot. To make that possible, `Batch`'s `edit` resolves with the accepted snapshot (or `false`), so the handler can find the new lot without waiting for an Effect to see it in props. This extends `BatchCommands.edit` from PR 3.
+A command that follows another command awaits the first one's result in the same handler. One example is linking media to a newly created lot. To make that possible, `Batch`'s `edit` resolves with the accepted snapshot (or `false`), so the handler can find the new lot without waiting for an Effect to see it in props. This extends `BatchCommands.edit` from #183.
 
 Confirmation that closes an editor also moves into the awaiting handler, including the retained-retry path.
 

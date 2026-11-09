@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureSnapshotDto,
@@ -26,6 +26,8 @@ import { RegionStage } from '#/components/review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 import type { CaptureEdit } from '#/capture/types'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 type Job = ProcessingSnapshotDto['jobs'][number]
@@ -89,14 +91,29 @@ function ReadingEdit({
   const [markings, setMarkings] = useState<string[]>(readings.markings)
   const [text, setText] = useState(readings.text ?? '')
   const [saving, setSaving] = useState(false)
-  const dirty =
-    text !== (readings.text ?? '') ||
-    markings.length !== readings.markings.length ||
-    markings.some((marking, index) => marking !== readings.markings[index])
-  useEffect(() => {
-    onDirty(dirty)
-  }, [dirty, onDirty])
-  useEffect(() => () => onDirty(false), [onDirty])
+
+  // After a confirmed save the draft is the saved value until Processing reloads and remounts.
+  const [confirmed, setConfirmed] = useState<{ markings: string[]; text: string } | null>(null)
+  const baseline = confirmed ?? { markings: readings.markings, text: readings.text ?? '' }
+
+  const differs = (nextMarkings: string[], nextText: string) =>
+    nextText !== baseline.text ||
+    nextMarkings.length !== baseline.markings.length ||
+    nextMarkings.some((marking, index) => marking !== baseline.markings[index])
+
+  const dirty = differs(markings, text)
+  useReportDirty(dirty, onDirty)
+
+  function changeMarkings(next: string[]) {
+    setMarkings(next)
+    onDirty(differs(next, text))
+  }
+
+  function changeText(next: string) {
+    setText(next)
+    onDirty(differs(markings, next))
+  }
+
   const busy = saving || locked
   return (
     <ReadingForm
@@ -115,7 +132,15 @@ function ReadingEdit({
             markings: markings.map((marking) => marking.trim()).filter(Boolean),
             ...(kept ? { text: kept } : {}),
           },
-        }).finally(() => setSaving(false))
+        })
+          .then((result) => {
+            // A confirmed save is the new saved value, so the guard is released.
+            if (result !== false) {
+              setConfirmed({ markings, text })
+              onDirty(false)
+            }
+          })
+          .finally(() => setSaving(false))
       }}
     >
       {markings.map((marking, index) => (
@@ -128,7 +153,9 @@ function ReadingEdit({
             value={marking}
             disabled={busy}
             onChange={(event) =>
-              setMarkings(markings.map((value, at) => (at === index ? event.target.value : value)))
+              changeMarkings(
+                markings.map((value, at) => (at === index ? event.target.value : value)),
+              )
             }
           />
         </Label>
@@ -139,7 +166,7 @@ function ReadingEdit({
           variant="ghost"
           disabled={busy}
           aria-label={`Add a marking for ${name}`}
-          onClick={() => setMarkings([...markings, ''])}
+          onClick={() => changeMarkings([...markings, ''])}
         >
           Add a marking
         </Button>
@@ -151,7 +178,7 @@ function ReadingEdit({
           placeholder="Other text read from the photo"
           value={text}
           disabled={busy}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => changeText(event.target.value)}
         />
       </Label>
       <Small>Clear a marking to remove it.</Small>
@@ -170,8 +197,9 @@ function ReadingEdit({
             variant="ghost"
             disabled={saving}
             onClick={() => {
-              setMarkings(readings.markings)
-              setText(readings.text ?? '')
+              setMarkings(baseline.markings)
+              setText(baseline.text)
+              onDirty(false)
             }}
           >
             Discard
@@ -238,41 +266,12 @@ export function ExamineView({
   const [editing, setEditing] = useState<string | null>(null)
   const [adjusting, setAdjusting] = useState<string | null>(null)
   // One correction at a time: saving reloads Processing, which would drop any other draft.
-  const [dirtyEditors, setDirtyEditors] = useState<ReadonlySet<string>>(new Set())
-  const reportDirty = useCallback((editor: string, dirty: boolean) => {
-    setDirtyEditors((previous) => {
-      if (previous.has(editor) === dirty) {
-        return previous
-      }
-      const next = new Set(previous)
-      if (dirty) {
-        next.add(editor)
-      } else {
-        next.delete(editor)
-      }
-      return next
-    })
-  }, [])
-  // One stable callback per editor, so its effects do not re-run on every render.
-  const dirtyCallbacks = useRef(new Map<string, (dirty: boolean) => void>())
+  const drafts = useDirtySources(onDirtyChange)
+  const dirtyEditor = drafts.forSource
+  const anyDirty = drafts.dirty
 
-  const dirtyEditor = (editor: string) => {
-    let callback = dirtyCallbacks.current.get(editor)
-    if (!callback) {
-      callback = (dirty: boolean) => reportDirty(editor, dirty)
-      dirtyCallbacks.current.set(editor, callback)
-    }
-    return callback
-  }
+  const lockedFor = (editor: string) => locked || drafts.hasOtherSources(editor)
 
-  const anyDirty = dirtyEditors.size > 0
-
-  const lockedFor = (editor: string) =>
-    locked || (dirtyEditors.size > 0 && !dirtyEditors.has(editor))
-
-  useEffect(() => {
-    onDirtyChange?.(dirtyEditors.size > 0)
-  }, [dirtyEditors, onDirtyChange])
   // Requests are kept per evidence version with their key and wording until confirmed, so a retry
   // resends exactly the same request, even after the photo's name arrives or Processing reloads.
   // A request outlives a reload mid-send, so its reply reaches whichever view is mounted then.

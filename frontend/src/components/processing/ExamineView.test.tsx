@@ -488,3 +488,68 @@ it('says in words what a reading came from and how well it agrees', () => {
   render(<ExamineView batch={said} lead={lead} />)
   expect(screen.getByText('Examine · Handwriting · Sources disagree')).toBeInTheDocument()
 })
+
+it('releases the guard when Examine unmounts with an unsaved reading', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  const view = render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' 2')
+  expect(dirty.at(-1)).toBe(true)
+  view.unmount()
+  expect(dirty.at(-1)).toBe(false)
+})
+
+it('a confirmed reading save releases the guard and the other corrections', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => true}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' 2')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(false)
+  expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeEnabled()
+})
+
+it('typing a reading back to its saved text, or discarding it, releases the guard', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  const field = within(first).getByLabelText('Marking 1 for 16 MHz crystal')
+  await user.type(field, '!')
+  expect(dirty.at(-1)).toBe(true)
+  await user.type(field, '{Backspace}')
+  expect(dirty.at(-1)).toBe(false)
+  await user.type(field, '!')
+  await user.click(within(first).getByRole('button', { name: 'Discard' }))
+  expect(field).toHaveValue('16 MHz crystal')
+  expect(dirty.at(-1)).toBe(false)
+})

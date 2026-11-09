@@ -139,13 +139,16 @@ export function RestructureDialog({
   onClose,
   onDirtyChange,
 }: Props) {
+  // The dialog's baseline, compared with the form on every change the operator makes.
+  const [initial] = useState(() => defaults(batch, lotIds))
   const {
     register,
     control,
     handleSubmit,
     watch,
+    getValues,
     formState: { errors, isDirty },
-  } = useForm<Values>({ defaultValues: defaults(batch, lotIds) })
+  } = useForm<Values>({ defaultValues: initial })
   const children = useFieldArray({ control, name: 'children' })
   const splitObservations = kind === 'split' ? defaults(batch, lotIds).observations : []
   const names = observationNames(batch.evidence_observations ?? [])
@@ -170,9 +173,12 @@ export function RestructureDialog({
   const destination = watch('destination')
   const locked = apply.busy || apply.pending
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty || apply.pending)
-  }, [isDirty, apply.pending, onDirtyChange])
+  // Field-array rows and the retained command change without a native change event.
+  function reportDraft() {
+    onDirtyChange?.(
+      JSON.stringify(getValues()) !== JSON.stringify(initial) || apply.hasPendingIntent(),
+    )
+  }
 
   useReportDirty(isDirty || apply.pending, onDirtyChange)
 
@@ -215,7 +221,10 @@ export function RestructureDialog({
       onDirtyChange?.(false)
       onClose()
       await reload()
+      return
     }
+    // A refusal releases the retained intent, so an unedited dialog is clean again.
+    reportDraft()
   }
 
   async function retryApply() {
@@ -224,7 +233,9 @@ export function RestructureDialog({
       onDirtyChange?.(false)
       onClose()
       await reload()
+      return
     }
+    reportDraft()
   }
 
   const quantityRule = {
@@ -256,7 +267,7 @@ export function RestructureDialog({
       >
         Discard restructure edits
       </Button>
-      <Form onChange={() => onDirtyChange?.(true)} onSubmit={handleSubmit(runPreview)}>
+      <Form onChange={reportDraft} onSubmit={handleSubmit(runPreview)}>
         <Fieldset disabled={disabled || locked || previewBusy}>
           {kind === 'split' && (
             <>
@@ -274,7 +285,13 @@ export function RestructureDialog({
                     />
                   </Label>
                   {children.fields.length > 2 && (
-                    <Button type="button" onClick={() => children.remove(index)}>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        children.remove(index)
+                        reportDraft()
+                      }}
+                    >
                       Remove new lot {index + 1}
                     </Button>
                   )}
@@ -283,9 +300,10 @@ export function RestructureDialog({
               <Button
                 type="button"
                 disabled={children.fields.length >= MAX_SPLIT_CHILDREN}
-                onClick={() =>
+                onClick={() => {
                   children.append({ key: crypto.randomUUID(), label: '', quantity: '' })
-                }
+                  reportDraft()
+                }}
               >
                 Add another new lot
               </Button>
@@ -413,7 +431,13 @@ export function RestructureDialog({
               <Button disabled={apply.busy} onClick={() => void retryApply()}>
                 Retry exact change
               </Button>{' '}
-              <Button disabled={apply.busy} onClick={apply.discard}>
+              <Button
+                disabled={apply.busy}
+                onClick={() => {
+                  apply.discard()
+                  reportDraft()
+                }}
+              >
                 Discard unconfirmed change
               </Button>
             </span>

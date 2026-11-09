@@ -24,7 +24,7 @@ The audit's 35 findings are listed by number in `tasks.md`, with the file each o
 
 The remaining findings are recorded as the audit stated them. Each task re-reads the code first, and a finding that turns out wrong is dropped and recorded in `notes.md` and the PR.
 
-This change builds on three refactors stacked beneath it: shared hooks (#181), API clients context (#182) and batch commands context (PR 3). Audit item 29 (`useOnline`, `useNow`, foreground refresh) was largely delivered by #181; only `LiveUpdates` adopting `useOnForeground` remains.
+This change builds on three refactors stacked beneath it: shared hooks (#181), API clients context (#182) and batch commands context (#183). Audit item 29 (`useOnline`, `useNow`, foreground refresh) was largely delivered by #181; only `LiveUpdates` adopting `useOnForeground` remains.
 
 ## Scope and non-goals
 

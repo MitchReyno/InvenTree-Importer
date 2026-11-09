@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Banner, Small, Button } from '#/components/ui'
 import { Form, Label, TextArea } from '#/forms'
 import { useForm } from 'react-hook-form'
@@ -32,6 +31,8 @@ export function DismissWarning({
   const {
     register,
     handleSubmit,
+    getValues,
+    reset,
     formState: { errors, isDirty },
   } = useForm({ defaultValues: { reason: '' } })
   // The retained intent freezes the revision it was first sent with, so a retry is exact.
@@ -49,14 +50,11 @@ export function DismissWarning({
     ),
   )
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty || command.pending)
-  }, [isDirty, command.pending, onDirtyChange])
-
   useReportDirty(isDirty || command.pending, onDirtyChange)
 
   async function finish(result: unknown) {
     if (result) {
+      reset()
       onDirtyChange?.(false)
       await onDismissed()
     }
@@ -72,7 +70,7 @@ export function DismissWarning({
 
   return (
     <Form
-      onChange={() => onDirtyChange?.(true)}
+      onChange={() => onDirtyChange?.(getValues('reason') !== '' || command.pending)}
       onSubmit={handleSubmit(submit)}
       aria-label={`Dismiss ${issue.code}`}
     >

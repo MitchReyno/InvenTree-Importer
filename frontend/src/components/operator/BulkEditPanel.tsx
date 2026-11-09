@@ -24,6 +24,12 @@ interface Values {
 
 type BulkChange = BulkEditDto['change']
 
+const DEFAULTS: Values = { quantityMode: 'keep', quantity: '', location: 'keep' }
+
+function differsFromDefaults(values: Values) {
+  return (Object.keys(DEFAULTS) as (keyof Values)[]).some((key) => values[key] !== DEFAULTS[key])
+}
+
 interface Props {
   batch: CaptureSnapshotDto
   selectedIds: string[]
@@ -79,8 +85,9 @@ export function BulkEditPanel({
     handleSubmit,
     watch,
     reset,
+    getValues,
     formState: { errors, isDirty },
-  } = useForm<Values>({ defaultValues: { quantityMode: 'keep', quantity: '', location: 'keep' } })
+  } = useForm<Values>({ defaultValues: DEFAULTS })
   const [retainedPreview, setPreview] = useState<{
     lotIds: string[]
     change: BulkChange
@@ -114,10 +121,6 @@ export function BulkEditPanel({
     retainedPreview && (locked || retainedPreview.lotIds.join(',') === selectionKey)
       ? retainedPreview
       : null
-
-  useEffect(() => {
-    onDirtyChange?.(isDirty || apply.pending)
-  }, [isDirty, apply.pending, onDirtyChange])
 
   useReportDirty(isDirty || apply.pending, onDirtyChange)
 
@@ -157,6 +160,9 @@ export function BulkEditPanel({
 
   async function finish(result: unknown, count: number) {
     if (result) {
+      // The applied change is done; the panel starts again from "Keep".
+      reset()
+      setPreview(null)
       onDirtyChange?.(false)
       // An applied bulk edit has no inverse command, so the confirmation offers no Undo.
       confirm(`Applied to ${count} lot${count === 1 ? '' : 's'}`)
@@ -182,7 +188,10 @@ export function BulkEditPanel({
       >
         Discard bulk edits
       </Button>
-      <Form onChange={() => onDirtyChange?.(true)} onSubmit={handleSubmit(runPreview)}>
+      <Form
+        onChange={() => onDirtyChange?.(differsFromDefaults(getValues()) || apply.pending)}
+        onSubmit={handleSubmit(runPreview)}
+      >
         <Row disabled={disabled || locked || previewBusy || !selectedIds.length}>
           <Label>
             Quantity

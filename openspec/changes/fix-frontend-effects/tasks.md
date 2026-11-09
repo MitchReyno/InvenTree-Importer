@@ -6,7 +6,7 @@
 - Specs: skipped (`skip_specs: true`). The fixes bring code into line with existing documented requirements and the frontend guidelines; no requirement text changes.
 - Linked BI items: none. This is maintenance from the #180 Effects audit.
 - Audit item numbers (1–35) refer to the audit list delivered with #180's follow-up request. Each task names the items it covers.
-- Stacked on the three refactor PRs: #181 (shared hooks), #182 (API clients context) and PR 3 (batch commands context).
+- Stacked on the three refactor PRs: #181 (shared hooks), #182 (API clients context) and #183 (batch commands context).
 
 ## Completion and commit ordering
 
@@ -16,13 +16,13 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 | Task | Type | Audit items | Prerequisites |
 | --- | --- | --- | --- |
-| 1. Dirty reporting from input events | Behavioural fix | 1, 2, 9, 10 (report Effects), 11 | PR 3 |
-| 2. Guard release and source aggregation | Behavioural fix | 3, 4, 5, 10 (EvidenceGroup) | PR 3 |
-| 3. Derived drafts | Behavioural fix | 6, 7, 8 | PR 3 |
+| 1. Dirty reporting from input events | Behavioural fix | 1, 2, 9, 10 (report Effects) | #183 |
+| 2. Guard release and source aggregation | Behavioural fix | 3, 4, 5, 10 (EvidenceGroup) | #183 |
+| 3. Derived drafts | Behavioural fix | 6, 7, 8 | #183 |
 | 4. Review quick-edit request (J/K) | Bug fix, visible | 12, 25 | Task 1–3 PR |
 | 5. Commands from handlers | Behavioural fix | 13, 14 | Task 1–3 PR |
 | 6. Batch settings Effects | Behavioural fix | 15, 16, 17, 18 | Task 1–3 PR |
-| 7. Modal dialog lifecycle | Behavioural fix | 19 | Task 1–3 PR |
+| 7. Modal dialog lifecycle | Behavioural fix | 11, 19 | Task 1–3 PR |
 | 8. Derived workspace state | Behavioural fix | 20, 21, 22, 23, 24 | Task 1–3 PR |
 | 9. Server reads through TanStack Query | Behavioural fix | 26, 27, 28 | Task 4–8 PR |
 | 10. Shared sync hooks | Refactor with fixes | 29, 30, 31, 32, 33, 34, 35 | Task 4–8 PR |
@@ -31,7 +31,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
-| E1 | The guard hears dirty from events and is always released; drafts derive from saved values | Tasks 1–3 | One concern, the navigation guard and draft ownership, reviewed against one rule set | PR 3 | Base PR 3's branch; `fix/fix-frontend-effects-dirty`; `fix(fix-frontend-effects): report dirty from events and derive drafts` | Owning checks green; regression per item; clean independent review |
+| E1 | The guard hears dirty from events and is always released; drafts derive from saved values | Tasks 1–3 | One concern, the navigation guard and draft ownership, reviewed against one rule set | #183 | Base #183's branch; `fix/fix-frontend-effects-dirty`; `fix(fix-frontend-effects): report dirty from events and derive drafts` | Owning checks green; regression per item; clean independent review |
 | E2 | J/K works after E; commands and copied state move out of Effects | Tasks 4–8 | Behaviour bugs and command authority, which need the edit-snapshot change and a demo of the visible fix | E1 | Base E1; `fix/fix-frontend-effects-commands`; `fix(fix-frontend-effects): send commands from handlers and fix J/K after E` | As E1, plus a demo recording of J/K and browser evidence for the dialog focus fix |
 | E3 | Server reads and browser state use their owning APIs | Tasks 9–10 | Subscriptions and reads share the query and sync-hook patterns | E2 | Base E2; `fix/fix-frontend-effects-sync`; `fix(fix-frontend-effects): move reads and subscriptions to their owning APIs` | As E1 |
 
@@ -39,52 +39,52 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 - PR delivery: E1.
 - Outcome: each editor reports dirty in the handler that changes its draft, so the guard blocks navigation without waiting a render.
-- Scope and approach: `ExcludeLot` (1), `ExamineView` ReadingEdit (2), and the report Effects in `BulkEditPanel`, `DismissWarning`, `QuickLotEdit`, `RestructureDialog`, `RegionStage` and `AskControl` (10). Also `TellExamine` (9) and `MediaCropDialog`'s dirty half (11). Use the "report dirty from the event" decision; keep a commented Effect only where no event exists.
-- Prerequisites: PR 3.
+- Scope and approach: `ExcludeLot` (1), `ExamineView` ReadingEdit (2), and the report Effects in `BulkEditPanel`, `DismissWarning`, `QuickLotEdit`, `RestructureDialog`, `RegionStage` and `AskControl` (10). Also `TellExamine` (9). Use the "report dirty from the event" decision; keep a commented Effect only where no event exists.
+- Prerequisites: #183.
 - Acceptance: typing into each editor blocks a hash change synchronously; reverting to the saved value releases the guard; a hidden `TellExamine` form is clean.
 - TDD approach: a guard test without `waitFor` fails before the change for items 1 and 2, then passes.
 - Verification: the owning checks; the new and existing component tests.
 - Risks and decisions: React Hook Form's typed-back `isDirty` has no input event. It keeps a subscription-driven report, which the design allows.
 
-- [ ] 1.1 Re-read each named file, confirm the finding still applies, and record any dropped finding in `notes.md`.
-- [ ] 1.2 RED: add synchronous-guard regressions for `ExcludeLot` and `ExamineView` ReadingEdit, and confirm they fail.
-- [ ] 1.3 GREEN: move reporting into handlers in every file listed, keeping commented exceptions.
-- [ ] 1.4 Add tests for any changed file without a test file.
-- [ ] 1.5 Run the owning checks and record the results.
+- [x] 1.1 Re-read each named file, confirm the finding still applies, and record any dropped finding in `notes.md`.
+- [x] 1.2 RED: add synchronous-guard regressions for `ExcludeLot` and `ExamineView` ReadingEdit, and confirm they fail.
+- [x] 1.3 GREEN: move reporting into handlers in every file listed, keeping commented exceptions.
+- [x] 1.4 Add tests for any changed file without a test file.
+- [x] 1.5 Run the owning checks and record the results.
 
 ## 2. Guard release and source aggregation
 
 - PR delivery: E1.
 - Outcome: no editor can leave the guard latched after it unmounts.
 - Scope and approach: replace `ExamineView`'s hand-rolled dirty sources with `useDirtySources` (3). Give `InstructionForm` an unmount release, and pass it a stable source callback instead of the inline `(key, dirty)` adapter (4). Delete `ProcessingStage`'s redundant unmount Effect (5), and add an unmount release to `ui/EvidenceGroup` (10).
-- Prerequisites: PR 3.
+- Prerequisites: #183.
 - Acceptance: unmounting a dirty Examine correction, a dirty instruction form or a dirty evidence group releases the guard.
 - TDD approach: unmount-while-dirty tests fail first for items 3 and 4.
 - Verification: the owning checks; the existing one-correction-at-a-time tests still pass.
 - Risks and decisions: none.
 
-- [ ] 2.1 Confirm each finding against the current code.
-- [ ] 2.2 RED: add unmount-while-dirty regressions and confirm they fail.
-- [ ] 2.3 GREEN: implement the releases and the `useDirtySources` replacement.
-- [ ] 2.4 Add tests for any changed file without a test file.
-- [ ] 2.5 Run the owning checks and record the results.
+- [x] 2.1 Confirm each finding against the current code.
+- [x] 2.2 RED: add unmount-while-dirty regressions and confirm they fail.
+- [x] 2.3 GREEN: implement the releases and the `useDirtySources` replacement.
+- [x] 2.4 Add tests for any changed file without a test file.
+- [x] 2.5 Run the owning checks and record the results.
 
 ## 3. Derived drafts
 
 - PR delivery: E1.
 - Outcome: drafts that follow saved values never flicker dirty and never overwrite a dirty draft.
 - Scope and approach: `useDraft` stores `T | null` (6). `InstructionField` stores `string | null` (7). `AskControl` adjusts `asked` during render (8). Use the "derive drafts" decision.
-- Prerequisites: PR 3.
+- Prerequisites: #183.
 - Acceptance: a clean draft follows a new saved value without `report(true)`; a dirty draft keeps its value and stays dirty; text arriving after mount shows; newer text is adopted after save or discard.
 - TDD approach: the `useDraft` no-flicker test fails first.
 - Verification: the owning checks; the records and processing tests.
 - Risks and decisions: AskControl's open-with-prefill dirty question stays as is and is raised in the PR.
 
-- [ ] 3.1 Confirm each finding against the current code.
-- [ ] 3.2 RED: add the no-flicker and keep-dirty regressions and confirm they fail.
-- [ ] 3.3 GREEN: implement the derived drafts.
-- [ ] 3.4 Add tests for any changed file without a test file.
-- [ ] 3.5 Run the owning checks and record the results.
+- [x] 3.1 Confirm each finding against the current code.
+- [x] 3.2 RED: add the no-flicker and keep-dirty regressions and confirm they fail.
+- [x] 3.3 GREEN: implement the derived drafts.
+- [x] 3.4 Add tests for any changed file without a test file.
+- [x] 3.5 Run the owning checks and record the results.
 
 ## 4. Review quick-edit request (J/K)
 
@@ -140,7 +140,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 - PR delivery: E2.
 - Outcome: dialogs return focus to their opener after a StrictMode remount, and never call `showModal` on an open dialog.
-- Scope and approach: `ui/Dialog` cleanup and opener recording, and a shared modal hook used by `MediaCropDialog` (19).
+- Scope and approach: `ui/Dialog` cleanup and opener recording, and a shared modal hook used by `MediaCropDialog` (19), including its dirty report (11).
 - Prerequisites: E1.
 - Acceptance: focus returns to the opener in development StrictMode; a replaced dirty callback does not reopen the crop dialog.
 - TDD approach: the `showModal` guard test fails first in jsdom. Focus return needs a real browser, so it is verified there and recorded as manual evidence.

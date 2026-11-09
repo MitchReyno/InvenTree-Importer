@@ -207,7 +207,7 @@ export function EvidenceGroupPanel({
               label={`Group “${name}”`}
               disabled={blocked(instructionKey)}
               reload={reload}
-              onDirtyChange={(_key, value) => dirty(instructionKey)(value)}
+              onDirtyChange={dirty(instructionKey)}
             />
           )}
           {captureEdit && (

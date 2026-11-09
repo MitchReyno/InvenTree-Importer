@@ -44,6 +44,7 @@ export function TellExamine({
   const visible = Boolean(chat && lead?.session_state && lead.session_state !== 'cancelled')
   // Unsent text is unsaved work only while the form is shown; hiding or leaving reports clean.
   const dirty = visible && Boolean(text.trim())
+  // Typing and sending report from their handlers; polling can also hide the form, with no event.
   useEffect(() => {
     onDirtyChange?.(dirty)
   }, [dirty, onDirtyChange])
@@ -68,6 +69,7 @@ export function TellExamine({
       )
       confirmPending(storeKey)
       setText('')
+      onDirtyChange?.(false)
       setOutcome(chatConfirmation(state))
     } catch {
       setFailed(true)
@@ -91,10 +93,12 @@ export function TellExamine({
           maxLength={4096}
           disabled={busy}
           onChange={(event) => {
-            setText(event.target.value)
-            editPending(storeKey, event.target.value)
+            const next = event.target.value
+            setText(next)
+            editPending(storeKey, next)
             setOutcome(null)
             setFailed(false)
+            onDirtyChange?.(Boolean(next.trim()))
           }}
         />
       </Label>
