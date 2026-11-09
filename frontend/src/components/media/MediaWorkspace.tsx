@@ -68,14 +68,15 @@ export function MediaWorkspace({
       if (!groupId) {
         return true
       }
-      // An unconfirmed or refused move still owns the command and selection; this file waits in
-      // Ungrouped rather than replacing them.
-      if (command.hasPendingIntent() || drafts.isDirty('selection')) {
+      // An unconfirmed or refused move still owns the command and selection, and a frozen batch
+      // sends no move; this file waits in Ungrouped rather than holding a selection for nothing.
+      if (disabled || command.hasPendingIntent() || drafts.isDirty('selection')) {
         return false
       }
-      // Original retention is complete before membership is attempted.
+      // Original retention is complete before membership is attempted. The read above is fresh,
+      // even if this handler's render still shows an earlier failed poll.
       state.select([receipt.evidence_id], current.revision)
-      const moved = await state.move([receipt.evidence_id], groupId, current.revision)
+      const moved = await state.move([receipt.evidence_id], groupId, current.revision, true)
       return moved !== 'unconfirmed'
     },
     onDirtyChange: drafts.forSource('upload'),

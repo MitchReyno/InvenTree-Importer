@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { color, radius, ring, space, typeVar } from '#/theme/generated/tokens'
 import { Button, Spinner } from '#/components/ui'
@@ -49,6 +49,17 @@ function focusAfterDismiss(tile: HTMLElement | null): HTMLElement | null {
  */
 export function UploadTile({ item, disabled, queue }: Props) {
   const tile = useRef<HTMLDivElement>(null)
+
+  // DOM focus: a tile that leaves while focused (its file added, or its notice overtaken by a read)
+  // hands focus to its group region. A layout cleanup runs before the tile is removed.
+  useLayoutEffect(() => {
+    const node = tile.current
+    return () => {
+      if (node?.contains(document.activeElement)) {
+        node.closest<HTMLElement>('section[tabindex="-1"]')?.focus()
+      }
+    }
+  }, [])
 
   const working = ['waiting', 'uploading', 'preparing'].includes(item.status)
   const failed = item.status === 'not_added' || item.status === 'unconfirmed'

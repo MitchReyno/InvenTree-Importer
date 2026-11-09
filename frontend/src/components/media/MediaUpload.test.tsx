@@ -15,7 +15,7 @@ function Harness({ disabled, ...ports }: HarnessProps) {
   return (
     <>
       <MediaUpload chooseDisabled={disabled} noteDisabled={false} queue={queue} />
-      <section aria-label="Grid">
+      <section aria-label="Grid" tabIndex={-1}>
         {queue.items.map((item) => (
           <UploadTile key={item.id} item={item} disabled={disabled} queue={queue} />
         ))}
@@ -301,6 +301,28 @@ test('Retry keeps focus on its tile while the file uploads again', async () => {
   vi.mocked(queue.upload).mockImplementation(() => new Promise(() => undefined))
   await user.click(within(tile).getByRole('button', { name: 'Retry a.png' }))
   expect(tile).toHaveFocus()
+})
+
+test('a focused tile that leaves once its file is added hands focus to the group region', async () => {
+  const user = userEvent.setup()
+  let lose = true
+  const queue = ports({
+    upload: vi.fn(async (file: File) => {
+      if (lose) {
+        lose = false
+        throw new TypeError('network')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  const tile = await screen.findByRole('group', { name: 'Upload of a.png' })
+  await user.click(within(tile).getByRole('button', { name: 'Retry a.png' }))
+
+  await waitFor(() => expect(tile).not.toBeInTheDocument())
+  expect(screen.getByRole('region', { name: 'Grid' })).toHaveFocus()
 })
 
 test('Dismiss moves focus to the next tile rather than losing it', async () => {

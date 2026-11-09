@@ -79,12 +79,18 @@ export function useEvidenceWorkspace(
     return true
   }
 
+  /**
+   * `readConfirmed` is for a caller that has just completed a fresh read in the same handler: its
+   * render-time `unavailable` may still describe an earlier failed poll.
+   */
   async function edit(
     change: MediaEditDto['change'],
     revision = snapshot?.revision,
     onConfirmed?: () => void,
+    readConfirmed = false,
   ) {
-    if (disabled || unavailable || command.busy || command.hasPendingIntent() || !revision) {
+    const readUnavailable = unavailable && !readConfirmed
+    if (disabled || readUnavailable || command.busy || command.hasPendingIntent() || !revision) {
       return false
     }
     const input = { expected_revision: revision, change }
@@ -115,6 +121,7 @@ export function useEvidenceWorkspace(
     ids: string[],
     groupId: string | null,
     revision = selectionRevision.current ?? snapshot?.revision,
+    readConfirmed = false,
   ) {
     const current = accepted.current
     if (ids.length > 200) {
@@ -131,6 +138,8 @@ export function useEvidenceWorkspace(
     const saved = await edit(
       { kind: 'move_many', evidence_ids: ids, group_id: groupId },
       revision ?? undefined,
+      undefined,
+      readConfirmed,
     )
     if (saved) {
       select([])

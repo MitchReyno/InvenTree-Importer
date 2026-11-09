@@ -331,6 +331,89 @@ test('a held selection after a refused move does not lock Retry or the selection
   expect(screen.getByRole('button', { name: 'Retry two.png' })).toBeEnabled()
 })
 
+test('a poll that fails while a file uploads does not stop the file joining its group', async () => {
+  const user = userEvent.setup()
+  const queries = createServerQueryClient()
+  const key = serverQueryKey(fixtureScope, 'media', batch.id)
+  const client = mediaClient()
+  const id = '94000000-0000-4000-8000-000000000009'
+  const version = {
+    id: 'a4000000-0000-4000-8000-00000000000a',
+    evidence_id: id,
+    kind: 'original' as const,
+    digest: 'e'.repeat(64),
+    byte_size: '1',
+    media_type: 'image/png' as const,
+    state: 'queued' as const,
+    decoder_build: null,
+    recipe: null,
+    pages: [],
+  }
+  const retained: MediaSnapshotDto = {
+    ...initial,
+    revision: '2',
+    evidence: [
+      ...initial.evidence,
+      { id, label: 'late.png', group_id: null, linked_subject_ids: [], versions: [version] },
+    ],
+  }
+  let acknowledge: () => void = () => undefined
+  vi.mocked(client.upload).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        acknowledge = () =>
+          resolve({ status: 'retained', batch_id: batch.id, evidence_id: id, version })
+      }),
+  )
+  vi.mocked(client.edit).mockResolvedValue({
+    ...retained,
+    revision: '3',
+    evidence: retained.evidence.map((item) =>
+      item.id === id ? { ...item, group_id: groupA } : item,
+    ),
+  })
+  render(
+    <ServerStateProvider scope={fixtureScope} client={queries}>
+      <MediaWorkspace
+        batch={batch}
+        client={client}
+        disabled={false}
+        selectedSubject="defaults"
+        onDirtyChange={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['1'], 'late.png', { type: 'image/png' }),
+  )
+  await waitFor(() => expect(client.upload).toHaveBeenCalledOnce())
+
+  vi.mocked(client.snapshot).mockRejectedValue(new Error('offline'))
+  await act(async () => {
+    await queries.refetchQueries({ queryKey: key })
+  })
+  // The workspace now holds the failed read, so its commands are unavailable until a fresh one.
+  expect(await screen.findByText(/Current saved media could not be confirmed/)).toBeVisible()
+  vi.mocked(client.snapshot).mockResolvedValue(retained)
+  await act(async () => acknowledge())
+
+  await waitFor(() =>
+    expect(client.edit).toHaveBeenCalledWith(
+      batch.id,
+      {
+        expected_revision: '2',
+        change: { kind: 'move_many', evidence_ids: [id], group_id: groupA },
+      },
+      expect.any(String),
+    ),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('group', { name: 'Upload of late.png' })).toBeNull(),
+  )
+})
+
 test('after one move is refused, later files stay in Ungrouped without replacing the selection', async () => {
   const user = userEvent.setup()
   const client = mediaClient()
