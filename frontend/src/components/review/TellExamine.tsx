@@ -8,7 +8,8 @@ import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { chatConfirmation } from '#/components/processing/SessionChatPanel'
-import { Button, Label, Small, TextArea } from '#/components/ui'
+import { Button, Small } from '#/components/ui'
+import { Label, TextArea } from '#/forms'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead

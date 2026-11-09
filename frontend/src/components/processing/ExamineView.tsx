@@ -17,13 +17,12 @@ import {
   Pill,
   SegmentedControl,
   SourceChip,
-  Label,
   linkTouchArea,
   Small,
   Summary,
-  TextArea,
   VisuallyHidden,
 } from '#/components/ui'
+import { Label, TextArea } from '#/forms'
 import { RegionStage } from '#/components/review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'

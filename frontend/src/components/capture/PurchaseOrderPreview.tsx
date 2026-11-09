@@ -2,7 +2,8 @@ import { useId, useState } from 'react'
 import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
-import { AutoValueField, NotesField, DisabledFeature, Button } from '#/components/ui'
+import { DisabledFeature, Button } from '#/components/ui'
+import { AutoValueField, NotesField } from '#/forms'
 
 type Props = {
   order: CaptureSettingsIntentDto['order']

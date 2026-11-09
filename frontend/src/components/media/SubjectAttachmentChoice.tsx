@@ -3,7 +3,8 @@ import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaEditDto, MediaSnapshotDto } from '@invimport/contracts'
 import { mediaIdentityLabels } from '#/media/identity-labels'
-import { Label, Select, Small } from '#/components/ui'
+import { Small } from '#/components/ui'
+import { Label, Select } from '#/forms'
 
 type Props = {
   batch: CaptureSnapshotDto

@@ -7,17 +7,8 @@ import {
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
-import {
-  Fieldset,
-  Input,
-  Label,
-  Small,
-  TextArea,
-  Banner,
-  OptionRow,
-  QuestionCard,
-  Button,
-} from '#/components/ui'
+import { Small, Banner, QuestionCard, Button } from '#/components/ui'
+import { Fieldset, Input, Label, TextArea, OptionRow } from '#/forms'
 
 interface Props {
   question: ProcessingQuestionDto

@@ -4,7 +4,8 @@ import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { previewImage } from '#/media/images'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import { Button, Input, Label, Select, Small } from '#/components/ui'
+import { Button, Small } from '#/components/ui'
+import { Input, Label, Select } from '#/forms'
 
 type Evidence = MediaSnapshotDto['evidence'][number]
 type Box = { x: number; y: number; width: number; height: number }

@@ -6,7 +6,8 @@ import type {
   CaptureAssignedLocationDto,
 } from '@invimport/contracts'
 import type { Snapshot } from '#/capture/types'
-import { Field, Label, Select, Small } from '#/components/ui'
+import { Small } from '#/components/ui'
+import { Field, Label, Select } from '#/forms'
 
 type Props = {
   label: string

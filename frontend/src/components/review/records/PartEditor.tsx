@@ -1,15 +1,6 @@
 import type { BatchRecordDto, CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
-import {
-  Banner,
-  Button,
-  CheckboxLabel,
-  Fieldset,
-  Input,
-  Label,
-  Link,
-  Select,
-  Small,
-} from '#/components/ui'
+import { Banner, Button, Link, Small } from '#/components/ui'
+import { CheckboxLabel, Fieldset, Input, Label, Select } from '#/forms'
 import { batchHref } from '#/navigation/batch-route'
 import { mappingsFor, observed, referenceTo } from '#/records/model'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'

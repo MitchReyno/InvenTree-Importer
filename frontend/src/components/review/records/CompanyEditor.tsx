@@ -1,6 +1,7 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { companiesFor, referenceTo } from '#/records/model'
-import { Label, Select, Small } from '#/components/ui'
+import { Small } from '#/components/ui'
+import { Label, Select } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {

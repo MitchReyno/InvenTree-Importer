@@ -2,7 +2,8 @@ import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { Button, Small, TextArea } from '#/components/ui'
+import { Button, Small } from '#/components/ui'
+import { TextArea } from '#/forms'
 import { deliveryMessage, type InstructionDelivery } from '#/processing/instruction-delivery'
 
 type Props = {

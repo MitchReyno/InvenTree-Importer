@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
-import { media } from './media'
+import { media } from '#/components/ui/media'
 
 export type Option = { id: string; title: string; detail: string }
 

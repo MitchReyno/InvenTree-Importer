@@ -1,4 +1,5 @@
-import { Fieldset, Form, Input, Label, Select, Small, TextArea, Button } from '#/components/ui'
+import { Small, Button } from '#/components/ui'
+import { Fieldset, Form, Input, Label, Select, TextArea } from '#/forms'
 import { Controller, useForm } from 'react-hook-form'
 import type { Snapshot, CaptureWorkspaceProps } from '#/capture/types'
 import {

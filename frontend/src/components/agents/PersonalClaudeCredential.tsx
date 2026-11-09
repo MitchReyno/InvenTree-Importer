@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { Button, TextField } from '#/components/ui'
+import { Button } from '#/components/ui'
+import { TextField } from '#/forms'
 
 export function PersonalClaudeCredential() {
   const key = useRef<HTMLInputElement>(null)

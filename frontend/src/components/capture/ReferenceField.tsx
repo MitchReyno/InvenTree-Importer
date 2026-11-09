@@ -1,4 +1,5 @@
-import { Field, Input, Label, Select, Small, Button } from '#/components/ui'
+import { Small, Button } from '#/components/ui'
+import { Field, Input, Label, Select } from '#/forms'
 import { useState } from 'react'
 import type { CaptureObservationDto } from '@invimport/contracts'
 import type { Snapshot, CaptureWorkspaceProps, Reference } from '#/capture/types'

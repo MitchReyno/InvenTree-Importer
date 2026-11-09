@@ -17,18 +17,23 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/components/ui/**/*.{ts,tsx}'],
+    files: ['src/components/ui/**/*.{ts,tsx}', 'src/forms/**/*.{ts,tsx}'],
     rules: {
-      // The barrel re-exports these modules; importing it from inside would form a cycle.
+      // The barrels re-export these modules; importing one from inside either folder could form a cycle.
       'no-restricted-imports': [
         'error',
         {
-          paths: ['#/components/ui', '#/components/ui/index', './index', '../index'].map(
-            (name) => ({
-              name,
-              message: 'Import the sibling module directly.',
-            }),
-          ),
+          paths: [
+            '#/components/ui',
+            '#/components/ui/index',
+            '#/forms',
+            '#/forms/index',
+            './index',
+            '../index',
+          ].map((name) => ({
+            name,
+            message: 'Import the sibling module directly.',
+          })),
         },
       ],
     },

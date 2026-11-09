@@ -1,4 +1,5 @@
-import { Input, Banner, Button, media } from '#/components/ui'
+import { Banner, Button, media } from '#/components/ui'
+import { Input } from '#/forms'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
 import { BatchRow } from './BatchRow'

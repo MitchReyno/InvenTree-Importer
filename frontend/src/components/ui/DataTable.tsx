@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, font, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
-import { InlineEdit } from './InlineEdit'
+import { InlineEdit } from '#/forms/InlineEdit'
 import { media } from './media'
 import { VisuallyHidden } from './VisuallyHidden'
 import { hoverTransition } from './motion'

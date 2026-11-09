@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { Fieldset, Form, Input, Label, Select, Small, Button } from '#/components/ui'
+import { Small, Button } from '#/components/ui'
+import { Fieldset, Form, Input, Label, Select } from '#/forms'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Mode = 'inherit' | 'set' | 'unknown' | 'clear' | 'unset'

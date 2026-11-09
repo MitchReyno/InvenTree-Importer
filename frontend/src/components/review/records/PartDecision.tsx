@@ -1,7 +1,8 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref } from '#/navigation/batch-route'
 import { observed, referenceTo } from '#/records/model'
-import { Input, Label, Link, Select, Small } from '#/components/ui'
+import { Link, Small } from '#/components/ui'
+import { Input, Label, Select } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {
