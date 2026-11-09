@@ -72,4 +72,3 @@ Processing, and each batch group on the Agents page, SHALL offer Pause all for t
 - **GIVEN** running sessions in two batches
 - **WHEN** the operator chooses Pause all agents on the Agents page
 - **THEN** every session in both batches shows as paused with nothing cancelled, and Resume continues them all.
-

@@ -128,4 +128,3 @@ The operator SHALL be able to exclude a lot from the batch with a reason, and in
 - **GIVEN** a lot of salvaged resistors the operator does not want in InvenTree
 - **WHEN** the operator excludes it with the reason "Salvage, not stocked"
 - **THEN** it shows Excluded with that reason, is not offered in Ready to add and is listed under Not included; including it again restores its earlier state, values and evidence.
-

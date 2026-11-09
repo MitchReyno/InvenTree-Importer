@@ -86,12 +86,12 @@ Enable purchase-order creation from retained batch supplier and order context th
 
 #### BI-007 — Antigravity agent provider
 
-Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claude and Codex. The CLI offers stream-JSON, an ACP server, conversation resume and MCP, but no confirmed way to disable its built-in tools, so a lockdown spike must come first. This is a minimal placeholder; no proposal is planned yet.
+Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claude and Codex. The CLI offers stream-JSON, an ACP server, conversation resume and MCP, but no confirmed way to disable its built-in tools, so a lockdown spike would have had to come first. It was captured as a placeholder and cancelled before any proposal.
 
 - Change: `antigravity-agent-provider`
-- Status: Cancelled — the placeholder change was removed without a proposal.
+- Status: Cancelled — no longer planned.
 - Size: Unknown
-- Prerequisites: None — the item is no longer intended.
+- Prerequisites: None — cancelled before assessment.
 - OpenSpec: None — the change directory was removed.
 
 ## Fixes
