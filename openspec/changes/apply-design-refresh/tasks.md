@@ -103,7 +103,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 2.2 RED: update header tests to the new layout and confirm they fail.
 - [x] 2.3 GREEN: move Open InvenTree into the menu, add the gear, update the chip and breadcrumb, and remove the "⋯" menu (theme interim as noted).
 - [x] 2.4 Refactor; check opener isolation and that the unavailable-link states are unchanged.
-- [ ] 2.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 2.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 3. Batch header layout and counts
 
@@ -123,7 +123,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 3.2 RED: `tabCount` table tests and the one-badge-per-tab header test fail.
 - [x] 3.3 GREEN: new layout, counts, status icons and short summary; remove the duplicate counts.
 - [x] 3.4 Refactor; verify the redirects and second-row behaviour are unchanged.
-- [ ] 3.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 3.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 4. Phone header
 
@@ -146,7 +146,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 4.2 RED: write the phone layout, sheet and condensed-row tests.
 - [x] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
 - [x] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
-- [ ] 4.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 4.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 5. Settings page
