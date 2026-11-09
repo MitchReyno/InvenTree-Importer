@@ -34,3 +34,32 @@ it('saves only on explicit submit and clears the password after the guest acknow
   await screen.findByRole('alert')
   expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({ action: 'remove', revision: 'two' })
 })
+
+it('discards an unconfirmed offline save and reconnects without replaying the secret', async () => {
+  const sentinel = 'fixture-offline-token'
+  const send = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'first' }))
+    .mockRejectedValueOnce(new Error(sentinel))
+    .mockResolvedValueOnce(Response.json({ configured: false, revision: 'first' }))
+  vi.stubGlobal('isSecureContext', true)
+  vi.stubGlobal('fetch', send)
+  render(<PersonalClaudeCredential />)
+  fireEvent.click(screen.getByText('Personal Claude subscription'))
+  fireEvent.click(screen.getByText('Check configuration'))
+  fireEvent.change(await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN'), {
+    target: { value: sentinel },
+  })
+  fireEvent.click(screen.getByText('Save token'))
+  expect((await screen.findByRole('alert')).textContent).not.toContain(sentinel)
+  expect(screen.queryByLabelText('CLAUDE_CODE_OAUTH_TOKEN')).toBeNull()
+  fireEvent.click(screen.getByText('Check configuration'))
+  const field = (await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN')) as HTMLInputElement
+  expect(field.value).toBe('')
+  expect(send.mock.calls.map(([, request]) => JSON.parse(request.body).action)).toEqual([
+    'status',
+    'save',
+    'status',
+  ])
+  expect(send.mock.calls[2][1].body).not.toContain(sentinel)
+})
