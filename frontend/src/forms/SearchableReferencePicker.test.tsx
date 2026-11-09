@@ -120,25 +120,31 @@ test('an older search response cannot replace newer results', async () => {
   }
 })
 
-test('a newer query aborts the search it replaces', async () => {
+test('a newer query aborts the search it replaces without showing it as failed', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   try {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    const signals = new Map<string, AbortSignal>()
+    const signals: AbortSignal[] = []
 
-    const search: PickerSearch = (q, signal) => {
-      signals.set(q, signal)
-      return new Promise(() => {})
+    // Like the catalogue client, an aborted search rejects with the abort's reason.
+    const search: PickerSearch = (_q, signal) => {
+      signals.push(signal)
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      })
     }
 
     const { input } = picker({ candidates: [], coverage: complete([]), search })
     await user.type(input, 'Far')
     await act(() => vi.advanceTimersByTimeAsync(300))
-    expect(signals.get('Far')!.aborted).toBe(false)
-    await user.type(input, 'nell')
+    expect(signals).toHaveLength(1)
+    // Back to the same query before the first search settles: the aborted one must not count.
+    await user.type(input, 'n{Backspace}')
+    expect(signals[0].aborted).toBe(true)
     await act(() => vi.advanceTimersByTimeAsync(300))
-    expect(signals.get('Far')!.aborted).toBe(true)
-    expect(signals.get('Farnell')!.aborted).toBe(false)
+    expect(signals).toHaveLength(2)
+    expect(signals[1].aborted).toBe(false)
+    expect(screen.queryByText(/search unavailable for this query/)).not.toBeInTheDocument()
   } finally {
     vi.useRealTimers()
   }

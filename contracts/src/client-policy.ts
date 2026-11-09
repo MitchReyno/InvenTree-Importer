@@ -30,6 +30,29 @@ function operationFor(method: string, path: string): ClientOperation {
   return operation
 }
 
+/**
+ * A signal that aborts when either input does, with that input's reason. Browsers in the build
+ * target that predate `AbortSignal.any` get the same behaviour, so no request fails for lack of it.
+ */
+function eitherSignal(first: AbortSignal, second: AbortSignal): AbortSignal {
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([first, second])
+  }
+  const controller = new AbortController()
+
+  const follow = (signal: AbortSignal) => {
+    if (signal.aborted) {
+      controller.abort(signal.reason)
+      return
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
+  }
+
+  follow(first)
+  follow(second)
+  return controller.signal
+}
+
 /** Runtime validation remains explicit; generated TypeScript cannot validate wire data. */
 export function contractMiddleware(csrfToken?: string): Middleware {
   return {
@@ -37,7 +60,7 @@ export function contractMiddleware(csrfToken?: string): Middleware {
       const operation = operationFor(request.method, schemaPath)
       // The operation deadline bounds the request; a caller's own signal can still end it sooner.
       const boundedRequest = new Request(request, {
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(operation.timeoutMs)]),
+        signal: eitherSignal(request.signal, AbortSignal.timeout(operation.timeoutMs)),
       })
       if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
         boundedRequest.headers.set('x-intake-csrf', csrfToken ?? '')

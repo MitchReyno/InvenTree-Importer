@@ -89,7 +89,7 @@ it('renders nothing while no observation is active, and returns when they come b
   expect(screen.getByLabelText('Photo 1')).toBeVisible()
 
   mounted.rerender(<ExamineView batch={none} lead={lead} />)
-  expect(screen.queryByLabelText('Photo 1')).not.toBeInTheDocument()
+  expect(mounted.container).toBeEmptyDOMElement()
 
   mounted.rerender(<ExamineView batch={batch} lead={lead} />)
   expect(screen.getByLabelText('Photo 1')).toBeVisible()
