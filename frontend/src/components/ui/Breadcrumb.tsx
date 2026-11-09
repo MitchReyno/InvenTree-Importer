@@ -5,7 +5,11 @@ import { linkTouchArea } from './primitives'
 
 export type BreadcrumbItem = { label: string; href?: string }
 
-/** Masthead only. The last item ellipsises first and never pushes the status controls out. */
+/**
+ * Masthead only. An item with an address is a link, so inside a batch "Batches" alone links back
+ * (the batch header names the batch); an app page ends on its own name. The last item ellipsises
+ * first and never pushes the status controls out.
+ */
 export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
   return (
     <Trail aria-label="Breadcrumb">
@@ -15,12 +19,12 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
         return (
           <Fragment key={`${index}-${item.label}`}>
             {index > 0 && <Separator aria-hidden="true">/</Separator>}
-            {isLast || !item.href ? (
+            {item.href ? (
+              <Crumb href={item.href}>{item.label}</Crumb>
+            ) : (
               <Current aria-current={isLast ? 'page' : undefined} title={item.label}>
                 {item.label}
               </Current>
-            ) : (
-              <Crumb href={item.href}>{item.label}</Crumb>
             )}
           </Fragment>
         )

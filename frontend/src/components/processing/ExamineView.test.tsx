@@ -129,7 +129,7 @@ it('names each photo by its file, with its group and what it feeds, and keeps co
   expect(within(bench).getAllByText(/region 0,0/)[0]).not.toBeVisible()
   expect(
     within(bench).getAllByRole('button', {
-      name: 'Source: Examine, Read from the photo. Open evidence',
+      name: 'Source: Examine, Read from the photo. Show details.',
     }),
   ).toHaveLength(2)
   expect(screen.getByText('2 files · 3 observations · 1 lot')).toBeInTheDocument()
@@ -162,7 +162,7 @@ it('says a reading from document lines came from the document', () => {
   } as unknown as CaptureSnapshotDto
   render(<ExamineView batch={lines} lead={lead} />)
   expect(
-    screen.getByRole('button', { name: 'Source: Examine, Read from the document. Open evidence' }),
+    screen.getByRole('button', { name: 'Source: Examine, Read from the document. Show details.' }),
   ).toBeInTheDocument()
 })
 
@@ -487,7 +487,9 @@ it('says in words what a reading came from and how well it agrees', () => {
     ],
   } as unknown as CaptureSnapshotDto
   render(<ExamineView batch={said} lead={lead} />)
-  expect(screen.getByText('Examine · Handwriting · Sources disagree')).toBeInTheDocument()
+  expect(screen.getByTitle('Examine · Handwriting · Sources disagree')).toHaveTextContent(
+    '×Examine · Handwriting',
+  )
 })
 
 it('releases the guard when Examine unmounts with an unsaved reading', async () => {

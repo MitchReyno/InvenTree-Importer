@@ -162,5 +162,5 @@ it('says in words what each reading came from and how well it agrees', () => {
     ],
   } as unknown as CaptureSnapshotDto
   render(<LotObservations batch={said} lot={lot} disabled={false} />)
-  expect(screen.getByText('Examine · Label · Likely')).toBeInTheDocument()
+  expect(screen.getByTitle('Examine · Label · Likely')).toBeInTheDocument()
 })

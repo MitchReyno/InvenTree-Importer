@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { Count, Pill } from './Pill'
+import { Count, Pill, type PillStatus } from './Pill'
 
 describe('Pill', () => {
   it('pairs a decorative glyph with the status word', () => {
@@ -36,6 +36,13 @@ describe('Pill', () => {
 
     expect(pill).toHaveTextContent(`${glyph}Word`)
     expect(pill).toHaveAttribute('data-tone', tone)
+  })
+
+  it('has no agent status: agent work is marked with AiMark, never a pill', () => {
+    // @ts-expect-error The AI-proposed state and its ✦ glyph are retired.
+    const retired: PillStatus = 'ai-proposed'
+
+    expect(retired).toBe('ai-proposed')
   })
 
   it('accepts a custom glyph', () => {

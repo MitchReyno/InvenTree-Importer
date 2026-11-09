@@ -1237,7 +1237,7 @@ test('lot details name the operator as the source of their own values', async ()
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })
   const quantity = within(details).getByText('Quantity', { selector: 'dt' }).nextElementSibling!
-  expect(quantity).toHaveTextContent('You · Your edit')
+  expect(quantity.querySelector('[title="You · Your edit"]')).toHaveTextContent('✎You')
 })
 
 test('an AI lot credits Examine only for its estimate, not for an inherited quantity', async () => {
@@ -1263,7 +1263,7 @@ test('an AI lot credits Examine only for its estimate, not for an inherited quan
 
   expect(value('Quantity')).not.toHaveTextContent('Examine')
   expect(value('Examine estimate')).toHaveTextContent('40')
-  expect(value('Examine estimate')).toHaveTextContent('Examine · Estimated')
+  expect(value('Examine estimate').querySelector('[title="Examine · Estimated"]')).toBeVisible()
 })
 
 test('lot details show the records the lot becomes', async () => {

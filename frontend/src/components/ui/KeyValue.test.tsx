@@ -20,9 +20,11 @@ describe('KeyValue', () => {
     expect(screen.getByText('RC0603FR-0710KL')).toBeInTheDocument()
     expect(screen.getByText('· overrides batch')).toBeInTheDocument()
     expect(screen.getByText('· from batch')).toBeInTheDocument()
-    // The operator's own edit carries the "You" source chip, not a muted note.
+    // The operator's own edit carries the short "✎ You" source chip, not a muted note.
     expect(screen.queryByText('· edited')).toBeNull()
-    expect(screen.getByText('You · Your edit')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Source: You, Your edit. Show details.' }),
+    ).toHaveTextContent('✎You')
   })
 
   it('keeps the source chip outside the edit trigger', async () => {
@@ -42,10 +44,12 @@ describe('KeyValue', () => {
       />,
     )
     const edit = screen.getByRole('button', { name: 'Edit Supplier: Mouser' })
-    const chip = screen.getByRole('button', { name: 'Source: Slip, Read. Open evidence' })
+    const chip = screen.getByRole('button', { name: 'Source: Slip, Read. Show details.' })
 
     expect(edit).not.toContainElement(chip)
+    expect(chip).toHaveTextContent(/^Slip$/)
     await userEvent.click(chip)
+    await userEvent.click(await screen.findByRole('button', { name: 'Open evidence' }))
     expect(onOpen).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('textbox', { name: 'Supplier' })).not.toBeInTheDocument()
   })
