@@ -178,7 +178,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
   - `frontend/` across masthead, batches, capture, media, processing, review, changes, agents, settings and `ui`.
   - `contracts/`: media `remove` and `restore` edits; the media projection's removed list and its `pinned_by`, `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of` fields; the `media_evidence_removed`, `media_removal_refused` and `approval_evidence_removed` refusals.
   - `intake-server/`: a removal migration and grants; the edit handler; the read model; the Examine trigger, agent evidence reads, processing inputs and preparation; approval pinning; stale reasons and notices on removal.
-- **Specs:** `redesign-batch-workspace` must be archived (its delta specs synced to main) before this change syncs, because five modified capabilities exist only in that change (batch-navigation, ui-design-system, review-records, processing-workspace, changes-commit) and it also modifies `header-workflow-status`. Run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
+- **Specs:** `redesign-batch-workspace` is archived and its specs are synced to main, so the modified capabilities (batch-navigation, ui-design-system, review-records, processing-workspace, changes-commit, header-workflow-status) all exist there. Run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
 - **Evidence:** demo recordings for the UI PRs go on the PRs, not in the repository.
 
 ## Open decisions and assumptions

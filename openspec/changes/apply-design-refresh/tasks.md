@@ -389,4 +389,4 @@ For each bundle, record:
 - CI;
 - the merged PR.
 
-Attach films and screenshots to the PR descriptions, not the repository. After PR-G merges, mark BI-014 Done with its PRs in a follow-up docs commit or PR. Archive only when authorized, after `redesign-batch-workspace` is archived and `pnpm openspec:overlap --change apply-design-refresh` is clean.
+Attach films and screenshots to the PR descriptions, not the repository. After PR-G merges, mark BI-014 Done with its PRs in a follow-up docs commit or PR. Archive only when authorized, after `pnpm openspec:overlap --change apply-design-refresh` is clean.

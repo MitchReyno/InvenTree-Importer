@@ -234,7 +234,7 @@ Applied per design change log entry. The table names the owning component, with 
 ## Migration, rollout and recovery
 
 - **Migration:** `0031` is additive (a new table, trigger, indexes and grants), with no data rewrite. Rolling back the app leaves the table unused. Existing evidence has no removal rows and stays present. Task 11 proves this against a database migrated to 0030 with existing evidence.
-- **Spec sync:** sync this change only after `redesign-batch-workspace` is archived, and run `pnpm openspec:overlap --change apply-design-refresh` first.
+- **Spec sync:** run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
 - **Feature exposure:** no feature flags. Deferred controls ship disabled.
 
 ## Risks and open decisions

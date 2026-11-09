@@ -129,7 +129,7 @@ Carry the refined design and design system into the app: a calmer masthead and b
 - Change: `apply-design-refresh`
 - Status: Planned
 - Size: XL — every batch screen, the header, a new Settings page and one append-only removal backend, in seven PRs (PR-A to PR-G).
-- Prerequisites: BI-008 (`redesign-batch-workspace`) is Done; its delta specs must be archived before this change syncs.
+- Prerequisites: BI-008 (`redesign-batch-workspace`) is Done and archived.
 - OpenSpec: [apply-design-refresh](../openspec/changes/apply-design-refresh/)
 
 ### Normal
