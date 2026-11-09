@@ -91,11 +91,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D2):**
   - `masthead/HeaderStatus.tsx`, `ConnectionStatus.tsx` and `ConnectionDetails.tsx`: Open InvenTree, the development badge line and a Server settings link move into the menu. Check connection now renders disabled (BI-015).
   - `ActivityIndicator.tsx`: `AiMark` first, no needs-you badge, batch name only outside a batch.
-  - Change the route match and `currentBatch` derivation (`App.tsx`) to a `settings` prefix here, so the menu's Server settings link (`#settings/inventree`) works before PR-C; until Settings exists, `#settings` routes keep opening today's agent settings page.
+  - Change the route match and `currentBatch` derivation (`App.tsx`), and `useRouteBreadcrumb`'s page lookup (`masthead/AppMasthead.tsx`), to a `settings` prefix here, so the menu's Server settings link (`#settings/inventree`) works before PR-C; until Settings exists, `#settings` routes keep opening today's agent settings page.
   - Remove `MastheadMenu.tsx` in PR-B. The theme choice moves into the server menu as an interim item, which Task 5 (PR-C) moves to Settings › Appearance.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `header-connection-status` › Safe target details and navigation; `header-workflow-status` › Accessible workflow disclosure and layout (desktop); `batch-navigation` › Calm batch header (masthead parts).
-- **TDD approach:** update the header tests first: Open InvenTree is only inside the menu; the chip has no `?` count; the breadcrumb inside a batch is "Batches". These fail against the current header.
+- **TDD approach:** update the header tests first: Open InvenTree is only inside the menu; the chip has no `?` count; the breadcrumb inside a batch is "Batches"; `#settings/inventree` sends no capture read (spy on `readBatch`) and its breadcrumb reads "Batches / Agent settings". These fail against the current header.
 - **Verification:** frontend gate; keyboard check of the menu at 360px and 390px.
 - **Risks and decisions:** theme access between PR-B and PR-C is handled as above.
 
@@ -160,7 +160,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section. Their state, handlers and the Codex sign-in poll query lift unchanged into `usePersonalClaudeCredential` and `useChatGPTSignIn`, which the Agents section component calls once (so they mount and unmount with the section) and passes to both the panel and its provider card (design D4), so the card mirrors the panel's status with no Effect. The panels' existing tests keep passing through a small wrapper that calls the hook.
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
-  - The Agents page link points here.
+  - The Agents page link points here, and `AppMasthead`'s page label becomes "Settings", with a test that `#settings/inventree` shows "Batches / Settings".
   - The theme preference moves from the removed menu.
 - **Prerequisites:** Tasks 1 and 2.
 - **Acceptance:** `app-settings`: Settings page and navigation (both scenarios), Agent settings section (all scenarios), Deferred settings, InvenTree and appearance sections; `ui-design-system` › AI mark at agent touchpoints (Settings parts).
