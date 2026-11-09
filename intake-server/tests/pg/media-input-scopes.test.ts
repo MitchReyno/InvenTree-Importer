@@ -10,20 +10,20 @@ import {
   captureRepository,
   lockCaptureForInputs,
   lockCaptureForInputSettlement,
-} from '../../src/capture/repository.ts'
-import { CaptureError } from '../../src/capture/model.ts'
-import { sha256 } from '../../src/db/authority.ts'
-import { blobLockCoordinates, lockBlob } from '../../src/media/blob-store.ts'
-import { readCommandMediaInputs } from '../../src/media/command-inputs.ts'
-import { editMedia } from '../../src/media/edit.ts'
-import { canonicalMedia } from '../../src/media/encoding.ts'
-import { MediaInputUnavailableError } from '../../src/media/input-errors.ts'
+} from '#/capture/repository.ts'
+import { CaptureError } from '#/capture/model.ts'
+import { sha256 } from '#/db/authority.ts'
+import { blobLockCoordinates, lockBlob } from '#/media/blob-store.ts'
+import { readCommandMediaInputs } from '#/media/command-inputs.ts'
+import { editMedia } from '#/media/edit.ts'
+import { canonicalMedia } from '#/media/encoding.ts'
+import { MediaInputUnavailableError } from '#/media/input-errors.ts'
 import {
   readMediaInputScopeResults,
   readMediaInputs,
   readMediaInputScopes,
-} from '../../src/media/inputs.ts'
-import { lockMediaInputScopes } from '../../src/media/locked-inputs.ts'
+} from '#/media/inputs.ts'
+import { lockMediaInputScopes } from '#/media/locked-inputs.ts'
 import {
   insertScopeCommand,
   mediaScopeFixture,

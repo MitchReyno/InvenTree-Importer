@@ -1,14 +1,14 @@
-import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
+import { isEffectsPlan } from '#/execution/effects/effects-plan.ts'
 import {
   partTransferEffects,
   type PartTransfer,
-} from '../execution/attachments/part-attachment-plan.ts'
-import { effectsManifestDigestFor } from '../execution/effects/effects-capability.ts'
+} from '#/execution/attachments/part-attachment-plan.ts'
+import { effectsManifestDigestFor } from '#/execution/effects/effects-capability.ts'
 import { and, eq } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { partIdentities, recordIdentities } from '../execution/schema.ts'
-import { fail } from '../capture/model.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { partIdentities, recordIdentities } from '#/execution/schema.ts'
+import { fail } from '#/capture/model.ts'
 import {
   EFFECTS_VERSIONS,
   RECORD_EFFECTS_CAPABILITY,
@@ -24,10 +24,10 @@ import {
   partEffects,
   type EffectsPlan,
   type PartBinding,
-} from '../execution/effects/effects-plan.ts'
-import type { EffectsDeployment } from '../execution/effects/effects-source.ts'
-import { supportedStates } from '../execution/effects/effects-state.ts'
-import { loadRun } from '../execution/authority.ts'
+} from '#/execution/effects/effects-plan.ts'
+import type { EffectsDeployment } from '#/execution/effects/effects-source.ts'
+import { supportedStates } from '#/execution/effects/effects-state.ts'
+import { loadRun } from '#/execution/authority.ts'
 import {
   evidenceVersion,
   retainedEvidence,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, font, radius, size, space } from '../../theme/generated/tokens'
+import { color, font, radius, size, space } from '#/theme/generated/tokens'
 import { media } from './media'
 import { hoverTransition } from './motion'
 

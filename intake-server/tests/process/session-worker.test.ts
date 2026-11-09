@@ -195,7 +195,7 @@ test(
       note: 'Fourth packet.',
       part_subject_id: null,
     })
-    const { saveAgentSettings } = await import('../../src/agents/settings.ts')
+    const { saveAgentSettings } = await import('#/agents/settings.ts')
     await saveAgentSettings(fixture.api.pool, fixture.config, {
       expected_revision: '0',
       selection: { provider: 'claude', authentication: 'api_key', model: 'fake-claude-model' },

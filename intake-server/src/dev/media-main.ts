@@ -1,8 +1,8 @@
 import { setTimeout as delay } from 'node:timers/promises'
-import { database } from '../db/database.ts'
-import { BlobStore } from '../media/blob-store.ts'
-import { readMediaStoreIdentity } from '../media/store-identity.ts'
-import { mediaWorkerStep, pauseAfter } from '../media/backfill.ts'
+import { database } from '#/db/database.ts'
+import { BlobStore } from '#/media/blob-store.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
+import { mediaWorkerStep, pauseAfter } from '#/media/backfill.ts'
 import { readDevState } from './state.ts'
 
 async function main() {

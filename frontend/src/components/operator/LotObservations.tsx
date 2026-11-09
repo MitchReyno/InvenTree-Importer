@@ -1,13 +1,10 @@
 import styled from 'styled-components'
-import { radius, space } from '../../theme/generated/tokens'
+import { radius, space } from '#/theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { coverSizes, observationImage } from '../../media/images'
-import { Field, Small, Subheading } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { Pill } from '../ui/Pill'
+import { coverSizes, observationImage } from '#/media/images'
+import { Field, Small, Subheading, Button, Pill, SourceChip } from '#/components/ui'
 import { ObservationMove } from './ObservationMove'
-import { readingSource } from '../../operator/value-evidence'
-import { SourceChip } from '../ui/SourceChip'
+import { readingSource } from '#/operator/value-evidence'
 import { observationNames } from './observation-names'
 
 type Lot = CaptureSnapshotDto['lots'][number]

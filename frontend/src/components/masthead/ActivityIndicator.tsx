@@ -1,9 +1,9 @@
 import { useId } from 'react'
 import styled from 'styled-components'
 import type { HeaderWorkDto } from '@invimport/contracts'
-import { color, radius, space, typeVar } from '../../theme/generated/tokens'
-import { observationFresh, preferredWork, workflowSummary } from '../../header/observations'
-import { useCachedBatchReads } from '../../header/useCachedBatchReads'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
+import { observationFresh, preferredWork, workflowSummary } from '#/header/observations'
+import { useCachedBatchReads } from '#/header/useCachedBatchReads'
 import {
   batchStepCounts,
   compactJobWord,
@@ -12,12 +12,15 @@ import {
   processingProgress,
   processingSegments,
   segmentSteps,
-} from '../../header/workSegments'
-import { Spinner } from '../ui/Loading'
-import { media } from '../ui/media'
-import { Pill } from '../ui/Pill'
-import { ProgressSegments } from '../ui/ProgressSegments'
-import { VisuallyHidden, visuallyHidden } from '../ui/VisuallyHidden'
+} from '#/header/workSegments'
+import {
+  Spinner,
+  media,
+  Pill,
+  ProgressSegments,
+  VisuallyHidden,
+  visuallyHidden,
+} from '#/components/ui'
 import { ActivityPopover } from './ActivityPopover'
 import { HeaderDisclosure } from './HeaderDisclosure'
 

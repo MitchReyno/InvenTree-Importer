@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, opacity, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, opacity, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import { formatCount, media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 import { hoverTransition } from './motion'

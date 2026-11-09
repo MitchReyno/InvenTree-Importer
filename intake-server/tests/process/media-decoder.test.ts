@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import sharp from 'sharp'
-import { decodeIsolated } from '../../src/media/decoder-runner.ts'
+import { decodeIsolated } from '#/media/decoder-runner.ts'
 import type { DecodeInput } from '@invimport/media-decoder/protocol'
 
 const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
@@ -366,7 +366,7 @@ mediaTest('a 30-page result with every rendition passes the real framing', async
 mediaTest(
   'the real decoder renders a large retained page and refuses a mismatched one',
   async () => {
-    const { renderIsolated } = await import('../../src/media/decoder-runner.ts')
+    const { renderIsolated } = await import('#/media/decoder-runner.ts')
     // Random pixels keep the lossless page above the 20 MiB upload bound, as large photos are.
     const { randomBytes } = await import('node:crypto')
     const pixels = randomBytes(3200 * 2400 * 3)

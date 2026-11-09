@@ -2,9 +2,9 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '../../test/render'
-import type { MediaClient } from '../../media/types'
-import type { ProcessingClient } from '../../processing/types'
+import { render } from '#/test/render'
+import type { MediaClient } from '#/media/types'
+import type { ProcessingClient } from '#/processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
 
 const lot = (id: string, label: string) => ({ id, label, part_subject_id: null })

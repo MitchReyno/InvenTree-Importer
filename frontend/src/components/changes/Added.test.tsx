@@ -7,7 +7,7 @@ import type {
   ManualRunDto,
   ManualWorkspaceDto,
 } from '@invimport/contracts'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { Added } from './Added'
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`

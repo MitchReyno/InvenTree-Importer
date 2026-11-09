@@ -1,9 +1,9 @@
 import type { PoolClient } from 'pg'
 import { and, eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
-import { targets } from '../../db/schema.ts'
-import { executorDeployments } from '../schema.ts'
-import type { StockDeployment } from '../source.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { targets } from '#/db/schema.ts'
+import { executorDeployments } from '#/execution/schema.ts'
+import type { StockDeployment } from '#/execution/source.ts'
 import { EFFECTS_VERSIONS, type EffectsBuild, type EffectsCapability } from './effects-plan.ts'
 export interface EffectsDeployment extends Omit<StockDeployment, 'build' | 'capability'> {
   build: EffectsBuild

@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { pinSourceDestination, publicSourceAddress } from '../src/research/source-policy.ts'
-import { requestPinnedSource, sourceFetcher } from '../src/research/source-fetch.ts'
-import { MAX_RESEARCH_SOURCE_BYTES } from '../src/research/limits.ts'
+import { pinSourceDestination, publicSourceAddress } from '#/research/source-policy.ts'
+import { requestPinnedSource, sourceFetcher } from '#/research/source-fetch.ts'
+import { MAX_RESEARCH_SOURCE_BYTES } from '#/research/limits.ts'
 
 const sourceUrl = 'https://manufacturer.example/datasheet.pdf'
 const policy = {

@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { formedBatch, photoWithNote } from '../support/lot-pipeline.ts'
-import { transaction } from '../../src/db/database.ts'
-import { triggerExamine } from '../../src/processing/examine-trigger.ts'
-import { queueSessionResume, runSessionTurn } from '../../src/agents/session/session-runner.ts'
+import { transaction } from '#/db/database.ts'
+import { triggerExamine } from '#/processing/examine-trigger.ts'
+import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 
 type Formed = Awaited<ReturnType<typeof formedBatch>>
 

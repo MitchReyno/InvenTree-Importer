@@ -1,6 +1,6 @@
 import type { Pool } from 'pg'
-import { grantProjection } from '../operations/grants.ts'
-import { grantExecutor } from '../execution/grants.ts'
+import { grantProjection } from '#/operations/grants.ts'
+import { grantExecutor } from '#/execution/grants.ts'
 
 /** Trusted provisioning only. API may approve, scheduler may dispatch, apply may only journal. */
 export async function grantManual(pool: Pool, role: string, purpose: 'api' | 'runner' | 'apply') {

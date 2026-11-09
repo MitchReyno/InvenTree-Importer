@@ -1,5 +1,5 @@
 import type { CaptureSnapshotDto, SourceAgreementDto, SourceKindDto } from '@invimport/contracts'
-import type { SourceTone } from '../components/ui/SourceChip'
+import { type SourceTone } from '#/components/ui'
 
 const KIND_WORDS: Record<SourceKindDto, string> = {
   label: 'Label',

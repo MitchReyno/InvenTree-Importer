@@ -1,8 +1,7 @@
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, space } from '#/theme/generated/tokens'
 import type { SupportedEffectResultDto } from '@invimport/contracts'
-import { Link, Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { Link, Paragraph, Small, Button } from '#/components/ui'
 
 interface Props {
   effect: SupportedEffectResultDto

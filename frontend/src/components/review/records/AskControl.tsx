@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import {
-  confirmPending,
-  editPending,
-  pendingMessage,
-  sendKey,
-} from '../../../processing/pending-messages'
-import { space } from '../../../theme/generated/tokens'
-import { Button } from '../../ui/Button'
-import { Small, TextArea } from '../../ui/primitives'
+import { confirmPending, editPending, pendingMessage, sendKey } from '#/processing/pending-messages'
+import { space } from '#/theme/generated/tokens'
+import { Button, Small, TextArea } from '#/components/ui'
 
 /**
  * Asks the step that proposed a field, through its session's inbox. "Asked" stays until the

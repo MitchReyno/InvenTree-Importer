@@ -1,14 +1,14 @@
 import { Group, Sprite, type Mesh } from 'three'
-import { fills } from '../finishes'
-import type { DisplayMaterials, OutlineKit } from '../outline-kit'
+import { fills } from '#/electronics-current/finishes'
+import type { DisplayMaterials, OutlineKit } from '#/electronics-current/outline-kit'
 import {
   createPart,
   type DisplayMode,
   type DisplayState,
   type PartBuilder,
   type PartType,
-} from '../part-model'
-import { at, box, cylinder, pick } from '../shapes'
+} from '#/electronics-current/part-model'
+import { at, box, cylinder, pick } from '#/electronics-current/shapes'
 
 /** Scrolling message on the 14-segment displays (trailing spaces pace the loop). */
 export const DISPLAY_MESSAGE = 'BENCH INTAKE   '

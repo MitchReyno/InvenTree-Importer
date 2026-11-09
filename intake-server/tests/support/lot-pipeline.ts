@@ -6,11 +6,11 @@ import { join } from 'node:path'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from './processing.ts'
 import { seedPhoto } from './sessions.ts'
-import { triggerExamine } from '../../src/processing/examine-trigger.ts'
-import { decodeSessionInput } from '../../src/processing/session-input.ts'
-import { saveAgentSettings } from '../../src/agents/settings.ts'
-import { startSessionToolServer } from '../../src/agents/tools/server.ts'
-import { runSessionTurn, syntheticSessionDriver } from '../../src/agents/session/session-runner.ts'
+import { triggerExamine } from '#/processing/examine-trigger.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
+import { startSessionToolServer } from '#/agents/tools/server.ts'
+import { runSessionTurn, syntheticSessionDriver } from '#/agents/session/session-runner.ts'
 
 export type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

@@ -1,7 +1,6 @@
 import type { MediaSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { Small, Summary } from '../ui/primitives'
-import { localTime } from '../ui/RelativeTime'
+import { Small, Summary, localTime } from '#/components/ui'
 
 type Props = { title: string; note: MediaSnapshotDto['evidence'][number]['note'] }
 

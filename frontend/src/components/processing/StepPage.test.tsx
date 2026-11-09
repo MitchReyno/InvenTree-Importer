@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { ProcessingSource } from '../../processing/source'
+import type { ProcessingSource } from '#/processing/source'
 import { StepPage } from './StepPage'
 
 const b = 'b0000000-0000-4000-8000-000000000001'

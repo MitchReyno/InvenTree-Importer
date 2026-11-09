@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import pg from 'pg'
-import { developmentAdminUrl, developmentRuntimeUrl } from '../src/dev/postgres-url.ts'
+import { developmentAdminUrl, developmentRuntimeUrl } from '#/dev/postgres-url.ts'
 
 test('development PostgreSQL accepts generated loopback configuration and normalizes explicit localhost administration', () => {
   assert.equal(

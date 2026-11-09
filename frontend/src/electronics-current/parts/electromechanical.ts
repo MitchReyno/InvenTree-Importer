@@ -1,7 +1,7 @@
 import { CylinderGeometry, Group, type Mesh } from 'three'
-import { fills, PLASTIC_FILLS } from '../finishes'
-import { createPart, type PartBuilder, type PartType } from '../part-model'
-import { addDipLegs, at, box, cylinder, pick } from '../shapes'
+import { fills, PLASTIC_FILLS } from '#/electronics-current/finishes'
+import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
+import { addDipLegs, at, box, cylinder, pick } from '#/electronics-current/shapes'
 
 // A pointer sweep counts as a flick when it is fast and close enough.
 const FLICK_MIN_SPEED_PX = 150

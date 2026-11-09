@@ -1,4 +1,4 @@
-import { activeMediaGroups } from '../media/context.ts'
+import { activeMediaGroups } from '#/media/context.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { and, eq } from 'drizzle-orm'
@@ -9,7 +9,7 @@ import type {
   OperatorImpactDto,
   RestructureDto,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import type { OperatorCommandScope } from './repository.ts'
 import { fail } from './model.ts'
 import {

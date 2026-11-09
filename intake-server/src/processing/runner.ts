@@ -1,4 +1,4 @@
-import { nativeHandlerVersion } from '../agents/policy.ts'
+import { nativeHandlerVersion } from '#/agents/policy.ts'
 import type { Pool } from 'pg'
 import { eq } from 'drizzle-orm'
 import type {
@@ -7,11 +7,11 @@ import type {
   ProcessingCommandDto,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { commands } from '../db/schema.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { commands } from '#/db/schema.ts'
 import { processingAttempts, processingLanes } from './schema.ts'
-import { appendEvent } from '../db/authority.ts'
-import { lockCaptureForInputSettlement } from '../capture/repository.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { lockCaptureForInputSettlement } from '#/capture/repository.ts'
 import { lockLane } from './scope.ts'
 import { channelToken, type ProcessingConfig } from './attempts.ts'
 import {
@@ -23,7 +23,7 @@ import {
   type SelectedProcessingProfile,
 } from './model.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
 import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from './state.ts'
 import { processingDependencyStatus } from './dependencies.ts'

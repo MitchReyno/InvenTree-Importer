@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, space } from '#/theme/generated/tokens'
 import { media } from './media'
 import { motion } from './motion'
 import { VisuallyHidden } from './VisuallyHidden'

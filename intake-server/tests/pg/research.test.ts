@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
 import { PassThrough } from 'node:stream'
-import { restrictedResearchRunner } from '../../src/research/adapter.ts'
-import { executeProcessingCommand } from '../../src/processing/delivery.ts'
+import { restrictedResearchRunner } from '#/research/adapter.ts'
+import { executeProcessingCommand } from '#/processing/delivery.ts'
 import type {
   ProcessingEnvelopeV3Dto,
   ProcessingInputV3Dto,
@@ -17,12 +17,12 @@ import {
   acceptEnvelope,
   interruptProcessing,
   type ResearchInput,
-} from '../../src/processing/runner.ts'
-import { researchAttemptAccess } from '../../src/processing/research.ts'
-import { researchReceiptStore } from '../../src/research/receipts.ts'
-import { researchBroker } from '../../src/research/broker.ts'
-import { ResearchReapPendingError } from '../../src/research/errors.ts'
-import { channelToken } from '../../src/processing/attempts.ts'
+} from '#/processing/runner.ts'
+import { researchAttemptAccess } from '#/processing/research.ts'
+import { researchReceiptStore } from '#/research/receipts.ts'
+import { researchBroker } from '#/research/broker.ts'
+import { ResearchReapPendingError } from '#/research/errors.ts'
+import { channelToken } from '#/processing/attempts.ts'
 
 const approvedSource = 'https://example.com/datasheet'
 type Fixture = Awaited<ReturnType<typeof processingFixture>>

@@ -6,11 +6,11 @@ import type {
   CatalogueModelDto,
   CatalogueRecordDto,
 } from '@invimport/contracts'
-import type { SettingsPorts } from '../../../capture/types'
-import type { CatalogueClient } from '../../../catalogue/types'
-import { ServerStateProvider } from '../../query/ServerStateProvider'
-import { GlobalStyle } from '../../GlobalStyle'
-import { CaptureWorkspace } from '../CaptureWorkspace'
+import type { SettingsPorts } from '#/capture/types'
+import type { CatalogueClient } from '#/catalogue/types'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { CaptureWorkspace } from '#/components/capture/CaptureWorkspace'
 
 const scope = {
   origin: 'http://fixture.invalid',

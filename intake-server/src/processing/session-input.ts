@@ -4,8 +4,8 @@ import {
   type CaptureSnapshotDto,
   type ProcessingInputV6Dto,
 } from '@invimport/contracts'
-import { automationIntentNotes } from '../capture/context-input.ts'
-import { decodeMediaInputs } from '../media/inputs.ts'
+import { automationIntentNotes } from '#/capture/context-input.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
 import {
   decodeProcessingInput,
   fail,

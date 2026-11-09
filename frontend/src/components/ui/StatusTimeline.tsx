@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, ring, space, typeVar, zIndex } from '../../theme/generated/tokens'
+import { color, radius, ring, space, typeVar, zIndex } from '#/theme/generated/tokens'
 
 /** `at` is the machine-readable instant behind the shown `time`, when one is known. */
 export type TimelineEntry = { text: string; time: string; at?: string; current?: boolean }

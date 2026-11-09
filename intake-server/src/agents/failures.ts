@@ -4,8 +4,8 @@ import {
   type SessionFailureDto,
   type SessionFailureSummaryDto,
 } from '@invimport/contracts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import { fail } from '../processing/model.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { fail } from '#/processing/model.ts'
 
 const MAX_DIAGNOSTIC_BYTES = 16 * 1024
 

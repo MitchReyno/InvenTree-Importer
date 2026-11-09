@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
-import type { MediaPlanEvidence } from '../media-plan.ts'
-import { id, pk } from '../plan.ts'
-import { responseObject, responsePk } from '../response.ts'
+import type { MediaPlanEvidence } from '#/execution/media-plan.ts'
+import { id, pk } from '#/execution/plan.ts'
+import { responseObject, responsePk } from '#/execution/response.ts'
 
 export interface PartAttachmentWire {
   artifactKey: string

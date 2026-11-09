@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { nativePgTools } from '../src/operations/pg-tools.ts'
+import { nativePgTools } from '#/operations/pg-tools.ts'
 
 test(
   'native maintenance subprocesses scrub inherited settings, keep synthetic credentials out of argv and redact failures',

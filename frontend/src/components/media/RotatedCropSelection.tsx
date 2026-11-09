@@ -1,9 +1,9 @@
 import Moveable from 'react-moveable'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
-import { cropAspect, type CropAspect, type CropFrame } from '../../media/crop-model'
-import type { ImageAttributes } from '../../media/images'
+import { color, space } from '#/theme/generated/tokens'
+import { cropAspect, type CropAspect, type CropFrame } from '#/media/crop-model'
+import type { ImageAttributes } from '#/media/images'
 
 interface Props {
   /** The page image to select over; any size, since the selection maps through the source size. */

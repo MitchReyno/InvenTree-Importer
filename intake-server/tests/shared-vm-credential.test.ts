@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { once } from 'node:events'
 import { randomBytes } from 'node:crypto'
-import { managementServer, credentialPath } from '../src/agents/shared-vm/credential-http.ts'
-import { readClaudeToken } from '../src/agents/shared-vm/claude-credential.ts'
-import { nativeAgentHost, agentEnvironment } from '../src/agents/environment.ts'
+import { managementServer, credentialPath } from '#/agents/shared-vm/credential-http.ts'
+import { readClaudeToken } from '#/agents/shared-vm/claude-credential.ts'
+import { nativeAgentHost, agentEnvironment } from '#/agents/environment.ts'
 
 test('operator credential changes require the trusted origin, key and current revision', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'personal-credential-'))

@@ -1,6 +1,6 @@
 import { DBOSClient } from '@dbos-inc/dbos-sdk'
 import { Pool } from 'pg'
-import { processingApplication } from '../processing/queue.ts'
+import { processingApplication } from '#/processing/queue.ts'
 
 const legacyProcessingApplications = ['bench-intake-dev-processing', 'bench-intake-native-agent']
 

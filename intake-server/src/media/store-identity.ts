@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg'
 import { sql } from 'drizzle-orm'
-import { id } from '../execution/plan.ts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { id } from '#/execution/plan.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 
 /** Read-only at runtime. Only the migration creates this durable database authority. */
 export async function readMediaStoreIdentity(connection: Pool | PoolClient): Promise<string> {

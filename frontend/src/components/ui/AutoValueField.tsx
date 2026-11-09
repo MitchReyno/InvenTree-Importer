@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled, { css } from 'styled-components'
-import { color, radius, shadow, size, space, typeVar, zIndex } from '../../theme/generated/tokens'
+import { color, radius, shadow, size, space, typeVar, zIndex } from '#/theme/generated/tokens'
 import { Input, Small } from './primitives'
 import { media } from './media'
 import { hoverTransition } from './motion'

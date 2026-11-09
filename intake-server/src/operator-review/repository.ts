@@ -11,21 +11,21 @@ import {
   type RestructureDto,
   type RestructureResultDto,
 } from '@invimport/contracts'
-import { transaction } from '../db/database.ts'
-import { idempotent, type CommandScope } from '../db/authority.ts'
-import { lockCaptureForOperatorCommand, type OperatorCommandScope } from '../capture/repository.ts'
-import { fail } from '../capture/model.ts'
-import { loadReviewContext } from '../capture/review-context.ts'
+import { transaction } from '#/db/database.ts'
+import { idempotent, type CommandScope } from '#/db/authority.ts'
+import { lockCaptureForOperatorCommand, type OperatorCommandScope } from '#/capture/repository.ts'
+import { fail } from '#/capture/model.ts'
+import { loadReviewContext } from '#/capture/review-context.ts'
 import {
   applyBulkEdit,
   applyRestructure,
   recordDisposition,
   recordInstruction,
   type StructuralOutcome,
-} from '../capture/operator-commands.ts'
-import type { ManualConfig } from '../review/authority.ts'
-import { materializeWithMedia } from '../review/media-material.ts'
-import { unresolvedWarnings, WARNING_CODES, type ReviewWarningCode } from '../review/model.ts'
+} from '#/capture/operator-commands.ts'
+import type { ManualConfig } from '#/review/authority.ts'
+import { materializeWithMedia } from '#/review/media-material.ts'
+import { unresolvedWarnings, WARNING_CODES, type ReviewWarningCode } from '#/review/model.ts'
 import { operatorImpact, pendingPreparations, type PendingPreparation } from './impact.ts'
 import { operatorReview, sourceHistory } from './projection.ts'
 import { batchDependencies, retainedReviews } from './review-state.ts'

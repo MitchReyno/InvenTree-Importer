@@ -1,9 +1,9 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
-import { captureInTransaction } from '../capture/repository.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
 import { lockMediaRevision } from './commands.ts'
 import { lockBlob } from './blob-store.ts'
-import type { MediaPlan, MediaPlanEvidence } from '../execution/media-plan.ts'
+import type { MediaPlan, MediaPlanEvidence } from '#/execution/media-plan.ts'
 
 interface RetainedVersion {
   id: string

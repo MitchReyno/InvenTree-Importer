@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styled, { css } from 'styled-components'
-import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
+import { color, radius, shadow, space, type } from '#/theme/generated/tokens'
 import { Button } from './Button'
 import { motion } from './motion'
 

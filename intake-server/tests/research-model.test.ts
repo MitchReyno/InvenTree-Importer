@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validate } from '@invimport/contracts'
-import { mediaInputManifest, researchInputManifest, sealed } from '../src/processing/model.ts'
-import { processingInputIsCurrent } from '../src/processing/authority.ts'
-import { processingProfiles } from '../src/processing/policy.ts'
+import { mediaInputManifest, researchInputManifest, sealed } from '#/processing/model.ts'
+import { processingInputIsCurrent } from '#/processing/authority.ts'
+import { processingProfiles } from '#/processing/policy.ts'
 import { manualInputFixture, emptyProcessingMedia } from './support/processing-input.ts'
 
 test('restricted input is additive and seals canonical admitted URLs without changing metadata-only input', () => {

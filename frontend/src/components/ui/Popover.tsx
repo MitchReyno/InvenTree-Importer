@@ -1,7 +1,7 @@
 import * as RadixPopover from '@radix-ui/react-popover'
 import type { ReactElement, ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, shadow, space, zIndex } from '../../theme/generated/tokens'
+import { color, radius, shadow, space, zIndex } from '#/theme/generated/tokens'
 import { motion } from './motion'
 
 type PopoverProps = {

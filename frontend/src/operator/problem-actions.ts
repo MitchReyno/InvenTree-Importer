@@ -1,5 +1,5 @@
 import type { OperatorIssueDto } from '@invimport/contracts'
-import { batchHref, type ProcessingStep } from '../navigation/batch-route'
+import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
 
 export type ProblemAction =
   | { kind: 'edit_values'; label: string }

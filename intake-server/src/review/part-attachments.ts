@@ -2,27 +2,27 @@ import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { canonical } from '@invimport/contracts/json'
-import { sha256, verifyBytes } from '../db/authority.ts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { transferReadIntents, transferReadResults } from '../execution/schema.ts'
-import { fail } from '../capture/model.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { transferReadIntents, transferReadResults } from '#/execution/schema.ts'
+import { fail } from '#/capture/model.ts'
 import type { ManualMaterial } from './model.ts'
 import { issue } from './model.ts'
 import { retainedEvidence } from './media-plan.ts'
-import type { PartBinding, EffectsPlan } from '../execution/effects/effects-plan.ts'
-import { logicalEffectKey } from '../execution/effects/effects-plan.ts'
+import type { PartBinding, EffectsPlan } from '#/execution/effects/effects-plan.ts'
+import { logicalEffectKey } from '#/execution/effects/effects-plan.ts'
 import {
   partDestinationKey,
   partTransferKey,
   type PartTransfer,
-} from '../execution/attachments/part-attachment-plan.ts'
-import { priorPartTransfer } from '../execution/attachments/part-attachment-index.ts'
+} from '#/execution/attachments/part-attachment-plan.ts'
+import { priorPartTransfer } from '#/execution/attachments/part-attachment-index.ts'
 import {
   partAttachmentMetadata,
   samePartAttachmentBytes,
   type PartAttachmentWire,
-} from '../execution/attachments/part-attachment-wire.ts'
-import { inventoryBody } from '../execution/response.ts'
+} from '#/execution/attachments/part-attachment-wire.ts'
+import { inventoryBody } from '#/execution/response.ts'
 
 export interface ManualAttachmentRead {
   metadata: (pk: string) => Promise<Response>

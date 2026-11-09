@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { processingLanes } from './schema.ts'
 import type { ProcessingConfig } from './attempts.ts'
 

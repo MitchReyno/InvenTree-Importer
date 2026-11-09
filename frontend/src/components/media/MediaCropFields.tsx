@@ -1,8 +1,8 @@
 import { Controller, type Control, type UseFormSetValue } from 'react-hook-form'
 import styled from 'styled-components'
-import { size, space } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import { cropAspect, type CropAspect, type CropForm } from '../../media/crop-model'
+import { size, space } from '#/theme/generated/tokens'
+import { media } from '#/components/ui'
+import { cropAspect, type CropAspect, type CropForm } from '#/media/crop-model'
 
 interface Props {
   control: Control<CropForm>

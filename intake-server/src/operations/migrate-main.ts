@@ -1,4 +1,4 @@
-import { database } from '../db/database.ts'
+import { database } from '#/db/database.ts'
 import { migrate } from './migrate.ts'
 
 if (!process.env.INTAKE_DATABASE_URL) {

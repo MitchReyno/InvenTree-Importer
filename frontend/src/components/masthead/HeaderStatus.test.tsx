@@ -3,12 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { useQuery } from '@tanstack/react-query'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
-import { render, fixtureScope } from '../../test/render'
-import { serverQueryKey } from '../../queries/scope'
-import { ServerStateProvider } from '../query/ServerStateProvider'
+import { render, fixtureScope } from '#/test/render'
+import { serverQueryKey } from '#/queries/scope'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { HeaderStatus } from './HeaderStatus'
-import { UpdateHealthContext } from '../operations/LiveUpdates'
-import type { HeaderClient } from '../../header/types'
+import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
+import type { HeaderClient } from '#/header/types'
 
 const scope = {
   actor_id: fixtureScope.actorId,

@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner } from '../ui/Banner'
-import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
-import styled from 'styled-components'
-import { media } from '../ui/media'
-import { color, radius, space } from '../../theme/generated/tokens'
-import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
-import { classifyFailure, failureMessage } from '../../operator/command-failure'
-import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import {
+  Banner,
+  media,
   CheckboxLabel,
   Fieldset,
   Form,
@@ -17,10 +10,17 @@ import {
   Paragraph,
   Select,
   Small,
-} from '../ui/primitives'
-import { Button } from '../ui/Button'
+  Button,
+  Dialog,
+} from '#/components/ui'
+import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
+import styled from 'styled-components'
+import { color, radius, space } from '#/theme/generated/tokens'
+import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
+import type { OperatorReviewClient } from '#/operator/types'
+import { classifyFailure, failureMessage } from '#/operator/command-failure'
+import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import { ImpactSummary } from './ImpactSummary'
-import { Dialog } from '../ui/Dialog'
 import { observationNames } from './observation-names'
 
 export type RestructureKind = 'split' | 'merge' | 'move'

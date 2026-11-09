@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { isolatedDatabase } from '../support/database.ts'
-import { ensureAgentWriter, AGENT_WRITER_FILE } from '../../src/dev/agent-writer.ts'
+import { ensureAgentWriter, AGENT_WRITER_FILE } from '#/dev/agent-writer.ts'
 
 test(
   'writer provisioning reuses its dedicated identity and checks login before restoring grants',

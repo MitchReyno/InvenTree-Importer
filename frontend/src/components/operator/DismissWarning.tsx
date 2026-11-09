@@ -1,11 +1,9 @@
 import { useEffect } from 'react'
-import { Banner } from '../ui/Banner'
+import { Banner, Form, Label, Small, TextArea, Button } from '#/components/ui'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
-import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import { Form, Label, Small, TextArea } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import type { OperatorReviewClient } from '#/operator/types'
+import { useRetainedCommand } from '#/operator/useRetainedCommand'
 
 const MAX_REASON_LENGTH = 1024
 

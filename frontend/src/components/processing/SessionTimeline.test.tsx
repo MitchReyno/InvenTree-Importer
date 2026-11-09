@@ -2,7 +2,7 @@ import { screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { SessionTimelineDto } from '@invimport/contracts'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { SessionTimeline } from './SessionTimeline'
 import { chatMessages, SessionChatPanel as SessionChat } from './SessionChatPanel'
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
 import { schemas } from '@invimport/contracts'
-import { bootstrap, type DevConfig } from '../config.ts'
+import { bootstrap, type DevConfig } from '#/config.ts'
 import { compatibleSchema } from './compatibility.ts'
 
 export function registerReadiness(

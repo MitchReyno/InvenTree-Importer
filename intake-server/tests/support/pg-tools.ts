@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { once } from 'node:events'
-import type { PgTools } from '../../src/operations/pg-tools.ts'
-import { PG } from '../../src/dev/pg-identity.ts'
+import type { PgTools } from '#/operations/pg-tools.ts'
+import { PG } from '#/dev/pg-identity.ts'
 
 /** Same owned PostgreSQL17 binary, lease and database; no host package install or credential argv. */
 async function postgres(

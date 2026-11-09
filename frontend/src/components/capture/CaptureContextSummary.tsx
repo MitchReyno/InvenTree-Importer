@@ -1,7 +1,7 @@
 import styled from 'styled-components'
-import type { Snapshot } from '../../capture/types'
-import { captureContext, contextDescription } from '../../capture/context'
-import { Paragraph, Small } from '../ui/primitives'
+import type { Snapshot } from '#/capture/types'
+import { captureContext, contextDescription } from '#/capture/context'
+import { Paragraph, Small } from '#/components/ui'
 
 type Props = { batch: Snapshot; subjectId?: string }
 

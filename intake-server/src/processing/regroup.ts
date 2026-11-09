@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { agentSessions } from '../agents/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { agentSessions } from '#/agents/schema.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
 import { SUCCESSOR_STAGES, supersedeJobAttempts } from './supersede.ts'
 

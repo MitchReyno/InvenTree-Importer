@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { canonicalRecord } from '@invimport/contracts/json'
 import {
   validate,
@@ -11,8 +11,8 @@ import {
   type ProcessingActivityDto,
   type ProcessingBlockerDto,
 } from '@invimport/contracts'
-import { commands } from '../db/schema.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { commands } from '#/db/schema.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
 import { processingDependencyStatus } from './dependencies.ts'
@@ -37,9 +37,9 @@ import {
   retainedSessionQuestion,
 } from './retained.ts'
 import { decodeJobInput } from './session-input.ts'
-import { agentSessions } from '../agents/schema.ts'
-import { mediaVersions } from '../media/schema.ts'
-import { latestStatuses } from '../agents/tools/outbox.ts'
+import { agentSessions } from '#/agents/schema.ts'
+import { mediaVersions } from '#/media/schema.ts'
+import { latestStatuses } from '#/agents/tools/outbox.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
 import {
@@ -52,7 +52,7 @@ import {
   processingLanes,
 } from './schema.ts'
 import { countSteps } from './steps.ts'
-import { pausedAmong } from '../agents/pause.ts'
+import { pausedAmong } from '#/agents/pause.ts'
 
 const jobColumns = {
   id: processingJobs.id,

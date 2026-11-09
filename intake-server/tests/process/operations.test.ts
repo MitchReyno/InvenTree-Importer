@@ -9,10 +9,10 @@ import { LIVE_PROTOCOL, type LiveFrameDto, type ManualRunDto } from '@invimport/
 import { manualProcess, until } from '../support/manual-process.ts'
 import { isolatedDatabase } from '../support/database.ts'
 import { ownedPgTools } from '../support/pg-tools.ts'
-import { backupArchive, restoreArchive } from '../../src/operations/archive.ts'
-import { startApply } from '../../src/execution/supervisor.ts'
-import { ExternalGate } from '../../src/execution/ownership.ts'
-import { loadRun } from '../../src/execution/authority.ts'
+import { backupArchive, restoreArchive } from '#/operations/archive.ts'
+import { startApply } from '#/execution/supervisor.ts'
+import { ExternalGate } from '#/execution/ownership.ts'
+import { loadRun } from '#/execution/authority.ts'
 
 async function setActivation(gateRoot: string, enabled: boolean) {
   const path = join(gateRoot, 'activation.json')

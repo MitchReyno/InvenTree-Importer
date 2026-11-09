@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { lstat, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Pool } from 'pg'
-import { grantAgentWriter } from '../processing/grants.ts'
+import { grantAgentWriter } from '#/processing/grants.ts'
 import { developmentRuntimeUrl } from './postgres-url.ts'
 
 /** Private login for the Examine lead session. Kept beside app.json, never in it. */

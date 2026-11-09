@@ -1,9 +1,9 @@
 import type { PoolClient } from 'pg'
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { manualPreparations, manualApprovals, manualPreparationLots } from '../review/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { manualPreparations, manualApprovals, manualPreparationLots } from '#/review/schema.ts'
 import type { OperatorImpactDto } from '@invimport/contracts'
-import { verifyBytes } from '../db/authority.ts'
+import { verifyBytes } from '#/db/authority.ts'
 import type { BatchDependencies } from './review-state.ts'
 import { subjectReviewState } from './review-state.ts'
 

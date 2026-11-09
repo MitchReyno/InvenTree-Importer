@@ -9,20 +9,15 @@ import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { strictJson } from '@invimport/contracts/json'
 import { executorFixture } from '../support/executor.ts'
 import { commitAckProxy } from '../fixtures/commit-ack-proxy.ts'
-import { database } from '../../src/db/database.ts'
-import { executorTransaction as transaction } from '../../src/execution/transaction.ts'
-import {
-  cancelRun,
-  reserveApprovedStock,
-  selectRecovery,
-  snapshot,
-} from '../../src/execution/authority.ts'
-import { contributionBarcode } from '../../src/execution/plan.ts'
-import { executeRun } from '../../src/execution/apply.ts'
-import { WriterConnection } from '../../src/execution/ownership.ts'
-import { startApply } from '../../src/execution/supervisor.ts'
-import { deliverStockCommand } from '../../src/execution/delivery.ts'
-import { verifyKnownStock } from '../../src/execution/verification.ts'
+import { database } from '#/db/database.ts'
+import { executorTransaction as transaction } from '#/execution/transaction.ts'
+import { cancelRun, reserveApprovedStock, selectRecovery, snapshot } from '#/execution/authority.ts'
+import { contributionBarcode } from '#/execution/plan.ts'
+import { executeRun } from '#/execution/apply.ts'
+import { WriterConnection } from '#/execution/ownership.ts'
+import { startApply } from '#/execution/supervisor.ts'
+import { deliverStockCommand } from '#/execution/delivery.ts'
+import { verifyKnownStock } from '#/execution/verification.ts'
 
 async function until<T>(read: () => Promise<T>, predicate: (value: T) => boolean) {
   const deadline = Date.now() + 10000

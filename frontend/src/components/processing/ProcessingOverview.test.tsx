@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { describe, expect, it, vi } from 'vitest'
-import type { ProcessingSource } from '../../processing/source'
+import type { ProcessingSource } from '#/processing/source'
 import { InstructionField } from './InstructionField'
 import { ProcessingOverview } from './ProcessingOverview'
 
@@ -314,7 +314,9 @@ describe('InstructionField', () => {
         onDirtyChange={vi.fn()}
       />,
     )
-    expect(screen.getByRole('alert')).toHaveTextContent('Saved, but the agents could not be told yet.')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Saved, but the agents could not be told yet.',
+    )
     await user.click(screen.getByRole('button', { name: 'Send to the agents again' }))
     expect(deliver).toHaveBeenCalledOnce()
     view.rerender(

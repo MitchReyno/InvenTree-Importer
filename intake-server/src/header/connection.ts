@@ -1,7 +1,7 @@
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import { InventoryTransportError } from '../inventory/transport.ts'
-import type { DevConfig } from '../config.ts'
-import { readBoundedBody } from '../capture/bounded-body.ts'
+import { InventoryTransportError } from '#/inventory/transport.ts'
+import type { DevConfig } from '#/config.ts'
+import { readBoundedBody } from '#/capture/bounded-body.ts'
 
 type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId' | 'targetKind'>
 type Observation = ConnectionStatusDto['target']

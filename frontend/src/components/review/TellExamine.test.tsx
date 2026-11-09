@@ -1,8 +1,8 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
-import type { ProcessingClient } from '../../processing/types'
-import { render } from '../../test/render'
+import type { ProcessingClient } from '#/processing/types'
+import { render } from '#/test/render'
 import { TellExamine } from './TellExamine'
 
 const snapshot = (state: string | null) => ({

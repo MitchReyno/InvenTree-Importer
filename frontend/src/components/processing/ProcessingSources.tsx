@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '#/theme/generated/tokens'
 import type { ProcessingProposalDto } from '@invimport/contracts'
 
 /** Source identities come from the verified retained attempt, not the current capture selection. */

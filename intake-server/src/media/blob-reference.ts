@@ -1,6 +1,6 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import { eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { mediaBlobs } from './schema.ts'
 import type { PoolClient } from 'pg'
 import type { RetainedBlob } from './blob-store.ts'

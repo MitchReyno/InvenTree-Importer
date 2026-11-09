@@ -8,7 +8,7 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/react'
 import { useState, type ReactNode } from 'react'
-import { Small } from '../ui/primitives'
+import { Small } from '#/components/ui'
 
 function labelOf(entity: { data?: { label?: unknown } } | null | undefined): string {
   return typeof entity?.data?.label === 'string' ? entity.data.label : 'Evidence'

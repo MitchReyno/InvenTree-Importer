@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
+import { color, space, typeVar } from '#/theme/generated/tokens'
+import { Button } from '#/components/ui'
 
 type Props = {
   paused: boolean

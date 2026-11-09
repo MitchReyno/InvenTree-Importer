@@ -1,4 +1,4 @@
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'

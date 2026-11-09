@@ -5,9 +5,9 @@ import type {
   ProcessingSourceDto,
   ProcessingSourceV3Dto,
 } from '@invimport/contracts'
-import { sha256 } from '../db/authority.ts'
-import { evidenceNotes } from '../capture/context-input.ts'
-import { decodeMediaInputs, type MediaInputVersion } from '../media/inputs.ts'
+import { sha256 } from '#/db/authority.ts'
+import { evidenceNotes } from '#/capture/context-input.ts'
+import { decodeMediaInputs, type MediaInputVersion } from '#/media/inputs.ts'
 import { fail } from './model.ts'
 
 interface DeliveredEvidence {

@@ -15,9 +15,9 @@ import {
   size,
   space,
   typeVar,
-} from '../../theme/generated/tokens'
+} from '#/theme/generated/tokens'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
-import { rankReferences, type RankTier } from '../../capture/reference-rank'
+import { rankReferences, type RankTier } from '#/capture/reference-rank'
 import { Label, Small } from './primitives'
 import { media } from './media'
 

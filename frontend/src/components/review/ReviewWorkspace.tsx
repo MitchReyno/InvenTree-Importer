@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner } from '../ui/Banner'
-import { subjectStatuses, type LotStatus } from '../../processing/source'
-import { SegmentedControl } from '../ui/SegmentedControl'
-import { Kbd } from '../ui/Kbd'
+import {
+  Banner,
+  SegmentedControl,
+  Kbd,
+  media,
+  Panel,
+  Paragraph,
+  Small,
+  Summary,
+  Button,
+} from '#/components/ui'
+import { subjectStatuses, type LotStatus } from '#/processing/source'
 import styled from 'styled-components'
-import { media } from '../ui/media'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '#/theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -15,9 +22,7 @@ import type {
   ProcessingAnswerDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Panel, Paragraph, Small, Summary } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { CaptureContextSummary } from '../capture/CaptureContextSummary'
+import { CaptureContextSummary } from '#/components/capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
@@ -29,18 +34,18 @@ import {
   type ReviewFilter,
   type ReviewLocation,
   type ReviewView,
-} from '../../operator/review-model'
-import type { OperatorReviewClient } from '../../operator/types'
-import { useDirtySources } from '../../operator/useDirtySources'
-import { retainEvidenceQuery } from '../../operator/evidence-location'
-import { useReviewKeyboard } from '../../operator/useReviewKeyboard'
-import { ReviewFilters } from '../operator/ReviewFilters'
-import { LotEvidence } from '../operator/LotEvidence'
-import { DecisionPanel } from '../operator/DecisionPanel'
-import { TableWorkspace } from '../operator/TableWorkspace'
-import type { CaptureWorkspaceProps } from '../../capture/types'
-import type { MediaClient } from '../../media/types'
-import { UnassignedObservations } from '../operator/UnassignedObservations'
+} from '#/operator/review-model'
+import type { OperatorReviewClient } from '#/operator/types'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { retainEvidenceQuery } from '#/operator/evidence-location'
+import { useReviewKeyboard } from '#/operator/useReviewKeyboard'
+import { ReviewFilters } from '#/components/operator/ReviewFilters'
+import { LotEvidence } from '#/components/operator/LotEvidence'
+import { DecisionPanel } from '#/components/operator/DecisionPanel'
+import { TableWorkspace } from '#/components/operator/TableWorkspace'
+import type { CaptureWorkspaceProps } from '#/capture/types'
+import type { MediaClient } from '#/media/types'
+import { UnassignedObservations } from '#/components/operator/UnassignedObservations'
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 
 interface Props {

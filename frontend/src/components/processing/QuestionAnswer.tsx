@@ -1,17 +1,23 @@
 import { useEffect, useRef, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import {
   validate,
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
-import { Fieldset, Input, Label, Small, TextArea } from '../ui/primitives'
-import { Banner } from '../ui/Banner'
-import { OptionRow } from '../ui/OptionRow'
-import { QuestionCard } from '../ui/QuestionCard'
-import { Button } from '../ui/Button'
+import {
+  Fieldset,
+  Input,
+  Label,
+  Small,
+  TextArea,
+  Banner,
+  OptionRow,
+  QuestionCard,
+  Button,
+} from '#/components/ui'
 
 interface Props {
   question: ProcessingQuestionDto

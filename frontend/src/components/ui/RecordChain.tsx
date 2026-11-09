@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
 import { hoverTransition } from './motion'
 

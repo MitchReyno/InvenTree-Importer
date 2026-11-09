@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../src/db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 import {
   CAPABILITY,
   EXECUTOR_BUILD,
@@ -10,7 +10,7 @@ import {
   encodePlan,
   stockBytes,
   type StockPlan,
-} from '../src/execution/plan.ts'
+} from '#/execution/plan.ts'
 
 test('stock plan is exact retained original-source authority, never raw URLs/new Part/general payloads or rounded decimals', () => {
   const original = '10000000-0000-4000-8000-000000000011',

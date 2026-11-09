@@ -4,14 +4,11 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { sealed } from '../../src/processing/model.ts'
-import { transaction } from '../../src/db/database.ts'
-import {
-  issueSessionCapability,
-  revokeSessionCapability,
-} from '../../src/agents/tools/capability.ts'
-import { submitSessionInbox } from '../../src/agents/tools/inbox.ts'
-import { startSessionToolServer } from '../../src/agents/tools/server.ts'
+import { sealed } from '#/processing/model.ts'
+import { transaction } from '#/db/database.ts'
+import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
+import { submitSessionInbox } from '#/agents/tools/inbox.ts'
+import { startSessionToolServer } from '#/agents/tools/server.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 type Capture = Awaited<ReturnType<Fixture['seedCapture']>>
@@ -503,8 +500,8 @@ test('answers and chat reach the running session once, through the inbox', async
 })
 
 test('the timeline, session list and header show the latest status line and the waiting state', async () => {
-  const { listAgentSessions } = await import('../../src/agents/session/sessions.ts')
-  const { activeHeaderSessions } = await import('../../src/header/active-sessions.ts')
+  const { listAgentSessions } = await import('#/agents/session/sessions.ts')
+  const { activeHeaderSessions } = await import('#/header/active-sessions.ts')
   await withSessions(async ({ fixture, url, a, capture }) => {
     const session = await connect(url, a.token)
     try {
@@ -662,7 +659,7 @@ test('tools refuse a cancelled attempt, chat from another account, duplicate rep
 })
 
 test('the header keeps a cancelled attempt that still holds a slot', async () => {
-  const { activeHeaderSessions } = await import('../../src/header/active-sessions.ts')
+  const { activeHeaderSessions } = await import('#/header/active-sessions.ts')
   await withSessions(async ({ fixture, a, capture }) => {
     await fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
       a.attempt,
@@ -685,7 +682,7 @@ test('the header keeps a cancelled attempt that still holds a slot', async () =>
 })
 
 test('the wake sweep gives a queued session with no live workflow a fresh one', async () => {
-  const { wakePendingSessions } = await import('../../src/agents/session/session-execution.ts')
+  const { wakePendingSessions } = await import('#/agents/session/session-execution.ts')
   await withSessions(async ({ fixture, a, b }) => {
     await fixture.db.pool.query(
       "UPDATE agent_session SET session_state='queued',turn_count=1 WHERE attempt_id=ANY($1)",
@@ -720,7 +717,7 @@ test('the wake sweep gives a queued session with no live workflow a fresh one', 
 })
 
 test('a claim needs the worker account and a live batch, and results stop at the snapshot limit', async () => {
-  const { runSessionTurn } = await import('../../src/agents/session/session-runner.ts')
+  const { runSessionTurn } = await import('#/agents/session/session-runner.ts')
   await withSessions(async ({ fixture, url, b, capture }) => {
     const host = {
       codexExecutable: 'unused',
@@ -897,7 +894,7 @@ test('many small questions across jobs stop before the snapshot overflows', asyn
 })
 
 test('cancelling an idle session settles it, with or without pending chat', async () => {
-  const { wakePendingSessions } = await import('../../src/agents/session/session-execution.ts')
+  const { wakePendingSessions } = await import('#/agents/session/session-execution.ts')
   await withSessions(async ({ fixture, a, b }) => {
     await fixture.db.pool.query(
       "UPDATE agent_session SET session_state='waiting_input' WHERE attempt_id=$1",
@@ -933,10 +930,10 @@ test('cancelling an idle session settles it, with or without pending chat', asyn
 })
 
 test('a paused batch keeps its sessions queued and their messages, and resuming lets them run', async () => {
-  const { runSessionTurn } = await import('../../src/agents/session/session-runner.ts')
-  const { wakePendingSessions } = await import('../../src/agents/session/session-execution.ts')
-  const { setBatchPause, setAllPause } = await import('../../src/agents/pause.ts')
-  const { listAgentSessions } = await import('../../src/agents/session/sessions.ts')
+  const { runSessionTurn } = await import('#/agents/session/session-runner.ts')
+  const { wakePendingSessions } = await import('#/agents/session/session-execution.ts')
+  const { setBatchPause, setAllPause } = await import('#/agents/pause.ts')
+  const { listAgentSessions } = await import('#/agents/session/sessions.ts')
   await withSessions(async ({ fixture, url, a, b, capture }) => {
     const batchId = capture.batch.id
     await fixture.db.pool.query(
@@ -1032,8 +1029,8 @@ test('a paused batch keeps its sessions queued and their messages, and resuming 
 })
 
 test('a saved batch instruction reaches the running session and wakes the finished one, once', async () => {
-  const { wakePendingSessions } = await import('../../src/agents/session/session-execution.ts')
-  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  const { wakePendingSessions } = await import('#/agents/session/session-execution.ts')
+  const { deliverInstructions } = await import('#/agents/instructions.ts')
   await withSessions(async ({ fixture, a, b, capture }) => {
     const batchId = capture.batch.id
     await fixture.db.pool.query(
@@ -1104,7 +1101,7 @@ test('a saved batch instruction reaches the running session and wakes the finish
 })
 
 test('the longest instruction, in four-byte characters, still reaches a session', async () => {
-  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  const { deliverInstructions } = await import('#/agents/instructions.ts')
   await withSessions(async ({ fixture, capture }) => {
     const text = '🔧'.repeat(8192)
     await fixture.db.pool.query(
@@ -1124,8 +1121,8 @@ test('the longest instruction, in four-byte characters, still reaches a session'
 })
 
 test('Pause all refuses rather than pausing only some batches, and an archived batch is not listed', async () => {
-  const { setAllPause, setBatchPause } = await import('../../src/agents/pause.ts')
-  const { listAgentSessions } = await import('../../src/agents/session/sessions.ts')
+  const { setAllPause, setBatchPause } = await import('#/agents/pause.ts')
+  const { listAgentSessions } = await import('#/agents/session/sessions.ts')
   await withSessions(async ({ fixture }) => {
     const other = await fixture.seedCapture()
     await assert.rejects(setAllPause(fixture.api.pool, fixture.config, true, 1), {
@@ -1145,7 +1142,7 @@ test('Pause all refuses rather than pausing only some batches, and an archived b
 })
 
 test('an instruction saved while delivery failed reaches the sessions on the next supervisor pass', async () => {
-  const { deliverMissingInstructions } = await import('../../src/agents/instructions.ts')
+  const { deliverMissingInstructions } = await import('#/agents/instructions.ts')
   await withSessions(async ({ fixture, capture }) => {
     await fixture.db.pool.query(
       `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
@@ -1162,7 +1159,7 @@ test('an instruction saved while delivery failed reaches the sessions on the nex
 })
 
 test("a batch's own processing read says it is paused", async () => {
-  const { setBatchPause } = await import('../../src/agents/pause.ts')
+  const { setBatchPause } = await import('#/agents/pause.ts')
   await withSessions(async ({ fixture, capture }) => {
     const read = async () =>
       ((await fixture.http(`/batches/${capture.batch.id}/processing`)).value as { paused?: true })
@@ -1176,7 +1173,7 @@ test("a batch's own processing read says it is paused", async () => {
 })
 
 test('a relay pass waits for a save in progress and sends the newer instruction, not the one it replaced', async () => {
-  const { deliverMissingInstructions } = await import('../../src/agents/instructions.ts')
+  const { deliverMissingInstructions } = await import('#/agents/instructions.ts')
   await withSessions(async ({ fixture, capture }) => {
     const insert = (client: { query: typeof fixture.db.pool.query }, text: string, ahead: number) =>
       client.query(

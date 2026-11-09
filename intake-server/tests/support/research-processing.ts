@@ -7,8 +7,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { processingFixture } from './processing.ts'
 import { processingCheckpoint } from './processing-process.ts'
-import { BlobStore } from '../../src/media/blob-store.ts'
-import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
+import { BlobStore } from '#/media/blob-store.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
 
 /** Explicit owned databases/media/worker only; no environment discovery or inventory transport. */
 export async function researchProcessingFixture() {

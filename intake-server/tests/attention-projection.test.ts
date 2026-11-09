@@ -7,7 +7,7 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { projectAttention } from '../src/attention/projection.ts'
+import { projectAttention } from '#/attention/projection.ts'
 
 const batch = '00000000-0000-4000-8000-0000000000b1'
 const lot = (n: number) => `00000000-0000-4000-8000-00000000010${n}`

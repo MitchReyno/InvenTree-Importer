@@ -1,5 +1,5 @@
 import { lotItemCount, type CaptureSnapshotDto, type MediaSnapshotDto } from '@invimport/contracts'
-import { evidenceDisplayNames } from '../media/identity-labels'
+import { evidenceDisplayNames } from '#/media/identity-labels'
 
 /**
  * A direct link can be unlinked here. A link through the lot's Part belongs to the Part, and one

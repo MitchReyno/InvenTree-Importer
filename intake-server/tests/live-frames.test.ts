@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LIVE_PROTOCOL } from '@invimport/contracts'
-import { sendLiveFrame } from '../src/live/frames.ts'
+import { sendLiveFrame } from '#/live/frames.ts'
 
 test('slow projection peers are terminated before a frame can exceed the bounded send queue', () => {
   let sends = 0

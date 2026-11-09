@@ -9,10 +9,10 @@ import {
   type ManualRunDto,
 } from '@invimport/contracts'
 import { manualFixture } from '../support/manual.ts'
-import { mediaRepository } from '../../src/media/repository.ts'
-import { editMedia } from '../../src/media/edit.ts'
-import { processMediaCommand } from '../../src/media/worker.ts'
-import { executeManualDispatch } from '../../src/review/runner.ts'
+import { mediaRepository } from '#/media/repository.ts'
+import { editMedia } from '#/media/edit.ts'
+import { processMediaCommand } from '#/media/worker.ts'
+import { executeManualDispatch } from '#/review/runner.ts'
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',

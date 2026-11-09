@@ -4,13 +4,13 @@ import type {
   ProcessingCancellationDto,
   ProcessingStartDto,
 } from '@invimport/contracts'
-import { transaction } from '../db/database.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { transaction } from '#/db/database.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { startProcessing, cancelProcessing, answerQuestion } from './commands.ts'
 import { processingActivity, processingSnapshot } from './read.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
 
 export function processingRepository(
   pool: Pool,

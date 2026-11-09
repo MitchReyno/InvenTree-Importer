@@ -1,22 +1,22 @@
-import { effectsCapable } from '../execution/effects/effects-plan.ts'
+import { effectsCapable } from '#/execution/effects/effects-plan.ts'
 import { and, desc, eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { manualReviews } from './schema.ts'
-import { effectsDeployment, type EffectsDeployment } from '../execution/effects/effects-source.ts'
+import { effectsDeployment, type EffectsDeployment } from '#/execution/effects/effects-source.ts'
 import type { PoolClient } from 'pg'
 import type { ManualIssueDto } from '@invimport/contracts'
-import type { DevConfig } from '../config.ts'
-import { captureInTransaction } from '../capture/repository.ts'
-import { fail } from '../capture/model.ts'
+import type { DevConfig } from '#/config.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
+import { fail } from '#/capture/model.ts'
 import {
   lockStockSource,
   stockSourceHistory,
   stockDeployment,
   type StockDeployment,
-} from '../execution/source.ts'
-import { mediaDeployment, type MediaDeployment } from '../execution/media-source.ts'
-import type { StockPlan } from '../execution/plan.ts'
-import { verifyBytes } from '../db/authority.ts'
+} from '#/execution/source.ts'
+import { mediaDeployment, type MediaDeployment } from '#/execution/media-source.ts'
+import type { StockPlan } from '#/execution/plan.ts'
+import { verifyBytes } from '#/db/authority.ts'
 import { issue, type ManualMaterial } from './model.ts'
 
 export interface ManualConfig extends DevConfig {

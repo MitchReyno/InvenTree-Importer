@@ -2,18 +2,22 @@ import { useState } from 'react'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
-import { batchHref, processingStepFor, sessionHref } from '../../navigation/batch-route'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { Link, linkTouchArea } from '../ui/primitives'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
-import { SESSION_STATE, STEP_LABEL } from '../processing/ProcessingParts'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
+import { batchHref, processingStepFor, sessionHref } from '#/navigation/batch-route'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import {
+  Link,
+  linkTouchArea,
+  Banner,
+  Button,
+  FilterChips,
+  Pill,
+  DataTable,
+  TableWrap,
+} from '#/components/ui'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
-import { FilterChips } from '../ui/FilterChips'
-import { Pill } from '../ui/Pill'
-import { DataTable, TableWrap } from '../ui/DataTable'
 import {
   FAILED_SESSION_STATES,
   SessionFailureDetails,

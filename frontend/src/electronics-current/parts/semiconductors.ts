@@ -1,7 +1,12 @@
 import { CapsuleGeometry, CylinderGeometry, Group, SphereGeometry, Sprite } from 'three'
-import { fills, LED_COLOURS } from '../finishes'
-import { createPart, type BuildContext, type PartBuilder, type PartType } from '../part-model'
-import { at, box, cylinder, pick } from '../shapes'
+import { fills, LED_COLOURS } from '#/electronics-current/finishes'
+import {
+  createPart,
+  type BuildContext,
+  type PartBuilder,
+  type PartType,
+} from '#/electronics-current/part-model'
+import { at, box, cylinder, pick } from '#/electronics-current/shapes'
 
 type LedShape = 'round' | 'small' | 'rectangular'
 

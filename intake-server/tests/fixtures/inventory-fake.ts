@@ -2,7 +2,7 @@ import { effectsFakeRequest, initializeEffectsFake } from './effects-fake.ts'
 import { attachmentFakeRequest, initializeAttachmentFake } from './attachment-fake.ts'
 import { createServer } from 'node:http'
 import type { Pool } from 'pg'
-import { transaction } from '../../src/db/database.ts'
+import { transaction } from '#/db/database.ts'
 
 /** Owned persistent HTTP fake. PG, not a JS map, owns requests, faults and stock.
  * Restart the listener with the same pool to retain ALL receipts and effects.

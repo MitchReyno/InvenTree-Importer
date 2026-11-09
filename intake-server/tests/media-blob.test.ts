@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, chmod, readFile, writeFile, symlink, rm, realpath } fro
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PoolClient } from 'pg'
-import { BlobStore, MAX_BLOB_BYTES } from '../src/media/blob-store.ts'
+import { BlobStore, MAX_BLOB_BYTES } from '#/media/blob-store.ts'
 
 // This records the transaction-lock request only; PostgreSQL exclusion has a separate PG test.
 const locks: string[] = []

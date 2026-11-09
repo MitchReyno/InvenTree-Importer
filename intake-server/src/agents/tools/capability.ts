@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
-import { agentSessions } from '../schema.ts'
-import { processingAttempts, processingInputs, processingJobs } from '../../processing/schema.ts'
-import { decodeSessionInput } from '../../processing/session-input.ts'
-import { isSessionProfile } from '../../processing/session-policy.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { agentSessions } from '#/agents/schema.ts'
+import { processingAttempts, processingInputs, processingJobs } from '#/processing/schema.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
+import { isSessionProfile } from '#/processing/session-policy.ts'
 
 export const capabilityDigest = (token: string) => createHash('sha256').update(token).digest()
 

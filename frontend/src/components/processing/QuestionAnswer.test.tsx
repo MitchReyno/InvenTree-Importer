@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import type { ProcessingQuestionDto } from '@invimport/contracts'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { QuestionAnswer } from './QuestionAnswer'
 
 const question: ProcessingQuestionDto = {

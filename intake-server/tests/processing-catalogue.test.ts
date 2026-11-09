@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { CaptureObservationDto, CatalogueProposalDto } from '@invimport/contracts'
-import { applicableCatalogueSpec, assessCatalogue } from '../src/processing/catalogue.ts'
-import { validatePartSpec } from '../src/capture/part-spec.ts'
+import { applicableCatalogueSpec, assessCatalogue } from '#/processing/catalogue.ts'
+import { validatePartSpec } from '#/capture/part-spec.ts'
 
 const id = (n: number) => `5d2a8f71-0c3b-4e9a-a6d4-${n.toString(16).padStart(12, '0')}`
 const context = id(900)

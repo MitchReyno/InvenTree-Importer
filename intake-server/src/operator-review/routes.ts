@@ -7,13 +7,13 @@ import {
   type IssueDispositionDto,
   type RestructureDto,
 } from '@invimport/contracts'
-import { pathId, commandKey } from '../api/request.ts'
-import { bootstrap } from '../config.ts'
-import { CommandPayloadConflict } from '../db/authority.ts'
-import { CaptureError, fail } from '../capture/model.ts'
-import type { ManualConfig } from '../review/authority.ts'
+import { pathId, commandKey } from '#/api/request.ts'
+import { bootstrap } from '#/config.ts'
+import { CommandPayloadConflict } from '#/db/authority.ts'
+import { CaptureError, fail } from '#/capture/model.ts'
+import type { ManualConfig } from '#/review/authority.ts'
 import { operatorRepository } from './repository.ts'
-import { deliverInstructions } from '../agents/instructions.ts'
+import { deliverInstructions } from '#/agents/instructions.ts'
 
 function safeError(error: unknown, request: FastifyRequest, reply: FastifyReply) {
   if (error instanceof CommandPayloadConflict) {

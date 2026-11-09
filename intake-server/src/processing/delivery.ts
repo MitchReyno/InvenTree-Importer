@@ -1,13 +1,13 @@
-import { processingHandler, runnerQualificationMatches } from '../agents/profile.ts'
+import { processingHandler, runnerQualificationMatches } from '#/agents/profile.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { and, eq, isNull, ne, notExists, or } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { commands, outbox } from '../db/schema.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { commands, outbox } from '#/db/schema.ts'
 import { processingAttempts, processingDependencies, processingJobs } from './schema.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
-import { deliverCommand } from '../workers/delivery.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
+import { deliverCommand } from '#/workers/delivery.ts'
 import { acceptEnvelope } from './messages.ts'
 import {
   claimProcessingCommand,
@@ -16,7 +16,7 @@ import {
 } from './runner.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { fail } from './model.ts'
-import { ResearchReapPendingError } from '../research/errors.ts'
+import { ResearchReapPendingError } from '#/research/errors.ts'
 
 /** Scheduler delivery is payload-bound; account/attempt authority is checked again by the worker. */
 export async function dispatchProcessingCommands(

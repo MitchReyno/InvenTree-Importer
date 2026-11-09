@@ -1,15 +1,13 @@
 import { useId } from 'react'
 import styled from 'styled-components'
-import { color, radius, size, space, type } from '../../theme/generated/tokens'
+import { color, radius, size, space, type } from '#/theme/generated/tokens'
 import {
   THEME_CHOICES,
   useThemeChoice,
   type ThemeChoice,
   type ThemeController,
-} from '../../theme/theme'
-import { media } from '../ui/media'
-import { hoverTransition } from '../ui/motion'
-import { Popover } from '../ui/Popover'
+} from '#/theme/theme'
+import { media, hoverTransition, Popover } from '#/components/ui'
 
 const THEME_LABEL: Record<ThemeChoice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 

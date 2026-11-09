@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { MAX_EXISTING_RECORDS, validate, type BatchRecordDto } from '@invimport/contracts'
-import { existingValuesReader } from '../src/records/existing.ts'
-import type { ReadOperation } from '../src/inventory/transport.ts'
+import { existingValuesReader } from '#/records/existing.ts'
+import type { ReadOperation } from '#/inventory/transport.ts'
 
 const context = '00000000-0000-4000-8000-0000000000c1'
 const mappedRecord = (key: string, model: string, pk: string) =>

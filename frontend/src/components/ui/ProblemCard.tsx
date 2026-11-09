@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
 
 export type ProblemSeverity = 'blocking' | 'warning'
 

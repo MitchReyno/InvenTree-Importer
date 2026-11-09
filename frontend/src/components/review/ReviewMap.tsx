@@ -1,15 +1,10 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { VisuallyHidden } from '../ui/VisuallyHidden'
+import { VisuallyHidden, media, Select, Banner, Button, Pill } from '#/components/ui'
 import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
-import { reviewMap, type MapEdge } from '../../operator/review-map'
-import { color, radius, size, space, type, typeVar, zIndex } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import { Select } from '../ui/primitives'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
-import { Pill } from '../ui/Pill'
+import { reviewMap, type MapEdge } from '#/operator/review-map'
+import { color, radius, size, space, type, typeVar, zIndex } from '#/theme/generated/tokens'
 
 type Props = {
   batch: CaptureSnapshotDto

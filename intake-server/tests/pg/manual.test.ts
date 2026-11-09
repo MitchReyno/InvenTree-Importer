@@ -6,7 +6,7 @@ import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 import type { ManualPreviewDto, ManualRunDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { manualFixture } from '../support/manual.ts'
-import { executeManualDispatch } from '../../src/review/runner.ts'
+import { executeManualDispatch } from '#/review/runner.ts'
 
 async function reviewedPreparation(
   fixture: Awaited<ReturnType<typeof manualFixture>>,

@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import type { MediaSnapshotDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { latestInstructions } from '../capture/review-context.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { latestInstructions } from '#/capture/review-context.ts'
 import { mediaGroups, mediaGroupHistory, mediaEvidenceNotes, mediaVersions } from './schema.ts'
 
 /** Media-owned check that a same-batch retained version is a PNG/JPEG usable as a logo image. */

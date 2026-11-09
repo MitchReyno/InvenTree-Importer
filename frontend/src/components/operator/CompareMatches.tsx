@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { OptionRow } from '../ui/OptionRow'
-import { Dialog } from '../ui/Dialog'
-import { localTime } from '../ui/RelativeTime'
+import { Paragraph, Small, Button, OptionRow, Dialog, localTime } from '#/components/ui'
 
 type Part = CaptureSnapshotDto['parts'][number]
 type Observation = CaptureSnapshotDto['observations'][number]

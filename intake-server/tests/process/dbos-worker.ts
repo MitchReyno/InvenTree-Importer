@@ -1,5 +1,5 @@
 import { DBOS } from '@dbos-inc/dbos-sdk'
-import { requireHandlerVersion } from '../../src/workers/delivery.ts'
+import { requireHandlerVersion } from '#/workers/delivery.ts'
 
 // Synthetic qualification only: no inventory transport, approval, provider or Python process.
 const url = process.env.INTAKE_QUALIFICATION_DATABASE_URL

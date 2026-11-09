@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import type { CaptureListQueryDto, InboxWorkflowDto } from '@invimport/contracts'
 import { Batches } from './Batches'
 

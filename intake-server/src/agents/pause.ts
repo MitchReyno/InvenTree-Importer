@@ -1,11 +1,11 @@
 import type { Pool, PoolClient } from 'pg'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { AgentPauseAllDto, AgentPauseDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { appendEvent } from '../db/authority.ts'
-import { captureBatches } from '../capture/schema.ts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import { fail } from '../processing/model.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { captureBatches } from '#/capture/schema.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { fail } from '#/processing/model.ts'
 import { agentBatchPauses } from './schema.ts'
 
 /** At most this many batches change in one Pause all or Resume all. */

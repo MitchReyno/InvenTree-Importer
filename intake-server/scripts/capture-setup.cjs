@@ -1,8 +1,8 @@
 // Trusted explicit provisioning, not web startup. Does not discover any .env or contact inventory.
 const { Pool } = require('pg')
-const { devConfig } = require('../src/config.ts')
-const { grantCapture } = require('../src/capture/grants.ts')
-const { grantFoundation } = require('../src/operations/grants.ts')
+const { devConfig } = require('#/config.ts')
+const { grantCapture } = require('#/capture/grants.ts')
+const { grantFoundation } = require('#/operations/grants.ts')
 async function main() {
   if (!process.env.INTAKE_DATABASE_URL || !process.env.INTAKE_CAPTURE_ROLE) {
     throw new Error('explicit_capture_setup_required')

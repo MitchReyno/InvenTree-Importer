@@ -1,9 +1,7 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import { hoverTransition } from '../ui/motion'
-import { Popover } from '../ui/Popover'
+import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
+import { media, hoverTransition, Popover } from '#/components/ui'
 
 type Variant = 'activity' | 'connection'
 

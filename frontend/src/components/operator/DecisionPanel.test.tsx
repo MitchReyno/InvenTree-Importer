@@ -2,7 +2,7 @@ import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { DecisionPanel, recordLinks } from './DecisionPanel'
 
 const batch = { id: 'b' } as unknown as CaptureSnapshotDto

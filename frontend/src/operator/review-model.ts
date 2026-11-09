@@ -1,4 +1,4 @@
-import { locationDraftName } from '../capture/context'
+import { locationDraftName } from '#/capture/context'
 import {
   lotLocationGroups,
   oldestQuestionFirst,
@@ -10,8 +10,8 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { display } from '../capture/display'
-import { batchHref, processingStepFor, type ProcessingStep } from '../navigation/batch-route'
+import { display } from '#/capture/display'
+import { batchHref, processingStepFor, type ProcessingStep } from '#/navigation/batch-route'
 
 export const REVIEW_FILTERS = [
   'all',

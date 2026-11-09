@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import {
-  developmentTarget,
-  developmentCredential,
-  developmentStateRoot,
-} from '../src/dev/target.ts'
+import { developmentTarget, developmentCredential, developmentStateRoot } from '#/dev/target.ts'
 
 const scope = { serverId: 'd'.repeat(32) }
 

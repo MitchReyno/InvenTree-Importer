@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../src/db/authority.ts'
-import { contributionBarcode } from '../src/execution/plan.ts'
-import { effectsManifestDigestFor } from '../src/execution/effects/effects-capability.ts'
+import { sha256 } from '#/db/authority.ts'
+import { contributionBarcode } from '#/execution/plan.ts'
+import { effectsManifestDigestFor } from '#/execution/effects/effects-capability.ts'
 import {
   EFFECTS_BUILD,
   EFFECTS_CAPABILITY,
@@ -18,7 +18,7 @@ import {
   type CompanyBinding,
   type EffectsPlan,
   type LocationBinding,
-} from '../src/execution/effects/effects-plan.ts'
+} from '#/execution/effects/effects-plan.ts'
 
 function fixture() {
   const source = randomUUID()

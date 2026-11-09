@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { batchHref } from '../../navigation/batch-route'
-import type { ProcessingSource, StepProgress, WorkStep } from '../../processing/source'
-import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { Spinner } from '../ui/Loading'
-import { linkTouchArea } from '../ui/primitives'
+import { batchHref } from '#/navigation/batch-route'
+import type { ProcessingSource, StepProgress, WorkStep } from '#/processing/source'
+import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import { Spinner, linkTouchArea } from '#/components/ui'
 import { Card, CardTitle, Muted, QuestionRows, SessionRows, stepOutcome } from './ProcessingParts'
 
 type Props = {

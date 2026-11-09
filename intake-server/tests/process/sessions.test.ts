@@ -7,14 +7,14 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { transaction } from '../../src/db/database.ts'
-import { startSessionToolServer } from '../../src/agents/tools/server.ts'
-import { submitSessionInbox } from '../../src/agents/tools/inbox.ts'
+import { transaction } from '#/db/database.ts'
+import { startSessionToolServer } from '#/agents/tools/server.ts'
+import { submitSessionInbox } from '#/agents/tools/inbox.ts'
 import {
   interruptRunningSessions,
   queueSessionResume,
   runSessionTurn,
-} from '../../src/agents/session/session-runner.ts'
+} from '#/agents/session/session-runner.ts'
 
 type Provider = 'claude' | 'codex'
 
@@ -684,7 +684,7 @@ test(
   'a paused batch keeps its queued chat across a worker restart and runs it once resumed',
   { timeout: 90000 },
   async () => {
-    const { setBatchPause } = await import('../../src/agents/pause.ts')
+    const { setBatchPause } = await import('#/agents/pause.ts')
     const h = await sessionHarness('claude')
     try {
       assert.equal(

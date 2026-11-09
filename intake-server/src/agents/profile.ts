@@ -4,9 +4,9 @@ import {
   researchProfileId,
   researchHandlerVersion,
   type SelectedProcessingProfile,
-} from '../processing/model.ts'
+} from '#/processing/model.ts'
 import { nativeProfileId, nativeHandlerVersion } from './policy.ts'
-import { isSessionProfile, sessionHandlerVersion } from '../processing/session-policy.ts'
+import { isSessionProfile, sessionHandlerVersion } from '#/processing/session-policy.ts'
 
 export function processingHandler(profile: SelectedProcessingProfile | undefined) {
   if (profile && isSessionProfile(profile)) {

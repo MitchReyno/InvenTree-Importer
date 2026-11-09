@@ -5,7 +5,7 @@ import sharp from 'sharp'
 import type { EvidenceRegionDto } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
 import { renditionDimensions, type MediaRenditionSize } from '@invimport/contracts/media'
-import { CaptureError } from '../capture/model.ts'
+import { CaptureError } from '#/capture/model.ts'
 
 type PixelRegion = Extract<EvidenceRegionDto, { kind: 'pixels' }>
 

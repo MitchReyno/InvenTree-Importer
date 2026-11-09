@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import { asc, eq } from 'drizzle-orm'
 import type { CaptureEvidenceObservationDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureEvidenceObservations, captureLotEvidenceObservations } from './schema.ts'
 
 export interface EvidenceObservationRead {

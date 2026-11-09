@@ -6,18 +6,25 @@ import type {
   MediaSnapshotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { evidenceDisplayNames } from '../../media/identity-labels'
-import { readingSource } from '../../operator/value-evidence'
-import { coverSizes, observationImage } from '../../media/images'
-import { batchHref } from '../../navigation/batch-route'
-import { color, radius, space, type } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
-import { Count, Pill } from '../ui/Pill'
-import { SegmentedControl } from '../ui/SegmentedControl'
-import { SourceChip } from '../ui/SourceChip'
-import { Label, linkTouchArea, Small, Summary, TextArea } from '../ui/primitives'
-import { VisuallyHidden } from '../ui/VisuallyHidden'
-import { RegionStage } from '../review/RegionStage'
+import { evidenceDisplayNames } from '#/media/identity-labels'
+import { readingSource } from '#/operator/value-evidence'
+import { coverSizes, observationImage } from '#/media/images'
+import { batchHref } from '#/navigation/batch-route'
+import { color, radius, space, type } from '#/theme/generated/tokens'
+import {
+  Button,
+  Count,
+  Pill,
+  SegmentedControl,
+  SourceChip,
+  Label,
+  linkTouchArea,
+  Small,
+  Summary,
+  TextArea,
+  VisuallyHidden,
+} from '#/components/ui'
+import { RegionStage } from '#/components/review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
 

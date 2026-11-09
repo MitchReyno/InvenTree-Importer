@@ -1,4 +1,4 @@
-import { FilterChips } from '../ui/FilterChips'
+import { FilterChips } from '#/components/ui'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import {
   FILTER_LABELS,
@@ -6,7 +6,7 @@ import {
   matchesFilter,
   type LotIds,
   type ReviewFilter,
-} from '../../operator/review-model'
+} from '#/operator/review-model'
 
 interface Props {
   review: OperatorReviewDto

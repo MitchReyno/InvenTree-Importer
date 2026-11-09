@@ -5,9 +5,9 @@ import { readdir, readFile } from 'node:fs/promises'
 import type { PoolClient } from 'pg'
 import { processingFixture } from '../support/processing.ts'
 import { isolatedDatabase } from '../support/database.ts'
-import { sealed } from '../../src/processing/model.ts'
-import { transaction } from '../../src/db/database.ts'
-import { migrate } from '../../src/operations/migrate.ts'
+import { sealed } from '#/processing/model.ts'
+import { transaction } from '#/db/database.ts'
+import { migrate } from '#/operations/migrate.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

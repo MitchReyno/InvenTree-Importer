@@ -37,6 +37,14 @@ Before review, run `pnpm format:readability`, `pnpm format`, `pnpm lint:readabil
 - Let the formatter expand argument lists, objects and types. Write substantial SQL as readable multiline templates with named results and parameter arrays easy to compare with placeholders. Never rewrite immutable migrations or exact request/approval bytes for appearance.
 - Review conceptual density after formatting. Extract by responsibility with explicit inputs/results, without line quotas or helpers that hide state in closures.
 
+### Import paths
+
+Import a file in the same folder, or below it, with `./`. Import anything else in the package's `src` from its root with `#/`, for example `#/db/database.ts` or `#/components/ui`. Tests keep relative paths to their own support and fixture files, which live outside `src`. Import other workspace packages by name, such as `@invimport/contracts`, never by a relative path into their folders.
+
+The intake server defines `#/` as a `package.json` subpath import, which Node resolves natively, so plain-Node tools and type-stripped utilities load the same specifiers as `tsx`. The frontend defines it in `tsconfig.json` `paths` and the Vite alias, and keeps its extensionless specifiers. `#` rather than `@` keeps these paths distinct from scoped packages.
+
+`frontend/src/components/ui/index.ts` is the one barrel: other code imports design-system components from `#/components/ui`, while files inside `ui/` import their siblings directly. Do not add barrels for folders with domain logic or server modules; import the owning module.
+
 ### Separate declarations and responsibilities
 
 Leave a blank line around function declarations, function-valued variable declarations and class/object methods. Keep overload signatures with their implementation, and separate the logical phases inside a function. A formatter passing does not establish readable structure.

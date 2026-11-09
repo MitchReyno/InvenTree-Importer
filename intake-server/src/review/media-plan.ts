@@ -1,16 +1,16 @@
-import { effectsCapable } from '../execution/effects/effects-plan.ts'
+import { effectsCapable } from '#/execution/effects/effects-plan.ts'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../db/authority.ts'
-import { canonicalMedia } from '../media/encoding.ts'
-import type { MediaInputVersion, MediaInputs } from '../media/inputs.ts'
-import { CAPABILITY, EXECUTOR_BUILD } from '../execution/plan.ts'
+import { sha256 } from '#/db/authority.ts'
+import { canonicalMedia } from '#/media/encoding.ts'
+import type { MediaInputVersion, MediaInputs } from '#/media/inputs.ts'
+import { CAPABILITY, EXECUTOR_BUILD } from '#/execution/plan.ts'
 import {
   MEDIA_CAPABILITY,
   MEDIA_EXECUTOR_BUILD,
   type ExecutablePlan,
   type MediaPlanEvidence,
   type AttachmentOperation,
-} from '../execution/media-plan.ts'
+} from '#/execution/media-plan.ts'
 import type { ManualMaterial } from './model.ts'
 import { stockPlan, type DeploymentBinding } from './authority.ts'
 

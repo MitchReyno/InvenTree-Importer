@@ -9,7 +9,7 @@ import {
   requireCodexSessionConfig,
   rememberAdmission,
   hasAdmission,
-} from '../src/agents/session/session-admission.ts'
+} from '#/agents/session/session-admission.ts'
 
 test('unknown or malformed native versions are refused', () => {
   requireCodexSessionVersion('bench_intake/0.166.0 (test)')

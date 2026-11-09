@@ -1,13 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { createServer } from '../../src/api/server.ts'
-import { registerCapture } from '../../src/capture/routes.ts'
+import { createServer } from '#/api/server.ts'
+import { registerCapture } from '#/capture/routes.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
-import { grantCapture } from '../../src/capture/grants.ts'
-import { database, transaction } from '../../src/db/database.ts'
-import { verifyBytes } from '../../src/db/authority.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantCapture } from '#/capture/grants.ts'
+import { database, transaction } from '#/db/database.ts'
+import { verifyBytes } from '#/db/authority.ts'
 import {
   validate,
   type CaptureSnapshotDto,

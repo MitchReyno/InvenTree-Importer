@@ -1,11 +1,16 @@
 import styled from 'styled-components'
-import { batchHref } from '../../navigation/batch-route'
-import type { ProposedLot, ProposedLotState } from '../../processing/proposed-lots'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
-import { Skeleton, Spinner } from '../ui/Loading'
-import { Count, Pill, type PillTone } from '../ui/Pill'
-import { linkTouchArea } from '../ui/primitives'
+import { batchHref } from '#/navigation/batch-route'
+import type { ProposedLot, ProposedLotState } from '#/processing/proposed-lots'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import {
+  Button,
+  Skeleton,
+  Spinner,
+  Count,
+  Pill,
+  type PillTone,
+  linkTouchArea,
+} from '#/components/ui'
 
 const STATE: Record<ProposedLotState, { tone: PillTone; word: string }> = {
   approved: { tone: 'ok', word: 'Approved' },

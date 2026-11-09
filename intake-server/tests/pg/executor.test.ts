@@ -4,19 +4,19 @@ import { randomUUID } from 'node:crypto'
 import { readFile, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { executorFixture, STOCK_WIRE, BARCODE } from '../support/executor.ts'
-import { transaction } from '../../src/db/database.ts'
-import { sha256 } from '../../src/db/authority.ts'
+import { transaction } from '#/db/database.ts'
+import { sha256 } from '#/db/authority.ts'
 import {
   cancelRun,
   selectRecovery,
   snapshot,
   loadRun,
   retainOriginalSource,
-} from '../../src/execution/authority.ts'
-import { encodePlan, contributionBarcode } from '../../src/execution/plan.ts'
-import { startApply } from '../../src/execution/supervisor.ts'
-import { grantExecutor } from '../../src/execution/grants.ts'
-import { verifyKnownStock } from '../../src/execution/verification.ts'
+} from '#/execution/authority.ts'
+import { encodePlan, contributionBarcode } from '#/execution/plan.ts'
+import { startApply } from '#/execution/supervisor.ts'
+import { grantExecutor } from '#/execution/grants.ts'
+import { verifyKnownStock } from '#/execution/verification.ts'
 
 test(
   'executor actual supervised HTTP: exact original wire, persistent fake restart, later round and deleted stock cannot replenish',

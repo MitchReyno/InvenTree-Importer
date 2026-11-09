@@ -6,13 +6,13 @@ import type {
   MediaSnapshotDto,
   MediaVersionDto,
 } from '@invimport/contracts'
-import { GlobalStyle } from '../../GlobalStyle'
-import { Masthead } from '../../masthead/Masthead'
-import { ServerStateProvider } from '../../query/ServerStateProvider'
-import type { MediaClient } from '../../../media/types'
-import { Batch } from '../Batch'
-import { Batches } from '../Batches'
-import { Main, PageContent } from '../../AppLayout'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { Masthead } from '#/components/masthead/Masthead'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import type { MediaClient } from '#/media/types'
+import { Batch } from '#/components/batches/Batch'
+import { Batches } from '#/components/batches/Batches'
+import { Main, PageContent } from '#/components/AppLayout'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },

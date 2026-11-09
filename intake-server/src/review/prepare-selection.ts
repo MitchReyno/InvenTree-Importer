@@ -6,10 +6,10 @@ import {
   MAX_PLAN_OPERATIONS,
   MAX_PLAN_PARTS,
   type PartBinding,
-} from '../execution/effects/effects-plan.ts'
+} from '#/execution/effects/effects-plan.ts'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { mediaEvidence } from '../media/schema.ts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { mediaEvidence } from '#/media/schema.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import {
   manualPrepareCommands,
   manualReadIntents,
@@ -19,16 +19,16 @@ import {
   manualPreparationLots,
   manualPrepareOutcomes,
 } from './schema.ts'
-import { partIdentitySatisfies } from '../inventory/part-identity.ts'
+import { partIdentitySatisfies } from '#/inventory/part-identity.ts'
 import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
 import {
   selectedPartTransfers,
   observePartTransfers,
   type ManualAttachmentRead,
 } from './part-attachments.ts'
-import type { PartTransfer } from '../execution/attachments/part-attachment-plan.ts'
+import type { PartTransfer } from '#/execution/attachments/part-attachment-plan.ts'
 import { knownPartBindings, knownRecordBindings, supportedPlan } from './effects-plan.ts'
-import { partSpecReferences } from '../capture/part-spec.ts'
+import { partSpecReferences } from '#/capture/part-spec.ts'
 import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contracts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
@@ -41,10 +41,10 @@ import {
   type ManualPreparationResultDto,
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { idempotent, appendEvent, sha256, verifyBytes } from '../db/authority.ts'
-import { fail } from '../capture/model.ts'
-import type { CaptureRead } from '../capture/routes.ts'
-import { encodeExecutablePlan, type ExecutablePlan } from '../execution/media-plan.ts'
+import { idempotent, appendEvent, sha256, verifyBytes } from '#/db/authority.ts'
+import { fail } from '#/capture/model.ts'
+import type { CaptureRead } from '#/capture/routes.ts'
+import { encodeExecutablePlan, type ExecutablePlan } from '#/execution/media-plan.ts'
 import { mediaPreview } from './media-preview.ts'
 import { retainPreparationMedia } from './media-preparation.ts'
 import { preparedPlan } from './media-plan.ts'

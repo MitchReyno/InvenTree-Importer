@@ -2,7 +2,7 @@ import { resolvedStockOperation } from './effects/effects-output.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   executorIntents,
   executorEffects,
@@ -10,8 +10,8 @@ import {
   executorVerifications,
 } from './schema.ts'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../db/authority.ts'
-import { inventoryTransport, type TargetProfile } from '../inventory/transport.ts'
+import { sha256 } from '#/db/authority.ts'
+import { inventoryTransport, type TargetProfile } from '#/inventory/transport.ts'
 import { executorTransaction } from './transaction.ts'
 import { checkDeployment, lockRun } from './authority.ts'
 import { inventoryBody, responseObject, responsePk, stockMatches } from './response.ts'

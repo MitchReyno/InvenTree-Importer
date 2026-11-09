@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { researchInventoryReadAdapter } from '../src/research/inventory.ts'
-import type { ReadOperation } from '../src/inventory/transport.ts'
+import { researchInventoryReadAdapter } from '#/research/inventory.ts'
+import type { ReadOperation } from '#/inventory/transport.ts'
 
 test('widened catalogue operations cannot reach the unchanged research transport', async () => {
   const calls: unknown[] = []

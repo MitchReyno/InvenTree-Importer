@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { color, radius } from '../../theme/generated/tokens'
+import { color, radius } from '#/theme/generated/tokens'
 import type { InboxWorkflowDto } from '@invimport/contracts'
-import { mediaResource } from '../../media/types'
+import { mediaResource } from '#/media/types'
 
 export function BatchThumbnail({
   batchId,

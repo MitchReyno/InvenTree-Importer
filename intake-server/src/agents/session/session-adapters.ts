@@ -1,12 +1,12 @@
-import { NativeSessionError } from '../failure-model.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AgentSelectionDto } from '@invimport/contracts'
-import { AgentChild, record } from '../child.ts'
-import type { NativeAgentHost } from '../environment.ts'
+import { AgentChild, record } from '#/agents/child.ts'
+import type { NativeAgentHost } from '#/agents/environment.ts'
 import { admitClaudeSession } from './claude-session-admission.ts'
-import { CODEX_CONFIG, rejectHostCustomizations } from '../codex.ts'
+import { CODEX_CONFIG, rejectHostCustomizations } from '#/agents/codex.ts'
 import {
   hasAdmission,
   rememberAdmission,

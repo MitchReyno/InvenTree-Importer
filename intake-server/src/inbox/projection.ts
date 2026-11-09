@@ -5,15 +5,15 @@ import {
   type CaptureListQueryDto,
   type InboxListDto,
 } from '@invimport/contracts'
-import { captureInTransaction, listCaptureBatches } from '../capture/repository.ts'
-import { transaction } from '../db/database.ts'
-import { operatorReview } from '../operator-review/projection.ts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import { inboxProcessing } from '../processing/read.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
-import { inboxEvidenceCounts, inboxThumbnail } from '../media/read.ts'
-import { latestInboxRound } from '../review/repository.ts'
-import type { ManualConfig } from '../review/authority.ts'
+import { captureInTransaction, listCaptureBatches } from '#/capture/repository.ts'
+import { transaction } from '#/db/database.ts'
+import { operatorReview } from '#/operator-review/projection.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { inboxProcessing } from '#/processing/read.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
+import { inboxEvidenceCounts, inboxThumbnail } from '#/media/read.ts'
+import { latestInboxRound } from '#/review/repository.ts'
+import type { ManualConfig } from '#/review/authority.ts'
 
 const INBOX_PAGE_SIZE = 10
 

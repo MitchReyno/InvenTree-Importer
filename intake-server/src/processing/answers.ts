@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import { validate, type CaptureEditDto, type ProcessingAnswerDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import {
   processingAnswers,
   processingAttempts,
@@ -11,8 +11,8 @@ import {
   processingQuestions,
   processingJobs,
 } from './schema.ts'
-import { appendEvent, idempotent } from '../db/authority.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { appendEvent, idempotent } from '#/db/authority.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
 import type { LockCapture } from './capture.ts'
 import { channelToken, createAttempt, type ProcessingConfig } from './attempts.ts'
 import { commandScope, lockLane } from './scope.ts'
@@ -22,8 +22,8 @@ import { loadRetainedQuestionSpec } from './retained.ts'
 import { continueDependentJobs, continuationSubjectIds } from './continuations.ts'
 import { answerSessionQuestion } from './session-answers.ts'
 import { isSessionProfile } from './session-policy.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
-import { decodeMediaInputs } from '../media/inputs.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
 import { processingDependencyStatus } from './dependencies.ts'

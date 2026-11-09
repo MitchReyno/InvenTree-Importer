@@ -1,12 +1,12 @@
 import { useId } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type {
   CaptureAssignedLocationChangeDto,
   CaptureAssignedLocationDto,
 } from '@invimport/contracts'
-import type { Snapshot } from '../../capture/types'
-import { Field, Label, Select, Small } from '../ui/primitives'
+import type { Snapshot } from '#/capture/types'
+import { Field, Label, Select, Small } from '#/components/ui'
 
 type Props = {
   label: string

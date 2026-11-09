@@ -1,6 +1,11 @@
 import { CapsuleGeometry, Group, LatheGeometry, SphereGeometry, SplineCurve, Vector2 } from 'three'
-import { fills, PLASTIC_FILLS, RESISTOR_CODE_FILLS } from '../finishes'
-import { createPart, type BuildContext, type PartBuilder, type PartType } from '../part-model'
+import { fills, PLASTIC_FILLS, RESISTOR_CODE_FILLS } from '#/electronics-current/finishes'
+import {
+  createPart,
+  type BuildContext,
+  type PartBuilder,
+  type PartType,
+} from '#/electronics-current/part-model'
 import {
   at,
   axialLeads,
@@ -11,7 +16,7 @@ import {
   pick,
   radialLeads,
   sleeveStripe,
-} from '../shapes'
+} from '#/electronics-current/shapes'
 
 const RESISTOR_HALF_LENGTH = 2.4
 

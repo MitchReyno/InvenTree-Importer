@@ -1,10 +1,10 @@
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { manualReviews } from './schema.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import type { ManualScopeDto } from '@invimport/contracts'
-import { idempotent, appendEvent } from '../db/authority.ts'
-import { fail } from '../capture/model.ts'
+import { idempotent, appendEvent } from '#/db/authority.ts'
+import { fail } from '#/capture/model.ts'
 import type { ManualConfig } from './authority.ts'
 import { commandScope, normalizedScope, checkedSelection } from './selection.ts'
 

@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, RecordChangeDto } from '@invimport/contracts'
-import { refusal } from '../../../records/model'
-import { color, space, typeVar } from '../../../theme/generated/tokens'
-import { Button } from '../../ui/Button'
+import { refusal } from '#/records/model'
+import { color, space, typeVar } from '#/theme/generated/tokens'
+import { Button } from '#/components/ui'
 
 export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
 

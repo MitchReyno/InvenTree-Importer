@@ -1,6 +1,6 @@
 import { Id, Digest } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { MAX_BLOB_BYTES } from '../media/blob-store.ts'
+import { MAX_BLOB_BYTES } from '#/media/blob-store.ts'
 
 export const MAX_ARCHIVE_BYTES = 8 * 1024 * 1024 * 1024
 export const MAX_ARCHIVE_BLOBS = 10000

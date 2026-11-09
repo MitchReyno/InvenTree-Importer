@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { ProcessingCommandV3Dto } from '@invimport/contracts'
-import { canonicalMedia } from '../../src/media/encoding.ts'
-import { researchInputManifest, sealed } from '../../src/processing/model.ts'
-import { processingProfiles } from '../../src/processing/policy.ts'
-import type { ResearchInput } from '../../src/processing/runner.ts'
+import { canonicalMedia } from '#/media/encoding.ts'
+import { researchInputManifest, sealed } from '#/processing/model.ts'
+import { processingProfiles } from '#/processing/policy.ts'
+import type { ResearchInput } from '#/processing/runner.ts'
 import { manualInputFixture } from './processing-input.ts'
 
 export function literalResearchPdf() {

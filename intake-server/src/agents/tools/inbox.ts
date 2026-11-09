@@ -7,13 +7,13 @@ import {
   type SessionInboxReceiptDto,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
-import { appendEvent } from '../../db/authority.ts'
-import { captureBatches } from '../../capture/schema.ts'
-import { processingJobs } from '../../processing/schema.ts'
-import { fail } from '../../processing/model.ts'
-import { agentSessionCursors, agentSessionInbox, agentSessions } from '../schema.ts'
-import type { CaptureBinding } from '../../capture/model.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { captureBatches } from '#/capture/schema.ts'
+import { processingJobs } from '#/processing/schema.ts'
+import { fail } from '#/processing/model.ts'
+import { agentSessionCursors, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
 
 export const INBOX_READ_LIMIT = 20
 

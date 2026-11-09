@@ -1,4 +1,4 @@
-import { database, transaction } from '../db/database.ts'
+import { database, transaction } from '#/db/database.ts'
 import { BlobStore, MIN_GC_AGE_MS } from './blob-store.ts'
 import { blobReferenced } from './blob-reference.ts'
 import { mediaRuntimeConfig } from './runtime-config.ts'

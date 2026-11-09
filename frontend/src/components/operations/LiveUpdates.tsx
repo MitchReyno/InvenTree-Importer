@@ -7,9 +7,9 @@ import {
   type LiveFrameDto,
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
-import { serverQueryKey, ServerScopeContext } from '../../queries/scope'
-import { Small } from '../ui/primitives'
+import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
+import { serverQueryKey, ServerScopeContext } from '#/queries/scope'
+import { Small } from '#/components/ui'
 
 const PollInterval = createContext<number | false>(RETAINED_POLL_INTERVAL_MS)
 

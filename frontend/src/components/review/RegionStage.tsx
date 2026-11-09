@@ -2,10 +2,9 @@ import Moveable from 'react-moveable'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
-import { previewImage } from '../../media/images'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
-import { Input, Label, Select, Small } from '../ui/primitives'
+import { previewImage } from '#/media/images'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import { Button, Input, Label, Select, Small } from '#/components/ui'
 
 type Evidence = MediaSnapshotDto['evidence'][number]
 type Box = { x: number; y: number; width: number; height: number }

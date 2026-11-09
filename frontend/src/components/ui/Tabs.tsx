@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '#/theme/generated/tokens'
 import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
 import { Spinner } from './Loading'

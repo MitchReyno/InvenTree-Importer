@@ -1,15 +1,15 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import type { HeaderWorkDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import type { ManualConfig } from '../review/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import type { ManualConfig } from '#/review/authority.ts'
 import {
   manualApprovals,
   manualPreparations,
   manualPrepareCommands,
   manualRuns,
-} from '../review/schema.ts'
-import { manualRunSnapshot } from '../review/runs.ts'
+} from '#/review/schema.ts'
+import { manualRunSnapshot } from '#/review/runs.ts'
 
 export async function importHeaderWork(client: PoolClient, config: ManualConfig, batchId?: string) {
   const work: HeaderWorkDto['work'] = []

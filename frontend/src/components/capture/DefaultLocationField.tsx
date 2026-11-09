@@ -1,18 +1,24 @@
 import { useRef, useState } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type {
   CatalogueRecordDto,
   CaptureDefaultLocationSettingDto,
   CaptureReferenceDraftDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
-import { referenceLabel } from '../../capture/settings-model'
-import { useIntentTicket } from '../../capture/useIntentTicket'
-import type { useCatalogue } from '../../catalogue/useCatalogue'
-import { SearchableReferencePicker } from '../ui/SearchableReferencePicker'
-import { Field, Input, Label, Small, Subheading } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import { referenceLabel } from '#/capture/settings-model'
+import { useIntentTicket } from '#/capture/useIntentTicket'
+import type { useCatalogue } from '#/catalogue/useCatalogue'
+import {
+  SearchableReferencePicker,
+  Field,
+  Input,
+  Label,
+  Small,
+  Subheading,
+  Button,
+} from '#/components/ui'
 
 type LocationDraft = Extract<CaptureReferenceDraftDto, { kind: 'location' }>
 type Catalogue = ReturnType<typeof useCatalogue>

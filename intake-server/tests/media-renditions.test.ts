@@ -7,7 +7,7 @@ import {
   MEDIA_TOOLCHAIN,
   renditionDimensions,
 } from '@invimport/contracts/media'
-import { parseDecoderOutput, webpDimensions } from '../src/media/decoder-output.ts'
+import { parseDecoderOutput, webpDimensions } from '#/media/decoder-output.ts'
 
 const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
 
@@ -125,7 +125,7 @@ test('decoder output with missing, extra or mis-sized renditions is refused', ()
 })
 
 test('conditional requests use weak comparison over the whole If-None-Match list', async () => {
-  const { matchesEntityTag } = await import('../src/media/routes.ts')
+  const { matchesEntityTag } = await import('#/media/routes.ts')
   const etag = '"' + 'a'.repeat(64) + '"'
   assert.equal(matchesEntityTag(undefined, etag), false)
   assert.equal(matchesEntityTag(etag, etag), true)
@@ -207,7 +207,7 @@ test('each rendition integrity guard refuses its own corruption', () => {
 })
 
 test('the worker pauses after every decode and after interruptions; only backfill progress runs on', async () => {
-  const { pauseAfter } = await import('../src/media/backfill.ts')
+  const { pauseAfter } = await import('#/media/backfill.ts')
   assert.equal(pauseAfter('decoded'), true)
   assert.equal(pauseAfter('interrupted'), true)
   assert.equal(pauseAfter('idle'), true)

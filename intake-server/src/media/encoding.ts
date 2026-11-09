@@ -1,7 +1,7 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { idempotent, type CommandScope } from '../db/authority.ts'
+import { idempotent, type CommandScope } from '#/db/authority.ts'
 
 /** Media-v1 adds bounded integer pixels/pages without changing stock-v1 canonical bytes. */
 export function canonicalMedia(value: unknown): string {

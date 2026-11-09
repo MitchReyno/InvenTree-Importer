@@ -3,8 +3,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { replaceSession } from '../../src/processing/session-replacement.ts'
-import { submitSessionInbox } from '../../src/agents/tools/inbox.ts'
+import { replaceSession } from '#/processing/session-replacement.ts'
+import { submitSessionInbox } from '#/agents/tools/inbox.ts'
 
 for (const lead of [false, true]) {
   test(`${lead ? 'lead' : 'lot'} replacement preserves lineage and rejects stale or active requests`, async () => {
@@ -105,7 +105,7 @@ for (const lead of [false, true]) {
 
 test('replacement retains a successor identity pin and refuses stale identity work', async (t) => {
   const { formedBatch } = await import('../support/lot-pipeline.ts')
-  const { runSessionTurn } = await import('../../src/agents/session/session-runner.ts')
+  const { runSessionTurn } = await import('#/agents/session/session-runner.ts')
   const { fixture, deps, batchId, read, lot, successors, identities, pinned } = await formedBatch(t)
   const formed = await lot('led 0603 red')
   const [identity] = await identities(formed.id)
@@ -145,7 +145,7 @@ test('replacement retains a successor identity pin and refuses stale identity wo
 })
 
 test('a replacement session gets the batch instructions its predecessor had already read', async () => {
-  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  const { deliverInstructions } = await import('#/agents/instructions.ts')
   const f = await processingFixture()
   try {
     const capture = await f.seedCapture()

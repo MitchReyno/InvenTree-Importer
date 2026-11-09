@@ -1,7 +1,7 @@
 import type { Pool } from 'pg'
 import { LIVE_MAX_STREAMS, LIVE_REPLAY_WINDOW, type LiveCursorDto } from '@invimport/contracts'
-import { transaction } from '../db/database.ts'
-import type { DevConfig } from '../config.ts'
+import { transaction } from '#/db/database.ts'
+import type { DevConfig } from '#/config.ts'
 
 export interface LiveHead extends LiveCursorDto {
   batch_id: string

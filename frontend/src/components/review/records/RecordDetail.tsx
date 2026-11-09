@@ -6,24 +6,28 @@ import type {
   RecordExistingValuesDto,
   RecordOriginDto,
 } from '@invimport/contracts'
-import { Banner } from '../../ui/Banner'
-import { Button } from '../../ui/Button'
-import { batchHref } from '../../../navigation/batch-route'
+import {
+  Banner,
+  Button,
+  Link,
+  Small,
+  RecordStatePill,
+  SourceChip,
+  DataTable,
+  type DataColumn,
+} from '#/components/ui'
+import { batchHref } from '#/navigation/batch-route'
 import { AskControl } from './AskControl'
 import { ProposedCompanyEditor } from './ProposedCompanyEditor'
-import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '../../../records/model'
-import { color, radius, space, type } from '../../../theme/generated/tokens'
-import { Link, Small } from '../../ui/primitives'
+import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '#/records/model'
+import { color, radius, space, type } from '#/theme/generated/tokens'
 import { CompanyEditor } from './CompanyEditor'
 import { ParameterEditor } from './ParameterEditor'
 import { PartDecision } from './PartDecision'
 import { PartEditor } from './PartEditor'
 import { SourcingEditor } from './SourcingEditor'
 import { TemplateEditor } from './TemplateEditor'
-import { RecordStatePill } from '../../ui/RecordStatePill'
-import { SourceChip } from '../../ui/SourceChip'
-import { evidenceWords } from '../../../operator/value-evidence'
-import { DataTable, type DataColumn } from '../../ui/DataTable'
+import { evidenceWords } from '#/operator/value-evidence'
 import type { Save } from './draft'
 
 const FIELD_LABELS: Record<string, string> = {

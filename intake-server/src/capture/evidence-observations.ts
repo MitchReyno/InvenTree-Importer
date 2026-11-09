@@ -1,4 +1,4 @@
-import { lotRegrouped } from '../processing/regroup.ts'
+import { lotRegrouped } from '#/processing/regroup.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
@@ -12,8 +12,8 @@ import type {
   RegroupArgsDto,
 } from '@invimport/contracts'
 import { lotItemCount } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { mediaPreviews, mediaVersions } from '../media/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { mediaPreviews, mediaVersions } from '#/media/schema.ts'
 import {
   captureEvidenceObservations,
   captureLotEvidenceObservations,
@@ -337,7 +337,7 @@ async function bumpObservationSet(
   )
   // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
   const { observationAdded, observationRemoved, lotRegroupedNotices } =
-    await import('../processing/currentness.ts')
+    await import('#/processing/currentness.ts')
   // Proposals citing a removed observation are stale for that reason, before the regroup.
   if (change.removed) {
     await observationRemoved(client, lotId, change.removed)

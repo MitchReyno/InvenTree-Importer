@@ -4,7 +4,7 @@
 const { readdir } = require('node:fs/promises')
 const { spawn } = require('node:child_process')
 const { resolve } = require('node:path')
-const { developmentAdmin } = require('../src/dev/pg-identity.ts')
+const { developmentAdmin } = require('#/dev/pg-identity.ts')
 const { developmentEnvironment } = require('../../tooling/dev/environment.cjs')
 
 async function testFiles(directory) {

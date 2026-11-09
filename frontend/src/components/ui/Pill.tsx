@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, icon, radius, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, icon, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import { formatCount } from './media'
 
 export type PillTone = 'ok' | 'warn' | 'bad' | 'info' | 'acc' | 'neutral' | 'outline'

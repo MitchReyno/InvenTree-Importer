@@ -1,11 +1,10 @@
-import type { MediaIdentityLabels } from '../../media/identity-labels'
+import type { MediaIdentityLabels } from '#/media/identity-labels'
 import styled from 'styled-components'
-import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { Link, Paragraph, Small, Subheading, Summary } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { mediaResource } from '../../media/types'
-import { previewImage } from '../../media/images'
+import { Link, Paragraph, Small, Subheading, Summary, Button } from '#/components/ui'
+import { mediaResource } from '#/media/types'
+import { previewImage } from '#/media/images'
 
 interface Props {
   labels: MediaIdentityLabels

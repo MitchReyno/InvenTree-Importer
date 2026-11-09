@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { decodeArchiveManifest, MAX_MANIFEST_BYTES } from '../src/operations/archive-model.ts'
+import { decodeArchiveManifest, MAX_MANIFEST_BYTES } from '#/operations/archive-model.ts'
 
 test('supported archive manifests above the HTTP JSON limit round-trip under their own bounded parser', () => {
   const manifest = {

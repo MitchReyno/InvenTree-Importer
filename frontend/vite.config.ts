@@ -48,6 +48,8 @@ function sourceHmrGuard(): Plugin {
 
 export default defineConfig({
   plugins: [sourceHmrGuard(), react()],
+  // `#/` names this package's src, matching the intake server's subpath imports.
+  resolve: { alias: [{ find: /^#\//, replacement: join(frontend, 'src') + '/' }] },
   envDir: false,
   server: {
     host: '127.0.0.1',

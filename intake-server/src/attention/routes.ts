@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { schemas, type BatchAttentionDto } from '@invimport/contracts'
-import { readModelError } from '../api/errors.ts'
-import { pathId } from '../api/request.ts'
-import { bootstrap, type DevConfig } from '../config.ts'
-import { fail } from '../capture/model.ts'
+import { readModelError } from '#/api/errors.ts'
+import { pathId } from '#/api/request.ts'
+import { bootstrap, type DevConfig } from '#/config.ts'
+import { fail } from '#/capture/model.ts'
 
 /** A read model only: it never grants command authority. */
 export function registerAttention(

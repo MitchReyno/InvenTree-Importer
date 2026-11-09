@@ -1,7 +1,7 @@
 import { assertMediaRecipe } from '@invimport/contracts/media'
 import type { MediaEvidenceDto, MediaSnapshotDto, MediaVersionDto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { verifyBytes } from '../db/authority.ts'
+import { verifyBytes } from '#/db/authority.ts'
 
 export interface VersionRow {
   id: string

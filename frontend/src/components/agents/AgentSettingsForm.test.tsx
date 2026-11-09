@@ -1,6 +1,6 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { AgentSettingsForm } from './AgentSettingsForm'
 import type { agentsClient } from '@invimport/contracts/client'
 

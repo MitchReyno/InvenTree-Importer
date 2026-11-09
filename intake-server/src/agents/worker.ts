@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
-import type { ProcessingConfig } from '../processing/attempts.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 
 /** A second supervisor cannot claim this actor. Unknown old children keep the physical lane blocked. */
 export async function acquireAgentSupervisor(

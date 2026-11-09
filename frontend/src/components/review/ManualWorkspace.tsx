@@ -1,8 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Banner } from '../ui/Banner'
+import {
+  Banner,
+  Paragraph,
+  Heading,
+  HeadingRow,
+  VisuallyHidden,
+  useConfirmation,
+  Button,
+} from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   CaptureEditDto,
@@ -10,27 +18,23 @@ import type {
   ManualRunDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import type { MediaClient } from '../../media/types'
-import type { ProcessingClient } from '../../processing/types'
+import type { MediaClient } from '#/media/types'
+import type { ProcessingClient } from '#/processing/types'
 import type { ProcessingAnswerDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
+import type { OperatorReviewClient } from '#/operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import {
   MAX_SELECTED_LOTS,
   type ManualClient,
   type ManualStage,
   type RunRecoverySelection,
-} from '../../manual/types'
-import { useDirtySources } from '../../operator/useDirtySources'
-import { Paragraph, Heading, HeadingRow } from '../ui/primitives'
-import { VisuallyHidden } from '../ui/VisuallyHidden'
-import { useConfirmation } from '../ui/Confirmation'
-import { Button } from '../ui/Button'
+} from '#/manual/types'
+import { useDirtySources } from '#/operator/useDirtySources'
 import { ReviewWorkspace } from './ReviewWorkspace'
-import type { CaptureWorkspaceProps } from '../../capture/types'
-import { ReadyToAdd } from '../changes/ReadyToAdd'
-import { Added } from '../changes/Added'
-import { useTargetNavigation } from '../../header/useTargetNavigation'
+import type { CaptureWorkspaceProps } from '#/capture/types'
+import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
+import { Added } from '#/components/changes/Added'
+import { useTargetNavigation } from '#/header/useTargetNavigation'
 
 interface Props {
   batch: CaptureSnapshotDto

@@ -5,10 +5,10 @@ import type { ProcessingEnvelopeV2Dto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
 import { processingMediaFixture } from '../support/processing-media.ts'
-import { acceptEnvelope, claimProcessingCommand } from '../../src/processing/runner.ts'
-import { decodeMediaInputs } from '../../src/media/inputs.ts'
-import { readCommandMediaInputs } from '../../src/media/command-inputs.ts'
-import { transaction } from '../../src/db/database.ts'
+import { acceptEnvelope, claimProcessingCommand } from '#/processing/runner.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { readCommandMediaInputs } from '#/media/command-inputs.ts'
+import { transaction } from '#/db/database.ts'
 
 async function claim(fixture: Awaited<ReturnType<typeof processingFixture>>, attemptId: string) {
   const commands = await fixture.db.pool.query(

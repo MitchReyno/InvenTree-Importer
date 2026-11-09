@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import { color, size, space, typeVar } from '../../theme/generated/tokens'
-import { LIVE_UPDATE_FRESH_MS, type UpdateHealth } from '../operations/LiveUpdates'
-import { KeyValue } from '../ui/KeyValue'
-import { media } from '../ui/media'
-import { observationFresh, safeTargetNavigation, timestampFresh } from '../../header/observations'
+import { color, size, space, typeVar } from '#/theme/generated/tokens'
+import { LIVE_UPDATE_FRESH_MS, type UpdateHealth } from '#/components/operations/LiveUpdates'
+import { KeyValue, media } from '#/components/ui'
+import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
 
 interface Props {
   target?: ConnectionStatusDto['target']

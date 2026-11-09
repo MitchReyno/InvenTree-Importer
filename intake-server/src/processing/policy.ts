@@ -1,5 +1,5 @@
-import { nativeInstructions, nativeInstructionDigest } from '../agents/policy.ts'
-import { sha256 } from '../db/authority.ts'
+import { nativeInstructions, nativeInstructionDigest } from '#/agents/policy.ts'
+import { sha256 } from '#/db/authority.ts'
 
 export const instructionVersion = 'restricted-synthetic/1'
 export const toolProfileVersion = 'restricted-no-tools/1'

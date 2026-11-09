@@ -2,9 +2,9 @@ import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { commands, outbox, type CommandRow } from '../db/schema.ts'
-import { verifyBytes } from '../db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { commands, outbox, type CommandRow } from '#/db/schema.ts'
+import { verifyBytes } from '#/db/authority.ts'
 
 type DeliveryConflict = 'payload_conflict' | 'version_conflict'
 type WorkflowStatus = Awaited<ReturnType<DBOSClient['getWorkflow']>>

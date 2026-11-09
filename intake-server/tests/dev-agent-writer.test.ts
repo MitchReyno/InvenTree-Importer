@@ -3,11 +3,7 @@ import { mkdtemp, writeFile, symlink, chmod, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import {
-  AGENT_WRITER_FILE,
-  readAgentWriterUrl,
-  ensureAgentWriter,
-} from '../src/dev/agent-writer.ts'
+import { AGENT_WRITER_FILE, readAgentWriterUrl, ensureAgentWriter } from '#/dev/agent-writer.ts'
 
 const databaseName = `intake_dev_${'a'.repeat(32)}`
 const writerUrl = `postgresql://intake_agent_writer_0123456789abcdef0123456789abcdef:secret@127.0.0.1:55433/${databaseName}`

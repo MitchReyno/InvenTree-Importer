@@ -5,8 +5,8 @@ import type {
   CaptureAssignedLocationChangeDto,
   CaptureGroupLocationDto,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { activeMediaGroups } from '../media/context.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { activeMediaGroups } from '#/media/context.ts'
 import { captureGroupLocations, captureObservations } from './schema.ts'
 import { fail } from './model.ts'
 

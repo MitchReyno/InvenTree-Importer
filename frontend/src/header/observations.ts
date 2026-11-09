@@ -1,5 +1,5 @@
 import type { ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
-import type { ServerScope } from '../queries/scope'
+import type { ServerScope } from '#/queries/scope'
 
 export const HEADER_POLL_MS = 30_000
 export const HEADER_FRESH_MS = 60_000

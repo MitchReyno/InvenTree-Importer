@@ -3,20 +3,20 @@ import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { validate, type ProcessingCommandV5Dto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
-import { verifyBytes } from '../../db/authority.ts'
-import { commands } from '../../db/schema.ts'
-import { captureBatches } from '../../capture/schema.ts'
-import type { ProcessingConfig } from '../../processing/attempts.ts'
-import { fail } from '../../processing/model.ts'
-import { processingAttempts } from '../../processing/schema.ts'
-import { sessionCommandQueue, sessionHandlerVersion } from '../../processing/session-policy.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { verifyBytes } from '#/db/authority.ts'
+import { commands } from '#/db/schema.ts'
+import { captureBatches } from '#/capture/schema.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { fail } from '#/processing/model.ts'
+import { processingAttempts } from '#/processing/schema.ts'
+import { sessionCommandQueue, sessionHandlerVersion } from '#/processing/session-policy.ts'
 import {
   agentBatchPauses,
   agentSessionCursors,
   agentSessionInbox,
   agentSessions,
-} from '../schema.ts'
+} from '#/agents/schema.ts'
 import {
   queueSessionResume,
   runSessionTurn,

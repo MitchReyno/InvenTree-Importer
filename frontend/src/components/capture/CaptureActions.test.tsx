@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { CaptureActions } from './CaptureActions'
 
 function renderActions(overrides: Partial<Parameters<typeof CaptureActions>[0]> = {}) {

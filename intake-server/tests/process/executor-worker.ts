@@ -1,8 +1,8 @@
-import { database } from '../../src/db/database.ts'
-import { loadRun } from '../../src/execution/authority.ts'
-import { executeRun, type Checkpoint } from '../../src/execution/apply.ts'
-import { ExternalGate, WriterConnection } from '../../src/execution/ownership.ts'
-import type { WorkerInput } from '../../src/execution/supervisor.ts'
+import { database } from '#/db/database.ts'
+import { loadRun } from '#/execution/authority.ts'
+import { executeRun, type Checkpoint } from '#/execution/apply.ts'
+import { ExternalGate, WriterConnection } from '#/execution/ownership.ts'
+import type { WorkerInput } from '#/execution/supervisor.ts'
 
 // Process fault fixture: SAME public executor, only checkpoint publication/pausing differs.
 process.once('message', async (input: WorkerInput & { pause: Checkpoint; pauseKind: string }) => {

@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../../src/db/authority.ts'
-import { deliverCommand } from '../../src/workers/delivery.ts'
+import { sha256 } from '#/db/authority.ts'
+import { deliverCommand } from '#/workers/delivery.ts'
 
 async function until<T>(
   read: () => Promise<T>,

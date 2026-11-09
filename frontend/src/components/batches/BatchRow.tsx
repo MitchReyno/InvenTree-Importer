@@ -1,9 +1,7 @@
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
-import { batchHref } from '../../navigation/batch-route'
-import { media } from '../ui/media'
-import { hoverTransition } from '../ui/motion'
-import { RelativeTime } from '../ui/RelativeTime'
+import { color, space, typeVar } from '#/theme/generated/tokens'
+import { batchHref } from '#/navigation/batch-route'
+import { media, hoverTransition, RelativeTime } from '#/components/ui'
 import { BatchThumbnail } from './BatchThumbnail'
 import { AddedBar, BatchState, evidenceLine, stageLine, type InboxBatch } from './batchState'
 

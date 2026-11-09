@@ -1,14 +1,14 @@
 import styled from 'styled-components'
-import { color, space, type } from '../../theme/generated/tokens'
-import { lotCrops } from '../../processing/proposed-lots'
+import { color, space, type } from '#/theme/generated/tokens'
+import { lotCrops } from '#/processing/proposed-lots'
 import type {
   CaptureSnapshotDto,
   ManualWorkspaceDto,
   OperatorLotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import { Heading, Panel, Small } from '../ui/primitives'
-import { display } from '../../capture/display'
+import { Heading, Panel, Small, Pill, ItemRow } from '#/components/ui'
+import { display } from '#/capture/display'
 import {
   GROUP_LABELS,
   GROUP_ORDER,
@@ -17,11 +17,9 @@ import {
   type LotIds,
   type QueueGroup,
   type ReviewFilter,
-} from '../../operator/review-model'
-import { Pill } from '../ui/Pill'
-import { LotStatusChips } from '../operator/LotStatusChips'
-import { ItemRow } from '../ui/ItemRow'
-import { RetiredLots } from '../operator/RetiredLots'
+} from '#/operator/review-model'
+import { LotStatusChips } from '#/components/operator/LotStatusChips'
+import { RetiredLots } from '#/components/operator/RetiredLots'
 
 interface Props {
   batch: CaptureSnapshotDto

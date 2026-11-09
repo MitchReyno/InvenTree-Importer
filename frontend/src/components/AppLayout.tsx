@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { pageWidth, space } from '../theme/generated/tokens'
+import { pageWidth, space } from '#/theme/generated/tokens'
 import { media } from './ui/media'
 
 /** A page's content at the design's width, centred, with the page padding inside it. */

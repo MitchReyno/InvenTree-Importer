@@ -4,8 +4,7 @@ import {
   type CaptureSnapshotDto,
   type ProcessingProposalDto,
 } from '@invimport/contracts'
-import { Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { Small, Button } from '#/components/ui'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]

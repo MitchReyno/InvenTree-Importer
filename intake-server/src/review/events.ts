@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import { appendEvent } from '../db/authority.ts'
+import { appendEvent } from '#/db/authority.ts'
 
 /** Stream lock is acquired last, after the original dispatch/command decision. */
 export async function publishManualRun(client: PoolClient, runId: string) {

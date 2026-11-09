@@ -6,8 +6,8 @@ import WebSocket from 'ws'
 import { LIVE_PROTOCOL, validate, type LiveFrameDto } from '@invimport/contracts'
 import { manualFixture } from '../support/manual.ts'
 import { until } from '../support/manual-process.ts'
-import { appendEvent } from '../../src/db/authority.ts'
-import { liveProjection } from '../../src/live/projection.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { liveProjection } from '#/live/projection.ts'
 
 async function connect(fixture: Awaited<ReturnType<typeof manualFixture>>) {
   const frames: LiveFrameDto[] = []

@@ -1,5 +1,5 @@
 import { css, keyframes } from 'styled-components'
-import { duration, easing, offset } from '../../theme/generated/tokens'
+import { duration, easing, offset } from '#/theme/generated/tokens'
 import { media } from './media'
 
 const pulseFrames = keyframes`

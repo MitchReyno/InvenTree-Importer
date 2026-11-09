@@ -1,8 +1,7 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
-import { Heading, Panel, Small } from '../ui/primitives'
-import { Pill } from '../ui/Pill'
+import { Heading, Panel, Small, Pill } from '#/components/ui'
 
 interface Props {
   batch: CaptureSnapshotDto

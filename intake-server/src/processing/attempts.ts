@@ -2,15 +2,15 @@ import { processingProfiles } from './policy.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile } from './session-policy.ts'
 import type { ProcessingInputDto } from '@invimport/contracts'
-import { readAgentSettings } from '../agents/settings.ts'
-import { agentSessions } from '../agents/schema.ts'
-import { nativeProfileId } from '../agents/policy.ts'
+import { readAgentSettings } from '#/agents/settings.ts'
+import { agentSessions } from '#/agents/schema.ts'
+import { nativeProfileId } from '#/agents/policy.ts'
 import { randomUUID, createHmac } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/model.ts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { commands, outbox } from '../db/schema.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { commands, outbox } from '#/db/schema.ts'
 import { processingAttempts, processingDependencies, processingInputs } from './schema.ts'
 import { MIN_CHANNEL_SECRET_BYTES, MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import {
@@ -24,7 +24,7 @@ import {
   type Stage,
   type SelectedProcessingProfile,
 } from './model.ts'
-import type { LockedMediaInputs } from '../media/locked-inputs.ts'
+import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 
 export interface ProcessingConfig extends CaptureBinding {
   /** Separate private runner-channel root, never a target/provider credential or DTO. */

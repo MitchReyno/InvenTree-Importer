@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { skipToken, useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '../queries/scope'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
 
 /** Matches the header's connection freshness contract. */
 export const APPLICATION_FRESH_MS = 60_000

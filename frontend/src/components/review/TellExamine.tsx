@@ -1,20 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
-import { examineLead } from '../../processing/source'
-import {
-  confirmPending,
-  editPending,
-  pendingMessage,
-  sendKey,
-} from '../../processing/pending-messages'
-import type { ProcessingClient } from '../../processing/types'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { color, radius, space } from '../../theme/generated/tokens'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
-import { chatConfirmation } from '../processing/SessionChatPanel'
-import { Button } from '../ui/Button'
-import { Label, Small, TextArea } from '../ui/primitives'
+import { examineLead } from '#/processing/source'
+import { confirmPending, editPending, pendingMessage, sendKey } from '#/processing/pending-messages'
+import type { ProcessingClient } from '#/processing/types'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { color, radius, space } from '#/theme/generated/tokens'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { chatConfirmation } from '#/components/processing/SessionChatPanel'
+import { Button, Label, Small, TextArea } from '#/components/ui'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead

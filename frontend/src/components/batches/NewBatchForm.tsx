@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
+import type { BatchCreate } from '@invimport/contracts/api'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { Form, Input, Label, Paragraph, TextArea } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { Form, Input, Label, Paragraph, TextArea, Button } from '#/components/ui'
 
 type NewBatchValues = BatchCreate
 type NewBatchFormProps = {

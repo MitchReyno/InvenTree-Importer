@@ -1,8 +1,8 @@
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
-import { database } from '../db/database.ts'
-import { executeProcessingCommand, dispatchProcessingCommands } from '../processing/delivery.ts'
-import { processingApplication } from '../processing/queue.ts'
+import { database } from '#/db/database.ts'
+import { executeProcessingCommand, dispatchProcessingCommands } from '#/processing/delivery.ts'
+import { processingApplication } from '#/processing/queue.ts'
 import { readDevState, schedulerUrl } from './state.ts'
 import { syntheticDevelopmentRunner } from './synthetic-runner.ts'
 

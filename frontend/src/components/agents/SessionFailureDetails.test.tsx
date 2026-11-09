@@ -1,10 +1,10 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import type { SessionFailureDto } from '@invimport/contracts'
 import { SessionFailureDetails } from './SessionFailureDetails'
-import { SessionPanel } from '../processing/SessionPanel'
+import { SessionPanel } from '#/components/processing/SessionPanel'
 
 const details: SessionFailureDto = {
   id: 'failure',
@@ -92,8 +92,8 @@ test('opening Processing details preserves the chat draft and never retries or s
 })
 
 test('a changed server scope never reuses another account diagnostic', async () => {
-  const { ServerScopeContext } = await import('../../queries/scope')
-  const { fixtureScope } = await import('../../test/render')
+  const { ServerScopeContext } = await import('#/queries/scope')
+  const { fixtureScope } = await import('#/test/render')
 
   let finish: (value: SessionFailureDto) => void = () => {}
 

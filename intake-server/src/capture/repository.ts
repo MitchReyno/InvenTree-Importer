@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { streams } from '../db/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { streams } from '#/db/schema.ts'
 import {
   captureBatches,
   captureSubjects,
@@ -28,7 +28,7 @@ import {
 } from '@invimport/contracts'
 import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { fail, type CaptureBinding } from './model.ts'
-import { transaction } from '../db/database.ts'
+import { transaction } from '#/db/database.ts'
 import { validatePartSpec, PartSpecError } from './part-spec.ts'
 import { readCaptureContexts, retainCaptureContext } from './context.ts'
 import { applyGroupLocation, readGroupLocations } from './locations.ts'
@@ -38,7 +38,7 @@ import {
   readSettingNotes,
   readSettingsIntent,
 } from './settings-intent.ts'
-import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
+import { appendEvent, idempotent, sha256 } from '#/db/authority.ts'
 import { readEvidenceObservations } from './evidence-observation-read.ts'
 import {
   applyObservationEdit,
@@ -686,7 +686,7 @@ async function applyLockedCaptureEdit(
         const executor = privilege.rows[0]?.executor === true
         if (executor) {
           // Loaded on use: execution depends on capture, so capture must not import it eagerly.
-          const { stockSourceHistory } = await import('../execution/source.ts')
+          const { stockSourceHistory } = await import('#/execution/source.ts')
           const history = await stockSourceHistory(
             c,
             { targetId: b.target_id, sourceId: b.source_id, originalSourceKey: b.source_id },
@@ -1265,7 +1265,7 @@ export function captureRepository(pool: Pool, config: Binding) {
           ]
           if (fields.length) {
             // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
-            const { fieldsSuperseded } = await import('../processing/currentness.ts')
+            const { fieldsSuperseded } = await import('#/processing/currentness.ts')
             await fieldsSuperseded(c, {
               batchId: id,
               subjectId: input.change.id,

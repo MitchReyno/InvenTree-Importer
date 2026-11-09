@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { processingFixture } from './processing.ts'
-import { sealed } from '../../src/processing/model.ts'
-import { transaction } from '../../src/db/database.ts'
-import { resolveMediaInputs } from '../../src/media/inputs.ts'
-import { sessionLotInputManifest } from '../../src/processing/session-input.ts'
+import { sealed } from '#/processing/model.ts'
+import { transaction } from '#/db/database.ts'
+import { resolveMediaInputs } from '#/media/inputs.ts'
+import { sessionLotInputManifest } from '#/processing/session-input.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 type Capture = Awaited<ReturnType<Fixture['seedCapture']>>

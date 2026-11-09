@@ -3,8 +3,8 @@ import {
   isEffectsPlan,
   locationCreateKey,
   logicalEffectKey,
-} from '../execution/effects/effects-plan.ts'
-import type { ExecutablePlan } from '../execution/media-plan.ts'
+} from '#/execution/effects/effects-plan.ts'
+import type { ExecutablePlan } from '#/execution/media-plan.ts'
 
 type Node = PreparationNodeDto
 type Label = (observationId: string) => string | undefined

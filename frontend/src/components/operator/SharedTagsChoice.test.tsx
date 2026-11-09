@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { SharedTagsChoice } from './SharedTagsChoice'
 
 const intent = (manual: string[], auto: boolean) =>

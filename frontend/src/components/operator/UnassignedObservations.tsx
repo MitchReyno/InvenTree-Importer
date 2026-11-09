@@ -1,9 +1,8 @@
 import styled from 'styled-components'
-import { radius, space } from '../../theme/generated/tokens'
+import { radius, space } from '#/theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { coverSizes, observationImage } from '../../media/images'
-import { Field, Small, Subheading } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { coverSizes, observationImage } from '#/media/images'
+import { Field, Small, Subheading, Button } from '#/components/ui'
 import { ObservationMove } from './ObservationMove'
 import { observationNames } from './observation-names'
 

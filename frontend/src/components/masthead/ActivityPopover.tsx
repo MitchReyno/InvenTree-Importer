@@ -1,7 +1,7 @@
 import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { color, size, space, typeVar } from '../../theme/generated/tokens'
-import { batchHref } from '../../navigation/batch-route'
+import { color, size, space, typeVar } from '#/theme/generated/tokens'
+import { batchHref } from '#/navigation/batch-route'
 import {
   batchPill,
   jobPill,
@@ -10,11 +10,8 @@ import {
   segmentSteps,
   stateWords,
   stepTone,
-} from '../../header/workSegments'
-import { media } from '../ui/media'
-import { Pill } from '../ui/Pill'
-import { Link, Small } from '../ui/primitives'
-import { ProgressSegments } from '../ui/ProgressSegments'
+} from '#/header/workSegments'
+import { media, Pill, Link, Small, ProgressSegments } from '#/components/ui'
 
 type WorkItem = HeaderWorkDto['work'][number]
 type Session = HeaderWorkDto['active_sessions'][number]

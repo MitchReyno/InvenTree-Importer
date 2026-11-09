@@ -1,11 +1,14 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import type { ThemeController } from '../../theme/theme'
-import { Breadcrumb, type BreadcrumbItem } from '../ui/Breadcrumb'
-import { media } from '../ui/media'
-import { linkTouchArea } from '../ui/primitives'
-import { visuallyHidden } from '../ui/VisuallyHidden'
+import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import type { ThemeController } from '#/theme/theme'
+import {
+  Breadcrumb,
+  type BreadcrumbItem,
+  media,
+  linkTouchArea,
+  visuallyHidden,
+} from '#/components/ui'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
 import { MastheadMenu } from './MastheadMenu'
 

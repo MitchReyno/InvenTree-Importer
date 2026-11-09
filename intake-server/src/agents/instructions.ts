@@ -1,12 +1,12 @@
 import type { Pool, PoolClient } from 'pg'
 import { and, asc, desc, eq, isNotNull, notInArray } from 'drizzle-orm'
 import type { InstructionDeliveryDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { appendEvent } from '../db/authority.ts'
-import { captureBatches, captureInstructions } from '../capture/schema.ts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import { fail } from '../processing/model.ts'
-import { processingAttempts, processingJobs } from '../processing/schema.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { captureBatches, captureInstructions } from '#/capture/schema.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { fail } from '#/processing/model.ts'
+import { processingAttempts, processingJobs } from '#/processing/schema.ts'
 import { agentSessions } from './schema.ts'
 import { appendSessionInbox } from './tools/inbox.ts'
 
@@ -123,7 +123,11 @@ async function appendInstructions(
           ? `instruction:${instruction.id}:${attemptId}`
           : `instruction:${instruction.id}`,
         kind: 'instruction',
-        payload: { instruction_id: instruction.id, text: instruction.text, group_id: instruction.groupId },
+        payload: {
+          instruction_id: instruction.id,
+          text: instruction.text,
+          group_id: instruction.groupId,
+        },
       },
       { publish: false },
     )

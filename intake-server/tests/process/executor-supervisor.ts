@@ -1,4 +1,4 @@
-import { startApply, type SupervisorInput } from '../../src/execution/supervisor.ts'
+import { startApply, type SupervisorInput } from '#/execution/supervisor.ts'
 
 process.once('message', async (input: SupervisorInput) => {
   try {

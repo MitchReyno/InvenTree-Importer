@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { GlobalStyle } from '../../GlobalStyle'
-import { Masthead } from '../Masthead'
-import { HeaderDisclosure } from '../HeaderDisclosure'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { Masthead } from '#/components/masthead/Masthead'
+import { HeaderDisclosure } from '#/components/masthead/HeaderDisclosure'
 
 /** Owned browser fixture: no API clients, target observations or provider calls. */
 export function HeaderDisclosureProof() {

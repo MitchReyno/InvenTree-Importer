@@ -6,15 +6,13 @@ import type {
   OperatorLotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Field, Paragraph, Small, Subheading } from '../ui/primitives'
-import { color, type } from '../../theme/generated/tokens'
-import { mediaDisplayLabels } from '../../media/identity-labels'
+import { Field, Paragraph, Small, Subheading, Pill, localTime } from '#/components/ui'
+import { color, type } from '#/theme/generated/tokens'
+import { mediaDisplayLabels } from '#/media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'
-import { ProcessingSources } from '../processing/ProcessingSources'
+import { ProcessingSources } from '#/components/processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
-import { Pill } from '../ui/Pill'
 import { LotObservations } from './LotObservations'
-import { localTime } from '../ui/RelativeTime'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]

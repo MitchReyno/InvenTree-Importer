@@ -1,6 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { MediaUpload } from './MediaUpload'
 
 function props(disabled: boolean) {

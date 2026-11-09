@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { startSessionToolServer } from '../../src/agents/tools/server.ts'
-import { runSessionTurn, type SessionDriver } from '../../src/agents/session/session-runner.ts'
-import { startSessionBridge } from '../../src/agents/shared-vm/coordinator.ts'
+import { startSessionToolServer } from '#/agents/tools/server.ts'
+import { runSessionTurn, type SessionDriver } from '#/agents/session/session-runner.ts'
+import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 
 // The caller stages a fresh synthetic picture and supplies its answer only to the assertion.
 for (const provider of ['claude', 'codex'] as const) {

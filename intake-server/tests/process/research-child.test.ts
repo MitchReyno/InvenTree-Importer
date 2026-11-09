@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { controlledResearchSession } from '../../src/research/child-transport.ts'
-import { restrictedResearchRunner } from '../../src/research/adapter.ts'
+import { controlledResearchSession } from '#/research/child-transport.ts'
+import { restrictedResearchRunner } from '#/research/adapter.ts'
 import type { ProcessingEnvelopeDto } from '@invimport/contracts'
 import { researchInputFixture } from '../support/research-input.ts'
-import { validateProposalSources } from '../../src/processing/provenance.ts'
+import { validateProposalSources } from '#/processing/provenance.ts'
 
 const fixtureScript = new URL('../fixtures/research-protocol-child.cjs', import.meta.url)
 

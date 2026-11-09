@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
-import { createServerQueryClient } from '../../queries/client'
-import { ServerScopeContext, type ServerScope } from '../../queries/scope'
+import { createServerQueryClient } from '#/queries/client'
+import { ServerScopeContext, type ServerScope } from '#/queries/scope'
 
 interface Props {
   children: ReactNode

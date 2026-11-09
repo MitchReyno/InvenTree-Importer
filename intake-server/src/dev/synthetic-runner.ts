@@ -1,8 +1,8 @@
 import type { ProcessingEnvelopeV2Dto, ProcessingSourceDto } from '@invimport/contracts'
-import { sha256 } from '../db/authority.ts'
-import { decodeMediaInputs } from '../media/inputs.ts'
-import { evidenceNotes } from '../capture/context-input.ts'
-import type { RestrictedResearchRunner } from '../processing/runner.ts'
+import { sha256 } from '#/db/authority.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { evidenceNotes } from '#/capture/context-input.ts'
+import type { RestrictedResearchRunner } from '#/processing/runner.ts'
 
 /** Deterministic development runner: cites retained evidence only; no model or inventory research. */
 export const syntheticDevelopmentRunner: RestrictedResearchRunner = {

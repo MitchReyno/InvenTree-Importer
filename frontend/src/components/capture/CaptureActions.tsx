@@ -1,9 +1,7 @@
 import { useId } from 'react'
 import styled from 'styled-components'
-import { color, icon, opacity, radius, space, type, typeVar } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import { hoverTransition } from '../ui/motion'
-import { Banner } from '../ui/Banner'
+import { color, icon, opacity, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import { media, hoverTransition, Banner } from '#/components/ui'
 
 type Props = {
   mediaDisabled: boolean

@@ -9,9 +9,9 @@ import type {
 } from '@invimport/contracts'
 import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '../../../test/render'
+import { render } from '#/test/render'
 import { RecordsStage } from './RecordsStage'
-import type { ProcessingClient } from '../../../processing/types'
+import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
 
 const context = '0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03'

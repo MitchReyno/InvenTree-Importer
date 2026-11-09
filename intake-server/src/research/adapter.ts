@@ -6,7 +6,7 @@ import {
   type ProcessingProposalV3Dto,
   type ProcessingQuestionSpecDto,
 } from '@invimport/contracts'
-import type { ResearchInput, RestrictedResearchRunner } from '../processing/runner.ts'
+import type { ResearchInput, RestrictedResearchRunner } from '#/processing/runner.ts'
 import type { ResearchBrokerFactory, ResearchToolBroker } from './broker.ts'
 import { awaitResearchResult } from './abort.ts'
 import {

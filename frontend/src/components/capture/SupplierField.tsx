@@ -1,18 +1,25 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type {
   CatalogueRecordDto,
   CaptureReferenceDraftDto,
   CaptureSettingsIntentDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
-import { referenceLabel } from '../../capture/settings-model'
-import { useIntentTicket } from '../../capture/useIntentTicket'
-import type { useCatalogue } from '../../catalogue/useCatalogue'
-import { DisabledFeature } from '../ui/DisabledFeature'
-import { SearchableReferencePicker } from '../ui/SearchableReferencePicker'
-import { CheckboxLabel, Field, Input, Label, Small, Subheading } from '../ui/primitives'
+import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import { referenceLabel } from '#/capture/settings-model'
+import { useIntentTicket } from '#/capture/useIntentTicket'
+import type { useCatalogue } from '#/catalogue/useCatalogue'
+import {
+  DisabledFeature,
+  SearchableReferencePicker,
+  CheckboxLabel,
+  Field,
+  Input,
+  Label,
+  Small,
+  Subheading,
+} from '#/components/ui'
 
 type Supplier = CaptureSettingsIntentDto['supplier']
 type CompanyDraft = Extract<CaptureReferenceDraftDto, { kind: 'company' }>

@@ -15,42 +15,39 @@ import {
   type SessionToolErrorDto,
   type SessionToolResultDto,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
-import { onLeadIdentity } from '../../processing/stable-identity.ts'
-import { appendEvent } from '../../db/authority.ts'
-import { captureBatches } from '../../capture/schema.ts'
-import {
-  lockCaptureForAgentWrite,
-  lockCaptureForInputSettlement,
-} from '../../capture/repository.ts'
-import { CaptureError } from '../../capture/model.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { onLeadIdentity } from '#/processing/stable-identity.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { captureBatches } from '#/capture/schema.ts'
+import { lockCaptureForAgentWrite, lockCaptureForInputSettlement } from '#/capture/repository.ts'
+import { CaptureError } from '#/capture/model.ts'
 import {
   leadBatchView,
   proposeLot,
   recordObservation,
   regroup,
   type LotFormingResult,
-} from '../../capture/evidence-observations.ts'
-import type { ProcessingConfig } from '../../processing/attempts.ts'
-import { sealed } from '../../processing/model.ts'
-import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '../../processing/limits.ts'
-import { catalogueSources, deliveredSourceCheck } from '../../processing/provenance.ts'
-import { lockProcessingAttempt } from '../../processing/state.ts'
+} from '#/capture/evidence-observations.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { sealed } from '#/processing/model.ts'
+import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '#/processing/limits.ts'
+import { catalogueSources, deliveredSourceCheck } from '#/processing/provenance.ts'
+import { lockProcessingAttempt } from '#/processing/state.ts'
 import {
   processingAttempts,
   processingMessages,
   processingProposals,
   processingQuestions,
-} from '../../processing/schema.ts'
-import { decodeMediaInputs, type MediaInputVersion } from '../../media/inputs.ts'
-import { mediaContent } from '../../media/content.ts'
-import type { BlobStore } from '../../media/blob-store.ts'
-import { sha256 } from '../../db/authority.ts'
+} from '#/processing/schema.ts'
+import { decodeMediaInputs, type MediaInputVersion } from '#/media/inputs.ts'
+import { mediaContent } from '#/media/content.ts'
+import type { BlobStore } from '#/media/blob-store.ts'
+import { sha256 } from '#/db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
-import { agentSessionOutbox, agentSessions } from '../schema.ts'
+import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
-import { regionCropCache } from '../../media/region-crops.ts'
+import { regionCropCache } from '#/media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024

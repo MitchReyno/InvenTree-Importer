@@ -6,7 +6,7 @@ import {
   type CaptureContextRecordDto,
   type CaptureLotContextDto,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureContexts, captureObservations } from './schema.ts'
 import { fail } from './model.ts'
 

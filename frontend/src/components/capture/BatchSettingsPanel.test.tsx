@@ -9,10 +9,10 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
-import type { SettingsPorts } from '../../capture/types'
-import type { CatalogueClient } from '../../catalogue/types'
-import { fixtureScope, render } from '../../test/render'
-import { UpdateHealthContext } from '../operations/LiveUpdates'
+import type { SettingsPorts } from '#/capture/types'
+import type { CatalogueClient } from '#/catalogue/types'
+import { fixtureScope, render } from '#/test/render'
+import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import { CaptureWorkspace } from './CaptureWorkspace'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */

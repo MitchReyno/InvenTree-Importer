@@ -4,12 +4,12 @@ import type {
   ProcessingBlockerDto,
   ProcessingInputDto,
 } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/model.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
 import { canonical } from '@invimport/contracts/json'
-import { readMediaInputScopeResults, decodeMediaInputs, type MediaInputs } from '../media/inputs.ts'
-import { lockMediaInputScopes, type LockedMediaInputs } from '../media/locked-inputs.ts'
-import { readCommandMediaInputs } from '../media/command-inputs.ts'
-import { MediaInputUnavailableError } from '../media/input-errors.ts'
+import { readMediaInputScopeResults, decodeMediaInputs, type MediaInputs } from '#/media/inputs.ts'
+import { lockMediaInputScopes, type LockedMediaInputs } from '#/media/locked-inputs.ts'
+import { readCommandMediaInputs } from '#/media/command-inputs.ts'
+import { MediaInputUnavailableError } from '#/media/input-errors.ts'
 import { fail, processingSubjectScope } from './model.ts'
 
 export type ProcessingMediaAvailability =

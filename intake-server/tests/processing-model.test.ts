@@ -2,19 +2,19 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate, type MediaSnapshotDto } from '@invimport/contracts'
-import { materialize } from '../src/review/model.ts'
-import { retainedQuestionSpec } from '../src/processing/retained.ts'
+import { materialize } from '#/review/model.ts'
+import { retainedQuestionSpec } from '#/processing/retained.ts'
 import {
   inputManifest,
   mediaInputManifest,
   processingSubjectScope,
   sealed,
   unseal,
-} from '../src/processing/model.ts'
-import { processingInputIsCurrent } from '../src/processing/authority.ts'
-import { canonicalMedia } from '../src/media/encoding.ts'
-import { decodeMediaInputs, scopeMediaInputs } from '../src/media/inputs.ts'
-import { sha256 } from '../src/db/authority.ts'
+} from '#/processing/model.ts'
+import { processingInputIsCurrent } from '#/processing/authority.ts'
+import { canonicalMedia } from '#/media/encoding.ts'
+import { decodeMediaInputs, scopeMediaInputs } from '#/media/inputs.ts'
+import { sha256 } from '#/db/authority.ts'
 import { manualInputFixture, emptyProcessingMedia } from './support/processing-input.ts'
 
 test('immutable manual input retains exact human values and explicit stage dependencies', () => {

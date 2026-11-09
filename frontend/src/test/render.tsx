@@ -1,8 +1,8 @@
 import { render as renderUi, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { ServerStateProvider } from '../components/query/ServerStateProvider'
-import { ConfirmationProvider } from '../components/ui/Confirmation'
-import type { ServerScope } from '../queries/scope'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { ConfirmationProvider } from '#/components/ui'
+import type { ServerScope } from '#/queries/scope'
 
 export const fixtureScope: ServerScope = {
   origin: 'http://localhost:3000',

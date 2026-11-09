@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
-import { decodeIsolated } from '../../../src/media/decoder-runner.ts'
+import { decodeIsolated } from '#/media/decoder-runner.ts'
 
 const run = promisify(execFile)
 const MEMORY_LIMIT_BYTES = MEDIA_LIMITS.memoryMiB * 1024 * 1024

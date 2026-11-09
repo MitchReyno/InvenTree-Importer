@@ -1,10 +1,10 @@
 import { StrictMode, useState } from 'react'
 import styled from 'styled-components'
-import { GlobalStyle } from '../../GlobalStyle'
-import { EvidenceDragContext } from '../EvidenceDragContext'
-import { EvidenceDragHandle } from '../EvidenceDragHandle'
-import { useEvidenceDropZone } from '../EvidenceDropZone'
-import { EvidenceGroup } from '../../ui/EvidenceGroup'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { EvidenceDragContext } from '#/components/media/EvidenceDragContext'
+import { EvidenceDragHandle } from '#/components/media/EvidenceDragHandle'
+import { useEvidenceDropZone } from '#/components/media/EvidenceDropZone'
+import { EvidenceGroup } from '#/components/ui'
 
 export function EvidenceDragProof() {
   const [group, setGroup] = useState<string | null>(null)

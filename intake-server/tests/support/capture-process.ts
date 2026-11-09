@@ -3,8 +3,8 @@ import { once } from 'node:events'
 import { createServer as httpServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from './database.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
-import { grantCapture } from '../../src/capture/grants.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantCapture } from '#/capture/grants.ts'
 import { fileURLToPath } from 'node:url'
 
 /** Owned fixture: real main.ts child + restricted role + bounded fake read endpoint, no real env. */

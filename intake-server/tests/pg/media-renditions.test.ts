@@ -9,16 +9,16 @@ import { promisify } from 'node:util'
 import pg from 'pg'
 import sharp from 'sharp'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
-import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
-import { blobReferenced } from '../../src/media/blob-reference.ts'
-import { BlobStore } from '../../src/media/blob-store.ts'
-import { grantMedia } from '../../src/media/grants.ts'
-import { grantProjection } from '../../src/operations/grants.ts'
-import { grantCaptureRead } from '../../src/capture/grants.ts'
-import { captureRepository } from '../../src/capture/repository.ts'
-import { mediaRepository } from '../../src/media/repository.ts'
-import { processMediaCommand } from '../../src/media/worker.ts'
-import { database } from '../../src/db/database.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
+import { blobReferenced } from '#/media/blob-reference.ts'
+import { BlobStore } from '#/media/blob-store.ts'
+import { grantMedia } from '#/media/grants.ts'
+import { grantProjection } from '#/operations/grants.ts'
+import { grantCaptureRead } from '#/capture/grants.ts'
+import { captureRepository } from '#/capture/repository.ts'
+import { mediaRepository } from '#/media/repository.ts'
+import { processMediaCommand } from '#/media/worker.ts'
+import { database } from '#/db/database.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 
 const run = promisify(execFile)
@@ -174,11 +174,11 @@ test(
   'the preview route serves each size privately, revalidates by digest and falls back to the page',
   { skip: image ? false : 'Explicit decoder image needed for PG/decoder boundary' },
   async () => {
-    const { createServer } = await import('../../src/api/server.ts')
-    const { registerCapture } = await import('../../src/capture/routes.ts')
-    const { registerMediaRoutes } = await import('../../src/media/routes.ts')
-    const { grantFoundation } = await import('../../src/operations/grants.ts')
-    const { grantCapture } = await import('../../src/capture/grants.ts')
+    const { createServer } = await import('#/api/server.ts')
+    const { registerCapture } = await import('#/capture/routes.ts')
+    const { registerMediaRoutes } = await import('#/media/routes.ts')
+    const { grantFoundation } = await import('#/operations/grants.ts')
+    const { grantCapture } = await import('#/capture/grants.ts')
     const db = await isolatedDatabase()
     const identity = await seedAuthority(db.pool)
     const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-renditions-http-')))
@@ -401,11 +401,11 @@ test(
   'observation crops are served per size, revalidated, and refused under a stale region revision',
   { skip: image ? false : 'Explicit decoder image needed for PG/decoder boundary' },
   async () => {
-    const { createServer } = await import('../../src/api/server.ts')
-    const { registerCapture } = await import('../../src/capture/routes.ts')
-    const { registerMediaRoutes } = await import('../../src/media/routes.ts')
-    const { grantFoundation } = await import('../../src/operations/grants.ts')
-    const { grantCapture } = await import('../../src/capture/grants.ts')
+    const { createServer } = await import('#/api/server.ts')
+    const { registerCapture } = await import('#/capture/routes.ts')
+    const { registerMediaRoutes } = await import('#/media/routes.ts')
+    const { grantFoundation } = await import('#/operations/grants.ts')
+    const { grantCapture } = await import('#/capture/grants.ts')
     const { observationCropRevision } = await import('@invimport/contracts/media')
     const db = await isolatedDatabase()
     const identity = await seedAuthority(db.pool)

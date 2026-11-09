@@ -11,9 +11,9 @@ import {
   readServerState,
   serverIdentity,
   sharedServerAdmin,
-} from '../src/dev/pg-identity.ts'
-import { developmentStateRoot } from '../src/dev/target.ts'
-import { assertStateServer } from '../src/dev/state.ts'
+} from '#/dev/pg-identity.ts'
+import { developmentStateRoot } from '#/dev/target.ts'
+import { assertStateServer } from '#/dev/state.ts'
 
 const state = {
   version: 1,

@@ -1,4 +1,4 @@
-import { sha256 } from '../db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 export const nativeProfileId = 'native-agent/1'
 export const nativeHandlerVersion = 'processing/4'
 export const nativeInstructions =

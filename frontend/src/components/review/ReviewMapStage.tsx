@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
+import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { MediaClient } from '../../media/types'
-import type { OperatorReviewClient } from '../../operator/types'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RestructureDialog } from '../operator/RestructureDialog'
+import type { MediaClient } from '#/media/types'
+import type { OperatorReviewClient } from '#/operator/types'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
-import { useDirtySources } from '../../operator/useDirtySources'
-import type { ProcessingClient } from '../../processing/types'
+import { useDirtySources } from '#/operator/useDirtySources'
+import type { ProcessingClient } from '#/processing/types'
 
 type Props = {
   batch: CaptureSnapshotDto

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { canonicalMedia } from '../../src/media/encoding.ts'
-import { decodeMediaInputs } from '../../src/media/inputs.ts'
-import { sha256 } from '../../src/db/authority.ts'
+import { canonicalMedia } from '#/media/encoding.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { sha256 } from '#/db/authority.ts'
 
 /** Synthetic retained manual evidence. No inventory/provider connection is constructed. */
 export function manualInputFixture(): CaptureSnapshotDto {

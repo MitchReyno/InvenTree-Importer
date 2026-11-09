@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, font, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, font, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { formatCount, media } from './media'
 
 /** The pill leads the row; `detail` is a muted note after the record. */

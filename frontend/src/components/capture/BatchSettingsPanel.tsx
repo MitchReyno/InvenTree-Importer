@@ -2,29 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import type {
-  CaptureBatchSettingsChangeDto,
-  CaptureDefaultLocationSettingDto,
-  CaptureReferenceDraftDto,
-  MediaReceiptDto,
-  OperatorReviewDto,
-} from '@invimport/contracts'
-import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '../../capture/types'
+import { color, size, space } from '#/theme/generated/tokens'
 import {
-  referenceLabel,
-  settingsChange,
-  settingsValues,
-  type SettingsValues,
-} from '../../capture/settings-model'
-import type { QueueState } from '../../capture/save-queue'
-import { useSaveQueue } from '../../capture/useSaveQueue'
-import { useCatalogue } from '../../catalogue/useCatalogue'
-import { AutosaveStatus, type AutosaveState } from '../ui/AutosaveStatus'
-import { TextField } from '../ui/TextField'
-import { SharedTagsInput } from '../ui/SharedTagsInput'
-import {
+  media,
+  AutosaveStatus,
+  type AutosaveState,
+  TextField,
+  SharedTagsInput,
   Fieldset,
   Form,
   Heading,
@@ -34,13 +18,30 @@ import {
   Panel,
   Small,
   TextArea,
-} from '../ui/primitives'
+  Banner,
+  Button,
+} from '#/components/ui'
+import type {
+  CaptureBatchSettingsChangeDto,
+  CaptureDefaultLocationSettingDto,
+  CaptureReferenceDraftDto,
+  MediaReceiptDto,
+  OperatorReviewDto,
+} from '@invimport/contracts'
+import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '#/capture/types'
+import {
+  referenceLabel,
+  settingsChange,
+  settingsValues,
+  type SettingsValues,
+} from '#/capture/settings-model'
+import type { QueueState } from '#/capture/save-queue'
+import { useSaveQueue } from '#/capture/useSaveQueue'
+import { useCatalogue } from '#/catalogue/useCatalogue'
 import { DefaultLocationField } from './DefaultLocationField'
 import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
-import { batchHref } from '../../navigation/batch-route'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
+import { batchHref } from '#/navigation/batch-route'
 
 type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
   batch: Snapshot

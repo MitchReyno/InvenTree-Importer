@@ -2,7 +2,7 @@
 // tints of each part's real colour so the drawing stays quiet behind the title.
 // The ground, outline, crease and base come from the theme tokens.
 import { Color } from 'three'
-import { themeColours, type ThemeId } from '../theme/generated/tokens'
+import { themeColours, type ThemeId } from '#/theme/generated/tokens'
 
 export type { ThemeId }
 

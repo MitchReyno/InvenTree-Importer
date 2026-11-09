@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner } from '../ui/Banner'
+import { Banner, Paragraph, Button, TextField } from '#/components/ui'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
-import { Paragraph } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { space } from '../../theme/generated/tokens'
-import { TextField } from '../ui/TextField'
+import { space } from '#/theme/generated/tokens'
 
 interface Props {
   initial: AgentSettingsDto

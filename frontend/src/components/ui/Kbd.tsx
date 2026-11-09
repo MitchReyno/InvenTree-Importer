@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, font, radius, space } from '../../theme/generated/tokens'
+import { color, font, radius, space } from '#/theme/generated/tokens'
 
 /** Shortcut hints only. */
 export const Kbd = styled.kbd`

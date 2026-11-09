@@ -6,16 +6,16 @@ import {
   type OperatorReviewDto,
 } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
-import { captureInTransaction } from '../capture/repository.ts'
-import { fail } from '../capture/model.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
+import { fail } from '#/capture/model.ts'
 import {
   latestInstructions,
   loadReviewContext,
   type CaptureReviewContext,
-} from '../capture/review-context.ts'
-import { stockSourceHistory } from '../execution/source.ts'
-import type { ManualConfig } from '../review/authority.ts'
-import type { ManualMaterial } from '../review/model.ts'
+} from '#/capture/review-context.ts'
+import { stockSourceHistory } from '#/execution/source.ts'
+import type { ManualConfig } from '#/review/authority.ts'
+import type { ManualMaterial } from '#/review/model.ts'
 import { batchDependencies, lotReviewState, retainedReviews } from './review-state.ts'
 
 const MAX_PROJECTION_BYTES = 245760

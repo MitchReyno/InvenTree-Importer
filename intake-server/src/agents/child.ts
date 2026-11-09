@@ -2,7 +2,7 @@ import { NativeSessionError } from './failure-model.ts'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { strictJson } from '@invimport/contracts/json'
-import { ResearchReapPendingError } from '../research/errors.ts'
+import { ResearchReapPendingError } from '#/research/errors.ts'
 
 const MAX_FRAME_BYTES = 256 * 1024
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024

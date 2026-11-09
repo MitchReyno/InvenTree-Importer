@@ -6,9 +6,9 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { runSessionTurn, type SessionDriver } from '../../src/agents/session/session-runner.ts'
-import { saveAgentSettings } from '../../src/agents/settings.ts'
-import { startSessionBridge } from '../../src/agents/shared-vm/coordinator.ts'
+import { runSessionTurn, type SessionDriver } from '#/agents/session/session-runner.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
+import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 
 test(
   'VM cancellation confirms browser worker removal while its sibling remains live',

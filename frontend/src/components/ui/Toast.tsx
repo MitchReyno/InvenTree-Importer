@@ -11,7 +11,7 @@ import {
   size,
   space,
   zIndex,
-} from '../../theme/generated/tokens'
+} from '#/theme/generated/tokens'
 import { media } from './media'
 
 type ToastProps = {

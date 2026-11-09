@@ -1,9 +1,8 @@
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
-import type { CaptureWorkspaceProps } from '../../capture/types'
-import { Fieldset, Form, Label, Small, TextArea } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { color, radius, space } from '#/theme/generated/tokens'
+import type { CaptureWorkspaceProps } from '#/capture/types'
+import { Fieldset, Form, Label, Small, TextArea, Button } from '#/components/ui'
 
 type Props = {
   disabled: boolean

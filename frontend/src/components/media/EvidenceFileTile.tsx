@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { previewImage } from '../../media/images'
-import { EvidenceTile, type PreviewState } from '../ui/EvidenceTile'
+import { previewImage } from '#/media/images'
+import { EvidenceTile, type PreviewState } from '#/components/ui'
 
 type EvidenceFileTileProps = {
   batchId: string

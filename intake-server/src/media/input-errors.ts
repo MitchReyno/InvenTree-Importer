@@ -1,4 +1,4 @@
-import { CaptureError } from '../capture/model.ts'
+import { CaptureError } from '#/capture/model.ts'
 
 export type MediaInputBlockerCode = 'media_not_ready' | 'media_input_capacity'
 export type MediaInputUnavailableReason = 'not_ready' | 'capacity'

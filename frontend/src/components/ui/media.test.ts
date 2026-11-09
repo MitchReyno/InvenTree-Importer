@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { breakpoint } from '../../theme/generated/tokens'
+import { breakpoint } from '#/theme/generated/tokens'
 import { formatCount, media } from './media'
 
 describe('media queries', () => {

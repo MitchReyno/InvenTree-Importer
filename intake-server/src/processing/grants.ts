@@ -1,8 +1,8 @@
 import type { Pool } from 'pg'
-import { grantCaptureAgentWrites, grantCaptureInputLocks } from '../capture/grants.ts'
-import { grantProjection } from '../operations/grants.ts'
-import { grantMedia } from '../media/grants.ts'
-import { grantResearch } from '../research/grants.ts'
+import { grantCaptureAgentWrites, grantCaptureInputLocks } from '#/capture/grants.ts'
+import { grantProjection } from '#/operations/grants.ts'
+import { grantMedia } from '#/media/grants.ts'
+import { grantResearch } from '#/research/grants.ts'
 
 /** Provisioning only. A research coordinator cannot manufacture a human answer or input. */
 export async function grantProcessing(pool: Pool, role: string, purpose: 'api' | 'runner' = 'api') {

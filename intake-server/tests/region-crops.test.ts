@@ -4,7 +4,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { regionCropCache } from '../src/media/region-crops.ts'
+import { regionCropCache } from '#/media/region-crops.ts'
 
 test('a region crop is cut from the preview once and then served from the private cache', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'region-crops-'))

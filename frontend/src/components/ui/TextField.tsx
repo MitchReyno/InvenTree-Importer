@@ -8,7 +8,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react'
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from './Button'
 import { CheckboxLabel, Input, Select, Small, TextArea } from './primitives'
 

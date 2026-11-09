@@ -3,16 +3,16 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate, type MediaInputManifestDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { canonicalMedia } from '../src/media/encoding.ts'
-import { sha256 } from '../src/db/authority.ts'
+import { canonicalMedia } from '#/media/encoding.ts'
+import { sha256 } from '#/db/authority.ts'
 import {
   inputManifest,
   mediaInputManifest,
   processingSubjectScope,
   sealed,
-} from '../src/processing/model.ts'
-import { catalogueSources, validateProposalSources } from '../src/processing/provenance.ts'
-import { AUTOMATION_NOTE_TEXT, automationNoteId } from '../src/capture/context-input.ts'
+} from '#/processing/model.ts'
+import { catalogueSources, validateProposalSources } from '#/processing/provenance.ts'
+import { AUTOMATION_NOTE_TEXT, automationNoteId } from '#/capture/context-input.ts'
 import { manualInputFixture } from './support/processing-input.ts'
 
 /** Descriptor fixture only; no decoder, media bytes, model or provider is invoked. */
@@ -276,14 +276,19 @@ test('lot media closure includes exactly the lot and its linked Part', () => {
   assert.deepEqual(processingSubjectScope(capture, linkedPartId), [linkedPartId])
 })
 
-test('an alternative parameter value\'s sources are checked like the value it was set against', () => {
+test("an alternative parameter value's sources are checked like the value it was set against", () => {
   const used = { kind: 'note', note_id: randomUUID(), sha256: 'a'.repeat(64) }
   const other = { kind: 'note', note_id: randomUUID(), sha256: 'b'.repeat(64) }
   const proposal = {
     catalogue: {
       category: null,
       parameters: [
-        { name: 'Voltage', value: '25 V', sources: [used], alternatives: [{ value: '35 V', sources: [other] }] },
+        {
+          name: 'Voltage',
+          value: '25 V',
+          sources: [used],
+          alternatives: [{ value: '35 V', sources: [other] }],
+        },
       ],
     },
   } as unknown as Parameters<typeof catalogueSources>[0]

@@ -1,17 +1,23 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { FilterChips } from '../ui/FilterChips'
-import { media } from '../ui/media'
-import { leftOutLots, readyLotIds } from '../../changes/model'
-import { Banner } from '../ui/Banner'
+import {
+  FilterChips,
+  media,
+  Banner,
+  Pill,
+  StatusTimeline,
+  Heading,
+  Link,
+  Panel,
+  Paragraph,
+  Small,
+  TargetChip,
+} from '#/components/ui'
+import { leftOutLots, readyLotIds } from '#/changes/model'
 import type { CaptureSnapshotDto, ManualRunDto, ManualWorkspaceDto } from '@invimport/contracts'
-import type { RunRecoverySelection } from '../../manual/types'
-import { batchHref } from '../../navigation/batch-route'
-import { color, space } from '../../theme/generated/tokens'
-import { Pill } from '../ui/Pill'
-import { StatusTimeline } from '../ui/StatusTimeline'
-import { Heading, Link, Panel, Paragraph, Small } from '../ui/primitives'
-import { TargetChip } from '../ui/TargetChip'
+import type { RunRecoverySelection } from '#/manual/types'
+import { batchHref } from '#/navigation/batch-route'
+import { color, space } from '#/theme/generated/tokens'
 import {
   activeRun,
   checking,

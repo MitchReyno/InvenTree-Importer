@@ -3,8 +3,7 @@ import {
   type CaptureEditDto,
   type CaptureSnapshotDto,
 } from '@invimport/contracts'
-import { Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { Small, Button } from '#/components/ui'
 import { mergeTags } from './ProcessingSuggestions'
 
 type Part = CaptureSnapshotDto['parts'][number]

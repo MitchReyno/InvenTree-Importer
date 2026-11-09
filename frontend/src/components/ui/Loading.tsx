@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius } from '../../theme/generated/tokens'
+import { color, radius } from '#/theme/generated/tokens'
 import { motion, stillWhenReduced } from './motion'
 
 export function Spinner({ size = 12 }: { size?: number }) {
