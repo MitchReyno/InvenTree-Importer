@@ -103,6 +103,18 @@ describe('the inline answer', () => {
     ).toBeDisabled()
   })
 
+  it('names each value’s source with a short chip whose details say why', async () => {
+    const user = userEvent.setup()
+    render(panel(null))
+    const unset = screen.getAllByRole('button', { name: 'Source: Not set, Unset. Show details.' })
+    expect(unset[0]).toHaveTextContent('?Not set')
+
+    await user.click(unset[0])
+    const details = await screen.findByRole('dialog', { name: 'Existing Part source' })
+    expect(details).toHaveTextContent('Existing Part · ')
+    expect(details).toHaveTextContent('Nothing has set this value yet.')
+  })
+
   it('keeps its draft when a later read no longer lists the question', async () => {
     const user = userEvent.setup()
     const view = render(panel(open))

@@ -987,6 +987,29 @@ test('heads the evidence with its file and group counts beside New group', async
   expect(screen.getByRole('button', { name: 'New group' })).toBeVisible()
 })
 
+test('explains groups behind a help button, not in grey text', async () => {
+  const user = userEvent.setup()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const help = await screen.findByRole('button', { name: 'About groups' })
+  expect(screen.queryByText(/Group photos that belong together/)).not.toBeInTheDocument()
+
+  await user.click(help)
+  expect(await screen.findByRole('dialog', { name: 'About groups' })).toHaveTextContent(
+    'Group photos that belong together',
+  )
+  await user.keyboard('{Escape}')
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(help).toHaveFocus()
+})
+
 test('opens a file’s note from its tile', async () => {
   const user = userEvent.setup()
   render(

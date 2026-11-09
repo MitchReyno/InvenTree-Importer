@@ -15,6 +15,14 @@ function renderField(text: string | undefined, instruct: Instruct = vi.fn(async 
   return { ...view, props, onDirtyChange, instruct, field }
 }
 
+test('the instructions box is marked as an agent touchpoint', () => {
+  renderField('Keep packets apart.')
+
+  expect(screen.getByText('Instructions for the whole batch').closest('label')).toContainElement(
+    document.querySelector('[data-ai-mark]') as HTMLElement,
+  )
+})
+
 test('saved instructions that arrive after mount are shown', () => {
   const { field, props, rerender } = renderField(undefined)
   expect(screen.getByRole('status')).toHaveTextContent('Reading the saved instructions…')

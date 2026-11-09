@@ -12,7 +12,17 @@ import type {
   ProcessingStartDto,
 } from '@invimport/contracts'
 import type { ProcessingClient, ProcessingView } from '#/processing/types'
-import { Heading, Link, Panel, Small, Summary, Banner, Button, Dialog } from '#/components/ui'
+import {
+  AiMark,
+  Heading,
+  Link,
+  Panel,
+  Small,
+  Summary,
+  Banner,
+  Button,
+  Dialog,
+} from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
@@ -646,7 +656,12 @@ export function ProcessingWorkspace({
           {sessionJob && client.session && client.chat && (
             <Dialog
               placement="side"
-              title={`${STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} · ${subjectLabel(sessionJob.subject_id)}`}
+              title={
+                <AiMark>
+                  {STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} ·{' '}
+                  {subjectLabel(sessionJob.subject_id)}
+                </AiMark>
+              }
               onClose={() => {
                 setSessionJobId(null)
                 // A session link's query would reopen the drawer when the batch next reloads.

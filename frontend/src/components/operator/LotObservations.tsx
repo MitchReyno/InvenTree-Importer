@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { radius, space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
@@ -19,7 +20,7 @@ interface Props {
   disabled: boolean
 }
 
-function Reading({ observation }: { observation: Observation }) {
+function Reading({ observation, evidence }: { observation: Observation; evidence: ReactNode }) {
   const markings = observation.readings.markings.join(' · ')
   // Provenance shows when the reading said what it came from or how sure it is.
   const said = observation.readings.source_kind || observation.readings.agreement
@@ -36,7 +37,12 @@ function Reading({ observation }: { observation: Observation }) {
       {said && (
         <>
           {' '}
-          <SourceChip {...readingSource(observation)} />
+          <SourceChip
+            {...readingSource(observation)}
+            field="Reading"
+            value={markings || 'No markings read'}
+            evidence={evidence}
+          />
         </>
       )}
     </span>
@@ -100,7 +106,7 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
           (lot.operator_edited ? (
             <Pill tone="neutral">Edited</Pill>
           ) : (
-            <Pill tone="acc">AI-proposed</Pill>
+            <Pill status="new">New</Pill>
           ))}
       </Subheading>
       {lot.estimated_quantity && (
@@ -113,7 +119,7 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
         {active.map((observation) => (
           <li key={observation.id}>
             {crop(observation)}
-            <Reading observation={observation} />
+            <Reading observation={observation} evidence={crop(observation)} />
             {observation.operator_edited && <Pill tone="neutral">Edited</Pill>}
             <ObservationMove
               batch={batch}
@@ -133,7 +139,7 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
             {suggested.map((observation) => (
               <li key={observation.id} aria-label="Suggested observation">
                 {crop(observation)}
-                <Reading observation={observation} />
+                <Reading observation={observation} evidence={crop(observation)} />
                 <Button
                   type="button"
                   aria-label={`Add ${describe(observation)} to ${lot.label}`}
@@ -162,7 +168,7 @@ export function LotObservations({ batch, lot, edit, disabled }: Props) {
             {revisions.map((observation) => (
               <li key={observation.id} aria-label="Suggested revision">
                 {crop(observation)}
-                <Reading observation={observation} />
+                <Reading observation={observation} evidence={crop(observation)} />
                 <Button
                   type="button"
                   aria-label={`Use the suggested revision: ${describe(observation)}`}

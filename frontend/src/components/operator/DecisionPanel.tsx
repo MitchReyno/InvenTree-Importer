@@ -33,7 +33,7 @@ import {
 } from '#/operator/review-model'
 import { QuestionAnswer } from '#/components/processing/QuestionAnswer'
 import { CompareMatches } from './CompareMatches'
-import { ProvenancePill } from './ProvenancePill'
+import { ProvenanceChip } from './ProvenanceChip'
 import { partFacts, type PartFacts } from '#/operator/part-facts'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
@@ -218,6 +218,60 @@ export function DecisionPanel({
   const restructureLocked = disabled || drafts.dirty || !operator || Boolean(operatorLot?.approved)
   const reviewBlock = reviewBlockReason(operatorLot)
   const location = lotLocationFact(batch, lot, media)
+
+  const partLabel = part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part'
+  const partText = partValue(batch, part)
+  const quantityText = display(lot.quantity, batch, 'quantity')
+  const estimateText = `${lot.estimated_quantity}${lot.quantity_basis ? ` · ${lot.quantity_basis}` : ''}`
+  const lotRows: KeyValueRow[] = [
+    {
+      label: partLabel,
+      value: partText,
+      state: 'plain',
+      source: valueSource({
+        field: partLabel,
+        value: partText,
+        provenance: part ? partProvenance(part.choice) : 'unset',
+      }),
+    },
+    ...partFactRows(partFacts(batch, part), part),
+    {
+      label: 'Quantity',
+      value: quantityText,
+      state: 'plain',
+      source: valueSource({
+        field: 'Quantity',
+        value: quantityText,
+        provenance: lotProvenance(lot.quantity, batch.defaults.quantity),
+      }),
+    },
+    ...(lot.estimated_quantity
+      ? [
+          {
+            label: 'Examine estimate',
+            value: estimateText,
+            state: 'plain' as const,
+            source: valueSource({
+              field: 'Examine estimate',
+              value: estimateText,
+              provenance: 'unset',
+              estimated: true,
+              openEvidence,
+            }),
+          },
+        ]
+      : []),
+    {
+      label: 'Location',
+      value: location.value,
+      state: 'plain',
+      source: valueSource({
+        field: 'Location',
+        value: location.value,
+        provenance: location.provenance,
+      }),
+    },
+  ]
   return (
     <>
       <Heading>{lot.label}</Heading>
@@ -267,39 +321,7 @@ export function DecisionPanel({
           )}
         </>
       )}
-      <KeyValue
-        rows={[
-          {
-            label: part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part',
-            value: partValue(batch, part),
-            state: 'plain',
-            source: valueSource(part ? partProvenance(part.choice) : 'unset', false, openEvidence),
-          },
-          ...partFactRows(partFacts(batch, part), part),
-          {
-            label: 'Quantity',
-            value: display(lot.quantity, batch, 'quantity'),
-            state: 'plain',
-            source: valueSource(lotProvenance(lot.quantity, batch.defaults.quantity), false),
-          },
-          ...(lot.estimated_quantity
-            ? [
-                {
-                  label: 'Examine estimate',
-                  value: `${lot.estimated_quantity}${lot.quantity_basis ? ` · ${lot.quantity_basis}` : ''}`,
-                  state: 'plain' as const,
-                  source: valueSource('unset', true, openEvidence),
-                },
-              ]
-            : []),
-          {
-            label: 'Location',
-            value: location.value,
-            state: 'plain',
-            source: valueSource(location.provenance, false, openEvidence),
-          },
-        ]}
-      />
+      <KeyValue rows={lotRows} />
       <PartExtras aria-label="Shared Part proposal">
         <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
         {sharing.length > 0 && (
@@ -509,23 +531,36 @@ export function DecisionPanel({
   )
 }
 
-/**
- * Who a value came from: the operator's own choice, Examine's estimate (which opens the evidence),
- * or, for an inherited, missing or uncertain value, its provenance in words.
- */
-function valueSource(provenance: Provenance, proposed: boolean, openEvidence?: () => void) {
-  if (proposed) {
-    return <SourceChip source="Examine" certainty="Estimated" tone="likely" onOpen={openEvidence} />
+type ValueSource = {
+  field: string
+  value: string
+  provenance: Provenance
+  /** Examine's estimate, which the operator accepts or replaces. */
+  estimated?: boolean
+  openEvidence?: () => void
+}
+
+/** Who a value came from: Examine's estimate, which opens the evidence, or its provenance. */
+function valueSource({ field, value, provenance, estimated = false, openEvidence }: ValueSource) {
+  if (estimated) {
+    return (
+      <SourceChip
+        source="Examine"
+        certainty="Estimated"
+        tone="likely"
+        field={field}
+        value={value}
+        why="Examine’s estimate from the evidence; accept or replace it on the lot."
+        onOpen={openEvidence}
+      />
+    )
   }
-  if (provenance === 'human' || provenance === 'override') {
-    return <SourceChip source="You" certainty="Your edit" tone="user" />
-  }
-  return <ProvenancePill provenance={provenance} />
+
+  return <ProvenanceChip provenance={provenance} field={field} value={value} />
 }
 
 /** The new Part's maker and markings; supplier prices stay out (review-records). */
 function partFactRows(facts: PartFacts, part: Part | undefined): KeyValueRow[] {
-  const source = part ? valueSource(partProvenance(part.choice), false) : undefined
   const rows: [string, string | undefined, boolean][] = [
     ['Manufacturer', facts.manufacturer, false],
     ['MPN', facts.mpn, true],
@@ -533,7 +568,19 @@ function partFactRows(facts: PartFacts, part: Part | undefined): KeyValueRow[] {
     ['Date code', facts.dateCode, true],
   ]
   return rows.flatMap(([label, value, mono]) =>
-    value ? [{ label, value, mono, state: 'plain' as const, source }] : [],
+    value
+      ? [
+          {
+            label,
+            value,
+            mono,
+            state: 'plain' as const,
+            source: part
+              ? valueSource({ field: label, value, provenance: partProvenance(part.choice) })
+              : undefined,
+          },
+        ]
+      : [],
   )
 }
 

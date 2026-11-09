@@ -6,6 +6,7 @@ import { batchHref, processingStepFor, sessionHref } from '#/navigation/batch-ro
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import {
+  AiMark,
   Link,
   linkTouchArea,
   Banner,
@@ -150,7 +151,9 @@ export function AgentSessions({ client, batches }: Props) {
     <Page>
       <Head>
         <div>
-          <Title>Agents</Title>
+          <Title>
+            <AiMark size="lg">Agents</AiMark>
+          </Title>
           <Muted>
             Every agent session across your batches. Open a batch's Processing to see its steps and
             chat with it.

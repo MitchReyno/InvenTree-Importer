@@ -135,6 +135,13 @@ describe('ProcessingOverview', () => {
       onOpenSession,
     })
     const sessions = screen.getByRole('region', { name: 'Agent sessions' })
+    // The heading is the touchpoint; the session rows are not marked.
+    expect(
+      within(sessions)
+        .getByRole('heading', { name: 'Agent sessions' })
+        .querySelector('[data-ai-mark]'),
+    ).not.toBeNull()
+    expect(within(sessions).getAllByRole('button')[0].querySelector('[data-ai-mark]')).toBeNull()
 
     const research = within(sessions).getByRole('button', {
       name: 'Open session: Research · Packet B',

@@ -28,6 +28,15 @@ describe('ProposedLotsGlance', () => {
       'href',
       '#b/review/map',
     )
+    expect(glance).not.toHaveTextContent('A glance only')
+  })
+
+  it('marks the heading as an agent touchpoint, but not the lots', () => {
+    render(<ProposedLotsGlance batchId="b" lots={lots} />)
+    const heading = screen.getByRole('heading', { name: /^Proposed lots/ })
+
+    expect(heading.querySelector('[data-ai-mark]')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByRole('list').querySelector('[data-ai-mark]')).toBeNull()
   })
 
   it('shows each lot’s latest agent status line under it', () => {
@@ -51,7 +60,7 @@ describe('ProposedLotsGlance', () => {
 })
 
 describe('ProposedLotsGlance with lead-session lots', () => {
-  it('badges AI-proposed and edited lots and shows their observation crops', () => {
+  it('badges new and edited agent lots and shows their observation crops', () => {
     render(
       <ProposedLotsGlance
         batchId="b"
@@ -90,14 +99,18 @@ describe('ProposedLotsGlance with lead-session lots', () => {
       />,
     )
     const led = screen.getByRole('listitem', { name: 'LED 0603 red' })
-    expect(within(led).getByText('AI-proposed')).toBeInTheDocument()
+    const fresh = within(led).getByText('New').closest('[data-tone]')
+    expect(fresh).toHaveAttribute('data-tone', 'info')
+    expect(fresh).toHaveTextContent('＋New')
+    expect(led).not.toHaveTextContent('AI-proposed')
+    expect(led).not.toHaveTextContent('✦')
     const thumb = within(led).getByRole('img', { name: 'LED 0603 red' })
     expect(thumb).toHaveAttribute('srcset', '/crop/o1?size=thumb 320w')
     expect(thumb).toHaveAttribute('sizes', '40px')
     expect(led).toHaveTextContent('2 observations · 1 suggestion')
     const crystal = screen.getByRole('listitem', { name: '16 MHz crystal' })
     expect(within(crystal).getByText('Edited')).toBeInTheDocument()
-    expect(within(crystal).queryByText('AI-proposed')).not.toBeInTheDocument()
+    expect(within(crystal).queryByText('New')).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Grouping the reel photos')
   })
 })

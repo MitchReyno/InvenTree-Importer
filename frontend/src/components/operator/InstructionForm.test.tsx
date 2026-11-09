@@ -32,6 +32,12 @@ function renderForm(instruct: OperatorReviewClient['instruct'] = vi.fn(async () 
   return { ...view, instruct, onDirtyChange, reload, field: screen.getByLabelText('Group “Reels”') }
 }
 
+test('the instructions box is marked as an agent touchpoint', () => {
+  const { field } = renderForm()
+
+  expect(field.closest('label')?.querySelector('[data-ai-mark]')).not.toBeNull()
+})
+
 test('editing the instructions reports unsaved work, and typing them back releases it', async () => {
   const user = userEvent.setup()
   const { field, onDirtyChange } = renderForm()

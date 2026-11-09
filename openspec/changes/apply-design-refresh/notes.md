@@ -27,9 +27,9 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 
 ### Open items
 
-- Task 7 migrates the `SourceChip` call sites to pass field, value, reason and evidence; until then their popovers show only the certainty and Open evidence.
+- Resolved by Task 7: every `SourceChip` call site passes its field, value and reason, and evidence where the app has it.
 - Resolved: gallery screenshots of the components fixture in light and dark at 1440 and 390 px were captured for the PR-A description.
-- Task 7 should check focus when a `SourceChip`'s Edit value opens an inline editor: `SourceChipPopover` closes the popover before running the action, and the popover's close returns focus to the chip, which may pull focus away from the editor.
+- Resolved by Task 7: an action that moves focus keeps it (see Task 7's decisions).
 
 ## Task 10: direct upload
 
@@ -67,3 +67,39 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 ### Open items
 
 None for task 10.
+
+## Task 6: descriptions
+
+### Changes to the plan
+
+- **2026-11-10T02:39+11:00, task 6 (PR-D):** `ParameterMatrix` gets no `DescriptionField`. The app's matrix shows only existing templates, which open their own record, where the description shows; it has no "Create template" decision for a proposed description to sit under.
+- **2026-11-10T02:39+11:00, task 6 (PR-D):** A Part's category description isn't shown under its category picker (change log D1). The existing-values read runs only while a mapped record is open, and a new Part isn't mapped, so showing it there would add a target read on every Part. The category's own record shows it.
+- **2026-11-10T02:39+11:00, task 6 (PR-D):** New suppliers created in Capture have no record in Records: the projection lists only companies a Part spec uses. Only a new location's description shows, on its `location:draft:` record.
+- **2026-11-10T02:39+11:00, task 6 (PR-D):** The location type description is left to Task 8, which adds location types to the Locations view; Records shows no location type today.
+
+### Decisions made during implementation
+
+- **2026-11-10T02:39+11:00, task 6:** The In InvenTree table no longer has a Description row. The description shows once, as its own read-only field with the InvenTree chip and its count.
+- **2026-11-10T02:39+11:00, task 6:** While the existing-values read is pending, failed, or didn't cover the record, no description field shows. The In InvenTree section already says so, and a disabled field would claim the app can't store it.
+- **2026-11-10T02:39+11:00, task 6:** A proposed description that doesn't fit moves from the Description row's source column to "Not supported yet", as a read-only "Proposed description" field. The projection clips the value to 256 characters, so a longer proposal counts as "256 / 250"; the count is a floor.
+- **2026-11-10T02:39+11:00, task 6:** A new Part's description Save waits while the text is over 250 characters, because the contract refuses it. The field no longer stops typing at 250, so the count can show the over-limit state.
+
+## Task 7: screen clean-up and agent marks
+
+### Changes to the plan
+
+- **2026-11-10T02:39+11:00, task 7 (PR-D):** Several change-log removals have nothing to remove in the app, so they need no change: the Review "ready to add" banner, the Tree footnote, "Your edits are kept when the agent rechecks", the Batches footer note, and "· Test InvenTree" on the Added run line (the app has only the chip).
+- **2026-11-10T02:39+11:00, task 7 (PR-D):** D22's Ask boxes for a lot, a Part, a company match, a location and Tell Research don't exist in the app. The mark goes on the instruction boxes that do: the batch instructions, each group's instructions and Tell Examine. Per-field `AskControl` stays unmarked, as the spec says.
+- **2026-11-10T02:39+11:00, task 7 (PR-D):** The masthead activity chip, the Settings › Agents heading and its nav item belong to Tasks 2 and 5, so this bundle doesn't mark them.
+- **2026-11-10T02:39+11:00, task 7 (PR-D):** Task 1's notes asked for `AiMark` in place of the "AI-proposed" pills. The spec forbids the mark on pills, so agent lots now carry `＋ New` (Proposed lots, Review queue, Observations, Examine's Lots formed), and Edited stays.
+
+### Decisions made during implementation
+
+- **2026-11-10T02:39+11:00, task 7:** Review's shortcuts use a new `ShortcutsButton` in `components/ui`: a ghost "Shortcuts" button with the 20px help disc, the one-line list as its tooltip and the keys in its popover, as the design system's HelpButton guide describes.
+- **2026-11-10T02:39+11:00, task 7:** `operator/ProvenancePill.tsx` becomes `ProvenanceChip.tsx`. Each provenance has a short source ("Batch default", "Not set", "Evidence groups"), its existing label as the certainty, and one sentence on why. Human and override values keep "You · Your edit".
+- **2026-11-10T02:39+11:00, task 7:** `Dialog` takes a node title so the session drawer can carry the mark; the accessible name is unchanged.
+- **2026-11-10T02:39+11:00, task 7:** Task 1's focus question checked: Radix's non-modal popover returns focus to its trigger only when nothing outside it took focus. Open evidence focuses the evidence panel before the popover unmounts, so focus stays there; an action that moves no focus returns it to the chip. `SourceChip.test.tsx` covers both.
+
+### Open items
+
+- No call site passes `onEdit` yet, so no chip offers Edit value on a screen.

@@ -86,6 +86,33 @@ describe('SourceChip', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
+  it('leaves focus where an action moved it, and returns it to the chip otherwise', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <SourceChip
+          source="Agent"
+          certainty="Likely — check"
+          tone="likely"
+          onOpen={() => document.getElementById('evidence')?.focus()}
+          onEdit={() => {}}
+        />
+        <section id="evidence" tabIndex={-1} aria-label="Evidence" />
+      </>,
+    )
+    const chip = screen.getByRole('button', { name: /^Source: Agent/ })
+
+    await user.click(chip)
+    await user.click(await screen.findByRole('button', { name: 'Open evidence' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('region', { name: 'Evidence' })).toHaveFocus()
+
+    await user.click(chip)
+    await user.click(await screen.findByRole('button', { name: 'Edit value' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(chip).toHaveFocus()
+  })
+
   it('offers no actions it cannot take', async () => {
     const user = userEvent.setup()
     render(<SourceChip source="You" certainty="Your edit" tone="user" />)

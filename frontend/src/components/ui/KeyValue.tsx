@@ -27,7 +27,16 @@ const STATE_NOTE: Record<ValueState, string | null> = {
 function sourceOf(row: KeyValueRow) {
   return (
     row.source ??
-    (row.state === 'edited' ? <SourceChip source="You" certainty="Your edit" tone="user" /> : null)
+    (row.state === 'edited' ? (
+      <SourceChip
+        source="You"
+        certainty="Your edit"
+        tone="user"
+        field={row.label}
+        value={row.value}
+        why="You set this value."
+      />
+    ) : null)
   )
 }
 

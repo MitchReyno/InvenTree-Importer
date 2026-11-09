@@ -11,6 +11,7 @@ import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '#/test/render'
 import { RecordsStage } from './RecordsStage'
+import type { RecordsClient as RecordsClientLike } from '#/records/useBatchRecords'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
@@ -503,7 +504,11 @@ describe('RecordsStage', () => {
     const detail = screen.getByRole('region', { name: 'Yageo' })
     const table = await within(detail).findByRole('table', { name: 'In InvenTree' })
     expect(within(table).getByRole('row', { name: /Name/ })).toHaveTextContent('Yageo Corporation')
-    expect(within(table).getByRole('row', { name: /Description/ })).toHaveTextContent('—')
+    // The description is shown once, as its own read-only field with its count.
+    expect(within(table).queryByRole('row', { name: /Description/ })).not.toBeInTheDocument()
+    expect(within(detail).getByRole('group', { name: 'Company description' })).toHaveTextContent(
+      '0 / 500',
+    )
     expect(existing).toHaveBeenCalledWith(batch.id)
   })
 
@@ -920,6 +925,8 @@ describe('RecordsStage', () => {
         name: /^Ask/,
       }),
     ).not.toBeInTheDocument()
+    // Per-field Ask, values and source chips never carry the AI mark.
+    expect(detail.querySelector('[data-ai-mark]')).toBeNull()
   })
 
   it('maps a proposed new manufacturer to its likely match or another, on every Part using it', async () => {
@@ -1342,6 +1349,218 @@ describe('RecordsStage', () => {
 })
 
 /** Saves move the revision as the server does; the first save can be refused as a 412. */
+describe('Descriptions on records', () => {
+  const COMPANY_TEXT = 'Interconnect manufacturer: USB, board-to-board and card-edge connectors'
+  const LONG_TEXT = 'Surface-mount chip resistors, '.repeat(9).trim()
+
+  function stageRecords(
+    read: BatchRecordsDto,
+    existingRecords: Awaited<
+      ReturnType<NonNullable<RecordsClientLike['existing']>>
+    >['records'] = [],
+    snapshot: CaptureSnapshotDto = batch,
+  ) {
+    const existing = vi.fn(async () => ({
+      target_context_id: id(1),
+      records: existingRecords,
+      truncated: false,
+    }))
+    const edit = vi.fn(async () => true)
+    render(
+      <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+        <RecordsStage
+          batch={snapshot}
+          client={{ read: vi.fn(async () => read), existing }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
+    )
+    return { edit, existing }
+  }
+
+  function withRecords(...extra: BatchRecordDto[]) {
+    const read = structuredClone(records)
+    read.records.push(...extra)
+    return read
+  }
+
+  it('shows an existing company’s InvenTree description read-only, with its source and count', async () => {
+    const user = userEvent.setup()
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === 'company:supplier:12')!,
+      {
+        mapped: { model: 'company', pk: '12' },
+      },
+    )
+    stageRecords(read, [
+      {
+        key: 'company:supplier:12',
+        status: 'found',
+        fields: [
+          { name: 'name', value: 'Global Connector Technology' },
+          { name: 'description', value: COMPANY_TEXT },
+        ],
+      },
+    ])
+    await open(user, /^Companies/, 'Yageo')
+    const detail = screen.getByRole('region', { name: 'Yageo' })
+    const description = await within(detail).findByRole('group', { name: 'Company description' })
+
+    expect(description).toHaveTextContent(COMPANY_TEXT)
+    expect(description).toHaveTextContent('71 / 500')
+    expect(
+      within(description).getByRole('button', {
+        name: 'Source: InvenTree, Existing. Show details.',
+      }),
+    ).toBeInTheDocument()
+    expect(within(description).queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('shows an existing description over its limit in the bad tone without blocking anything', async () => {
+    const user = userEvent.setup()
+    const read = withRecords(
+      entry({
+        key: 'category:901',
+        type: 'category',
+        label: 'Resistors',
+        part_ids: [partA],
+        mapped: { model: 'category', pk: '901' },
+      }),
+    )
+    stageRecords(read, [
+      {
+        key: 'category:901',
+        status: 'found',
+        fields: [
+          { name: 'name', value: 'Resistors' },
+          { name: 'description', value: LONG_TEXT },
+        ],
+      },
+    ])
+    await open(user, /^Categories/, 'Resistors')
+    const detail = screen.getByRole('region', { name: 'Resistors' })
+    const description = await within(detail).findByRole('group', { name: 'Category description' })
+
+    const count = within(description).getByText(/ \/ 250/)
+    expect(count).toHaveTextContent(`${Array.from(LONG_TEXT).length} / 250 · over the limit`)
+    expect(count).toHaveAttribute('data-over', 'true')
+    expect(within(detail).queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('edits a new Part’s description with its count, and holds a save over the limit', async () => {
+    const user = userEvent.setup()
+    const { edit } = stageRecords(records)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const field = within(detail).getByRole('textbox', { name: 'Description' })
+
+    expect(field).toHaveValue('Through-hole')
+    expect(within(detail).getByText('12 / 250')).toBeInTheDocument()
+
+    await user.clear(field)
+    await user.click(field)
+    await user.paste('x'.repeat(251))
+    expect(within(detail).getByText('251 / 250 · over the limit')).toBeInTheDocument()
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(within(detail).getByRole('button', { name: 'Save description' })).toBeDisabled()
+    expect(edit).not.toHaveBeenCalled()
+  })
+
+  it('shows descriptions the app cannot store yet as disabled fields that explain why', async () => {
+    const user = userEvent.setup()
+    const proposed = entry({
+      key: 'company:proposed:manufacturer:vsy',
+      type: 'company',
+      label: 'VSY',
+      state: 'choose',
+      part_ids: [partA],
+      proposed: { role: 'manufacturer', name: 'VSY', reason: null, number: null, likely: null },
+    })
+    const { edit } = stageRecords(withRecords(proposed))
+
+    await open(user, /^Supplier parts/, 'S-47 · Carbon film resistor')
+    const supplier = screen.getByRole('textbox', { name: 'Supplier part description' })
+    expect(supplier).toHaveAttribute('aria-disabled', 'true')
+    expect(supplier).toHaveAttribute('readonly')
+    expect(supplier).toHaveAccessibleDescription(/not stored yet/)
+    await user.type(supplier, 'Thick film')
+    expect(supplier).toHaveValue('')
+
+    await open(user, /^Companies/, 'VSY')
+    const company = screen.getByRole('textbox', { name: 'Company description' })
+    expect(company).toHaveAttribute('aria-disabled', 'true')
+    expect(company).toHaveAccessibleDescription(/not stored yet/)
+    expect(edit).not.toHaveBeenCalled()
+  })
+
+  it('shows the description entered with a new location in Capture', async () => {
+    const user = userEvent.setup()
+    const draftId = id(600)
+    const snapshot = {
+      ...batch,
+      reference_drafts: [
+        {
+          draft_id: draftId,
+          kind: 'location',
+          value: { name: 'Bench bin B3', description: 'Left of the scope', parent: null },
+          version: '1',
+          actor_id: id(2),
+          created_at: '2026-11-09T00:00:00Z',
+        },
+      ],
+    } as unknown as CaptureSnapshotDto
+    const location = entry({
+      key: `location:draft:${draftId}`,
+      type: 'location',
+      label: 'Bench bin B3',
+      state: 'new',
+      lot_ids: [id(101)],
+    })
+    stageRecords(withRecords(location), [], snapshot)
+    await open(user, /^Locations/, 'Bench bin B3')
+    const description = within(screen.getByRole('region', { name: 'Bench bin B3' })).getByRole(
+      'group',
+      { name: 'Location description' },
+    )
+
+    expect(description).toHaveTextContent('Left of the scope')
+    expect(description).toHaveTextContent('17 / 250')
+    expect(within(description).queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('shows a proposed description over the limit as not supported, never as a saved value', async () => {
+    const user = userEvent.setup()
+    const proposedText = `${'Thick film chip resistor, '.repeat(10).slice(0, 255)}…`
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === `part:${partA}`)!,
+      {
+        unsupported: [
+          {
+            field: 'description',
+            value: proposedText,
+            why: 'A description must be one line of at most 250 characters.',
+            reason: null,
+          },
+        ],
+      },
+    )
+    stageRecords(read)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const unsupported = within(detail).getByRole('region', { name: 'Not supported yet' })
+
+    expect(unsupported).toHaveTextContent(
+      'A description must be one line of at most 250 characters.',
+    )
+    const proposed = within(unsupported).getByRole('group', { name: 'Proposed description' })
+    expect(proposed).toHaveTextContent('256 / 250 · over the limit')
+    // The saved description is unchanged and still editable.
+    expect(within(detail).getByRole('textbox', { name: 'Description' })).toHaveValue('Through-hole')
+  })
+})
+
 function LiveStage({
   conflictFirst = false,
   renamedElsewhere,

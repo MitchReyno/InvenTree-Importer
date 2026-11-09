@@ -20,6 +20,7 @@ import { EvidenceGroup } from '#/components/ui/EvidenceGroup'
 import { EvidenceGrid, EvidenceTile } from '#/components/ui/EvidenceTile'
 import { FilterChips } from '#/components/ui/FilterChips'
 import { HelpButton } from '#/components/ui/HelpButton'
+import { ShortcutsButton } from '#/components/ui/ShortcutsButton'
 import { IconButton } from '#/components/ui/IconButton'
 import { MenuIcon, SettingsIcon } from '#/components/ui/icons'
 import { KeyValue } from '#/components/ui/KeyValue'
@@ -135,6 +136,17 @@ export function ComponentGallery() {
               label="About groups"
               explanation="Group photos that belong together, such as the front and back of one packet. Groups are hints: one photo can still feed several lots."
             />
+            <ShortcutsButton summary="J / K move · R mark reviewed · V view evidence">
+              <li>
+                <Kbd>J</Kbd>/<Kbd>K</Kbd> move
+              </li>
+              <li>
+                <Kbd>R</Kbd> mark reviewed
+              </li>
+              <li>
+                <Kbd>V</Kbd> view evidence
+              </li>
+            </ShortcutsButton>
           </Row>
           <Row>
             <Popover label="Needs you" align="start" trigger={<Button>2 need you</Button>}>
