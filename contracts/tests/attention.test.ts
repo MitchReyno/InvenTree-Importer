@@ -17,7 +17,7 @@ const attention = {
   batch_id: batch,
   revision: '7',
   processing: { questions: 1, failed: 0, running: 0, steps: noSteps },
-  review: { to_check: 2, changed_after_review: 1, to_decide: 1, records: 0 },
+  review: { to_check: 2, changed_after_review: 1, needs_answer: 1, to_decide: 1, records: 0 },
   changes: { ready: 3, failed: 0, uncertain: 1, runs: 0 },
   items: [
     {
@@ -83,4 +83,9 @@ test('the attention client reads the batch route', async () => {
 
   assert.deepEqual(await client.read(batch), attention)
   assert.deepEqual(requests, [`/api/v1/batches/${batch}/attention`])
+})
+
+test('batch attention counts the lots needing an answer for Review › Lots', () => {
+  const { needs_answer: _omitted, ...withoutNeedsAnswer } = attention.review
+  assert.throws(() => validate('BatchAttention', { ...attention, review: withoutNeedsAnswer }))
 })

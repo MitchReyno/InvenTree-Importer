@@ -15,7 +15,27 @@ export const STEP_BY_STAGE: Record<string, Step> = {
 
 export type StepJobs = { jobs: number; ready: number; running: number }
 
-/** Each step's job count and how many of them are ready or running. */
+/**
+ * The jobs a step counts: the batch-level Examine lead job and those of active lots and Parts. A
+ * retired lot's job is always superseded and can never run again, so it stays history only.
+ */
+export function activeSubjectJobs<Job extends { subject_id: string | null }>(
+  jobs: readonly Job[],
+  retiredLotIds: ReadonlySet<string>,
+): Job[] {
+  return jobs.filter((job) => job.subject_id === null || !retiredLotIds.has(job.subject_id))
+}
+
+/** The retired lots of a capture snapshot, for `activeSubjectJobs`. */
+export function retiredLotIds(capture: { lots: readonly { id: string; retired?: true }[] }) {
+  return new Set(capture.lots.filter((lot) => lot.retired).map((lot) => lot.id))
+}
+
+/**
+ * Each step's job count and how many of them are ready or running, over `activeSubjectJobs`. A job
+ * is one subject's step and carries its current attempt's state, so an active subject's failed,
+ * superseded or cancelled job is work not done and still counts.
+ */
 export function countSteps(jobs: readonly { stage: string; state: string }[]) {
   return Object.fromEntries(
     STEPS.map((step) => {

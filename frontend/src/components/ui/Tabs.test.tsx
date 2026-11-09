@@ -8,9 +8,7 @@ const items: TabItem[] = [
     id: 'review',
     label: 'Review',
     href: '#b1/review',
-    count: 8,
-    countLabel: 'to check',
-    badge: { label: '3 to decide', tone: 'warn' },
+    count: { value: '8', label: '8 to check', tone: 'default' },
   },
   { id: 'changes', label: 'Changes', href: '#b1/changes', disabled: true },
 ]
@@ -24,10 +22,19 @@ describe('Tabs', () => {
       'href',
       '#b1/capture',
     )
-    expect(
-      within(nav).getByRole('link', { name: 'Review, 8 to check, 3 to decide' }),
-    ).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Review, 8 to check' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(within(nav).getByRole('link', { name: 'Capture' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('shows one count as a number in its tone, with its words only in the accessible name', () => {
+    render(<Tabs label="Batch" items={items} current="review" />)
+    const review = screen.getByRole('link', { name: 'Review, 8 to check' })
+
+    expect(review).toHaveTextContent(/^Review8$/)
+    expect(review.querySelector('[data-tone="default"]')).toHaveTextContent('8')
   })
 
   it('renders a disabled item without a destination and out of the tab order', () => {
@@ -41,61 +48,32 @@ describe('Tabs', () => {
 })
 
 describe('SubTabs', () => {
-  it('shows counts, badges and a running spinner on second-row items', () => {
-    render(
-      <SubTabs
-        label="Review views"
-        current="lots"
-        items={[
-          { id: 'lots', label: 'Lots', href: '#b1/review/lots', count: 12 },
-          { id: 'records', label: 'Records', href: '#b1/review/records', spinner: true },
-        ]}
-      />,
-    )
-
-    expect(screen.getByRole('link', { name: 'Lots, 12' })).toHaveAttribute('aria-current', 'page')
-    expect(
-      // The spinner itself is decorative; the name says the work is running.
-      screen.getByRole('link', { name: 'Records, running' }).querySelector('[aria-hidden="true"]'),
-    ).not.toBeNull()
-  })
-})
-
-describe('step progress and short badges', () => {
-  it('names a finished step done and a working step by how many attempts are ready', () => {
+  it('shows a spinner while running and a tick when done, each named in words', () => {
     render(
       <SubTabs
         label="Processing steps"
         current="research"
         items={[
-          { id: 'examine', label: 'Examine', href: '#e', progress: { ready: 3, of: 3 } },
-          { id: 'research', label: 'Research', href: '#r', progress: { ready: 7, of: 12 } },
-        ]}
-      />,
-    )
-
-    expect(screen.getByRole('link', { name: 'Examine, done' })).toBeInTheDocument()
-    const research = screen.getByRole('link', { name: 'Research, 7 of 12 ready' })
-    expect(research).toHaveTextContent('7 of 12')
-  })
-
-  it('keeps the badge words for assistive technology when phone width shows only its number', () => {
-    render(
-      <Tabs
-        label="Batch"
-        current="review"
-        items={[
+          { id: 'examine', label: 'Examine', href: '#e', status: 'done' },
+          { id: 'images', label: 'Images', href: '#i', status: 'failed' },
           {
-            id: 'review',
-            label: 'Review',
+            id: 'research',
+            label: 'Research',
             href: '#r',
-            badge: { label: '3 to decide', short: '3', tone: 'warn' },
+            status: 'running',
+            count: { value: '7/12', label: '7 of 12 ready', tone: 'default' },
           },
         ]}
       />,
     )
 
-    const link = screen.getByRole('link', { name: 'Review, 3 to decide' })
-    expect(link).toHaveTextContent('3 to decide')
+    const examine = screen.getByRole('link', { name: 'Examine, done' })
+    expect(examine).toHaveTextContent('✓')
+    expect(screen.getByRole('link', { name: 'Images, failed' })).toHaveTextContent('×')
+    const research = screen.getByRole('link', { name: 'Research, running, 7 of 12 ready' })
+    expect(research).toHaveAttribute('aria-current', 'page')
+    expect(research).toHaveTextContent('7/12')
+    // The spinner itself is decorative; the name says the work is running.
+    expect(research.querySelector('[aria-hidden="true"]')).not.toBeNull()
   })
 })
