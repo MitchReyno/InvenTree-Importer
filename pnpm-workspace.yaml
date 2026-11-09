@@ -2,6 +2,7 @@ packages:
   - frontend
   - contracts
   - intake-server
+  - media-decoder
   - tooling/openapi-generator
 strictPeerDependencies: true
 allowBuilds:

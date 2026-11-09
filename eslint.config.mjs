@@ -22,6 +22,11 @@ export default [
   },
   {
     ...readability,
-    files: ['frontend/src/**/*.{ts,tsx}', 'intake-server/src/**/*.ts', 'contracts/src/**/*.ts'],
+    files: [
+      'frontend/src/**/*.{ts,tsx}',
+      'intake-server/src/**/*.ts',
+      'media-decoder/src/**/*.ts',
+      'contracts/src/**/*.ts',
+    ],
   },
 ]

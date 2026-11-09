@@ -4,6 +4,7 @@ RUN npm install --global pnpm@12.16.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY contracts/package.json contracts/package.json
 COPY intake-server/package.json intake-server/package.json
+COPY media-decoder/package.json media-decoder/package.json
 COPY frontend/package.json frontend/package.json
 COPY tooling/openapi-generator/package.json tooling/openapi-generator/package.json
 
@@ -35,6 +36,7 @@ COPY backend/config backend/config
 COPY contracts/src contracts/src
 COPY contracts/generated contracts/generated
 COPY intake-server/src intake-server/src
+COPY media-decoder/src media-decoder/src
 COPY intake-server/migrations intake-server/migrations
 ENV PATH="/app/backend/.venv/bin:${PATH}"
 COPY LICENSE LICENSE

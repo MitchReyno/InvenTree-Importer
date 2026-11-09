@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Unused-code check: runs knip over frontend, contracts and intake-server (configured in
+// Unused-code check: runs knip over frontend, contracts, intake-server and media-decoder (configured in
 // knip.json) and fails when unused files, exports, types or dependencies grow beyond the
 // recorded baseline. The baseline may only shrink.
 //
@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const baselinePath = join(dirname(fileURLToPath(import.meta.url)), 'baseline.json')
-const sourceRoots = ['frontend/src', 'contracts/src', 'intake-server/src']
+const sourceRoots = ['frontend/src', 'contracts/src', 'intake-server/src', 'media-decoder/src']
 const SOURCE_FILE = /\.(?:[cm]?[jt]sx?)$/
 const PLANNED = /@planned\b(.*)/
 const PLANNED_REFERENCE = /^\s*(?:BI-\d{3,}|task \d+(?:\.\d+)?)\b\s*\S/

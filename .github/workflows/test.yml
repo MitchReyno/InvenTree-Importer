@@ -85,6 +85,8 @@ jobs:
         run: pnpm --filter @invimport/contracts check:generated
       - name: Typecheck contracts
         run: pnpm --filter @invimport/contracts typecheck
+      - name: Typecheck media decoder
+        run: pnpm --filter @invimport/media-decoder typecheck
       - name: Typecheck server
         run: pnpm --filter @invimport/intake-server typecheck
       - name: Test contracts
@@ -95,6 +97,8 @@ jobs:
         run: npm install --global @fission-ai/openspec@1.16.0
       - name: Test the OpenSpec sync overlap check
         run: pnpm test:openspec
+      - name: Test media decoder
+        run: pnpm --filter @invimport/media-decoder test
       - name: Test public HTTP and protected-target boundaries
         run: pnpm --filter @invimport/intake-server test
 

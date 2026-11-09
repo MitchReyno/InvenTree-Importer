@@ -47,7 +47,11 @@ async function main() {
     await child.ready()
   }
   let close = () => {}
-  const roots = [join(intake, 'src'), join(repository, 'contracts/src')]
+  const roots = [
+    join(intake, 'src'),
+    join(repository, 'contracts/src'),
+    join(repository, 'media-decoder/src'),
+  ]
   const initialSources = await Promise.all(roots.map(snapshot))
   try {
     await start()

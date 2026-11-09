@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import sharp from 'sharp'
 import { decodeIsolated } from '../../src/media/decoder-runner.ts'
-import type { DecodeInput } from '../../src/media/decoder-protocol.ts'
+import type { DecodeInput } from '@invimport/media-decoder/protocol'
 
 const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 if (image && !/^sha256:[a-f0-9]{64}$/.test(image)) {

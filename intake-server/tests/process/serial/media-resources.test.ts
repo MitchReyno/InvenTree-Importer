@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { MEDIA_LIMITS } from '../../../src/media/decoder-protocol.ts'
+import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
 import { decodeIsolated } from '../../../src/media/decoder-runner.ts'
 
 const run = promisify(execFile)

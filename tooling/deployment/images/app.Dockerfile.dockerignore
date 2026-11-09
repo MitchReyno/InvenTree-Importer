@@ -21,6 +21,10 @@
 !intake-server/src/**
 !intake-server/migrations/
 !intake-server/migrations/**
+!media-decoder/
+!media-decoder/package.json
+!media-decoder/src/
+!media-decoder/src/**
 !frontend/
 !frontend/package.json
 !frontend/index.html

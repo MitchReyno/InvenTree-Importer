@@ -1,6 +1,6 @@
 import { bindMediaStore } from './store-binding.ts'
 import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
-import { MEDIA_LIMITS } from './decoder-protocol.ts'
+import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
 import { constants } from 'node:fs'
 import { link, lstat, mkdir, open, realpath, unlink } from 'node:fs/promises'
 import { createHash, randomUUID } from 'node:crypto'

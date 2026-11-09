@@ -23,7 +23,7 @@ import { BlobStore, lockBlob } from './blob-store.ts'
 import { lockMediaRevision } from './commands.ts'
 import { retainBlob } from './blob-reference.ts'
 import { decodeIsolated } from './decoder-runner.ts'
-import { MEDIA_TOOLCHAIN, type DecodedMedia } from './decoder-protocol.ts'
+import { MEDIA_TOOLCHAIN, type DecodedMedia } from '@invimport/media-decoder/protocol'
 import { DECODER_BUILD } from './repository.ts'
 
 interface MediaCommand {
