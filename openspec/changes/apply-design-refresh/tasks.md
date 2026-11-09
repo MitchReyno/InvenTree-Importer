@@ -59,7 +59,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **PR delivery:** PR-A.
 - **Outcome:** the app's `components/ui` library matches design system v20, so screens can use the new parts.
 - **Scope and approach (design D1):**
-  - Add tokens to `frontend/src/theme`: `ai` (#7c3aed / #c4a7ff) and `ai-weak` (#f1e8ff / #2d2148).
+  - Add `ai` (#7c3aed / #c4a7ff) and `ai-weak` (#f1e8ff / #2d2148) to `frontend/src/theme/tokens.json`, regenerate with `pnpm --filter @invimport/frontend tokens`, and make `check-contrast.cjs` pass `ai` on `ai-weak` in both themes.
   - Add `components/ui/icons.tsx` with `AiSparkle`, `Help`, `Info`, `Settings`, `Menu` and `Back` as inline `currentColor` SVGs.
   - Add components: `AiMark` (sm, md, lg; it makes its parent a centred flex row), `IconButton`, `HelpButton`, `SettingsNav`, `SettingRow`, `Switch`, `NumberStepper`, `DescriptionField`, `TreeView`, `CompareTable`, `SourceChipPopover`.
   - Change `SourceChip` to the short form (source, info icon, attention glyph, full text as its tooltip) with the popover.
@@ -87,7 +87,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D2):**
   - `masthead/HeaderStatus.tsx`, `ConnectionStatus.tsx` and `ConnectionDetails.tsx`: Open InvenTree, the development badge line and a Server settings link move into the menu. Check connection now renders disabled (BI-015).
   - `ActivityIndicator.tsx`: `AiMark` first, no needs-you badge, batch name only outside a batch.
-  - Remove `MastheadMenu.tsx` once Task 5 provides Appearance. Until then, PR-B keeps a theme item in the server menu.
+  - Remove `MastheadMenu.tsx` in PR-B. The theme choice moves into the server menu as an interim item, which Task 5 (PR-C) moves to Settings › Appearance.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `header-connection-status` › Safe target details and navigation; `header-workflow-status` › Accessible workflow disclosure and layout (desktop); `batch-navigation` › Calm batch header (masthead parts).
 - **TDD approach:** update the header tests first: Open InvenTree is only inside the menu; the chip has no `?` count; the breadcrumb inside a batch is "Batches". These fail against the current header.
@@ -150,7 +150,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D4):**
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings` and `#settings/<section>`.
-  - `AgentSettingsForm` is reused unchanged. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
+  - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Provider sign-in state isn't shown (BI-015). Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
   - The theme preference moves from the removed menu.
@@ -173,7 +173,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - Part descriptions are editable with their count.
   - Existing descriptions for categories, companies, parameter templates and locations show read-only.
   - Descriptions the app can't store or read show as disabled fields.
-- **Scope and approach (design D7):** frontend only. `PartEditor`, `CompanyEditor`, `ProposedCompanyEditor`, `SourcingEditor`, `TemplateEditor`, `ParameterMatrix` and `RecordDetail` use `DescriptionField`. Existing descriptions come from the existing-values query that already feeds `RecordDetail`'s "In InvenTree" table. An over-limit Part description raises a blocking problem through the existing problem routing.
+- **Scope and approach (design D7):** frontend only. `PartEditor`, `CompanyEditor`, `ProposedCompanyEditor`, `SourcingEditor`, `TemplateEditor`, `ParameterMatrix` and `RecordDetail` use `DescriptionField`. Existing descriptions come from the existing-values query that already feeds `RecordDetail`'s "In InvenTree" table. New locations and suppliers created in Capture show their draft description. A catalogue proposal over the limit (`description_unsupported`) shows the over-limit state and blocks through the existing problem routing.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `ui-design-system` › Descriptions with InvenTree's limits; `review-records` › Descriptions on records.
 - **TDD approach:** UI tests for read-only (from mocked existing values), disabled and editable states, and the over-limit blocking problem. They fail first.
@@ -196,7 +196,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - The AI mark sits at each agent touchpoint.
 - **Scope and approach (design D8):** change log entries D17–D22 and D26–D27:
   - remove the Part "Who proposed what" panel;
-  - remove the Review "ready to add" banner and Processing's "Elsewhere in this batch";
+  - remove the Review "ready to add" banner;
   - remove the helper sentences (Batches, Capture notes, Proposed lots, Records subtitle, Tree footnote, "Your edits are kept…");
   - add `HelpButton` for Capture groups and the Map legend;
   - add the Review "Shortcuts" button;
@@ -266,7 +266,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - `media/MediaWorkspace.tsx`: `finish` runs per file; group header progress.
   - The dirty guard covers the queue.
 - **Prerequisites:** none.
-- **Acceptance:** `capture-grouped-evidence` › Three prominent evidence actions (all three scenarios) and › Preserve editing and approval boundaries.
+- **Acceptance:** `capture-grouped-evidence` › Three prominent evidence actions (all scenarios, including Dismiss on "Not added" and Retry) and › Preserve editing and approval boundaries.
 - **TDD approach:**
   - Rewrite the tests that click Retain or Discard (`MediaUpload.test.tsx`, `CaptureWorkspace.media.test.tsx`, `MediaWorkspace.query.test.tsx`, `MediaWorkspace.groups.test.tsx`) to pick-to-upload.
   - Add a multi-file test, a 4xx "Not added" test, a lost-response Retry test that resends the identical request and adopts the receipt, and a Retry-gets-412 test that re-sends with a new key.
@@ -287,13 +287,14 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D6):**
   - Migration `0031_media_evidence_removal.sql` with its immutability trigger, and grants in `media/grants.ts`.
   - `contracts/src/media.ts` `remove` and `restore` `MediaEdit` kinds, handled in `media/edit.ts`.
-  - The media read model returns removed items in a separate list.
-  - `evidence_removed` stale reasons and revision notices for the affected lots' sessions.
+  - The media read model returns removed items in a separate list, and each item gains `attached_in_run`, `lot_ids` and `sole_evidence_lot_ids`.
+  - Other edits on a removed item are refused with `media_evidence_removed`; `requireUploadCapacity` counts only present items.
+  - `evidence_removed` stale reasons; a batch notice to the Examine lead; notices to the lots' Research and Images sessions keyed by removal revision. A restore reaches the lead as new evidence.
   - Filtering in `processing/examine-trigger.ts`, the agent evidence reads, the processing input builder and preparation.
   - `media/execution-pins.ts` refuses removed versions.
   - A "No evidence" blocking problem for lots whose observations and subject links all point at removed evidence.
 - **Prerequisites:** none.
-- **Acceptance:** `capture-grouped-evidence` › Delete evidence (all scenarios), Restore deleted evidence, Delete refused where history must stay (both scenarios).
+- **Acceptance:** `capture-grouped-evidence` › Delete evidence, Restore deleted evidence, Delete refused where history must stay; `capture-media` › Media removed evidence; `processing-stage-pipeline` › Evidence removal and restore notices; `approval-preparation` › Removed evidence blocks approval.
 - **TDD approach:**
   - Postgres tests first (`pnpm test:intake:pg`):
     - remove, then restore;
@@ -301,7 +302,9 @@ Tasks 1, 10 and 11 can start in parallel.
     - replay returns the first result;
     - pinned evidence refused with `media_removal_refused`;
     - UPDATE and DELETE on the new table rejected;
-    - stale reasons and notices written;
+    - stale reasons and notices written, and remove → restore → remove delivers a second notice while the proposal stays stale;
+    - edits on a removed item refused; capacity freed;
+    - projection fields `attached_in_run`, `lot_ids`, `sole_evidence_lot_ids`;
     - approval of a preparation citing a removed version refused;
     - new processing inputs exclude removed evidence while frozen inputs keep their manifest.
   - Process tests (`pnpm test:intake:process`): the Examine trigger and agent evidence reads skip removed versions.
@@ -329,7 +332,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** full gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 12.1 Confirm the projection fields the UI needs (lot links, pinned).
+- [ ] 12.1 Confirm Task 11's projection fields (`attached_in_run`, `lot_ids`, `sole_evidence_lot_ids`, `removed`) cover the dialog, refusal and Deleted files list.
 - [ ] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
 - [ ] 12.3 GREEN: build the menu, dialog, toast, "Deleted files" list, bulk action and disabled states.
 - [ ] 12.4 Refactor; check focus return after the dialog and toast.

@@ -66,7 +66,7 @@ Adopt the Bench Intake Design System (tokens, light and dark themes, components,
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for new companies, manufacturer parts, supplier parts, locations, categories and parameter templates, and reading existing manufacturer and supplier part descriptions. The rest is the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
+Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates, and reading existing manufacturer part, supplier part and location type descriptions. The rest is provider sign-in state, the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -124,7 +124,7 @@ BI-006's live qualification (#118) found that a native Codex session is not conf
 
 #### BI-014 — Design refresh
 
-Carry the refined design and design system into the app: a calmer masthead and batch header (one attention count, tabs left of the title, server menu holding Open InvenTree, Settings gear), short source chips with details in a popover, help buttons instead of helper text, a purple AI mark at agent touchpoints, and InvenTree descriptions where the app can show them. It adds a Settings page, a Processing › Inventory step page, Review › Records · Locations, and a slim phone header that condenses on scroll. Capture uploads start as soon as files are picked, and evidence can be deleted with undo. Controls that need new backend work ship disabled and are tracked as BI-015.
+Carry the refined design and design system into the app: a calmer masthead and batch header (one attention count, tabs on their own row under the title, server menu holding Open InvenTree, Settings gear), short source chips with details in a popover, help buttons instead of helper text, a purple AI mark at agent touchpoints, and InvenTree descriptions where the app can show them. It adds a Settings page, a Processing › Inventory step page, Review › Records · Locations, and a slim phone header that condenses on scroll. Capture uploads start as soon as files are picked, and evidence can be deleted with undo. Controls that need new backend work ship disabled and are tracked as BI-015.
 
 - Change: `apply-design-refresh`
 - Status: Planned

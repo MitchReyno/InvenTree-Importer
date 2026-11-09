@@ -5,7 +5,7 @@
 Most of this change is frontend work on the component library and screens that `redesign-batch-workspace` built. Two parts touch other boundaries:
 
 - **Direct upload:** frontend only. The upload endpoint already retains on receipt (`intake-server/src/media/repository.ts`); the Retain click is a browser-only gate in `components/media/MediaUpload.tsx`.
-- **Evidence deletion:** the one backend feature. Media history rows are never deleted or re-pointed: the triggers in `0005_media.sql:196-204` refuse DELETE and batch changes, and only `media_batch.revision` advances. Evidence is cited by observations (0019), lot membership, decode commands, attachment selections, approval pins and frozen processing inputs (`processing/provenance.ts`).
+- **Evidence deletion:** the one backend feature. Media history rows are never deleted or re-pointed: the triggers in `0005_media.sql:191-204` refuse DELETE and batch changes, and only `media_batch.revision` advances. Evidence is cited by observations (0019), lot membership, decode commands, attachment selections, approval pins and frozen processing inputs (`processing/provenance.ts`).
 
 **Complexity:** medium-large across screens, but each slice uses existing patterns. Decision D6 adds one new backend concept, an append-only removal.
 
@@ -72,7 +72,7 @@ The need-you aggregate from `redesign-batch-workspace` (design D8) still feeds t
 
 `App.tsx` routes `#settings` and `#settings/<section>` to a new `components/settings/Settings.tsx`. The sections are `agents` (default), `inventree`, `defaults`, `descriptions` and `appearance`.
 
-- **Agents section:** wraps `AgentSettingsForm` unchanged (same contract, revision and conflict handling) inside `SettingRow`s, plus the disabled "More control" card. Pause all reuses the pause command behind `AgentSessions.tsx`, and the slot meter reads the existing agent sessions query.
+- **Agents section:** restyles `AgentSettingsForm` onto `SettingRow`s: option cards for provider, a segmented control for authentication, a model select and a `NumberStepper` for sessions at once. The contract, revision and conflict handling stay the same, and saving stays explicit with one Save action. Provider sign-in state isn't shown, because no contract carries it (BI-015). The disabled "More control" card sits below. Pause all reuses the pause command behind `AgentSessions.tsx`, and the slot meter reads the existing agent sessions query.
 - **InvenTree section:** reads the existing connection observation. The token row, Check now, Replace token and import reference prefix render disabled (BI-015).
 - **Back link:** uses a `returnTo` held in navigation state when Settings is opened. It falls back to Batches for a direct load.
 - **Unsaved edits:** leaving Settings uses the existing navigation guard.
@@ -119,9 +119,9 @@ It is protected by the same `reject_authority_change()` trigger. An item's curre
 **Commands.** `contracts/src/media.ts` adds `remove` and `restore` to the `MediaEdit` kinds, handled in `media/edit.ts` and posted to `/media/commands`. Each carries `evidence_ids[]`, the expected revision and an idempotency key. One transaction:
 
 1. locks the media batch and checks the revision;
-2. refuses with `media_removal_refused` if a `media_approval_pin` (an approved run) pins an item, or the batch is archived or frozen;
+2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (it was attached in an approved run); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409;
 3. inserts one row per item;
-4. marks the current proposals that cite a removed version stale with the existing `evidence_removed` reason (`processing/currentness.ts`), and sends the existing revision notices to the Examine, Research and Images sessions of the affected lots (restore sends them again);
+4. marks the current proposals that cite a removed version stale with the existing `evidence_removed` reason (`processing/currentness.ts`). Stale marks are final (`processing-stage-pipeline` › Evidence-based currentness), so a restore doesn't revive them; the sessions revise. It sends a batch notice to the Examine lead, and notices to the affected lots' Research and Images sessions (`lotSessions`), keyed by the removal revision so a later removal after a restore is delivered again. A restore reaches the lead as new evidence through the existing Examine trigger;
 5. advances the revision and records a `media_removed` or `media_restored` event.
 
 A replay with the same key returns the first result. The command doesn't write `capture_lot`, so it doesn't cross into capture authority; the `reexamine` flag is not used.
@@ -130,7 +130,9 @@ A replay with the same key returns the first result. The command doesn't write `
 
 | Path | Change |
 | --- | --- |
-| `media/read.ts`, projection | Removed items leave the main lists; they're returned in a separate `removed` list for "Deleted files" |
+| `media/read.ts`, projection | Removed items leave the main lists and come back in a separate `removed` list for "Deleted files". Each item gains `attached_in_run` (the approved run number, when pinned), `lot_ids` (lots it feeds through observations or subject links) and `sole_evidence_lot_ids` (lots with no other evidence) for the dialog and refusal state |
+| Other media edits (`move`, `link`, attachment selection, `derive`, evidence note) | Refused with `media_evidence_removed` 409 on a removed item |
+| `media/commands.ts` `requireUploadCapacity` | Counts only present items, so deleted files free capacity |
 | `processing/examine-trigger.ts` (candidate query and `uncoveredVersions`) | Skips removed versions |
 | Agent evidence reads (research broker and session tools) | Refuse or omit removed versions |
 | Processing input builder and preparation | Skip removed evidence; frozen inputs keep their manifest, so provenance checks still hold |
@@ -154,9 +156,10 @@ A replay with the same key returns the first result. The command doesn't write `
 
 ### D7. Descriptions: show what exists, disable what can't be stored
 
-- **Part:** keeps `set_description`. It gains `DescriptionField` with "n / 250" and an over-limit state that blocks approval through the existing problem routing.
-- **Existing records:** descriptions for existing parts, companies, categories, parameter templates and locations are already read on request (`records/existing.ts:110-114`) and shown in `RecordDetail`'s "In InvenTree" table. `DescriptionField` renders them read-only from that query. No contract or projection change: the records projection is built from the database and must not read the target.
-- **No description yet:** new companies, manufacturer parts, supplier parts, locations, categories and templates have no contract field, and existing manufacturer and supplier parts aren't read. These render a disabled `DescriptionField` explaining "Agent-written descriptions for these come later" (BI-015).
+- **Part:** keeps `set_description`, already capped at 250 by `PartDescription`. It gains `DescriptionField` with "n / 250". Only catalogue proposals that would exceed the limit (`description_unsupported`) show an over-limit state, which blocks approval through the existing problem routing.
+- **Existing records:** descriptions for existing parts, companies, categories, parameter templates and locations are already read on request (`records/existing.ts:110-114`) and shown in `RecordDetail`'s "In InvenTree" table. `DescriptionField` renders them read-only from that query, over-limit or not, without blocking. No contract or projection change: the records projection is built from the database and must not read the target.
+- **New locations and suppliers created in Capture:** `CaptureLocationDraft` and `CaptureCompanyDraft` already carry `description` (`contracts/src/capture-intent.ts`), so Records shows it.
+- **No description yet:** manufacturer parts, supplier parts, agent-proposed companies, categories and templates have no contract field; existing manufacturer and supplier parts and location types aren't read. These render a disabled `DescriptionField` explaining "Agent-written descriptions for these come later" (BI-015).
 
 ### D8. Screens
 
@@ -215,6 +218,7 @@ Applied per design change log entry. The table names the owning component, with 
 
 ## Risks and open decisions
 
+- **Restore and stale proposals:** a restore can't revive proposals the delete made stale, so an accidental delete costs agent work. The confirmation names the affected lots first, and the lead treats the restored file as new evidence.
 - **Notice load:** deleting a photo used by many lots notifies all their sessions at once. This uses the existing notice path; the dialog states the count first.
 - **Approval-time pinning:** pinning happens only at approval, so a file selected as an attachment but not yet approved can still be removed. Approval then refuses the stale preparation (see the table above), and Review shows the attachment's evidence as removed.
 - **Open decision for the user:** deletion ships with its backend here (recommended) rather than being disabled under BI-015.

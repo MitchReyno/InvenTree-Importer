@@ -7,8 +7,9 @@
 Review › Records SHALL show each record's description as described in the design system:
 
 - **Part:** editable, with its count.
-- **Existing category, company, parameter template, location and location type:** read-only, from InvenTree where the existing-values read provides them.
-- **Manufacturer part, supplier part, new company, new location, new category, new parameter template, and any existing value the read doesn't provide:** disabled fields explaining that agent-written descriptions for these come later.
+- **Existing category, company, parameter template and location:** read-only, from InvenTree where the existing-values read provides them.
+- **New location or supplier created in Capture:** the description entered with it.
+- **Manufacturer part, supplier part, agent-proposed company, category or parameter template, location type, and any existing value the read doesn't provide:** disabled fields explaining that agent-written descriptions for these come later.
 
 #### Scenario: Existing company description
 

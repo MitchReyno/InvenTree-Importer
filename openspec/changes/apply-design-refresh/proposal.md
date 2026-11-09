@@ -46,7 +46,7 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 - **Descriptions.**
   - Only new Parts carry a description: `contracts/src/records-projection.ts:575`, with the `set_description` op at `contracts/src/records.ts:46`.
   - `intake-server/src/records/existing.ts` already reads descriptions of existing parts, companies, categories, parameter templates and locations from InvenTree. It doesn't read manufacturer or supplier part descriptions.
-  - New manufacturer parts, supplier parts, companies, locations, categories and templates have no description field.
+  - New locations and suppliers created in Capture carry a description (`contracts/src/capture-intent.ts`). Manufacturer parts, supplier parts, agent-proposed companies, categories and templates have no description field.
 - **Agent settings.** `contracts/src/agent-selection.ts` and `contracts/src/agents.ts` hold provider (Claude or Codex), authentication (subscription or API key), model and `session_concurrency` (1–8, default 3), and nothing more. The `#settings` route renders `components/agents/AgentSettings.tsx`.
 - **Uploads.**
   - `components/media/MediaUpload.tsx` keeps the picked file in browser state and needs a Retain click. Retain calls `POST /api/v1/batches/:id/media/originals`; Discard only clears local state.
@@ -109,8 +109,9 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 
 - The Agents "More control" card: model per step, instructions for every new batch, web research switches.
 - App-level batch defaults and the description rules on Settings › InvenTree.
-- Description fields for new companies, manufacturer parts, supplier parts, locations, categories and parameter templates.
-- Showing existing manufacturer and supplier part descriptions, which the server doesn't read yet.
+- Description fields for manufacturer parts, supplier parts, and agent-proposed companies, categories and parameter templates.
+- Showing existing manufacturer part, supplier part and location type descriptions, which the server doesn't read yet.
+- Provider sign-in state on Settings › Agents, which no contract carries.
 - The Settings › InvenTree token row (status, Check now, Replace token), the import reference prefix, and Check connection now in the server menu.
 - Deleting written batch notes, which live in the capture records rather than media evidence.
 
@@ -156,6 +157,9 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 
 - `capture-grouped-evidence`: uploads start on pick and accept several files. Adds deleting and restoring photos and documents.
 - `header-connection-status`: Open InvenTree moves into the connection menu.
+- `capture-media`: removed evidence keeps its bytes, isn't served or counted against capacity, and refuses edits.
+- `processing-stage-pipeline`: stale reasons and notices on removal; restore as new evidence.
+- `approval-preparation`: removed evidence blocks approval.
 - `header-workflow-status` (modified by `redesign-batch-workspace`): the masthead's order ends with the Settings button, and the phone bar holds brand, Dev, agents status button and menu.
 - `batch-navigation` (added by `redesign-batch-workspace`): one count per tab, tabs under the title, phone header behaviour.
 - `ui-design-system` (added by `redesign-batch-workspace`): the AI mark, short source chips with a popover, help buttons in place of helper text, descriptions with their limits.
@@ -167,7 +171,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 
 - **Applications:**
   - `frontend/` across masthead, batches, capture, media, processing, review, changes, agents, settings and `ui`.
-  - `contracts/`: media `remove` and `restore` edits, and the removed list in the media projection.
+  - `contracts/`: media `remove` and `restore` edits; the media projection's removed list and its `attached_in_run`, `lot_ids` and `sole_evidence_lot_ids` fields; the `media_evidence_removed` refusal.
   - `intake-server/`: a removal migration and grants; the edit handler; the read model; the Examine trigger, agent evidence reads, processing inputs and preparation; approval pinning; stale reasons and notices on removal.
 - **Specs:** `redesign-batch-workspace` must be archived (its delta specs synced to main) before this change syncs, because five modified capabilities exist only in that change (batch-navigation, ui-design-system, review-records, processing-workspace, changes-commit) and it also modifies `header-workflow-status`. Run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
 - **Evidence:** demo recordings for the UI PRs go on the PRs, not in the repository.

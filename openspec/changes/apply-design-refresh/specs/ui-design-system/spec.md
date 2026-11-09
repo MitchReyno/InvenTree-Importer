@@ -14,7 +14,7 @@ The AI sparkle (`AiMark`, `ai` on `ai-weak`) SHALL mark the places where the ope
 
 ### Requirement: Short source chips with details on demand
 
-A source chip SHALL show the source and an info indicator, plus a leading glyph when the certainty needs attention: `?` for Likely — check or Estimate, `×` for Sources disagree, `✎` for the operator's edit. It SHALL be a button whose accessible name gives the source and certainty. Activating it SHALL open a popover with the field and value, the certainty, one sentence on why, the evidence it came from, and Open evidence and Edit value actions. The full "source · certainty" text SHALL be available as its tooltip.
+A source chip SHALL show the source and an info indicator, plus a leading glyph when the certainty needs attention: `?` for Likely — check or Estimate, `×` for Sources disagree, `✎` for the operator's edit. It SHALL be a button whose accessible name gives the source and certainty. Activating it SHALL open a popover with the field and value, the certainty, one sentence on why, the evidence it came from and where else the value appears, and Open evidence and Edit value actions. The full "source · certainty" text SHALL be available as its tooltip.
 
 #### Scenario: Read why a value is trusted
 
@@ -40,7 +40,7 @@ Headings, legends and shortcut lists SHALL NOT carry grey explanatory sentences.
 
 ### Requirement: Descriptions with InvenTree's limits
 
-Wherever a record has an InvenTree description (Part, category, company, manufacturer part, supplier part, parameter template, stock location, location type), screens SHALL show it with its source and a character count against InvenTree's limit: 500 for companies, 250 for the rest. Stock items SHALL show no description. A description over its limit SHALL show the count in the bad tone and block approval until it fits. Descriptions the app can't yet store or read SHALL render as disabled fields with an explanation.
+Wherever a record has an InvenTree description (Part, category, company, manufacturer part, supplier part, parameter template, stock location, location type), screens SHALL show it with its source and a character count against InvenTree's limit: 500 for companies, 250 for the rest. Stock items SHALL show no description. A description over its limit SHALL show the count in the bad tone. A proposed description the app would write SHALL block approval until it fits; an existing InvenTree description is shown but doesn't block, because the app doesn't write it. Descriptions the app can't yet store or read SHALL render as disabled fields with an explanation.
 
 #### Scenario: Count against the limit
 
