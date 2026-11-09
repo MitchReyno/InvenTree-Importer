@@ -62,6 +62,8 @@ export function ChatGPTSignIn() {
   // The runner takes one action at a time, so this panel's calls run one after another. A
   // cancelled poll's result is dropped, but its call still finishes before the next starts.
   const queue = useRef<Promise<unknown>>(Promise.resolve())
+  // A status call can end the login, so a replayed poll adopts the call still running for it.
+  const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
   const polling = open && account?.state === 'pending'
   const status = useQuery({
     // The management key is read from its field and never enters the cache key.
@@ -72,7 +74,7 @@ export function ChatGPTSignIn() {
       String(generation),
       account?.loginId ?? '',
     ),
-    queryFn: () => run('status', account?.loginId),
+    queryFn: () => pollStatus(`${generation}:${account?.loginId ?? ''}`, account?.loginId),
     // App-wide reconciliation refetches enabled queries, so a failed or finished poll disables
     // itself rather than relying on the interval alone. No poll is queued behind a command.
     enabled: (query) =>
@@ -97,6 +99,23 @@ export function ChatGPTSignIn() {
     const managementKey = key.current?.value ?? ''
     const call = queue.current.then(() => callRunner(managementKey, action, loginId))
     queue.current = call.catch(() => undefined)
+    return call
+  }
+
+  function pollStatus(id: string, loginId?: string) {
+    if (statusCall.current?.id === id) {
+      return statusCall.current.call
+    }
+    const call = run('status', loginId)
+    const entry = { id, call }
+    statusCall.current = entry
+    void call
+      .catch(() => undefined)
+      .finally(() => {
+        if (statusCall.current === entry) {
+          statusCall.current = null
+        }
+      })
     return call
   }
 

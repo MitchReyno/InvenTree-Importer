@@ -193,7 +193,7 @@ it('app-wide reconciliation does not re-poll a failed sign-in', async () => {
   }
 })
 
-it('a poll that reconciliation cancels finishes before the next call starts', async () => {
+it('a poll that reconciliation cancels and replays adopts the call still running', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   try {
     const cache = createServerQueryClient()
@@ -204,7 +204,7 @@ it('a poll that reconciliation cancels finishes before the next call starts', as
       .fn()
       .mockResolvedValueOnce(challenge())
       .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
-      .mockImplementation(async () => challenge())
+      .mockImplementation(async () => new Response('busy', { status: 409 }))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
     render(
@@ -220,9 +220,10 @@ it('a poll that reconciliation cancels finishes before the next call starts', as
       void cache.invalidateQueries()
       await vi.advanceTimersByTimeAsync(10)
     })
+    await act(async () => answer(Response.json({ state: 'denied' })))
+    expect(await screen.findByText('Sign-in was declined or expired.')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(send).toHaveBeenCalledTimes(2)
-    await act(async () => answer(challenge()))
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(3))
   } finally {
     vi.useRealTimers()
   }
