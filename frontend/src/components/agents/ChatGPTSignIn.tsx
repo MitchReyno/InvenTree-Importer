@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { Button } from '#/components/ui'
@@ -51,6 +51,8 @@ async function callRunner(managementKey: string, action: string, loginId?: strin
 export function ChatGPTSignIn() {
   const key = useRef<HTMLInputElement>(null)
   const scope = useServerScope()
+  // Generations restart with each mount; this keeps an earlier mount's entry out of the key.
+  const mount = useId()
   const [open, setOpen] = useState(false)
   const [account, setAccount] = useState<Account>()
   const [message, setMessage] = useState('')
@@ -62,9 +64,18 @@ export function ChatGPTSignIn() {
   const polling = open && account?.state === 'pending'
   const status = useQuery({
     // The management key is read from its field and never enters the cache key.
-    queryKey: serverQueryKey(scope, 'codex-login', String(generation), account?.loginId ?? ''),
+    queryKey: serverQueryKey(
+      scope,
+      'codex-login',
+      mount,
+      String(generation),
+      account?.loginId ?? '',
+    ),
     queryFn: () => callRunner(key.current?.value ?? '', 'status', account?.loginId),
-    enabled: polling,
+    // App-wide reconciliation refetches enabled queries, so a failed or finished poll disables
+    // itself rather than relying on the interval alone.
+    enabled: (query) =>
+      polling && query.state.status !== 'error' && query.state.data?.state === 'pending',
     initialData: account,
     initialDataUpdatedAt: Date.now,
     staleTime: POLL_MS,

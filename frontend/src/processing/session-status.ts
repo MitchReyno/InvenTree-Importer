@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { examineLead, subjectStatuses, WORK_STEPS } from './source'
@@ -34,7 +34,9 @@ export function useSessionStatuses(
     // Only a setup with sessions has status lines.
     enabled: Boolean(processing?.session),
     refetchInterval: SESSION_STATUS_REFRESH_MS,
-    placeholderData: keepPreviousData,
+    // A failed read's last lines must not return as current under the next revision.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.state.status === 'error' ? undefined : previous,
     select: statusesOf,
   })
   // Old lines would read as current, so a failed or paused read drops them.

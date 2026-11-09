@@ -25,6 +25,9 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 
 - **2026-11-09T21:49+11:00, task 9:** `ChatGPTSignIn` had no observable bug: the old interval Effect passes the new polling tests. The rewrite follows the guideline, and its tests are characterization tests. A request's result now starts a new polling generation, because bumping the generation before the request captured the old account as the new key's initial data.
 
+- **2026-11-09T22:24+11:00, task 10:** Only items 34 and 35 had observable bugs (`useMediaQuery` resubscribed on every render; `ReviewMap` committed an extra render for an unchanged layout); their tests fail on the old code. The old `EvidenceViewer` density Effect already re-armed on each change, so the pixel-ratio, callback-ref, mounted-ref, draft-generation and `LiveUpdates` tests are characterization tests.
+- **2026-11-09T22:24+11:00, task 9:** Independent review found the sign-in query stayed enabled after an error or once the login finished, so app-wide reconciliation refetched it. It now enables itself from its own state, and its key carries a per-mount ID. Session status no longer shows a failed read's last lines as placeholder data for the next revision.
+
 ## Decisions made during implementation
 
 - **2026-11-09T20:57+11:00, task 2:** `InstructionForm` takes a plain `(dirty) => void` instead of `(key, dirty)`. Its only caller passes the stable `forSource` callback, so the form reports from its `onChange` and releases on unmount like the other editors.

@@ -104,3 +104,32 @@ it('re-reads on its interval, since status lines move without a capture change',
     vi.useRealTimers()
   }
 })
+
+it('after a failed read, a new revision does not bring back the old lines while it loads', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    let finish: (value: unknown) => void = () => undefined
+
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Sorting reels')] })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)))
+    const client = { read, session: vi.fn() } as unknown as ProcessingClient
+    const { result, rerender } = renderHook(
+      ({ revision }) => useSessionStatuses(client, 'b', revision),
+      { initialProps: { revision: '1' }, wrapper },
+    )
+    await waitFor(() => expect(result.current.lead).toBe('Sorting reels'))
+    await vi.advanceTimersByTimeAsync(SESSION_STATUS_REFRESH_MS)
+    await waitFor(() => expect(result.current.lead).toBeUndefined())
+    rerender({ revision: '2' })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(read).toHaveBeenCalledTimes(3)
+    expect(result.current.lead).toBeUndefined()
+    finish({ jobs: [job('lead', 'examine', null, 'Done sorting')] })
+    await waitFor(() => expect(result.current.lead).toBe('Done sorting'))
+  } finally {
+    vi.useRealTimers()
+  }
+})

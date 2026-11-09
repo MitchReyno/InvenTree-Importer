@@ -182,7 +182,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Acceptance:
   - the status line refreshes on its interval and on a revision change, and clears on failure;
   - sign-in polls only while pending and open, and a key edit drops in-flight results;
-  - one search fires 250 ms after typing stops, and a late older response never replaces newer results.
+  - ~~one search fires 250 ms after typing stops, and a late older response never replaces newer results.~~ Item 28 was dropped; see `notes.md`.
 - TDD approach: the fake-timer tests fail first where behaviour changes.
 - Verification: the owning checks.
 - Risks and decisions: the management key must never enter a query key. Whether `useCatalogue.search` can take a signal is recorded as a limit if it cannot.
@@ -210,7 +210,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Risks and decisions: none.
 
 - [x] 10.1 Confirm each finding against the current code.
-- [x] 10.2 RED: add the regressions and confirm they fail.
+- [x] 10.2 RED: add the regressions and confirm they fail. Items 34 and 35 fail first; the rest are characterization tests, see `notes.md`.
 - [x] 10.3 GREEN: implement the hooks and adopt them.
 - [x] 10.4 Add tests for any changed file without a test file.
 - [x] 10.5 Run the owning checks and record the results.

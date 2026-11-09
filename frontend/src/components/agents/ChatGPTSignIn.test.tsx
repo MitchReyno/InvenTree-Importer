@@ -1,6 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { act, fireEvent, screen } from '@testing-library/react'
+import { createServerQueryClient } from '#/queries/client'
 import { render } from '#/test/render'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { fixtureScope } from '#/test/render'
 import { ChatGPTSignIn } from './ChatGPTSignIn'
 afterEach(() => vi.unstubAllGlobals())
 it('displays the guest device challenge and cancels only its login', async () => {
@@ -120,6 +123,36 @@ it('a failed poll stops polling and says the status is unconfirmed', async () =>
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
     await act(() => vi.advanceTimersByTimeAsync(9000))
     expect(send).toHaveBeenCalledTimes(2)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('app-wide reconciliation does not re-poll a failed or finished sign-in', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const cache = createServerQueryClient()
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockResolvedValueOnce(Response.json({ state: 'connected' }))
+      .mockResolvedValue(new Response('gone', { status: 404 }))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        <ChatGPTSignIn />
+      </ServerStateProvider>,
+    )
+    await startSignIn()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(await screen.findByText('Connected to ChatGPT')).toBeTruthy()
+    await act(async () => {
+      await cache.invalidateQueries()
+      await vi.advanceTimersByTimeAsync(10)
+    })
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Connected to ChatGPT')).toBeTruthy()
   } finally {
     vi.useRealTimers()
   }

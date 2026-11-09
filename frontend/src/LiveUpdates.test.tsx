@@ -236,9 +236,16 @@ test('returning to the page reconciles retained reads, but a hidden page does no
   expect(read).toHaveBeenCalledOnce()
   visibility.mockReturnValue('visible')
   await act(async () => {
-    window.dispatchEvent(new Event('focus'))
+    document.dispatchEvent(new Event('visibilitychange'))
     await vi.advanceTimersByTimeAsync(200)
   })
   expect(read).toHaveBeenCalledTimes(2)
+  // Focus and visibility arriving together coalesce into one reconciliation.
+  await act(async () => {
+    window.dispatchEvent(new Event('focus'))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(200)
+  })
+  expect(read).toHaveBeenCalledTimes(3)
   visibility.mockRestore()
 })
