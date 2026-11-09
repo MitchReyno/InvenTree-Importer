@@ -35,8 +35,9 @@ export function contractMiddleware(csrfToken?: string): Middleware {
   return {
     async onRequest({ request, schemaPath }) {
       const operation = operationFor(request.method, schemaPath)
+      // The operation deadline bounds the request; a caller's own signal can still end it sooner.
       const boundedRequest = new Request(request, {
-        signal: AbortSignal.timeout(operation.timeoutMs),
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(operation.timeoutMs)]),
       })
       if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
         boundedRequest.headers.set('x-intake-csrf', csrfToken ?? '')

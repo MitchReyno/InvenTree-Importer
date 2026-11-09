@@ -63,10 +63,11 @@ export function catalogueClient(
   const client = typedClient(baseUrl, transport, csrfToken)
 
   return {
-    search: (id: string, model: CatalogueModelDto, q: string) =>
+    search: (id: string, model: CatalogueModelDto, q: string, signal?: AbortSignal) =>
       successfulData(
         client.GET('/api/v1/batches/{id}/catalogue/{model}', {
           params: { path: { id, model }, query: { q } },
+          signal,
         }),
       ),
 

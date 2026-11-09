@@ -83,6 +83,18 @@ it('shows each photo’s regions with their lot, and each lot’s observations, 
   expect(within(lot).getByText(/Identity from the label/)).toBeVisible()
 })
 
+it('renders nothing while no observation is active, and returns when they come back', () => {
+  const none = { ...batch, evidence_observations: [] } as CaptureSnapshotDto
+  const mounted = render(<ExamineView batch={batch} lead={lead} />)
+  expect(screen.getByLabelText('Photo 1')).toBeVisible()
+
+  mounted.rerender(<ExamineView batch={none} lead={lead} />)
+  expect(screen.queryByLabelText('Photo 1')).not.toBeInTheDocument()
+
+  mounted.rerender(<ExamineView batch={batch} lead={lead} />)
+  expect(screen.getByLabelText('Photo 1')).toBeVisible()
+})
+
 it('switches between the photos and the lots formed from them', async () => {
   render(<ExamineView batch={batch} lead={lead} />)
   const lens = screen.getByRole('group', { name: 'Examine lens' })

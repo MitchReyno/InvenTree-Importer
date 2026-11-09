@@ -39,6 +39,29 @@ test('catalogue client sends scoped read paths and validates exact identities', 
   ])
 })
 
+test('aborting a catalogue search ends its request with the caller’s reason, once', async () => {
+  const caller = new AbortController()
+  const reason = new Error('search_superseded')
+  let sends = 0
+  const client = catalogueClient('http://127.0.0.1:4310', 'csrf', async (_input, init) => {
+    sends++
+    const signal = init!.signal!
+    return new Promise<Response>((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      caller.abort(reason)
+      // Abort propagates synchronously, so a request still open here never heard the caller.
+      if (!signal.aborted) {
+        reject(new Error('caller_abort_not_propagated'))
+      }
+    })
+  })
+  await assert.rejects(
+    client.search(batch, 'location', 'Drawer 4', caller.signal),
+    (error) => error === reason,
+  )
+  assert.equal(sends, 1)
+})
+
 test('catalogue client fails closed on unexpected fields, numeric PKs and over-long pages', async () => {
   const invalid = [
     { ...search, results: [{ ...search.results[0], website: 'https://example.invalid' }] },

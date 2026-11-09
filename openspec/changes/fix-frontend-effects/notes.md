@@ -63,4 +63,6 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 ## Open items
 
 - `useCatalogue.search` does not pass the picker's `AbortSignal` to the catalogue client, so an abandoned search still completes on the network; its result is dropped. The generated client would need to accept a signal. Not tracked elsewhere yet.
+  - **2026-11-10T05:28+11:00, resolved on `fix/frontend-effects-open-items`:** `useCatalogue.search` passes the signal to `catalogueClient.search`, which now accepts one. Passing it was not enough on its own: the shared contract middleware replaced every request's signal with the operation deadline, so it now combines the caller's signal with the deadline through `AbortSignal.any`. Other clients pass no signal and keep the deadline alone.
 - **2026-11-09T23:34+11:00:** Outside this change, `ExamineView` calls `useRef` after an early return when it has no observations, which breaks the Rules of Hooks if its observations go between empty and non-empty without a remount. Found in review; not fixed here.
+  - **2026-11-10T05:28+11:00, resolved on `fix/frontend-effects-open-items`:** the `useRef` now runs before the early return. A regression test that empties and restores the observations failed with "Rendered fewer hooks than expected" on the old code.

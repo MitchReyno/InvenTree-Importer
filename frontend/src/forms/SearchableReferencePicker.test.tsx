@@ -120,6 +120,30 @@ test('an older search response cannot replace newer results', async () => {
   }
 })
 
+test('a newer query aborts the search it replaces', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const signals = new Map<string, AbortSignal>()
+
+    const search: PickerSearch = (q, signal) => {
+      signals.set(q, signal)
+      return new Promise(() => {})
+    }
+
+    const { input } = picker({ candidates: [], coverage: complete([]), search })
+    await user.type(input, 'Far')
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    expect(signals.get('Far')!.aborted).toBe(false)
+    await user.type(input, 'nell')
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    expect(signals.get('Far')!.aborted).toBe(true)
+    expect(signals.get('Farnell')!.aborted).toBe(false)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
 test('a numeric ID offers the exact detail read first without fuzzy substitution', async () => {
   const user = userEvent.setup()
   const exact = supplier('1234', 'Rare Parts Ltd')
