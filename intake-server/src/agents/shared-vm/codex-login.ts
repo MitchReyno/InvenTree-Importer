@@ -106,7 +106,7 @@ export function parseDevice(v: Record<string, unknown>): Device {
 }
 
 export class CodexAccount {
-  private lastCompleted?: string
+  private lastStatusLogin?: string
   private pending?: Login
   private timer?: ReturnType<typeof setTimeout>
   private busy = false
@@ -152,10 +152,14 @@ export class CodexAccount {
       if (action === 'cancel' && loginId !== login.device.loginId) {
         throw unavailable()
       }
-      if (action === 'cancel' || Date.now() >= login.expires) {
+      const expired = Date.now() >= login.expires
+      if (action === 'cancel' || expired) {
         try {
           await login.rpc.request('account/login/cancel', { loginId: login.device.loginId })
         } finally {
+          if (expired) {
+            this.lastStatusLogin = login.device.loginId
+          }
           await this.abandon()
         }
         return { state: 'disconnected' }
@@ -178,7 +182,7 @@ export class CodexAccount {
         }
         // Promote only the matching completed attempt, while its exclusive lock is held.
         await rename(login.home, active)
-        this.lastCompleted = login.device.loginId
+        this.lastStatusLogin = login.device.loginId
         await this.abandon()
         return { state: 'connected' }
       } catch (error) {
@@ -188,7 +192,7 @@ export class CodexAccount {
     }
     if (
       !['status', 'start', 'disconnect'].includes(String(action)) ||
-      (loginId !== undefined && !(action === 'status' && loginId === this.lastCompleted))
+      (loginId !== undefined && !(action === 'status' && loginId === this.lastStatusLogin))
     ) {
       throw unavailable()
     }
@@ -206,7 +210,7 @@ export class CodexAccount {
       try {
         await rpc.initialize()
         if (action === 'disconnect') {
-          this.lastCompleted = undefined
+          this.lastStatusLogin = undefined
           await rpc.request('account/logout', {})
           if (await rpc.connected()) {
             throw unavailable()
@@ -225,7 +229,7 @@ export class CodexAccount {
       return { state: 'disconnected' }
     }
     await mkdir(this.root, { recursive: true, mode: 0o700 })
-    this.lastCompleted = undefined
+    this.lastStatusLogin = undefined
     const home = await mkdtemp(join(this.root, 'login-'))
     const rpc = this.rpc(this.root, home, true)
     try {

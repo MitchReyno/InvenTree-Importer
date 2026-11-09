@@ -78,7 +78,7 @@ test('expiry cancels the native login and discards even a late successful comple
   const root = await mkdtemp(join(tmpdir(), 'codex-expiry-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   const when = Date.now()
-  t.mock.timers.enable({ apis: ['Date'], now: when })
+  t.mock.timers.enable({ apis: ['Date', 'setInterval'], now: when })
   const methods: string[] = []
   const rpc = {
     completion: { loginId: id, success: true },
@@ -93,6 +93,12 @@ test('expiry cancels the native login and discards even a late successful comple
   const account = new CodexAccount(root, () => rpc)
   await account.action('start')
   t.mock.timers.setTime(when + 16 * 60_000)
+  t.mock.timers.tick(10_000)
+  // Wait until the background cancel has closed the RPC and removed the pending home.
+  for (let i = 0; i < 100 && (await readdir(root)).length; i++) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 5))
+  }
+  assert.deepEqual(await readdir(root), [])
   assert.deepEqual(await account.action('status', id), { state: 'disconnected' })
   assert.ok(methods.includes('account/login/cancel'))
   assert.deepEqual(await readdir(root), [])
