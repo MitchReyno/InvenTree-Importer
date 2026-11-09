@@ -373,6 +373,38 @@ test('unmounting stops later files and the follow-up read of one in flight', asy
   expect(queue.finish).not.toHaveBeenCalled()
 })
 
+test('a refusal arriving after unmount does not report to the navigation guard', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const view = render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  view.unmount()
+  const reports = vi.mocked(queue.onDirtyChange).mock.calls.length
+  await act(async () => first.reject(new IntakeRequestError(409, 'media_capacity')))
+
+  expect(queue.onDirtyChange).toHaveBeenCalledTimes(reports)
+})
+
+test('Dismiss moves focus to the previous tile when the next has no enabled control', async () => {
+  const user = userEvent.setup({ applyAccept: false })
+  const queue = ports({ upload: vi.fn(() => new Promise<MediaReceiptDto>(() => undefined)) })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['gif'], 'one.gif', { type: 'image/gif' }),
+    new File(['gif'], 'two.gif', { type: 'image/gif' }),
+    photo('three.png'),
+  ])
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  const second = screen.getByRole('group', { name: 'Upload of two.gif' })
+  await user.click(within(second).getByRole('button', { name: 'Dismiss two.gif' }))
+
+  expect(screen.getByRole('button', { name: 'Dismiss one.gif' })).toHaveFocus()
+})
+
 test('unmounting after a revision refusal does not send the file again', async () => {
   const user = userEvent.setup()
   const first = deferred<MediaReceiptDto>()

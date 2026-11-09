@@ -36,7 +36,7 @@ export function MediaUpload({ ref, chooseDisabled, noteDisabled, onWriteNote, qu
 
   useImperativeHandle(ref, () => ({ choose }))
 
-  // Not gated on `disabled`: the picker's return of focus briefly re-reads the batch.
+  // Not gated on `chooseDisabled`: the picker's return of focus briefly re-reads the batch.
   function selected(files: FileList | null, kind: UploadKind) {
     queue.add([...(files ?? [])], kind, destination.current)
   }

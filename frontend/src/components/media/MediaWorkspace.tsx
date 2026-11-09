@@ -64,6 +64,7 @@ export function MediaWorkspace({
         throw new Error('retained_original_not_in_fresh_projection')
       }
       state.accept(current)
+      uploads.forgetPlaced(current.evidence)
       if (!groupId) {
         return true
       }
@@ -95,29 +96,35 @@ export function MediaWorkspace({
   const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
   const activeGroups = new Set(snapshot?.groups.map((group) => group.id))
 
-  // A notice that a file missed its group no longer applies once the latest read has it there.
   // The latest read, not the shown snapshot, which drafts can hold back.
   const latestRead = state.query.data ?? snapshot
 
-  function settledInGroup(item: UploadItem) {
+  // "Added to Ungrouped" is false once a read shows the file in any group. Refresh and finish
+  // drop such notices; this hides one a poll has overtaken until then.
+  function placedInAGroup(item: UploadItem) {
     if (item.status !== 'ungrouped' || !item.evidenceId) {
       return false
     }
     const evidence = latestRead?.evidence.find((entry) => entry.id === item.evidenceId)
-    return evidence !== undefined && evidence.group_id === item.groupId
+    return evidence !== undefined && evidence.group_id !== null
   }
 
   // A file bound for a group that has since gone is shown with the ungrouped files.
   function uploadsIn(groupId: string | null) {
     return uploads.items.filter((item) => {
       const shownIn = item.groupId && activeGroups.has(item.groupId) ? item.groupId : null
-      return shownIn === groupId && !settledInGroup(item)
+      return shownIn === groupId && !placedInAGroup(item)
     })
   }
 
   const frozen = disabled || command.busy || command.pending || !snapshot || state.unavailable
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
+
+  // Retry and Read again never touch the selection, so a held selection must not lock them.
+  const uploadActionsDisabled = frozen || drafts.hasOtherSources('upload', 'selection')
+  // Clearing or reloading a selection never sends media, so queued uploads must not lock it.
+  const selectionResetDisabled = drafts.hasOtherSources('selection', 'upload')
 
   // A confirmed move is undoable when its files all came from one group. It is forgotten once
   // nothing is retained: confirmed or refused on retry, or discarded.
@@ -212,6 +219,7 @@ export function MediaWorkspace({
           onClick={() =>
             void state
               .refresh()
+              .then((value) => uploads.forgetPlaced(value.evidence))
               .catch(() => state.setError('Refresh failed. Local drafts are preserved.'))
           }
         >
@@ -289,16 +297,11 @@ export function MediaWorkspace({
               >
                 Move selected evidence
               </Button>
-              <Button
-                disabled={frozen || drafts.hasOtherSources('selection')}
-                onClick={() => state.select([])}
-              >
+              <Button disabled={frozen || selectionResetDisabled} onClick={() => state.select([])}>
                 Clear evidence selection
               </Button>
               <Button
-                disabled={
-                  command.pending || command.busy || disabled || drafts.hasOtherSources('selection')
-                }
+                disabled={command.pending || command.busy || disabled || selectionResetDisabled}
                 onClick={() => void state.reconcile()}
               >
                 Reload membership for a new move
@@ -313,39 +316,43 @@ export function MediaWorkspace({
             }
           >
             <Groups>
-              {[...snapshot.groups.map((group) => group.id), null].map((groupId) => (
-                <EvidenceGroupPanel
-                  key={groupId ?? 'ungrouped'}
-                  batch={batch}
-                  snapshot={snapshot}
-                  groupId={groupId}
-                  labels={identityLabels}
-                  frozen={frozen}
-                  pending={command.pending}
-                  retained={retained}
-                  notice={command.message || state.error || null}
-                  selected={state.selected}
-                  edit={edit}
-                  captureEdit={captureEdit}
-                  blocked={(owner) =>
-                    owner === 'selection'
-                      ? frozen || drafts.hasOtherSources('selection', 'drag')
-                      : blocked(owner)
-                  }
-                  dirty={drafts.forSource}
-                  select={state.select}
-                  choose={(kind, id) => upload.current?.choose(kind, id)}
-                  uploads={uploadsIn(groupId)}
-                  uploadProgress={uploadProgress(uploadsIn(groupId))}
-                  uploadQueue={uploads}
-                  crop={(version, page) => {
-                    drafts.forSource('crop')(true)
-                    setCrop({ version, page, revision: snapshot.revision })
-                  }}
-                  review={review}
-                  reload={reload}
-                />
-              ))}
+              {[...snapshot.groups.map((group) => group.id), null].map((groupId) => {
+                const groupUploads = uploadsIn(groupId)
+                return (
+                  <EvidenceGroupPanel
+                    key={groupId ?? 'ungrouped'}
+                    batch={batch}
+                    snapshot={snapshot}
+                    groupId={groupId}
+                    labels={identityLabels}
+                    frozen={frozen}
+                    pending={command.pending}
+                    retained={retained}
+                    notice={command.message || state.error || null}
+                    selected={state.selected}
+                    edit={edit}
+                    captureEdit={captureEdit}
+                    blocked={(owner) =>
+                      owner === 'selection'
+                        ? frozen || drafts.hasOtherSources('selection', 'drag')
+                        : blocked(owner)
+                    }
+                    dirty={drafts.forSource}
+                    select={state.select}
+                    choose={(kind, id) => upload.current?.choose(kind, id)}
+                    uploads={groupUploads}
+                    uploadProgress={uploadProgress(groupUploads)}
+                    uploadQueue={uploads}
+                    uploadActionsDisabled={uploadActionsDisabled}
+                    crop={(version, page) => {
+                      drafts.forSource('crop')(true)
+                      setCrop({ version, page, revision: snapshot.revision })
+                    }}
+                    review={review}
+                    reload={reload}
+                  />
+                )
+              })}
             </Groups>
           </EvidenceDragContext>
           {selectedSubject && (

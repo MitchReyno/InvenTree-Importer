@@ -262,6 +262,73 @@ test('group membership conflict retains one uploaded original in ungrouped witho
   await waitFor(() =>
     expect(within(target).queryByRole('group', { name: 'Upload of packet.png' })).toBeNull(),
   )
+
+  // Moved on again later, the dropped notice must not come back with a false claim.
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...retained,
+    revision: '4',
+    evidence: [{ ...retained.evidence[0], group_id: null }],
+  })
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+  await waitFor(() => expect(client.snapshot).toHaveBeenLastCalledWith(batch.id))
+  expect(screen.queryByRole('group', { name: 'Upload of packet.png' })).toBeNull()
+})
+
+test('a held selection after a refused move does not lock Retry or the selection controls', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  let current: MediaSnapshotDto = initial
+  vi.mocked(client.snapshot).mockImplementation(async () => current)
+  vi.mocked(client.upload).mockImplementation(async (_batch, _revision, label) => {
+    if (label === 'two.png') {
+      throw new TypeError('network')
+    }
+    const id = '93000000-0000-4000-8000-000000000009'
+    const version = {
+      id: 'a3000000-0000-4000-8000-00000000000a',
+      evidence_id: id,
+      kind: 'original' as const,
+      digest: 'd'.repeat(64),
+      byte_size: '1',
+      media_type: 'image/png' as const,
+      state: 'queued' as const,
+      decoder_build: null,
+      recipe: null,
+      pages: [],
+    }
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: [
+        ...current.evidence,
+        { id, label, group_id: null, linked_subject_ids: [], versions: [version] },
+      ],
+    }
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  vi.mocked(client.edit).mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['1'], 'one.png', { type: 'image/png' }),
+    new File(['2'], 'two.png', { type: 'image/png' }),
+  ])
+
+  const retry = await screen.findByRole('button', { name: 'Retry two.png' })
+  expect(retry).toBeEnabled()
+  const clear = screen.getByRole('button', { name: 'Clear evidence selection' })
+  expect(clear).toBeEnabled()
+  await user.click(clear)
+  expect(screen.queryByRole('button', { name: 'Clear evidence selection' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Retry two.png' })).toBeEnabled()
 })
 
 test('after one move is refused, later files stay in Ungrouped without replacing the selection', async () => {

@@ -110,7 +110,17 @@ test('shared upload checks bound size and labels as the client and browser queue
   assert.equal(isMediaSourceSize(MEDIA_SOURCE_MAX_BYTES + 1), false)
   assert.equal(isMediaLabel('é'.repeat(256)), true)
   assert.equal(isMediaLabel('packet.png'), true)
-  for (const label of ['', '  ', 'bad\nlabel', 'del\u007f', 'a'.repeat(257), 7]) {
+  assert.equal(isMediaLabel('pair \ud83d\udcf7.png'), true)
+  for (const label of [
+    '',
+    '  ',
+    'bad\nlabel',
+    'del\u007f',
+    'a'.repeat(257),
+    7,
+    'lone \ud83d.png',
+    'lone \udcf7.png',
+  ]) {
     assert.equal(isMediaLabel(label), false)
   }
 })

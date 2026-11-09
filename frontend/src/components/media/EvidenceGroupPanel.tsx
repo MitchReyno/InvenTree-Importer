@@ -46,6 +46,8 @@ type Props = {
   /** Shown in the header as "Uploading 2 of 3". */
   uploadProgress?: UploadProgress | null
   uploadQueue?: Pick<UploadQueue, 'retry' | 'readAgain' | 'dismiss'>
+  /** Retry and Read again wait while media commands are frozen. */
+  uploadActionsDisabled?: boolean
   crop: (version: MediaVersionDto, page: number) => void
   review?: OperatorReviewDto
   reload?: () => Promise<void>
@@ -71,6 +73,7 @@ export function EvidenceGroupPanel({
   uploads = [],
   uploadProgress,
   uploadQueue,
+  uploadActionsDisabled = true,
   crop,
   review,
   reload,
@@ -268,7 +271,7 @@ export function EvidenceGroupPanel({
             <UploadTile
               key={item.id}
               item={item}
-              disabled={blocked('upload')}
+              disabled={uploadActionsDisabled}
               queue={uploadQueue}
             />
           ))}

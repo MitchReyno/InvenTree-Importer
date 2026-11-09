@@ -36,12 +36,11 @@ const FOCUSABLE = 'button:not(:disabled), input:not(:disabled)'
  * else the group region holding it, which takes focus without being a tab stop.
  */
 function focusAfterDismiss(tile: HTMLElement | null): HTMLElement | null {
-  const neighbour = tile?.nextElementSibling ?? tile?.previousElementSibling
-  const sibling = neighbour?.querySelector<HTMLElement>(FOCUSABLE)
-  if (sibling) {
-    return sibling
-  }
-  return tile?.parentElement?.closest<HTMLElement>('section[tabindex="-1"]') ?? null
+  const next = tile?.nextElementSibling?.querySelector<HTMLElement>(FOCUSABLE)
+  const previous = tile?.previousElementSibling?.querySelector<HTMLElement>(FOCUSABLE)
+  return (
+    next ?? previous ?? tile?.parentElement?.closest<HTMLElement>('section[tabindex="-1"]') ?? null
+  )
 }
 
 /**
@@ -77,7 +76,12 @@ export function UploadTile({ item, disabled, queue }: Props) {
       <Caption>
         <Name title={item.name}>{item.name}</Name>
         {/* Refusals interrupt; progress and settled outcomes are announced politely. */}
-        <Status $failed={failed} role={failed ? 'alert' : 'status'}>
+        {/* Keyed by role, so a change of role mounts a fresh live region that is announced. */}
+        <Status
+          key={failed ? 'alert' : 'status'}
+          $failed={failed}
+          role={failed ? 'alert' : 'status'}
+        >
           {statusText(item)}
         </Status>
         {item.status === 'unconfirmed' && (

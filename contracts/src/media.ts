@@ -16,7 +16,16 @@ function isControlCharacter(character: string) {
   return code <= 0x1f || code === 0x7f
 }
 
-/** An original's label: not blank, at most 256 code points and no control characters. */
+/** Iterating a string yields a lone surrogate as its own character; URI encoding throws on it. */
+function isLoneSurrogate(character: string) {
+  const code = character.codePointAt(0) ?? 0
+  return code >= 0xd800 && code <= 0xdfff
+}
+
+/**
+ * An original's label: well-formed UTF-16, not blank, at most 256 code points and no control
+ * characters. The upload header carries it URI-encoded.
+ */
 export function isMediaLabel(label: unknown): label is string {
   if (typeof label !== 'string' || !label.trim()) {
     return false
@@ -25,7 +34,9 @@ export function isMediaLabel(label: unknown): label is string {
   if (characters.length > MEDIA_LABEL_MAX_CODE_POINTS) {
     return false
   }
-  return !characters.some(isControlCharacter)
+  return !characters.some(
+    (character) => isControlCharacter(character) || isLoneSurrogate(character),
+  )
 }
 
 /** A decoded page is a lossless PNG, so a 50 MP photo's preview can exceed its upload. */

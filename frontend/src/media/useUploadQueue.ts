@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { isMediaLabel, isMediaSourceSize, type MediaReceiptDto } from '@invimport/contracts'
 import { classifyFailure } from '#/operator/command-failure'
 import { useMountedRef } from '#/lifecycle/useMountedRef'
@@ -60,6 +60,8 @@ export interface UploadQueue {
   retry: (id: string) => void
   readAgain: (id: string) => void
   dismiss: (id: string) => void
+  /** Drops "Added to Ungrouped" notices for files a read now shows in a group. */
+  forgetPlaced: (evidence: { id: string; group_id: string | null }[]) => void
 }
 
 const ACCEPTED_TYPES: Record<UploadKind, string[]> = {
@@ -138,10 +140,17 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
   const running = useRef(false)
   const reportedDirty = useRef(false)
   const mounted = useMountedRef()
+  // Handlers and the running queue read the latest ports; a layout Effect keeps render pure.
   const latest = useRef(ports)
-  latest.current = ports
+  useLayoutEffect(() => {
+    latest.current = ports
+  })
 
   function publish() {
+    // After unmount the guard has already been released; a late result must not set it again.
+    if (!mounted.current) {
+      return
+    }
     setItems(entries.current.map(visibleItem))
     const dirty = entries.current.some((entry) => UNSAVED.includes(entry.status))
     if (dirty !== reportedDirty.current) {
@@ -323,5 +332,19 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     remove(id)
   }
 
-  return { items, add, retry, readAgain, dismiss }
+  function forgetPlaced(evidence: { id: string; group_id: string | null }[]) {
+    const grouped = new Set(
+      evidence.filter((item) => item.group_id !== null).map((item) => item.id),
+    )
+    const placed = entries.current.filter(
+      (entry) => entry.status === 'ungrouped' && entry.evidenceId && grouped.has(entry.evidenceId),
+    )
+    if (!placed.length) {
+      return
+    }
+    entries.current = entries.current.filter((entry) => !placed.includes(entry))
+    publish()
+  }
+
+  return { items, add, retry, readAgain, dismiss, forgetPlaced }
 }
