@@ -157,14 +157,14 @@ Tasks 1, 10 and 11 can start in parallel.
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings/<section>` to the new sections (the `settings` prefix match came in Task 2), with a test that `#settings/inventree` opens Settings › InvenTree.
   - `AiMark` on the Settings › Agents heading and its nav item.
-  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; it fires on every confirmed response and failure. Superseded responses don't report. Provider cards read "Not checked" before any report, then Claude "Configured"/"Unconfigured", Codex "Connected"/"Signing in"/"Not connected"/"Declined", or "Check failed"; they keep the last state when a panel collapses or clears, except "Signing in", which returns to "Not checked".
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; it fires on every confirmed response and failure, and with `cleared` when the panel collapses or its key is edited. Superseded responses don't report. Provider cards read "Not checked" before any report, then Claude "Configured"/"Unconfigured", Codex "Connected"/"Signing in"/"Not connected"/"Declined", or "Check failed"; they keep the last state when a panel collapses or clears, except "Signing in", which returns to "Not checked".
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
   - The theme preference moves from the removed menu.
 - **Prerequisites:** Tasks 1 and 2.
 - **Acceptance:** `app-settings`: Settings page and navigation (both scenarios), Agent settings section (all scenarios), Deferred settings, InvenTree and appearance sections; `ui-design-system` › AI mark at agent touchpoints (Settings parts).
-- **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence, and the provider cards: each Claude and Codex state, a failure, removing the key, a superseded Codex response not reporting (key edited mid-request), and the last state kept on collapse with "Signing in" returning to "Not checked". These fail first.
+- **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence, and the provider cards: each Claude and Codex state, a failure, removing the key, a superseded Codex response not reporting (key edited mid-request), and the last state kept on collapse, with "Signing in" returning to "Not checked" on collapse and on a key edit. These fail first.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
 
