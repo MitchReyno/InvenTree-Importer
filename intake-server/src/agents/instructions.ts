@@ -162,6 +162,22 @@ const MAX_RELAYS_PER_PASS = 200
  */
 export async function deliverMissingInstructions(pool: Pool, config: Binding) {
   return transaction(pool, async (client) => {
+    // Lock the batches first, in id order like Pause all, so the latest instruction read below
+    // cannot be overtaken by a save, and the two never wait on each other.
+    const candidates = await client.query<{ id: string }>(
+      `SELECT DISTINCT b.id FROM capture_batch b
+         JOIN capture_instruction i ON i.batch_id=b.id
+        WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
+        ORDER BY b.id`,
+      [config.actorId, config.targetId, config.targetContextId],
+    )
+    if (!candidates.rows.length) {
+      return 0
+    }
+    const locked = await client.query<{ id: string }>(
+      `SELECT id FROM capture_batch WHERE id = ANY($1::uuid[]) AND NOT archived ORDER BY id FOR SHARE`,
+      [candidates.rows.map((row) => row.id)],
+    )
     const missing = await client.query<{
       lineage_id: string
       batch_id: string
@@ -173,7 +189,7 @@ export async function deliverMissingInstructions(pool: Pool, config: Binding) {
       `WITH latest AS (
          SELECT DISTINCT ON (i.batch_id, i.group_id) i.id, i.batch_id, i.group_id, i.text, b.stream_id
            FROM capture_instruction i JOIN capture_batch b ON b.id=i.batch_id
-          WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
+          WHERE b.id = ANY($1::uuid[])
           ORDER BY i.batch_id, i.group_id, i.version DESC, i.created_at DESC
        ), live AS (
          SELECT s.session_lineage_id AS lineage_id, a.batch_id
@@ -189,9 +205,9 @@ export async function deliverMissingInstructions(pool: Pool, config: Binding) {
           SELECT 1 FROM agent_session_inbox x
            WHERE x.session_lineage_id=live.lineage_id
              AND x.idempotency_key LIKE 'instruction:' || latest.id::text || '%')
-        ORDER BY live.lineage_id, latest.id
-        LIMIT $4`,
-      [config.actorId, config.targetId, config.targetContextId, MAX_RELAYS_PER_PASS],
+        ORDER BY live.batch_id, live.lineage_id, latest.id
+        LIMIT $2`,
+      [locked.rows.map((row) => row.id), MAX_RELAYS_PER_PASS],
     )
     const streams = new Map<string, string>()
     for (const row of missing.rows) {

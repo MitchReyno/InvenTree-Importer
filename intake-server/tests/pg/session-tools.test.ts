@@ -1158,3 +1158,40 @@ test("a batch's own processing read says it is paused", async () => {
     assert.equal(await read(), undefined)
   })
 })
+
+test('a relay pass waits for a save in progress and sends the newer instruction, not the one it replaced', async () => {
+  const { deliverMissingInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    const insert = (client: { query: typeof fixture.db.pool.query }, text: string, ahead: number) =>
+      client.query(
+        `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+         VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1)+$4,$2,$3)`,
+        [capture.batch.id, text, fixture.identity.actor, ahead],
+      )
+    await insert(fixture.db.pool, 'Older instruction.', 0)
+    // An operator save holds the batch while it writes the newer version.
+    const save = await fixture.db.pool.connect()
+    try {
+      await save.query('BEGIN')
+      await save.query('SELECT 1 FROM capture_batch WHERE id=$1 FOR UPDATE', [capture.batch.id])
+      await insert(save, 'Newer instruction.', 1)
+      let settled = false
+      const pass = deliverMissingInstructions(fixture.runner.pool, fixture.config).finally(() => {
+        settled = true
+      })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      assert.equal(settled, false)
+      await save.query('COMMIT')
+      await pass
+    } finally {
+      save.release()
+    }
+    const texts = await fixture.db.pool.query<{ text: string }>(
+      "SELECT DISTINCT payload->>'text' AS text FROM agent_session_inbox WHERE kind='instruction'",
+    )
+    assert.deepEqual(
+      texts.rows.map((row) => row.text),
+      ['Newer instruction.'],
+    )
+  })
+})

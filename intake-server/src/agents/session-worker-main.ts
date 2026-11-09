@@ -150,7 +150,10 @@ async function main() {
         await triggerExamine(writer.pool, config, { skipped: examineSkipped })
       }
       await dispatchProcessingCommands(db.pool, scheduler, config)
-      await deliverMissingInstructions(db.pool, config)
+      // A failed relay pass is retried next pass; it must not stop dispatch or wake-ups.
+      await deliverMissingInstructions(db.pool, config).catch(() => {
+        process.stderr.write(`${JSON.stringify({ event: 'instruction_relay_retrying' })}\n`)
+      })
       await wakePendingSessions(db.pool, config, scheduler)
       await delay(500, undefined, { signal: shutdown.signal }).catch(() => undefined)
     }

@@ -133,7 +133,12 @@ export function AgentSessions({ client, batches }: Props) {
   const shown = sessions.filter((session) => matches(session, filter))
   const limit = settings.data?.session_concurrency
 
-  const pausedBatches = new Set(query.data?.paused_batch_ids ?? [])
+  // The account list is bounded; each session row says its own batch's pause, so both count.
+  const pausedBatches = new Set([
+    ...(query.data?.paused_batch_ids ?? []),
+    ...sessions.filter((session) => session.paused).map((session) => session.batch_id),
+  ])
+  const somePaused = pausedBatches.size > 0 || query.data?.paused_truncated === true
   const inUse = sessions.filter((session) => session.occupies_lane).length
   const queued = sessions.filter((session) => session.state === 'queued').length
 
@@ -211,7 +216,7 @@ export function AgentSessions({ client, batches }: Props) {
                     }}
                     pauseLabel="Pause all agents"
                   />
-                  {pausedBatches.size > 0 && (
+                  {somePaused && (
                     <PauseButton
                       paused
                       change={async (paused) => {

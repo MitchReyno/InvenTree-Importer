@@ -329,6 +329,29 @@ test('Pause all agents pauses every batch, each batch pauses on its own, and pau
   expect(within(paused).getAllByText('Finished').length).toBeGreaterThan(0)
 })
 
+test('a group past the paused list still reads paused from its sessions and offers Resume', async () => {
+  vi.useRealTimers()
+  const api = {
+    ...client(),
+    pause: vi.fn(async (batchId: string, paused: boolean) => ({ batch_id: batchId, paused })),
+    pauseAll: vi.fn(),
+  }
+  api.sessions.mockResolvedValue({
+    sessions: sessions.map((session) =>
+      session.batch_id === 'batch-a' ? { ...session, paused: true as const } : session,
+    ),
+    paused_batch_ids: [],
+    paused_truncated: true,
+    next_before: null,
+    sessions_supported: true,
+  })
+  render(<AgentSessions client={api} batches={batches} />)
+  const group = await screen.findByRole('region', { name: 'Mouser order' })
+  expect(await within(group).findByRole('button', { name: 'Resume' })).toBeVisible()
+  const summary = screen.getByRole('region', { name: 'Summary' })
+  expect(within(summary).getByRole('button', { name: 'Resume all agents' })).toBeVisible()
+})
+
 test('a pause that fails says so and leaves the agents as they were', async () => {
   vi.useRealTimers()
   const api = {
