@@ -18,6 +18,7 @@ export async function startSessionBridge(directory: string, port: number) {
   }
   const idle = new Map<TLSSocket, Frames>()
   const rich = new WeakSet<TLSSocket>()
+  const reapPeers = new WeakSet<TLSSocket>()
   const probePeers = new WeakSet<TLSSocket>()
   const evidencePeers = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
@@ -43,6 +44,13 @@ export async function startSessionBridge(directory: string, port: number) {
       try {
         const frames = new Frames(socket)
         const greeting = await frames.read()
+        if (
+          greeting.reapProof === true &&
+          greeting.builtinTools === true &&
+          greeting.terminalProbe === true
+        ) {
+          reapPeers.add(socket)
+        }
         if (greeting.terminalProbe === true) {
           probePeers.add(socket)
         }
@@ -88,10 +96,11 @@ export async function startSessionBridge(directory: string, port: number) {
         ? context.manifest.agent.provider
         : undefined
 
-    const available = (probe = false) =>
+    const available = (probe = false, reap = false) =>
       [...idle].find(
         ([socket]) =>
           (!probe || probePeers.has(socket)) &&
+          (!reap || reapPeers.has(socket)) &&
           subscriptions.get(socket) === subscription &&
           rich.has(socket) === toolWorker,
       )
@@ -248,7 +257,21 @@ export async function startSessionBridge(directory: string, port: number) {
     } catch (error) {
       if (dispatched) {
         socket.destroy()
-        if (!context.signal.aborted && probePeers.has(socket)) {
+        const cancelled = context.signal.aborted
+        if (cancelled && reapPeers.has(socket)) {
+          // Cancellation has already closed the original connection. Wait only for a proof
+          // from the VM-side launcher, independently bounded from the cancelled operation.
+          const proof = await probeTerminal(
+            () => available(true, true),
+            idle,
+            command,
+            AbortSignal.timeout(45_000),
+            true,
+          )
+          if (proof === 'worker_removed') {
+            throw new NativeSessionError('agent_process_failed')
+          }
+        } else if (!cancelled && probePeers.has(socket)) {
           // The replacement relay only reads the exact turn journal. A missing or partial
           // record leaves the original interruption path in control.
           const outcome = await probeTerminal(available, idle, command, context.signal)
@@ -288,8 +311,9 @@ async function probeTerminal(
   idle: Map<TLSSocket, Frames>,
   command: Record<string, unknown>,
   signal: AbortSignal,
+  requireReap = false,
 ) {
-  const deadline = AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+  const deadline = requireReap ? signal : AbortSignal.any([signal, AbortSignal.timeout(15_000)])
   let claimed: TLSSocket | undefined
 
   const stop = () => claimed?.destroy()
@@ -305,7 +329,7 @@ async function probeTerminal(
       claimed = socket
       idle.delete(socket)
       deadline.addEventListener('abort', stop, { once: true })
-      await frames.send({ inspectTerminal: command })
+      await frames.send({ inspectTerminal: command, ...(requireReap ? { requireReap: true } : {}) })
       return (await frames.read()).terminalOutcome
     }
   } catch {

@@ -5,8 +5,9 @@ import { connect } from 'node:tls'
 import { providerProxy } from './provider-proxy.ts'
 import { Duplex } from 'node:stream'
 import { once } from 'node:events'
-import { journalTurn, recordedOutcome, type TurnOutcome } from './journal.ts'
-import { mkdir } from 'node:fs/promises'
+import { commandDigest, journalTurn, recordedOutcome, type TurnOutcome } from './journal.ts'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { setTimeout as delay } from 'node:timers/promises'
 import { join } from 'node:path'
 import { validate } from '@invimport/contracts'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
@@ -37,7 +38,9 @@ async function main() {
       const egress = await providerProxy(provider)
       socket.once('close', () => egress.close())
     }
+    const reapProof = isolated && process.env.INTAKE_VM_REAP_PROOF === '1'
     await frames.send({
+      reapProof,
       ready: protocol,
       terminalProbe: true,
       builtinTools: isolated,
@@ -91,6 +94,26 @@ async function main() {
     const cwd = join('/home/node/sessions', identity.lineage)
     const path = join(cwd, command.attemptId + '-' + command.turn)
     if (probe) {
+      if (packet.requireReap === true) {
+        if (!reapProof) {
+          throw new Error('reap_proof_unavailable')
+        }
+        const digest = commandDigest(command)
+        const deadline = Date.now() + 12000
+        // A second ready relay can receive this probe before the original relay finishes cleanup.
+        while (
+          (await readFile(path + '.reaped', 'utf8').catch(() => undefined)) !==
+          digest + '\n'
+        ) {
+          if (Date.now() >= deadline || socket.destroyed) {
+            throw new Error('unconfirmed_worker_removal')
+          }
+          await delay(100)
+        }
+        await frames.send({ terminalOutcome: 'worker_removed' })
+        socket.end()
+        return
+      }
       const outcome = await recordedOutcome(path, command)
       await frames.send({ terminalOutcome: outcome })
       socket.end()
@@ -101,6 +124,21 @@ async function main() {
     socket.once('close', () => abort.abort())
 
     const execute = async (): Promise<TurnOutcome> => {
+      if (reapProof) {
+        // This directory is visible only to the paired supervisor and the VM-side launcher.
+        await writeFile(
+          '/run/reap/turn',
+          commandDigest(command) +
+            ' ' +
+            identity.lineage +
+            '/' +
+            identity.attemptId +
+            '-' +
+            identity.turn +
+            '\n',
+          { flag: 'wx', mode: 0o600 },
+        )
+      }
       if (manifest.profile_id !== 'synthetic-session/1') {
         if (
           typeof command.text !== 'string' ||

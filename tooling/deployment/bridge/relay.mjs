@@ -1,4 +1,5 @@
 // Byte transport only. The TLS identities and application protocol terminate at the two peers.
+import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { Duplex } from 'node:stream'
@@ -67,6 +68,7 @@ for (;;) {
     await delay(500)
     continue
   }
+  const runId = randomUUID()
   const child = spawn(
     'limactl',
     tools
@@ -82,6 +84,7 @@ for (;;) {
           directory,
           image,
           codex ? 'codex' : 'claude',
+          runId,
         ]
       : [
           'shell',
@@ -135,9 +138,31 @@ for (;;) {
   )
   child.stdin.on('error', () => socket.destroy())
   socket.on('error', () => socket.destroy())
-  socket.on('close', () => child.stdin.end())
+  const stopGuest = () => {
+    child.stdin.end()
+    if (tools) {
+      // The provider may intentionally ignore EOF. Removing this connection's trusted
+      // supervisor wakes its VM-side launcher, which removes the exact worker cgroup.
+      const stop = spawn(
+        'limactl',
+        ['shell', '--workdir=/', vm, 'sudo', 'docker', 'rm', '-f', 'bench-tool-' + runId + '-peer'],
+        { stdio: 'ignore', timeout: 10000 },
+      )
+      stop.on('error', () => {})
+    }
+  }
+  socket.once('close', stopGuest)
+  socket.once('end', () => socket.destroy())
+  let terminating = false
+  const terminate = () => {
+    terminating = true
+    socket.destroy()
+  }
+  process.once('SIGTERM', terminate)
   socket.pipe(child.stdin)
   child.stdout.pipe(socket)
   await once(child, 'close')
+  process.off('SIGTERM', terminate)
   socket.destroy()
+  if (terminating) break
 }

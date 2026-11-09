@@ -17,7 +17,7 @@ All bundles target `interactive-app`, in A through D order. Use independent exac
 
 ## 2. Execute remote turns and deliver evidence
 
-- [ ] 2.1 Add failing contract, PG and process tests for duplicate dispatch, lost ACK, stale attempt, runner restart, orphan descendants and cancellation of only one concurrent session.
+- [x] 2.1 Add failing contract, PG and process tests for duplicate dispatch, lost ACK, stale attempt, runner restart, orphan descendants and cancellation of only one concurrent session.
 - [x] 2.2 Implement authenticated pairing, bounded streams, durable identity and reconciliation at the session driver. Add the VM provider profile and scoped MCP/evidence bridge. Preserve old profile and approval semantics.
 - [x] 2.3 Verify resume with a retained question and exact source citation, unreachable private destinations and permitted browsing. Run pnpm test, pnpm test:intake:pg and pnpm test:intake:process with controlled CLIs.
 

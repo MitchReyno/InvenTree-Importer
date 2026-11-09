@@ -25,7 +25,7 @@ export async function recordedOutcome(
   throw new Error('turn_requires_reconciliation')
 }
 
-function commandDigest(command: Record<string, unknown>) {
+export function commandDigest(command: Record<string, unknown>) {
   return createHash('sha256').update(JSON.stringify(command)).digest('hex')
 }
 
