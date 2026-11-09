@@ -10,6 +10,7 @@ import { mediaDisplayLabels, type MediaIdentityLabels } from '#/media/identity-l
 import { reviewMap } from '#/operator/review-map'
 import { predecessorLotIds } from '#/operator/review-model'
 import type { EditMedia } from '#/media/types'
+import type { UploadProgress } from '#/media/useUploadQueue'
 import { Paragraph, Button, EvidenceGroup, Dialog, EvidenceGrid } from '#/components/ui'
 import { useEvidenceDropZone } from './EvidenceDropZone'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
@@ -39,6 +40,8 @@ type Props = {
   dirty: (owner: string) => (value: boolean) => void
   select: (ids: string[]) => void
   choose: (kind: 'photos' | 'document', groupId?: string) => void
+  /** Files being uploaded into this group, shown as "Uploading 2 of 3". */
+  uploading?: UploadProgress | null
   crop: (version: MediaVersionDto, page: number) => void
   review?: OperatorReviewDto
   reload?: () => Promise<void>
@@ -61,6 +64,7 @@ export function EvidenceGroupPanel({
   dirty,
   select,
   choose,
+  uploading,
   crop,
   review,
   reload,
@@ -115,6 +119,10 @@ export function EvidenceGroupPanel({
   }
 
   const label = `${name} · ${evidence.length} files`
+  const lotCount = groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`
+  const uploadProgress = uploading && `Uploading ${uploading.current} of ${uploading.total}`
+  const metaParts = [lineageKnown ? lotCount : null, uploadProgress].filter(Boolean)
+  const meta = metaParts.length ? metaParts.join(' · ') : undefined
   const drop = useEvidenceDropZone(groupId, label, frozen)
 
   return (
@@ -123,7 +131,7 @@ export function EvidenceGroupPanel({
       dropState={drop.dropState}
       name={name}
       count={evidence.length}
-      meta={!lineageKnown ? undefined : groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`}
+      meta={meta}
       ungrouped={!group}
       label={label}
       nameLabel={`Name for ${name}`}

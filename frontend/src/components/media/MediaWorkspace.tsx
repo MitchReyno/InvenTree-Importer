@@ -7,6 +7,7 @@ import { Paragraph, Small, Banner, Toast, Button } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
+import { useUploadQueue } from '#/media/useUploadQueue'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
 import { EvidenceDragContext } from './EvidenceDragContext'
@@ -53,6 +54,26 @@ export function MediaWorkspace({
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
   const upload = useRef<EvidenceUploadHandle>(null)
+  const uploads = useUploadQueue({
+    currentRevision: async () => (await state.refresh()).revision,
+    upload: (file, key, revision) => client.upload(batch.id, revision, file.name, file, key),
+    finish: async (receipt, groupId) => {
+      const current = await state.refresh()
+      const original = current.evidence.find((item) => item.id === receipt.evidence_id)
+      if (!original?.versions.some((version) => version.id === receipt.version.id)) {
+        throw new Error('retained_original_not_in_fresh_projection')
+      }
+      state.accept(current)
+      if (!groupId) {
+        return true
+      }
+      // Original retention is complete before membership is attempted.
+      state.select([receipt.evidence_id], current.revision)
+      const moved = await state.move([receipt.evidence_id], groupId, current.revision)
+      return moved !== 'unconfirmed'
+    },
+    onDirtyChange: drafts.forSource('upload'),
+  })
   const [newGroup, setNewGroup] = useState(false)
   const [destinationGroup, setDestinationGroup] = useState('')
   const [moved, setMoved] = useState<{
@@ -136,22 +157,7 @@ export function MediaWorkspace({
         chooseDisabled={blocked('upload')}
         noteDisabled={noteDisabled}
         onWriteNote={onWriteNote}
-        revision={snapshot?.revision ?? '0'}
-        onDirtyChange={drafts.forSource('upload')}
-        upload={(file, key, revision) => client.upload(batch.id, revision, file.name, file, key)}
-        finish={async (receipt, groupId) => {
-          const current = await state.refresh()
-          const original = current.evidence.find((item) => item.id === receipt.evidence_id)
-          if (!original?.versions.some((version) => version.id === receipt.version.id)) {
-            throw new Error('retained_original_not_in_fresh_projection')
-          }
-          state.accept(current)
-          if (groupId) {
-            // Original retention is complete before membership is attempted.
-            state.select([receipt.evidence_id], current.revision)
-            await state.move([receipt.evidence_id], groupId, current.revision)
-          }
-        }}
+        queue={uploads}
       />
       {afterActions}
       <LabelRow>
@@ -303,6 +309,7 @@ export function MediaWorkspace({
                   dirty={drafts.forSource}
                   select={state.select}
                   choose={(kind, id) => upload.current?.choose(kind, id)}
+                  uploading={uploads.progress(groupId)}
                   crop={(version, page) => {
                     drafts.forSource('crop')(true)
                     setCrop({ version, page, revision: snapshot.revision })

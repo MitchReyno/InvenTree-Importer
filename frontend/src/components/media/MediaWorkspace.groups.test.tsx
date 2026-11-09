@@ -235,7 +235,6 @@ test('group membership conflict retains one uploaded original in ungrouped witho
     screen.getByLabelText('Choose photos'),
     new File(['data'], 'packet.png', { type: 'image/png' }),
   )
-  await user.click(screen.getByRole('button', { name: 'Retain packet.png' }))
   const ungrouped = await screen.findByRole('region', { name: /Ungrouped · 1/ })
   expect(within(ungrouped).getByRole('checkbox', { name: 'Select packet.png' })).toBeChecked()
   expect(client.upload).toHaveBeenCalledOnce()
@@ -247,8 +246,91 @@ test('group membership conflict retains one uploaded original in ungrouped witho
     },
     expect.any(String),
   )
-  expect(screen.queryByRole('button', { name: 'Retain packet.png' })).toBeNull()
-  expect(screen.getByText(/Original retained · 4 bytes/)).toBeVisible()
+  const item = await screen.findByRole('listitem', { name: 'packet.png' })
+  expect(within(item).getByText(/Added to Ungrouped/)).toBeVisible()
+  expect(within(item).queryByRole('button', { name: 'Retry packet.png' })).toBeNull()
+})
+
+test('three photos picked into a group upload one after another and each joins the group', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  let current: MediaSnapshotDto = initial
+  vi.mocked(client.snapshot).mockImplementation(async () => current)
+  const sent: { name: string; revision: string; key: string }[] = []
+
+  let release: () => void = () => undefined
+
+  vi.mocked(client.upload).mockImplementation(async (_batch, revision, label, _bytes, key) => {
+    sent.push({ name: label, revision, key })
+    if (sent.length === 2) {
+      await new Promise<void>((resolve) => (release = resolve))
+    }
+    const id = `9000000${sent.length}-0000-4000-8000-000000000009`
+    const version = {
+      id: `a000000${sent.length}-0000-4000-8000-00000000000a`,
+      evidence_id: id,
+      kind: 'original' as const,
+      digest: 'b'.repeat(64),
+      byte_size: '4',
+      media_type: 'image/png' as const,
+      state: 'queued' as const,
+      decoder_build: null,
+      recipe: null,
+      pages: [],
+    }
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: [
+        ...current.evidence,
+        { id, label, group_id: null, linked_subject_ids: [], versions: [version] },
+      ],
+    }
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  vi.mocked(client.edit).mockImplementation(async (_batch, input) => {
+    if (input.change.kind !== 'move_many') {
+      throw new Error('unexpected_edit')
+    }
+    const { evidence_ids, group_id } = input.change
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: current.evidence.map((item) =>
+        evidence_ids.includes(item.id) ? { ...item, group_id } : item,
+      ),
+    }
+    return current
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['1'], 'one.png', { type: 'image/png' }),
+    new File(['2'], 'two.png', { type: 'image/png' }),
+    new File(['3'], 'three.png', { type: 'image/png' }),
+  ])
+
+  const group = screen.getByRole('region', { name: /Packet A/ })
+  await waitFor(() => expect(within(group).getByText(/Uploading 2 of 3/)).toBeVisible())
+  await act(async () => release())
+  await waitFor(() => expect(client.upload).toHaveBeenCalledTimes(3))
+  await waitFor(() =>
+    expect(within(group).getByRole('checkbox', { name: 'Select three.png' })).toBeVisible(),
+  )
+  expect(within(group).getByRole('checkbox', { name: 'Select one.png' })).toBeVisible()
+  expect(within(group).getByRole('checkbox', { name: 'Select two.png' })).toBeVisible()
+  expect(within(group).queryByText(/Uploading/)).toBeNull()
+  // Each upload starts at the revision current after the previous file joined the group.
+  expect(sent.map((item) => item.revision)).toEqual(['1', '3', '5'])
+  expect(new Set(sent.map((item) => item.key)).size).toBe(3)
 })
 
 test('unsupported media is refused before any upload intent is sent', async () => {
@@ -266,7 +348,9 @@ test('unsupported media is refused before any upload intent is sent', async () =
   const input = screen.getByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
   await user.upload(input, new File(['bad'], 'packet.gif', { type: 'image/gif' }))
-  expect(screen.getByRole('alert')).toHaveTextContent('JPEG or PNG')
+  const item = screen.getByRole('listitem', { name: 'packet.gif' })
+  expect(item).toHaveTextContent('Not added')
+  expect(item).toHaveTextContent('JPEG or PNG')
   expect(client.upload).not.toHaveBeenCalled()
 })
 
