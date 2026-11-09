@@ -6,7 +6,7 @@ Delivered in PR-A on `docs/retire-handover-documents` and merged as #114. The `r
 
 - **2026-11-07, scope:** the audit first planned a single change that would also convert requirement documents into baseline specs. Specs must be authored before design and tasks, so carrying them here would have blocked the handover work behind the larger spec effort. That work moved to a separate `baseline-specs` change.
 - **2026-11-07, task 2:** `redesign-batch-workspace` was excluded because another session is adding to it. Neither its handover nor its change directory is touched, and it is not synced or archived.
-- **2026-11-07, follow-up:** the `redesign-batch-workspace` handover was migrated into that change's [notes](../../redesign-batch-workspace/notes.md) and deleted once its session finished, closing the open item.
+- **2026-11-07, follow-up:** the `redesign-batch-workspace` handover was migrated into that change's [notes](../2026-11-09-redesign-batch-workspace/notes.md) and deleted once its session finished, closing the open item.
 
 ## Unexpected challenges
 

@@ -68,10 +68,16 @@ Workflow details SHALL show retained active-agent sessions using authorized acto
 
 ### Requirement: Accessible workflow disclosure and layout
 
-The workflow control SHALL provide text equivalent to visual step segments, expanded state, keyboard operation, labelled details, Escape dismissal and predictable focus return. The header SHALL keep connection status, workflow activity and Open InvenTree distinguishable, using responsive wrapping when necessary instead of hiding essential information.
+The workflow control SHALL provide text equivalent to visual step segments, expanded state, keyboard operation, labelled details, Escape dismissal and predictable focus return. The masthead SHALL be one bar holding, in order: the wordmark, the Dev mode badge in development builds, the breadcrumb, the workflow activity control, connection status and Open InvenTree. Connection status, workflow activity and Open InvenTree SHALL stay distinguishable. At phone width the bar SHALL stay one row: it hides the breadcrumb and the activity labels, shortens the Dev mode badge to "Dev" (still announced in full), and moves Open InvenTree into the connection status panel, so no essential information is lost. The decorative electronics current SHALL be masked so that no part overlaps the wordmark, breadcrumb or status controls.
 
 #### Scenario: Expanded workflow on a narrow screen
 
 - **GIVEN** a 390px viewport or 200% zoom and several active jobs
 - **WHEN** the workflow disclosure opens and closes by keyboard
 - **THEN** all text/actions are reachable, focus returns predictably and no header content is clipped or causes document horizontal overflow.
+
+#### Scenario: Parts never cross header text
+
+- **GIVEN** a desktop masthead with a breadcrumb and the electronics current running
+- **WHEN** parts drift across the bar
+- **THEN** they are fully transparent behind the wordmark and breadcrumb and behind the status controls, and visible only in the band between them.
