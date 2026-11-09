@@ -4,10 +4,11 @@ RUN npm install --global pnpm@12.16.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY contracts/package.json contracts/package.json
 COPY intake-server/package.json intake-server/package.json
+COPY media-decoder/package.json media-decoder/package.json
 COPY frontend/package.json frontend/package.json
 COPY tooling/openapi-generator/package.json tooling/openapi-generator/package.json
-RUN pnpm --filter @invimport/intake-server --filter @invimport/contracts install --frozen-lockfile --prod
+RUN pnpm --filter @invimport/media-decoder --filter @invimport/contracts install --frozen-lockfile --prod
 COPY contracts/src contracts/src
-COPY intake-server/src/media intake-server/src/media
+COPY media-decoder/src media-decoder/src
 USER 1000:1000
-CMD ["node", "--max-old-space-size=256", "--disallow-code-generation-from-strings", "/app/intake-server/src/media/decoder-main.ts"]
+CMD ["node", "--max-old-space-size=256", "--disallow-code-generation-from-strings", "/app/media-decoder/src/decoder-main.ts"]

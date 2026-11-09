@@ -1,3 +1,3 @@
 ARG DECODER_IMAGE
 FROM ${DECODER_IMAGE}
-COPY decoder-probe.mjs /app/intake-server/src/media/decoder-main.ts
+COPY decoder-probe.mjs /app/media-decoder/src/decoder-main.ts

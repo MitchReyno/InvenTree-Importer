@@ -110,7 +110,9 @@ the media exclusion before sorted digest locks. Collection never acquires batch 
 following a digest lock and cannot unpin or delete retained history.
 
 Decoding is an explicit one-command worker in a pinned local Linux container with native
-memory/CPU/PID/tmpfs/time bounds, no network and no host mounts. No decoder or inventory
+memory/CPU/PID/tmpfs/time bounds, no network and no host mounts. The program it runs is the
+`@invimport/media-decoder` workspace package (`media-decoder/`); this server keeps the runner,
+output parser and worker, and imports only the decoder's protocol. No decoder or inventory
 apply starts from web import. Source/derived hashes, normalized coordinates and immutable
 recipe versions are retained. The original quarter-turn recipe remains unchanged; an
 additive rotated-region recipe extracts a rotating selection while the source remains fixed.

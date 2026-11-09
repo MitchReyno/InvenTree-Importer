@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import { chmod, rm } from 'node:fs/promises'
 import { once } from 'node:events'
 import { launchDecoder } from './decoder-runner.ts'
-import { MEDIA_LIMITS } from './decoder-protocol.ts'
+import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
 
 const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 if (!image || !/^sha256:[a-f0-9]{64}$/.test(image)) {

@@ -340,6 +340,9 @@ importers:
       '@invimport/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@invimport/media-decoder':
+        specifier: workspace:*
+        version: link:../media-decoder
       '@modelcontextprotocol/client':
         specifier: 2.4.0
         version: 2.4.0
@@ -361,9 +364,6 @@ importers:
       ipaddr.js:
         specifier: 2.5.0
         version: 2.5.0
-      pdfjs-dist:
-        specifier: 6.4.299
-        version: 6.4.299
       pg:
         specifier: 8.16.3
         version: 8.16.3
@@ -386,6 +386,31 @@ importers:
       '@types/ws':
         specifier: 8.18.2
         version: 8.18.2
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  media-decoder:
+    dependencies:
+      '@invimport/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@napi-rs/canvas':
+        specifier: 1.1.0
+        version: 1.1.0
+      pdfjs-dist:
+        specifier: 6.4.299
+        version: 6.4.299
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@24.19.2)
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
       typescript:
         specifier: 6.0.3
         version: 6.0.3

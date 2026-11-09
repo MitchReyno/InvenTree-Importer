@@ -69,7 +69,7 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
         # Both browser and server consume contracts; intake-server stays independent of Python.
         if (
             contract_input
-            or (not markdown and path.startswith("intake-server/"))
+            or (not markdown and path.startswith(("intake-server/", "media-decoder/")))
             or path in WORKSPACE_INPUTS
             or path == "tooling/dev.cjs"
             or path.startswith(("tooling/dev/", "tooling/tests/dev.", "tooling/tests/inventree-dev"))

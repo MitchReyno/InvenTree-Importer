@@ -253,10 +253,11 @@ async function main() {
     const sourceRoots = [
       join(intake, 'src'),
       join(repository, 'contracts/src'),
+      join(repository, 'media-decoder/src'),
       join(intake, 'migrations'),
     ]
     const initialSources = await Promise.all(sourceRoots.map(snapshot))
-    const decoderRoots = [join(intake, 'src/media'), join(repository, 'contracts/src')]
+    const decoderRoots = [join(repository, 'media-decoder/src'), join(repository, 'contracts/src')]
     let decoderDigest = (await Promise.all(decoderRoots.map(snapshot))).join(':')
     let image = settings.INTAKE_MEDIA_DECODER_IMAGE
     if (!image) {

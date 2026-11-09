@@ -23,6 +23,8 @@ PostgreSQL owns retained state. The browser requests exact server-bound approval
 
 `intake-server/` retains the T01 strict parser/serializer, development actor/target attribution, loopback Host/Origin/CSRF controls, reviewed SQL, Drizzle/pg access and owned PostgreSQL workflow. T02 adds explicit `capture/routes.ts` registration, scoped transactional persistence and bounded semantic existing-Part/location reads. `0002_capture.sql` is additive; immutable command/note/selection history preserves source/contribution identity.
 
+`media-decoder/` owns the decoder program that runs inside the pinned media container: image and PDF decoding, crops and renditions, and the decoder protocol and limits. The intake server imports only its `protocol` export; it starts the container and parses its output but never decodes in process. The image is built from this package and `contracts/` alone.
+
 `contracts/` owns runtime schemas and generated OpenAPI/DTO/client artifacts. T04 adds exact manual review/preparation/approval and journal-derived results through `review/routes.ts`; only a separately started owned-fake runner can dispatch supervised stock execution. Native CLI adapters are described below; final identity/permission qualification remains unimplemented.
 
 Public-boundary PG/process tests qualify DBOS 5.4.0 for bounded scheduler delivery/recovery, not physical writer ownership. No root `.env` is read by these packages; T02 tests use controlled fake reads and send the protected real inventory no requests.

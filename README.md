@@ -19,6 +19,7 @@ backend/       uv-managed Python package, config, scripts and tests
 frontend/      React + TypeScript + Vite application and component tests
 intake-server/ Fastify + PostgreSQL foundation, no product executor
 contracts/     runtime schemas and generated OpenAPI/DTO/client
+media-decoder/ decoder program run inside the pinned media container
 docs/          operator and design documents
 .agents/       mirrored project skills
 .claude/       mirrored skills and Claude agents
@@ -40,7 +41,7 @@ pnpm typecheck
 pnpm lint                 # Python, frontend and Markdown
 pnpm test                 # normal backend, frontend and fast intake tests
 pnpm dev:intake            # standalone API with source-only reload; no workers
-pnpm typecheck:intake      # contracts and intake-server
+pnpm typecheck:intake      # contracts, media-decoder and intake-server
 pnpm contracts:check       # generated OpenAPI/DTO/client drift
 pnpm db:intake test        # explicit owned local PostgreSQL qualification
 pnpm db:intake test:process # explicit synthetic DBOS process qualification

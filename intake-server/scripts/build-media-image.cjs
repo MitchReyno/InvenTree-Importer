@@ -14,7 +14,8 @@ const allowed = [
   'contracts/package.json',
   'contracts/src',
   'intake-server/package.json',
-  'intake-server/src/media',
+  'media-decoder/package.json',
+  'media-decoder/src',
   'frontend/package.json',
   'tooling/openapi-generator/package.json',
 ]

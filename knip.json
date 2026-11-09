@@ -21,6 +21,10 @@
       ],
       "project": ["src/**/*.ts", "scripts/**/*.cjs", "tests/**/*.ts"]
     },
+    "media-decoder": {
+      "entry": ["src/decoder-main.ts", "tests/**/*.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
     "intake-server": {
       "entry": [
         "src/main.ts",
@@ -28,11 +32,11 @@
         "src/agents/shared-vm/tool-worker.ts",
         "src/dev/setup.ts",
         "src/operations/deployment-provision.ts",
-        "scripts/**/*.{cjs,mjs}",
+        "scripts/**/*.{ts,cjs,mjs}",
         "tests/**/*.ts",
         "tests/fixtures/**/*.{cjs,mjs}"
       ],
-      "project": ["src/**/*.ts", "scripts/**/*.{cjs,mjs}", "tests/**/*.{ts,cjs,mjs}"]
+      "project": ["src/**/*.ts", "scripts/**/*.{ts,cjs,mjs}", "tests/**/*.{ts,cjs,mjs}"]
     }
   },
   "ignoreWorkspaces": ["tooling/openapi-generator"],

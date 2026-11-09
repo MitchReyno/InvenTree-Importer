@@ -11,7 +11,7 @@ import {
   type DecodedMedia,
   type RenditionInput,
   type RenditionResult,
-} from './decoder-protocol.ts'
+} from '@invimport/media-decoder/protocol'
 
 /** Requires an operator-built immutable image, never a browser-selected image/command. */
 export async function decodeIsolated(image: string, input: DecodeInput): Promise<DecodedMedia> {
@@ -73,7 +73,7 @@ export async function launchDecoder(image: string, packet: Buffer): Promise<Buff
       'node',
       '--max-old-space-size=256',
       '--disallow-code-generation-from-strings',
-      '/app/intake-server/src/media/decoder-main.ts',
+      '/app/media-decoder/src/decoder-main.ts',
     ],
     { env: { PATH: process.env.PATH }, stdio: ['pipe', 'pipe', 'pipe'] },
   )

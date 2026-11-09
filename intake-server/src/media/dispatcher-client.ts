@@ -1,6 +1,6 @@
 import { request } from 'node:http'
 import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
-import { MEDIA_LIMITS } from './decoder-protocol.ts'
+import { MEDIA_LIMITS } from '@invimport/media-decoder/protocol'
 
 export function requestDecode(socketPath: string, image: string, packet: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
