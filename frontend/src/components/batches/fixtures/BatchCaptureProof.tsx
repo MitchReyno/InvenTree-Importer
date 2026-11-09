@@ -137,7 +137,7 @@ const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
   processing: { questions: 3, failed: 0, running: 0, steps: noSteps },
-  review: { to_check: 4, changed_after_review: 1, to_decide: 2, records: 0 },
+  review: { to_check: 4, changed_after_review: 1, needs_answer: 1, to_decide: 2, records: 0 },
   changes: { ready: 1, failed: 0, uncertain: 0, runs: 0 },
   items: [
     {
@@ -658,11 +658,7 @@ export function BatchCaptureProof() {
   return (
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
-      <Masthead
-        breadcrumb={
-          route ? [{ label: 'Batches', href: '#' }, { label: batch.title }] : [{ label: 'Batches' }]
-        }
-      />
+      <Masthead breadcrumb={route ? [{ label: 'Batches', href: '#' }] : [{ label: 'Batches' }]} />
       <Main>
         {route ? (
           <ApiClientsProvider

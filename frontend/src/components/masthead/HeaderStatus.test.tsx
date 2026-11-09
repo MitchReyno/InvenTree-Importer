@@ -1,12 +1,14 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useQuery } from '@tanstack/react-query'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
 import { render, fixtureScope } from '#/test/render'
+import { stubPhoneViewport } from '#/test/viewport'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { HeaderStatus } from './HeaderStatus'
+import { HeaderObservationsProvider } from './HeaderObservations'
 import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import type { HeaderClient } from '#/header/types'
 
@@ -59,7 +61,7 @@ function showDetails(panel: HTMLElement) {
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
 
-test('healthy live transport never implies target reachability and the isolated link follows the connection control', async () => {
+test('healthy live transport never implies target reachability and Open InvenTree sits only in the server menu', async () => {
   const user = userEvent.setup()
   render(
     <UpdateHealthContext.Provider
@@ -70,13 +72,14 @@ test('healthy live transport never implies target reachability and the isolated 
   )
   await screen.findByText('InvenTree unreachable')
   const trigger = screen.getByRole('button', { name: 'Connection status' })
-  const link = screen.getByRole('link', { name: 'Open InvenTree' })
+  // The bar has no separate Open InvenTree button.
+  expect(screen.queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
+  await user.click(trigger)
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  const link = within(panel).getByRole('link', { name: 'Open InvenTree' })
   expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
   expect(link).toHaveAttribute('target', '_blank')
   expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-  expect(trigger.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  await user.click(trigger)
-  const panel = screen.getByRole('dialog', { name: 'Connection details' })
   showDetails(panel)
   expect(panel).toHaveTextContent('Live updates connected')
   expect(screen.getByText(/Fresh target observation/)).toBeVisible()
@@ -96,6 +99,7 @@ test('failed activity reads stay unavailable and a missing target URL has no inv
       navigation_url: null,
     },
   })
+  const user = userEvent.setup()
   render(<HeaderStatus client={api} batchId={batchId} />)
   await screen.findByText('Workflow unavailable')
   expect(screen.queryByText('Idle')).toBeNull()
@@ -103,8 +107,10 @@ test('failed activity reads stay unavailable and a missing target URL has no inv
   expect(
     screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
   ).toHaveAttribute('data-short', 'Offline')
-  expect(screen.queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
-  expect(screen.getByText(/Open InvenTree unavailable/)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Connection status' }))
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  expect(within(panel).queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
+  expect(within(panel).getByText(/Open InvenTree unavailable/)).toBeVisible()
 })
 
 test('local expiry and visibility recomputation mark an old successful observation stale', async () => {
@@ -192,8 +198,13 @@ test('scope-mismatched responses cannot supply a target URL or an idle claim', a
   const api = client()
   vi.mocked(api.connection).mockResolvedValue({ ...connection(), target_context_id: id })
   vi.mocked(api.work).mockResolvedValue({ ...work(), target_context_id: id })
+  const user = userEvent.setup()
   render(<HeaderStatus client={api} />)
   await screen.findByText('Workflow unavailable')
+  await user.click(screen.getByRole('button', { name: 'Connection status' }))
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
+    'Open InvenTree unavailable',
+  )
   expect(screen.queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
   expect(screen.queryByText('Idle')).toBeNull()
 })
@@ -332,6 +343,8 @@ test('a late previous-context response cannot replace the current scoped header'
       <HeaderStatus client={nextApi} />
     </ServerStateProvider>,
   )
+  await waitFor(() => expect(nextApi.connection).toHaveBeenCalled())
+  fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
   await waitFor(() =>
     expect(screen.getByRole('link', { name: 'Open InvenTree' })).toHaveAttribute(
       'href',
@@ -478,17 +491,48 @@ test('a session shows its latest status line, and a waiting session holds no slo
   }
 })
 
-test('the connection panel also offers Open InvenTree, for phone width where the bar has no room', async () => {
+test('the server menu holds the dev badge, a disabled connection check, server settings and the theme', async () => {
   const user = userEvent.setup()
   render(<HeaderStatus client={client()} batchId={batchId} />)
   await screen.findByText('InvenTree unreachable')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
-
   const panel = screen.getByRole('dialog', { name: 'Connection details' })
-  // Shown only below bp-compact, which jsdom cannot match, so it counts as hidden here.
-  const link = within(panel).getByRole('link', { name: 'Open InvenTree', hidden: true })
-  expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
-  expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+
+  expect(within(panel).getByText('Dev mode')).toBeVisible()
+  const check = within(panel).getByRole('button', { name: 'Check connection now' })
+  expect(check).toHaveAttribute('aria-disabled', 'true')
+  expect(check).toHaveAccessibleDescription(/not available yet/i)
+  expect(within(panel).getByRole('link', { name: 'Server settings' })).toHaveAttribute(
+    'href',
+    '#settings/inventree',
+  )
+  const theme = within(panel).getByRole('radiogroup', { name: 'Theme' })
+  await user.click(within(theme).getByRole('radio', { name: 'Dark' }))
+  expect(document.documentElement.dataset.theme).toBe('dark')
+  await user.click(within(theme).getByRole('radio', { name: 'System' }))
+
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog', { name: 'Connection details' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Connection status' })).toHaveFocus()
+})
+
+test('the bar ends with activity, connection and the Settings button', async () => {
+  render(<HeaderStatus client={client()} batchId={batchId} />)
+  await screen.findByText('InvenTree unreachable')
+  const order = [
+    screen.getByRole('button', { name: 'Workflow activity' }),
+    screen.getByRole('button', { name: 'Connection status' }),
+    screen.getByRole('link', { name: 'Settings' }),
+  ]
+
+  expect(order[2]).toHaveAttribute('href', '#settings')
+  order
+    .slice(1)
+    .forEach((element, index) =>
+      expect(
+        order[index].compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy(),
+    )
 })
 
 const stepCounts = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
@@ -573,13 +617,13 @@ const attention: BatchAttentionDto = {
       inventory: stepCounts,
     },
   },
-  review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 0 },
+  review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
   changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
 }
 
-test('the activity label counts the agents holding a slot and names the batch with its questions', async () => {
+test('inside its batch the activity label counts the agents holding a slot, with no batch name or question count', async () => {
   const api = client()
   vi.mocked(api.work).mockResolvedValue(processingWork())
   render(
@@ -592,10 +636,12 @@ test('the activity label counts the agents holding a slot and names the batch wi
   expect(await screen.findByText('2 agents working')).toBeInTheDocument()
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
   await waitFor(() =>
-    expect(trigger).toHaveAccessibleDescription(
-      '2 agents working Mouser 3381-22 + bench bag Research: 6 of 10 3 questions need you',
-    ),
+    expect(trigger).toHaveAccessibleDescription('2 agents working Research: 6 of 10'),
   )
+  expect(trigger).not.toHaveTextContent('Mouser 3381-22')
+  expect(trigger).not.toHaveTextContent('3')
+  // The AI mark leads a working chip.
+  expect(trigger.querySelector('[data-ai-mark]')).not.toBeNull()
   const steps = within(trigger).getAllByRole('listitem', { hidden: true })
   expect(steps.map((step) => step.textContent)).toEqual([
     'Examine: done',
@@ -653,7 +699,7 @@ test('without the batch reads the label still names the work and leaves out the 
 
   expect(await screen.findByText('2 agents working')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Workflow activity' })).toHaveAccessibleDescription(
-    '2 agents working Current batch',
+    '2 agents working',
   )
 })
 
@@ -687,6 +733,7 @@ test('with nothing retained the activity pill says so plainly and drops its acce
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
   expect(trigger).toHaveAccessibleDescription('Idle Nothing running')
   expect(trigger).toHaveAttribute('data-active', 'false')
+  expect(trigger.querySelector('[data-ai-mark]')).toBeNull()
 })
 
 test('other open jobs show as +N beside the named one', async () => {
@@ -711,7 +758,7 @@ test('other open jobs show as +N beside the named one', async () => {
 
   await screen.findByText('2 agents working')
   expect(screen.getByRole('button', { name: 'Workflow activity' })).toHaveAccessibleDescription(
-    '2 agents working Current batch 1 more job',
+    '2 agents working 1 more job',
   )
 })
 
@@ -866,7 +913,7 @@ test('an import run keeps its own state, apart from Processing’s questions and
   await waitFor(() => expect(within(processing).getByText('3 need you')).toBeInTheDocument())
 })
 
-test('at phone width a read that is not current names its state before any cached count', async () => {
+test('at phone width a read that is not current names its state, with no cached count', async () => {
   const api = client()
   vi.mocked(api.work).mockRejectedValue(new Error('offline'))
   render(
@@ -878,9 +925,10 @@ test('at phone width a read that is not current names its state before any cache
   await screen.findByText('Workflow unavailable')
   const trigger = screen.getByRole('button', { name: 'Workflow activity' })
 
-  await waitFor(() => expect(trigger.querySelector('[data-current]')).not.toBeNull())
+  // The pill carries no question count; the batch header owns it.
+  await waitFor(() => expect(trigger.querySelector('[data-short]')).not.toBeNull())
   expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Offline')
-  expect(trigger.querySelector('[data-current]')).toHaveAttribute('data-current', 'false')
+  expect(trigger).not.toHaveTextContent('3')
 })
 
 test('a cancelled attempt that still holds its slot says so, on the pill and in the panel', async () => {
@@ -937,5 +985,154 @@ test('on phones a held slot outranks the spinner of a merely queued sibling', as
 
   await waitFor(() =>
     expect(trigger.querySelector('[data-short]')).toHaveAttribute('data-short', 'Slot held'),
+  )
+})
+
+test('outside a batch the activity label names the batch it shows, from that batch’s cached read', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue(processingWork())
+  render(
+    <>
+      <BatchReads attention={attention} />
+      <HeaderStatus client={api} />
+    </>,
+  )
+
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+  await waitFor(() =>
+    expect(trigger).toHaveAccessibleDescription(/^2 agents working Mouser 3381-22 \+ bench bag/),
+  )
+})
+
+describe('at phone width', () => {
+  let restore = () => undefined as void
+
+  beforeEach(() => {
+    restore = stubPhoneViewport()
+  })
+
+  afterEach(() => restore())
+
+  test('the bar holds the agents status button and a menu button carrying the connection dot', async () => {
+    const api = client()
+    vi.mocked(api.work).mockResolvedValue(processingWork())
+    render(<HeaderStatus client={api} batchId={batchId} />)
+
+    const menu = await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+    expect(menu.querySelector('[data-tone="bad"]')).not.toBeNull()
+    // The connection control and the Settings gear move into the menu.
+    expect(screen.queryByRole('button', { name: 'Connection status' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull()
+
+    const status = screen.getByRole('button', { name: 'Workflow activity' })
+    expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
+    await waitFor(() =>
+      expect(status).toHaveAccessibleDescription(
+        /Examine: done, Research: running, Images: failed, Inventory: waiting/,
+      ),
+    )
+    expect(status.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('the menu holds Agents, Settings, the server with Open InvenTree, and the theme, and Escape returns focus', async () => {
+    const user = userEvent.setup()
+    render(<HeaderStatus client={client()} batchId={batchId} />)
+    const trigger = await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+
+    await user.click(trigger)
+    const menu = screen.getByRole('dialog', { name: 'Menu' })
+    expect(within(menu).getByRole('link', { name: 'Agents' })).toHaveAttribute('href', '#agents')
+    expect(within(menu).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '#settings',
+    )
+    expect(within(menu).getByText('InvenTree unreachable')).toBeInTheDocument()
+    const link = within(menu).getByRole('link', { name: 'Open InvenTree' })
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(within(menu).getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
+  test('the bar announces connection changes; the condensed copy does not repeat them', async () => {
+    const api = client()
+    const { unmount } = render(<HeaderStatus client={api} batchId={batchId} />)
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('status').some((node) => node.textContent === 'InvenTree unreachable'),
+      ).toBe(true),
+    )
+    unmount()
+
+    render(<HeaderStatus client={api} batchId={batchId} variant="condensed" />)
+    await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+    expect(
+      screen.queryAllByRole('status').some((node) => node.textContent === 'InvenTree unreachable'),
+    ).toBe(false)
+  })
+
+  test('the agents status button always carries the AI mark, even with nothing running', async () => {
+    render(<HeaderStatus client={client()} batchId={batchId} />)
+
+    expect(await screen.findByText('Idle')).toBeInTheDocument()
+    const status = screen.getByRole('button', { name: 'Workflow activity' })
+    expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
+  })
+
+  test("the condensed copy shares the bar's reads: mounting it sends none and shows them at once", async () => {
+    const api = client()
+    const view = render(
+      <HeaderObservationsProvider client={api} batchId={batchId}>
+        <HeaderStatus client={api} batchId={batchId} />
+      </HeaderObservationsProvider>,
+    )
+    await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+    const reads =
+      vi.mocked(api.connection).mock.calls.length + vi.mocked(api.work).mock.calls.length
+
+    view.rerender(
+      <HeaderObservationsProvider client={api} batchId={batchId}>
+        <HeaderStatus client={api} batchId={batchId} />
+        <HeaderStatus client={api} batchId={batchId} variant="condensed" />
+      </HeaderObservationsProvider>,
+    )
+    expect(screen.getAllByRole('button', { name: 'Menu, InvenTree unreachable' })).toHaveLength(2)
+    expect(
+      vi.mocked(api.connection).mock.calls.length + vi.mocked(api.work).mock.calls.length,
+    ).toBe(reads)
+  })
+
+  test('the condensed variant shows only the mark and spinner, with no second live region', async () => {
+    const api = client()
+    vi.mocked(api.work).mockResolvedValue(processingWork())
+    render(<HeaderStatus client={api} batchId={batchId} variant="condensed" />)
+
+    const status = await screen.findByRole('button', { name: 'Workflow activity' })
+    await waitFor(() => expect(status.querySelector('[data-ai-mark]')).not.toBeNull())
+    expect(within(status).queryAllByRole('listitem', { hidden: true })).toHaveLength(0)
+    expect(within(status).queryByRole('status')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Menu, InvenTree unreachable' })).toBeInTheDocument()
+  })
+})
+
+test('the server menu says where approvals write for a live target too', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: {
+      ...connection().target,
+      state: 'reachable',
+      kind: 'configured',
+      failure_code: null,
+    },
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
+    'Approvals write to this InvenTree, your live inventory.',
   )
 })

@@ -1,26 +1,18 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import type { ThemeController } from '#/theme/theme'
-import {
-  Breadcrumb,
-  type BreadcrumbItem,
-  media,
-  linkTouchArea,
-  visuallyHidden,
-} from '#/components/ui'
+import { color, space, type, typeVar } from '#/theme/generated/tokens'
+import { Breadcrumb, type BreadcrumbItem, media, linkTouchArea } from '#/components/ui'
+import { DevBadge } from './DevBadge'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
-import { MastheadMenu } from './MastheadMenu'
 
 type MastheadProps = {
   breadcrumb?: BreadcrumbItem[]
-  /** Workflow activity, connection status and Open InvenTree. */
+  /** Workflow activity, the connection's server menu and the Settings button. */
   status?: ReactNode
-  themeController?: ThemeController
 }
 
-/** One bar over the electronics current: wordmark, Dev badge, breadcrumb, status, menu. */
-export function Masthead({ breadcrumb, status, themeController }: MastheadProps) {
+/** One bar over the electronics current: wordmark, Dev badge, breadcrumb, then the status group. */
+export function Masthead({ breadcrumb, status }: MastheadProps) {
   const header = useRef<HTMLElement>(null)
   const lead = useRef<HTMLDivElement>(null)
   const end = useRef<HTMLDivElement>(null)
@@ -46,9 +38,7 @@ export function Masthead({ breadcrumb, status, themeController }: MastheadProps)
           <Wordmark href="#" aria-label="Bench Intake, Batches">
             Bench <span>Intake</span>
           </Wordmark>
-          <DevBadge>
-            Dev<CompactHidden> mode</CompactHidden>
-          </DevBadge>
+          <DevBadge shorten />
           {breadcrumb && breadcrumb.length > 0 && (
             <Crumbs data-compact="hidden">
               <span aria-hidden="true">/</span>
@@ -57,10 +47,7 @@ export function Masthead({ breadcrumb, status, themeController }: MastheadProps)
           )}
         </Lead>
         <Spacer />
-        <End ref={end}>
-          {status ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}
-          <MastheadMenu themeController={themeController} />
-        </End>
+        <End ref={end}>{status ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}</End>
       </Row>
     </Header>
   )
@@ -118,21 +105,25 @@ const Row = styled.div`
   }
 `
 
+/** At phone width the brand side gives way to the status buttons, which never clip. */
 const Lead = styled.div`
   display: flex;
   flex: 0 1 auto;
-  ${media.compact} {
-    flex: none;
-  }
   align-items: center;
   gap: ${space[6]};
   min-width: 0;
+  ${media.compact} {
+    gap: ${space[4]};
+  }
 `
 
 const End = styled.div`
   display: flex;
   flex: 0 1 auto;
   min-width: 0;
+  ${media.compact} {
+    flex: none;
+  }
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
@@ -149,21 +140,19 @@ const Wordmark = styled.a`
   white-space: nowrap;
   text-decoration: none;
   ${linkTouchArea}
+  /* The phone canvas sets the brand smaller; below 360px it ellipsises before the buttons clip.
+     The clip margin keeps the touch area's full height. */
+  ${media.compact} {
+    min-width: 0;
+    overflow: clip;
+    overflow-clip-margin: ${space[4]};
+    text-overflow: ellipsis;
+    /* literal-allowed: the phone brand size from the canvas; no type token has it */
+    font-size: 19px;
+  }
   span {
     font-weight: 450;
   }
-`
-
-const DevBadge = styled.span`
-  padding: ${space[1]} ${space[4]};
-  border: 1px solid ${color.devLine};
-  border-radius: ${radius.pill};
-  background: ${color.devBg};
-  color: ${color.devFg};
-  font-size: ${typeVar.label.size};
-  font-weight: ${typeVar.label.weight};
-  line-height: 1.4;
-  white-space: nowrap;
 `
 
 /** The trail follows the Dev badge after a separator; the current crumb stays `fg`, as on the canvas. */
@@ -180,13 +169,6 @@ const Crumbs = styled.div`
   padding: ${space[2]};
   ${media.compact} {
     display: none;
-  }
-`
-
-/** Read but not shown at phone width, so the badge says "Dev" and keeps its full name. */
-const CompactHidden = styled.span`
-  ${media.compact} {
-    ${visuallyHidden}
   }
 `
 

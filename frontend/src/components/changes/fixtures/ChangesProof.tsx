@@ -514,7 +514,7 @@ const attention = async (): Promise<BatchAttentionDto> => ({
     running: 0,
     steps: { examine: noSteps, research: noSteps, images: noSteps, inventory: noSteps },
   },
-  review: { to_check: 1, changed_after_review: 0, to_decide: 1, records: 0 },
+  review: { to_check: 1, changed_after_review: 0, needs_answer: 0, to_decide: 1, records: 0 },
   changes: {
     ready: preparations.length ? preparations[0].selected_lot_ids.length : 0,
     failed: 0,
@@ -531,7 +531,7 @@ export function ChangesProof() {
     <ServerStateProvider scope={scope}>
       <GlobalStyle />
       <Masthead
-        breadcrumb={[{ label: 'Batches', href: '#' }, { label: capture.title }]}
+        breadcrumb={[{ label: 'Batches', href: '#' }]}
         status={<HeaderStatus client={header as never} batchId={batchId} />}
       />
       <Main>

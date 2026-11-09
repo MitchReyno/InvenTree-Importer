@@ -14,9 +14,9 @@ import {
   segmentSteps,
 } from '#/header/workSegments'
 import {
+  AiMark,
   Spinner,
   media,
-  Pill,
   ProgressSegments,
   VisuallyHidden,
   visuallyHidden,
@@ -29,17 +29,35 @@ interface Props {
   batchId?: string
   unavailable: boolean
   now: number
+  /**
+   * `phone` reads the step states into the description, since the labels are hidden there;
+   * `condensed` is the sticky phone row's copy: the mark and spinner only, with no live region.
+   */
+  layout?: 'bar' | 'phone' | 'condensed'
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-/** The masthead's background-work pill: who is working, on what, and how far each step is. */
-export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpenChange }: Props) {
+/**
+ * The masthead's background-work pill: who is working and how far each step is. Inside a batch it
+ * leaves out the batch's title and its questions, which the batch header already shows.
+ */
+export function ActivityIndicator({
+  data,
+  batchId,
+  unavailable,
+  now,
+  layout = 'bar',
+  open,
+  onOpenChange,
+}: Props) {
   const ids = useId()
   const cached = useCachedBatchReads(batchId)
   const fresh = !unavailable && !!data && observationFresh(data.observed_at, now)
   const preferred = preferredWork(data, batchId)
   const ownBatch = !!batchId && preferred?.batch_id === batchId
+  // Outside its batch the pill names the batch it shows, from that batch's cached read.
+  const shown = useCachedBatchReads(ownBatch ? undefined : preferred?.batch_id)
   // The open batch's questions and progress, unless the pill names another batch's work.
   const attention = batchId && (!preferred || ownBatch) ? cached.attention : undefined
   // Each retained Processing job is one step, so the pill reads all of the batch's jobs.
@@ -52,12 +70,15 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
   const idle = fresh && !!data && workflowSummary(data, preferred, false, now) === 'Idle'
   const working = fresh && data && preferred ? agentsWorking(data, preferred.batch_id) : ''
   const headline = working || workflowSummary(data, preferred, unavailable, now)
-  const name = idle
-    ? 'Nothing running'
-    : ownBatch
-      ? (cached.title ?? 'Current batch')
-      : 'Application-wide'
-  const questions = attention?.processing.questions ?? 0
+  let name = shown.title ?? 'Application-wide'
+  if (idle) {
+    name = 'Nothing running'
+  } else if (ownBatch) {
+    name = ''
+  }
+  // Processing work is agent work, so a fresh desktop pill for it leads with the AI mark. The phone
+  // button is the agents status button, so it always carries it.
+  const showMark = layout !== 'bar' || (fresh && preferred?.kind === 'processing')
   const counts = batchStepCounts(data, preferred?.batch_id, attention)
   const segments =
     preferred?.kind === 'processing'
@@ -74,14 +95,16 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       : idle
         ? 'Idle'
         : 'Active'
-  // A held slot outranks the spinner on the phone pill, which has room for one mark.
+  // A held slot outranks the spinner on the phone pill, where its word stands in for the labels.
   const held = fresh && compact === 'Slot held'
+  const showSegments = fresh && !!preferred && layout !== 'condensed'
+  const stepWords = segments.map((step) => `${step.label}: ${step.state}`).join(', ')
   const describedBy = [
     `${ids}-headline`,
-    `${ids}-name`,
+    name ? `${ids}-name` : '',
     progress ? `${ids}-progress` : '',
     more ? `${ids}-more` : '',
-    questions ? `${ids}-questions` : '',
+    showSegments && layout === 'phone' ? `${ids}-steps` : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -97,25 +120,35 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       onOpenChange={onOpenChange}
       trigger={
         <>
+          {showMark && <AiMark size="sm" />}
           {running && (
-            <SpinnerSlot data-questions={questions > 0 || held}>
+            <SpinnerSlot data-held={held}>
               <Spinner />
             </SpinnerSlot>
           )}
           <Labels data-compact="visually-hidden">
-            <b id={`${ids}-headline`} role="status" aria-live="polite">
-              {headline}
-            </b>
-            <Name id={`${ids}-name`}>{name}</Name>
+            {layout === 'condensed' ? (
+              <b id={`${ids}-headline`}>{headline}</b>
+            ) : (
+              <b id={`${ids}-headline`} role="status" aria-live="polite">
+                {headline}
+              </b>
+            )}
+            {name && <Name id={`${ids}-name`}>{name}</Name>}
           </Labels>
-          {/* At phone width one mark shows: a read that is not current says so first, then the
-              question count, the spinner or the job's word. */}
-          {(!fresh || (questions === 0 && (!running || held))) && (
-            <ShortText aria-hidden="true" data-short={compact} />
+          {/* At phone width a read that is not current says so first, then the spinner or the
+              job's word, beside the step segments. */}
+          {(!fresh || !running || held) && <ShortText aria-hidden="true" data-short={compact} />}
+          {showSegments && (
+            <Segments>
+              <ProgressSegments steps={segments} />
+            </Segments>
+          )}
+          {showSegments && layout === 'phone' && (
+            <VisuallyHidden id={`${ids}-steps`}>{stepWords}</VisuallyHidden>
           )}
           {fresh && preferred && (
             <WideOnly>
-              <ProgressSegments steps={segments} />
               {progress && <Current id={`${ids}-progress`}>{progress}</Current>}
               {more > 0 && (
                 <More>
@@ -126,16 +159,6 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
                 </More>
               )}
             </WideOnly>
-          )}
-          {questions > 0 && (
-            <QuestionPill data-current={fresh}>
-              <Pill tone="warn">
-                <span aria-hidden="true">{questions}</span>
-                <VisuallyHidden id={`${ids}-questions`}>
-                  {questions} {questions === 1 ? 'question needs' : 'questions need'} you
-                </VisuallyHidden>
-              </Pill>
-            </QuestionPill>
           )}
         </>
       }
@@ -230,35 +253,32 @@ const ShortText = styled.span`
   }
 `
 
-/** A count beside the segments, tighter than a status pill so it fits the phone touch target. */
-const QuestionPill = styled.span`
-  display: contents;
-  & > span {
-    gap: ${space[1]};
-    padding: 0 ${space[3]} 0 ${space[2]};
-  }
-  ${media.compact} {
-    &[data-current='false'] > span {
-      display: none;
-    }
-  }
-`
-
-/** At phone width the question count stands in for the spinner; the accent fill still marks running work. */
+/** At phone width a held slot's word stands in for the spinner; the accent fill still marks running work. */
 const SpinnerSlot = styled.span`
   display: contents;
   color: ${color.accent};
   ${media.compact} {
-    &[data-questions='true'] {
+    &[data-held='true'] {
       display: none;
     }
   }
 `
 
-/** The phone bar has room for one mark only; the panel lists the steps. */
+/** The phone pill keeps only its marks and segments; the panel gives the progress and other jobs. */
 const WideOnly = styled.span`
   display: contents;
   ${media.compact} {
     display: none;
+  }
+`
+
+/** Narrower segments at phone width, so the button fits beside the brand and menu at 360px. */
+const Segments = styled.span`
+  display: contents;
+  ${media.compact} {
+    [data-state] {
+      /* literal-allowed: a phone segment's width, as ProgressSegments' own 14px; no token has this role */
+      width: 8px;
+    }
   }
 `

@@ -1,17 +1,24 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
+import { batchHref, type BatchRoute, type ProcessingStep } from '#/navigation/batch-route'
+import { stepStatus, tabCount, type TabCountInput, type TabKey } from '#/attention/tab-count'
+import { color, pageWidth, shadow, space, type, typeVar, zIndex } from '#/theme/generated/tokens'
 import {
-  batchHref,
-  type BatchRoute,
-  type BatchTab,
-  type ProcessingStep,
-} from '#/navigation/batch-route'
-import { color, pageWidth, space, type, typeVar } from '#/theme/generated/tokens'
-import { Button, media, SubTabs, Tabs, type TabItem, Pill, linkTouchArea } from '#/components/ui'
+  BackIcon,
+  Button,
+  IconButton,
+  media,
+  SubTabs,
+  Tabs,
+  type TabItem,
+  Pill,
+  linkTouchArea,
+  useMediaQuery,
+} from '#/components/ui'
+import { useCompactStatus } from '#/components/masthead/CompactStatus'
+import { useOutOfView } from '#/browser/useOutOfView'
 import { NeedsYouPanel } from './NeedsYouPanel'
-
-/** `unused` is absent while lot lineage is unknown. */
-export type EvidenceCounts = { files: number; unused?: number }
 
 type BatchHeaderProps = {
   batch: CaptureSnapshotDto
@@ -19,11 +26,10 @@ type BatchHeaderProps = {
   attention: BatchAttentionDto | undefined
   /** The attention read failed, so the header cannot say what needs the operator. */
   attentionUnavailable?: boolean
-  /** Capture's file count and the Map's unused files, from the media read when it is loaded. */
-  evidence?: EvidenceCounts
+  /** The Map's unused files, from the media read; absent while it or lot lineage is unknown. */
+  unusedFiles?: number
   /** Lots retired by a split or merge stay in the snapshot; counts show active lots. */
   activeLotCount: number
-  retiredLotCount: number
   busy: boolean
   onArchive: () => void
 }
@@ -40,281 +46,211 @@ function plural(count: number, one: string, many: string) {
   return count === 1 ? one : many
 }
 
-type StepWork = { questions: number; failed: number }
-type StepAttempts = StepWork & { jobs: number; ready: number; running: number }
-
-/** A failed attempt outranks a question, so the badge turns to the stronger tone. */
-function processingBadge({ questions, failed }: StepWork): Pick<TabItem, 'badge'> {
-  const parts = [
-    questions > 0 ? `${questions} ${plural(questions, 'question', 'questions')}` : '',
-    failed > 0 ? `${failed} failed` : '',
-  ].filter(Boolean)
-  if (parts.length === 0) {
-    return {}
-  }
-
-  return {
-    badge: {
-      label: parts.join(' · '),
-      short: String(questions + failed),
-      tone: failed > 0 ? 'bad' : 'warn',
-    },
-  }
+/** A tab or sub-tab: its id is the last part of its key ("review/lots" → "lots"). */
+function tab(key: TabKey, label: string, href: string, input: TabCountInput): TabItem {
+  return { id: key.slice(key.lastIndexOf('/') + 1), label, href, count: tabCount(key, input) }
 }
 
-type Counts = {
-  attention: BatchAttentionDto | undefined
-  evidence: EvidenceCounts | undefined
-  activeLotCount: number
-}
-
-function primaryTabs(batchId: string, { attention, evidence }: Counts): TabItem[] {
-  const review = attention?.review
-  const changes = attention?.changes
-  const changeProblems = (changes?.failed ?? 0) + (changes?.uncertain ?? 0)
+function primaryTabs(batchId: string, input: TabCountInput): TabItem[] {
+  const running = (input.attention?.processing.running ?? 0) > 0
+  const processing = tab(
+    'processing',
+    'Processing',
+    batchHref(batchId, { tab: 'processing', step: 'overview' }),
+    input,
+  )
 
   return [
-    {
-      id: 'capture',
-      label: 'Capture',
-      href: batchHref(batchId, { tab: 'capture' }),
-      ...(evidence
-        ? { count: evidence.files, countLabel: plural(evidence.files, 'file', 'files') }
-        : {}),
-    },
-    {
-      id: 'processing',
-      label: 'Processing',
-      href: batchHref(batchId, { tab: 'processing', step: 'overview' }),
-      spinner: (attention?.processing.running ?? 0) > 0,
-      ...processingBadge(attention?.processing ?? { questions: 0, failed: 0 }),
-    },
-    {
-      id: 'review',
-      label: 'Review',
-      href: batchHref(batchId, { tab: 'review', view: 'lots' }),
-      ...(review ? { count: review.to_check, countLabel: 'to check' } : {}),
-      ...(review && review.to_decide > 0
-        ? {
-            badge: {
-              label: `${review.to_decide} to decide`,
-              short: String(review.to_decide),
-              tone: 'warn',
-            },
-          }
-        : {}),
-    },
-    {
-      id: 'changes',
-      label: 'Changes',
-      href: batchHref(batchId, { tab: 'changes', view: 'ready' }),
-      ...(changes ? { count: changes.ready, countLabel: 'ready', countTone: 'ok' } : {}),
-      ...(changeProblems > 0
-        ? {
-            badge: {
-              label: `${changeProblems} to check`,
-              short: String(changeProblems),
-              tone: 'bad',
-            },
-          }
-        : {}),
-    },
+    tab('capture', 'Capture', batchHref(batchId, { tab: 'capture' }), input),
+    running ? { ...processing, status: 'running' } : processing,
+    tab('review', 'Review', batchHref(batchId, { tab: 'review', view: 'lots' }), input),
+    tab('changes', 'Changes', batchHref(batchId, { tab: 'changes', view: 'ready' }), input),
   ]
 }
 
-function processingRow(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
-  const processing = attention?.processing
-
+function processingRow(batchId: string, input: TabCountInput): TabItem[] {
   return STEPS.map(({ id, label }) => {
-    const href = batchHref(batchId, { tab: 'processing', step: id })
-    if (id === 'overview') {
-      return { id, label, href, ...processingBadge(processing ?? { questions: 0, failed: 0 }) }
-    }
-    const step: StepAttempts = processing?.steps[id] ?? {
-      questions: 0,
-      failed: 0,
-      jobs: 0,
-      ready: 0,
-      running: 0,
-    }
-    return {
-      id,
+    const item = tab(
+      `processing/${id}`,
       label,
-      href,
-      spinner: step.running > 0,
-      ...(step.jobs > 0 ? { progress: { ready: step.ready, of: step.jobs } } : {}),
-      ...processingBadge(step),
-    }
+      batchHref(batchId, { tab: 'processing', step: id }),
+      input,
+    )
+    const status = id === 'overview' ? undefined : stepStatus(id, input.attention)
+
+    return status ? { ...item, status } : item
   })
 }
 
-/** Each view's own count, with what needs the operator there as its badge. */
-function reviewRow(batchId: string, { attention, evidence, activeLotCount }: Counts): TabItem[] {
-  const review = attention?.review
+const REVIEW_VIEWS = [
+  { view: 'lots', label: 'Lots' },
+  { view: 'map', label: 'Map' },
+  { view: 'records', label: 'Records' },
+] as const
 
+function reviewRow(batchId: string, input: TabCountInput): TabItem[] {
+  return REVIEW_VIEWS.map(({ view, label }) =>
+    tab(`review/${view}`, label, batchHref(batchId, { tab: 'review', view }), input),
+  )
+}
+
+function changesRow(batchId: string, input: TabCountInput): TabItem[] {
   return [
-    {
-      id: 'lots',
-      label: 'Lots',
-      href: batchHref(batchId, { tab: 'review', view: 'lots' }),
-      count: activeLotCount,
-      countLabel: plural(activeLotCount, 'lot', 'lots'),
-      ...(review && review.to_check > 0
-        ? {
-            badge: {
-              label: `${review.to_check} to check`,
-              short: String(review.to_check),
-              tone: 'warn',
-            },
-          }
-        : {}),
-    },
-    {
-      id: 'map',
-      label: 'Map',
-      href: batchHref(batchId, { tab: 'review', view: 'map' }),
-      ...(evidence?.unused
-        ? {
-            badge: {
-              label: `${evidence.unused} unused ${plural(evidence.unused, 'file', 'files')}`,
-              short: String(evidence.unused),
-              tone: 'warn',
-            },
-          }
-        : {}),
-    },
-    {
-      id: 'records',
-      label: 'Records',
-      href: batchHref(batchId, { tab: 'review', view: 'records' }),
-      ...(review
-        ? { count: review.records, countLabel: plural(review.records, 'record', 'records') }
-        : {}),
-      ...(review && review.to_decide > 0
-        ? {
-            badge: {
-              label: `${review.to_decide} to decide`,
-              short: String(review.to_decide),
-              tone: 'warn',
-            },
-          }
-        : {}),
-    },
+    tab(
+      'changes/ready',
+      'Ready to add',
+      batchHref(batchId, { tab: 'changes', view: 'ready' }),
+      input,
+    ),
+    tab('changes/added', 'Added', batchHref(batchId, { tab: 'changes', view: 'added' }), input),
   ]
 }
 
-function changesRow(batchId: string, { attention }: Counts): TabItem[] {
-  const changes = attention?.changes
-  const problems = (changes?.failed ?? 0) + (changes?.uncertain ?? 0)
-
-  return [
-    {
-      id: 'ready',
-      label: 'Ready to add',
-      href: batchHref(batchId, { tab: 'changes', view: 'ready' }),
-      ...(changes
-        ? {
-            count: changes.ready,
-            countLabel: plural(changes.ready, 'lot', 'lots'),
-            countTone: 'ok',
-          }
-        : {}),
-    },
-    {
-      id: 'added',
-      label: 'Added',
-      href: batchHref(batchId, { tab: 'changes', view: 'added' }),
-      ...(changes ? { count: changes.runs, countLabel: plural(changes.runs, 'run', 'runs') } : {}),
-      ...(problems > 0
-        ? {
-            badge: {
-              label: `${problems} ${plural(problems, 'needs', 'need')} attention`,
-              short: String(problems),
-              tone: 'bad',
-            },
-          }
-        : {}),
-    },
-  ]
-}
-
-function secondRow(batchId: string, route: BatchRoute, counts: Counts) {
+function secondRow(batchId: string, route: BatchRoute, input: TabCountInput) {
   switch (route.tab) {
     case 'processing':
       return {
         label: 'Processing steps',
-        items: processingRow(batchId, counts.attention),
+        items: processingRow(batchId, input),
         current: route.step,
       }
     case 'review':
-      return { label: 'Review views', items: reviewRow(batchId, counts), current: route.view }
+      return { label: 'Review views', items: reviewRow(batchId, input), current: route.view }
     case 'changes':
-      return { label: 'Changes views', items: changesRow(batchId, counts), current: route.view }
+      return { label: 'Changes views', items: changesRow(batchId, input), current: route.view }
     default:
       return null
   }
 }
 
-/** The batch's title, its four tabs and their sub-views, and what needs the operator. */
+/**
+ * Moves focus from a control in the condensed row to the same control elsewhere (the full header
+ * first, then the masthead), so it is not lost when the row goes. Controls match by their
+ * `data-focus-key` or, for links, their address.
+ */
+function handFocusBack(row: HTMLElement | null) {
+  const active = document.activeElement
+  if (!row || !(active instanceof HTMLElement) || !row.contains(active)) {
+    return
+  }
+  const key = active.dataset.focusKey
+  const href = active.getAttribute('href')
+  let selector = ''
+  if (key) {
+    selector = `[data-focus-key="${CSS.escape(key)}"]`
+  } else if (href !== null) {
+    selector = `a[href="${CSS.escape(href)}"]`
+  }
+  if (!selector) {
+    return
+  }
+
+  const elsewhere = (scope: ParentNode) =>
+    [...scope.querySelectorAll<HTMLElement>(selector)].find((element) => !row.contains(element))
+
+  const target = (row.parentElement && elsewhere(row.parentElement)) ?? elsewhere(document)
+  target?.focus()
+}
+
+/** "12 lots · 6 ready to add": the tabs and the need-you pill carry everything else. */
+function summary(batch: CaptureSnapshotDto, activeLotCount: number, attention?: BatchAttentionDto) {
+  return [
+    `${activeLotCount} ${plural(activeLotCount, 'lot', 'lots')}`,
+    attention && `${attention.changes.ready} ready to add`,
+    batch.archived && 'Archived',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/**
+ * The batch's title, its need-you pill and short summary, then its four tabs and their sub-views.
+ * At phone width, once the header scrolls away, a fixed row condenses it: back, title, need-you
+ * count, the masthead's compact status and menu, with the sub-tabs below.
+ */
 export function BatchHeader({
   batch,
   route,
   attention,
   attentionUnavailable = false,
-  evidence,
+  unusedFiles,
   activeLotCount,
-  retiredLotCount,
   busy,
   onArchive,
 }: BatchHeaderProps) {
-  const current: BatchTab = route.tab
-  const counts: Counts = { attention, evidence, activeLotCount }
-  const row = secondRow(batch.id, route, counts)
+  const input: TabCountInput = { attention, activeLotCount, unusedFiles }
+  const row = secondRow(batch.id, route, input)
   const width = route.tab === 'review' ? 'review' : 'content'
+  const phone = useMediaQuery(media.compact)
+  const condensed = useRef<HTMLElement>(null)
+  const header = useOutOfView(phone, () => handFocusBack(condensed.current))
+  const compactStatus = useCompactStatus()
+
+  // While the fixed row shows, focused content scrolls clear of it.
+  useLayoutEffect(() => {
+    const row = condensed.current
+    if (!header.outOfView || !row) {
+      return
+    }
+    const root = document.documentElement
+    root.style.scrollPaddingTop = `${row.offsetHeight}px`
+
+    return () => {
+      root.style.scrollPaddingTop = ''
+    }
+  }, [header.outOfView])
 
   return (
-    <Band>
+    <Band ref={header.ref}>
       <Inner $width={width}>
-        <Lead>
-          <BackLink href="#">
-            <span aria-hidden="true">←</span> Batches
-          </BackLink>
-          <TitleLine>
-            <Title>{batch.title}</Title>
-            {attention && <NeedsYouPanel attention={attention} />}
-            {!attention && attentionUnavailable && (
-              <Pill tone="neutral">Needs you unavailable</Pill>
-            )}
-            <Button variant="ghost" size="sm" disabled={busy} onClick={onArchive}>
-              {batch.archived ? 'Resume archived batch' : 'Archive batch'}
-            </Button>
-          </TitleLine>
-          <Meta>
-            {[
-              `${activeLotCount} ${plural(activeLotCount, 'lot', 'lots')}${retiredLotCount > 0 ? ` (${retiredLotCount} retired)` : ''}`,
-              attention && `${attention.review.to_check} ready to check`,
-              attention && `${attention.changes.ready} ready to add`,
-              attention &&
-                attention.processing.running > 0 &&
-                `${attention.processing.running} ${plural(attention.processing.running, 'agent', 'agents')} working`,
-              batch.archived && 'Archived',
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Meta>
-        </Lead>
-        <TabSlot>
-          <Tabs label="Batch" items={primaryTabs(batch.id, counts)} current={current} />
+        <BackLink href="#" data-focus-key="back">
+          <span aria-hidden="true">←</span> Batches
+        </BackLink>
+        <TitleLine>
+          <Title>{batch.title}</Title>
+          {attention && <NeedsYouPanel attention={attention} />}
+          {!attention && attentionUnavailable && <Pill tone="neutral">Needs you unavailable</Pill>}
+          <Meta>{summary(batch, activeLotCount, attention)}</Meta>
+          <Spacer />
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onArchive}>
+            {batch.archived ? 'Resume archived batch' : 'Archive batch'}
+          </Button>
+        </TitleLine>
+        <TabSlot $level="primary">
+          <Tabs label="Batch" items={primaryTabs(batch.id, input)} current={route.tab} />
         </TabSlot>
       </Inner>
       {row && (
         <SubBand>
           <SubInner $width={width}>
-            <TabSlot>
+            <TabSlot $level="secondary">
               <SubTabs label={row.label} items={row.items} current={row.current} />
             </TabSlot>
           </SubInner>
         </SubBand>
+      )}
+      {header.outOfView && (
+        <Condensed ref={condensed} aria-label="Batch, condensed">
+          <CondensedRow>
+            <IconButton
+              href="#"
+              label="Back to batches"
+              icon={<BackIcon />}
+              data-focus-key="back"
+            />
+            <CondensedTitle title={batch.title}>{batch.title}</CondensedTitle>
+            {attention && <NeedsYouPanel attention={attention} compact />}
+            {compactStatus}
+          </CondensedRow>
+          {row && (
+            <SubTabs
+              label={`${row.label}, condensed`}
+              items={row.items}
+              current={row.current}
+              announceCurrent={false}
+            />
+          )}
+        </Condensed>
       )}
     </Band>
   )
@@ -326,26 +262,17 @@ const Band = styled.header`
   border-bottom: 1px solid ${color.line};
 `
 
+/** Title line first, then the tabs on their own row under it. */
 const Inner = styled.div<{ $width: 'content' | 'review' }>`
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: ${space[4]} ${space[8]};
+  flex-direction: column;
+  gap: ${space[3]};
   max-width: ${({ $width }) => pageWidth[$width]};
   margin: 0 auto;
   padding: ${space[7]} ${space[12]} 0;
   ${media.compact} {
     padding: ${space[6]} ${space[8]} 0;
   }
-`
-
-const Lead = styled.div`
-  display: flex;
-  flex: 1 1 320px;
-  flex-direction: column;
-  gap: ${space[3]};
-  min-width: 0;
-  padding-bottom: ${space[5]};
 `
 
 /** At phone width the masthead drops its trail, so the way back sits above the title. */
@@ -367,7 +294,11 @@ const TitleLine = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: ${space[4]};
+  gap: ${space[3]} ${space[6]};
+`
+
+const Spacer = styled.span`
+  flex: 1;
 `
 
 const Title = styled.h1`
@@ -382,10 +313,14 @@ const Meta = styled.p`
   color: ${color.muted};
 `
 
+/** Each tab's horizontal padding, so a row can shift left by it and its labels line up with the title. */
+const TAB_INSET = { primary: space[6], secondary: space[5] }
+
 /** The band draws the rules, so the tab rows drop their own. */
-const TabSlot = styled.div`
+const TabSlot = styled.div<{ $level: keyof typeof TAB_INSET }>`
   min-width: 0;
-  max-width: 100%;
+  max-width: calc(100% + ${({ $level }) => TAB_INSET[$level]});
+  margin-left: calc(-1 * ${({ $level }) => TAB_INSET[$level]});
   > nav {
     border-bottom: 0;
   }
@@ -410,4 +345,33 @@ const SubInner = styled.div<{ $width: 'content' | 'review' }>`
   ${media.compact} {
     padding: 0 ${space[8]};
   }
+`
+
+/** Fixed rather than sticky, so showing it never shifts the page it covers. */
+const Condensed = styled.section`
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: ${zIndex.raised};
+  background: ${color.surface};
+  border-bottom: 1px solid ${color.line};
+  box-shadow: ${shadow};
+  > nav {
+    padding-inline: ${space[2]};
+    border-bottom: 0;
+  }
+`
+
+const CondensedRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${space[2]};
+  padding: ${space[2]} ${space[2]} 0;
+`
+
+const CondensedTitle = styled.b`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `

@@ -52,14 +52,21 @@ function stepOf(item: AttentionItemDto) {
   return step.charAt(0).toUpperCase() + step.slice(1)
 }
 
+type NeedsYouPanelProps = {
+  attention: BatchAttentionDto
+  /** The sticky phone row's "?5": the count alone, and nothing when no item waits. */
+  compact?: boolean
+}
+
 /** Every open item in the batch, grouped by the tab that owns it. */
-export function NeedsYouPanel({ attention }: { attention: BatchAttentionDto }) {
+export function NeedsYouPanel({ attention, compact = false }: NeedsYouPanelProps) {
   const [open, setOpen] = useState(false)
   const total = attention.items.length
-  const label = attention.items_truncated ? `${total}+ need you` : `${total} need you`
+  const count = attention.items_truncated ? `${total}+` : String(total)
+  const label = `${count} need you`
 
   if (total === 0) {
-    return <Pill tone="ok">Nothing needs you</Pill>
+    return compact ? null : <Pill tone="ok">Nothing needs you</Pill>
   }
 
   return (
@@ -69,11 +76,18 @@ export function NeedsYouPanel({ attention }: { attention: BatchAttentionDto }) {
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <Trigger type="button">
-          <i aria-hidden="true">?</i>
-          {label}
-          <span aria-hidden="true">▾</span>
-        </Trigger>
+        compact ? (
+          <Trigger type="button" aria-label={label} data-focus-key="needs-you">
+            <i aria-hidden="true">?</i>
+            {count}
+          </Trigger>
+        ) : (
+          <Trigger type="button" data-focus-key="needs-you">
+            <i aria-hidden="true">?</i>
+            {label}
+            <span aria-hidden="true">▾</span>
+          </Trigger>
+        )
       }
     >
       <Body>

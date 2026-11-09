@@ -24,7 +24,7 @@ const empty: BatchAttentionDto = {
   batch_id: batch,
   revision: '1',
   processing: { questions: 0, failed: 0, running: 0, steps: noSteps },
-  review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 0 },
+  review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
   changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,

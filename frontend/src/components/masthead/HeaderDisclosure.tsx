@@ -43,6 +43,7 @@ export function HeaderDisclosure({
           aria-label={label}
           aria-describedby={describedBy}
           data-active={active}
+          data-focus-key={variant}
           $variant={variant}
         >
           {trigger}
@@ -87,10 +88,13 @@ const Trigger = styled.button<{ $variant: Variant }>`
   &[data-state='open'] {
     border-color: ${color.accent};
   }
+  /* At phone width the button keeps its content's width; the brand gives way first. */
   ${media.compact} {
+    flex: none;
     justify-content: center;
-    min-width: ${size.touch};
+    min-width: max-content;
+    max-width: none;
     min-height: ${size.touch};
-    padding-inline: ${space[2]};
+    padding-inline: ${space[3]};
   }
 `

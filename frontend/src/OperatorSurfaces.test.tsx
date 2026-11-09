@@ -196,20 +196,19 @@ test('Processing keeps retired history but offers only active lots for new attem
   expect(screen.queryByRole('link', { name: 'Open this lot in Review' })).not.toBeInTheDocument()
 })
 
-test('the batch header counts active lots and states retired history separately', () => {
+test('the batch header counts active lots only, leaving retired history out of its short summary', () => {
   render(
     <BatchHeader
       batch={batch}
       route={{ tab: 'review', view: 'lots' }}
       attention={undefined}
       activeLotCount={batch.lots.filter((lot) => lot.id !== retired).length}
-      retiredLotCount={1}
       busy={false}
       onArchive={vi.fn()}
     />,
   )
 
-  expect(screen.getByText(/1 lot \(1 retired\)/)).toBeTruthy()
+  expect(screen.getByText('1 lot')).toBeTruthy()
 })
 
 test('a shared Part warning states every affected lot before dismissal', () => {

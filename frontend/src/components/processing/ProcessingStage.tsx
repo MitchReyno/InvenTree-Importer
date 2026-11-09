@@ -1,4 +1,4 @@
-import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
 import type { ProcessingClient } from '#/processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
@@ -16,8 +16,6 @@ interface Props {
   onDirtyChange: (dirty: boolean) => void
   /** Retired lots keep their job history but cannot start new attempts. */
   retiredLotIds?: ReadonlySet<string>
-  attention?: BatchAttentionDto
-  unusedFiles?: number
   instructions?: {
     text: string | undefined
     unavailable?: boolean
@@ -38,8 +36,6 @@ export function ProcessingStage({
   sharperRequests,
   onDirtyChange,
   retiredLotIds,
-  attention,
-  unusedFiles,
   instructions,
 }: Props) {
   const { edit, reload } = useBatchCommands()
@@ -61,8 +57,6 @@ export function ProcessingStage({
       onSaved={reload}
       edit={edit}
       retiredLotIds={retiredLotIds}
-      attention={attention}
-      unusedFiles={unusedFiles}
       instructions={instructions}
     />
   )

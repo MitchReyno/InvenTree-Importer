@@ -61,10 +61,14 @@ export const BatchAttention = object({
       inventory: stepWork,
     }),
   }),
-  /** `records` is every record Review › Records lists, for its sub-tab's total. */
+  /**
+   * `records` is every record Review › Records lists, for its sub-tab's total. `needs_answer` is the
+   * lots Review's Needs answer filter shows: not excluded, with an open question on the lot or its Part.
+   */
   review: object({
     to_check: count,
     changed_after_review: count,
+    needs_answer: count,
     to_decide: count,
     records: count,
   }),

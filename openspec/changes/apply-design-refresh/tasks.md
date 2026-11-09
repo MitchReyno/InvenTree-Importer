@@ -99,11 +99,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; keyboard check of the menu at 360px and 390px.
 - **Risks and decisions:** theme access between PR-B and PR-C is handled as above.
 
-- [ ] 2.1 Confirm current masthead tests and `header-connection-status` coverage.
-- [ ] 2.2 RED: update header tests to the new layout and confirm they fail.
-- [ ] 2.3 GREEN: move Open InvenTree into the menu, add the gear, update the chip and breadcrumb, and remove the "⋯" menu (theme interim as noted).
-- [ ] 2.4 Refactor; check opener isolation and that the unavailable-link states are unchanged.
-- [ ] 2.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 2.1 Confirm current masthead tests and `header-connection-status` coverage.
+- [x] 2.2 RED: update header tests to the new layout and confirm they fail.
+- [x] 2.3 GREEN: move Open InvenTree into the menu, add the gear, update the chip and breadcrumb, and remove the "⋯" menu (theme interim as noted).
+- [x] 2.4 Refactor; check opener isolation and that the unavailable-link states are unchanged.
+- [x] 2.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 3. Batch header layout and counts
 
@@ -119,11 +119,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate.
 - **Risks and decisions:** none.
 
-- [ ] 3.1 Confirm the need-you aggregate inputs and current badge rendering.
-- [ ] 3.2 RED: `tabCount` table tests and the one-badge-per-tab header test fail.
-- [ ] 3.3 GREEN: new layout, counts, status icons and short summary; remove the duplicate counts.
-- [ ] 3.4 Refactor; verify the redirects and second-row behaviour are unchanged.
-- [ ] 3.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 3.1 Confirm the need-you aggregate inputs and current badge rendering.
+- [x] 3.2 RED: `tabCount` table tests and the one-badge-per-tab header test fail.
+- [x] 3.3 GREEN: new layout, counts, status icons and short summary; remove the duplicate counts.
+- [x] 3.4 Refactor; verify the redirects and second-row behaviour are unchanged.
+- [x] 3.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 4. Phone header
 
@@ -142,11 +142,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; a film at 390px.
 - **Risks and decisions:** `IntersectionObserver` is mocked in jsdom, so real scroll behaviour is checked in the film.
 
-- [ ] 4.1 Confirm the existing viewport helpers and phone tests.
-- [ ] 4.2 RED: write the phone layout, sheet and condensed-row tests.
-- [ ] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
-- [ ] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
-- [ ] 4.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 4.1 Confirm the existing viewport helpers and phone tests.
+- [x] 4.2 RED: write the phone layout, sheet and condensed-row tests.
+- [x] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
+- [x] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
+- [x] 4.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 5. Settings page
