@@ -1,6 +1,6 @@
 # Backend code guidelines
 
-Read the [shared code guidelines](../CODE_GUIDELINES.md) and [backend architecture](ARCHITECTURE.md) alongside these Python guidelines. They describe the desired direction for new and changed code, independently of the current module layout. Apply them proportionately: improve the code you touch without turning a focused change into an unrelated rewrite.
+Read this file and the [shared code guidelines](../CODE_GUIDELINES.md) before writing, changing or reviewing backend code, and follow the [backend architecture](ARCHITECTURE.md). They describe the desired direction for new and changed code, independently of the current module layout. Apply them proportionately: improve the code you touch without turning a focused change into an unrelated rewrite.
 
 ## Readability and naming
 

@@ -1,6 +1,18 @@
 # Project guidance
 
-Read and follow [CODE_GUIDELINES.md](CODE_GUIDELINES.md) for shared engineering rules and [ARCHITECTURE.md](ARCHITECTURE.md) for application ownership. For work in an application, also read its README, architecture and guidelines: [backend](backend/README.md), [backend architecture](backend/ARCHITECTURE.md), [backend guidelines](backend/CODE_GUIDELINES.md); [frontend](frontend/README.md), [frontend architecture](frontend/ARCHITECTURE.md), [frontend guidelines](frontend/CODE_GUIDELINES.md). Keep the owning architecture and active references current when boundaries change. Current required behavior is in the [main specs](openspec/specs/); backend import execution follows the [durable import execution spec](openspec/specs/durable-import-execution/spec.md) and its sibling import specs. Plan nontrivial work as an OpenSpec change (see [docs/openspec.md](docs/openspec.md)) and record departures from the plan, unexpected challenges and open items in that change's `notes.md` as they happen. Do not write handover documents, even where an older plan under `docs/` still asks for one; this rule overrides those clauses. Put routine verification and review outcomes in the PR description, and attach evidence (screenshots, recordings, recorded output) there instead of committing it; see [evidence goes on the PR](CODE_GUIDELINES.md#evidence-goes-on-the-pr).
+## Read the code guidelines first
+
+Agents must read the relevant code guidelines before writing, changing or reviewing any code, including tests and scripts. This is a requirement, not background reading:
+
+- Always read the [shared code guidelines](CODE_GUIDELINES.md).
+- Also read the guidelines of every application the work touches: [backend](backend/CODE_GUIDELINES.md), [frontend](frontend/CODE_GUIDELINES.md) or [intake server](intake-server/CODE_GUIDELINES.md).
+- Packages without their own guidelines, such as `contracts`, `media-decoder` and `tooling`, follow the shared guidelines plus any guidelines their README names.
+
+Read them in the current session before the first edit or the first review finding. A summary, memory or earlier session does not count, and a file that changes during the work must be read again. When delegating implementation or review to a subagent or another agent, name these files in the brief and require it to read them. A review checks the change against the guidelines and cites the rule each finding breaks.
+
+## Project map
+
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for application ownership. For work in an application, also read its README and architecture: [backend](backend/README.md), [backend architecture](backend/ARCHITECTURE.md); [frontend](frontend/README.md), [frontend architecture](frontend/ARCHITECTURE.md); [intake server](intake-server/README.md), [intake-server architecture](intake-server/ARCHITECTURE.md). Keep the owning architecture and active references current when boundaries change. Current required behavior is in the [main specs](openspec/specs/); backend import execution follows the [durable import execution spec](openspec/specs/durable-import-execution/spec.md) and its sibling import specs. Plan nontrivial work as an OpenSpec change (see [docs/openspec.md](docs/openspec.md)) and record departures from the plan, unexpected challenges and open items in that change's `notes.md` as they happen. Do not write handover documents, even where an older plan under `docs/` still asks for one; this rule overrides those clauses. Put routine verification and review outcomes in the PR description, and attach evidence (screenshots, recordings, recorded output) there instead of committing it; see [evidence goes on the PR](CODE_GUIDELINES.md#evidence-goes-on-the-pr).
 
 ## Portable paths
 

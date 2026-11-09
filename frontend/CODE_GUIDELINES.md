@@ -1,6 +1,6 @@
 # Frontend code guidelines
 
-Follow the [shared guidelines](../CODE_GUIDELINES.md) and [frontend architecture](ARCHITECTURE.md). These rules cover React/TypeScript/Vite; conventions do not establish an implemented capability.
+Read this file and the [shared guidelines](../CODE_GUIDELINES.md) before writing, changing or reviewing frontend code, and follow the [frontend architecture](ARCHITECTURE.md). These rules cover React/TypeScript/Vite; conventions do not establish an implemented capability.
 
 ## Components and state
 

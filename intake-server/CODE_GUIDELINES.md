@@ -1,6 +1,6 @@
 # Intake server code guidelines
 
-Follow the [shared guidelines](../CODE_GUIDELINES.md), [implemented architecture](ARCHITECTURE.md) and [testing tiers](TESTING.md). These rules cover server TypeScript/tests; they grant no inventory authority or new capability.
+Read this file and the [shared guidelines](../CODE_GUIDELINES.md) before writing, changing or reviewing intake-server code, and follow the [implemented architecture](ARCHITECTURE.md) and [testing tiers](TESTING.md). These rules cover server TypeScript/tests; they grant no inventory authority or new capability.
 
 ## Make decisions and effects visible
 

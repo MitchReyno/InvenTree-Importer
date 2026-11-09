@@ -94,6 +94,9 @@ In both branches, never create the root as a side effect: do not run `openspec i
 4. **Read context files**
 
    Read every file path listed under `contextFiles` from the apply instructions output.
+   Before the first code edit, also read the shared `CODE_GUIDELINES.md` and the
+   `CODE_GUIDELINES.md` of each application the tasks touch, as the project's
+   `AGENTS.md` requires.
    The files depend on the schema being used:
 
    - **spec-driven**: proposal, specs, design, tasks
