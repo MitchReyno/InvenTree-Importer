@@ -182,6 +182,7 @@ None for task 10.
 - **2026-11-10T07:40+11:00, task 11 (review round 1):** The batch-list counts and thumbnail, and a removal queued behind an approval, already behaved as intended, so their new tests passed on first run. To show they discriminate, the batch-list filter and the pin refusal were disabled from backups; both tests then failed, and passed again once restored.
 
 - **2026-11-10T07:40+11:00, task 11 (review round 1):** Earlier full PostgreSQL tier runs each had one or two child-process startup or decoder deadline failures, and the failing test changed between runs. The last of them was `media-startup-authority.test.ts` › "actual main reopens its bound store…" (`manual_checkpoint_timeout`), which failed twice and passed once when rerun alone. Review found the change adds no startup work and timed that test at 8.3 s under load, so these were load timeouts. After review round 1, a serial run of the full tier on `786bde3c` passed 316 of 316, so 11.5 is ticked.
+- **2026-11-10T08:50+11:00, task 11 (review round 2):** 11.5 rests on runs at `aa84c127`, the head after review round 2's fixes; later commits touch only these notes. The gate passed, the full PostgreSQL tier passed 316 of 316 run serially, and `test:intake:process` passed with 0 failures: 84 of 95 tests ran and 11 were skipped by environment. The 7 paired-VM tests need a VM pairing, and the 4 sandbox probe tests need `INTAKE_MEDIA_PROBE_IMAGE`.
 
 ### Decisions made during implementation
 
