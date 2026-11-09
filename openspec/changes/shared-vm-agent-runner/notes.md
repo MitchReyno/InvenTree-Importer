@@ -25,3 +25,5 @@ The operator clarified that the setup token belongs to the sole operator of this
 An actual research turn can finish its provider call and settle in `waiting_input` after opening a processing question. The live check accepts that state only with a retained open question and a reported Claude Haiku model.
 
 The first M1 device challenge remained pending after OpenAI's verification page displayed an HTML/JSON parsing error. The operator found the device-code sign-in toggle disabled in ChatGPT Security Settings. A newly issued challenge after enabling the toggle supersedes the earlier login. The settings panel now surfaces this prerequisite before sign-in.
+
+The earlier relay co-located the CLI with the pairing identity and journal. Tool-capable turns now use a separate guest container and a new sealed profile. Anonymous public web reads use a validating HTTPS document service on a guest Unix socket. Interactive browser navigation, delivery of original evidence bytes to a safe guest path, and two-host lifecycle qualification remain open. The Pi tool fixture used synthetic data and no provider account.

@@ -145,6 +145,12 @@ const inputV6Profiles = [
     settings_revision: Revision,
   },
   {
+    profile_id: Type.Literal('shared-vm-agent/2'),
+    instruction_version: Type.Literal('shared-vm-agent/2'),
+    agent: AgentSelection,
+    settings_revision: Revision,
+  },
+  {
     profile_id: Type.Literal('synthetic-session/1'),
     instruction_version: Type.Literal('synthetic-session/1'),
     agent: Type.Null(),
@@ -217,6 +223,7 @@ export const ProcessingCommandV5 = object({
   profile_id: Type.Union([
     Type.Literal('native-agent/2'),
     Type.Literal('shared-vm-agent/1'),
+    Type.Literal('shared-vm-agent/2'),
     Type.Literal('synthetic-session/1'),
   ]),
   handler_version: Type.Literal('processing/5'),

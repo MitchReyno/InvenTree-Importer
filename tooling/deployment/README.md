@@ -146,3 +146,27 @@ INTAKE_VM_CODEX_SUBSCRIPTION=1 node tooling/deployment/bridge/relay.mjs \
 ```
 
 Choose **Codex** and **Subscription** in the default settings form before starting a new Processing session. The opt-in process test uses `INTAKE_TEST_LIVE_CODEX=chatgpt-subscription` and requires the paired guest and a disposable PostgreSQL instance.
+
+### Shared VM sessions with native tools
+
+Select `INTAKE_PROCESSING_PROFILE=shared-vm-agent/2` on both the API and coordinator. Run the current migrations and use matching app and personal runner images. The profile ID is sealed when a job is queued. Drain existing sessions with their original coordinator and relay. The tool worker currently supports the two personal subscription routes.
+
+After provisioning pairing and provider access, start the guest document reader. Its default sites are RFC Editor, Python documentation and Example Domain. Set `INTAKE_VM_WEB_ORIGINS` to a comma-separated list of additional exact hostnames for a deployment-specific list. To enable general public HTTPS reads, set `INTAKE_VM_WEB_MODE=public`. For either extension supply all publicly reachable names of the app, inventory and host in `INTAKE_VM_PROTECTED_HOSTS`. The reader denies these names, their subdomains and addresses returned by DNS for the protected names. The tool worker’s provider tunnel also refuses these resolved addresses. Failure to resolve a protected name prevents the fetch. Services that share a public IP with a protected site are also denied.
+
+```sh
+INTAKE_VM_WEB_MODE=public INTAKE_VM_PROTECTED_HOSTS="$protected_hosts" \
+  bash tooling/deployment/bridge/public-web.sh "$vm" "$guest_directory" "$runner_image"
+INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CLAUDE_SUBSCRIPTION=1 \
+  node tooling/deployment/bridge/relay.mjs "$vm" "$port" "$guest_directory" "$runner_image"
+```
+
+For ChatGPT-backed sessions, start a second relay with `INTAKE_VM_CODEX_SUBSCRIPTION=1` in place of the Claude flag. Add the coordinator container name as the final argument for a containerized coordinator. Each relay handles one turn at a time. Each running tool worker has a 640 MiB memory ceiling and its paired supervisor has a 256 MiB ceiling. The provider tunnel has a 64 MiB ceiling. Size the VM for the number of simultaneous turns.
+
+Agents use their native shell and image tools. `bench-web https://…` retrieves a public document for parsing or saving in the workspace. It performs anonymous HTTPS GET requests, follows at most four redirects, verifies the remote TLS name, and limits documents to 2 MiB. The reader validates every destination and connects to a validated numeric address. It does not forward cookies, agent headers or caller-specified CONNECT tunnels. This supports document browsing; interactive sites requiring a networked JavaScript browser or authenticated cookies need a different browser integration. Public websites receive any data the operator or agent puts in a permitted URL.
+
+For live qualification on an already linked test deployment, run the following once with `provider=claude` and once with `provider=codex`. The harness uses host Docker for a disposable PostgreSQL instance and Lima for agent execution. It stages a random image in a unique guest directory, checks the app status against its answer, and verifies the saved Python script and public document after the turn.
+
+```sh
+bash tooling/deployment/tests/dispatch/live-tools.sh \
+  "$vm" "$guest_directory" "$runner_image" "$coordinator_pair_directory" "$provider"
+```

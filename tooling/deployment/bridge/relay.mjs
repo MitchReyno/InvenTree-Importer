@@ -1,4 +1,5 @@
 // Byte transport only. The TLS identities and application protocol terminate at the two peers.
+import { readFileSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { Duplex } from 'node:stream'
 import { connect } from 'node:net'
@@ -55,6 +56,9 @@ async function connectCoordinator() {
   socket.once('close', () => peer.stdin.end())
   return socket
 }
+const tools = process.env.INTAKE_VM_BUILTIN_TOOLS === '1'
+if (tools && !(codex || subscription)) throw new Error('tool_worker_requires_selected_provider')
+const toolScript = tools ? readFileSync(new URL('./tool-turn.sh', import.meta.url), 'utf8') : ''
 for (;;) {
   let socket
   try {
@@ -65,54 +69,68 @@ for (;;) {
   }
   const child = spawn(
     'limactl',
-    [
-      'shell',
-      '--workdir=/',
-      vm,
-      'sudo',
-      'docker',
-      'run',
-      '--rm',
-      '-i',
-      '--network=none',
-      '--read-only',
-      '--cap-drop=ALL',
-      '--security-opt=no-new-privileges',
-      '--pids-limit=64',
-      '--memory=384m',
-      '--tmpfs=/tmp:rw,nosuid,nodev,size=32m',
-      '--mount',
-      'type=bind,src=' + directory + '/guest,dst=/run/bench-pair,readonly',
-      '--mount',
-      'type=bind,src=' + directory + '/sessions,dst=/home/node/sessions',
-      ...(codex
-        ? [
-            '-e',
-            'INTAKE_VM_CODEX_SUBSCRIPTION=1',
-            '--mount',
-            'type=bind,src=' + directory + '/codex-state,dst=/run/codex-state',
-            '--mount',
-            'type=bind,src=' + directory + '/codex-egress,dst=/run/egress,readonly',
-          ]
-        : []),
-      ...(subscription
-        ? [
-            '-e',
-            'INTAKE_VM_CLAUDE_SUBSCRIPTION=1',
-            '--mount',
-            'type=bind,src=' + directory + '/claude-store,dst=/run/claude-store,readonly',
-            '--mount',
-            'type=bind,src=' + directory + '/egress,dst=/run/egress,readonly',
-            '--tmpfs=/home/node/.claude:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=32m',
-            '--tmpfs=/home/node/.config:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=4m',
-          ]
-        : []),
-      image,
-      'node',
-      '--import',
-      'tsx',
-      'src/agents/shared-vm/guest-main.ts',
-    ],
+    tools
+      ? [
+          'shell',
+          '--workdir=/',
+          vm,
+          'sudo',
+          'sh',
+          '-c',
+          toolScript,
+          'tool-turn',
+          directory,
+          image,
+          codex ? 'codex' : 'claude',
+        ]
+      : [
+          'shell',
+          '--workdir=/',
+          vm,
+          'sudo',
+          'docker',
+          'run',
+          '--rm',
+          '-i',
+          '--network=none',
+          '--read-only',
+          '--cap-drop=ALL',
+          '--security-opt=no-new-privileges',
+          '--pids-limit=64',
+          '--memory=384m',
+          '--tmpfs=/tmp:rw,nosuid,nodev,size=32m',
+          '--mount',
+          'type=bind,src=' + directory + '/guest,dst=/run/bench-pair,readonly',
+          '--mount',
+          'type=bind,src=' + directory + '/sessions,dst=/home/node/sessions',
+          ...(codex
+            ? [
+                '-e',
+                'INTAKE_VM_CODEX_SUBSCRIPTION=1',
+                '--mount',
+                'type=bind,src=' + directory + '/codex-state,dst=/run/codex-state',
+                '--mount',
+                'type=bind,src=' + directory + '/codex-egress,dst=/run/egress,readonly',
+              ]
+            : []),
+          ...(subscription
+            ? [
+                '-e',
+                'INTAKE_VM_CLAUDE_SUBSCRIPTION=1',
+                '--mount',
+                'type=bind,src=' + directory + '/claude-store,dst=/run/claude-store,readonly',
+                '--mount',
+                'type=bind,src=' + directory + '/egress,dst=/run/egress,readonly',
+                '--tmpfs=/home/node/.claude:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=32m',
+                '--tmpfs=/home/node/.config:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=4m',
+              ]
+            : []),
+          image,
+          'node',
+          '--import',
+          'tsx',
+          'src/agents/shared-vm/guest-main.ts',
+        ],
     { stdio: ['pipe', 'pipe', 'inherit'] },
   )
   child.stdin.on('error', () => socket.destroy())

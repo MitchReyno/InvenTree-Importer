@@ -14,6 +14,7 @@ export async function nativeTurn(
   context: SessionDriverContext,
   opening: Pick<SessionTurn, 'resume' | 'text' | 'instructions' | 'tools'>,
   request: (body: Record<string, unknown>) => Promise<Record<string, unknown>>,
+  guestTools = false,
 ) {
   let delivered: bigint | undefined
   let version: string | undefined
@@ -75,6 +76,7 @@ export async function nativeTurn(
       ...process.env,
       INTAKE_AGENT_STATE_ROOT: '/home/node/sessions/provider',
     })
+    host.guestTools = guestTools
     host.guestCodexSubscription = guestCodexSubscription
     host.guestClaudeToken = guestClaudeToken
     await nativeDriver(host, selection)(

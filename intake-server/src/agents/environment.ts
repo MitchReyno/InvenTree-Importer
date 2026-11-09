@@ -8,6 +8,7 @@ export interface NativeAgentHost {
   claudeExecutable: string
   stateRoot: string
   env: NodeJS.ProcessEnv
+  guestTools?: boolean
   guestCodexSubscription?: boolean
   guestClaudeToken?: string
 }

@@ -3,7 +3,7 @@ services:
   api:
     env_file: ["${INTAKE_API_RUNTIME_ENV:?provide the private API runtime env file}"]
     environment:
-      INTAKE_PROCESSING_PROFILE: shared-vm-agent/1
+      INTAKE_PROCESSING_PROFILE: ${INTAKE_PROCESSING_PROFILE:-shared-vm-agent/1}
 
   coordinator:
     image: ${INTAKE_APP_IMAGE:?select the ARM64 app image}
@@ -21,7 +21,7 @@ services:
     tmpfs: [/tmp]
     env_file: ["${INTAKE_COORDINATOR_ENV:?provide the private worker runtime env file}"]
     environment:
-      INTAKE_PROCESSING_PROFILE: shared-vm-agent/1
+      INTAKE_PROCESSING_PROFILE: ${INTAKE_PROCESSING_PROFILE:-shared-vm-agent/1}
       INTAKE_AGENT_STATE_ROOT: /var/lib/intake/agent
       INTAKE_BLOB_ROOT: /var/lib/intake/blobs/store
       INTAKE_VM_PAIR: /run/bench-pair

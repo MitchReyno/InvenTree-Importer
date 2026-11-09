@@ -52,6 +52,7 @@ export type SelectedProcessingProfile =
   | typeof nativeProfileId
   | 'native-agent/2'
   | 'shared-vm-agent/1'
+  | 'shared-vm-agent/2'
   | 'synthetic-session/1'
 
 export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
@@ -65,6 +66,7 @@ export const sessionStageOrder = ['examine', 'research', 'images', 'inventory'] 
 
 export function stageOrderFor(profileId: string | undefined) {
   return profileId === 'native-agent/2' ||
+    profileId === 'shared-vm-agent/2' ||
     profileId === 'shared-vm-agent/1' ||
     profileId === 'synthetic-session/1'
     ? sessionStageOrder

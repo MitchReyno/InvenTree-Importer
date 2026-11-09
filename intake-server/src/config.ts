@@ -138,6 +138,7 @@ export function processingConfig(config: DevConfig, env: NodeJS.ProcessEnv): Pro
     profileId !== 'native-agent/1' &&
     profileId !== 'native-agent/2' &&
     profileId !== 'shared-vm-agent/1' &&
+    profileId !== 'shared-vm-agent/2' &&
     profileId !== 'synthetic-session/1'
   ) {
     throw new Error('unsupported_processing_profile')

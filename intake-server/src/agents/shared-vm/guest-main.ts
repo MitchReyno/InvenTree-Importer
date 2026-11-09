@@ -12,6 +12,7 @@ import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { syntheticTurn, type SyntheticResult } from '../synthetic-turn.ts'
 import { Frames, protocol } from './frames.ts'
 import { SessionResumeUnavailable } from '../session-adapters.ts'
+import { isolatedToolTurn } from './tool-client.ts'
 import { nativeTurn } from './native-turn.ts'
 import { ResearchReapPendingError } from '../../research/errors.ts'
 import { pairing } from './pair.ts'
@@ -30,12 +31,14 @@ async function main() {
     const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
     const codex = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1'
     const provider = codex ? 'codex' : subscription ? 'claude' : undefined
-    if (provider) {
+    const isolated = process.env.INTAKE_VM_TOOL_WORKER === '1'
+    if (provider && !isolated) {
       const egress = await providerProxy(provider)
       socket.once('close', () => egress.close())
     }
     await frames.send({
       ready: protocol,
+      builtinTools: isolated,
       claudeSubscription: subscription,
       codexSubscription: codex,
     })
@@ -53,13 +56,18 @@ async function main() {
     }
     validate('ProcessingInputV6', command.manifest)
     const manifest = command.manifest as ProcessingInputV6Dto
-    if (!['synthetic-session/1', 'shared-vm-agent/1'].includes(manifest.profile_id)) {
+    if (
+      isolated
+        ? manifest.profile_id !== 'shared-vm-agent/2'
+        : !['synthetic-session/1', 'shared-vm-agent/1'].includes(manifest.profile_id)
+    ) {
       throw new Error('invalid_profile')
     }
     if (
       provider &&
       !(
-        manifest.profile_id === 'shared-vm-agent/1' &&
+        (manifest.profile_id === 'shared-vm-agent/1' ||
+          manifest.profile_id === 'shared-vm-agent/2') &&
         manifest.agent?.provider === provider &&
         manifest.agent.authentication === 'subscription'
       )
@@ -74,7 +82,7 @@ async function main() {
     socket.once('close', () => abort.abort())
 
     const execute = async (): Promise<TurnOutcome> => {
-      if (manifest.profile_id === 'shared-vm-agent/1') {
+      if (manifest.profile_id !== 'synthetic-session/1') {
         if (
           typeof command.text !== 'string' ||
           typeof command.instructions !== 'string' ||
@@ -103,7 +111,8 @@ async function main() {
         }
 
         try {
-          await nativeTurn(
+          const runNative = isolated ? isolatedToolTurn : nativeTurn
+          await runNative(
             {
               manifest,
               cwd,

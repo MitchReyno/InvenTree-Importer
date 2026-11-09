@@ -435,7 +435,10 @@ export async function runSessionTurn(
       // Drain a sealed VM turn on its paired deployment. A VM worker must also leave
       // pre-existing host turns for their original worker.
       if (
-        (manifest.profile_id === 'shared-vm-agent/1' || config.profileId === 'shared-vm-agent/1') &&
+        (manifest.profile_id === 'shared-vm-agent/2' ||
+          manifest.profile_id === 'shared-vm-agent/1' ||
+          config.profileId === 'shared-vm-agent/2' ||
+          config.profileId === 'shared-vm-agent/1') &&
         manifest.profile_id !== config.profileId
       ) {
         return 'waiting' as const
