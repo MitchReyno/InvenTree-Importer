@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
-import type { OperatorReviewClient } from '#/operator/types'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -18,14 +17,11 @@ import type {
 } from '@invimport/contracts'
 import type { Client } from '#/capture/client'
 import type { SettingsPorts } from '#/capture/types'
-import type { CatalogueClient } from '#/catalogue/types'
 import { useApplicationAvailable } from '#/capture/useApplicationAvailable'
-import type { MediaClient } from '#/media/types'
 import { CaptureWorkspace } from '#/components/capture/CaptureWorkspace'
 import styled from 'styled-components'
 import { typeVar } from '#/theme/generated/tokens'
 import type { ManualClient, ManualStage } from '#/manual/types'
-import type { ProcessingClient, AgentsRead } from '#/processing/types'
 import { clearPending } from '#/processing/pending-messages'
 import { ProcessingStage } from '#/components/processing/ProcessingStage'
 import { ManualWorkspace } from '#/components/review/ManualWorkspace'
@@ -35,11 +31,11 @@ import {
   sessionFromQuery,
   type BatchRoute,
 } from '#/navigation/batch-route'
-import { useBatchAttention, type AttentionClient } from '#/attention/useBatchAttention'
+import { useBatchAttention } from '#/attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
 import { PageContent } from '#/components/AppLayout'
+import { useApiClients } from '#/clients/api-clients'
 import { RecordsStage } from '#/components/review/records/RecordsStage'
-import type { RecordsClient } from '#/records/useBatchRecords'
 import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
@@ -79,29 +75,16 @@ export function Batch({
   id,
   client,
   manual,
-  processing,
-  media,
-  operator,
-  catalogue,
-  attention,
-  records,
-  agents,
   route,
   onDirtyChange,
 }: {
   id: string
   client: Client
-  catalogue?: CatalogueClient
   manual: ManualClient
-  processing?: ProcessingClient
-  media?: MediaClient
-  operator?: OperatorReviewClient
-  attention?: AttentionClient
-  records?: RecordsClient
-  agents?: AgentsRead
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
+  const { agents, attention, catalogue, media, operator, processing, records } = useApiClients()
   const parsed = parseBatchRoute(route)
   const batchRoute = parsed.kind === 'route' ? parsed.route : null
   const legacySubject = parsed.kind === 'route' ? parsed.legacySubject : undefined
@@ -461,7 +444,6 @@ export function Batch({
         key={`${batch.id}:${batch.revision}:${reset}`}
         batch={batch}
         client={processing}
-        media={media}
         step={batchRoute.step}
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
@@ -471,7 +453,6 @@ export function Batch({
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         attention={attentionCurrent}
-        agents={agents}
         unusedFiles={evidence?.unused}
         instructions={{
           // Undefined until the review projection for this revision is read.
@@ -504,24 +485,20 @@ export function Batch({
         discarded={discarded}
         initialType={batchRoute.recordType}
         initialRecord={batchRoute.recordId}
-        processing={processing}
       />
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'map') {
     content = (
       <ReviewMapStage
         batch={batch}
-        media={media}
         discarded={discarded}
         edit={edit}
-        operator={operator}
         retiredLotIds={retired}
         predecessors={predecessors}
         restructureUnavailable={operatorUnavailable}
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
         reload={reloadForStage}
         onDirtyChange={reportDirty}
-        processing={processing}
       />
     )
   } else if (batch && stage !== 'capture') {
@@ -547,9 +524,6 @@ export function Batch({
         rememberedPreparationId={shownPreparation.current}
         reload={reloadForStage}
         operatorReview={currentOperatorReview}
-        operator={operator}
-        media={media}
-        processing={processing}
         onDirtyChange={reportDirty}
       />
     )
@@ -559,9 +533,7 @@ export function Batch({
         key={`${batch.id}:${reset}`}
         batch={activeBatch}
         operatorReview={operatorReview}
-        operator={operator}
         reload={reloadForStage}
-        media={media}
         busy={
           readOrCommandBusy ||
           readUnavailable ||
@@ -571,7 +543,6 @@ export function Batch({
         observe={observe}
         onDirtyChange={reportCaptureDirty}
         settings={settingsPorts}
-        processing={processing}
       />
     )
   } else {

@@ -7,7 +7,6 @@ import type {
   MediaVersionDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import type { OperatorReviewClient } from '#/operator/types'
 import { mediaDisplayLabels, type MediaIdentityLabels } from '#/media/identity-labels'
 import { reviewMap } from '#/operator/review-map'
 import { predecessorLotIds } from '#/operator/review-model'
@@ -21,6 +20,7 @@ import { MediaEvidenceRelations } from './MediaEvidenceRelations'
 import { MediaTextEditor } from './MediaTextEditor'
 import { MediaNoteSummary } from './MediaNoteSummary'
 import { InstructionForm } from '#/components/operator/InstructionForm'
+import { useApiClients } from '#/clients/api-clients'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -41,7 +41,6 @@ type Props = {
   select: (ids: string[]) => void
   choose: (kind: 'photos' | 'document', groupId?: string) => void
   crop: (version: MediaVersionDto, page: number) => void
-  operator?: OperatorReviewClient
   review?: OperatorReviewDto
   reload?: () => Promise<void>
   /** Capture command for the group's location assignment; absent where capture is read-only. */
@@ -65,11 +64,11 @@ export function EvidenceGroupPanel({
   select,
   choose,
   crop,
-  operator,
   review,
   reload,
   captureEdit,
 }: Props) {
+  const { operator } = useApiClients()
   const [noteId, setNoteId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   // Closing the viewer would unmount the note editor and lose its draft.

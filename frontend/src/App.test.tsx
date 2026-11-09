@@ -16,6 +16,7 @@ import { Batches } from './components/batches/Batches'
 import type { Client } from './capture/client'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -1174,14 +1175,15 @@ test('a failed attention refresh withholds the old running counts and says so', 
   }
 
   render(
-    <Batch
-      id={fixture.id}
-      route={fixture.id}
-      client={client}
-      manual={manual}
-      attention={{ read }}
-      onDirtyChange={vi.fn()}
-    />,
+    <ApiClientsProvider value={{ attention: { read } }}>
+      <Batch
+        id={fixture.id}
+        route={fixture.id}
+        client={client}
+        manual={manual}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
     { wrapper: Wrapper },
   )
   await screen.findByText(/2 agents working/)

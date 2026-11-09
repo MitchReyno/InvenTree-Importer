@@ -4,6 +4,7 @@ import { expect, it, vi } from 'vitest'
 import type { ProcessingClient } from '#/processing/types'
 import { render } from '#/test/render'
 import { TellExamine } from './TellExamine'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 const snapshot = (state: string | null) => ({
   jobs: [
@@ -28,7 +29,11 @@ function client(session: boolean | string) {
 it('sends a free-text instruction to the Examine lead session', async () => {
   const user = userEvent.setup()
   const processing = client(true)
-  render(<TellExamine batchId="b" processing={processing} />)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
   await user.type(
     await screen.findByLabelText('Instruction for Examine'),
     'The two reels are one lot',
@@ -53,7 +58,11 @@ it('keeps the instruction when it is not accepted', async () => {
   const user = userEvent.setup()
   const processing = client(true)
   processing.chat.mockRejectedValueOnce(new Error('refused'))
-  render(<TellExamine batchId="b" processing={processing} />)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
   await user.type(await screen.findByLabelText('Instruction for Examine'), 'Merge them')
   await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
 
@@ -70,14 +79,22 @@ it('keeps the instruction when it is not accepted', async () => {
 
 it('is not offered for a cancelled Examine session', async () => {
   const processing = client('cancelled')
-  render(<TellExamine batchId="b" processing={processing} />)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
   await waitFor(() => expect(processing.read).toHaveBeenCalled())
   expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
 })
 
 it('shows no instruction field without an Examine session', async () => {
   const processing = client(false)
-  render(<TellExamine batchId="b" processing={processing} />)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
   await waitFor(() => expect(processing.read).toHaveBeenCalled())
   expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
 })
@@ -88,7 +105,9 @@ it('keeps an unsent instruction and its key when the Map closes, and reports it 
   processing.chat.mockRejectedValueOnce(new Error('timeout'))
   const onDirtyChange = vi.fn()
   const first = render(
-    <TellExamine batchId="kept" processing={processing} onDirtyChange={onDirtyChange} />,
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="kept" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
   )
   await user.type(await screen.findByLabelText('Instruction for Examine'), 'Merge the reels')
   expect(onDirtyChange).toHaveBeenLastCalledWith(true)
@@ -96,7 +115,11 @@ it('keeps an unsent instruction and its key when the Map closes, and reports it 
   await screen.findByRole('alert')
   first.unmount()
 
-  render(<TellExamine batchId="kept" processing={processing} onDirtyChange={onDirtyChange} />)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="kept" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
+  )
   expect(await screen.findByLabelText('Instruction for Examine')).toHaveValue('Merge the reels')
   expect(onDirtyChange).toHaveBeenLastCalledWith(true)
   await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
@@ -109,7 +132,9 @@ it('reports clean when it leaves, and a kept draft is not unsaved work while no 
   const user = userEvent.setup()
   const onDirtyChange = vi.fn()
   const view = render(
-    <TellExamine batchId="leaving" processing={client(true)} onDirtyChange={onDirtyChange} />,
+    <ApiClientsProvider value={{ processing: client(true) }}>
+      <TellExamine batchId="leaving" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
   )
   await user.type(await screen.findByLabelText('Instruction for Examine'), 'Hold this')
   expect(onDirtyChange).toHaveBeenLastCalledWith(true)
@@ -117,7 +142,11 @@ it('reports clean when it leaves, and a kept draft is not unsaved work while no 
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 
   const hidden = client(false)
-  render(<TellExamine batchId="leaving" processing={hidden} onDirtyChange={onDirtyChange} />)
+  render(
+    <ApiClientsProvider value={{ processing: hidden }}>
+      <TellExamine batchId="leaving" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
+  )
   await waitFor(() => expect(hidden.read).toHaveBeenCalled())
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })

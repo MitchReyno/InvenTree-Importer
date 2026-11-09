@@ -10,6 +10,7 @@ import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '#/media/types'
 import type { SettingsPorts } from '#/capture/types'
 import { CaptureWorkspace } from './CaptureWorkspace'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 const batch: CaptureSnapshotDto = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -69,13 +70,12 @@ test('a pending original pauses settings and keeps its request when Capture rere
   const props = {
     batch,
     busy: false,
-    media,
     edit,
     observe: vi.fn(async () => null),
     onDirtyChange: dirty,
     settings,
   }
-  const view = render(<CaptureWorkspace {...props} />)
+  const view = render(<CaptureWorkspace {...props} />, { clients: { media } })
   const input = await screen.findByLabelText('Choose photos')
   const file = new File(['original bytes'], 'bench-photo.png', { type: 'image/png' })
   await waitFor(() => expect(input).toBeEnabled())
@@ -126,14 +126,15 @@ test('unacknowledged settings freeze file selection until their save is acknowle
     ),
   })
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn(async () => null)}
-      settings={settings}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => undefined)}
+        observe={vi.fn(async () => null)}
+        settings={settings}
+      />
+    </ApiClientsProvider>,
   )
   const upload = await screen.findByLabelText('Choose photos')
   await waitFor(() => expect(upload).toBeEnabled())
@@ -153,24 +154,24 @@ test('batch instructions cannot replace the active media query during a live inv
   })
   render(
     <ServerStateProvider scope={fixtureScope} client={cache}>
-      <CaptureWorkspace
-        batch={batch}
-        busy={false}
-        media={media}
-        edit={vi.fn()}
-        observe={vi.fn()}
-        operator={operator}
-        operatorReview={{
-          batch_id: batch.id,
-          revision: batch.revision,
-          lots: [],
-          retired_lots: [],
-          instructions: [],
-          cursor: batch.cursor,
-        }}
-        reload={vi.fn()}
-        settings={ports({ instruct: vi.fn(() => new Promise<never>(() => undefined)) })}
-      />
+      <ApiClientsProvider value={{ media, operator }}>
+        <CaptureWorkspace
+          batch={batch}
+          busy={false}
+          edit={vi.fn()}
+          observe={vi.fn()}
+          operatorReview={{
+            batch_id: batch.id,
+            revision: batch.revision,
+            lots: [],
+            retired_lots: [],
+            instructions: [],
+            cursor: batch.cursor,
+          }}
+          reload={vi.fn()}
+          settings={ports({ instruct: vi.fn(() => new Promise<never>(() => undefined)) })}
+        />
+      </ApiClientsProvider>
     </ServerStateProvider>,
   )
   await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled())
@@ -189,15 +190,16 @@ test('batch instructions cannot replace the active media query during a live inv
 test('an unsaved evidence note freezes media editing until it is saved or discarded', async () => {
   const user = userEvent.setup()
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => true)}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={vi.fn()}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const input = await screen.findByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
@@ -219,15 +221,16 @@ test('settings stay paused until the revision after an evidence change is adopte
   )
   const settings = ports({ read })
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => true)}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={vi.fn()}
-      settings={settings}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        settings={settings}
+      />
+    </ApiClientsProvider>,
   )
   const input = await screen.findByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
@@ -250,15 +253,16 @@ for (const order of ['older first', 'newer first'] as const) {
     const read = vi.fn(() => new Promise<CaptureSnapshotDto>((resolve) => reads.push(resolve)))
     const settings = ports({ read })
     render(
-      <CaptureWorkspace
-        batch={batch}
-        busy={false}
-        media={mediaClient()}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        settings={settings}
-      />,
+      <ApiClientsProvider value={{ media: mediaClient() }}>
+        <CaptureWorkspace
+          batch={batch}
+          busy={false}
+          edit={vi.fn(async () => true)}
+          observe={vi.fn(async () => null)}
+          onDirtyChange={vi.fn()}
+          settings={settings}
+        />
+      </ApiClientsProvider>,
     )
     const input = await screen.findByLabelText('Choose photos')
     await waitFor(() => expect(input).toBeEnabled())
@@ -293,15 +297,16 @@ test('an evidence group location is saved through the capture command', async ()
   } as MediaSnapshotDto)
   const edit = vi.fn(async () => true)
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={media}
-      edit={edit}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={vi.fn()}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const field = await screen.findByLabelText('Location for group Bag X')
   await waitFor(() => expect(field).toBeEnabled())
@@ -324,15 +329,16 @@ test('an unconfirmed group location stays chosen and dirty until retried or disc
   const edit = vi.fn(async () => false)
   const dirty = vi.fn()
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={media}
-      edit={edit}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={dirty}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={dirty}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const field = await screen.findByLabelText('Location for group Bag X')
   await waitFor(() => expect(field).toBeEnabled())
@@ -365,16 +371,17 @@ test('discarding an unconfirmed group location reloads through the owner and kee
   const reload = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)))
   const dirty = vi.fn()
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={media}
-      edit={vi.fn(async () => false)}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={dirty}
-      reload={reload}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => false)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={dirty}
+        reload={reload}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const field = await screen.findByLabelText('Location for group Bag X')
   await waitFor(() => expect(field).toBeEnabled())
@@ -391,14 +398,15 @@ test('discarding an unconfirmed group location reloads through the owner and kee
 
 test('batch notes sit in the evidence card', async () => {
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn(async () => null)}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => undefined)}
+        observe={vi.fn(async () => null)}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const evidence = await screen.findByRole('region', { name: 'Evidence' })
   expect(within(evidence).getByRole('textbox', { name: 'Notes for the whole batch' })).toBeVisible()
@@ -417,14 +425,15 @@ test('at phone width the glance follows the capture tiles and settings collapse 
       }) as unknown as MediaQueryList,
   )
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn(async () => null)}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => undefined)}
+        observe={vi.fn(async () => null)}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const evidence = await screen.findByRole('region', { name: 'Evidence' })
   const glance = within(evidence).getByRole('region', { name: /Proposed lots/ })
@@ -455,14 +464,15 @@ test('settings stay open when the phone fold arrives while a field is being edit
       }) as unknown as MediaQueryList,
   )
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn(async () => null)}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => undefined)}
+        observe={vi.fn(async () => null)}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   screen.getByLabelText('Batch title').focus()
   act(() => {
@@ -492,14 +502,15 @@ test('focus in the lots glance survives crossing the phone breakpoint', () => {
       }) as unknown as MediaQueryList,
   )
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn(async () => null)}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => undefined)}
+        observe={vi.fn(async () => null)}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   const map = screen.getByRole('link', { name: 'See the map in Review' })
   map.focus()
@@ -526,14 +537,15 @@ test('focus on the settings fold moves to the heading when the phone layout ends
       }) as unknown as MediaQueryList,
   )
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      media={mediaClient()}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn(async () => null)}
-      settings={ports()}
-    />,
+    <ApiClientsProvider value={{ media: mediaClient() }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn(async () => undefined)}
+        observe={vi.fn(async () => null)}
+        settings={ports()}
+      />
+    </ApiClientsProvider>,
   )
   screen.getByRole('button', { name: /^Batch settings/ }).focus()
   act(() => {

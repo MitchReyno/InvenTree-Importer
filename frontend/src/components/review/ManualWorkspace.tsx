@@ -18,10 +18,7 @@ import type {
   ManualRunDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import type { MediaClient } from '#/media/types'
-import type { ProcessingClient } from '#/processing/types'
 import type { ProcessingAnswerDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '#/operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import {
   MAX_SELECTED_LOTS,
@@ -35,6 +32,7 @@ import type { CaptureWorkspaceProps } from '#/capture/types'
 import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
 import { Added } from '#/components/changes/Added'
 import { useTargetNavigation } from '#/header/useTargetNavigation'
+import { useApiClients } from '#/clients/api-clients'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -50,9 +48,6 @@ interface Props {
   reload: () => Promise<void>
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
-  operator?: OperatorReviewClient
-  media?: MediaClient
-  processing?: ProcessingClient
   onDirtyChange?: (dirty: boolean) => void
 }
 
@@ -89,11 +84,9 @@ export function ManualWorkspace({
   navigate,
   reload,
   operatorReview,
-  operator,
-  media,
-  processing,
   onDirtyChange,
 }: Props) {
+  const { media, processing } = useApiClients()
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryClient = useQueryClient()
@@ -338,7 +331,6 @@ export function ManualWorkspace({
         batch={batch}
         workspace={workspace}
         operatorReview={operatorReview}
-        operator={operator}
         media={mediaQuery.data}
         mediaUnavailable={mediaQuery.isError || mediaQuery.fetchStatus === 'paused'}
         mediaLoading={media !== undefined && mediaQuery.isPending}
@@ -364,7 +356,6 @@ export function ManualWorkspace({
         edit={edit}
         reload={reload}
         observe={observe}
-        mediaClient={media}
         onDirtyChange={drafts.forSource('review')}
       />
     )

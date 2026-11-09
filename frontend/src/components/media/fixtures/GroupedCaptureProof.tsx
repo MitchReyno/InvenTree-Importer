@@ -7,6 +7,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import type { MediaClient } from '#/media/types'
 import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
 import { Main, PageContent } from '#/components/AppLayout'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 const actor = '30000000-0000-4000-8000-000000000003'
 const batch: CaptureSnapshotDto = {
@@ -143,42 +144,43 @@ export function GroupedCaptureProof() {
       }}
     >
       <GlobalStyle />
-<PageContent $width="content">
-<Main>
-        <h1>Grouped Capture qualification</h1>
-        <p>Owned synthetic client · no inventory/provider traffic · files awaiting preview.</p>
-        <label>
-          <input
-            type="checkbox"
-            checked={reject}
-            onChange={(event) => setReject(event.target.checked)}
-          />
-          Refuse membership for conflict qualification
-        </label>
-        <p role="status">
-          Media commands: {calls} · Navigation protected: {dirty ? 'yes' : 'no'}
-        </p>
-        <button disabled={dirty} onClick={() => setReview(!review)}>
-          {review ? 'Back to Capture' : 'Inspect retained Review context'}
-        </button>
-        {review ? (
-          <EvidenceViewer
-            batchId={batch.id}
-            evidence={snapshot.evidence}
-            groups={snapshot.groups}
-          />
-        ) : (
-          <CaptureWorkspace
-            batch={batch}
-            busy={false}
-            media={media}
-            observe={async () => null}
-            edit={async () => undefined}
-            onDirtyChange={setDirty}
-          />
-        )}
-      </Main>
-</PageContent>
+      <PageContent $width="content">
+        <Main>
+          <h1>Grouped Capture qualification</h1>
+          <p>Owned synthetic client · no inventory/provider traffic · files awaiting preview.</p>
+          <label>
+            <input
+              type="checkbox"
+              checked={reject}
+              onChange={(event) => setReject(event.target.checked)}
+            />
+            Refuse membership for conflict qualification
+          </label>
+          <p role="status">
+            Media commands: {calls} · Navigation protected: {dirty ? 'yes' : 'no'}
+          </p>
+          <button disabled={dirty} onClick={() => setReview(!review)}>
+            {review ? 'Back to Capture' : 'Inspect retained Review context'}
+          </button>
+          {review ? (
+            <EvidenceViewer
+              batchId={batch.id}
+              evidence={snapshot.evidence}
+              groups={snapshot.groups}
+            />
+          ) : (
+            <ApiClientsProvider value={{ media }}>
+              <CaptureWorkspace
+                batch={batch}
+                busy={false}
+                observe={async () => null}
+                edit={async () => undefined}
+                onDirtyChange={setDirty}
+              />
+            </ApiClientsProvider>
+          )}
+        </Main>
+      </PageContent>
     </ServerStateProvider>
   )
 }

@@ -13,6 +13,7 @@ import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { useHashRoute } from '#/navigation/useHashRoute'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
@@ -255,7 +256,10 @@ export function ProcessingProof() {
   const page = view.replace('-fixture', '')
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
   const client = {
-    read: async () => ({ ...snapshot(sessions), ...(paused.has(batch.id) ? { paused: true } : {}) }),
+    read: async () => ({
+      ...snapshot(sessions),
+      ...(paused.has(batch.id) ? { paused: true } : {}),
+    }),
     failure: async () => failure,
     start: async () => {
       throw new Error('fixture commands are disabled')
@@ -301,28 +305,33 @@ export function ProcessingProof() {
               })}
             />
           ) : (
-            <ProcessingWorkspace
-              key={view}
-              batch={batch}
-              client={client as never}
-              view={page as never}
-              navigate={() => {}}
-              onDirtyChange={() => {}}
-              onSaved={async () => {}}
-              attention={attention}
-              instructions={{
-                text: 'Keep the two resistor packets apart.',
-                instruct: async () => void delivery.deliver?.(),
-                delivery: delivery.delivery,
-                deliver: delivery.deliver,
+            <ApiClientsProvider
+              value={{
+                agents: {
+                  sessions: async () => sessionList(sessions),
+                  settings: async () =>
+                    ({ revision: '2', selection, session_concurrency: 3 }) as never,
+                  pause: pauseClient.pause,
+                },
               }}
-              agents={{
-                sessions: async () => sessionList(sessions),
-                settings: async () =>
-                  ({ revision: '2', selection, session_concurrency: 3 }) as never,
-                pause: pauseClient.pause,
-              }}
-            />
+            >
+              <ProcessingWorkspace
+                attention={attention}
+                key={view}
+                batch={batch}
+                client={client as never}
+                view={page as never}
+                navigate={() => {}}
+                onDirtyChange={() => {}}
+                onSaved={async () => {}}
+                instructions={{
+                  text: 'Keep the two resistor packets apart.',
+                  instruct: async () => void delivery.deliver?.(),
+                  delivery: delivery.delivery,
+                  deliver: delivery.deliver,
+                }}
+              />
+            </ApiClientsProvider>
           )}
         </Main>
       </PageContent>

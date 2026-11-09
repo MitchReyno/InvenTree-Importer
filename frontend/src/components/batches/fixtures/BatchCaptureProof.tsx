@@ -13,6 +13,7 @@ import { Batch } from '#/components/batches/Batch'
 import { Batches } from '#/components/batches/Batches'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useHashRoute } from '#/navigation/useHashRoute'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -664,18 +665,23 @@ export function BatchCaptureProof() {
       />
       <Main>
         {route ? (
-          <Batch
-            key={route.split('/')[0]}
-            id={batchId}
-            route={route}
-            client={captureClient as never}
-            manual={manualClient as never}
-            operator={operatorClient as never}
-            media={mediaClient}
-            attention={{ read: async () => attention }}
-            {...(agents ? { processing: processingClient as never } : {})}
-            onDirtyChange={() => {}}
-          />
+          <ApiClientsProvider
+            value={{
+              media: mediaClient,
+              operator: operatorClient as never,
+              attention: { read: async () => attention },
+              ...(agents ? { processing: processingClient as never } : {}),
+            }}
+          >
+            <Batch
+              key={route.split('/')[0]}
+              id={batchId}
+              route={route}
+              client={captureClient as never}
+              manual={manualClient as never}
+              onDirtyChange={() => {}}
+            />
+          </ApiClientsProvider>
         ) : (
           <PageContent $width="content">
             <Batches client={captureClient as never} onDirtyChange={() => {}} />

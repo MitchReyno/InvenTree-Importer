@@ -13,6 +13,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { Batch } from '#/components/batches/Batch'
 import { Main } from '#/components/AppLayout'
 import { useHashRoute } from '#/navigation/useHashRoute'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 /**
  * Owned browser fixture: an in-memory capture client applies record edits with the shared
@@ -388,16 +389,21 @@ export function RecordsProof() {
       <GlobalStyle />
       <Masthead breadcrumb={[{ label: 'Batches', href: '#' }, { label: current.title }]} />
       <Main>
-        <Batch
-          id={batchId}
-          route={route}
-          client={captureClient as never}
-          manual={manualClient as never}
-          attention={{ read: async () => attention }}
-          records={records}
-          processing={processingClient as never}
-          onDirtyChange={() => {}}
-        />
+        <ApiClientsProvider
+          value={{
+            processing: processingClient as never,
+            attention: { read: async () => attention },
+            records,
+          }}
+        >
+          <Batch
+            id={batchId}
+            route={route}
+            client={captureClient as never}
+            manual={manualClient as never}
+            onDirtyChange={() => {}}
+          />
+        </ApiClientsProvider>
       </Main>
     </ServerStateProvider>
   )

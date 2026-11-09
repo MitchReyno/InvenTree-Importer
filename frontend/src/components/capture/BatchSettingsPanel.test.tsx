@@ -14,6 +14,7 @@ import type { CatalogueClient } from '#/catalogue/types'
 import { fixtureScope, render } from '#/test/render'
 import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import { CaptureWorkspace } from './CaptureWorkspace'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -102,16 +103,17 @@ function Host({
     uploadLogo,
   }
   return (
-    <CaptureWorkspace
-      batch={current}
-      busy={false}
-      edit={vi.fn(async () => true)}
-      observe={observe as never}
-      operatorReview={withoutReview ? undefined : operatorReview}
-      operator={{} as never}
-      onDirtyChange={onDirtyChange}
-      settings={ports}
-    />
+    <ApiClientsProvider value={{ operator: {} as never }}>
+      <CaptureWorkspace
+        batch={current}
+        busy={false}
+        edit={vi.fn(async () => true)}
+        observe={observe as never}
+        operatorReview={withoutReview ? undefined : operatorReview}
+        onDirtyChange={onDirtyChange}
+        settings={ports}
+      />
+    </ApiClientsProvider>
   )
 }
 

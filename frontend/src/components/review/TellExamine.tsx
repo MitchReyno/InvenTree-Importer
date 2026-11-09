@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
 import { examineLead } from '#/processing/source'
 import { confirmPending, editPending, pendingMessage, sendKey } from '#/processing/pending-messages'
-import type { ProcessingClient } from '#/processing/types'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
@@ -11,6 +10,7 @@ import { chatConfirmation } from '#/components/processing/SessionChatPanel'
 import { Button, Small } from '#/components/ui'
 import { Label, TextArea } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import { useApiClients } from '#/clients/api-clients'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead
@@ -19,14 +19,13 @@ import { useReportDirty } from '#/navigation/useReportDirty'
  */
 export function TellExamine({
   batchId,
-  processing,
   onDirtyChange,
 }: {
   batchId: string
-  processing: ProcessingClient | undefined
   /** Reports unsent text to the navigation guard. */
   onDirtyChange?: (dirty: boolean) => void
 }) {
+  const { processing } = useApiClients()
   const storeKey = `${batchId}:examine-lead`
   const scope = useServerScope()
   const pollInterval = useRetainedPollInterval()

@@ -8,6 +8,7 @@ import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { CaptureEditor } from '#/components/capture/CaptureEditor'
 import { SubjectAttachmentChoice } from '#/components/media/SubjectAttachmentChoice'
 import { Heading, HeadingRow, Panel, Small, Button } from '#/components/ui'
+import { useApiClients } from '#/clients/api-clients'
 
 export const ADD_LOT = 'add_lot'
 export const ADD_PART = 'add_part'
@@ -21,7 +22,6 @@ type Props = {
   dirty: boolean
   edit: CaptureWorkspaceProps['edit']
   observe: CaptureWorkspaceProps['observe']
-  media?: MediaClient
   onDirtyChange: (dirty: boolean) => void
   onAttachmentDirtyChange: (dirty: boolean) => void
   /** Reloads saved values after a confirmed attachment change advances the revision. */
@@ -40,13 +40,13 @@ export function ReviewSubjectEditor({
   dirty,
   edit,
   observe,
-  media,
   onDirtyChange,
   onAttachmentDirtyChange,
   reload,
   onClose,
   retainRoute,
 }: Props) {
+  const { media } = useApiClients()
   const lot = batch.lots.find((item) => item.id === subjectId)
   const part = batch.parts.find((item) => item.id === subjectId)
   let title = 'Add a physical lot'

@@ -12,7 +12,6 @@ import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { ENDED_SESSIONS } from '#/processing/source'
 import { clearPending } from '#/processing/pending-messages'
-import type { ProcessingClient } from '#/processing/types'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '#/records/model'
@@ -34,6 +33,7 @@ import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
 import { ReloadContext, SavingContext, type Save } from './draft'
+import { useApiClients } from '#/clients/api-clients'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -45,8 +45,6 @@ type Props = {
   reload?: () => Promise<boolean>
   /** Bumped when the batch discards local edits; record drafts are dropped too. */
   discarded?: number
-  /** Present with agent sessions: Ask messages the proposing step's session. */
-  processing?: ProcessingClient
   /** From the route: the type and record to open first. */
   initialType?: string
   initialRecord?: string
@@ -63,8 +61,8 @@ export function RecordsStage({
   discarded = 0,
   initialType,
   initialRecord,
-  processing,
 }: Props) {
+  const { processing } = useApiClients()
   const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
   const query = useBatchRecords(client, batch.id, batch.revision)
   const drafts = useDirtySources(onDirtyChange)

@@ -17,6 +17,7 @@ import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace
 import type { OperatorReviewClient } from './operator/types'
 import type { SettingsPorts } from './capture/types'
 import type { ProcessingClient } from './processing/types'
+import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const active = '30000000-0000-4000-8000-000000000003'
@@ -269,17 +270,18 @@ test('a settings acknowledgement cannot erase a sibling instruction draft', asyn
     instruct: vi.fn(() => new Promise<never>(() => undefined)),
   }
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      edit={vi.fn()}
-      observe={vi.fn()}
-      operator={operator}
-      operatorReview={review}
-      reload={vi.fn()}
-      onDirtyChange={vi.fn()}
-      settings={settings}
-    />,
+    <ApiClientsProvider value={{ operator }}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        edit={vi.fn()}
+        observe={vi.fn()}
+        operatorReview={review}
+        reload={vi.fn()}
+        onDirtyChange={vi.fn()}
+        settings={settings}
+      />
+    </ApiClientsProvider>,
   )
   const instructions = screen.getByLabelText('Custom instructions')
   await user.type(screen.getByLabelText('Batch title'), ' renamed')

@@ -2,21 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { MediaClient } from '#/media/types'
-import type { OperatorReviewClient } from '#/operator/types'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '#/operator/useDirtySources'
-import type { ProcessingClient } from '#/processing/types'
+import { useApiClients } from '#/clients/api-clients'
 
 type Props = {
   batch: CaptureSnapshotDto
-  media: MediaClient | undefined
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
-  operator?: OperatorReviewClient
   retiredLotIds: ReadonlySet<string>
   predecessors?: ReadonlyMap<string, readonly string[]>
   approvedLotIds?: ReadonlySet<string>
@@ -26,8 +22,6 @@ type Props = {
   onDirtyChange: (dirty: boolean) => void
   /** Counts discards of the batch's local edits; an unsaved region draft is dropped on each. */
   discarded?: number
-  /** Present with agent sessions: the Map's instruction goes to the Examine lead session. */
-  processing?: ProcessingClient
 }
 
 /** A lot made from a file (linked once it exists) or a region (moved into it once it exists). */
@@ -41,9 +35,7 @@ type Unfinished = Pick<PendingLot, 'from' | 'label'> & { lotId: string; lotLabel
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
   batch,
-  media,
   edit,
-  operator,
   retiredLotIds,
   predecessors,
   approvedLotIds = NO_LOTS,
@@ -51,8 +43,8 @@ export function ReviewMapStage({
   reload,
   onDirtyChange,
   discarded,
-  processing,
 }: Props) {
+  const { media, operator } = useApiClients()
   const drafts = useDirtySources(onDirtyChange)
   const scope = useServerScope()
   const queryClient = useQueryClient()
@@ -227,11 +219,7 @@ export function ReviewMapStage({
   const disabled = busy || batch.archived || !media || !query.data
 
   const tellExamine = !batch.archived && (
-    <TellExamine
-      batchId={batch.id}
-      processing={processing}
-      onDirtyChange={drafts.forSource('tell-examine')}
-    />
+    <TellExamine batchId={batch.id} onDirtyChange={drafts.forSource('tell-examine')} />
   )
 
   return (

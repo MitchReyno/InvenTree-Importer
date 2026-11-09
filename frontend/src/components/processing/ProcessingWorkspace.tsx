@@ -11,9 +11,8 @@ import type {
   ProcessingSnapshotDto,
   ProcessingStartDto,
 } from '@invimport/contracts'
-import type { AgentsRead, ProcessingClient, ProcessingView } from '#/processing/types'
+import type { ProcessingClient, ProcessingView } from '#/processing/types'
 import { Heading, Link, Panel, Small, Summary, Banner, Button, Dialog } from '#/components/ui'
-import type { MediaClient } from '#/media/types'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
@@ -30,6 +29,7 @@ import { useDirtySources } from '#/operator/useDirtySources'
 import { openQuestionsByLot } from '#/operator/review-model'
 import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
+import { useApiClients } from '#/clients/api-clients'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -76,7 +76,6 @@ interface Props {
   sessionId?: string | null
   sharperRequests?: SharperRequestStore
   batch: CaptureSnapshotDto
-  media?: MediaClient
   client: ProcessingClient
   view: ProcessingView
   questionId?: string
@@ -86,8 +85,6 @@ interface Props {
   retiredLotIds?: ReadonlySet<string>
   /** Counts for the Overview's links to Review and Changes. */
   attention?: BatchAttentionDto
-  /** The agent-session read, for the batch's start time and the slot limit. */
-  agents?: AgentsRead
   /** Files no lot uses, offered on the Overview as a way into the Map. */
   unusedFiles?: number
   /** The batch instructions and how to save them; absent where this setup has none. */
@@ -110,7 +107,6 @@ type PinnedQuestion = {
 export function ProcessingWorkspace({
   batch,
   client,
-  media,
   view,
   questionId,
   navigate,
@@ -118,13 +114,13 @@ export function ProcessingWorkspace({
   onSaved,
   retiredLotIds = NO_RETIRED_LOTS,
   attention,
-  agents,
   unusedFiles,
   instructions,
   sessionId = null,
   sharperRequests,
   edit,
 }: Props) {
+  const { agents, media } = useApiClients()
   const [sessionJobId, setSessionJobId] = useState<string | null>(sessionId)
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)

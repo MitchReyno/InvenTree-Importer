@@ -3,20 +3,17 @@ import { Paragraph, Summary } from '#/components/ui'
 import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
 import styled from 'styled-components'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import type { MediaClient } from '#/media/types'
 import { MediaWorkspace } from '#/components/media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '#/operator/types'
 import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
+import { useApiClients } from '#/clients/api-clients'
 
 type Props = {
   batch: Snapshot
-  operator?: OperatorReviewClient
   review?: OperatorReviewDto
   reload?: () => Promise<void>
-  media?: MediaClient
   edit: CaptureWorkspaceProps['edit']
   frozen: boolean
   onMediaDirtyChange: (dirty: boolean) => void
@@ -31,8 +28,6 @@ type Props = {
 export function EvidencePanel({
   batch,
   frozen,
-  media,
-  operator,
   review,
   reload,
   edit,
@@ -41,6 +36,7 @@ export function EvidencePanel({
   notesSlot,
   afterActions,
 }: Props) {
+  const { media } = useApiClients()
   const [writing, setWriting] = useState(false)
   // Notes and media each advance the revision; one owner's save must not remount the other's draft.
   const [mediaDirty, setMediaDirty] = useState(false)
@@ -68,7 +64,6 @@ export function EvidencePanel({
     <EvidenceArea data-area="context" aria-labelledby="evidence">
       {media && (
         <MediaWorkspace
-          operator={operator}
           review={review}
           reload={reload}
           onWriteNote={writeNote}
