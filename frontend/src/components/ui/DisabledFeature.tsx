@@ -103,6 +103,24 @@ function refusePress(event: MouseEvent) {
   ;(pressed ?? labelled)?.focus()
 }
 
+function refuseNativeInput(event: Event) {
+  event.preventDefault()
+}
+
+/**
+ * React's `onBeforeInput` is not the native `beforeinput` event and misses editing commands that
+ * come without a key press (macOS Ctrl+H or Ctrl+K, the context menu's Delete), so the wrapper also
+ * cancels every native `beforeinput` before it reaches the control.
+ */
+function refuseEditingCommands(wrapper: HTMLDivElement | null) {
+  if (!wrapper) {
+    return
+  }
+  wrapper.addEventListener('beforeinput', refuseNativeInput, { capture: true })
+
+  return () => wrapper.removeEventListener('beforeinput', refuseNativeInput, { capture: true })
+}
+
 /**
  * A deferred control, shown but unavailable. The control keeps `aria-disabled` rather than
  * `disabled`, so it stays focusable and announces the linked explanation. Activation and input are
@@ -113,6 +131,7 @@ export function DisabledFeature({ explanation, children }: Props) {
 
   return (
     <Wrapper
+      ref={refuseEditingCommands}
       data-disabled-feature=""
       onClickCapture={refuse}
       onMouseDownCapture={refusePress}

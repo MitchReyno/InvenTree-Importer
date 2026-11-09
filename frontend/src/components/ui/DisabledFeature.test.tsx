@@ -49,7 +49,7 @@ function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'number' | 
                   Import reference prefix
                   <input
                     type="text"
-                    defaultValue=""
+                    defaultValue="BI-"
                     onChange={send}
                     onKeyDown={(event) => {
                       if (event.ctrlKey && event.key === 'z') {
@@ -123,7 +123,7 @@ describe('DisabledFeature', () => {
       expect(send).not.toHaveBeenCalled()
     }
     if (control === 'text') {
-      expect(target).toHaveValue('')
+      expect(target).toHaveValue('BI-')
     }
   })
 
@@ -156,8 +156,23 @@ describe('DisabledFeature', () => {
     )
     await user.keyboard('{Control>}z{/Control}{Control>}{Backspace}{/Control}')
     expect(send).not.toHaveBeenCalled()
+    expect(field).toHaveValue('BI-')
     expect(field).toHaveFocus()
     document.removeEventListener('keydown', shortcut)
+  })
+
+  it('refuses native editing commands that send no key press, such as a deletion', () => {
+    setup('text')
+    const field = screen.getByRole('textbox', { name: 'Import reference prefix' })
+    const deletion = new InputEvent('beforeinput', {
+      inputType: 'deleteContentBackward',
+      bubbles: true,
+      cancelable: true,
+    })
+
+    field.dispatchEvent(deletion)
+    expect(deletion.defaultPrevented).toBe(true)
+    expect(field).toHaveValue('BI-')
   })
 
   it('a number field ignores the arrow keys that would step it', async () => {
