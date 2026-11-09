@@ -21,6 +21,8 @@ interface Props {
   captureHref?: string
   /** The form's accessible name; a session drawer's answer form names itself apart. */
   label?: string
+  /** Why the answer can't be sent now, while another draft must be saved or discarded first. */
+  blockedReason?: string
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
@@ -70,6 +72,7 @@ export function QuestionAnswer({
   readOnly = false,
   captureHref,
   label = 'Pinned application question',
+  blockedReason,
   onDirtyChange,
   answer,
 }: Props) {
@@ -247,6 +250,7 @@ export function QuestionAnswer({
                 </div>
               )}
             </Fieldset>
+            {blockedReason && <Small>{blockedReason}</Small>}
             <Actions>
               <Button variant="primary" disabled={submitDisabled} type="submit">
                 {actionLabel}

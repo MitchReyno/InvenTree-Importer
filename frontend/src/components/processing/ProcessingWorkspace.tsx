@@ -8,6 +8,7 @@ import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   ProcessingAnswerDto,
+  ProcessingQuestionDto,
   ProcessingSnapshotDto,
   ProcessingStartDto,
 } from '@invimport/contracts'
@@ -25,6 +26,7 @@ import {
 } from '#/components/ui'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
+import { DrawerAnswers } from './DrawerAnswers'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
 import { QuestionAnswer } from './QuestionAnswer'
@@ -252,6 +254,22 @@ export function ProcessingWorkspace({
     if (question) {
       setPinned({ question, captureRevision: snapshot.capture_revision })
     }
+  } else if (
+    pinned &&
+    snapshot &&
+    pinned.captureRevision !== snapshot.capture_revision &&
+    !waitingForRead &&
+    !offline &&
+    !drafts.isDirty('answer') &&
+    saving !== 'answer'
+  ) {
+    // Another answer moved the capture revision; a clean form follows it so it stays answerable.
+    const question = snapshot.jobs
+      .flatMap((job) => job.questions)
+      .find((candidate) => candidate.id === questionId && candidate.state === 'open')
+    if (question) {
+      setPinned({ question, captureRevision: snapshot.capture_revision })
+    }
   }
 
   function commandReadAvailable() {
@@ -408,13 +426,53 @@ export function ProcessingWorkspace({
   )
   const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
   const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
-  // An Inventory session's drawer answers its questions in place; other steps link to the
-  // question on its step page. A question already pinned on the page is answered there. As on
-  // the page, a form pins its question only from this mount's fresh read, never a warm cache.
+  // An Inventory session's drawer answers its questions in place (`DrawerAnswers`); other steps
+  // link to the question on its step page. A question already pinned on the page is answered there.
   const answersInDrawer =
-    sessionJob !== undefined &&
-    processingStepFor(sessionJob.stage) === 'inventory' &&
-    !waitingForRead
+    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
+
+  /** An answer form other than this source has an unsaved draft. */
+  const otherAnswerDirty = (source: string) =>
+    drafts.hasOtherSources('instructions', 'correction', source)
+
+  // A drawer with an unsaved answer stays open until the answer is saved or discarded.
+  const [closeBlocked, setCloseBlocked] = useState(false)
+
+  const openInDrawer = (sessionJob?.questions ?? []).filter((question) => question.state === 'open')
+  const unsavedInDrawer = openInDrawer.some((question) => drafts.isDirty(`answer:${question.id}`))
+  if (closeBlocked && !unsavedInDrawer) {
+    setCloseBlocked(false)
+  }
+
+  function questionLink(question: ProcessingQuestionDto) {
+    const step = processingStepFor(sessionJob?.stage ?? '')
+
+    return (
+      <Link
+        key={question.id}
+        onClick={() => {
+          // On this question's own step page the link changes no route.
+          if (question.id === questionId && step === view) {
+            setSessionJobId(null)
+          }
+        }}
+        href={batchHref(batch.id, { tab: 'processing', step, questionId: question.id })}
+      >
+        {question.spec.prompt}
+      </Link>
+    )
+  }
+
+  function closeDrawer() {
+    setCloseBlocked(false)
+    setSessionJobId(null)
+    // A session link's query would reopen the drawer when the batch next reloads.
+    const [hash, query] = location.hash.split('?')
+    if (query && new URLSearchParams(query).has('session')) {
+      location.replace(hash)
+    }
+  }
+
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
     <details>
@@ -558,13 +616,21 @@ export function ProcessingWorkspace({
           {questionId && pinned?.question.id === questionId ? (
             <>
               <QuestionAnswer
-                key={pinned.question.id}
+                key={`${pinned.question.id}:${pinned.captureRevision}`}
                 question={pinned.question}
                 captureRevision={pinned.captureRevision}
                 currentQuestion={currentQuestion}
                 currentCaptureRevision={snapshot.capture_revision}
                 disabled={
-                  runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')
+                  runnerDisabled ||
+                  drafts.isDirty('instructions') ||
+                  drafts.isDirty('correction') ||
+                  otherAnswerDirty('answer')
+                }
+                blockedReason={
+                  otherAnswerDirty('answer')
+                    ? 'Save or discard the other answer first; saving it reloads Processing.'
+                    : undefined
                 }
                 readOnly={batch.archived || saving === 'instructions'}
                 captureHref={batchHref(batch.id, { tab: 'capture' })}
@@ -680,56 +746,47 @@ export function ProcessingWorkspace({
                 </AiMark>
               }
               onClose={() => {
-                setSessionJobId(null)
-                // A session link's query would reopen the drawer when the batch next reloads.
-                const [hash, query] = location.hash.split('?')
-                if (query && new URLSearchParams(query).has('session')) {
-                  location.replace(hash)
+                if (unsavedInDrawer) {
+                  setCloseBlocked(true)
+                } else {
+                  closeDrawer()
                 }
               }}
             >
-              {sessionJob.questions
-                .filter((question) => question.state === 'open')
-                .map((question) =>
-                  answersInDrawer && question.id !== questionId ? (
-                    <QuestionAnswer
-                      key={question.id}
-                      label="Session question"
-                      question={question}
-                      captureRevision={snapshot.capture_revision}
-                      currentQuestion={question}
-                      currentCaptureRevision={snapshot.capture_revision}
-                      disabled={
-                        runnerDisabled ||
-                        drafts.isDirty('instructions') ||
-                        drafts.isDirty('correction')
-                      }
-                      readOnly={batch.archived || saving === 'instructions'}
-                      answer={answer}
-                      onDirtyChange={drafts.forSource(`answer:${question.id}`)}
-                    />
-                  ) : (
-                    <Link
-                      key={question.id}
-                      onClick={() => {
-                        // On this question's own step page the link changes no route.
-                        if (
-                          question.id === questionId &&
-                          processingStepFor(sessionJob.stage) === view
-                        ) {
-                          setSessionJobId(null)
-                        }
-                      }}
-                      href={batchHref(batch.id, {
-                        tab: 'processing',
-                        step: processingStepFor(sessionJob.stage),
-                        questionId: question.id,
-                      })}
-                    >
-                      {question.spec.prompt}
-                    </Link>
-                  ),
-                )}
+              {closeBlocked && (
+                <div role="alert">
+                  <Banner
+                    tone="warn"
+                    action={
+                      <Button size="sm" variant="ghost" onClick={closeDrawer}>
+                        Discard answer and close
+                      </Button>
+                    }
+                  >
+                    Save or discard your answer before closing this session.
+                  </Banner>
+                </div>
+              )}
+              {openInDrawer
+                .filter((question) => !answersInDrawer || question.id === questionId)
+                .map(questionLink)}
+              {answersInDrawer && (
+                <DrawerAnswers
+                  questions={openInDrawer.filter((question) => question.id !== questionId)}
+                  captureRevision={snapshot.capture_revision}
+                  fresh={!waitingForRead}
+                  disabled={
+                    runnerDisabled || drafts.isDirty('instructions') || drafts.isDirty('correction')
+                  }
+                  readOnly={batch.archived || saving === 'instructions'}
+                  saving={saving === 'answer'}
+                  isDirty={(id) => drafts.isDirty(`answer:${id}`)}
+                  otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
+                  answer={answer}
+                  reportFor={(id) => drafts.forSource(`answer:${id}`)}
+                  fallback={questionLink}
+                />
+              )}
               <SessionPanel
                 batchId={batch.id}
                 job={sessionJob}

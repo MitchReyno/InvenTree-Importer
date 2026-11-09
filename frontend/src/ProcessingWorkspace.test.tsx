@@ -562,7 +562,9 @@ test('the Inventory drawer answers its open question through the question path',
   } as ProcessingClient
   mountView(client, 'inventory', jobId)
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
-  const form = await within(drawer).findByRole('form', { name: 'Session question' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Is Packet A already in InvenTree?',
+  })
   expect(form).toHaveTextContent('Is Packet A already in InvenTree?')
   expect(within(drawer).getByRole('textbox', { name: 'Message this session' })).toBeVisible()
 
@@ -581,7 +583,197 @@ test('the Inventory drawer answers its open question through the question path',
     expect.any(String),
   )
   await waitFor(() =>
-    expect(within(drawer).queryByRole('form', { name: 'Session question' })).toBeNull(),
+    expect(within(drawer).queryByRole('form', { name: /^Session question/ })).toBeNull(),
+  )
+})
+
+const secondQuestionId = 'e0000000-0000-4000-8000-00000000000e'
+
+/** An Inventory session waiting on two clarifications about Packet A. */
+function inventorySnapshot(captureRevision = '8', answeredIds: string[] = []) {
+  const ask = (id: string, prompt: string) => ({
+    ...snapshot.jobs[0].questions[0],
+    id,
+    state: answeredIds.includes(id) ? ('answered' as const) : ('open' as const),
+    assumption: 'Treating it as new until you say.',
+    spec: {
+      kind: 'clarification' as const,
+      subject_id: subjectId,
+      prompt,
+      reason: 'Stock #1712 has the same Part, date code and bin.',
+    },
+  })
+
+  const value: ProcessingSnapshotDto = {
+    ...snapshot,
+    capture_revision: captureRevision,
+    jobs: [
+      {
+        ...snapshot.jobs[0],
+        stage: 'inventory',
+        session_state: 'waiting_input',
+        questions: [
+          ask(questionId, 'Is Packet A already in InvenTree?'),
+          ask(secondQuestionId, 'Is Packet A the reel in drawer 2?'),
+        ],
+      },
+    ],
+  }
+  validate('ProcessingSnapshot', value)
+  return value
+}
+
+function mountInventoryDrawer(read: ProcessingSnapshotDto) {
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(read),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } satisfies ProcessingClient
+  const cache = createServerQueryClient()
+  cache.setDefaultOptions({
+    queries: { ...cache.getDefaultOptions().queries, networkMode: 'online' },
+  })
+  const dirty = vi.fn()
+  render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view="inventory"
+        sessionId={jobId}
+        navigate={vi.fn()}
+        onDirtyChange={dirty}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  return { client, cache, dirty, key: serverQueryKey(scope, 'processing', batchId) }
+}
+
+const answerBox = (prompt: string) =>
+  within(screen.getByRole('form', { name: `Session question: ${prompt}` })).getByRole('textbox', {
+    name: 'Clarification',
+  })
+
+test('a failed or paused read keeps a drawer answer’s draft and its guard', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await screen.findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  client.read.mockRejectedValueOnce(new Error('read_unavailable'))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+
+  const resumed = deferredRead()
+  client.read.mockReturnValueOnce(resumed.promise)
+  act(() => {
+    onlineManager.setOnline(false)
+    void cache.invalidateQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(cache.getQueryState(key)?.fetchStatus).toBe('paused'))
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  act(() => {
+    onlineManager.setOnline(true)
+  })
+  await act(async () => {
+    resumed.resolve(inventorySnapshot())
+    await resumed.promise
+  })
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('closing the drawer with an unsaved answer asks first, and discards only on request', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  await user.click(within(drawer).getByRole('button', { name: 'Close' }))
+  expect(within(drawer).getByRole('alert')).toHaveTextContent(
+    'Save or discard your answer before closing this session.',
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  await user.click(within(drawer).getByRole('button', { name: 'Discard answer and close' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('answering one drawer question leaves the other answerable, and focus moves to it', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  // The session's options are shown disabled, with why; the answer goes in words.
+  const options = within(drawer).getByRole('radiogroup', {
+    name: 'Answer options: Is Packet A already in InvenTree?',
+  })
+  for (const option of within(options).getAllByRole('radio')) {
+    expect(option).toHaveAttribute('aria-disabled', 'true')
+    expect(option).toHaveAccessibleDescription(/don’t carry the session’s answer options yet/)
+  }
+
+  const first = 'Is Packet A already in InvenTree?'
+  const second = 'Is Packet A the reel in drawer 2?'
+  await user.type(answerBox(first), 'Different tube')
+  await user.type(answerBox(second), 'No')
+
+  // Saving one answer reloads Processing, so neither saves while the other has a draft.
+  const send = (prompt: string) =>
+    within(screen.getByRole('form', { name: `Session question: ${prompt}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    })
+
+  expect(send(first)).toBeDisabled()
+  expect(screen.getByRole('form', { name: `Session question: ${first}` })).toHaveTextContent(
+    'Save or discard the other answer first',
+  )
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${second}` })).getByRole('button', {
+      name: 'Discard unsaved answer',
+    }),
+  )
+  expect(send(first)).toBeEnabled()
+
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(send(first))
+  expect(client.answer).toHaveBeenCalledWith(
+    batchId,
+    questionId,
+    expect.objectContaining({ expected_capture_revision: '8' }),
+    expect.any(String),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull(),
+  )
+  await waitFor(() => expect(answerBox(second)).toHaveFocus())
+
+  // The other form follows the new capture revision instead of reading as superseded.
+  const form = screen.getByRole('form', { name: `Session question: ${second}` })
+  expect(form).not.toHaveTextContent('superseded')
+  await user.type(answerBox(second), 'No, it is new')
+  await user.click(send(second))
+  expect(client.answer).toHaveBeenLastCalledWith(
+    batchId,
+    secondQuestionId,
+    expect.objectContaining({ expected_capture_revision: '9' }),
+    expect.any(String),
   )
 })
 

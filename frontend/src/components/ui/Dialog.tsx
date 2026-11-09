@@ -73,7 +73,10 @@ export function Dialog({
       }}
     >
       <TitleRow>
-        <Title id={titleId}>{title}</Title>
+        {/* Focusable by script, so focus can land on the title when content it held leaves. */}
+        <Title id={titleId} tabIndex={-1}>
+          {title}
+        </Title>
         <Button size="sm" disabled={closeDisabled} onClick={onClose}>
           Close
         </Button>
