@@ -42,12 +42,12 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Scope and approach: `ExcludeLot` (1), `ExamineView` ReadingEdit (2), and the report Effects in `BulkEditPanel`, `DismissWarning`, `QuickLotEdit`, `RestructureDialog`, `RegionStage` and `AskControl` (10). Also `TellExamine` (9). Use the "report dirty from the event" decision; keep a commented Effect only where no event exists.
 - Prerequisites: #183.
 - Acceptance: typing into each editor blocks a hash change synchronously; reverting to the saved value releases the guard; a hidden `TellExamine` form is clean.
-- TDD approach: a guard test without `waitFor` fails before the change for items 1 and 2, then passes.
+- TDD approach: characterization tests without `waitFor` pin the synchronous guard for items 1 and 2. They cannot fail before the change under React 19 (see `notes.md`).
 - Verification: the owning checks; the new and existing component tests.
 - Risks and decisions: The React Hook Form editors report from `onChange` by comparing values with their baseline, so typing a value back reports clean from the event.
 
 - [x] 1.1 Re-read each named file, confirm the finding still applies, and record any dropped finding in `notes.md`.
-- [x] 1.2 RED: add synchronous-guard regressions for `ExcludeLot` and `ExamineView` ReadingEdit, and confirm they fail.
+- [x] 1.2 Add synchronous-guard characterization tests for `ExcludeLot` and `ExamineView` ReadingEdit; they cannot fail under React 19 (see `notes.md`).
 - [x] 1.3 GREEN: move reporting into handlers in every file listed, keeping commented exceptions.
 - [x] 1.4 Add tests for any changed file without a test file.
 - [x] 1.5 Run the owning checks and record the results.
@@ -81,7 +81,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Risks and decisions: AskControl's open-with-prefill dirty question stays as is and is raised in the PR.
 
 - [x] 3.1 Confirm each finding against the current code.
-- [x] 3.2 RED: add the no-flicker and keep-dirty regressions and confirm they fail.
+- [x] 3.2 RED: add the no-flicker and keep-dirty regressions, and confirm the no-flicker one fails.
 - [x] 3.3 GREEN: implement the derived drafts.
 - [x] 3.4 Add tests for any changed file without a test file.
 - [x] 3.5 Run the owning checks and record the results.

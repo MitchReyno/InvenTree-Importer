@@ -51,11 +51,12 @@ export function InstructionField({
   const sent = deliveryMessage(delivery)
 
   // Once the saved instructions catch up with the draft, the field follows them again.
-  if (loaded && draft !== null && draft === text) {
+  if (draft !== null && draft === text) {
     setDraft(null)
   }
   const value = draft ?? text ?? ''
-  const dirty = loaded && draft !== null && draft !== text
+  // A draft stays dirty while the saved instructions are unreadable, so the guard holds it.
+  const dirty = draft !== null && draft !== text
   // Saved instructions that catch up with the draft make it clean with no event here.
   useEffect(() => {
     onDirtyChange(dirty)
@@ -128,7 +129,7 @@ export function InstructionField({
         <Actions>
           <Button
             size="sm"
-            disabled={!dirty || Boolean(saveBlockedReason)}
+            disabled={!dirty || !loaded || Boolean(saveBlockedReason)}
             busy={saving}
             onClick={() => void save()}
           >

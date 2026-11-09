@@ -90,3 +90,16 @@ test('saved text that catches up with the draft releases the guard', async () =>
   rerender(<InstructionField {...props} text="Later" />)
   expect(field()).toHaveValue('Later')
 })
+
+test('a draft stays guarded while the saved instructions become unreadable', async () => {
+  const user = userEvent.setup()
+  const { field, props, rerender, onDirtyChange } = renderField('One')
+  await user.type(field(), ' two')
+  rerender(<InstructionField {...props} text={undefined} />)
+  expect(field()).toHaveValue('One two')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  expect(screen.getByRole('button', { name: 'Save instructions' })).toBeDisabled()
+  rerender(<InstructionField {...props} text="One" />)
+  expect(field()).toHaveValue('One two')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+})
