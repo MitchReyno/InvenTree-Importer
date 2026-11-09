@@ -24,7 +24,7 @@ The masthead SHALL end with an icon-only Settings button (`aria-label` "Settings
 
 ### Requirement: Agent settings section
 
-Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status, authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. A provider card SHALL read "Not checked" until its credential panel reports, then the last confirmed state (Claude "Configured" or "Unconfigured", matching the panel; Codex "Connected", "Signing in", "Not connected" or "Declined") or "Check failed" with the panel's message. Every confirmed response in a panel (check, save, remove, start, cancel, disconnect, sign-in poll) and every failure SHALL update the card; responses the panel drops as superseded SHALL NOT. The card SHALL keep its last state when the panel collapses or clears, except that "Signing in" returns to "Not checked", because the sign-in poll stops. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
+Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status, authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. A provider card SHALL read "Not checked" until its credential panel reports, then the last confirmed state (Claude "Configured" or "Unconfigured", matching the panel; Codex "Connected", "Signing in", "Not connected" or "Declined") or "Check failed" with the panel's message. Every confirmed response in a panel (check, save, remove, start, cancel, disconnect, sign-in poll) and every failure SHALL update the card; responses the Codex panel drops as superseded SHALL NOT. The card SHALL keep its last state when the panel collapses or clears, except that "Signing in" returns to "Not checked", because the sign-in poll stops. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
 
 #### Scenario: Change sessions at once
 
@@ -49,6 +49,24 @@ Settings › Agents SHALL edit the stored agent settings: provider (Claude or Co
 - **GIVEN** the Claude card reads "Configured"
 - **WHEN** the operator removes the personal Claude credential in its panel and the server confirms
 - **THEN** the card reads "Unconfigured"
+
+#### Scenario: Collapsing while signing in
+
+- **GIVEN** the Codex card reads "Signing in"
+- **WHEN** the operator collapses the ChatGPT sign-in panel
+- **THEN** the card reads "Not checked"
+
+#### Scenario: Collapsing keeps a confirmed state
+
+- **GIVEN** the Codex card reads "Connected"
+- **WHEN** the operator collapses the ChatGPT sign-in panel
+- **THEN** the card still reads "Connected"
+
+#### Scenario: Superseded response ignored
+
+- **GIVEN** a Codex check in flight
+- **WHEN** the operator edits the key before it returns
+- **THEN** the late response doesn't change the card
 
 #### Scenario: Check fails
 
