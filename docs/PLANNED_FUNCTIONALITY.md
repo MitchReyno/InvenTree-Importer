@@ -60,7 +60,7 @@ Adopt the Bench Intake Design System (tokens, light and dark themes, components,
 - Status: Done — PR-A to PR-G merged in #96, #100, #102, #104, #108, #109 and #110 (task 14, BI-006 sessions, observations and proposals, in PR-G), the styling uplift and component alignment (tasks 15–20) as PR-H to PR-K in #135, #139, #145 and #146, corrections and region edits (task 21) in #147, the data the specs require (task 22) in #148, and the remaining canvas detail (task 23) in #170. Re-sending a value InvenTree refused stays with executor follow-up work (design D7).
 - Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in fourteen PRs (PR-A to PR-N).
 - Prerequisites: None to start. Agent-backed panels (sessions, live lots, region-level Map) arrive with BI-006 and fall back to retained jobs until then.
-- OpenSpec: [redesign-batch-workspace](../openspec/changes/redesign-batch-workspace/)
+- OpenSpec: [redesign-batch-workspace](../openspec/changes/archive/2026-11-09-redesign-batch-workspace/)
 
 ### Unassessed
 
@@ -89,10 +89,10 @@ Enable purchase-order creation from retained batch supplier and order context th
 Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claude and Codex. The CLI offers stream-JSON, an ACP server, conversation resume and MCP, but no confirmed way to disable its built-in tools, so a lockdown spike must come first. This is a minimal placeholder; no proposal is planned yet.
 
 - Change: `antigravity-agent-provider`
-- Status: Proposed
+- Status: Cancelled — the placeholder change was removed without a proposal.
 - Size: Unknown
-- Prerequisites: Tool-lockdown spike not started; BI-006's session protocol and tool server should land first so the adapter targets one provider interface.
-- OpenSpec: [antigravity-agent-provider](../openspec/changes/antigravity-agent-provider/)
+- Prerequisites: None — the item is no longer intended.
+- OpenSpec: None — the change directory was removed.
 
 ## Fixes
 
