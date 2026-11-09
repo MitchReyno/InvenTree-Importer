@@ -284,11 +284,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** Retry resends the identical request (same key, revision, label, bytes); a 412 then proves the file wasn't kept, and it is sent once more with a new key at the current revision. Group moves also advance the revision, so the queue re-reads it before each upload.
 
-- [ ] 10.1 Confirm the upload call, revision handling and the tests that click Retain or Discard.
-- [ ] 10.2 RED: rewrite the existing tests and add the multi-file, failure and Retry tests.
-- [ ] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
-- [ ] 10.4 Refactor; check navigation protection during the queue.
-- [ ] 10.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 10.1 Confirm the upload call, revision handling and the tests that click Retain or Discard.
+- [x] 10.2 RED: rewrite the existing tests and add the multi-file, failure and Retry tests.
+- [x] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
+- [x] 10.4 Refactor; check navigation protection during the queue.
+- [x] 10.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 11. Evidence removal backend

@@ -1,4 +1,4 @@
-import { operatorReviewClient } from '@invimport/contracts/client'
+import { IntakeRequestError, operatorReviewClient } from '@invimport/contracts/client'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
@@ -59,11 +59,18 @@ function mediaClient(): MediaClient {
   }
 }
 
+/** The server refuses every upload, so each picked file ends as "Not added". */
+function refusingMediaClient(): MediaClient {
+  const client = mediaClient()
+  vi.mocked(client.upload).mockRejectedValue(new IntakeRequestError(409, 'media_capacity'))
+  return client
+}
+
 afterEach(() => {
   history.replaceState(null, '', location.pathname)
 })
 
-test('a pending original pauses settings and keeps its request when Capture rerenders', async () => {
+test('an unconfirmed upload pauses settings and keeps its request when Capture rerenders', async () => {
   const user = userEvent.setup()
   const edit = vi.fn(async () => undefined)
   const media = mediaClient()
@@ -88,30 +95,61 @@ test('a pending original pauses settings and keeps its request when Capture rere
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.getByText(/Finish or discard the evidence change/)).toBeVisible()
   expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
+  await screen.findByRole('button', { name: 'Retry bench-photo.png' })
   view.rerender(
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
   )
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
-  // Batch rebuilds its ports on every render; that must not clear the pending original.
+  // Batch rebuilds its ports on every render; that must not clear the unconfirmed upload.
   view.rerender(<CaptureWorkspace {...props} settings={ports({ read: settings.read })} />)
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
   view.rerender(<CaptureWorkspace {...props} />)
   expect(settings.save).not.toHaveBeenCalled()
-  expect(screen.getByRole('button', { name: 'Retain bench-photo.png' })).toBeEnabled()
 
-  await user.click(screen.getByRole('button', { name: 'Retain bench-photo.png' }))
-  await screen.findByRole('alert')
   const firstRequest = vi.mocked(media.upload).mock.calls[0]
-  await user.click(screen.getByRole('button', { name: 'Retain bench-photo.png' }))
+  await user.click(screen.getByRole('button', { name: 'Retry bench-photo.png' }))
   await waitFor(() => expect(media.upload).toHaveBeenCalledTimes(2))
   expect(vi.mocked(media.upload).mock.calls[1]).toEqual(firstRequest)
   expect(firstRequest[3]).toBe(file)
 
-  await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
-  expect(dirty).toHaveBeenLastCalledWith(false)
-  expect(screen.getByLabelText('Batch title')).toBeEnabled()
+  const evidenceId = '60000000-0000-4000-8000-000000000006'
+  const version = {
+    id: '70000000-0000-4000-8000-000000000007',
+    evidence_id: evidenceId,
+    kind: 'original' as const,
+    digest: 'a'.repeat(64),
+    byte_size: '14',
+    media_type: 'image/png' as const,
+    state: 'queued' as const,
+    decoder_build: null,
+    recipe: null,
+    pages: [],
+  }
+  vi.mocked(media.snapshot).mockResolvedValue({
+    ...snapshot,
+    revision: '1',
+    evidence: [
+      {
+        id: evidenceId,
+        label: 'bench-photo.png',
+        group_id: null,
+        linked_subject_ids: [],
+        versions: [version],
+      },
+    ],
+  })
+  vi.mocked(media.upload).mockResolvedValue({
+    status: 'retained',
+    batch_id: batch.id,
+    evidence_id: evidenceId,
+    version,
+  })
+  await user.click(await screen.findByRole('button', { name: 'Retry bench-photo.png' }))
+  await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(false))
+  expect(vi.mocked(media.upload).mock.calls[2]).toEqual(firstRequest)
+  await waitFor(() => expect(screen.getByLabelText('Batch title')).toBeEnabled())
   expect(settings.read).toHaveBeenCalled()
 })
 
@@ -223,7 +261,7 @@ test('settings stay paused until the revision after an evidence change is adopte
   )
   const settings = ports({ read })
   render(
-    <ApiClientsProvider value={{ media: mediaClient() }}>
+    <ApiClientsProvider value={{ media: refusingMediaClient() }}>
       <BatchCommandsProvider
         value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
       >
@@ -234,7 +272,7 @@ test('settings stay paused until the revision after an evidence change is adopte
   const input = await screen.findByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
   await user.upload(input, new File(['x'], 'a.png', { type: 'image/png' }))
-  await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
+  await screen.findByText(/Not added/)
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   await act(async () => respond.reject(new TypeError('offline')))
   expect(await screen.findByText(/could not be refreshed after the evidence change/)).toBeVisible()
@@ -252,7 +290,7 @@ for (const order of ['older first', 'newer first'] as const) {
     const read = vi.fn(() => new Promise<CaptureSnapshotDto>((resolve) => reads.push(resolve)))
     const settings = ports({ read })
     render(
-      <ApiClientsProvider value={{ media: mediaClient() }}>
+      <ApiClientsProvider value={{ media: refusingMediaClient() }}>
         <BatchCommandsProvider
           value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
         >
@@ -269,7 +307,9 @@ for (const order of ['older first', 'newer first'] as const) {
     await waitFor(() => expect(input).toBeEnabled())
     for (const name of ['a.png', 'b.png']) {
       await user.upload(input, new File(['x'], name, { type: 'image/png' }))
-      await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
+      await within(await screen.findByRole('group', { name: `Upload of ${name}` })).findByText(
+        /Not added/,
+      )
     }
     expect(reads).toHaveLength(2)
     const older = { ...batch, revision: '2' }

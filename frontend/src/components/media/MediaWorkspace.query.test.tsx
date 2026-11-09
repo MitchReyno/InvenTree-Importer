@@ -83,7 +83,7 @@ test('warm cache cannot authorize media input before this mount obtains a succes
   await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled())
 })
 
-test('failed retained polling preserves pending original and its exact upload intent through recovery', async () => {
+test('failed retained polling preserves an unconfirmed upload and its exact request through recovery', async () => {
   const queries = createServerQueryClient()
   const key = serverQueryKey(fixtureScope, 'media', batch.id)
   const media = client(vi.fn(async () => snapshot))
@@ -103,22 +103,18 @@ test('failed retained polling preserves pending original and its exact upload in
   await waitFor(() => expect(input).toBeEnabled())
   const file = new File(['source bytes'], 'retained.png', { type: 'image/png' })
   await user.upload(input, file)
-  await user.click(screen.getByRole('button', { name: 'Retain retained.png' }))
   await waitFor(() => expect(media.upload).toHaveBeenCalledTimes(1))
+  const retry = await screen.findByRole('button', { name: 'Retry retained.png' })
   const original = vi.mocked(media.upload).mock.calls[0]
   vi.mocked(media.snapshot).mockRejectedValue(new Error('offline'))
   await act(async () => {
     await queries.refetchQueries({ queryKey: key })
   })
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Retain retained.png' })).toBeDisabled(),
-  )
+  await waitFor(() => expect(retry).toBeDisabled())
   vi.mocked(media.snapshot).mockResolvedValue({ ...snapshot, revision: '8' })
   await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Retain retained.png' })).toBeEnabled(),
-  )
-  await user.click(screen.getByRole('button', { name: 'Retain retained.png' }))
+  await waitFor(() => expect(retry).toBeEnabled())
+  await user.click(retry)
   await waitFor(() => expect(media.upload).toHaveBeenCalledTimes(2))
   expect(vi.mocked(media.upload).mock.calls[1]).toEqual(original)
   expect(original[1]).toBe('1')

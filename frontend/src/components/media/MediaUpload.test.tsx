@@ -1,30 +1,455 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
+import type { MediaReceiptDto } from '@invimport/contracts'
+import { IntakeRequestError } from '@invimport/contracts/client'
 import { render } from '#/test/render'
+import { uploadProgress, useUploadQueue, type UploadQueuePorts } from '#/media/useUploadQueue'
 import { MediaUpload } from './MediaUpload'
+import { UploadTile } from './UploadTile'
 
-function props(disabled: boolean) {
+type HarnessProps = UploadQueuePorts & { disabled: boolean }
+
+function Harness({ disabled, ...ports }: HarnessProps) {
+  const queue = useUploadQueue(ports)
+  return (
+    <>
+      <MediaUpload chooseDisabled={disabled} noteDisabled={false} queue={queue} />
+      <section aria-label="Grid" tabIndex={-1}>
+        {queue.items.map((item) => (
+          <UploadTile key={item.id} item={item} disabled={disabled} queue={queue} />
+        ))}
+      </section>
+    </>
+  )
+}
+
+function receipt(name: string): MediaReceiptDto {
   return {
-    disabled,
-    chooseDisabled: disabled,
-    noteDisabled: false,
-    revision: '1',
-    onDirtyChange: vi.fn(),
-    upload: vi.fn(),
-    finish: vi.fn(),
+    status: 'retained',
+    batch_id: '10000000-0000-4000-8000-000000000001',
+    evidence_id: `evidence-${name}`,
+    version: {
+      id: `version-${name}`,
+      evidence_id: `evidence-${name}`,
+      kind: 'original',
+      digest: 'a'.repeat(64),
+      byte_size: '4',
+      media_type: 'image/png',
+      state: 'queued',
+      decoder_build: null,
+      recipe: null,
+      pages: [],
+    },
   }
 }
 
+function ports(overrides: Partial<UploadQueuePorts> = {}): UploadQueuePorts {
+  let revision = 1
+  return {
+    currentRevision: vi.fn(async () => String(revision++)),
+    upload: vi.fn(async (file: File) => receipt(file.name)),
+    finish: vi.fn(async () => true),
+    onDirtyChange: vi.fn(),
+    ...overrides,
+  }
+}
+
+function photo(name: string) {
+  return new File(['data'], name, { type: 'image/png' })
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined
+
+  let reject: (reason: unknown) => void = () => undefined
+
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done
+    reject = fail
+  })
+  return { promise, resolve, reject }
+}
+
 // The picker returns focus, which briefly re-reads the batch; the chosen file arrives in that window.
-test('keeps a photo chosen while uploads are briefly unavailable', () => {
-  const view = render(<MediaUpload {...props(true)} />)
-  const photo = new File(['jpeg'], 'bench.jpg', { type: 'image/jpeg' })
+test('a photo chosen while uploads are briefly unavailable starts uploading at once', async () => {
+  const queue = ports()
+  render(<Harness {...queue} disabled />)
 
-  fireEvent.change(screen.getByLabelText('Choose photos'), { target: { files: [photo] } })
+  fireEvent.change(screen.getByLabelText('Choose photos'), {
+    target: { files: [photo('bench.jpg')] },
+  })
 
-  expect(screen.getByText('Selected: bench.jpg')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Retain bench.jpg' })).toBeDisabled()
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  expect(screen.queryByRole('button', { name: /Retain/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Discard/ })).toBeNull()
+})
 
-  view.rerender(<MediaUpload {...props(false)} />)
-  expect(screen.getByRole('button', { name: 'Retain bench.jpg' })).toBeEnabled()
+test('pickers accept several files', () => {
+  render(<Harness {...ports()} disabled={false} />)
+  expect(screen.getByLabelText('Choose photos')).toHaveAttribute('multiple')
+  expect(screen.getByLabelText('Choose document')).toHaveAttribute('multiple')
+})
+
+test('several files upload one after another, each with its own key and the current revision', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({
+    upload: vi.fn(async (file: File) =>
+      file.name === 'a.png' ? first.promise : receipt(file.name),
+    ),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    photo('a.png'),
+    photo('b.png'),
+    photo('c.png'),
+  ])
+
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  const tiles = screen.getAllByRole('group', { name: /^Upload of / })
+  expect(tiles).toHaveLength(3)
+  for (const tile of tiles) {
+    expect(within(tile).getByRole('status')).toHaveTextContent('Uploading…')
+  }
+  expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
+
+  await act(async () => first.resolve(receipt('a.png')))
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledTimes(3))
+  await waitFor(() => expect(queue.finish).toHaveBeenCalledTimes(3))
+
+  const calls = vi.mocked(queue.upload).mock.calls
+  expect(calls.map(([file]) => file.name)).toEqual(['a.png', 'b.png', 'c.png'])
+  expect(calls.map(([, , revision]) => revision)).toEqual(['1', '2', '3'])
+  expect(new Set(calls.map(([, key]) => key)).size).toBe(3)
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+  expect(screen.queryAllByRole('group', { name: /^Upload of / })).toHaveLength(0)
+})
+
+test('a refused file shows Not added with its reason and Dismiss, and later files continue', async () => {
+  const user = userEvent.setup()
+  const queue = ports({
+    upload: vi.fn(async (file: File) => {
+      if (file.name === 'a.png') {
+        throw new IntakeRequestError(409, 'media_capacity')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
+
+  const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*evidence limit/)
+  await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
+  expect(vi.mocked(queue.upload).mock.calls[1][0].name).toBe('b.png')
+  // A file that was not added leaves nothing to protect.
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+
+  await user.click(within(refused).getByRole('button', { name: 'Dismiss a.png' }))
+  expect(screen.queryByRole('group', { name: 'Upload of a.png' })).toBeNull()
+})
+
+test('an unsupported file shows Not added without sending anything', async () => {
+  const user = userEvent.setup({ applyAccept: false })
+  const queue = ports()
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['gif'], 'packet.gif', { type: 'image/gif' }),
+  )
+
+  const refused = screen.getByRole('group', { name: 'Upload of packet.gif' })
+  expect(within(refused).getByText(/Not added/)).toBeVisible()
+  expect(within(refused).getByText(/JPEG or PNG/)).toBeVisible()
+  expect(queue.upload).not.toHaveBeenCalled()
+  expect(queue.currentRevision).not.toHaveBeenCalled()
+})
+
+test('a lost response leaves Retry, later files continue, and Retry resends the identical request', async () => {
+  const user = userEvent.setup()
+  let lose = true
+  const queue = ports({
+    upload: vi.fn(async (file: File) => {
+      if (file.name === 'a.png' && lose) {
+        lose = false
+        throw new TypeError('network')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
+
+  const unconfirmed = await screen.findByRole('group', { name: 'Upload of a.png' })
+  expect(within(unconfirmed).getByRole('alert')).toHaveTextContent(/Upload not confirmed/)
+  await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
+  expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
+
+  await user.click(within(unconfirmed).getByRole('button', { name: 'Retry a.png' }))
+
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledTimes(3))
+  const calls = vi.mocked(queue.upload).mock.calls
+  expect(calls[2]).toEqual(calls[0])
+  expect(calls[2][0]).toBe(calls[0][0])
+  await waitFor(() => expect(queue.finish).toHaveBeenCalledTimes(2))
+  expect(vi.mocked(queue.finish).mock.calls[1][0]).toEqual(receipt('a.png'))
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+  expect(screen.queryByRole('group', { name: 'Upload of a.png' })).toBeNull()
+})
+
+test('Retry that meets a revision refusal sends the file once more with a new key at the current revision', async () => {
+  const user = userEvent.setup()
+  const attempts: string[] = []
+  const queue = ports({
+    upload: vi.fn(async (file: File, key: string) => {
+      attempts.push(key)
+      if (attempts.length === 1) {
+        throw new TypeError('network')
+      }
+      if (attempts.length === 2) {
+        throw new IntakeRequestError(412, 'revision_conflict')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  const unconfirmed = await screen.findByRole('group', { name: 'Upload of a.png' })
+  await user.click(within(unconfirmed).getByRole('button', { name: 'Retry a.png' }))
+
+  await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
+  const calls = vi.mocked(queue.upload).mock.calls
+  expect(calls).toHaveLength(3)
+  expect(calls[1]).toEqual(calls[0])
+  expect(calls[2][1]).not.toBe(calls[0][1])
+  expect(calls[2][2]).toBe('2')
+  expect(calls[2][0]).toBe(calls[0][0])
+})
+
+test('a second revision refusal marks the file Not added', async () => {
+  const user = userEvent.setup()
+  const queue = ports({
+    upload: vi.fn(async () => {
+      throw new IntakeRequestError(412, 'revision_conflict')
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+
+  const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
+  expect(within(refused).getByText(/Not added/)).toBeVisible()
+  expect(queue.upload).toHaveBeenCalledTimes(2)
+  expect(queue.finish).not.toHaveBeenCalled()
+})
+
+test('a retained file whose read fails stays protected and offers the read again, never a second upload', async () => {
+  const user = userEvent.setup()
+  const queue = ports({ finish: vi.fn().mockRejectedValueOnce(new Error('offline')) })
+  vi.mocked(queue.finish).mockResolvedValue(true)
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+
+  const unread = await screen.findByRole('group', { name: 'Upload of a.png' })
+  expect(within(unread).getByText(/Added\. The current evidence could not be read/)).toBeVisible()
+  expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
+  expect(within(unread).queryByRole('button', { name: 'Retry a.png' })).toBeNull()
+
+  await user.click(within(unread).getByRole('button', { name: 'Read a.png again' }))
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+  expect(queue.upload).toHaveBeenCalledOnce()
+  expect(queue.finish).toHaveBeenCalledTimes(2)
+})
+
+test('a file that could not join its group says so and stays dismissible', async () => {
+  const user = userEvent.setup()
+  const queue = ports({ finish: vi.fn(async () => false) })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+
+  const ungrouped = await screen.findByRole('group', { name: 'Upload of a.png' })
+  expect(within(ungrouped).getByText(/Added to Ungrouped/)).toBeVisible()
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+  await user.click(within(ungrouped).getByRole('button', { name: 'Dismiss a.png' }))
+  expect(screen.queryByRole('group', { name: 'Upload of a.png' })).toBeNull()
+})
+
+test('Retry keeps focus on its tile while the file uploads again', async () => {
+  const user = userEvent.setup()
+  let lose = true
+  const queue = ports({
+    upload: vi.fn(async (file: File) => {
+      if (lose) {
+        lose = false
+        throw new TypeError('network')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  const tile = await screen.findByRole('group', { name: 'Upload of a.png' })
+  vi.mocked(queue.upload).mockImplementation(() => new Promise(() => undefined))
+  await user.click(within(tile).getByRole('button', { name: 'Retry a.png' }))
+  expect(tile).toHaveFocus()
+})
+
+test('a focused tile that leaves once its file is added hands focus to the group region', async () => {
+  const user = userEvent.setup()
+  let lose = true
+  const queue = ports({
+    upload: vi.fn(async (file: File) => {
+      if (lose) {
+        lose = false
+        throw new TypeError('network')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  const tile = await screen.findByRole('group', { name: 'Upload of a.png' })
+  await user.click(within(tile).getByRole('button', { name: 'Retry a.png' }))
+
+  await waitFor(() => expect(tile).not.toBeInTheDocument())
+  expect(screen.getByRole('region', { name: 'Grid' })).toHaveFocus()
+})
+
+test('Dismiss moves focus to the next tile rather than losing it', async () => {
+  const user = userEvent.setup({ applyAccept: false })
+  render(<Harness {...ports()} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['gif'], 'one.gif', { type: 'image/gif' }),
+    new File(['gif'], 'two.gif', { type: 'image/gif' }),
+  ])
+  const first = screen.getByRole('group', { name: 'Upload of one.gif' })
+  await user.click(within(first).getByRole('button', { name: 'Dismiss one.gif' }))
+
+  expect(screen.getByRole('button', { name: 'Dismiss two.gif' })).toHaveFocus()
+})
+
+test('a file whose name the server would refuse is not sent', async () => {
+  const user = userEvent.setup()
+  const queue = ports()
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('bad\u0007name.png'))
+
+  const refused = screen.getByRole('group', { name: 'Upload of bad\u0007name.png' })
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*Rename the file/)
+  expect(queue.upload).not.toHaveBeenCalled()
+})
+
+test('a file over 20 MiB is not sent', async () => {
+  const user = userEvent.setup()
+  const queue = ports()
+  render(<Harness {...queue} disabled={false} />)
+  const large = photo('large.png')
+  Object.defineProperty(large, 'size', { value: 20 * 1024 * 1024 + 1 })
+
+  await user.upload(screen.getByLabelText('Choose photos'), large)
+
+  const refused = screen.getByRole('group', { name: 'Upload of large.png' })
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*up to 20 MiB/)
+  expect(queue.upload).not.toHaveBeenCalled()
+})
+
+test('a failed revision read leaves the file unsent and Not added', async () => {
+  const user = userEvent.setup()
+  const queue = ports({ currentRevision: vi.fn(async () => Promise.reject(new Error('offline'))) })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+
+  const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
+  await waitFor(() =>
+    expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*was not sent/),
+  )
+  expect(queue.upload).not.toHaveBeenCalled()
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+})
+
+test('unmounting stops later files and the follow-up read of one in flight', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const view = render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  view.unmount()
+  await act(async () => first.resolve(receipt('a.png')))
+
+  expect(queue.upload).toHaveBeenCalledOnce()
+  expect(queue.finish).not.toHaveBeenCalled()
+})
+
+test('a refusal arriving after unmount does not report to the navigation guard', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const view = render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  view.unmount()
+  const reports = vi.mocked(queue.onDirtyChange).mock.calls.length
+  await act(async () => first.reject(new IntakeRequestError(409, 'media_capacity')))
+
+  expect(queue.onDirtyChange).toHaveBeenCalledTimes(reports)
+})
+
+test('Dismiss moves focus to the previous tile when the next has no enabled control', async () => {
+  const user = userEvent.setup({ applyAccept: false })
+  const queue = ports({ upload: vi.fn(() => new Promise<MediaReceiptDto>(() => undefined)) })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['gif'], 'one.gif', { type: 'image/gif' }),
+    new File(['gif'], 'two.gif', { type: 'image/gif' }),
+    photo('three.png'),
+  ])
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  const second = screen.getByRole('group', { name: 'Upload of two.gif' })
+  await user.click(within(second).getByRole('button', { name: 'Dismiss two.gif' }))
+
+  expect(screen.getByRole('button', { name: 'Dismiss one.gif' })).toHaveFocus()
+})
+
+test('unmounting after a revision refusal does not send the file again', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const view = render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  view.unmount()
+  await act(async () => first.reject(new IntakeRequestError(412, 'revision_conflict')))
+
+  expect(queue.upload).toHaveBeenCalledOnce()
+  expect(queue.currentRevision).toHaveBeenCalledOnce()
+})
+
+test('progress counts every file picked together, including one already refused', () => {
+  const pick = { pickId: 'pick', pickSize: 3, groupId: 'group' }
+  expect(
+    uploadProgress([
+      { ...pick, id: '1', name: 'a.png', status: 'not_added' },
+      { ...pick, id: '3', name: 'c.png', status: 'uploading' },
+      { ...pick, id: '4', name: 'd.png', status: 'waiting' },
+    ]),
+  ).toEqual({ current: 2, total: 3 })
+  expect(uploadProgress([{ ...pick, id: '1', name: 'a.png', status: 'not_added' }])).toBeNull()
 })
