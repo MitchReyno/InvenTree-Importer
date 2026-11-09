@@ -616,3 +616,73 @@ it('readings that change under a clean editor report it unsaved', async () => {
   mounted.rerender(view(reread))
   expect(dirty.at(-1)).toBe(true)
 })
+
+it('after a confirmed save, readings that catch up with a later unconfirmed save release the guard', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  const results = [true, false]
+
+  const view = (current: CaptureSnapshotDto) => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async () => results.shift() ?? false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view(batch))
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  const field = within(first).getByLabelText('Marking 1 for 16 MHz crystal')
+  await user.type(field, ' A')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(false)
+  await user.type(field, 'B')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(true)
+  const saved = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      observation('o2', 'v1', '16 MHz crystal AB', null),
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  } as unknown as CaptureSnapshotDto
+  mounted.rerender(view(saved))
+  expect(dirty.at(-1)).toBe(false)
+  expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeEnabled()
+})
+
+it('after a confirmed save, a region read again reports the editor unsaved', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+
+  const view = (current: CaptureSnapshotDto) => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async () => true}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view(batch))
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' A')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(false)
+  const reread = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      observation('o2', 'v1', '16 MHz crystal HC-49', null),
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  } as unknown as CaptureSnapshotDto
+  mounted.rerender(view(reread))
+  expect(dirty.at(-1)).toBe(true)
+})
