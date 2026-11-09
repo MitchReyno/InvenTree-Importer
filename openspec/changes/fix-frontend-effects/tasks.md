@@ -44,7 +44,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Acceptance: typing into each editor blocks a hash change synchronously; reverting to the saved value releases the guard; a hidden `TellExamine` form is clean.
 - TDD approach: a guard test without `waitFor` fails before the change for items 1 and 2, then passes.
 - Verification: the owning checks; the new and existing component tests.
-- Risks and decisions: React Hook Form's typed-back `isDirty` has no input event. It keeps a subscription-driven report, which the design allows.
+- Risks and decisions: The React Hook Form editors report from `onChange` by comparing values with their baseline, so typing a value back reports clean from the event.
 
 - [x] 1.1 Re-read each named file, confirm the finding still applies, and record any dropped finding in `notes.md`.
 - [x] 1.2 RED: add synchronous-guard regressions for `ExcludeLot` and `ExamineView` ReadingEdit, and confirm they fail.
@@ -73,7 +73,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 - PR delivery: E1.
 - Outcome: drafts that follow saved values never flicker dirty and never overwrite a dirty draft.
-- Scope and approach: `useDraft` stores `T | null` (6). `InstructionField` stores `string | null` (7). `AskControl` adjusts `asked` during render (8). Use the "derive drafts" decision.
+- Scope and approach: `useDraft` stores a nullable draft, `{ value: T } | null` (6). `InstructionField` stores `string | null` (7). `AskControl` adjusts `asked` during render (8). Use the "derive drafts" decision.
 - Prerequisites: #183.
 - Acceptance: a clean draft follows a new saved value without `report(true)`; a dirty draft keeps its value and stays dirty; text arriving after mount shows; newer text is adopted after save or discard.
 - TDD approach: the `useDraft` no-flicker test fails first.

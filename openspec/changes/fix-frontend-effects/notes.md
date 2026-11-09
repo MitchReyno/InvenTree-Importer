@@ -8,6 +8,7 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T20:49+11:00, task 1 (E1):** Item 11, `MediaCropDialog`'s dirty half, moves to task 7. It shares one Effect with the `showModal` call that task 7 fixes, and changing it twice would split one decision across two PRs. The task map in `tasks.md` is updated.
 
 - **2026-11-09T21:35+11:00, task 4 (E2):** Audit item 25 is dropped. (a) If a draft is dirty when lots first appear, Review skips its automatic first lot. A fix would auto-open a lot later, after the operator has started working, moving the view under them. (b) Moving focus to the queue when polling retires the focused lot is correct, because the focused evidence disappears with it. `tasks.md` records the decision in 4.4.
+- **2026-11-09T22:28+11:00, task 1 (E1):** The design allowed React Hook Form editors to keep a subscription-driven report for a typed-back `isDirty`. None does: each compares `getValues()` with its baseline in the form's `onChange`. `design.md` and `tasks.md` now say so, and list the three report Effects that remain for a saved value catching up with a draft: `useDraft`, `EvidenceGroup` and `InstructionField`.
 
 ## Unexpected challenges
 
