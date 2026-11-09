@@ -11,7 +11,7 @@ import { saveAgentSettings } from '../../src/agents/settings.ts'
 import { manualFixture } from '../support/manual.ts'
 import { grantProcessing } from '../../src/processing/grants.ts'
 import { grantManual } from '../../src/review/grants.ts'
-import { listAgentSessions } from '../../src/agents/sessions.ts'
+import { listAgentSessions } from '../../src/agents/session/sessions.ts'
 import { startProcessing } from '../../src/processing/commands.ts'
 
 test('header retains physically occupied cancelled sessions and fences foreign scope', async () => {

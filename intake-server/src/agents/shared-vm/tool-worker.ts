@@ -11,9 +11,9 @@ import { ResearchReapPendingError } from '../../research/errors.ts'
 import { evidenceReplyLimit, Frames } from './frames.ts'
 import { providerProxy } from './provider-proxy.ts'
 import { nativeTurn } from './native-turn.ts'
-import type { SessionDriverContext } from '../session-runner.ts'
-import type { SessionTurn } from '../session-adapters.ts'
-import { SessionResumeUnavailable } from '../session-adapters.ts'
+import type { SessionDriverContext } from '../session/session-runner.ts'
+import type { SessionTurn } from '../session/session-adapters.ts'
+import { SessionResumeUnavailable } from '../session/session-adapters.ts'
 
 const provider = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1' ? 'codex' : 'claude'
 const proxy = await providerProxy(provider)

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { AgentChild } from '../src/agents/child.ts'
-import { admitClaudeSession } from '../src/agents/claude-session-admission.ts'
+import { admitClaudeSession } from '../src/agents/session/claude-session-admission.ts'
 
 // web-fetch-agent is the built-in set a 2.1.319 subscription CLI reports; extra-agent is a user agent.
 for (const mode of ['normal', 'web-fetch-agent', 'skills-enabled', 'extra-tool', 'extra-agent']) {

@@ -1,4 +1,4 @@
-import type { SessionProgress } from './sessions.ts'
+import type { SessionProgress } from './session/sessions.ts'
 export interface NativePrompt {
   instructions: string
   text: string

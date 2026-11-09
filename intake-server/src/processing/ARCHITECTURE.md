@@ -113,5 +113,5 @@ Session proposals and questions are retained in `processing_message` as `bench-i
 - **Inputs:** `sessionLeadInputManifest` seals all notes, evidence and group notes as hints, and `lockBatchMediaInputs` pins every ready original.
 - **Evidence:** the lead session's `fetch_evidence` reaches its pinned media and evidence notices. It returns 768 px previews or region crops, plus each page's preview size, the evidence label and the operator's note.
 - **Turns:** the opening message carries the lead instructions, and the lead's turns also allow `record_observation`, `propose_lot` and `regroup`.
-- **Synthetic profile:** `agents/synthetic-lead.ts` scripts the lead from each photo's note: one observation per listed item, the same marking across photos as one lot, and a quantity basis without summing photos of the same items.
+- **Synthetic profile:** `agents/session/synthetic-lead.ts` scripts the lead from each photo's note: one observation per listed item, the same marking across photos as one lot, and a quantity basis without summing photos of the same items.
 - **Operator answers:** a lead question names its subject or none. A quantity answer needs a lot; a clarification without one becomes a batch note.

@@ -38,7 +38,7 @@ test(
       [
         '--import',
         'tsx',
-        fileURLToPath(new URL('../../src/agents/session-worker-main.ts', import.meta.url)),
+        fileURLToPath(new URL('../../src/agents/session/session-worker-main.ts', import.meta.url)),
       ],
       {
         cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -216,7 +216,7 @@ test(
       [
         '--import',
         'tsx',
-        fileURLToPath(new URL('../../src/agents/session-worker-main.ts', import.meta.url)),
+        fileURLToPath(new URL('../../src/agents/session/session-worker-main.ts', import.meta.url)),
       ],
       {
         cwd: fileURLToPath(new URL('../../', import.meta.url)),

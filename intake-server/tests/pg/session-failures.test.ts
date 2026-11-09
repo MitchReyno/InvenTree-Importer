@@ -6,7 +6,10 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { interruptRunningSessions, runSessionTurn } from '../../src/agents/session-runner.ts'
+import {
+  interruptRunningSessions,
+  runSessionTurn,
+} from '../../src/agents/session/session-runner.ts'
 import { NativeSessionError } from '../../src/agents/failure-model.ts'
 import { readSessionFailure } from '../../src/agents/failures.ts'
 import { ResearchReapPendingError } from '../../src/research/errors.ts'

@@ -7,9 +7,9 @@ import { transaction } from '../../src/db/database.ts'
 import { triggerExamine } from '../../src/processing/examine-trigger.ts'
 import { onLeadIdentity } from '../../src/processing/stable-identity.ts'
 import { lockCaptureForInputSettlement } from '../../src/capture/repository.ts'
-import { claimSessionSlot } from '../../src/agents/slots.ts'
+import { claimSessionSlot } from '../../src/agents/session/slots.ts'
 import { saveAgentSettings } from '../../src/agents/settings.ts'
-import { queueSessionResume, runSessionTurn } from '../../src/agents/session-runner.ts'
+import { queueSessionResume, runSessionTurn } from '../../src/agents/session/session-runner.ts'
 
 test('a stable identity queues the lot’s Research and Images, pinned to it, as agent_writer', async (t) => {
   const { fixture, lot, successors, identities, pinned } = await formedBatch(t)

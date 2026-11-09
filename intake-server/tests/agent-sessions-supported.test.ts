@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sessionsSupported } from '../src/agents/sessions.ts'
+import { sessionsSupported } from '../src/agents/session/sessions.ts'
 import { mediaProfileId } from '../src/processing/model.ts'
 import { isSessionProfile } from '../src/processing/session-policy.ts'
 

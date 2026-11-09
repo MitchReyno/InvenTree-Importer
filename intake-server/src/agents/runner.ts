@@ -11,7 +11,7 @@ import { agentEnvironment, privateDirectory, type NativeAgentHost } from './envi
 import { stageNativePrompt, verifyInspectedSources } from './prompt.ts'
 import { runCodex } from './codex.ts'
 import { runClaude } from './claude.ts'
-import { recordSessionProgress } from './sessions.ts'
+import { recordSessionProgress } from './session/sessions.ts'
 
 /** The coordinator retains DB/channel authority. Children receive staged evidence and one selected auth route only. */
 export function nativeAgentRunner(

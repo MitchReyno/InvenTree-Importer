@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { AgentChild, record } from '../child.ts'
 import { CODEX_CONFIG } from '../codex.ts'
-import { requireCodexSessionVersion } from '../session-admission.ts'
+import { requireCodexSessionVersion } from '../session/session-admission.ts'
 
 type Device = { loginId: string; verificationUrl: string; userCode: string }
 type Login = { rpc: AccountRpc; device: Device; home: string; expires: number }
