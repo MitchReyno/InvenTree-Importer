@@ -76,6 +76,7 @@ export async function setAllPause(
   pool: Pool,
   config: Scope,
   paused: boolean,
+  limit = MAX_PAUSE_BATCHES,
 ): Promise<AgentPauseAllDto> {
   return transaction(pool, async (client) => {
     const rows = await executeDatabaseQuery(
@@ -84,22 +85,26 @@ export async function setAllPause(
         .from(captureBatches)
         .where(and(inScope(config), eq(captureBatches.archived, false)))
         .orderBy(asc(captureBatches.id))
-        .limit(MAX_PAUSE_BATCHES)
+        .limit(limit + 1)
         .for('update'),
     )
+    // Pausing only some of them would report a pause that missed running batches.
+    if (rows.length > limit) {
+      fail('pause_scope_too_large', 409)
+    }
     await apply(client, config, rows, paused)
     return { paused, batch_ids: rows.map((row) => row.id) }
   })
 }
 
-/** The account's paused batches. */
+/** The account's paused live batches; an archived batch runs nothing either way. */
 export async function pausedBatchIds(client: PoolClient, config: Scope) {
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ id: agentBatchPauses.batchId })
       .from(agentBatchPauses)
       .innerJoin(captureBatches, eq(captureBatches.id, agentBatchPauses.batchId))
-      .where(inScope(config))
+      .where(and(inScope(config), eq(captureBatches.archived, false)))
       .orderBy(asc(agentBatchPauses.batchId))
       .limit(MAX_PAUSE_BATCHES),
   )

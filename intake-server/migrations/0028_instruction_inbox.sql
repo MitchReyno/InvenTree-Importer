@@ -18,6 +18,24 @@ ALTER TABLE agent_session_inbox
   ADD CONSTRAINT agent_session_inbox_actor_check
     CHECK ((kind IN ('answer','chat')) = (actor_id IS NOT NULL));
 
+-- An instruction may hold 8,192 four-byte characters, more than another item's 32 KiB allows.
+DO $$
+DECLARE name text;
+BEGIN
+  FOR name IN
+    SELECT conname FROM pg_constraint
+     WHERE conrelid = 'agent_session_inbox'::regclass AND contype = 'c'
+       AND pg_get_constraintdef(oid) LIKE '%octet_length%'
+  LOOP
+    EXECUTE format('ALTER TABLE agent_session_inbox DROP CONSTRAINT %I', name);
+  END LOOP;
+END;
+$$;
+ALTER TABLE agent_session_inbox
+  ADD CONSTRAINT agent_session_inbox_payload_check
+    CHECK (jsonb_typeof(payload)='object' AND octet_length(payload::text)
+      <= CASE WHEN kind='instruction' THEN 65536 ELSE 32768 END);
+
 -- Any role that starts a session relays the saved instructions, so each must match a saved one.
 CREATE FUNCTION require_session_instruction_binding() RETURNS trigger LANGUAGE plpgsql
   SECURITY DEFINER SET search_path=pg_catalog AS $$

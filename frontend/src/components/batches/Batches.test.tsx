@@ -66,6 +66,8 @@ test('rows and the Continue card say what stage the batch is at, its evidence an
   const row = screen.getAllByRole('link', { name: 'Bench bag' }).at(-1)!
   expect(row).toHaveAccessibleDescription(/Sorting into lots · 5 found so far/)
   expect(row).toHaveTextContent('4 photos · 1 document')
+  // A batch shown only as a row warns of possible duplicates too.
+  expect(row).toHaveAccessibleDescription(/1 possible duplicate/)
 })
 
 test('shows retained thumbnail/counts and submits server search once rather than on every key', async () => {

@@ -322,7 +322,9 @@ test('Pause all agents pauses every batch, each batch pauses on its own, and pau
   const paused = await screen.findByRole('region', { name: 'Mouser order' })
   await within(paused).findByRole('button', { name: 'Resume' })
   expect(within(paused).getAllByText('Paused').length).toBeGreaterThan(0)
+  // With one batch paused and another running, both global actions stay on offer.
   expect(within(summary).getByRole('button', { name: 'Resume all agents' })).toBeVisible()
+  expect(within(summary).getByRole('button', { name: 'Pause all agents' })).toBeVisible()
   // A finished session is not paused, whatever its batch.
   expect(within(paused).getAllByText('Finished').length).toBeGreaterThan(0)
 })

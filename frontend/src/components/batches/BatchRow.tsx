@@ -11,6 +11,7 @@ import { AddedBar, BatchState, evidenceLine, stageLine, type InboxBatch } from '
 export function BatchRow({ batch }: { batch: InboxBatch }) {
   const stage = batch.workflow ? stageLine(batch.workflow) : null
   const files = batch.workflow ? evidenceLine(batch.workflow) : null
+  const duplicates = batch.workflow?.possible_duplicates ?? 0
   return (
     <Link
       href={batchHref(batch.id, { tab: 'capture' })}
@@ -33,6 +34,11 @@ export function BatchRow({ batch }: { batch: InboxBatch }) {
       <RowState id={`${batch.id}-state`}>
         <BatchState workflow={batch.workflow} />
         {files && <Meta>{files}</Meta>}
+        {duplicates > 0 && (
+          <Meta>
+            {duplicates} {duplicates === 1 ? 'possible duplicate' : 'possible duplicates'}
+          </Meta>
+        )}
         <AddedBar workflow={batch.workflow} />
       </RowState>
     </Link>

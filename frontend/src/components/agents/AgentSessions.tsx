@@ -201,15 +201,27 @@ export function AgentSessions({ client, batches }: Props) {
             </Block>
             <Push>
               {client.pauseAll ? (
-                <PauseButton
-                  paused={pausedBatches.size > 0}
-                  change={async (paused) => {
-                    await client.pauseAll!(paused)
-                    await reread()
-                  }}
-                  pauseLabel="Pause all agents"
-                  resumeLabel="Resume all agents"
-                />
+                <>
+                  {/* Some batches can be paused while others run, so both stay on offer. */}
+                  <PauseButton
+                    paused={false}
+                    change={async (paused) => {
+                      await client.pauseAll!(paused)
+                      await reread()
+                    }}
+                    pauseLabel="Pause all agents"
+                  />
+                  {pausedBatches.size > 0 && (
+                    <PauseButton
+                      paused
+                      change={async (paused) => {
+                        await client.pauseAll!(paused)
+                        await reread()
+                      }}
+                      resumeLabel="Resume all agents"
+                    />
+                  )}
+                </>
               ) : (
                 <Button size="sm" disabledReason="Pausing is not available for this setup.">
                   Pause all agents

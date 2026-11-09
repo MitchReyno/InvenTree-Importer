@@ -1086,3 +1086,44 @@ test('a saved batch instruction reaches the running session and wakes the finish
     )
   })
 })
+
+test('the longest instruction, in four-byte characters, still reaches a session', async () => {
+  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    const text = '🔧'.repeat(8192)
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1),$2,$3)`,
+      [capture.batch.id, text, fixture.identity.actor],
+    )
+    assert.deepEqual(
+      await deliverInstructions(fixture.api.pool, fixture.config, capture.batch.id),
+      { sessions: 2, woken: 0 },
+    )
+    const stored = await fixture.db.pool.query<{ text: string }>(
+      "SELECT payload->>'text' AS text FROM agent_session_inbox WHERE kind='instruction'",
+    )
+    assert.ok(stored.rows.length === 2 && stored.rows.every((row) => row.text === text))
+  })
+})
+
+test('Pause all refuses rather than pausing only some batches, and an archived batch is not listed', async () => {
+  const { setAllPause, setBatchPause } = await import('../../src/agents/pause.ts')
+  const { listAgentSessions } = await import('../../src/agents/sessions.ts')
+  await withSessions(async ({ fixture }) => {
+    const other = await fixture.seedCapture()
+    await assert.rejects(setAllPause(fixture.api.pool, fixture.config, true, 1), {
+      code: 'pause_scope_too_large',
+    })
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids,
+      [],
+    )
+    await setBatchPause(fixture.api.pool, fixture.config, other.batch.id, true)
+    await other.edit({ kind: 'batch', archived: true })
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids,
+      [],
+    )
+  })
+})
