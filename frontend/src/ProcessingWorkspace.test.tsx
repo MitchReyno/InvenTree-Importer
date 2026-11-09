@@ -8,6 +8,7 @@ import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
 import { serverQueryKey, type ServerScope } from './queries/scope'
 import type { ProcessingClient } from './processing/types'
+import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -746,25 +747,34 @@ test('the batch is shown paused from its own read, whatever the account-wide lis
   }
   render(
     <ServerStateProvider scope={scope} client={createServerQueryClient()}>
-      <ProcessingWorkspace
-        batch={batch}
-        client={client as ProcessingClient}
-        view="overview"
-        navigate={vi.fn()}
-        onDirtyChange={vi.fn()}
-        onSaved={vi.fn().mockResolvedValue(undefined)}
-        agents={{
-          sessions: vi.fn(async () => ({
-            sessions: [],
-            paused_batch_ids: [],
-            paused_truncated: true as const,
-            next_before: null,
-            sessions_supported: true,
-          })),
-          settings: vi.fn(async () => ({ revision: '1', selection: null, session_concurrency: 1 })),
-          pause: vi.fn(async () => undefined),
+      <ApiClientsProvider
+        value={{
+          agents: {
+            sessions: vi.fn(async () => ({
+              sessions: [],
+              paused_batch_ids: [],
+              paused_truncated: true as const,
+              next_before: null,
+              sessions_supported: true,
+            })),
+            settings: vi.fn(async () => ({
+              revision: '1',
+              selection: null,
+              session_concurrency: 1,
+            })),
+            pause: vi.fn(async () => undefined),
+          },
         }}
-      />
+      >
+        <ProcessingWorkspace
+          batch={batch}
+          client={client as ProcessingClient}
+          view="overview"
+          navigate={vi.fn()}
+          onDirtyChange={vi.fn()}
+          onSaved={vi.fn().mockResolvedValue(undefined)}
+        />
+      </ApiClientsProvider>
     </ServerStateProvider>,
   )
   expect(await screen.findByRole('button', { name: 'Resume' })).toBeVisible()

@@ -13,6 +13,7 @@ import { render } from '#/test/render'
 import { RecordsStage } from './RecordsStage'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 const context = '0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03'
 
@@ -861,14 +862,15 @@ describe('RecordsStage', () => {
       chat,
     } as unknown as ProcessingClient
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => records) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        processing={processing}
-      />,
+      <ApiClientsProvider value={{ processing }}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => records) }}
+          edit={vi.fn(async () => true)}
+          observe={vi.fn(async () => null)}
+          onDirtyChange={vi.fn()}
+        />
+      </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
@@ -1035,14 +1037,15 @@ describe('RecordsStage', () => {
       chat: vi.fn(async () => ({ id: 'inbox' })),
     } as unknown as ProcessingClient
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => disputed) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={onDirtyChange}
-        processing={processing}
-      />,
+      <ApiClientsProvider value={{ processing }}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => disputed) }}
+          edit={vi.fn(async () => true)}
+          observe={vi.fn(async () => null)}
+          onDirtyChange={onDirtyChange}
+        />
+      </ApiClientsProvider>,
     )
     await user.click(await screen.findByRole('button', { name: /^Parameters/ }))
     const conflict = screen.getByRole('group', { name: /Composition: sources disagree/ })
@@ -1086,14 +1089,15 @@ describe('RecordsStage', () => {
       chat: vi.fn(async () => ({ id: 'inbox' })),
     } as unknown as ProcessingClient
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => reuse) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        processing={processing}
-      />,
+      <ApiClientsProvider value={{ processing }}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => reuse) }}
+          edit={vi.fn(async () => true)}
+          observe={vi.fn(async () => null)}
+          onDirtyChange={vi.fn()}
+        />
+      </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
@@ -1121,14 +1125,15 @@ describe('RecordsStage', () => {
       chat: vi.fn(async () => ({ id: 'inbox' })),
     } as unknown as ProcessingClient
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => records) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={onDirtyChange}
-        processing={processing}
-      />,
+      <ApiClientsProvider value={{ processing }}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => records) }}
+          edit={vi.fn(async () => true)}
+          observe={vi.fn(async () => null)}
+          onDirtyChange={onDirtyChange}
+        />
+      </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
@@ -1167,9 +1172,8 @@ describe('RecordsStage', () => {
       edit: vi.fn(async () => true),
       observe: vi.fn(async () => null),
       onDirtyChange: vi.fn(),
-      processing,
     }
-    const view = render(<RecordsStage {...props} discarded={0} />)
+    const view = render(<RecordsStage {...props} discarded={0} />, { clients: { processing } })
     await open(user, /^Parts/, 'Carbon film resistor')
 
     const category = () => within(screen.getByRole('row', { name: 'Category as saved' }))
@@ -1197,14 +1201,15 @@ describe('RecordsStage', () => {
       chat: vi.fn(),
     } as unknown as ProcessingClient
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => records) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        processing={processing}
-      />,
+      <ApiClientsProvider value={{ processing }}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => records) }}
+          edit={vi.fn(async () => true)}
+          observe={vi.fn(async () => null)}
+          onDirtyChange={vi.fn()}
+        />
+      </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
     await waitFor(() => expect(processing.read).toHaveBeenCalled())

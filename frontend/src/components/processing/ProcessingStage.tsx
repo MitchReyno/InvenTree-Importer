@@ -1,15 +1,13 @@
 import { useEffect } from 'react'
 import type { BatchAttentionDto, CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { MediaClient } from '#/media/types'
 import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
-import type { AgentsRead, ProcessingClient } from '#/processing/types'
+import type { ProcessingClient } from '#/processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
 import type { SharperRequestStore } from './ExamineView'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
 
 interface Props {
   batch: CaptureSnapshotDto
-  media?: MediaClient
   client: ProcessingClient
   step: ProcessingStep
   questionId?: string
@@ -22,7 +20,6 @@ interface Props {
   /** Retired lots keep their job history but cannot start new attempts. */
   retiredLotIds?: ReadonlySet<string>
   attention?: BatchAttentionDto
-  agents?: AgentsRead
   unusedFiles?: number
   instructions?: {
     text: string | undefined
@@ -38,7 +35,6 @@ interface Props {
 export function ProcessingStage({
   batch,
   client,
-  media,
   step,
   questionId,
   sessionId,
@@ -48,7 +44,6 @@ export function ProcessingStage({
   onDirtyChange,
   retiredLotIds,
   attention,
-  agents,
   unusedFiles,
   instructions,
 }: Props) {
@@ -62,7 +57,6 @@ export function ProcessingStage({
     <ProcessingWorkspace
       batch={batch}
       client={client}
-      media={media}
       view={step}
       questionId={questionId}
       sessionId={sessionId}
@@ -73,7 +67,6 @@ export function ProcessingStage({
       edit={edit}
       retiredLotIds={retiredLotIds}
       attention={attention}
-      agents={agents}
       unusedFiles={unusedFiles}
       instructions={instructions}
     />

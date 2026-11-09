@@ -7,7 +7,6 @@ import { Paragraph, Small, Banner, Toast, Button } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import type { CaptureWorkspaceProps } from '#/capture/types'
 import type { MediaClient } from '#/media/types'
-import type { OperatorReviewClient } from '#/operator/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
@@ -24,7 +23,6 @@ interface Props {
   onDirtyChange: (dirty: boolean) => void
   onWriteNote?: () => void
   noteDisabled?: boolean
-  operator?: OperatorReviewClient
   review?: OperatorReviewDto
   reload?: () => Promise<void>
   captureEdit?: CaptureWorkspaceProps['edit']
@@ -46,7 +44,6 @@ export function MediaWorkspace({
   onDirtyChange,
   onWriteNote,
   noteDisabled = disabled,
-  operator,
   review,
   reload,
   captureEdit,
@@ -316,7 +313,6 @@ export function MediaWorkspace({
                     drafts.forSource('crop')(true)
                     setCrop({ version, page, revision: snapshot.revision })
                   }}
-                  operator={operator}
                   review={review}
                   reload={reload}
                 />

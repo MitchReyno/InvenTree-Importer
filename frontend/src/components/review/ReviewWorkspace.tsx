@@ -35,7 +35,6 @@ import {
   type ReviewLocation,
   type ReviewView,
 } from '#/operator/review-model'
-import type { OperatorReviewClient } from '#/operator/types'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { retainEvidenceQuery } from '#/operator/evidence-location'
 import { useReviewKeyboard } from '#/operator/useReviewKeyboard'
@@ -44,15 +43,14 @@ import { LotEvidence } from '#/components/operator/LotEvidence'
 import { DecisionPanel } from '#/components/operator/DecisionPanel'
 import { TableWorkspace } from '#/components/operator/TableWorkspace'
 import type { CaptureWorkspaceProps } from '#/capture/types'
-import type { MediaClient } from '#/media/types'
 import { UnassignedObservations } from '#/components/operator/UnassignedObservations'
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
+import { useApiClients } from '#/clients/api-clients'
 
 interface Props {
   batch: CaptureSnapshotDto
   workspace: ManualWorkspaceDto
   operatorReview?: OperatorReviewDto
-  operator?: OperatorReviewClient
   media?: MediaSnapshotDto
   mediaUnavailable?: boolean
   mediaLoading?: boolean
@@ -74,7 +72,6 @@ interface Props {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
   observe?: CaptureWorkspaceProps['observe']
-  mediaClient?: MediaClient
   onDirtyChange?: (dirty: boolean) => void
 }
 
@@ -173,7 +170,6 @@ export function ReviewWorkspace({
   batch,
   workspace,
   operatorReview: observedOperatorReview,
-  operator,
   media,
   mediaUnavailable,
   mediaLoading,
@@ -192,9 +188,9 @@ export function ReviewWorkspace({
   edit,
   reload,
   observe,
-  mediaClient,
   onDirtyChange,
 }: Props) {
+  const { operator } = useApiClients()
   const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined,
   )
@@ -401,7 +397,6 @@ export function ReviewWorkspace({
           dirty={drafts.dirty}
           edit={edit}
           observe={observe}
-          media={mediaClient}
           onDirtyChange={drafts.forSource('subject')}
           onAttachmentDirtyChange={drafts.forSource('attachment')}
           reload={reload}
@@ -550,7 +545,6 @@ export function ReviewWorkspace({
                 operatorLot={operatorLot}
                 media={mediaUnavailable ? undefined : media}
                 activeLotIds={activeLotIds}
-                operator={operator}
                 disabled={
                   busy ||
                   stale ||

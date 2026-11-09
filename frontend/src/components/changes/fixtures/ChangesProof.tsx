@@ -13,6 +13,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { Batch } from '#/components/batches/Batch'
 import { Main } from '#/components/AppLayout'
 import { useHashRoute } from '#/navigation/useHashRoute'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 /**
  * Owned browser fixture for Changes: an in-memory manual client prepares exactly the ticked lots,
@@ -534,14 +535,15 @@ export function ChangesProof() {
         status={<HeaderStatus client={header as never} batchId={batchId} />}
       />
       <Main>
-        <Batch
-          id={batchId}
-          route={route}
-          client={captureClient as never}
-          manual={manualClient as never}
-          attention={{ read: attention }}
-          onDirtyChange={() => {}}
-        />
+        <ApiClientsProvider value={{ attention: { read: attention } }}>
+          <Batch
+            id={batchId}
+            route={route}
+            client={captureClient as never}
+            manual={manualClient as never}
+            onDirtyChange={() => {}}
+          />
+        </ApiClientsProvider>
       </Main>
     </ServerStateProvider>
   )

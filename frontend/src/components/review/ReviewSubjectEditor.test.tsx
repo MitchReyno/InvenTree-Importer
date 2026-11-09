@@ -7,6 +7,7 @@ import type { MediaClient } from '#/media/types'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { render } from '#/test/render'
 import { ReviewSubjectEditor } from './ReviewSubjectEditor'
+import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
 
 const lotId = '30000000-0000-4000-8000-000000000003'
 const evidenceId = '60000000-0000-4000-8000-000000000006'
@@ -71,21 +72,22 @@ function Harness({ client, reload }: { client: MediaClient; reload: () => Promis
   const [open, setOpen] = useState(true)
   const drafts = useDirtySources()
   return open ? (
-    <ReviewSubjectEditor
-      batch={batch}
-      subjectId={lotId}
-      subjectDisabled={drafts.hasOtherSources('subject')}
-      attachmentDisabled={drafts.hasOtherSources('attachment')}
-      dirty={drafts.dirty}
-      edit={vi.fn(async () => true)}
-      observe={vi.fn(async () => null)}
-      media={client}
-      onDirtyChange={drafts.forSource('subject')}
-      onAttachmentDirtyChange={drafts.forSource('attachment')}
-      reload={reload}
-      onClose={() => setOpen(false)}
-      retainRoute={vi.fn()}
-    />
+    <ApiClientsProvider value={{ media: client }}>
+      <ReviewSubjectEditor
+        batch={batch}
+        subjectId={lotId}
+        subjectDisabled={drafts.hasOtherSources('subject')}
+        attachmentDisabled={drafts.hasOtherSources('attachment')}
+        dirty={drafts.dirty}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={drafts.forSource('subject')}
+        onAttachmentDirtyChange={drafts.forSource('attachment')}
+        reload={reload}
+        onClose={() => setOpen(false)}
+        retainRoute={vi.fn()}
+      />
+    </ApiClientsProvider>
   ) : (
     <p>Editor closed</p>
   )

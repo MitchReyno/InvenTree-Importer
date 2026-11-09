@@ -34,6 +34,8 @@ import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
+import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import type { ApiClients } from './clients/api-clients'
 
 export default function App() {
   const { route, navigationBlocked, onDirtyChange } = useNavigationGuard()
@@ -119,6 +121,18 @@ export default function App() {
     () => (bootstrap?.csrf_token ? headerClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap?.csrf_token],
   )
+  const apiClients = useMemo<ApiClients>(
+    () => ({
+      agents: agents ?? undefined,
+      attention,
+      catalogue,
+      media,
+      operator,
+      processing,
+      records,
+    }),
+    [agents, attention, catalogue, media, operator, processing, records],
+  )
   const currentBatch =
     route === 'agents' || route === 'settings' ? undefined : route?.split('/')[0] || undefined
   let content: ReactNode
@@ -171,13 +185,6 @@ export default function App() {
         id={route.split('/')[0]}
         client={client}
         manual={manual}
-        processing={processing}
-        media={media}
-        operator={operator}
-        catalogue={catalogue}
-        attention={attention}
-        records={records}
-        agents={agents ?? undefined}
         route={route}
         onDirtyChange={onDirtyChange}
       />
@@ -191,58 +198,60 @@ export default function App() {
       <GlobalStyle />
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
         <ConfirmationProvider>
-          <LiveUpdates
-            csrfToken={bootstrap?.csrf_token ?? null}
-            batchId={currentBatch ?? null}
-            showStatus={false}
-            refreshBootstrap={refreshBootstrap}
-          >
-            <AppMasthead
-              route={route}
-              readBatch={client?.read}
-              status={
-                header && scope ? (
-                  <HeaderStatus
-                    client={header}
-                    batchId={currentBatch}
-                    bootstrapUnavailable={bootstrapUnavailable}
-                  />
-                ) : (
-                  <SetupStatus>
-                    {bootstrap ? 'Local setup required' : 'Connecting to application…'}
-                  </SetupStatus>
-                )
-              }
-            />
-            <Main>
-              {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
-                <PageContent $width={width}>
-                  {bootstrapUnavailable && bootstrap && (
-                    <div role="alert">
-                      <Banner tone="warn">
-                        Application connection unavailable. Showing the last development context;
-                        retained views report their own freshness. Unsaved input is preserved.
-                      </Banner>
-                    </div>
-                  )}
-                  {navigationBlocked && (
-                    <div role="alert">
-                      <Banner tone="warn">
-                        Your unsaved input is preserved. Save this form or discard its unsaved input
-                        before navigating, then choose the destination again.
-                      </Banner>
-                    </div>
-                  )}
-                </PageContent>
-              )}
-              {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-              {manual && (
-                <PageContent $width={width}>
-                  <Diagnostics />
-                </PageContent>
-              )}
-            </Main>
-          </LiveUpdates>
+          <ApiClientsProvider value={apiClients}>
+            <LiveUpdates
+              csrfToken={bootstrap?.csrf_token ?? null}
+              batchId={currentBatch ?? null}
+              showStatus={false}
+              refreshBootstrap={refreshBootstrap}
+            >
+              <AppMasthead
+                route={route}
+                readBatch={client?.read}
+                status={
+                  header && scope ? (
+                    <HeaderStatus
+                      client={header}
+                      batchId={currentBatch}
+                      bootstrapUnavailable={bootstrapUnavailable}
+                    />
+                  ) : (
+                    <SetupStatus>
+                      {bootstrap ? 'Local setup required' : 'Connecting to application…'}
+                    </SetupStatus>
+                  )
+                }
+              />
+              <Main>
+                {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
+                  <PageContent $width={width}>
+                    {bootstrapUnavailable && bootstrap && (
+                      <div role="alert">
+                        <Banner tone="warn">
+                          Application connection unavailable. Showing the last development context;
+                          retained views report their own freshness. Unsaved input is preserved.
+                        </Banner>
+                      </div>
+                    )}
+                    {navigationBlocked && (
+                      <div role="alert">
+                        <Banner tone="warn">
+                          Your unsaved input is preserved. Save this form or discard its unsaved
+                          input before navigating, then choose the destination again.
+                        </Banner>
+                      </div>
+                    )}
+                  </PageContent>
+                )}
+                {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+                {manual && (
+                  <PageContent $width={width}>
+                    <Diagnostics />
+                  </PageContent>
+                )}
+              </Main>
+            </LiveUpdates>
+          </ApiClientsProvider>
         </ConfirmationProvider>
       </ServerStateProvider>
     </>

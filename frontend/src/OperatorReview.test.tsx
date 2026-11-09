@@ -22,6 +22,7 @@ import type { Client } from './capture/client'
 import { ManualWorkspace } from './components/review/ManualWorkspace'
 import type { ManualClient } from './manual/types'
 import type { OperatorReviewClient } from './operator/types'
+import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -264,18 +265,18 @@ function renderReview(
   const edit = vi.fn(overrides.edit ?? (async () => undefined))
   const onDirtyChange = vi.fn()
   const view = render(
-    <ManualWorkspace
-      batch={overrides.batch ?? batch}
-      client={manual}
-      stage="review"
-      edit={edit}
-      navigate={vi.fn()}
-      reload={reload}
-      operatorReview={overrides.review ?? operatorReview}
-      operator={operator}
-      processing={overrides.processing}
-      onDirtyChange={onDirtyChange}
-    />,
+    <ApiClientsProvider value={{ operator, processing: overrides.processing }}>
+      <ManualWorkspace
+        batch={overrides.batch ?? batch}
+        client={manual}
+        stage="review"
+        edit={edit}
+        navigate={vi.fn()}
+        reload={reload}
+        operatorReview={overrides.review ?? operatorReview}
+        onDirtyChange={onDirtyChange}
+      />
+    </ApiClientsProvider>,
   )
   return { manual, operator, reload, edit, onDirtyChange, unmount: view.unmount }
 }
@@ -670,16 +671,17 @@ test.each(['bulk', 'dismissal'] as const)(
     const reload = vi.fn(async () => undefined)
 
     const element = (projection: OperatorReviewDto | undefined) => (
-      <ManualWorkspace
-        batch={batch}
-        client={manual}
-        stage="review"
-        edit={vi.fn()}
-        navigate={vi.fn()}
-        reload={reload}
-        operatorReview={projection}
-        operator={operator}
-      />
+      <ApiClientsProvider value={{ operator }}>
+        <ManualWorkspace
+          batch={batch}
+          client={manual}
+          stage="review"
+          edit={vi.fn()}
+          navigate={vi.fn()}
+          reload={reload}
+          operatorReview={projection}
+        />
+      </ApiClientsProvider>
     )
 
     const view = render(element(operatorReview))
@@ -789,14 +791,15 @@ test('an actual Batch revision conflict retains the compared shared Part choice'
     }),
   } as unknown as Client
   render(
-    <Batch
-      id={batchId}
-      route={`${batchId}/review/lots/${a}`}
-      client={client}
-      manual={manualClient()}
-      operator={operatorClient()}
-      onDirtyChange={vi.fn()}
-    />,
+    <ApiClientsProvider value={{ operator: operatorClient() }}>
+      <Batch
+        id={batchId}
+        route={`${batchId}/review/lots/${a}`}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
   )
   await user.click(await screen.findByRole('button', { name: 'Compare matches' }))
   await user.click(screen.getByRole('radio', { name: /^#31/ }))
@@ -820,16 +823,17 @@ test.each(['quick', 'bulk'] as const)(
     const edit = vi.fn()
 
     const element = (projection: OperatorReviewDto | undefined) => (
-      <ManualWorkspace
-        batch={batch}
-        client={manual}
-        stage="review"
-        edit={edit}
-        navigate={vi.fn()}
-        reload={vi.fn()}
-        operatorReview={projection}
-        operator={operator}
-      />
+      <ApiClientsProvider value={{ operator }}>
+        <ManualWorkspace
+          batch={batch}
+          client={manual}
+          stage="review"
+          edit={edit}
+          navigate={vi.fn()}
+          reload={vi.fn()}
+          operatorReview={projection}
+        />
+      </ApiClientsProvider>
     )
 
     const view = render(element(operatorReview))
@@ -861,16 +865,17 @@ test('keyboard review cannot bypass an unavailable current operator projection',
   const operator = operatorClient()
 
   const element = (projection: OperatorReviewDto | undefined) => (
-    <ManualWorkspace
-      batch={batch}
-      client={manual}
-      stage="review"
-      edit={vi.fn()}
-      navigate={vi.fn()}
-      reload={vi.fn()}
-      operatorReview={projection}
-      operator={operator}
-    />
+    <ApiClientsProvider value={{ operator }}>
+      <ManualWorkspace
+        batch={batch}
+        client={manual}
+        stage="review"
+        edit={vi.fn()}
+        navigate={vi.fn()}
+        reload={vi.fn()}
+        operatorReview={projection}
+      />
+    </ApiClientsProvider>
   )
 
   const view = render(element(operatorReview))
@@ -897,14 +902,15 @@ test('Batch keeps an autosaved instruction draft after a foreign revision and re
   }
 
   render(
-    <Batch
-      id={batchId}
-      route={batchId}
-      client={client}
-      manual={manualClient()}
-      operator={operator}
-      onDirtyChange={vi.fn()}
-    />,
+    <ApiClientsProvider value={{ operator }}>
+      <Batch
+        id={batchId}
+        route={batchId}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
     { wrapper: Wrapper },
   )
   const input = await screen.findByLabelText('Custom instructions')
@@ -945,14 +951,15 @@ test('a polled operator projection at a newer revision keeps the instruction dra
   }
 
   render(
-    <Batch
-      id={batchId}
-      route={batchId}
-      client={client}
-      manual={manualClient()}
-      operator={operator}
-      onDirtyChange={vi.fn()}
-    />,
+    <ApiClientsProvider value={{ operator }}>
+      <Batch
+        id={batchId}
+        route={batchId}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
     { wrapper: Wrapper },
   )
   const input = await screen.findByLabelText('Custom instructions')
@@ -991,14 +998,15 @@ test('a lot the lead session forms waits behind a dirty Review draft, then appea
   }
 
   render(
-    <Batch
-      id={batchId}
-      route={`${batchId}/review/lots/${a}`}
-      client={client}
-      manual={manual}
-      operator={operator}
-      onDirtyChange={vi.fn()}
-    />,
+    <ApiClientsProvider value={{ operator }}>
+      <Batch
+        id={batchId}
+        route={`${batchId}/review/lots/${a}`}
+        client={client}
+        manual={manual}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
     { wrapper: Wrapper },
   )
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
@@ -1593,24 +1601,29 @@ test('a failed delivery of saved instructions keeps its retry after the save rel
   }
 
   render(
-    <Batch
-      id={batchId}
-      route={`${batchId}/processing/overview`}
-      client={client}
-      manual={manualClient()}
-      processing={processing}
-      operator={operator}
-      agents={{
-        sessions: vi.fn(async () => ({ sessions: [], truncated: false })) as never,
-        settings: vi.fn(async () => ({
-          revision: '1',
-          selection: null,
-          session_concurrency: 1,
-        })) as never,
-        deliverInstructions,
+    <ApiClientsProvider
+      value={{
+        operator,
+        processing,
+        agents: {
+          sessions: vi.fn(async () => ({ sessions: [], truncated: false })) as never,
+          settings: vi.fn(async () => ({
+            revision: '1',
+            selection: null,
+            session_concurrency: 1,
+          })) as never,
+          deliverInstructions,
+        },
       }}
-      onDirtyChange={vi.fn()}
-    />,
+    >
+      <Batch
+        id={batchId}
+        route={`${batchId}/processing/overview`}
+        client={client}
+        manual={manualClient()}
+        onDirtyChange={vi.fn()}
+      />
+    </ApiClientsProvider>,
     { wrapper: Wrapper },
   )
   const field = await screen.findByLabelText('Instructions for the whole batch')

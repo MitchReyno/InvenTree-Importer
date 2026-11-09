@@ -32,7 +32,6 @@ import {
   partProvenance,
   type OpenQuestion,
 } from '#/operator/review-model'
-import type { OperatorReviewClient } from '#/operator/types'
 import { QuestionAnswer } from '#/components/processing/QuestionAnswer'
 import { CompareMatches } from './CompareMatches'
 import { ProvenancePill } from './ProvenancePill'
@@ -47,6 +46,7 @@ import { AgentLine } from './AgentLine'
 import type { LotStatus } from '#/processing/source'
 import { problemActions } from '#/operator/problem-actions'
 import type { Provenance } from '#/operator/review-model'
+import { useApiClients } from '#/clients/api-clients'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -61,7 +61,6 @@ interface Props {
   media?: Pick<MediaSnapshotDto, 'evidence' | 'groups'>
   /** Active lot IDs, used for shared-Part counts and impact previews. */
   activeLotIds: string[]
-  operator?: OperatorReviewClient
   disabled: boolean
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
@@ -177,7 +176,6 @@ export function DecisionPanel({
   operatorLot,
   media,
   activeLotIds,
-  operator,
   disabled,
   edit,
   reload,
@@ -192,6 +190,7 @@ export function DecisionPanel({
   onDirtyChange,
   agent = null,
 }: Props) {
+  const { operator } = useApiClients()
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
   const [editing, setEditing] = useState(false)
