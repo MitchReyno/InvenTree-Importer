@@ -47,8 +47,8 @@ Sources:
 - **Branches:** `feat/redesign-batch-workspace-<bundle>`, plus this planning branch `docs/redesign-batch-workspace-plan`.
 - **Subjects:** `type(redesign-batch-workspace): …`.
 - **Linked items:**
-  - [BI-008](../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign) (this change).
-  - It depends on [BI-006 agent-led intake](../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake) (`simplify-intake-entry`) for the agent-backed parts.
+  - [BI-008](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign) (this change).
+  - It depends on [BI-006 agent-led intake](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake) (`simplify-intake-entry`) for the agent-backed parts.
 
 ## Current behavior and evidence
 
