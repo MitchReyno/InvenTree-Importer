@@ -623,7 +623,7 @@ function inventorySnapshot(captureRevision = '8', answeredIds: string[] = []) {
   return value
 }
 
-function mountInventoryDrawer(read: ProcessingSnapshotDto) {
+function mountInventoryDrawer(read: ProcessingSnapshotDto, pinnedQuestionId?: string) {
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(read),
@@ -648,6 +648,7 @@ function mountInventoryDrawer(read: ProcessingSnapshotDto) {
         client={client}
         view="inventory"
         sessionId={jobId}
+        questionId={pinnedQuestionId}
         navigate={vi.fn()}
         onDirtyChange={dirty}
         onSaved={vi.fn().mockResolvedValue(undefined)}
@@ -772,6 +773,123 @@ test('answering one drawer question leaves the other answerable, and focus moves
   expect(client.answer).toHaveBeenLastCalledWith(
     batchId,
     secondQuestionId,
+    expect.objectContaining({ expected_capture_revision: '9' }),
+    expect.any(String),
+  )
+})
+
+test('a drawer draft survives its question being answered elsewhere', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  const form = screen.getByRole('form', {
+    name: 'Session question: Is Packet A already in InvenTree?',
+  })
+  await waitFor(() =>
+    expect(form).toHaveTextContent('This question is superseded or its saved context changed'),
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(within(drawer).getByRole('button', { name: 'Close' }))
+  expect(within(drawer).getByRole('alert')).toHaveTextContent('Save or discard your answer')
+
+  // Discarding the draft lets the answered question's form go.
+  await user.click(within(form).getByRole('button', { name: 'Discard unsaved answer' }))
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('form', { name: 'Session question: Is Packet A already in InvenTree?' }),
+    ).toBeNull(),
+  )
+})
+
+test('a drawer draft survives its session leaving the read', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  const gone = inventorySnapshot('9')
+  delete gone.jobs[0].session_state
+  client.read.mockResolvedValue(gone)
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  // The session row leaves the step page once the read without the session is shown.
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+    ).not.toBeInTheDocument(),
+  )
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('other drawer forms are read-only while an answer saves', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('form', { name: /^Session question: Is Packet A already/ })
+
+  let finish: () => void = () => undefined
+
+  client.answer.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = () =>
+        resolve({
+          answer_id: 'c0000000-0000-4000-8000-000000000003',
+          question_id: questionId,
+          attempt_id: attemptId,
+          capture_revision: '9',
+          command_id: 'd0000000-0000-4000-8000-000000000004',
+        })
+    }),
+  )
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  await user.click(
+    within(
+      screen.getByRole('form', { name: 'Session question: Is Packet A already in InvenTree?' }),
+    ).getByRole('button', { name: 'Send answer to the session' }),
+  )
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toBeDisabled())
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await act(async () => {
+    finish()
+  })
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toBeEnabled())
+})
+
+test('the page’s clean pinned answer follows a revision a drawer answer moved', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot(), questionId)
+  await screen.findByRole('form', { name: 'Pinned application question' })
+  const second = 'Is Packet A the reel in drawer 2?'
+  await screen.findByRole('form', { name: `Session question: ${second}` })
+  await user.type(answerBox(second), 'No')
+  client.read.mockResolvedValue(inventorySnapshot('9', [secondQuestionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${second}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${second}` })).toBeNull(),
+  )
+
+  const pinned = screen.getByRole('form', { name: 'Pinned application question' })
+  expect(pinned).not.toHaveTextContent('superseded')
+  await user.type(within(pinned).getByRole('textbox', { name: 'Clarification' }), 'Same tube')
+  await user.click(within(pinned).getByRole('button', { name: 'Send answer to the session' }))
+  expect(client.answer).toHaveBeenLastCalledWith(
+    batchId,
+    questionId,
     expect.objectContaining({ expected_capture_revision: '9' }),
     expect.any(String),
   )

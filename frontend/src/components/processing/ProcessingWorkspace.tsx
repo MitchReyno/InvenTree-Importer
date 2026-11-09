@@ -328,8 +328,8 @@ export function ProcessingWorkspace({
   async function answer(id: string, input: ProcessingAnswerDto, key: string) {
     setSaving('answer')
     try {
+      // Each answer form reports itself clean once its own save is confirmed.
       await perform(() => client.answer(batch.id, id, input, key))
-      drafts.forSource('answer')(false)
       try {
         await onSaved()
       } catch {
@@ -425,21 +425,36 @@ export function ProcessingWorkspace({
     batch.lots.filter((lot) => !retiredLotIds.has(lot.id)).map((lot) => lot.id),
   )
   const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
-  const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
-  // An Inventory session's drawer answers its questions in place (`DrawerAnswers`); other steps
-  // link to the question on its step page. A question already pinned on the page is answered there.
-  const answersInDrawer =
-    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
+  const liveSessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
 
   /** An answer form other than this source has an unsaved draft. */
   const otherAnswerDirty = (source: string) =>
     drafts.hasOtherSources('instructions', 'correction', source)
 
+  // Drawer answers are the answer sources other than the page's.
+  const unsavedInDrawer = otherAnswerDirty('answer')
+  // A drawer holding an unsaved answer stays open, on the job as last read, if its session
+  // leaves the read; its forms then show their questions as superseded and keep the draft.
+  const [lastDrawerJob, setLastDrawerJob] = useState(liveSessionJob)
+  if (liveSessionJob && liveSessionJob !== lastDrawerJob) {
+    setLastDrawerJob(liveSessionJob)
+  }
+  const sessionJob =
+    liveSessionJob ??
+    (unsavedInDrawer && lastDrawerJob?.id === sessionJobId ? lastDrawerJob : undefined)
+  // An Inventory session's drawer answers its questions in place (`DrawerAnswers`); other steps
+  // link to the question on its step page. A question already pinned on the page is answered there.
+  const answersInDrawer =
+    sessionJob !== undefined && processingStepFor(sessionJob.stage) === 'inventory'
+
   // A drawer with an unsaved answer stays open until the answer is saved or discarded.
   const [closeBlocked, setCloseBlocked] = useState(false)
 
-  const openInDrawer = (sessionJob?.questions ?? []).filter((question) => question.state === 'open')
-  const unsavedInDrawer = openInDrawer.some((question) => drafts.isDirty(`answer:${question.id}`))
+  // Only the live read's questions are open; a session that left has none.
+  const openInDrawer = (liveSessionJob?.questions ?? []).filter(
+    (question) => question.state === 'open',
+  )
+  const allQuestions = snapshot?.jobs.flatMap((job) => job.questions) ?? []
   if (closeBlocked && !unsavedInDrawer) {
     setCloseBlocked(false)
   }
@@ -773,6 +788,7 @@ export function ProcessingWorkspace({
               {answersInDrawer && (
                 <DrawerAnswers
                   questions={openInDrawer.filter((question) => question.id !== questionId)}
+                  lookup={(id) => allQuestions.find((question) => question.id === id)}
                   captureRevision={snapshot.capture_revision}
                   fresh={!waitingForRead}
                   disabled={
