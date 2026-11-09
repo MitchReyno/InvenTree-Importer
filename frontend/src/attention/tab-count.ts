@@ -1,15 +1,12 @@
 import type { BatchAttentionDto } from '@invimport/contracts'
-import type { ProcessingStep } from '#/navigation/batch-route'
+import type { BatchTab, ProcessingStep } from '#/navigation/batch-route'
 import { formatCount } from '#/components/ui'
 
 type Step = Exclude<ProcessingStep, 'overview'>
 
 /** A batch tab, or one of its sub-tabs as `<tab>/<view>`. */
 export type TabKey =
-  | 'capture'
-  | 'processing'
-  | 'review'
-  | 'changes'
+  | BatchTab
   | `processing/${ProcessingStep}`
   | 'review/lots'
   | 'review/map'

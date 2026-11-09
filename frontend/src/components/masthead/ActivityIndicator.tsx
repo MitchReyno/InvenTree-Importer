@@ -94,7 +94,7 @@ export function ActivityIndicator({
       : idle
         ? 'Idle'
         : 'Active'
-  // A held slot outranks the spinner on the phone pill, which has room for one mark.
+  // A held slot outranks the spinner on the phone pill, where its word stands in for the labels.
   const held = fresh && compact === 'Slot held'
   const showSegments = fresh && !!preferred && layout !== 'condensed'
   const stepWords = segments.map((step) => `${step.label}: ${step.state}`).join(', ')
@@ -259,7 +259,7 @@ const SpinnerSlot = styled.span`
   }
 `
 
-/** The phone bar has room for one mark only; the panel lists the steps. */
+/** The phone pill keeps only its marks and segments; the panel gives the progress and other jobs. */
 const WideOnly = styled.span`
   display: contents;
   ${media.compact} {

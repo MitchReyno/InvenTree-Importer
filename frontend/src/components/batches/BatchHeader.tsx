@@ -45,33 +45,25 @@ function plural(count: number, one: string, many: string) {
   return count === 1 ? one : many
 }
 
-function tab(key: TabKey, id: string, label: string, href: string, input: TabCountInput): TabItem {
-  return { id, label, href, count: tabCount(key, input) }
+/** A tab or sub-tab: its id is the last part of its key ("review/lots" → "lots"). */
+function tab(key: TabKey, label: string, href: string, input: TabCountInput): TabItem {
+  return { id: key.slice(key.lastIndexOf('/') + 1), label, href, count: tabCount(key, input) }
 }
 
 function primaryTabs(batchId: string, input: TabCountInput): TabItem[] {
   const running = (input.attention?.processing.running ?? 0) > 0
+  const processing = tab(
+    'processing',
+    'Processing',
+    batchHref(batchId, { tab: 'processing', step: 'overview' }),
+    input,
+  )
 
   return [
-    tab('capture', 'capture', 'Capture', batchHref(batchId, { tab: 'capture' }), input),
-    {
-      ...tab(
-        'processing',
-        'processing',
-        'Processing',
-        batchHref(batchId, { tab: 'processing', step: 'overview' }),
-        input,
-      ),
-      ...(running ? { status: 'running' as const } : {}),
-    },
-    tab('review', 'review', 'Review', batchHref(batchId, { tab: 'review', view: 'lots' }), input),
-    tab(
-      'changes',
-      'changes',
-      'Changes',
-      batchHref(batchId, { tab: 'changes', view: 'ready' }),
-      input,
-    ),
+    tab('capture', 'Capture', batchHref(batchId, { tab: 'capture' }), input),
+    running ? { ...processing, status: 'running' } : processing,
+    tab('review', 'Review', batchHref(batchId, { tab: 'review', view: 'lots' }), input),
+    tab('changes', 'Changes', batchHref(batchId, { tab: 'changes', view: 'ready' }), input),
   ]
 }
 
@@ -79,7 +71,6 @@ function processingRow(batchId: string, input: TabCountInput): TabItem[] {
   return STEPS.map(({ id, label }) => {
     const item = tab(
       `processing/${id}`,
-      id,
       label,
       batchHref(batchId, { tab: 'processing', step: id }),
       input,
@@ -90,15 +81,15 @@ function processingRow(batchId: string, input: TabCountInput): TabItem[] {
   })
 }
 
+const REVIEW_VIEWS = [
+  { view: 'lots', label: 'Lots' },
+  { view: 'map', label: 'Map' },
+  { view: 'records', label: 'Records' },
+] as const
+
 function reviewRow(batchId: string, input: TabCountInput): TabItem[] {
-  return (['lots', 'map', 'records'] as const).map((view) =>
-    tab(
-      `review/${view}`,
-      view,
-      view.charAt(0).toUpperCase() + view.slice(1),
-      batchHref(batchId, { tab: 'review', view }),
-      input,
-    ),
+  return REVIEW_VIEWS.map(({ view, label }) =>
+    tab(`review/${view}`, label, batchHref(batchId, { tab: 'review', view }), input),
   )
 }
 
@@ -106,18 +97,11 @@ function changesRow(batchId: string, input: TabCountInput): TabItem[] {
   return [
     tab(
       'changes/ready',
-      'ready',
       'Ready to add',
       batchHref(batchId, { tab: 'changes', view: 'ready' }),
       input,
     ),
-    tab(
-      'changes/added',
-      'added',
-      'Added',
-      batchHref(batchId, { tab: 'changes', view: 'added' }),
-      input,
-    ),
+    tab('changes/added', 'Added', batchHref(batchId, { tab: 'changes', view: 'added' }), input),
   ]
 }
 
