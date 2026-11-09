@@ -136,3 +136,4 @@ None for task 10.
 ### Open items
 
 - Review's supporting-evidence rule should stop counting an `unset` lot-attachment selection as evidence (see Changes to the plan).
+- 11.5 stays open: no full PostgreSQL tier run has been green. Each run had one or two child-process startup or decoder deadline failures, and every new removal test passed in every run. On a serial rerun, only `media-startup-authority.test.ts` › "actual main reopens its bound store…" failed (`manual_checkpoint_timeout`: its 5-second wait for the web process to report healthy). Run alone, it failed twice and passed once. It needs a run on a quiet machine, or a look at whether that startup is now slower.
