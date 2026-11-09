@@ -1198,3 +1198,46 @@ test('a failed attention refresh withholds the old running counts and says so', 
   expect(await screen.findByText('Needs you unavailable')).toBeInTheDocument()
   expect(screen.queryByText(/2 agents working/)).not.toBeInTheDocument()
 })
+
+test('a settings section route opens agent settings and never reads a batch called "settings"', async () => {
+  history.replaceState(null, '', '#settings/inventree')
+  const requested: string[] = []
+  const settings = {
+    revision: '7',
+    selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
+    session_concurrency: 3,
+  }
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    requested.push(path)
+    if (path.endsWith('/agent-settings')) {
+      return response(settings)
+    }
+    return headerRead(path) ?? navigationFallback(path)
+  })
+  render(<App />)
+
+  expect(await screen.findByRole('heading', { name: 'Agent settings' })).toBeVisible()
+  expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+    'Batches/Agent settings',
+  )
+  expect(requested.some((path) => path.includes('/batches/settings'))).toBe(false)
+})
+
+/** Bootstrap and empty reads for routes that open no batch. */
+function navigationFallback(path: string) {
+  if (path.endsWith('/bootstrap')) {
+    return response({
+      mode: 'development-key',
+      banner: 'Single-operator development mode — not a verified human session',
+      status: 'configured',
+      actor_id: fixture.actor_id,
+      target_id: activityRunId,
+      target_context_id: fixture.target_context_id,
+      mutation_enabled: false,
+      permission_gate: 'deferred_T11',
+      csrf_token: 'a'.repeat(64),
+    })
+  }
+  return response({ code: 'not_found', message: 'Not found', correlation_id: 'test' }, 404)
+}

@@ -99,10 +99,10 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; keyboard check of the menu at 360px and 390px.
 - **Risks and decisions:** theme access between PR-B and PR-C is handled as above.
 
-- [ ] 2.1 Confirm current masthead tests and `header-connection-status` coverage.
-- [ ] 2.2 RED: update header tests to the new layout and confirm they fail.
-- [ ] 2.3 GREEN: move Open InvenTree into the menu, add the gear, update the chip and breadcrumb, and remove the "⋯" menu (theme interim as noted).
-- [ ] 2.4 Refactor; check opener isolation and that the unavailable-link states are unchanged.
+- [x] 2.1 Confirm current masthead tests and `header-connection-status` coverage.
+- [x] 2.2 RED: update header tests to the new layout and confirm they fail.
+- [x] 2.3 GREEN: move Open InvenTree into the menu, add the gear, update the chip and breadcrumb, and remove the "⋯" menu (theme interim as noted).
+- [x] 2.4 Refactor; check opener isolation and that the unavailable-link states are unchanged.
 - [ ] 2.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 3. Batch header layout and counts

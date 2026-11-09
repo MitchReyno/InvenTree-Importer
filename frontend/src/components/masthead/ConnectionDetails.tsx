@@ -3,8 +3,9 @@ import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { color, size, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS, type UpdateHealth } from '#/components/operations/LiveUpdates'
-import { KeyValue, media } from '#/components/ui'
+import { Button, DisabledFeature, KeyValue, media } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
+import { DevBadge } from './DevBadge'
 
 interface Props {
   target?: ConnectionStatusDto['target']
@@ -22,7 +23,7 @@ function shortTime(at: string | number) {
   return new Date(at).toLocaleTimeString([], SHORT_TIME)
 }
 
-/** Host, last check and the link first; the transport and API diagnostics sit in Details. */
+/** The server menu: host, last check and the Dev badge, then its actions; diagnostics sit in Details. */
 export function ConnectionDetails({
   target,
   apiUnavailable,
@@ -90,7 +91,20 @@ export function ConnectionDetails({
       {target?.kind === 'owned_test' && (
         <Line>Approvals write only to this test InvenTree, never to a real one.</Line>
       )}
-      {inventree}
+      <DevBadge />
+      <Actions aria-label="Server">
+        {inventree}
+        <DisabledFeature explanation="Checking the connection on demand is not available yet; it is checked every 30 seconds.">
+          {(disabled) => (
+            <Button variant="ghost" size="sm" {...disabled}>
+              Check connection now
+            </Button>
+          )}
+        </DisabledFeature>
+        <Button as="a" variant="ghost" size="sm" href="#settings/inventree">
+          Server settings
+        </Button>
+      </Actions>
       <Details>
         <summary>Details</summary>
         <p>{apiStatus}</p>
@@ -129,6 +143,16 @@ const Line = styled.p`
   margin: 0;
   font-size: ${typeVar.small.size};
   color: ${color.muted};
+`
+
+const Actions = styled.nav`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: ${space[2]};
+  padding-top: ${space[4]};
+  border-top: 1px solid ${color.line};
 `
 
 const Details = styled.details`

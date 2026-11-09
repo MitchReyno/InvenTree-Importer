@@ -174,7 +174,7 @@ export function HeaderStatusProof() {
       <GlobalStyle />
       <Main>
         <Masthead
-          breadcrumb={[{ label: 'Batches', href: '#' }, { label: 'Mouser 3381-22 + bench bag' }]}
+          breadcrumb={[{ label: 'Batches', href: '#' }]}
           status={
             <UpdateHealthContext.Provider
               value={{

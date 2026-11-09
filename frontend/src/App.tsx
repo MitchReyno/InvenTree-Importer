@@ -30,6 +30,7 @@ import styled from 'styled-components'
 import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
+import { appPage, routeBatchId } from './navigation/app-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
@@ -133,8 +134,8 @@ export default function App() {
     }),
     [agents, attention, catalogue, media, operator, processing, records],
   )
-  const currentBatch =
-    route === 'agents' || route === 'settings' ? undefined : route?.split('/')[0] || undefined
+  const currentBatch = routeBatchId(route)
+  const page = appPage(route)
   let content: ReactNode
   let batchPage = false
   if (bootstrapUnavailable && !bootstrap) {
@@ -159,9 +160,9 @@ export default function App() {
         </Paragraph>
       </Panel>
     )
-  } else if (route === 'settings' && agents) {
+  } else if (page === 'settings' && agents) {
     content = <AgentSettings client={agents} onDirtyChange={onDirtyChange} />
-  } else if (route === 'agents' && agents) {
+  } else if (page === 'agents' && agents) {
     content = (
       <AgentSessions
         client={agents}
@@ -176,13 +177,13 @@ export default function App() {
         }}
       />
     )
-  } else if (route && manual) {
+  } else if (route && currentBatch && manual) {
     // A batch page draws its full-width header band, then centres its own content.
     batchPage = true
     content = (
       <Batch
-        key={route.split('/')[0]}
-        id={route.split('/')[0]}
+        key={currentBatch}
+        id={currentBatch}
         client={client}
         manual={manual}
         route={route}
@@ -207,7 +208,6 @@ export default function App() {
             >
               <AppMasthead
                 route={route}
-                readBatch={client?.read}
                 status={
                   header && scope ? (
                     <HeaderStatus

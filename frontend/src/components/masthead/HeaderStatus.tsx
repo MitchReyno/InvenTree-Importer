@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import { color, typeVar } from '#/theme/generated/tokens'
-import { media, Button } from '#/components/ui'
+import { Button, IconButton, SettingsIcon } from '#/components/ui'
 import type { HeaderClient } from '#/header/types'
 import { useHeaderObservations } from '#/header/useHeaderObservations'
 import { safeTargetNavigation } from '#/header/observations'
@@ -15,7 +15,7 @@ interface Props {
   bootstrapUnavailable?: boolean
 }
 
-/** The masthead's status group: activity, connection and Open InvenTree, one panel open at a time. */
+/** The masthead's status group: activity, the connection's server menu and Settings, one panel open at a time. */
 export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: Props) {
   const { now, connection, work } = useHeaderObservations(client, batchId)
   const health = useUpdateHealth()
@@ -61,7 +61,7 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
         open={open === 'connection'}
         onOpenChange={(value) => setOpen(value ? 'connection' : null)}
       />
-      <BarTarget>{inventreeLink}</BarTarget>
+      <IconButton href="#settings" label="Settings" icon={<SettingsIcon />} />
     </StatusRow>
   )
 }
@@ -74,12 +74,4 @@ const StatusRow = styled.div`
 const UnavailableLink = styled.span`
   font-size: ${typeVar.small.size};
   color: ${color.muted};
-`
-
-/** At phone width the bar has no room for Open InvenTree; the connection panel always offers it. */
-const BarTarget = styled.span`
-  display: contents;
-  ${media.compact} {
-    display: none;
-  }
 `

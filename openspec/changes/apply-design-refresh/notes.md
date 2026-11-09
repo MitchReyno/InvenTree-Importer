@@ -31,6 +31,21 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 - Resolved: gallery screenshots of the components fixture in light and dark at 1440 and 390 px were captured for the PR-A description.
 - Task 7 should check focus when a `SourceChip`'s Edit value opens an inline editor: `SourceChipPopover` closes the popover before running the action, and the popover's close returns focus to the chip, which may pull focus away from the editor.
 
+## Task 2: desktop masthead and server menu
+
+### Changes to the plan
+
+- **2026-11-10T02:32+11:00, task 2 (PR-B):** `AppMasthead` no longer reads the open batch at all. With "Batches" alone inside a batch (D14) it has no title to show, so the `readBatch` prop and its capture query are gone rather than narrowed to a `settings` prefix. The prefix now lives in `navigation/app-route.ts` (`appPage`, `routeBatchId`), used by `App.tsx` for its route match and `currentBatch` and by `AppMasthead` for the page name. The planned "spy on `readBatch`" case is an `App` test that opens `#settings/inventree` and checks that no `/batches/settings` request is sent.
+- **2026-11-10T02:32+11:00, task 2 (PR-B):** The server menu stays the connection pill's labelled dialog ("Connection details"), with its actions in a `nav` named "Server", rather than an ARIA `menu` as drawn on the canvas. A `menu` role would need arrow-key menu semantics for three items, while the dialog keeps the tested Escape, focus-return and viewport rules.
+
+### Decisions made during implementation
+
+- **2026-11-10T02:32+11:00, task 2:** The server menu shows the Dev mode badge whenever the masthead does. The app has no production build flag; the masthead's badge is always shown in this development-only app.
+- **2026-11-10T02:32+11:00, task 2:** Check connection now is a `DisabledFeature` button, so it shows the same dashed "Coming later" frame and explanation as other deferred controls.
+- **2026-11-10T02:32+11:00, task 2:** The activity pill's `AiMark` appears only on fresh Processing work, so it is absent from the idle pill, an unavailable or stale read and an import run, which is not agent work.
+- **2026-11-10T02:32+11:00, task 2:** Outside a batch the pill names the batch it shows from that batch's cached capture read, falling back to "Application-wide" when the batch has not been opened in this session. It still never fetches.
+- **2026-11-10T02:32+11:00, task 2:** The theme choice moved from the retired "⋯" menu into the server menu as `masthead/ThemeChoice.tsx`, below the server actions, for Task 5 to move to Settings › Appearance. The Dev badge moved into `masthead/DevBadge.tsx` so the bar and the menu share it.
+
 ## Task 10: direct upload
 
 ### Changes to the plan

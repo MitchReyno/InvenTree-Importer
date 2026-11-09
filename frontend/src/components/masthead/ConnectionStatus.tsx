@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import { color, radius } from '#/theme/generated/tokens'
+import { color, radius, space } from '#/theme/generated/tokens'
 import { targetStatus } from '#/header/observations'
 import type { UpdateHealth } from '#/components/operations/LiveUpdates'
 import { media, visuallyHidden } from '#/components/ui'
 import { ConnectionDetails } from './ConnectionDetails'
 import { HeaderDisclosure } from './HeaderDisclosure'
+import { ThemeChoice } from './ThemeChoice'
 
 interface Props {
   target?: ConnectionStatusDto['target']
@@ -20,7 +21,7 @@ interface Props {
   onOpenChange: (open: boolean) => void
 }
 
-/** The InvenTree target pill: a toned dot beside its name, never colour alone. */
+/** The InvenTree target pill, a toned dot beside its name, opening the server menu. */
 export function ConnectionStatus({
   target,
   unavailable,
@@ -52,6 +53,7 @@ export function ConnectionStatus({
             {status.summary}
           </Text>
           <ShortText aria-hidden="true" data-short={status.short} />
+          <Caret aria-hidden="true">▾</Caret>
         </>
       }
     >
@@ -63,6 +65,10 @@ export function ConnectionStatus({
         health={health}
         inventree={inventree}
       />
+      {/* Until Settings › Appearance exists, the theme choice lives here. */}
+      <ThemeSection>
+        <ThemeChoice />
+      </ThemeSection>
     </HeaderDisclosure>
   )
 }
@@ -106,4 +112,13 @@ const ShortText = styled.span`
   ${media.compact} {
     display: inline;
   }
+`
+
+const Caret = styled.span`
+  color: ${color.muted};
+`
+
+const ThemeSection = styled.div`
+  padding: ${space[4]} ${space[5]} ${space[5]};
+  border-top: 1px solid ${color.line};
 `
