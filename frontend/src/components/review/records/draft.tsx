@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, RecordChangeDto } from '@invimport/contracts'
 import { refusal } from '#/records/model'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from '#/components/ui'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
 
@@ -12,25 +13,31 @@ export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
  * follows the saved value, so a save elsewhere neither discards it nor leaves it stale.
  */
 export function useDraft<T>(saved: T, report: (dirty: boolean) => void) {
-  const [value, setValue] = useState(saved)
+  // Null while the draft follows `saved`; a dirty draft is never replaced by a newer save.
+  const [draft, setDraft] = useState<{ value: T } | null>(null)
   const savedText = JSON.stringify(saved)
-  const previous = useRef({ text: savedText })
-  const dirty = JSON.stringify(value) !== savedText
-  useEffect(() => {
-    const old = previous.current.text
-    if (old !== savedText) {
-      // Only a draft still matching the old saved value moves with it. The updater may run on a
-      // later render, so it compares with the captured old text, not the ref.
-      setValue((current) => (JSON.stringify(current) === old ? saved : current))
-      previous.current = { text: savedText }
-    }
-  }, [savedText, saved])
+  // Once the saved value catches up with the draft, the draft follows `saved` again.
+  if (draft && JSON.stringify(draft.value) === savedText) {
+    setDraft(null)
+  }
+  const value = draft ? draft.value : saved
+  const dirty = draft !== null && JSON.stringify(draft.value) !== savedText
+  // A saved value that catches up with the draft makes it clean with no event here.
   useEffect(() => {
     report(dirty)
   }, [dirty, report])
-  useEffect(() => () => report(false), [report])
+  useReportDirty(dirty, report)
 
-  const reset = () => setValue(saved)
+  function setValue(next: T) {
+    const differs = JSON.stringify(next) !== savedText
+    setDraft(differs ? { value: next } : null)
+    report(differs)
+  }
+
+  function reset() {
+    setDraft(null)
+    report(false)
+  }
 
   return [value, setValue, dirty, reset] as const
 }

@@ -112,3 +112,43 @@ it('will not send a region that leaves the photo, and saves it once it fits', as
     expect.objectContaining({ region: expect.objectContaining({ x: 600, width: 200 }) }),
   )
 })
+
+function renderDirty(save = vi.fn(async () => true as boolean)) {
+  const onDirtyChange = vi.fn()
+  const view = render(
+    <RegionStage
+      batchId="b"
+      evidence={evidence([page(1)])}
+      label="Front"
+      observations={observations}
+      disabled={false}
+      save={save}
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  return { ...view, onDirtyChange }
+}
+
+it('adjusting a region reports unsaved work until it is saved, discarded or closed', async () => {
+  const user = userEvent.setup()
+  const { onDirtyChange, unmount } = renderDirty()
+  await user.click(screen.getByRole('button', { name: 'Adjust 1N4148' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Discard' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  await user.click(screen.getByRole('button', { name: 'Adjust 1N4148' }))
+  await user.click(screen.getByRole('button', { name: 'Save region' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  await user.click(screen.getByRole('button', { name: 'Adjust 1N4148' }))
+  unmount()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+it('a refused region save keeps the draft and the guard', async () => {
+  const user = userEvent.setup()
+  const { onDirtyChange } = renderDirty(vi.fn(async () => false))
+  await user.click(screen.getByRole('button', { name: 'Adjust 1N4148' }))
+  await user.click(screen.getByRole('button', { name: 'Save region' }))
+  expect(screen.getByRole('button', { name: 'Save region' })).toBeVisible()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+})

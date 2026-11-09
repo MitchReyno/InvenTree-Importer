@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi } from 'vitest'
-import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
@@ -9,6 +9,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { fixtureScope, render } from '#/test/render'
 import { MediaWorkspace } from './MediaWorkspace'
 import type { MediaClient } from '#/media/types'
+import type { OperatorReviewClient } from '#/operator/types'
 
 const batch: CaptureSnapshotDto = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -655,4 +656,28 @@ test('a move confirmed by an exact retry still raises its toast', async () => {
   await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
   await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
   expect(await screen.findByText('Moved 1 file to Packet B')).toBeInTheDocument()
+})
+
+test('a group’s instruction draft reaches the guard and is released when the workspace closes', async () => {
+  const user = userEvent.setup()
+  const onDirtyChange = vi.fn()
+  const review = { instructions: [] } as unknown as OperatorReviewDto
+  const operator = { instruct: vi.fn() } as unknown as OperatorReviewClient
+  const view = render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      review={review}
+      reload={vi.fn(async () => undefined)}
+      onDirtyChange={onDirtyChange}
+    />,
+    { clients: { operator } },
+  )
+  await user.click(await screen.findByRole('button', { name: 'Edit note for group Packet A' }))
+  await user.type(screen.getByLabelText('Group “Packet A”'), 'Keep apart')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  view.unmount()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
 })

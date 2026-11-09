@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { space } from '#/theme/generated/tokens'
@@ -26,9 +26,6 @@ export function ExcludeForm({
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const kept = reason.trim()
-  useEffect(() => {
-    onDirtyChange(reason !== '')
-  }, [reason, onDirtyChange])
   useReportDirty(reason !== '', onDirtyChange)
 
   return (
@@ -41,6 +38,7 @@ export function ExcludeForm({
           // The batch edit resolves false when the save was refused or not confirmed.
           if ((await edit({ kind: 'lot_exclusion', lot_id: lot.id, reason: kept })) !== false) {
             setReason('')
+            onDirtyChange(false)
             onDone()
           }
         } finally {
@@ -54,7 +52,11 @@ export function ExcludeForm({
           value={reason}
           maxLength={500}
           disabled={disabled || saving}
-          onChange={(event) => setReason(event.target.value.replace(/[\r\n]/g, ' '))}
+          onChange={(event) => {
+            const next = event.target.value.replace(/[\r\n]/g, ' ')
+            setReason(next)
+            onDirtyChange(next !== '')
+          }}
         />
       </Label>
       <span>

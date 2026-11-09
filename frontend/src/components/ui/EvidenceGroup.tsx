@@ -4,6 +4,7 @@ import { color, radius, ring, size, space, typeVar } from '#/theme/generated/tok
 import { media } from './media'
 import { hoverTransition } from './motion'
 import { Button } from './Button'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type EvidenceGroupProps = {
   name: string
@@ -40,22 +41,31 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   // Enter already sent this draft, so the blur that follows must not send it again.
   const sentOnEnter = useRef(false)
 
+  // A new saved name replaces a clean draft, or a draft it came from; another draft is kept.
   if (shownName !== name) {
     setShownName(name)
-    setDraft(name)
+    if (draft === shownName || draft.trim() === name) {
+      setDraft(name)
+    }
   }
 
-  const onDraftChange = useRef(props.onDraftChange)
-  onDraftChange.current = props.onDraftChange
+  const { onDraftChange } = props
   const dirty = draft !== name
+  // A saved rename arriving makes the draft clean with no event here, so this follows the name.
   useEffect(() => {
-    onDraftChange.current?.(dirty)
-  }, [dirty])
+    onDraftChange?.(dirty)
+  }, [dirty, onDraftChange])
+  useReportDirty(dirty, onDraftChange)
+
+  function changeDraft(next: string) {
+    setDraft(next)
+    onDraftChange?.(next !== name)
+  }
 
   function commit() {
     const trimmed = draft.trim()
     if (!trimmed || trimmed === name) {
-      setDraft(name)
+      changeDraft(name)
       return
     }
     props.onRename?.(trimmed)
@@ -77,7 +87,7 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
       commit()
     } else if (event.key === 'Escape') {
       event.preventDefault()
-      setDraft(name)
+      changeDraft(name)
     }
   }
 
@@ -98,7 +108,7 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
             disabled={props.nameDisabled}
             onChange={(event) => {
               sentOnEnter.current = false
-              setDraft(event.target.value)
+              changeDraft(event.target.value)
             }}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
@@ -106,7 +116,7 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
         )}
         {props.nameDisabled && dirty && (
           // A locked field cannot take Escape, so the draft keeps its own way out.
-          <Button size="sm" variant="ghost" onClick={() => setDraft(name)}>
+          <Button size="sm" variant="ghost" onClick={() => changeDraft(name)}>
             Discard name change
           </Button>
         )}

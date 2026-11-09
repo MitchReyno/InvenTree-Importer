@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { IntakeRequestError } from '@invimport/contracts/client'
 import type { OperatorReviewClient } from '#/operator/types'
 import { RestructureDialog } from './RestructureDialog'
 
@@ -56,4 +57,70 @@ it('keeps each observation with the new lot shown after another is removed', asy
       { label: 'Third', quantity: '3', observation_ids: ['o2'] },
     ],
   })
+})
+
+it('reports a draft from typing and rows, and is clean again once it matches the opening values', async () => {
+  const user = userEvent.setup()
+  const onDirtyChange = vi.fn()
+  render(
+    <RestructureDialog
+      kind="split"
+      batch={batch}
+      lotIds={['l1']}
+      excludedLotIds={[]}
+      client={{ restructure: vi.fn() } as unknown as OperatorReviewClient}
+      disabled={false}
+      reload={vi.fn()}
+      onClose={vi.fn()}
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  const label = screen.getByLabelText('New lot 1 label')
+  await user.type(label, '!')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.type(label, '{Backspace}')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  await user.click(screen.getByRole('button', { name: 'Add another new lot' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Remove new lot 3' }))
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+it('a refused apply of an unedited move leaves the guard released', async () => {
+  const user = userEvent.setup()
+  const onDirtyChange = vi.fn()
+  const impact = {
+    invalidated_review_subject_ids: [],
+    affected_lot_ids: ['l1'],
+    affected_part_ids: [],
+    stale_preparation_ids: [],
+    retired_lot_ids: [],
+    created_lots: [],
+    created_part: null,
+  }
+  const restructure = vi
+    .fn()
+    .mockResolvedValueOnce({ status: 'previewed', revision: '7', impact })
+    .mockRejectedValueOnce(new IntakeRequestError(422, 'lot_already_approved'))
+  render(
+    <RestructureDialog
+      kind="move"
+      batch={
+        { ...batch, parts: [{ id: 'p1', label: 'Resistor' }] } as unknown as CaptureSnapshotDto
+      }
+      lotIds={['l1']}
+      excludedLotIds={[]}
+      client={{ restructure } as unknown as OperatorReviewClient}
+      disabled={false}
+      reload={vi.fn()}
+      onClose={vi.fn()}
+      onDirtyChange={onDirtyChange}
+    />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Preview impact' }))
+  await user.click(
+    await screen.findByRole('button', { name: 'Apply move lots to a part proposal' }),
+  )
+  await waitFor(() => expect(restructure).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false))
 })

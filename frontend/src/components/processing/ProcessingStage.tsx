@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
 import type { ProcessingClient } from '#/processing/types'
@@ -44,7 +43,6 @@ export function ProcessingStage({
   instructions,
 }: Props) {
   const { edit, reload } = useBatchCommands()
-  useEffect(() => () => onDirtyChange(false), [onDirtyChange])
 
   function navigateProcessing(view: ProcessingStep = 'overview', question?: string) {
     location.hash = batchHref(batch.id, { tab: 'processing', step: view, questionId: question })

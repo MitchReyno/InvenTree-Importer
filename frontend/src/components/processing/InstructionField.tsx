@@ -5,6 +5,7 @@ import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button, Small } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { deliveryMessage, type InstructionDelivery } from '#/processing/instruction-delivery'
+import { useReportDirty } from '#/navigation/useReportDirty'
 
 type Props = {
   /** Undefined until the saved instructions are read; never assumed empty. */
@@ -42,25 +43,28 @@ export function InstructionField({
   saveBlockedReason,
   locked = false,
 }: Props) {
-  const [draft, setDraft] = useState(text ?? '')
-  const [edited, setEdited] = useState(false)
+  // Null while the field follows the saved instructions, which can arrive after mount.
+  const [draft, setDraft] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const loaded = text !== undefined
   const sent = deliveryMessage(delivery)
 
-  const dirty = loaded && edited && draft !== text
-
-  // Saved instructions can arrive after mount; take them unless the operator is editing.
+  // Once the saved instructions catch up with the draft, the field follows them again.
+  if (draft !== null && draft === text) {
+    setDraft(null)
+  }
+  const value = draft ?? text ?? ''
+  // A draft stays dirty while the saved instructions are unreadable, so the guard holds it.
+  const dirty = draft !== null && draft !== text
+  // Saved instructions that catch up with the draft make it clean with no event here.
   useEffect(() => {
-    if (text !== undefined && !edited) {
-      setDraft(text)
-    }
-  }, [text, edited])
+    onDirtyChange(dirty)
+  }, [dirty, onDirtyChange])
+  useReportDirty(dirty, onDirtyChange)
 
   function discard() {
-    setDraft(text ?? '')
-    setEdited(false)
+    setDraft(null)
     setError('')
     onDirtyChange(false)
   }
@@ -72,8 +76,9 @@ export function InstructionField({
     setSaving(true)
     setError('')
     try {
-      await instruct(draft, revision, crypto.randomUUID())
-      setEdited(false)
+      // The caller resolves after reloading, so the saved text is already the new value.
+      await instruct(value, revision, crypto.randomUUID())
+      setDraft(null)
       onDirtyChange(false)
     } catch (caught) {
       setError(
@@ -91,13 +96,14 @@ export function InstructionField({
       <label htmlFor="batch-instructions">Instructions for the whole batch</label>
       <TextArea
         id="batch-instructions"
-        value={draft}
+        value={value}
         maxLength={MAX_CHARACTERS}
         disabled={!instruct || !loaded || saving || locked}
         onChange={(event) => {
-          setDraft(event.target.value)
-          setEdited(true)
-          onDirtyChange(event.target.value !== text)
+          const next = event.target.value
+          const differs = next !== text
+          setDraft(differs ? next : null)
+          onDirtyChange(differs)
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
@@ -123,7 +129,7 @@ export function InstructionField({
         <Actions>
           <Button
             size="sm"
-            disabled={!dirty || Boolean(saveBlockedReason)}
+            disabled={!dirty || !loaded || Boolean(saveBlockedReason)}
             busy={saving}
             onClick={() => void save()}
           >

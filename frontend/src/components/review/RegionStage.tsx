@@ -80,10 +80,12 @@ export function RegionStage({
     moveable.current?.updateRect()
   }, [draft, surfaceWidth])
 
-  useEffect(() => {
-    onDirtyChange?.(draft !== null)
-  }, [draft, onDirtyChange])
   useReportDirty(draft !== null, onDirtyChange)
+
+  function changeDraft(next: Draft | null) {
+    setDraft(next)
+    onDirtyChange?.(next !== null)
+  }
 
   const page = version?.pages.find((value) => value.page === pageNumber) ?? version?.pages[0]
   if (!version || !page) {
@@ -127,7 +129,7 @@ export function RegionStage({
         },
       })
       if (saved !== false) {
-        setDraft(null)
+        changeDraft(null)
       }
     } finally {
       setSaving(false)
@@ -228,7 +230,7 @@ export function RegionStage({
               }
             }}
             onDrag={(event) =>
-              setDraft({
+              changeDraft({
                 ...draft,
                 x: clamp(Math.round(event.left / draftScale), draft.sourceWidth - draft.width),
                 y: clamp(Math.round(event.top / draftScale), draft.sourceHeight - draft.height),
@@ -244,7 +246,7 @@ export function RegionStage({
                 Math.round(start.y + event.drag.beforeTranslate[1] / draftScale),
                 draft.sourceHeight - 1,
               )
-              setDraft({
+              changeDraft({
                 ...draft,
                 x,
                 y,
@@ -272,7 +274,7 @@ export function RegionStage({
               aria-label={`Adjust ${nameOf(item, index)}`}
               onClick={() =>
                 item.region.kind === 'pixels' &&
-                setDraft({
+                changeDraft({
                   observationId: item.id,
                   x: item.region.x,
                   y: item.region.y,
@@ -292,7 +294,7 @@ export function RegionStage({
           variant="ghost"
           disabled={locked || draft !== null}
           onClick={() =>
-            setDraft({
+            changeDraft({
               x: Math.round(page.width / 4),
               y: Math.round(page.height / 4),
               width: Math.round(page.width / 2),
@@ -316,7 +318,7 @@ export function RegionStage({
                 value={draft[key]}
                 disabled={locked}
                 onChange={(event) =>
-                  setDraft({ ...draft, [key]: Math.max(0, Number(event.target.value) || 0) })
+                  changeDraft({ ...draft, [key]: Math.max(0, Number(event.target.value) || 0) })
                 }
               />
             </Label>
@@ -336,7 +338,7 @@ export function RegionStage({
             >
               Save region
             </Button>{' '}
-            <Button size="sm" variant="ghost" disabled={saving} onClick={() => setDraft(null)}>
+            <Button size="sm" variant="ghost" disabled={saving} onClick={() => changeDraft(null)}>
               Discard
             </Button>
           </span>

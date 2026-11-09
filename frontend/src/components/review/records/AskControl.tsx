@@ -32,21 +32,23 @@ export function AskControl({
   const [busy, setBusy] = useState(false)
   const [asked, setAsked] = useState(false)
   const [failed, setFailed] = useState(false)
-  const askedValue = useRef(value)
+  // The field value the ask was about; a different value means the answer may have arrived.
+  const [askedValue, setAskedValue] = useState(value)
   const focus = useRef<'asked' | 'ask' | 'message' | null>(null)
   const messageRef = useRef<HTMLTextAreaElement>(null)
   const askedRef = useRef<HTMLElement>(null)
   const askRef = useRef<HTMLSpanElement>(null)
 
-  useEffect(() => {
-    if (asked && value !== askedValue.current) {
-      setAsked(false)
-    }
-  }, [asked, value])
-  useEffect(() => {
-    report?.(open)
-  }, [open, report])
+  if (asked && value !== askedValue) {
+    setAsked(false)
+  }
   useReportDirty(open, report)
+
+  function changeOpen(next: boolean) {
+    setOpen(next)
+    report?.(next)
+  }
+
   useEffect(() => {
     if (focus.current === 'asked') {
       askedRef.current?.focus()
@@ -73,7 +75,7 @@ export function AskControl({
           variant="ghost"
           onClick={() => {
             focus.current = 'message'
-            setOpen(true)
+            changeOpen(true)
           }}
         >
           Ask {step}
@@ -91,10 +93,10 @@ export function AskControl({
         send(message, sendKey(storeKey, text))
           .then(() => {
             confirmPending(storeKey)
-            askedValue.current = value
+            setAskedValue(value)
             focus.current = 'asked'
             setAsked(true)
-            setOpen(false)
+            changeOpen(false)
           })
           .catch(() => setFailed(true))
           .finally(() => setBusy(false))
@@ -124,7 +126,7 @@ export function AskControl({
             editPending(storeKey, '')
             setText(prefill)
             focus.current = 'ask'
-            setOpen(false)
+            changeOpen(false)
           }}
         >
           Cancel
