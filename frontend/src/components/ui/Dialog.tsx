@@ -32,7 +32,7 @@ export function Dialog({
   useEffect(() => {
     const element = dialog.current
     const active = document.activeElement
-    // A StrictMode replay starts with focus inside the dialog; the real opener is kept.
+    // Keeps the recorded opener if focus is already inside the dialog.
     if (active instanceof HTMLElement && !element?.contains(active)) {
       opener.current = active
     }

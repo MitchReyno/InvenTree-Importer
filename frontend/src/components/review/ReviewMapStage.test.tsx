@@ -372,11 +372,15 @@ describe('ReviewMapStage', () => {
       part_subject_id: null,
     })
     await waitFor(() =>
-      expect(edit).toHaveBeenCalledWith({
-        kind: 'observation_move',
-        observation_id: 'o1',
-        lot_id: 'n',
-      }),
+      expect(edit).toHaveBeenCalledWith(
+        {
+          kind: 'observation_move',
+          observation_id: 'o1',
+          lot_id: 'n',
+        },
+        // The move follows the new lot's save, so it names that save's revision.
+        '5',
+      ),
     )
   })
 

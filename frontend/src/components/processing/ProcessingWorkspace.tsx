@@ -126,6 +126,9 @@ export function ProcessingWorkspace({
   // the drawer closes only once the route actually changes.
   const route = `${view}:${questionId}:${sessionId}`
   const [drawer, setDrawer] = useState({ route, jobId: sessionId })
+  if (drawer.route !== route) {
+    setDrawer({ route, jobId: sessionId })
+  }
   const sessionJobId = drawer.route === route ? drawer.jobId : sessionId
 
   function setSessionJobId(jobId: string | null) {

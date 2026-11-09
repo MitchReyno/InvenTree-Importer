@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
@@ -57,7 +57,8 @@ export function ReviewMapStage({
   } | null>(null)
 
   async function link(evidenceId: string, lotId: string, linked: boolean) {
-    const snapshot = query.data
+    // Read at send time: a handler may run after its closure's media read was replaced.
+    const snapshot = queryClient.getQueryData<MediaSnapshotDto>(key) ?? query.data
     if (!media || !snapshot) {
       return false
     }
@@ -92,12 +93,13 @@ export function ReviewMapStage({
       // The batch edit reports failure as false rather than throwing.
       const saved = await edit({ kind: 'add_lot', label, note, part_subject_id: null })
       // The server assigns the new lot's id, so it is found in the accepted snapshot.
-      const created =
-        saved && typeof saved === 'object'
-          ? saved.lots.find((lot) => !knownLotIds.includes(lot.id) && lot.label === label)
-          : undefined
-      if (created) {
-        await finish({ from, label, lotId: created.id, lotLabel: created.label })
+      const accepted = saved && typeof saved === 'object' ? saved : undefined
+      const created = accepted?.lots.find(
+        (lot) => !knownLotIds.includes(lot.id) && lot.label === label,
+      )
+      if (accepted && created) {
+        // This closure's batch predates the new lot, so the move names the accepted revision.
+        await finish({ from, label, lotId: created.id, lotLabel: created.label }, accepted.revision)
       }
     } catch {
       setError('The lot could not be made. Refresh and try again.')
@@ -133,15 +135,16 @@ export function ReviewMapStage({
     }
   }
 
-  async function moveRegion(observationId: string, lotId: string | null) {
+  async function moveRegion(observationId: string, lotId: string | null, revision?: string) {
     setBusy(true)
     setError('')
     try {
-      const saved = await edit({
-        kind: 'observation_move',
+      const change = {
+        kind: 'observation_move' as const,
         observation_id: observationId,
         lot_id: lotId,
-      })
+      }
+      const saved = await (revision === undefined ? edit(change) : edit(change, revision))
       if (saved === false) {
         setError('The region could not be moved. Refresh and try again.')
         return false
@@ -156,12 +159,12 @@ export function ReviewMapStage({
   }
 
   // The new lot exists; its file link or region move is kept until confirmed so it can be finished.
-  async function finish(step: Unfinished) {
+  async function finish(step: Unfinished, revision?: string) {
     setUnfinished(step)
     const done =
       step.from.kind === 'file'
         ? await link(step.from.evidenceId, step.lotId, true)
-        : await moveRegion(step.from.observationId, step.lotId)
+        : await moveRegion(step.from.observationId, step.lotId, revision)
     if (done) {
       setUnfinished(null)
     }

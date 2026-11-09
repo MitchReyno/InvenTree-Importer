@@ -227,11 +227,15 @@ export function Batch({
     }
   }, [batch, captureQuery.data, processingSelected, stage, reviewing, draftDirty])
 
-  async function edit(change: CaptureEditDto['change']): Promise<CaptureSnapshotDto | false> {
+  async function edit(
+    change: CaptureEditDto['change'],
+    expectedRevision?: string,
+  ): Promise<CaptureSnapshotDto | false> {
     if (!batch) {
       return false
     }
-    const request = { expected_revision: batch.revision, change }
+    // A handler's closure holds the batch from before its last save; a follow-up names its revision.
+    const request = { expected_revision: expectedRevision ?? batch.revision, change }
     try {
       validate('CaptureEdit', request)
     } catch {

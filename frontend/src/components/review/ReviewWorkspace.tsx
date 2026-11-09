@@ -274,8 +274,9 @@ export function ReviewWorkspace({
   }
 
   function inspect(id: string | null) {
-    setQuickEditLotId(null)
+    // A move blocked by unsaved work keeps the requested editor, and its draft, open.
     if (navigate({ lotId: id, view: id ? 'evidence' : route.view })) {
+      setQuickEditLotId(null)
       writeHash(location.hash, id === null)
     }
   }
