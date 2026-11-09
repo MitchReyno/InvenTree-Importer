@@ -15,7 +15,7 @@ The requested outcome:
 
 Canonical name: `add-preview-renditions`. Branches `feat/add-preview-renditions-<suffix>`; subjects `feat(add-preview-renditions): …`.
 
-Linked item: [BI-013 — Preview renditions for media](../../../docs/PLANNED_FUNCTIONALITY.md#bi-013--preview-renditions-for-media).
+Linked item: [BI-013 — Preview renditions for media](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-013--preview-renditions-for-media).
 
 ## Current behavior and evidence
 

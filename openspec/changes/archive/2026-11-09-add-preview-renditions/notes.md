@@ -1,6 +1,6 @@
 # Implementation notes
 
-PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140) and PR-B (tasks 4–5) in [#143](https://github.com/MitchReyno/InvenTree-Importer/pull/143). PR-C (task 6) is on `feat/add-preview-renditions-frontend`.
+PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140), PR-B (tasks 4–5) in [#143](https://github.com/MitchReyno/InvenTree-Importer/pull/143), and PR-C (task 6) in [#144](https://github.com/MitchReyno/InvenTree-Importer/pull/144).
 
 ## Changes to the plan
 
@@ -26,4 +26,4 @@ PR-A (tasks 1–3) merged in [#140](https://github.com/MitchReyno/InvenTree-Impo
 
 ## Open items
 
-None yet.
+None.
