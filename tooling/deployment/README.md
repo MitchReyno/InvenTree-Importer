@@ -173,7 +173,7 @@ bash tooling/deployment/tests/dispatch/live-tools.sh \
 
 ### Verify a release or roll back the image pair
 
-Build the personal target with the same app and tools image references used for qualification. Give the app and the resulting runner version-specific tags. Load the app into host Docker and the runner into the dedicated Lima guest. On the source installation, record the full local Docker image IDs and platforms from both engines.
+Build the personal target with the same app and tools image references used for qualification. Give the app and the resulting runner version-specific tags. Load the app into host Docker and the runner into the dedicated Lima guest. On the source installation, record the full image configuration digests and platforms from both engines.
 
 ```sh
 tooling/deployment/image-manifest.sh "$vm" "$app_image" "$runner_image" > release.images
@@ -187,6 +187,6 @@ tooling/deployment/image-manifest.sh "$vm" "$app_image" "$runner_image" > "$obse
   diff -u release.images "$observed"
 ```
 
-These are Docker image configuration digests suitable for verifying a save/load transfer. Pulling from a registry requires the registry manifest digest. Guest OS packages are resolved during the build, so rebuilding the Dockerfiles can produce different images.
+The verifier uses Python 3 and exports the selected platform when the engine reports a manifest digest as its image ID. These are Docker image configuration digests suitable for verifying a save/load transfer. Pulling from a registry requires the registry manifest digest. Guest OS packages are resolved during the build, so rebuilding the Dockerfiles can produce different images.
 
 Keep the previous image pair and its manifest until the replacement has completed a turn. For an image rollback, drain active sessions, stop the relays and coordinator, verify the previous pair, and restart with those two references and the same pairing, session and credential directories. Check database migration compatibility before starting an older application. If the schema is incompatible, recovery also requires a matching database backup.
