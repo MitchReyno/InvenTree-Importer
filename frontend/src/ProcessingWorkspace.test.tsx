@@ -9,6 +9,8 @@ import { createServerQueryClient } from './queries/client'
 import { serverQueryKey, type ServerScope } from './queries/scope'
 import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { useMemo, useState, useSyncExternalStore } from 'react'
+import { createDrawerRestore } from './processing/drawer-restore'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -623,7 +625,56 @@ function inventorySnapshot(captureRevision = '8', answeredIds: string[] = []) {
   return value
 }
 
-function mountInventoryDrawer(read: ProcessingSnapshotDto, pinnedQuestionId?: string) {
+function subscribeHash(listener: () => void) {
+  addEventListener('hashchange', listener)
+  return () => removeEventListener('hashchange', listener)
+}
+
+/**
+ * Stands in for Batch: Processing remounts on every save, keyed as Batch keys it, and reads its
+ * session link from the URL; the drawer restore store lives above that key.
+ */
+function RemountingWorkspace({
+  client,
+  dirty,
+  pinnedQuestionId,
+}: {
+  client: ProcessingClient
+  dirty: (value: boolean) => void
+  pinnedQuestionId?: string
+}) {
+  const [reset, setReset] = useState(0)
+  const drawerRestore = useMemo(createDrawerRestore, [])
+  const hash = useSyncExternalStore(subscribeHash, () => location.hash)
+  const sessionId = new URLSearchParams(hash.split('?')[1] ?? '').get('session')
+
+  return (
+    <ProcessingWorkspace
+      key={`${batch.id}:${batch.revision}:${reset}`}
+      batch={batch}
+      client={client}
+      view="inventory"
+      sessionId={sessionId}
+      questionId={pinnedQuestionId}
+      navigate={vi.fn()}
+      onDirtyChange={dirty}
+      onSaved={async () => setReset((count) => count + 1)}
+      drawerRestore={drawerRestore}
+    />
+  )
+}
+
+/** Opens the Inventory drawer from a session link unless `fromRow` leaves it to the session row. */
+function mountInventoryDrawer(
+  read: ProcessingSnapshotDto,
+  pinnedQuestionId?: string,
+  { fromRow = false } = {},
+) {
+  history.replaceState(
+    null,
+    '',
+    `#${batchId}/processing/inventory${fromRow ? '' : `?session=${jobId}`}`,
+  )
   const client = {
     ...clientFixture(),
     read: vi.fn().mockResolvedValue(read),
@@ -643,16 +694,7 @@ function mountInventoryDrawer(read: ProcessingSnapshotDto, pinnedQuestionId?: st
   const dirty = vi.fn()
   render(
     <ServerStateProvider scope={scope} client={cache}>
-      <ProcessingWorkspace
-        batch={batch}
-        client={client}
-        view="inventory"
-        sessionId={jobId}
-        questionId={pinnedQuestionId}
-        navigate={vi.fn()}
-        onDirtyChange={dirty}
-        onSaved={vi.fn().mockResolvedValue(undefined)}
-      />
+      <RemountingWorkspace client={client} dirty={dirty} pinnedQuestionId={pinnedQuestionId} />
     </ServerStateProvider>,
   )
   return { client, cache, dirty, key: serverQueryKey(scope, 'processing', batchId) }
@@ -718,6 +760,7 @@ test('closing the drawer with an unsaved answer asks first, and discards only on
 
 test('answering one drawer question leaves the other answerable, and focus moves to it', async () => {
   const user = userEvent.setup()
+  // Opened from a session link; saving the answer remounts Processing, as Batch does.
   const { client } = mountInventoryDrawer(inventorySnapshot())
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
@@ -939,6 +982,95 @@ test('the page’s clean pinned answer follows a revision a drawer answer moved'
     expect.objectContaining({ expected_capture_revision: '9' }),
     expect.any(String),
   )
+})
+
+test('a drawer opened from the session row stays open after an answer, focused on the next', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  const second = 'Is Packet A the reel in drawer 2?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+
+  await waitFor(() => expect(answerBox(second)).toHaveFocus())
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull()
+})
+
+test('saving a drawer’s last draft after its session left clears the session link', async () => {
+  const user = userEvent.setup()
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot())
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+
+  // The session ends; its question is still open at the same capture revision.
+  const ended = inventorySnapshot('8')
+  delete ended.jobs[0].session_state
+  client.read.mockResolvedValue(ended)
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+    ).not.toBeInTheDocument(),
+  )
+  const answered = inventorySnapshot('9', [questionId])
+  delete answered.jobs[0].session_state
+  client.read.mockResolvedValue(answered)
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  expect(client.answer).toHaveBeenCalled()
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(location.hash).not.toContain('session=')
+})
+
+test('a drawer with no draft closes at once when its session leaves, clearing its link', async () => {
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('form', { name: /^Session question: Is Packet A already/ })
+  const gone = inventorySnapshot('9')
+  delete gone.jobs[0].session_state
+  client.read.mockResolvedValue(gone)
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(location.hash).not.toContain('session=')
+})
+
+test('a session that leaves a second time has its link cleared again', async () => {
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const gone = inventorySnapshot('9')
+  delete gone.jobs[0].session_state
+
+  for (let round = 1; round <= 2; round += 1) {
+    client.read.mockResolvedValue(gone)
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: key })
+    })
+    await waitFor(() => expect(location.hash).not.toContain('session='))
+    // The session comes back and its link is followed again.
+    client.read.mockResolvedValue(inventorySnapshot('9'))
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: key })
+      location.hash = `${batchId}/processing/inventory?session=${jobId}`
+    })
+    await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  }
 })
 
 test('a session link opens its drawer on arrival', async () => {

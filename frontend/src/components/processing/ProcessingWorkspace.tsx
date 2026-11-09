@@ -27,6 +27,7 @@ import {
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingInventory } from './ProcessingInventory'
 import { DrawerAnswers } from './DrawerAnswers'
+import type { DrawerRestoreStore } from '#/processing/drawer-restore'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
 import { QuestionAnswer } from './QuestionAnswer'
@@ -89,6 +90,8 @@ interface Props {
   /** A job whose session drawer opens on arrival, from a session link. */
   sessionId?: string | null
   sharperRequests?: SharperRequestStore
+  /** Brings an open session drawer back after an answer's reload remounts Processing. */
+  drawerRestore?: DrawerRestoreStore
   batch: CaptureSnapshotDto
   client: ProcessingClient
   view: ProcessingView
@@ -126,13 +129,20 @@ export function ProcessingWorkspace({
   instructions,
   sessionId = null,
   sharperRequests,
+  drawerRestore,
   edit,
 }: Props) {
   const { agents, media } = useApiClients()
   // A route change shows the session its link names, or none: opening a question navigates, and
   // the drawer closes only once the route actually changes.
   const route = `${view}:${questionId}:${sessionId}`
-  const [drawer, setDrawer] = useState({ route, jobId: sessionId })
+  // A drawer open when an answer's reload remounted Processing comes back on the same route.
+  const [restored] = useState(() => {
+    const pending = drawerRestore?.peek()
+
+    return pending && pending.route === route ? pending : null
+  })
+  const [drawer, setDrawer] = useState({ route, jobId: sessionId ?? restored?.jobId ?? null })
   if (drawer.route !== route) {
     setDrawer({ route, jobId: sessionId })
   }
@@ -141,6 +151,13 @@ export function ProcessingWorkspace({
   function setSessionJobId(jobId: string | null) {
     setDrawer({ route, jobId })
   }
+
+  // The restore is taken once; a later mount starts from its route alone.
+  useEffect(() => {
+    if (restored) {
+      drawerRestore?.set(null)
+    }
+  }, [drawerRestore, restored])
 
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
@@ -319,11 +336,20 @@ export function ProcessingWorkspace({
     }
   }
 
-  async function answer(id: string, input: ProcessingAnswerDto, key: string) {
+  async function answer(
+    id: string,
+    input: ProcessingAnswerDto,
+    key: string,
+    { fromDrawer = false } = {},
+  ) {
     setSaving('answer')
     try {
       // Each answer form reports itself clean once its own save is confirmed.
       await perform(() => client.answer(batch.id, id, input, key))
+      // The reload remounts Processing; an open drawer comes back, focused as it would have been.
+      drawerRestore?.set(
+        sessionJobId === null ? null : { route, jobId: sessionJobId, focusNext: fromDrawer },
+      )
       try {
         await onSaved()
       } catch {
@@ -481,6 +507,7 @@ export function ProcessingWorkspace({
   }
 
   function closeDrawer() {
+    drawerRestore?.set(null)
     setCloseBlocked(false)
     setSessionJobId(null)
     // A session link's query would reopen the drawer when the batch next reloads.
@@ -492,21 +519,24 @@ export function ProcessingWorkspace({
   // too, so the drawer doesn't come back with the session.
   const sessionLeft =
     sessionJobId !== null &&
+    snapshot !== undefined &&
+    !waitingForRead &&
+    !offline &&
     liveSessionJob === undefined &&
-    !unsavedInDrawer &&
-    lastDrawerJob?.id === sessionJobId
-  const [leftSession, setLeftSession] = useState<string | null>(null)
+    !unsavedInDrawer
+  // Each leave is its own event, so a session that leaves again has its link cleared again.
+  const [leave, setLeave] = useState<{ jobId: string } | null>(null)
   if (sessionLeft) {
     setDrawer({ route, jobId: null })
     setCloseBlocked(false)
-    setLeftSession(sessionJobId)
+    setLeave({ jobId: sessionJobId })
   }
   // Syncs the URL with that close: a session link left in it would reopen the drawer.
   useEffect(() => {
-    if (leftSession !== null) {
-      clearSessionLink(leftSession)
+    if (leave !== null) {
+      clearSessionLink(leave.jobId)
     }
-  }, [leftSession])
+  }, [leave])
 
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
@@ -816,7 +846,8 @@ export function ProcessingWorkspace({
                   saving={saving === 'answer'}
                   isDirty={(id) => drafts.isDirty(`answer:${id}`)}
                   otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
-                  answer={answer}
+                  answer={(id, input, key) => answer(id, input, key, { fromDrawer: true })}
+                  focusNext={restored?.focusNext ?? false}
                   reportFor={(id) => drafts.forSource(`answer:${id}`)}
                   fallback={questionLink}
                 />

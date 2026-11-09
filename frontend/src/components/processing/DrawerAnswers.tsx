@@ -37,6 +37,8 @@ type Props = {
   reportFor: (questionId: string) => (dirty: boolean) => void
   /** Where a question without a form yet goes, such as its link to the step page. */
   fallback: (question: ProcessingQuestionDto) => ReactNode
+  /** An answer saved just before Processing remounted: focus the next question once it shows. */
+  focusNext?: boolean
 }
 
 /** The pins after this read: open questions get forms, clean forms follow it or leave. */
@@ -84,10 +86,11 @@ export function DrawerAnswers(props: Props) {
     answer,
     reportFor,
     fallback,
+    focusNext = false,
   } = props
   const [pins, setPins] = useState<Readonly<Record<string, Pin>>>({})
   const container = useRef<HTMLDivElement>(null)
-  const answered = useRef(false)
+  const answered = useRef(focusNext)
   const current = nextPins(pins, props)
   if (current !== pins) {
     setPins(current)
@@ -97,7 +100,9 @@ export function DrawerAnswers(props: Props) {
 
   // After an answer saves, its form leaves; focus moves to the next form or the drawer heading.
   useEffect(() => {
-    if (!answered.current) {
+    // Waits while an open question has no form yet, such as before a remount's fresh read.
+    const waiting = questions.some((question) => current[question.id] === undefined)
+    if (!answered.current || waiting) {
       return
     }
     answered.current = false
