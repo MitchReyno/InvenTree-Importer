@@ -27,7 +27,7 @@ import { lotsFormed } from '#/processing/lots-formed'
 import { retainedJobsSource } from '#/processing/source'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { openQuestionsByLot } from '#/operator/review-model'
-import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
+import type { AgentSessionListDto } from '@invimport/contracts'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
 import { useApiClients } from '#/clients/api-clients'
 import type { CaptureEdit } from '#/capture/types'
@@ -84,10 +84,6 @@ interface Props {
   onDirtyChange: (dirty: boolean) => void
   onSaved: () => Promise<void>
   retiredLotIds?: ReadonlySet<string>
-  /** Counts for the Overview's links to Review and Changes. */
-  attention?: BatchAttentionDto
-  /** Files no lot uses, offered on the Overview as a way into the Map. */
-  unusedFiles?: number
   /** The batch instructions and how to save them; absent where this setup has none. */
   instructions?: {
     text: string | undefined
@@ -114,8 +110,6 @@ export function ProcessingWorkspace({
   onDirtyChange,
   onSaved,
   retiredLotIds = NO_RETIRED_LOTS,
-  attention,
-  unusedFiles,
   instructions,
   sessionId = null,
   sharperRequests,
@@ -576,7 +570,6 @@ export function ProcessingWorkspace({
             <ProcessingOverview
               batchId={batch.id}
               source={source}
-              attention={attention}
               onOpenSession={setSessionJobId}
               instructions={
                 <InstructionField
@@ -608,7 +601,6 @@ export function ProcessingWorkspace({
               }
               activity={activity}
               queue={queue}
-              unusedFiles={unusedFiles}
               started={started}
               lotsFormed={lotsFormed(batch.lots)}
               sessionLimit={sessionLimit}

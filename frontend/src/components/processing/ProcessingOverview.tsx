@@ -1,14 +1,11 @@
 import type { ReactNode } from 'react'
-import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress } from '#/processing/source'
-import { color, size, space, type, typeVar } from '#/theme/generated/tokens'
+import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import {
-  media,
   linkTouchArea,
   Count,
-  Pill,
   ProgressSegments,
   type ProgressStep,
   StatusTimeline,
@@ -30,15 +27,12 @@ import {
 type Props = {
   batchId: string
   source: ProcessingSource
-  attention: BatchAttentionDto | undefined
   /** The batch instruction field, owned by the workspace that saves it. */
   instructions: ReactNode
   /** Agents' newest status lines across the batch, oldest first. */
   activity: TimelineEntry[]
   /** Starting work by hand, folded into the progress card. */
   queue?: ReactNode
-  /** Files no lot uses, the count the Map's badge shows. */
-  unusedFiles?: number
   /** When this batch's first agent session started, as a clock time. */
   started?: string
   /** "N lots formed by HH:MM", when every current lot's time is known. */
@@ -78,16 +72,14 @@ function segment(step: StepProgress): ProgressStep {
 
 /**
  * Processing at a glance, after the canvas: progress, questions and activity on the left, the
- * batch's sessions and the rest of the batch beside them.
+ * batch's sessions beside them. Review and Changes counts stay on their tabs.
  */
 export function ProcessingOverview({
   batchId,
   source,
-  attention,
   instructions,
   activity,
   queue,
-  unusedFiles,
   started,
   lotsFormed,
   sessionLimit,
@@ -131,12 +123,7 @@ export function ProcessingOverview({
         <Card aria-label="Needs you">
           <TitleRow>
             <CardTitle>Needs you</CardTitle>
-            {source.questions.length > 0 && (
-              <>
-                <Count value={source.questions.length} tone="warn" />
-                <Muted>Oldest first</Muted>
-              </>
-            )}
+            {source.questions.length > 0 && <Muted>Oldest first</Muted>}
           </TitleRow>
           {source.questions.length === 0 ? (
             <Muted>No open questions.</Muted>
@@ -174,8 +161,8 @@ export function ProcessingOverview({
         </Card>
       </Main>
 
-      <Aside>
-        {source.sessions.length > 0 && (
+      {source.sessions.length > 0 && (
+        <Aside>
           <Card aria-label="Agent sessions">
             <TitleRow>
               <CardTitle>Agent sessions</CardTitle>
@@ -190,41 +177,8 @@ export function ProcessingOverview({
             <SessionRows sessions={source.sessions} onOpen={onOpenSession} />
             <SmallLink href="#agents">All sessions, every batch</SmallLink>
           </Card>
-        )}
-
-        <Card as="nav" aria-label="Elsewhere in this batch">
-          <Eyebrow>Elsewhere in this batch</Eyebrow>
-          <Elsewhere href={batchHref(batchId, { tab: 'review', view: 'lots' })}>
-            <Badge aria-hidden="true">
-              <Pill tone="ok">{attention ? attention.review.to_check : '–'}</Pill>
-            </Badge>
-            <span>
-              {attention ? `${plural(attention.review.to_check, 'lot')} to check` : 'Review'}
-            </span>
-            <Go aria-hidden="true">Review →</Go>
-          </Elsewhere>
-          <Elsewhere href={batchHref(batchId, { tab: 'changes', view: 'ready' })}>
-            <Badge aria-hidden="true">
-              <Pill tone="acc" glyph="＋">
-                {attention ? attention.changes.ready : '–'}
-              </Pill>
-            </Badge>
-            <span>{attention ? `${attention.changes.ready} ready to add` : 'Changes'}</span>
-            <Go aria-hidden="true">Changes →</Go>
-          </Elsewhere>
-          {Boolean(unusedFiles) && (
-            <Elsewhere href={batchHref(batchId, { tab: 'review', view: 'map' })}>
-              <Badge aria-hidden="true">
-                <Pill tone="warn" glyph="!">
-                  {unusedFiles}
-                </Pill>
-              </Badge>
-              <span>{plural(unusedFiles!, 'file')} not used by any lot</span>
-              <Go aria-hidden="true">Review map →</Go>
-            </Elsewhere>
-          )}
-        </Card>
-      </Aside>
+        </Aside>
+      )}
     </Columns>
   )
 }
@@ -284,36 +238,6 @@ const StepLabels = styled.ul`
     ${type.small}
     color: ${color.muted};
   }
-`
-
-const Eyebrow = styled.span`
-  ${type.label}
-  color: ${color.muted};
-`
-
-const Elsewhere = styled.a`
-  display: flex;
-  align-items: center;
-  gap: ${space[4]};
-  ${media.compact} {
-    min-height: ${size.touch};
-  }
-  color: ${color.fg};
-  text-decoration: none;
-  span:nth-child(2) {
-    flex: 1;
-  }
-  &:hover span:nth-child(2) {
-    text-decoration: underline;
-  }
-`
-
-const Badge = styled.span`
-  display: inline-flex;
-`
-
-const Go = styled.span`
-  color: ${color.accent};
 `
 
 const SmallLink = styled.a`

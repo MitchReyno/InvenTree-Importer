@@ -46,6 +46,21 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 - **2026-11-10T02:32+11:00, task 2:** Outside a batch the pill names the batch it shows from that batch's cached capture read, falling back to "Application-wide" when the batch has not been opened in this session. It still never fetches.
 - **2026-11-10T02:32+11:00, task 2:** The theme choice moved from the retired "⋯" menu into the server menu as `masthead/ThemeChoice.tsx`, below the server actions, for Task 5 to move to Settings › Appearance. The Dev badge moved into `masthead/DevBadge.tsx` so the bar and the menu share it.
 
+## Task 3: batch header layout and counts
+
+### Changes to the plan
+
+- **2026-11-10T02:41+11:00, task 3 (PR-B):** The attention read has no count of lots with open questions, so Review › Lots reads "lots needing answers" as lots changed since review (`changed_after_review`), the Review items the need-you panel lists under Lots, else all active lots. Open questions stay on Processing. Counting lots by their questions would need the processing snapshot in the header, a read Capture and Changes do not otherwise make.
+- **2026-11-10T02:41+11:00, task 3 (PR-B):** Processing and its steps now count questions only, as the design D3 table says. Failed attempts no longer raise a tab badge; they stay in the need-you list and on the step pages.
+- **2026-11-10T02:41+11:00, task 3 (PR-B):** A finished step shows ✓ with no "12/12", as on the phone canvas, unless it has questions ("✓ Examine 1").
+- **2026-11-10T02:41+11:00, task 3 (PR-B):** The short summary drops "(N retired)": the count stays active lots only. `BatchHeader` loses `retiredLotCount` and the Capture file count, so it now takes only `unusedFiles` from the media read.
+- **2026-11-10T02:41+11:00, task 3 (PR-B):** Removing the "Elsewhere in this batch" card left `ProcessingOverview` without a use for `attention` and `unusedFiles`, so those props are gone from `ProcessingStage`, `ProcessingWorkspace` and the Overview. With no sessions the Overview no longer draws an empty aside.
+
+### Decisions made during implementation
+
+- **2026-11-10T02:41+11:00, task 3:** `TabItem` now takes one `count` (`value`, `label`, `tone`) and a `status` (`running` or `done`) in place of `count`, `countLabel`, `countTone`, `badge` and `progress`, so a tab cannot show two badges or a phrase. The words go only into the accessible name ("Review, 8 to check"); the tab shows "8". Each count carries `data-tone` for tests and inspection.
+- **2026-11-10T02:41+11:00, task 3:** Each tab row shifts left by its own tab padding (`TAB_INSET`), so the first label lines up with the title, as change log D2 asks. The phone rule that runs the rows into the band's padding is unchanged.
+
 ## Task 10: direct upload
 
 ### Changes to the plan

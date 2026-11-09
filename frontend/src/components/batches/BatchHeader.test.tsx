@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { BatchHeader, type EvidenceCounts } from './BatchHeader'
+import { BatchHeader } from './BatchHeader'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -29,15 +29,18 @@ const attention: BatchAttentionDto = {
   items_truncated: false,
 }
 
-function header(route: Parameters<typeof BatchHeader>[0]['route'], evidence?: EvidenceCounts) {
+function precedes(first: Element, second: Element) {
+  return Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+}
+
+function header(route: Parameters<typeof BatchHeader>[0]['route'], unusedFiles?: number) {
   return render(
     <BatchHeader
       batch={batch}
       route={route}
       attention={attention}
-      evidence={evidence}
+      unusedFiles={unusedFiles}
       activeLotCount={8}
-      retiredLotCount={0}
       busy={false}
       onArchive={vi.fn()}
     />,
@@ -45,7 +48,7 @@ function header(route: Parameters<typeof BatchHeader>[0]['route'], evidence?: Ev
 }
 
 describe('BatchHeader', () => {
-  it('flags failed attempts on Processing and on their step', () => {
+  it('counts Processing by its questions only; failed attempts stay in the need-you list', () => {
     render(
       <BatchHeader
         batch={batch}
@@ -61,11 +64,9 @@ describe('BatchHeader', () => {
               research: { questions: 0, failed: 1, jobs: 0, ready: 0, running: 0 },
             },
           },
-          // Step badges come from exact counts, not from the possibly truncated items.
           items: [],
         }}
         activeLotCount={8}
-        retiredLotCount={0}
         busy={false}
         onArchive={vi.fn()}
       />,
@@ -73,13 +74,13 @@ describe('BatchHeader', () => {
     const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
     const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
 
-    expect(
-      tabs.getByRole('link', { name: 'Processing, 3 questions · 1 failed' }),
-    ).toBeInTheDocument()
-    expect(steps.getByRole('link', { name: 'Research, 1 failed' })).toBeInTheDocument()
+    expect(tabs.getByRole('link', { name: 'Processing, 3 questions' })).toBeInTheDocument()
+    // Overview carries no count: the pill and the Processing tab already show the questions.
+    expect(steps.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+    expect(steps.getByRole('link', { name: 'Research' })).toBeInTheDocument()
   })
 
-  it('marks running work and the progress of each step from the attention read', () => {
+  it('marks each step running or done with an icon, and counts its progress or questions', () => {
     render(
       <BatchHeader
         batch={batch}
@@ -87,29 +88,31 @@ describe('BatchHeader', () => {
         attention={{
           ...attention,
           processing: {
-            questions: 0,
+            questions: 1,
             failed: 0,
             running: 2,
             steps: {
               ...noSteps,
-              examine: { questions: 0, failed: 0, jobs: 3, ready: 3, running: 0 },
+              examine: { questions: 1, failed: 0, jobs: 3, ready: 3, running: 0 },
               research: { questions: 0, failed: 0, jobs: 12, ready: 7, running: 2 },
             },
           },
           items: [],
         }}
         activeLotCount={8}
-        retiredLotCount={0}
         busy={false}
         onArchive={vi.fn()}
       />,
     )
+    const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
     const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
 
-    expect(steps.getByRole('link', { name: 'Examine, done' })).toBeInTheDocument()
-    expect(steps.getByRole('link', { name: 'Research, running, 7 of 12 ready' })).toHaveTextContent(
-      '7 of 12',
-    )
+    expect(tabs.getByRole('link', { name: 'Processing, running, 1 question' })).toBeInTheDocument()
+    const examine = steps.getByRole('link', { name: 'Examine, done, 1 question' })
+    expect(examine).toHaveTextContent('✓')
+    expect(examine.querySelector('[data-tone="warn"]')).toHaveTextContent('1')
+    const research = steps.getByRole('link', { name: 'Research, running, 7 of 12 ready' })
+    expect(research.querySelector('[data-tone="default"]')).toHaveTextContent('7/12')
     expect(steps.getByRole('link', { name: 'Images' })).toBeInTheDocument()
   })
 
@@ -121,7 +124,6 @@ describe('BatchHeader', () => {
         attention={undefined}
         attentionUnavailable
         activeLotCount={8}
-        retiredLotCount={0}
         busy={false}
         onArchive={vi.fn()}
       />,
@@ -130,20 +132,25 @@ describe('BatchHeader', () => {
     expect(screen.getByText('Needs you unavailable')).toBeInTheDocument()
   })
 
-  it('reads every tab count from the attention read, warnings apart from plain counts', () => {
-    header({ tab: 'capture' })
-    const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
+  it('gives each tab one count: Capture none, Processing its questions, Review lots to check, Changes lots ready', () => {
+    header({ tab: 'capture' }, 1)
+    const nav = screen.getByRole('navigation', { name: 'Batch' })
+    const tabs = within(nav)
 
     expect(tabs.getByRole('link', { name: 'Capture' })).toHaveAttribute('aria-current', 'page')
-    expect(tabs.getByRole('link', { name: 'Processing, 3 questions' })).toHaveAttribute(
-      'href',
-      `#${batchId}/processing/overview`,
-    )
-    expect(tabs.getByRole('link', { name: 'Review, 8 to check, 3 to decide' })).toBeInTheDocument()
-    expect(tabs.getByRole('link', { name: 'Changes, 6 ready, 2 to check' })).toHaveAttribute(
-      'href',
-      `#${batchId}/changes/ready`,
-    )
+    const processing = tabs.getByRole('link', { name: 'Processing, 3 questions' })
+    expect(processing).toHaveAttribute('href', `#${batchId}/processing/overview`)
+    expect(processing.querySelector('[data-tone="warn"]')).toHaveTextContent('3')
+    const review = tabs.getByRole('link', { name: 'Review, 8 to check' })
+    expect(review.querySelector('[data-tone="default"]')).toHaveTextContent('8')
+    const changes = tabs.getByRole('link', { name: 'Changes, 6 ready to add' })
+    expect(changes).toHaveAttribute('href', `#${batchId}/changes/ready`)
+    expect(changes.querySelector('[data-tone="ok"]')).toHaveTextContent('6')
+    for (const tab of tabs.getAllByRole('link')) {
+      expect(tab.querySelectorAll('[data-tone]').length).toBeLessThanOrEqual(1)
+    }
+    // Counts are numbers, never phrases such as "8 to check".
+    expect(nav).not.toHaveTextContent(/to check|to decide|ready/)
     expect(tabs.queryByRole('link', { name: /Approve|Results/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: /views|steps/ })).not.toBeInTheDocument()
   })
@@ -152,14 +159,13 @@ describe('BatchHeader', () => {
     header({ tab: 'review', view: 'lots' })
     const views = within(screen.getByRole('navigation', { name: 'Review views' }))
 
-    expect(views.getByRole('link', { name: 'Lots, 8 lots, 8 to check' })).toHaveAttribute(
+    expect(views.getByRole('link', { name: 'Lots, 8 lots' })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    expect(views.getByRole('link', { name: 'Records, 46 records, 3 to decide' })).toHaveAttribute(
-      'href',
-      `#${batchId}/review/records`,
-    )
+    const records = views.getByRole('link', { name: 'Records, 3 to decide' })
+    expect(records).toHaveAttribute('href', `#${batchId}/review/records`)
+    expect(records.querySelector('[data-tone="warn"]')).toHaveTextContent('3')
     // The Map's count needs the media read, which this render does not give.
     expect(views.getByRole('link', { name: 'Map' })).toHaveAttribute(
       'href',
@@ -178,19 +184,18 @@ describe('BatchHeader', () => {
 
     header({ tab: 'changes', view: 'added' })
     const views = within(screen.getByRole('navigation', { name: 'Changes views' }))
-    expect(views.getByRole('link', { name: 'Added, 1 run, 2 need attention' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
-    expect(views.getByRole('link', { name: 'Ready to add, 6 lots' })).toBeInTheDocument()
+    const added = views.getByRole('link', { name: 'Added, 2 need attention' })
+    expect(added).toHaveAttribute('aria-current', 'page')
+    expect(added.querySelector('[data-tone="bad"]')).toHaveTextContent('2')
+    expect(views.getByRole('link', { name: 'Ready to add, 6 ready to add' })).toBeInTheDocument()
   })
 
-  it('counts Capture files and the Map unused files from the media read', () => {
-    const { unmount } = header({ tab: 'review', view: 'map' }, { files: 9, unused: 1 })
+  it('counts the Map by its unused files and gives Capture no count', () => {
+    const { unmount } = header({ tab: 'review', view: 'map' }, 1)
     const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
     const views = within(screen.getByRole('navigation', { name: 'Review views' }))
 
-    expect(tabs.getByRole('link', { name: 'Capture, 9 files' })).toBeInTheDocument()
+    expect(tabs.getByRole('link', { name: 'Capture' })).toBeInTheDocument()
     expect(views.getByRole('link', { name: 'Map, 1 unused file' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -198,12 +203,23 @@ describe('BatchHeader', () => {
     unmount()
 
     // No count while lineage is unknown, as with none unused: the Map shows no badge.
-    header({ tab: 'review', view: 'map' }, { files: 9 })
+    header({ tab: 'review', view: 'map' })
     expect(
       within(screen.getByRole('navigation', { name: 'Review views' })).getByRole('link', {
         name: 'Map',
       }),
     ).toBeInTheDocument()
+  })
+
+  it('puts a short summary beside the title and the tabs on their own row under it', () => {
+    header({ tab: 'capture' })
+    const title = screen.getByRole('heading', { level: 1, name: batch.title })
+    const summary = screen.getByText('8 lots · 6 ready to add')
+
+    expect(precedes(title, summary)).toBe(true)
+    expect(precedes(summary, screen.getByRole('navigation', { name: 'Batch' }))).toBe(true)
+    // The title appears once: as the heading.
+    expect(screen.getAllByText(batch.title)).toHaveLength(1)
   })
 
   it('offers a way back to Batches above the title at phone width, where the masthead drops its trail', () => {

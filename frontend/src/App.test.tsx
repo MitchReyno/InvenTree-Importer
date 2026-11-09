@@ -1189,14 +1189,15 @@ test('a failed attention refresh withholds the old running counts and says so', 
     </ApiClientsProvider>,
     { wrapper: Wrapper },
   )
-  await screen.findByText(/2 agents working/)
+  const tabs = within(await screen.findByRole('navigation', { name: 'Batch' }))
+  await tabs.findByRole('link', { name: 'Processing, running' })
 
   await act(async () => {
     await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'attention', fixture.id) })
   })
 
   expect(await screen.findByText('Needs you unavailable')).toBeInTheDocument()
-  expect(screen.queryByText(/2 agents working/)).not.toBeInTheDocument()
+  expect(tabs.getByRole('link', { name: 'Processing' })).toBeInTheDocument()
 })
 
 test('a settings section route opens agent settings and never reads a batch called "settings"', async () => {

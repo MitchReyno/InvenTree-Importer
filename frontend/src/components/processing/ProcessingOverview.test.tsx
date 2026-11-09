@@ -1,6 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { BatchAttentionDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProcessingSource } from '#/processing/source'
@@ -8,7 +7,6 @@ import { InstructionField } from './InstructionField'
 import { ProcessingOverview } from './ProcessingOverview'
 
 const b = 'b0000000-0000-4000-8000-000000000001'
-const none = { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 }
 
 const step = (name: 'examine' | 'research' | 'images' | 'inventory', label: string, jobs = 0) => ({
   step: name,
@@ -46,27 +44,11 @@ const source: ProcessingSource = {
   pipeline: { lead: null, lots: [] },
 }
 
-const attention = {
-  batch_id: b,
-  revision: '4',
-  processing: {
-    questions: 1,
-    failed: 1,
-    running: 0,
-    steps: { examine: none, research: none, images: none, inventory: none },
-  },
-  review: { to_check: 8, changed_after_review: 0, to_decide: 2, records: 0 },
-  changes: { ready: 3, failed: 0, uncertain: 0, runs: 0 },
-  items: [],
-  items_truncated: false,
-} as BatchAttentionDto
-
 function overview(overrides: Partial<Parameters<typeof ProcessingOverview>[0]> = {}) {
   return render(
     <ProcessingOverview
       batchId={b}
       source={source}
-      attention={attention}
       instructions={<p>Instructions slot</p>}
       onOpenSession={vi.fn()}
       activity={[]}
@@ -159,18 +141,20 @@ describe('ProcessingOverview', () => {
     expect(onOpenSession).toHaveBeenCalledWith('j2')
   })
 
-  it('links to Review and Changes with their counts, and offers no lot editing', () => {
+  it('leaves the Review and Changes counts to the tabs, and offers no lot editing', () => {
     overview()
 
-    expect(screen.getByRole('link', { name: '8 lots to check' })).toHaveAttribute(
-      'href',
-      `#${b}/review/lots`,
-    )
-    expect(screen.getByRole('link', { name: '3 ready to add' })).toHaveAttribute(
-      'href',
-      `#${b}/changes/ready`,
-    )
+    expect(screen.queryByRole('navigation', { name: 'Elsewhere in this batch' })).toBeNull()
+    expect(screen.queryByRole('link', { name: /to check|ready to add|not used/ })).toBeNull()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('heads Needs you without a count, which the batch header already shows', () => {
+    overview()
+    const needs = screen.getByRole('region', { name: 'Needs you' })
+
+    expect(within(needs).getByRole('heading', { name: 'Needs you' })).toBeVisible()
+    expect(within(needs).queryByText('1')).toBeNull()
   })
 })
 
@@ -343,7 +327,7 @@ describe('InstructionField', () => {
     expect(within(progress).getByText('Research: failed')).toBeInTheDocument()
   })
 
-  it('puts sessions and the rest of the batch in an aside', () => {
+  it('puts the batch sessions in an aside', () => {
     overview({
       source: {
         ...source,
@@ -363,7 +347,6 @@ describe('InstructionField', () => {
     expect(within(aside).getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
       '1 running',
     )
-    expect(within(aside).getByRole('link', { name: '8 lots to check' })).toBeVisible()
     expect(within(aside).getByRole('link', { name: 'All sessions, every batch' })).toHaveAttribute(
       'href',
       '#agents',
@@ -386,9 +369,8 @@ describe('InstructionField', () => {
     expect(within(timeline).getAllByRole('listitem')).toHaveLength(2)
   })
 
-  it('names unused files, when the session started and the slot limit', () => {
+  it('names when the session started and the slot limit', () => {
     overview({
-      unusedFiles: 1,
       started: '13:02',
       sessionLimit: 3,
       source: {
@@ -405,10 +387,6 @@ describe('InstructionField', () => {
         ],
       },
     })
-    expect(screen.getByRole('link', { name: '1 file not used by any lot' })).toHaveAttribute(
-      'href',
-      `#${b}/review/map`,
-    )
     expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent('Started 13:02')
     expect(screen.getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
       '1 running · limit 3',

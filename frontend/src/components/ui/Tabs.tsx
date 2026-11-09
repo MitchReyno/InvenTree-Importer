@@ -1,49 +1,38 @@
 import styled, { css } from 'styled-components'
 import { color, size, space, typeVar } from '#/theme/generated/tokens'
-import { formatCount, media } from './media'
-import { Badge, Count, type CountTone } from './Pill'
+import { media } from './media'
+import { Badge, type CountTone } from './Pill'
 import { Spinner } from './Loading'
 import { hoverTransition } from './motion'
-import { visuallyHidden } from './VisuallyHidden'
 
-/** `short` replaces the words at phone width, where the row has room only for numbers. */
-export type TabBadge = { label: string; short?: string; tone: 'warn' | 'bad' | 'ok' }
+/** A tab's one count: the number or progress it shows, its words when read, and its tone. */
+export type TabItemCount = { value: string; label: string; tone: CountTone }
 
 export type TabItem = {
   id: string
   label: string
   href: string
-  count?: number
-  countTone?: CountTone
-  /** Words after the count in the accessible name ("8 to check"). */
-  countLabel?: string
-  badge?: TabBadge
+  /** At most one count per tab: the thing to act on, otherwise the total or progress. */
+  count?: TabItemCount
+  /** A step's status icon: a spinner while running, a tick once done. */
+  status?: 'running' | 'done'
   disabled?: boolean
-  spinner?: boolean
-  /** A step's attempts: a tick when all are ready, otherwise "7 of 12". */
-  progress?: { ready: number; of: number }
 }
 
 type TabsProps = { label: string; items: TabItem[]; current: string }
 
 function accessibleName(item: TabItem) {
-  // The spinner is decorative, so its meaning is read here.
-  const parts = [item.label, ...(item.spinner ? ['running'] : [])]
-  if (item.count !== undefined) {
-    parts.push([formatCount(item.count), item.countLabel].filter(Boolean).join(' '))
+  // The icons are decorative, so their meaning is read here.
+  const parts = [item.label]
+  if (item.status) {
+    parts.push(item.status)
   }
-  if (item.progress) {
-    const { ready, of } = item.progress
-    parts.push(ready === of ? 'done' : `${ready} of ${of} ready`)
-  }
-  if (item.badge) {
-    parts.push(item.badge.label)
+  if (item.count) {
+    parts.push(item.count.label)
   }
 
   return parts.join(', ')
 }
-
-const BADGE_TONE: Record<TabBadge['tone'], CountTone> = { warn: 'warn', bad: 'bad', ok: 'ok' }
 
 function TabLinks({
   label,
@@ -68,28 +57,13 @@ function TabLinks({
             aria-label={name === item.label ? undefined : name}
             title={item.label}
           >
-            {item.spinner && <Spinner />}
-            {item.progress && item.progress.ready === item.progress.of && (
-              <Done aria-hidden="true">✓</Done>
-            )}
+            {item.status === 'running' && <Spinner />}
+            {item.status === 'done' && <Done aria-hidden="true">✓</Done>}
             <TabLabel>{item.label}</TabLabel>
-            {item.count !== undefined && <Count value={item.count} tone={item.countTone} />}
-            {item.progress && item.progress.ready < item.progress.of && (
-              <Badge tone="default">
-                {item.progress.ready} of {item.progress.of}
-              </Badge>
-            )}
-            {item.badge && (
-              <Badge tone={BADGE_TONE[item.badge.tone]}>
-                {item.badge.short ? (
-                  <>
-                    <Words>{item.badge.label}</Words>
-                    <Short aria-hidden="true">{item.badge.short}</Short>
-                  </>
-                ) : (
-                  item.badge.label
-                )}
-              </Badge>
+            {item.count && (
+              <span data-tone={item.count.tone}>
+                <Badge tone={item.count.tone}>{item.count.value}</Badge>
+              </span>
             )}
           </TabLink>
         )
@@ -103,7 +77,7 @@ export function Tabs(props: TabsProps) {
   return <TabLinks {...props} level="primary" />
 }
 
-/** The second tab row; each item can carry a count, an attention badge and a spinner. */
+/** The second tab row; each item can carry one count and a status icon. */
 export function SubTabs(props: TabsProps) {
   return <TabLinks {...props} level="secondary" />
 }
@@ -185,18 +159,4 @@ const TabLabel = styled.span`
 const Done = styled.span`
   color: ${color.ok};
   font-weight: ${typeVar.pill.weight};
-`
-
-/** Below bp-compact a badge shows only its number; its words are still read. */
-const Words = styled.span`
-  ${media.compact} {
-    ${visuallyHidden}
-  }
-`
-
-const Short = styled.span`
-  display: none;
-  ${media.compact} {
-    display: inline;
-  }
 `

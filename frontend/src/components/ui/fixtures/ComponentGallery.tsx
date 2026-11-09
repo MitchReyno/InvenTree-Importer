@@ -266,14 +266,18 @@ export function ComponentGallery() {
             current="review"
             items={[
               { id: 'capture', label: 'Capture', href: '#capture' },
-              { id: 'processing', label: 'Processing', href: '#processing', count: 3 },
+              {
+                id: 'processing',
+                label: 'Processing',
+                href: '#processing',
+                status: 'running',
+                count: { value: '3', label: '3 questions', tone: 'warn' },
+              },
               {
                 id: 'review',
                 label: 'Review',
                 href: '#review',
-                count: 8,
-                countLabel: 'to check',
-                badge: { label: '3 to decide', tone: 'warn' },
+                count: { value: '8', label: '8 to check', tone: 'default' },
               },
               { id: 'changes', label: 'Changes', href: '#changes', disabled: true },
             ]}
@@ -282,9 +286,19 @@ export function ComponentGallery() {
             label="Review views"
             current="lots"
             items={[
-              { id: 'lots', label: 'Lots', href: '#lots', count: 12 },
+              {
+                id: 'lots',
+                label: 'Lots',
+                href: '#lots',
+                count: { value: '12', label: '12 lots', tone: 'default' },
+              },
               { id: 'map', label: 'Map', href: '#map' },
-              { id: 'records', label: 'Records', href: '#records', spinner: true },
+              {
+                id: 'records',
+                label: 'Records',
+                href: '#records',
+                count: { value: '3', label: '3 to decide', tone: 'warn' },
+              },
             ]}
           />
           <Row>

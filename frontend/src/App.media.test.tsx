@@ -76,9 +76,10 @@ test.each([true, false, undefined])(
       await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled(), {
         timeout: 3000,
       })
+      // The header reads Capture's media cache for the Map's count, sending no request of its own.
       expect(mediaReads).toHaveBeenCalledTimes(1)
-      // The header counts from Capture's media read without a request of its own.
-      expect(screen.getByRole('link', { name: 'Capture, 0 files' })).toBeInTheDocument()
+      // Capture carries no count.
+      expect(screen.getByRole('link', { name: 'Capture' })).toBeInTheDocument()
     } else {
       expect(screen.queryByLabelText('Choose photos')).not.toBeInTheDocument()
       expect(mediaReads).not.toHaveBeenCalled()

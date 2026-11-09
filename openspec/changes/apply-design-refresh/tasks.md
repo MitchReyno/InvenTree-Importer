@@ -119,10 +119,10 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate.
 - **Risks and decisions:** none.
 
-- [ ] 3.1 Confirm the need-you aggregate inputs and current badge rendering.
-- [ ] 3.2 RED: `tabCount` table tests and the one-badge-per-tab header test fail.
-- [ ] 3.3 GREEN: new layout, counts, status icons and short summary; remove the duplicate counts.
-- [ ] 3.4 Refactor; verify the redirects and second-row behaviour are unchanged.
+- [x] 3.1 Confirm the need-you aggregate inputs and current badge rendering.
+- [x] 3.2 RED: `tabCount` table tests and the one-badge-per-tab header test fail.
+- [x] 3.3 GREEN: new layout, counts, status icons and short summary; remove the duplicate counts.
+- [x] 3.4 Refactor; verify the redirects and second-row behaviour are unchanged.
 - [ ] 3.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 4. Phone header
