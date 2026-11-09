@@ -1,0 +1,9 @@
+{
+  "name": "bench-intake-personal-guest-tools",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.319",
+    "@openai/codex": "0.166.0"
+  }
+}

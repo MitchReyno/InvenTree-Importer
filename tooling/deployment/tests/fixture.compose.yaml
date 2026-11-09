@@ -1,0 +1,18 @@
+# Disposable database for ARM64 release qualification. Reachable only over its
+# own Unix socket. All PostgreSQL state disappears when the container stops.
+services:
+  database:
+    image: postgres:17@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
+    platform: linux/arm64
+    network_mode: none
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: intake_release_fixture
+    command: ["postgres", "-c", "listen_addresses="]
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "intake_release_fixture"]
+      interval: 1s
+      timeout: 3s
+      retries: 40

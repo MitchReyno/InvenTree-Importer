@@ -1,0 +1,29 @@
+minimumLimaVersion: 2.3.0
+arch: aarch64
+images:
+  - location: https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/cloud/alpine-3.24.4-aarch64-cloudinit-r0.qcow2
+    arch: aarch64
+    digest: sha512:a30a4f096adcdc193f27f15b3b6f3e84ec42aa1bc2b98042baa36f48bd9ae9b3175b4f18b8825992eea18304ed90e92d25f74fa6584d4267a4f5bcf8d6defb0d
+cpus: 2
+memory: 2GiB
+disk: 12GiB
+mounts: []
+ssh:
+  forwardAgent: false
+  loadDotSSHPubKeys: false
+propagateProxyEnv: false
+containerd:
+  system: false
+  user: false
+portForwards:
+  - guestPortRange: [1, 65535]
+    guestIPMustBeZero: false
+    ignore: true
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eu
+      apk add --no-cache docker docker-cli-compose
+      rc-update add docker default
+      rc-service docker start
