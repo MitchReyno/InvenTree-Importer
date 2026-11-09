@@ -346,7 +346,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - [x] 11.3.4 `hasSupportingEvidence` ignores removed items; the delete clears attachment selections; `ungroup` and restore handle retired groups.
 - [x] 11.4 Refactor; update the `intake-server/ARCHITECTURE.md` media section.
 - [x] 11.5 Run the full gate and both intake tiers, and record the results.
-- [ ] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, existing evidence stays present with no removal rows, and an app build without the change still runs with the table unused. Record the evidence.
+- [x] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, and existing evidence stays present with no removal rows. An older build refuses a 0031 database by design, so rollback means keeping this build. Record the evidence.
 
 ## 12. Evidence removal UI
 

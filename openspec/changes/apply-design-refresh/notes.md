@@ -104,3 +104,35 @@ None for task 10.
 ### Open items
 
 - No call site passes `onEdit` yet, so no chip offers Edit value on a screen.
+
+## Task 11: evidence removal backend
+
+### Changes to the plan
+
+- **2026-11-10T03:00+11:00, task 11 (PR-G):** The 11.6 claim that an app build without the change still runs with the table unused was false: `operations/compatibility.ts` requires the applied migrations to match the build's set exactly, and startup quarantines on a mismatch, so an older build refuses a database with `0031`. Rollback means keeping this build; there is no down-migration (coordinator decision). Task 11.6 and design "Migration, rollout and recovery" now say so. `tests/pg/media-removal-upgrade.test.ts` proves the rest: `0031` applies over a database migrated to 0030 with existing evidence, which stays present with no removal rows.
+- **2026-11-10T03:00+11:00, task 11 (PR-G):** The tests were written after the implementation, not before (11.2). To show they discriminate, three behaviours were disabled together (the snapshot filter, the stale marking, the publication refusal): four of the six Postgres tests then present failed, and all passed once restored. The append-only and Examine-trigger tests don't depend on those behaviours; the upgrade and process tests were written afterwards.
+- **2026-11-10T03:00+11:00, task 11 (PR-G), approval deviation:** `pinned_by`, `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of` appear only on the operator's snapshot (`operatorMediaSnapshot`, used by GET `/media` and edit responses), not on every media snapshot. `mediaSnapshot` is also read by Processing, preparation and records under roles that can't read `executor_run`, so it keeps its shape apart from leaving removed items out. The new fields and the `removed` list are optional and omitted when empty, so existing snapshots keep their bytes.
+- **2026-11-10T03:00+11:00, task 11 (PR-G), approval deviation:** Review's existing `no_supporting_evidence` rule counts any lot-attachment selection row as support, `unset` included. A lot whose only evidence was its selected lot attachment therefore keeps counting as supported after the delete clears the selection to `unset`, and doesn't raise the warning the spec describes. `sole_evidence_lot_ids` mirrors the gate rather than contradicting it. The quirk predates this change.
+- **2026-11-10T03:00+11:00, task 11 (PR-G):** No lot-session tool lists observations; only the Examine lead's `read_batch` does. Removal is enforced for lot sessions through the proposal publication check and their media inputs.
+
+### Unexpected challenges
+
+- **2026-11-10T03:00+11:00, task 11:** Almost every evidence consumer reads through `mediaSnapshot`: Processing inputs and their evidence notes, the lead's manifest, preparation and its supporting-evidence gate, records and operator review. Leaving removed items and their derivations out of its `evidence` covers them at once. Code that reads media rows directly checks removal itself with `versionRemovedSql`: `media/content.ts` (which also serves native prompts, the research broker and session fetches), the session tools, the Examine trigger, `requireEvidenceRegion`, `leadBatchView`, the capture snapshot's observations, `lockApprovedMedia` and the batch list's counts and thumbnail.
+- **2026-11-10T03:00+11:00, task 11:** Evidence notes reach sessions as manifest notes whose `note_id` is a `media_evidence_note` id, so the third stale join goes through `media_evidence_note.evidence_id`. Session proposals cite in their value and rely through `relies_on`; both are checked.
+- **2026-11-10T03:00+11:00, task 11:** Hiding observations on removed evidence from the capture snapshot reads `media_version` and the new table, so `grantCaptureRead` now grants `SELECT` on `media_evidence_removal` and on `media_version(id,batch_id,evidence_id)`. Existing namespaces need their grants reapplied after migrating, as for any new table.
+
+### Decisions made during implementation
+
+- **2026-11-10T03:00+11:00, task 11:** Restoring an item that isn't removed is refused with `media_evidence_not_removed` (409), and removing one already removed with `media_evidence_removed`.
+- **2026-11-10T03:00+11:00, task 11:** Each `removed` entry carries `id`, `label`, `preview_id` (the original's first page, null before decoding), `removed_revision` and `removed_at`. Restore decides the group, so the entry doesn't list one.
+- **2026-11-10T03:00+11:00, task 11:** `pinned_by` names the earliest pinning approval, timed by its run's command.
+- **2026-11-10T03:00+11:00, task 11:** The lead's batch notice and the lots' notices are `revision` items with fields `["identity"]`, keyed `evidence_removed:<revision>:<session>`, one per session per removal. Owners of directly stale proposals are told the same way, and the cascade sends its existing `cascade:<proposal>` notices. Affected lots are the active lots the removed items feed through links or active observations.
+- **2026-11-10T03:00+11:00, task 11:** `media/removal-impact.ts` reimplements Review's supporting-evidence rule rather than importing `review/model.ts` into media. It counts retired ancestors' attachment selections, which the gate may not.
+- **2026-11-10T03:00+11:00, task 11:** Native prompts list a removed version sealed in an older input as unavailable instead of failing the attempt.
+- **2026-11-10T03:00+11:00, task 11:** The batch list's evidence counts and thumbnail skip removed items, so a deleted file leaves Batches too.
+- **2026-11-10T03:00+11:00, task 11:** Company logo drafts (`retainedImageVersion`) still accept a removed version; refusing it would block complete-state settings saves. Preparation already reports such a logo as unavailable, because the snapshot leaves it out.
+- **2026-11-10T03:00+11:00, task 11:** `requireEvidenceRegion` takes the media revision lock after the capture lock it already holds, matching `lockMediaBatch`'s order.
+
+### Open items
+
+- Review's supporting-evidence rule should stop counting an `unset` lot-attachment selection as evidence (see Changes to the plan).
