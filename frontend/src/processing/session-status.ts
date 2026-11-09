@@ -30,7 +30,12 @@ export function useSessionStatuses(
   const query = useQuery({
     // A new capture revision is a new read; the previous lines stay until it arrives.
     queryKey: serverQueryKey(scope, 'processing', batchId, 'status', revision),
-    queryFn: () => processing!.read(batchId),
+    queryFn: () => {
+      if (!processing) {
+        throw new Error('processing_unavailable')
+      }
+      return processing.read(batchId)
+    },
     // Only a setup with sessions has status lines.
     enabled: Boolean(processing?.session),
     refetchInterval: SESSION_STATUS_REFRESH_MS,

@@ -48,6 +48,7 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 
 - **2026-11-09T21:49+11:00, task 10:** `LiveUpdates` reconciles through `useOnForeground`, which also fires when a hidden tab becomes visible again; it previously listened only for focus and reconnection. A returning tab is when retained reads are most likely stale.
 - **2026-11-09T23:05+11:00, task 10 (review round 2):** The `Batch` memos for the retired and predecessor sets are dropped. `ReviewMap` keeping equal connector paths already stops the extra render, and the guidelines add `useMemo` only with evidence. The sign-in poll and the panel's commands exclude each other again, as they did when every poll went through `request`: the runner takes one action at a time and refuses the other. Both polls keep running in a hidden tab (`refetchIntervalInBackground`), as the old timers did; the sign-in completes on the OpenAI tab.
+- **2026-11-09T23:30+11:00, task 9 (review round 3):** Blocking the sign-in buttons while the current key's poll fetched missed two overlaps: app-wide reconciliation cancels a poll without stopping its request and then refetches at once, and a key edit leaves the old key's poll running. The panel now sends every runner call through one queue, so a call starts only after the previous one finishes, and a cancelled poll's result is dropped. The queue does not abort requests, because the runner keeps working on a call the browser abandons.
 
 ## Open items
 

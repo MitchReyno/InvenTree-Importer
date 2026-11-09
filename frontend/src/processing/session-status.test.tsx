@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react'
+import { focusManager } from '@tanstack/react-query'
 import { expect, it, vi } from 'vitest'
 import { SESSION_STATUS_REFRESH_MS, useSessionStatuses } from './session-status'
 import type { ProcessingClient } from './types'
@@ -130,6 +131,25 @@ it('after a failed read, a new revision does not bring back the old lines while 
     finish({ jobs: [job('lead', 'examine', null, 'Done sorting')] })
     await waitFor(() => expect(result.current.lead).toBe('Done sorting'))
   } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('keeps re-reading while the tab is hidden, as its timer always did', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  focusManager.setFocused(false)
+  try {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ jobs: [job('lead', 'examine', null, 'Finding items')] })
+      .mockResolvedValue({ jobs: [job('lead', 'examine', null, 'Grouping reels')] })
+    const client = { read, session: vi.fn() } as unknown as ProcessingClient
+    const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'), { wrapper })
+    await waitFor(() => expect(result.current.lead).toBe('Finding items'))
+    await vi.advanceTimersByTimeAsync(SESSION_STATUS_REFRESH_MS)
+    await waitFor(() => expect(result.current.lead).toBe('Grouping reels'))
+  } finally {
+    focusManager.setFocused(undefined)
     vi.useRealTimers()
   }
 })
