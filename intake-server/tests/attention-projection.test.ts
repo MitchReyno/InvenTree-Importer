@@ -488,3 +488,39 @@ test('each lot job counts toward its step, so failed or replaced work is never d
     running: 0,
   })
 })
+
+test('a retired lot’s superseded job leaves its step, so the step can still reach done', () => {
+  const retired = lot(9)
+  const jobs = [
+    { ...job(10, 'research', []), state: 'ready' },
+    { ...job(11, 'research', []), subject_id: retired, state: 'superseded' },
+    { ...job(12, 'research', []), subject_id: null, state: 'ready' },
+  ]
+  const attention = projectAttention({
+    batchId: batch,
+    processing: { ...processing, jobs } as unknown as ProcessingSnapshotDto,
+    review: {
+      ...review,
+      retired_lots: [
+        {
+          lot_id: retired,
+          label: 'Old bag',
+          action: 'split',
+          retired_revision: '5',
+          successor_lot_ids: [lot(1)],
+        },
+      ],
+    } as unknown as OperatorReviewDto,
+    manual,
+    records,
+  })
+
+  validate('BatchAttention', attention)
+  assert.deepEqual(attention.processing.steps.research, {
+    questions: 0,
+    failed: 0,
+    jobs: 2,
+    ready: 2,
+    running: 0,
+  })
+})

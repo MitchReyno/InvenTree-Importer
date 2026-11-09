@@ -397,7 +397,9 @@ export function ProcessingWorkspace({
   const activeLotIds = new Set(
     batch.lots.filter((lot) => !retiredLotIds.has(lot.id)).map((lot) => lot.id),
   )
-  const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
+  const source = snapshot
+    ? retainedJobsSource(snapshot, subjects, activeLotIds, retiredLotIds)
+    : null
   const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (

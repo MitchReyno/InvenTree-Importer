@@ -8,7 +8,14 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { STEPS, STEP_BY_STAGE, countSteps, type Step, type StepJobs } from '#/processing/steps.ts'
+import {
+  STEPS,
+  STEP_BY_STAGE,
+  activeSubjectJobs,
+  countSteps,
+  type Step,
+  type StepJobs,
+} from '#/processing/steps.ts'
 
 export type AttentionSources = {
   batchId: string
@@ -142,8 +149,13 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
 
 type StepWork = StepJobs & { questions: number; failed: number }
 
-function stepWork(items: AttentionItemDto[], processing: ProcessingSnapshotDto | undefined) {
-  const jobs = countSteps(processing?.jobs ?? [])
+function stepWork(
+  items: AttentionItemDto[],
+  processing: ProcessingSnapshotDto | undefined,
+  review: OperatorReviewDto,
+) {
+  const retired = new Set(review.retired_lots.map((lot) => lot.lot_id))
+  const jobs = countSteps(activeSubjectJobs(processing?.jobs ?? [], retired))
 
   const step = (name: Step): StepWork => {
     const own = items.filter((item) => item.route.split('/')[2] === name)
@@ -177,7 +189,7 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
       questions: questions.length,
       failed: failedJobs.length,
       running: (sources.processing?.jobs ?? []).filter((job) => job.state === 'running').length,
-      steps: stepWork([...questions, ...failedJobs], sources.processing),
+      steps: stepWork([...questions, ...failedJobs], sources.processing, sources.review),
     },
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,
