@@ -811,6 +811,7 @@ test('a drawer draft survives its question being answered elsewhere', async () =
 
 test('a drawer draft survives its session leaving the read', async () => {
   const user = userEvent.setup()
+  history.replaceState(null, '', `#${batchId}/processing/inventory?session=${jobId}`)
   const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
   const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
   await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
@@ -830,6 +831,51 @@ test('a drawer draft survives its session leaving the read', async () => {
   )
   expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
   expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  // Discarding the last draft closes the kept drawer for good, including its session link.
+  await user.click(screen.getByRole('button', { name: 'Discard unsaved answer' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(location.hash).not.toContain('session=')
+  client.read.mockResolvedValue(inventorySnapshot('9'))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('the drawer’s link to the page’s question asks first while a drawer answer is unsaved', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot(), questionId)
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const second = 'Is Packet A the reel in drawer 2?'
+  await within(drawer).findByRole('form', { name: `Session question: ${second}` })
+  await user.type(answerBox(second), 'No')
+
+  await user.click(within(drawer).getByRole('link', { name: 'Is Packet A already in InvenTree?' }))
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(within(drawer).getByRole('alert')).toHaveTextContent('Save or discard your answer')
+  expect(answerBox(second)).toHaveValue('No')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('a drawer draft keeps its revision when another answer moves it, and reads as superseded', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+
+  client.read.mockResolvedValue(inventorySnapshot('9', [secondQuestionId]))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  const form = screen.getByRole('form', { name: `Session question: ${first}` })
+  await waitFor(() =>
+    expect(form).toHaveTextContent('This question is superseded or its saved context changed'),
+  )
+  expect(answerBox(first)).toHaveValue('Different tube')
   expect(dirty).toHaveBeenLastCalledWith(true)
 })
 

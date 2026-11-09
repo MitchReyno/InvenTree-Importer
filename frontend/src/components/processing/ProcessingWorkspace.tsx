@@ -461,10 +461,16 @@ export function ProcessingWorkspace({
     return (
       <Link
         key={question.id}
-        onClick={() => {
-          // On this question's own step page the link changes no route.
+        onClick={(event) => {
+          // On this question's own step page the link changes no route, so it closes the drawer
+          // the way Close does: never past an unsaved drawer answer.
           if (question.id === questionId && step === view) {
-            setSessionJobId(null)
+            if (unsavedInDrawer) {
+              event.preventDefault()
+              setCloseBlocked(true)
+            } else {
+              closeDrawer()
+            }
           }
         }}
         href={batchHref(batch.id, { tab: 'processing', step, questionId: question.id })}
@@ -483,6 +489,21 @@ export function ProcessingWorkspace({
       location.replace(hash)
     }
   }
+
+  // A drawer kept open for an unsaved answer after its session left closes once that answer is
+  // discarded. The Effect syncs the URL: the session link goes too, so the drawer doesn't come
+  // back with the session.
+  const keptDrawerEmptied =
+    sessionJobId !== null &&
+    liveSessionJob === undefined &&
+    !unsavedInDrawer &&
+    lastDrawerJob?.id === sessionJobId
+  useEffect(() => {
+    if (keptDrawerEmptied) {
+      closeDrawer()
+    }
+    // Runs when the drawer empties; closeDrawer only sets state and replaces the URL.
+  }, [keptDrawerEmptied])
 
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
