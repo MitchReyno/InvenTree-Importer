@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
-import type { inventoryTransport } from '../inventory/transport.ts'
-import type { ApplyDependencies } from './apply.ts'
-import type { SupportedState } from './effects-state.ts'
-import type { SupportedCreateBody } from './effects-body.ts'
-import type { SupportedJournalContext, SupportedRecovery } from './effects-journal.ts'
-import { performSupportedRequest } from './effects-request.ts'
-import type { EffectStep } from './effects-step.ts'
-import { effectStepKind } from './effects-step.ts'
+import type { inventoryTransport } from '../../inventory/transport.ts'
+import type { ApplyDependencies } from '../apply.ts'
+import type { SupportedState } from '../effects/effects-state.ts'
+import type { SupportedCreateBody } from '../effects/effects-body.ts'
+import type { SupportedJournalContext, SupportedRecovery } from '../effects/effects-journal.ts'
+import { performSupportedRequest } from '../effects/effects-request.ts'
+import type { EffectStep } from '../effects/effects-step.ts'
+import { effectStepKind } from '../effects/effects-step.ts'
 import { partTransferKey, type PartTransfer } from './part-attachment-plan.ts'
 import {
   partAttachmentMetadata,
@@ -15,13 +15,13 @@ import {
   samePartAttachmentBytes,
   type PartAttachmentWire,
 } from './part-attachment-wire.ts'
-import { executorTransaction } from './transaction.ts'
-import { lockRun } from './authority.ts'
-import { sha256 } from '../db/authority.ts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { supportedAssessments } from './schema.ts'
-import { responseObject, responsePk } from './response.ts'
-import { supportedStates } from './effects-state.ts'
+import { executorTransaction } from '../transaction.ts'
+import { lockRun } from '../authority.ts'
+import { sha256 } from '../../db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
+import { supportedAssessments } from '../schema.ts'
+import { responseObject, responsePk } from '../response.ts'
+import { supportedStates } from '../effects/effects-state.ts'
 
 export interface PartAttachmentRequest {
   (

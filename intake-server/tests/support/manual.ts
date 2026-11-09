@@ -13,7 +13,7 @@ import {
   EFFECTS_CAPABILITY,
   RECORD_EFFECTS_BUILD,
   RECORD_EFFECTS_CAPABILITY,
-} from '../../src/execution/effects-plan.ts'
+} from '../../src/execution/effects/effects-plan.ts'
 import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
 import { realpath } from 'node:fs/promises'
 import { BlobStore } from '../../src/media/blob-store.ts'

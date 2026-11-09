@@ -1,4 +1,4 @@
-import type { SupportedMutationKind } from '../inventory/transport.ts'
+import type { SupportedMutationKind } from '../../inventory/transport.ts'
 import type { EffectOperation, EffectsStockOperation } from './effects-plan.ts'
 
 export type EffectStep = EffectOperation | EffectsStockOperation

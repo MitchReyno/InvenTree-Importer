@@ -16,7 +16,7 @@ import { materializeWithMedia } from './media-material.ts'
 import { manualRunSnapshot, retainedPreparation } from './runs.ts'
 import { preparationTree } from './preparation-tree.ts'
 import { captureObservations } from '../capture/schema.ts'
-import { isEffectsPlan } from '../execution/effects-plan.ts'
+import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
 import {
   markReviewed,
   prepareSelection,

@@ -1,11 +1,11 @@
-import { isEffectsPlan } from './effects-plan.ts'
+import { isEffectsPlan } from '../effects/effects-plan.ts'
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { partTransfers, executorRuns, executorApprovals } from './schema.ts'
-import { decodeExecutablePlan } from './media-plan.ts'
-import { supportedStates } from './effects-state.ts'
-import type { EffectsPlan } from './effects-plan.ts'
+import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
+import { partTransfers, executorRuns, executorApprovals } from '../schema.ts'
+import { decodeExecutablePlan } from '../media-plan.ts'
+import { supportedStates } from '../effects/effects-state.ts'
+import type { EffectsPlan } from '../effects/effects-plan.ts'
 import { partTransferKey, type PartTransfer } from './part-attachment-plan.ts'
 
 function retainedTransfer(

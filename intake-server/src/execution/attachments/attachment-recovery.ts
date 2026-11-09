@@ -1,15 +1,15 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
 import {
   executorAttachmentRecoveries,
   executorAttachmentIntents,
   executorAttachmentEffects,
   executorGuards,
-} from './schema.ts'
-import { cancellationVersion } from './cancellation.ts'
+} from '../schema.ts'
+import { cancellationVersion } from '../cancellation.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import { lockRun, snapshot } from './authority.ts'
+import { lockRun, snapshot } from '../authority.ts'
 
 export interface AttachmentRecovery {
   id: string

@@ -1,4 +1,4 @@
-import { resolvedStockOperation } from './effects-output.ts'
+import { resolvedStockOperation } from './effects/effects-output.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'

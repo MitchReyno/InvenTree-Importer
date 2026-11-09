@@ -1,7 +1,7 @@
 import { isEffectsPlan } from './effects-plan.ts'
 import type { Pool, PoolClient } from 'pg'
-import type { ExecutablePlan } from './media-plan.ts'
-import type { StockOperation } from './plan.ts'
+import type { ExecutablePlan } from '../media-plan.ts'
+import type { StockOperation } from '../plan.ts'
 import type { EffectsStockOperation } from './effects-plan.ts'
 import { supportedStates } from './effects-state.ts'
 

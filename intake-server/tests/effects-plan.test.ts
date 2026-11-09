@@ -1,4 +1,4 @@
-import { SUPPORTED_EFFECTS_MANIFEST } from '../src/execution/effects-capability.ts'
+import { SUPPORTED_EFFECTS_MANIFEST } from '../src/execution/effects/effects-capability.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -17,8 +17,8 @@ import {
   EFFECTS_BUILD,
   EFFECTS_CAPABILITY,
   type EffectsPlan,
-} from '../src/execution/effects-plan.ts'
-import { attributedPks, supportedResponseEvidence } from '../src/execution/effects-apply.ts'
+} from '../src/execution/effects/effects-plan.ts'
+import { attributedPks, supportedResponseEvidence } from '../src/execution/effects/effects-apply.ts'
 import { contributionBarcode } from '../src/execution/plan.ts'
 import { validatePartSpec } from '../src/capture/part-spec.ts'
 import { planCapacityIssue } from '../src/review/preparations.ts'
@@ -168,7 +168,7 @@ test('mapped observations require exact context, category and company semantic r
 })
 
 test('exact response bytes retain more than32 attributable IDs and unsafe siblings never confirm', async () => {
-  const { supportedResponseEvidence } = await import('../src/execution/effects-apply.ts')
+  const { supportedResponseEvidence } = await import('../src/execution/effects/effects-apply.ts')
   const pks = Array.from({ length: 100 }, (_, index) => String(index + 1))
   const bytes = Buffer.from(
     `[${pks.map((pk) => `{"pk":"${pk}"}`).join(',')},{"pk":9007199254740993},{"pk":0}]`,
@@ -256,7 +256,7 @@ test('every parameter citing a category mapping must use that mapping template',
 
 test('selected Part attachment freezes exact media and destination without pulling another subject or primary image', async () => {
   const { partDestinationKey, partTransferEffects } =
-    await import('../src/execution/part-attachment-plan.ts')
+    await import('../src/execution/attachments/part-attachment-plan.ts')
   const { plan } = fixture()
   const part = plan.parts[0]
   const versionId = randomUUID()

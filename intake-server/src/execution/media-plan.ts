@@ -1,4 +1,4 @@
-import { decodeEffectsPlan, isEffectsVersion, type EffectsPlan } from './effects-plan.ts'
+import { decodeEffectsPlan, isEffectsVersion, type EffectsPlan } from './effects/effects-plan.ts'
 import { Digest } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { sha256, verifyBytes } from '../db/authority.ts'
