@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type { ProcessingSnapshotDto } from '@invimport/contracts'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { examineLead, subjectStatuses, WORK_STEPS } from './source'
 import type { ProcessingClient } from './types'
 
@@ -24,49 +26,48 @@ export function useSessionStatuses(
   batchId: string,
   revision: string,
 ): SessionStatuses {
-  const [statuses, setStatuses] = useState<SessionStatuses>(NONE)
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const timer = setInterval(() => setTick((value) => value + 1), SESSION_STATUS_REFRESH_MS)
-    return () => clearInterval(timer)
-  }, [])
-  useEffect(() => {
-    let current = true
+  const scope = useServerScope()
+  const query = useQuery({
+    // A new capture revision is a new read; the previous lines stay until it arrives.
+    queryKey: serverQueryKey(scope, 'processing', batchId, 'status', revision),
+    queryFn: () => {
+      if (!processing) {
+        throw new Error('processing_unavailable')
+      }
+      return processing.read(batchId)
+    },
     // Only a setup with sessions has status lines.
-    if (!processing?.session) {
-      return
-    }
-    void processing
-      .read(batchId)
-      .then((snapshot) => {
-        if (!current) {
-          return
-        }
-        const lead = examineLead(snapshot)
+    enabled: Boolean(processing?.session),
+    refetchInterval: SESSION_STATUS_REFRESH_MS,
+    // The old timer kept running in a hidden tab; this keeps that cadence.
+    refetchIntervalInBackground: true,
+    // A failed read's last lines must not return as current under the next revision.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.state.status === 'error' ? undefined : previous,
+    select: statusesOf,
+  })
+  // Old lines would read as current, so a failed or paused read drops them.
+  if (!processing?.session || query.isError || query.fetchStatus === 'paused') {
+    return NONE
+  }
 
-        const label = (step: string) => WORK_STEPS.find((item) => item.step === step)?.label ?? step
+  return query.data ?? NONE
+}
 
-        setStatuses({
-          lead: lead?.latest_status?.text,
-          leadRunning: lead?.session_state === 'running',
-          lots: new Map(
-            // Only live sessions' lines: a finished or ended session's last line is history.
-            [...subjectStatuses(snapshot)].map(([lotId, status]) => [
-              lotId,
-              `${label(status.step)} · ${status.text}`,
-            ]),
-          ),
-        })
-      })
-      .catch(() => {
-        // Old lines would read as current, so the glance drops them; Processing shows the failure.
-        if (current) {
-          setStatuses(NONE)
-        }
-      })
-    return () => {
-      current = false
-    }
-  }, [processing, batchId, revision, tick])
-  return statuses
+function statusesOf(snapshot: ProcessingSnapshotDto): SessionStatuses {
+  const lead = examineLead(snapshot)
+
+  const label = (step: string) => WORK_STEPS.find((item) => item.step === step)?.label ?? step
+
+  return {
+    lead: lead?.latest_status?.text,
+    leadRunning: lead?.session_state === 'running',
+    lots: new Map(
+      // Only live sessions' lines: a finished or ended session's last line is history.
+      [...subjectStatuses(snapshot)].map(([lotId, status]) => [
+        lotId,
+        `${label(status.step)} · ${status.text}`,
+      ]),
+    ),
+  }
 }

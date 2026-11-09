@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
+import { Profiler } from 'react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
@@ -375,4 +376,30 @@ describe('ReviewMap at region level', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Regions of Front label' })).not.toBeInTheDocument()
   })
+})
+
+it('measuring the same layout again adds no render', () => {
+  const commits = vi.fn()
+  const props = {
+    batch,
+    evidence,
+    disabled: false,
+    link: vi.fn(async () => undefined),
+    newLotFrom: vi.fn(async () => undefined),
+    openRestructure: vi.fn(),
+    approvedLotIds: new Set<string>(),
+    loading: false,
+  }
+  const view = render(
+    <Profiler id="map" onRender={commits}>
+      <ReviewMap {...props} retiredLotIds={new Set()} />
+    </Profiler>,
+  )
+  const settled = commits.mock.calls.length
+  view.rerender(
+    <Profiler id="map" onRender={commits}>
+      <ReviewMap {...props} retiredLotIds={new Set()} />
+    </Profiler>,
+  )
+  expect(commits.mock.calls.length - settled).toBe(1)
 })

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 /**
  * Whether a `media` rule from `ui/media` currently applies, for layouts that move content
@@ -6,9 +6,9 @@ import { useSyncExternalStore } from 'react'
  */
 export function useMediaQuery(rule: string) {
   const query = rule.replace(/^@media\s+/, '')
-
-  return useSyncExternalStore(
-    (notify) => {
+  // Stable per query, so React subscribes once rather than on every render.
+  const subscribe = useCallback(
+    (notify: () => void) => {
       if (typeof window.matchMedia !== 'function') {
         return () => undefined
       }
@@ -16,6 +16,11 @@ export function useMediaQuery(rule: string) {
       list.addEventListener('change', notify)
       return () => list.removeEventListener('change', notify)
     },
+    [query],
+  )
+
+  return useSyncExternalStore(
+    subscribe,
     () => typeof window.matchMedia === 'function' && window.matchMedia(query).matches,
     () => false,
   )

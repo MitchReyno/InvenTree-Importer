@@ -182,16 +182,16 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - Acceptance:
   - the status line refreshes on its interval and on a revision change, and clears on failure;
   - sign-in polls only while pending and open, and a key edit drops in-flight results;
-  - one search fires 250 ms after typing stops, and a late older response never replaces newer results.
+  - ~~one search fires 250 ms after typing stops, and a late older response never replaces newer results.~~ Item 28 was dropped; see `notes.md`.
 - TDD approach: the fake-timer tests fail first where behaviour changes.
 - Verification: the owning checks.
 - Risks and decisions: the management key must never enter a query key. Whether `useCatalogue.search` can take a signal is recorded as a limit if it cannot.
 
-- [ ] 9.1 Confirm each finding against the current code.
-- [ ] 9.2 RED: add the regressions and confirm they fail.
-- [ ] 9.3 GREEN: move each read to TanStack Query.
-- [ ] 9.4 Add tests for any changed file without a test file.
-- [ ] 9.5 Run the owning checks and record the results.
+- [x] 9.1 Confirm each finding against the current code.
+- [x] 9.2 RED: add the regressions and confirm they fail.
+- [x] 9.3 GREEN: move each read to TanStack Query. Item 28 dropped; see `notes.md`.
+- [x] 9.4 Add tests for any changed file without a test file.
+- [x] 9.5 Run the owning checks and record the results.
 
 ## 10. Shared sync hooks
 
@@ -202,18 +202,18 @@ Check an action off only after it is done and verified, and stage that `tasks.md
   - `useDevicePixelRatio` (30) and an `EvidenceViewer` callback ref (31).
   - `useMountedRef` (32) and `useDraftGeneration` (33).
   - A stable `subscribe` in `useMediaQuery` (34).
-  - Memoized retired and predecessor sets, so `ReviewMap` stops re-measuring (35).
+  - `ReviewMap` keeps its connector paths when an unchanged layout is measured again, so a poll adds no render (35).
 - Prerequisites: E2.
-- Acceptance: full resolution is chosen after two pixel-ratio changes; an identical rerender does not re-measure the map; existing `LiveUpdates`, viewer and form tests still pass.
+- Acceptance: full resolution is chosen after two pixel-ratio changes; measuring an unchanged layout again adds no render; existing `LiveUpdates`, viewer and form tests still pass.
 - TDD approach: the pixel-ratio and re-measure regressions fail first.
 - Verification: the owning checks.
 - Risks and decisions: none.
 
-- [ ] 10.1 Confirm each finding against the current code.
-- [ ] 10.2 RED: add the regressions and confirm they fail.
-- [ ] 10.3 GREEN: implement the hooks and adopt them.
-- [ ] 10.4 Add tests for any changed file without a test file.
-- [ ] 10.5 Run the owning checks and record the results.
+- [x] 10.1 Confirm each finding against the current code.
+- [x] 10.2 RED: add the regressions and confirm they fail. Items 34 and 35 fail first; the rest are characterization tests, see `notes.md`.
+- [x] 10.3 GREEN: implement the hooks and adopt them.
+- [x] 10.4 Add tests for any changed file without a test file.
+- [x] 10.5 Run the owning checks and record the results.
 
 ## Delivery evidence and lifecycle follow-up
 
