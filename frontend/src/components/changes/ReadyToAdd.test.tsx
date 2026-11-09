@@ -458,6 +458,35 @@ describe('ReadyToAdd', () => {
     expect(screen.getByRole('tree', { name: 'By location' })).toHaveTextContent('No location')
   })
 
+  it('counts and By type follow the ticks the Tree shows, before the lots are prepared again', async () => {
+    const user = userEvent.setup()
+    const { prepareLots } = setup()
+    const footer = screen.getByRole('region', { name: 'Approve' })
+    await waitFor(() => expect(footer).toHaveTextContent('3 new · 1 update'))
+    expect(screen.getByRole('region', { name: 'Stock items, 1' })).toBeVisible()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    expect(footer).toHaveTextContent('2 new · 1 update')
+    expect(screen.getByText(/2 new · 1 update to InvenTree/)).toBeVisible()
+    expect(screen.queryByRole('region', { name: /^Stock items/ })).not.toBeInTheDocument()
+    expect(prepareLots).toHaveBeenCalled()
+  })
+
+  it('flags unticked lots shown as Not ticked while no preparation matches them', async () => {
+    const user = userEvent.setup()
+    const { props, rerender } = setup()
+    await user.click(await screen.findByRole('button', { name: 'Tree' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // The preparation failed: busy ends with the old preparation still shown.
+    rerender(<ReadyToAdd {...props} busy />)
+    rerender(<ReadyToAdd {...props} />)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Lots you unticked show as Not ticked, but they aren’t prepared without them yet.',
+    )
+    expect(screen.getByRole('button', { name: /^Approve/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Show what will change' })).toBeEnabled()
+  })
+
   it('without a tree, By type still shows stock, Parts and locations from the preview', async () => {
     setup({ tree: null })
     expect(await screen.findByText(/The full list isn’t available/)).toBeVisible()

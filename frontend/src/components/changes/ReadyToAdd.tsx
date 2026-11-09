@@ -91,8 +91,7 @@ export function ReadyToAdd({
   const current =
     preview !== null && workspace.preparations.some((value) => value.id === preview.id)
   const tree = treeQuery.data?.preparation_id === preview?.id ? treeQuery.data : undefined
-  const nodes: PreparationNodeDto[] = tree?.nodes ?? (preview ? previewNodes(preview) : [])
-  const counts = summary(nodes)
+  const prepared: PreparationNodeDto[] = tree?.nodes ?? (preview ? previewNodes(preview) : [])
 
   // A current preparation's lots stay listed; a stale one's count only if still ready.
   const ready = [
@@ -108,6 +107,10 @@ export function ReadyToAdd({
     preview !== null &&
     ticked.length === preview.selected_lot_ids.length &&
     ticked.every((lot) => preview.selected_lot_ids.includes(lot))
+  // Every view and count shows the preparation as the ticks leave it, until it is prepared again.
+  const nodes = preview ? withTicks(prepared, preview.selected_lot_ids, ticked) : prepared
+  const untickedSincePrepared = nodes !== prepared
+  const counts = summary(nodes)
   const leftOut = leftOutLots(workspace)
   const treeShown = view === 'tree' && Boolean(tree?.nodes)
 
@@ -283,12 +286,16 @@ export function ReadyToAdd({
             {(treeQuery.isError || tree?.nodes === null) && (
               <Small>The full list isn’t available, so only stock, Parts and locations show.</Small>
             )}
-            {treeShown && tree?.nodes ? (
+            {untickedSincePrepared && (
+              <Small role="status">
+                Lots you unticked show as Not ticked, but they aren’t prepared without them yet.
+                Approval waits until they are.
+              </Small>
+            )}
+            {treeShown ? (
               <PreparationTreeView
                 label={grouping === 'category' ? 'By category' : 'By location'}
-                items={(grouping === 'category' ? categoryTree : locationTree)(
-                  withTicks(tree.nodes, preview.selected_lot_ids, ticked),
-                )}
+                items={(grouping === 'category' ? categoryTree : locationTree)(nodes)}
                 lotHref={lotHref}
               />
             ) : (
