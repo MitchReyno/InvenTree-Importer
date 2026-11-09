@@ -32,8 +32,8 @@ export function useCatalogue(
     retry: false,
   })
   const search = useCallback<PickerSearch>(
-    async (query) => {
-      const result = await client!.search(batchId, model, query)
+    async (query, signal) => {
+      const result = await client!.search(batchId, model, query, signal)
       if (result.target_context_id !== scope.targetContextId || result.model !== model) {
         throw new Error('catalogue_scope_mismatch')
       }

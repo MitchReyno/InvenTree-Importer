@@ -120,6 +120,36 @@ test('an older search response cannot replace newer results', async () => {
   }
 })
 
+test('a newer query aborts the search it replaces without showing it as failed', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const signals: AbortSignal[] = []
+
+    // Like the catalogue client, an aborted search rejects with the abort's reason.
+    const search: PickerSearch = (_q, signal) => {
+      signals.push(signal)
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      })
+    }
+
+    const { input } = picker({ candidates: [], coverage: complete([]), search })
+    await user.type(input, 'Far')
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    expect(signals).toHaveLength(1)
+    // Back to the same query before the first search settles: the aborted one must not count.
+    await user.type(input, 'n{Backspace}')
+    expect(signals[0].aborted).toBe(true)
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    expect(signals).toHaveLength(2)
+    expect(signals[1].aborted).toBe(false)
+    expect(screen.queryByText(/search unavailable for this query/)).not.toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
 test('a numeric ID offers the exact detail read first without fuzzy substitution', async () => {
   const user = userEvent.setup()
   const exact = supplier('1234', 'Rare Parts Ltd')
