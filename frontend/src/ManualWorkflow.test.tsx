@@ -941,7 +941,65 @@ test('a selected lot that becomes approved is neither counted nor sent', async (
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Prepare exact selected effects' })).toBeEnabled(),
   )
+  expect(screen.getByText('1 selected')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Prepare exact selected effects' }))
   await waitFor(() => expect(client.prepare).toHaveBeenCalled())
   expect(vi.mocked(client.prepare).mock.calls[0][1].selected_lot_ids).toEqual([b])
+})
+
+test('a selected lot that becomes approved no longer blocks the tenth selection', async () => {
+  const ids = Array.from(
+    { length: 11 },
+    (_, index) => `31000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+  )
+  const many = {
+    ...batch,
+    lots: ids.map((id, index) => ({
+      ...batch.lots[1],
+      id,
+      label: `Bag ${index + 1}`,
+      contribution_key: `71000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    })),
+    notes: [],
+  } as CaptureSnapshotDto
+  const client = fakeClient()
+  const read = vi.mocked(client.workspace).getMockImplementation()!
+  let approved = false
+  vi.mocked(client.workspace).mockImplementation(async (...args) => {
+    const current = await read(...args)
+    return {
+      ...current,
+      lots: ids.map((id) => ({
+        lot_id: id,
+        reviewed: false,
+        issues:
+          approved && id === ids[0]
+            ? [
+                {
+                  code: 'original_contribution_already_approved',
+                  message: 'Original approval retained',
+                  lot_id: id,
+                  run_id: runId,
+                },
+              ]
+            : [],
+      })),
+    } as never
+  })
+  const user = userEvent.setup()
+  render(<ManualWorkspace batch={many} client={client} navigate={vi.fn()} stage="review" />, {
+    commands: { edit: vi.fn(async () => undefined), reload: vi.fn(async () => undefined) },
+  })
+  for (let index = 0; index < 10; index += 1) {
+    await user.click(await screen.findByRole('checkbox', { name: `Select Bag ${index + 1}` }))
+  }
+  expect(screen.getByText('10 selected')).toBeVisible()
+  await user.click(screen.getByRole('checkbox', { name: 'Select Bag 11' }))
+  expect(screen.getByRole('checkbox', { name: 'Select Bag 11' })).not.toBeChecked()
+  approved = true
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  await waitFor(() => expect(screen.getByText('9 selected')).toBeVisible())
+  await user.click(screen.getByRole('checkbox', { name: 'Select Bag 11' }))
+  expect(screen.getByRole('checkbox', { name: 'Select Bag 11' })).toBeChecked()
+  expect(screen.getByText('10 selected')).toBeVisible()
 })
