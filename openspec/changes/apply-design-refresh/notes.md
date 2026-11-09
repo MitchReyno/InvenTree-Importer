@@ -115,11 +115,17 @@ None for task 10.
 - **2026-11-10T03:00+11:00, task 11 (PR-G), approval deviation:** Review's existing `no_supporting_evidence` rule counts any lot-attachment selection row as support, `unset` included. A lot whose only evidence was its selected lot attachment therefore keeps counting as supported after the delete clears the selection to `unset`, and doesn't raise the warning the spec describes. `sole_evidence_lot_ids` mirrors the gate rather than contradicting it. The quirk predates this change.
 - **2026-11-10T03:00+11:00, task 11 (PR-G):** No lot-session tool lists observations; only the Examine lead's `read_batch` does. Removal is enforced for lot sessions through the proposal publication check and their media inputs.
 
+- **2026-11-10T07:40+11:00, task 11 (PR-G, review round 1):** Added `GET /api/v1/batches/{batchId}/media/removal-impact?evidence_ids=…` (`MediaRemovalImpact`), which the plan didn't list. A bulk "Delete N files" must name a lot left with no other evidence, and that can depend on the whole set: two photos that each leave the other supporting a lot leave it bare together. The read returns `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of` for the set removed together; per-item fields use the same computation.
+- **2026-11-10T07:40+11:00, task 11 (PR-G, review round 1):** Native (non-session) prompts staged from an input sealed before a removal now leave out the removed item's versions, evidence notes and media context. Native proposals carry no `relies_on`, so they aren't marked stale individually. Instead, a native proposal citing a removed source fails the inspected-source check, and the attempt reads as superseded because its input no longer matches the batch.
+
 ### Unexpected challenges
 
 - **2026-11-10T03:00+11:00, task 11:** Almost every evidence consumer reads through `mediaSnapshot`: Processing inputs and their evidence notes, the lead's manifest, preparation and its supporting-evidence gate, records and operator review. Leaving removed items and their derivations out of its `evidence` covers them at once. Code that reads media rows directly checks removal itself with `versionRemovedSql`: `media/content.ts` (which also serves native prompts, the research broker and session fetches), the session tools, the Examine trigger, `requireEvidenceRegion`, `leadBatchView`, the capture snapshot's observations, `lockApprovedMedia` and the batch list's counts and thumbnail.
 - **2026-11-10T03:00+11:00, task 11:** Evidence notes reach sessions as manifest notes whose `note_id` is a `media_evidence_note` id, so the third stale join goes through `media_evidence_note.evidence_id`. Session proposals cite in their value and rely through `relies_on`; both are checked.
 - **2026-11-10T03:00+11:00, task 11:** Hiding observations on removed evidence from the capture snapshot reads `media_version` and the new table, so `grantCaptureRead` now grants `SELECT` on `media_evidence_removal` and on `media_version(id,batch_id,evidence_id)`. Existing namespaces need their grants reapplied after migrating, as for any new table.
+
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** The first stale query read only a proposal's top-level `sources` and `relies_on`, while publication also checked catalogue values' sources. A proposal citing a removed photo only for one parameter value stayed current. The query now walks every nested `sources` array (`lax $.**.sources[*]`).
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** The batch-list counts and thumbnail, and a removal queued behind an approval, already behaved as intended, so their new tests passed on first run. To show they discriminate, the batch-list filter and the pin refusal were disabled from backups; both tests then failed, and passed again once restored.
 
 ### Decisions made during implementation
 
@@ -132,6 +138,9 @@ None for task 10.
 - **2026-11-10T03:00+11:00, task 11:** The batch list's evidence counts and thumbnail skip removed items, so a deleted file leaves Batches too.
 - **2026-11-10T03:00+11:00, task 11:** Company logo drafts (`retainedImageVersion`) still accept a removed version; refusing it would block complete-state settings saves. Preparation already reports such a logo as unavailable, because the snapshot leaves it out.
 - **2026-11-10T03:00+11:00, task 11:** `requireEvidenceRegion` takes the media revision lock after the capture lock it already holds, matching `lockMediaBatch`'s order.
+
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** The combined impact is a `GET` with a comma-separated `evidence_ids` query, like the other media reads. It refuses an empty, duplicated or over-200 list (400), an unknown item (404) and a removed one (`media_evidence_removed`, 409).
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** `pinned_by` assumes every approval pin has its run, which the approval writes in the same transaction. A pin without one is now an error rather than being skipped.
 
 ### Open items
 

@@ -338,7 +338,7 @@ Tasks 1, 10 and 11 can start in parallel.
 
 - [x] 11.1 Gate: the user decided on 2026-11-09 that deletion ships with its backend. For reference, the fallback had they chosen otherwise was to: move Tasks 11–12 to BI-015 and build the delete UI disabled; rewrite the deletion deltas (`capture-media`, `processing-stage-pipeline`, `approval-preparation` and the three `capture-grouped-evidence` deletion requirements) into one disabled-delete requirement; and update BI-014, BI-015 and the `complete-design-refresh-backend` README.
 - [x] 11.1a Before writing deletion code, confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
-- [x] 11.2 RED: write the Postgres and process tests above and confirm they fail.
+- [x] 11.2 Write the Postgres and process tests above. They were written after the implementation, not first; a mutation check stood in for the RED step (see notes.md, Task 11, Changes to the plan).
 - [x] 11.3 GREEN: implement the removal backend.
   - [x] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
   - [x] 11.3.2 Stale reasons and notices on remove and restore.
