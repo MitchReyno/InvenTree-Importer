@@ -259,7 +259,7 @@ it('a poll that reconciliation cancels finishes before the next call starts', as
   }
 })
 
-it('a command superseded by a key edit while it waits is not sent', async () => {
+it('a command waiting behind a poll locks the key it will be sent with', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   try {
     let answer: (value: Response) => void = () => undefined
@@ -275,13 +275,15 @@ it('a command superseded by a key edit while it waits is not sent', async () => 
     await startSignIn()
     await act(() => vi.advanceTimersByTimeAsync(3000))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }))
-    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
-      target: { value: 'other key' },
-    })
+    expect(screen.getByLabelText('Codex runner management key')).toHaveAttribute('readonly')
     await act(async () => answer(challenge()))
-    await act(() => vi.advanceTimersByTimeAsync(10))
-    expect(send).toHaveBeenCalledTimes(2)
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(await screen.findByText('Sign in with ChatGPT')).toBeTruthy()
+    expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({
+      action: 'cancel',
+      loginId: 'device-1',
+    })
+    expect(send.mock.calls[2][1].headers.authorization).toBe('Bearer key')
+    expect(screen.getByLabelText('Codex runner management key')).not.toHaveAttribute('readonly')
   } finally {
     vi.useRealTimers()
   }
