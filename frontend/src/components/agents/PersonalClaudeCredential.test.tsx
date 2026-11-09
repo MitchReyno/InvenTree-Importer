@@ -1,8 +1,14 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { PersonalClaudeCredential } from './PersonalClaudeCredential'
+import { usePersonalClaudeCredential } from './usePersonalClaudeCredential'
 
 afterEach(() => vi.unstubAllGlobals())
+
+/** The panel with its state, as the Agents settings section holds it. */
+function Credential() {
+  return <PersonalClaudeCredential credential={usePersonalClaudeCredential()} />
+}
 
 it('saves only on explicit submit and clears the password after the guest acknowledges', async () => {
   const send = vi
@@ -12,7 +18,7 @@ it('saves only on explicit submit and clears the password after the guest acknow
     .mockResolvedValueOnce(new Response(null, { status: 503 }))
   vi.stubGlobal('isSecureContext', true)
   vi.stubGlobal('fetch', send)
-  render(<PersonalClaudeCredential />)
+  render(<Credential />)
   fireEvent.click(screen.getByText('Personal Claude subscription'))
   fireEvent.change(screen.getByLabelText('Personal runner management key'), {
     target: { value: 'operator' },
@@ -44,7 +50,7 @@ it('discards an unconfirmed offline save and reconnects without replaying the se
     .mockResolvedValueOnce(Response.json({ configured: false, revision: 'first' }))
   vi.stubGlobal('isSecureContext', true)
   vi.stubGlobal('fetch', send)
-  render(<PersonalClaudeCredential />)
+  render(<Credential />)
   fireEvent.click(screen.getByText('Personal Claude subscription'))
   fireEvent.click(screen.getByText('Check configuration'))
   fireEvent.change(await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN'), {

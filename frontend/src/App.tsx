@@ -1,4 +1,4 @@
-import { AgentSettings } from './components/agents/AgentSettings'
+import { Settings } from './components/settings/Settings'
 import { Banner } from './components/ui/Banner'
 import { ConfirmationProvider } from './components/ui/Confirmation'
 import { AgentSessions } from './components/agents/AgentSessions'
@@ -30,7 +30,7 @@ import styled from 'styled-components'
 import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
-import { appPage, routeBatchId } from './navigation/app-route'
+import { appPage, routeBatchId, settingsSection } from './navigation/app-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
@@ -41,7 +41,7 @@ import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 import type { ApiClients } from './clients/api-clients'
 
 export default function App() {
-  const { route, navigationBlocked, onDirtyChange } = useNavigationGuard()
+  const { route, settingsReturn, navigationBlocked, onDirtyChange } = useNavigationGuard()
   const bootstrapQuery = useQuery({
     queryKey: ['bootstrap', location.origin],
     queryFn: () => intakeClient(location.origin).bootstrap(),
@@ -162,8 +162,15 @@ export default function App() {
         </Paragraph>
       </Panel>
     )
-  } else if (page === 'settings' && agents) {
-    content = <AgentSettings client={agents} onDirtyChange={onDirtyChange} />
+  } else if (page === 'settings') {
+    content = (
+      <Settings
+        section={settingsSection(route)}
+        returnTo={settingsReturn}
+        agents={agents}
+        onDirtyChange={onDirtyChange}
+      />
+    )
   } else if (page === 'agents' && agents) {
     content = (
       <AgentSessions

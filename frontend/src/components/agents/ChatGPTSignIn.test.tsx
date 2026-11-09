@@ -6,7 +6,14 @@ import { render } from '#/test/render'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { fixtureScope } from '#/test/render'
 import { ChatGPTSignIn } from './ChatGPTSignIn'
+import { useChatGPTSignIn } from './useChatGPTSignIn'
 afterEach(() => vi.unstubAllGlobals())
+
+/** The panel with its state, as the Agents settings section holds it. */
+function SignIn() {
+  return <ChatGPTSignIn signIn={useChatGPTSignIn()} />
+}
+
 it('displays the guest device challenge and cancels only its login', async () => {
   const send = vi
     .fn()
@@ -21,7 +28,7 @@ it('displays the guest device challenge and cancels only its login', async () =>
     .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
   vi.stubGlobal('isSecureContext', true)
   vi.stubGlobal('fetch', send)
-  render(<ChatGPTSignIn />)
+  render(<SignIn />)
   fireEvent.click(screen.getByText('ChatGPT subscription'))
   fireEvent.change(screen.getByLabelText('Codex runner management key'), {
     target: { value: 'key' },
@@ -64,7 +71,7 @@ it('polls the pending sign-in until it connects, and only while the panel is ope
       .mockResolvedValueOnce(Response.json({ state: 'connected' }))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     expect(send).toHaveBeenCalledTimes(1)
     await act(() => vi.advanceTimersByTimeAsync(3000))
@@ -92,7 +99,7 @@ it('stops polling when the panel closes, and a key edit drops an in-flight poll'
       .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     await act(() => vi.advanceTimersByTimeAsync(3000))
     expect(send).toHaveBeenCalledTimes(2)
@@ -118,7 +125,7 @@ it('a failed poll stops polling and says the status is unconfirmed', async () =>
       .mockResolvedValueOnce(new Response('nope', { status: 500 }))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     await act(() => vi.advanceTimersByTimeAsync(3000))
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
@@ -146,7 +153,7 @@ it('app-wide reconciliation does not re-poll a finished sign-in', async () => {
     vi.stubGlobal('fetch', send)
     render(
       <ServerStateProvider scope={fixtureScope} client={cache}>
-        <ChatGPTSignIn />
+        <SignIn />
       </ServerStateProvider>,
     )
     await startSignIn()
@@ -176,7 +183,7 @@ it('app-wide reconciliation does not re-poll a failed sign-in', async () => {
     vi.stubGlobal('fetch', send)
     render(
       <ServerStateProvider scope={fixtureScope} client={cache}>
-        <ChatGPTSignIn />
+        <SignIn />
       </ServerStateProvider>,
     )
     await startSignIn()
@@ -209,7 +216,7 @@ it('a poll that reconciliation cancels and replays adopts the call still running
     vi.stubGlobal('fetch', send)
     render(
       <ServerStateProvider scope={fixtureScope} client={cache}>
-        <ChatGPTSignIn />
+        <SignIn />
       </ServerStateProvider>,
     )
     await startSignIn()
@@ -236,7 +243,7 @@ it('keeps polling while the tab is hidden, since sign-in completes on the OpenAI
     const send = vi.fn().mockImplementation(async () => challenge())
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     await act(() => vi.advanceTimersByTimeAsync(6000))
     expect(send.mock.calls.length).toBeGreaterThanOrEqual(3)
@@ -257,7 +264,7 @@ it('no status poll starts while a command is in flight', async () => {
       .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     fireEvent.click(screen.getByText('Cancel sign-in'))
     await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
@@ -281,7 +288,7 @@ it('commands wait for this login’s poll, which can end the login', async () =>
       .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     await act(() => vi.advanceTimersByTimeAsync(3000))
     expect(send).toHaveBeenCalledTimes(2)
@@ -311,7 +318,7 @@ it('a check after a key edit waits for the dropped poll, with its key locked and
       .mockResolvedValueOnce(Response.json({ state: 'connected' }))
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('fetch', send)
-    render(<ChatGPTSignIn />)
+    render(<SignIn />)
     await startSignIn()
     await act(() => vi.advanceTimersByTimeAsync(3000))
     const field = screen.getByLabelText('Codex runner management key')

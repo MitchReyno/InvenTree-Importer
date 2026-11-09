@@ -4,7 +4,7 @@ import { color, icon, radius, size, space, type, typeVar } from '#/theme/generat
 import type { TargetStatus } from '#/header/observations'
 import { hoverTransition, MenuIcon, Popover, VisuallyHidden } from '#/components/ui'
 import { ConnectionDot } from './ConnectionDot'
-import { ThemeChoice } from './ThemeChoice'
+import { ThemeChoice } from '#/components/settings/ThemeChoice'
 
 type PhoneMenuProps = {
   /** The connection state the button's dot and name carry. */

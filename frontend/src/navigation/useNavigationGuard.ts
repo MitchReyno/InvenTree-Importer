@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { appPage } from './app-route'
+import { settingsReturnAfter, storeSettingsReturn, storedSettingsReturn } from './settings-return'
 
-/** Accept routes only when the mounted fact form can safely be left. */
+/** The return route stored with the current history entry, read only on a Settings route. */
+function storedSettingsReturnFor(route: string) {
+  return appPage(route) === 'settings' ? storedSettingsReturn(history.state) : undefined
+}
+
+/**
+ * Accept routes only when the mounted fact form can safely be left. Also follows the screen that
+ * opened Settings, which its back link returns to.
+ */
 export function useNavigationGuard() {
   const [route, setRoute] = useState(() => location.hash.slice(1))
+  const [settingsReturn, setSettingsReturn] = useState(() => storedSettingsReturnFor(route))
+  const accepted = useRef({ route, settingsReturn })
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const dirty = useRef(false)
   const protectedUrl = useRef<string | null>(null)
@@ -28,7 +40,17 @@ export function useNavigationGuard() {
         }
         return
       }
-      setRoute(location.hash.slice(1))
+      const next = location.hash.slice(1)
+      // Back or Forward to a Settings entry restores the return route stored with it.
+      const stored = storedSettingsReturnFor(next)
+      const returnTo =
+        stored ?? settingsReturnAfter(accepted.current.route, next, accepted.current.settingsReturn)
+      if (returnTo !== undefined && stored === undefined) {
+        storeSettingsReturn(returnTo)
+      }
+      accepted.current = { route: next, settingsReturn: returnTo }
+      setRoute(next)
+      setSettingsReturn(returnTo)
     }
 
     function guardLink(event: MouseEvent) {
@@ -81,5 +103,5 @@ export function useNavigationGuard() {
       document.removeEventListener('click', guardLink, true)
     }
   }, [])
-  return { route, navigationBlocked, onDirtyChange }
+  return { route, settingsReturn, navigationBlocked, onDirtyChange }
 }

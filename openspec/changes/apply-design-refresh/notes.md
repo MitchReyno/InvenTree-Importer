@@ -158,3 +158,27 @@ None for task 10.
 ### Open items
 
 - No call site passes `onEdit` yet, so no chip offers Edit value on a screen.
+
+## Task 5: Settings page
+
+### Changes to the plan
+
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The three exact `settings` matches design D4 names were already prefix matches through `navigation/app-route.ts` (Task 2): `App.tsx`'s route match and `currentBatch` use `appPage` and `routeBatchId`, and `AppMasthead` no longer reads the batch at all. Task 5 only renames the breadcrumb page to "Settings" and adds `settingsSection` for the section.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** Model stays a text field with the presets as suggestions (`datalist`), not the canvas's select. The contract takes any exact model ID, and a select would drop custom IDs that work today.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The design's "✓ Saved" autosave is not built (proposal exclusion); the form keeps Save and Discard and reload. A `revision_conflict` now says the settings changed in another tab, keeps the edit and offers Reload, as `app-settings` › Stale settings revision asks; other failures keep the existing "not confirmed" message.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The import reference prefix shows an empty read-only field, not the canvas's "BI-". The app has no stored prefix, so showing one would be invented.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The theme leaves the desktop server menu but stays in the phone menu, which `batch-navigation` › Phone header still lists. `ThemeChoice` moved to `components/settings/` and both use it.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** "Pause all agents" moved from `AgentSessions.tsx` into `agents/PauseAllAgents.tsx`, and slot use into `agents/slot-use.ts`, so the Agents page and Settings › Agents share them. `AgentSettings.tsx` is gone; `components/settings/AgentsSection.tsx` replaces it.
+
+### Decisions made during implementation
+
+- **2026-11-10T08:00+11:00, task 5:** The back link's return route is followed by `useNavigationGuard` (`settingsReturn`), which accepts every route change: entering Settings remembers the previous route, moving between sections keeps it, and it is stored in the history entry's state, so reload and Back restore it. A batch route is named "<batch> › <tab>" from the batch's cached capture read ("the batch" if it was evicted); the link returns to the exact route, query included.
+- **2026-11-10T08:00+11:00, task 5:** Only the open section is mounted, so the credential hooks and the Codex poll unmount when another section opens, and coming back starts with a closed panel and "Not checked".
+- **2026-11-10T08:00+11:00, task 5:** The sessions stepper is labelled by its row and by itself ("Sessions at once"), so the row and the stepper are two groups with the same name. `NumberStepper` takes only a label; a labelled-by option would be a ui change for one caller.
+- **2026-11-10T08:00+11:00, task 5:** The slot meter compares slots in use with the saved limit, not an unsaved stepper value, because the server applies only the saved one.
+- **2026-11-10T08:00+11:00, task 5:** `tests/fixtures/settings.html` (`SettingsProof`) renders Settings, opened from a batch's Processing, from in-memory clients for screenshots and the film; the hash picks the section.
+
+### Open items
+
+- The PR film is not recorded by this bundle's implementer; the fixture or `pnpm dev` can be filmed.
+

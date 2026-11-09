@@ -6,14 +6,19 @@ import { media } from '#/components/ui'
 
 const THEME_LABEL: Record<Choice, string> = { light: 'Light', dark: 'Dark', system: 'System' }
 
+type ThemeChoiceProps = {
+  /** Names the group by a label outside it, such as a setting row's; it then shows none. */
+  labelledBy?: string
+}
+
 /** Light, Dark or System, stored as the app's theme preference. */
-export function ThemeChoice() {
+export function ThemeChoice({ labelledBy }: ThemeChoiceProps) {
   const { choice, choose } = useThemeChoice()
   const themeId = useId()
 
   return (
-    <Theme role="radiogroup" aria-labelledby={`${themeId}-label`}>
-      <Label id={`${themeId}-label`}>Theme</Label>
+    <Theme role="radiogroup" aria-labelledby={labelledBy ?? `${themeId}-label`}>
+      {!labelledBy && <Label id={`${themeId}-label`}>Theme</Label>}
       {THEME_CHOICES.map((option) => (
         <Option key={option}>
           <input

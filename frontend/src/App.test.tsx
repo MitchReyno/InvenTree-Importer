@@ -1200,9 +1200,27 @@ test('a failed attention refresh withholds the old running counts and says so', 
   expect(tabs.getByRole('link', { name: 'Processing' })).toBeInTheDocument()
 })
 
-test('a settings section route opens agent settings and never reads a batch called "settings"', async () => {
+test('a settings section route opens that Settings section and never reads a batch called "settings"', async () => {
   history.replaceState(null, '', '#settings/inventree')
   const requested: string[] = []
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    requested.push(path)
+    return headerRead(path) ?? navigationFallback(path)
+  })
+  render(<App />)
+
+  expect(await screen.findByRole('heading', { level: 2, name: 'InvenTree' })).toBeVisible()
+  expect(screen.getByRole('link', { name: 'InvenTree' })).toHaveAttribute('aria-current', 'page')
+  expect(screen.getByRole('link', { name: 'Back to Batches' })).toHaveAttribute('href', '#')
+  expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+    'Batches/Settings',
+  )
+  expect(requested.some((path) => path.includes('/batches/settings'))).toBe(false)
+})
+
+test('Settings opened from a batch tab goes back to it, across sections, and the guard holds unsaved settings', async () => {
+  history.replaceState(null, '', '#agents')
   const settings = {
     revision: '7',
     selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
@@ -1210,19 +1228,45 @@ test('a settings section route opens agent settings and never reads a batch call
   }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const path = new URL(String(input)).pathname
-    requested.push(path)
     if (path.endsWith('/agent-settings')) {
       return response(settings)
+    }
+    if (path.endsWith('/agent-sessions')) {
+      return response({
+        sessions: [],
+        next_before: null,
+        sessions_supported: true,
+        paused_batch_ids: [],
+      })
     }
     return headerRead(path) ?? navigationFallback(path)
   })
   render(<App />)
+  await screen.findByRole('link', { name: 'Agent settings' })
 
-  expect(await screen.findByRole('heading', { name: 'Agent settings' })).toBeVisible()
-  expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
-    'Batches/Agent settings',
+  await act(async () => {
+    location.hash = '#settings'
+  })
+  expect(await screen.findByRole('link', { name: 'Back to Agents' })).toHaveAttribute(
+    'href',
+    '#agents',
   )
-  expect(requested.some((path) => path.includes('/batches/settings'))).toBe(false)
+  await act(async () => {
+    location.hash = '#settings/appearance'
+  })
+  expect(await screen.findByRole('radiogroup', { name: 'Theme' })).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Back to Agents' })).toBeVisible()
+
+  await act(async () => {
+    location.hash = '#settings/agents'
+  })
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Model' }), {
+    target: { value: 'opus' },
+  })
+  fireEvent.click(screen.getByRole('link', { name: 'Back to Agents' }))
+  expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
+  expect(location.hash).toBe('#settings/agents')
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('opus')
 })
 
 /** Bootstrap and empty reads for routes that open no batch. */

@@ -1,69 +1,18 @@
-import { useRef, useState } from 'react'
 import { Button } from '#/components/ui'
 import { TextField } from '#/forms'
+import type { PersonalClaudeCredentialState } from './usePersonalClaudeCredential'
 
-export function PersonalClaudeCredential() {
-  const key = useRef<HTMLInputElement>(null)
-  const token = useRef<HTMLInputElement>(null)
-  const [status, setStatus] = useState<{ configured: boolean; revision: string }>()
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [open, setOpen] = useState(false)
+type Props = {
+  /** The panel's state, held by the Agents settings section so its provider card agrees. */
+  credential: PersonalClaudeCredentialState
+}
 
-  async function submit(action: 'status' | 'save' | 'remove') {
-    setBusy(true)
-    setMessage('')
-    try {
-      if (!window.isSecureContext) {
-        throw new Error()
-      }
-      const response = await fetch('/personal-runner/claude', {
-        method: 'POST',
-        cache: 'no-store',
-        credentials: 'omit',
-        redirect: 'error',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer ' + key.current?.value,
-        },
-        body: JSON.stringify({
-          action,
-          revision: status?.revision,
-          token: action === 'save' ? token.current?.value : undefined,
-        }),
-      })
-      if (!response.ok) {
-        throw new Error()
-      }
-      const next = await response.json()
-      if (typeof next.configured !== 'boolean' || typeof next.revision !== 'string') {
-        throw new Error()
-      }
-      setStatus({ configured: next.configured, revision: next.revision })
-      if (token.current) {
-        token.current.value = ''
-      }
-    } catch {
-      setStatus(undefined)
-      setMessage(
-        'Request unconfirmed. Check your management key and reconnect to the personal runner.',
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
+export function PersonalClaudeCredential({ credential }: Props) {
+  const { key, token, status, message, busy, open, submit, toggle, editKey } = credential
 
   return (
     <section>
-      <Button
-        disabled={busy}
-        aria-expanded={open}
-        onClick={() => {
-          setOpen(!open)
-          setStatus(undefined)
-          setMessage('')
-        }}
-      >
+      <Button disabled={busy} aria-expanded={open} onClick={toggle}>
         Personal Claude subscription
       </Button>
       {open && (
@@ -74,7 +23,7 @@ export function PersonalClaudeCredential() {
             type="password"
             autoComplete="off"
             ref={key}
-            onChange={() => setStatus(undefined)}
+            onChange={editKey}
           />
           <Button onClick={() => void submit('status')}>Check configuration</Button>
           {status && (
