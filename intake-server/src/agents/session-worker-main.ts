@@ -29,6 +29,7 @@ import {
   SESSION_RESUME_WORKFLOW,
   wakePendingSessions,
 } from './session-execution.ts'
+import { deliverMissingInstructions } from './instructions.ts'
 
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {
@@ -149,6 +150,7 @@ async function main() {
         await triggerExamine(writer.pool, config, { skipped: examineSkipped })
       }
       await dispatchProcessingCommands(db.pool, scheduler, config)
+      await deliverMissingInstructions(db.pool, config)
       await wakePendingSessions(db.pool, config, scheduler)
       await delay(500, undefined, { signal: shutdown.signal }).catch(() => undefined)
     }

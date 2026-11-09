@@ -71,7 +71,7 @@ export async function grantAgentWriter(pool: Pool, role: string) {
   await pool.query(`GRANT SELECT ON schema_migration,command,agent_settings,agent_session,agent_session_outbox,
       agent_session_inbox,agent_session_cursor,agent_slot,processing_proposal_stale,processing_profile,processing_input,
       processing_job,processing_attempt,processing_dependency,processing_lane,processing_message,processing_proposal,
-      processing_question,processing_answer,processing_transition TO ${role};
+      processing_question,processing_answer,processing_transition,agent_batch_pause TO ${role};
     GRANT INSERT ON processing_proposal,processing_proposal_stale,processing_message,agent_session_outbox,
       processing_question TO ${role};
     GRANT UPDATE(state,revision) ON processing_job TO ${role};

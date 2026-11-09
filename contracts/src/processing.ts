@@ -611,6 +611,8 @@ export const ProcessingSnapshot = object({
   capture_revision: Revision,
   jobs: Type.Array(ProcessingJob, { maxItems: 100 }),
   cursor: object({ stream_id: Id, sequence: CursorSequence }),
+  /** The batch's agents are paused: its sessions start no new work until resumed. */
+  paused: Type.Optional(Type.Literal(true)),
 })
 export const ProcessingReceipt = object({
   batch_id: Id,

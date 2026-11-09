@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { streams } from '../db/schema.ts'
 import {
@@ -765,7 +765,7 @@ async function applyLockedCaptureEdit(
         // A quantity equal to the counts was taken from them, so it follows them; any other
         // quantity is the operator's own and stays.
         const after = await currentLotItemCount(c, id, lotId)
-        const quantity = await lotQuantity(c, id, lotId)
+        const quantity = await effectiveLotQuantity(c, id, lotId)
         if (after && after !== before) {
           if (quantity.mode === 'set' && Number(quantity.value) === before) {
             await select(lotId, 'quantity', { mode: 'set', value: String(after) })
@@ -786,8 +786,31 @@ async function applyLockedCaptureEdit(
   await retainRevision(c, b, input, false)
 }
 
-/** A lot's current quantity selection; unset when it has none. */
-async function lotQuantity(c: PoolClient, batchId: string, lotId: string): Promise<Selection> {
+/**
+ * The quantity a lot would be imported with: its own, or the batch default it inherits. An agent
+ * lot's quantity is only ever its own, because the operator must accept its estimate explicitly.
+ */
+async function effectiveLotQuantity(c: PoolClient, batchId: string, lotId: string) {
+  const own = await quantitySelection(c, batchId, lotId, inherit)
+  if (own.mode !== 'inherit') {
+    return own
+  }
+  const lots = await executeDatabaseQuery(
+    queryDatabase(c)
+      .select({ origin: captureLots.origin })
+      .from(captureLots)
+      .where(eq(captureLots.id, lotId)),
+  )
+  return lots[0]?.origin === 'operator' ? await quantitySelection(c, batchId, null, unset) : own
+}
+
+/** A lot's or the batch's latest quantity selection, or what an absent one means. */
+async function quantitySelection(
+  c: PoolClient,
+  batchId: string,
+  subjectId: string | null,
+  absent: Selection,
+): Promise<Selection> {
   const rows = await executeDatabaseQuery(
     queryDatabase(c)
       .select({ value: captureSelections.value })
@@ -795,14 +818,16 @@ async function lotQuantity(c: PoolClient, batchId: string, lotId: string): Promi
       .where(
         and(
           eq(captureSelections.batchId, batchId),
-          eq(captureSelections.subjectId, lotId),
+          subjectId === null
+            ? isNull(captureSelections.subjectId)
+            : eq(captureSelections.subjectId, subjectId),
           eq(captureSelections.field, 'quantity'),
         ),
       )
       .orderBy(desc(captureSelections.version))
       .limit(1),
   )
-  return (rows[0]?.value as Selection | undefined) ?? unset
+  return (rows[0]?.value as Selection | undefined) ?? absent
 }
 
 type RecordChange = Extract<CaptureEditDto['change'], { kind: 'record' }>

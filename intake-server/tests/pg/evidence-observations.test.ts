@@ -1336,6 +1336,39 @@ test("a lot's quantity taken from its counts follows a same-item mark, and the l
   })
 })
 
+test('an operator lot inheriting the batch quantity takes its own count when a mark changes it', async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const ids: string[] = []
+    for (const x of [0, 200]) {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings('1N4148'),
+          visible_count: 200,
+        }),
+      )
+      assert.ok(seen.ok)
+      ids.push(seen.id!)
+    }
+    await edit({ kind: 'add_lot', label: 'Diode bag', note: 'Diode bag', part_subject_id: null })
+    const bag = (await read()).lots.find((item) => item.label === 'Diode bag')!
+    for (const observation of ids) {
+      await edit({ kind: 'observation_move', observation_id: observation, lot_id: bag.id })
+    }
+    await edit({ kind: 'defaults', quantity: { mode: 'set', value: '400' } })
+    const quantity = async () => (await read()).lots.find((item) => item.id === bag.id)!.quantity
+    assert.deepEqual(await quantity(), { mode: 'inherit' })
+
+    await edit({ kind: 'observation_same_item', observation_id: ids[1], same_as: ids[0] })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '200' })
+    await edit({ kind: 'observation_same_item', observation_id: ids[1], same_as: null })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '400' })
+  })
+})
+
 test('the operator marks one bag seen twice as the same item, so the lot counts it once', async () => {
   await withLead(async ({ writer, photo, write, read, edit }) => {
     const observe = async (x: number, count: number) => {

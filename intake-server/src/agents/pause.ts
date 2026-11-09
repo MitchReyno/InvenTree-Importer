@@ -97,7 +97,10 @@ export async function setAllPause(
   })
 }
 
-/** The account's paused live batches; an archived batch runs nothing either way. */
+/**
+ * The account's paused live batches, up to the limit, and whether more are paused; an archived
+ * batch runs nothing either way.
+ */
 export async function pausedBatchIds(client: PoolClient, config: Scope) {
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
@@ -106,7 +109,24 @@ export async function pausedBatchIds(client: PoolClient, config: Scope) {
       .innerJoin(captureBatches, eq(captureBatches.id, agentBatchPauses.batchId))
       .where(and(inScope(config), eq(captureBatches.archived, false)))
       .orderBy(asc(agentBatchPauses.batchId))
-      .limit(MAX_PAUSE_BATCHES),
+      .limit(MAX_PAUSE_BATCHES + 1),
   )
-  return rows.map((row) => row.id)
+  return {
+    ids: rows.slice(0, MAX_PAUSE_BATCHES).map((row) => row.id),
+    truncated: rows.length > MAX_PAUSE_BATCHES,
+  }
+}
+
+/** Which of these batches are paused, read for each so no list limit can hide one. */
+export async function pausedAmong(client: PoolClient, batchIds: readonly string[]) {
+  if (!batchIds.length) {
+    return new Set<string>()
+  }
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: agentBatchPauses.batchId })
+      .from(agentBatchPauses)
+      .where(inArray(agentBatchPauses.batchId, [...batchIds])),
+  )
+  return new Set(rows.map((row) => row.id))
 }

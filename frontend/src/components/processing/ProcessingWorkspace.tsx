@@ -191,16 +191,17 @@ export function ProcessingWorkspace({
       ? firstStart(agentSessions.data.sessions, batch.id)
       : undefined
   const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
-  // Paused only while the session read is live; a pause shows once the list is read again.
+  // The batch's own read says whether it is paused; a change shows once it is read again.
   const pause =
-    agents?.pause && liveRead(agentSessions)
+    agents?.pause && liveRead(snapshotQuery)
       ? {
-          paused: agentSessions.data?.paused_batch_ids?.includes(batch.id) ?? false,
+          paused: snapshotQuery.data?.paused === true,
           change: async (paused: boolean) => {
             await agents.pause!(batch.id, paused)
-            await queryClient.invalidateQueries({
-              queryKey: serverQueryKey(scope, 'agent-sessions'),
-            })
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey }),
+              queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') }),
+            ])
           },
         }
       : undefined

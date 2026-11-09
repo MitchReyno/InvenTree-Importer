@@ -64,6 +64,8 @@ export const AgentSessionList = object({
   ),
   /** Every paused batch of the account, whether or not its sessions are on this page. */
   paused_batch_ids: Type.Optional(Type.Array(Id, { maxItems: 1000 })),
+  /** More batches are paused than the list holds; each session row still says its own. */
+  paused_truncated: Type.Optional(Type.Literal(true)),
   next_before: Type.Union([Id, Type.Null()]),
   /** False when the configured profile runs no agent sessions, so an empty list means nothing. */
   sessions_supported: Type.Boolean(),

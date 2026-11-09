@@ -52,6 +52,7 @@ import {
   processingLanes,
 } from './schema.ts'
 import { countSteps } from './steps.ts'
+import { pausedAmong } from '../agents/pause.ts'
 
 const jobColumns = {
   id: processingJobs.id,
@@ -349,6 +350,7 @@ export async function processingSnapshot(
     capture_revision: capture.revision,
     jobs,
     cursor: capture.cursor,
+    ...((await pausedAmong(client, [capture.id])).size ? { paused: true as const } : {}),
   }
   validate('ProcessingSnapshot', snapshot)
   if (Buffer.byteLength(canonicalRecord(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {

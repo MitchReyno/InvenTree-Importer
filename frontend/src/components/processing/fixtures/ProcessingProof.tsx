@@ -266,7 +266,7 @@ export function ProcessingProof() {
   const page = view.replace('-fixture', '')
   const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
   const client = {
-    read: async () => snapshot(sessions),
+    read: async () => ({ ...snapshot(sessions), ...(paused.has(batch.id) ? { paused: true } : {}) }),
     failure: async () => failure,
     start: async () => {
       throw new Error('fixture commands are disabled')

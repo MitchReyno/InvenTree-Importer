@@ -15224,6 +15224,8 @@ export interface components {
                 /** Format: int64 */
                 sequence: string;
             };
+            /** @constant */
+            paused?: true;
         };
         ProcessingReceipt: {
             batch_id: string;
@@ -16120,6 +16122,8 @@ export interface components {
                 paused?: true;
             }[];
             paused_batch_ids?: string[];
+            /** @constant */
+            paused_truncated?: true;
             next_before: string | null;
             sessions_supported: boolean;
         };

@@ -1127,3 +1127,34 @@ test('Pause all refuses rather than pausing only some batches, and an archived b
     )
   })
 })
+
+test('an instruction saved while delivery failed reaches the sessions on the next supervisor pass', async () => {
+  const { deliverMissingInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1),$2,$3)`,
+      [capture.batch.id, 'Keep the two resistor packets apart.', fixture.identity.actor],
+    )
+    assert.equal(await deliverMissingInstructions(fixture.runner.pool, fixture.config), 2)
+    const items = await fixture.db.pool.query(
+      "SELECT 1 FROM agent_session_inbox WHERE kind='instruction'",
+    )
+    assert.equal(items.rowCount, 2)
+    assert.equal(await deliverMissingInstructions(fixture.runner.pool, fixture.config), 0)
+  })
+})
+
+test("a batch's own processing read says it is paused", async () => {
+  const { setBatchPause } = await import('../../src/agents/pause.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    const read = async () =>
+      ((await fixture.http(`/batches/${capture.batch.id}/processing`)).value as { paused?: true })
+        .paused
+    assert.equal(await read(), undefined)
+    await setBatchPause(fixture.api.pool, fixture.config, capture.batch.id, true)
+    assert.equal(await read(), true)
+    await setBatchPause(fixture.api.pool, fixture.config, capture.batch.id, false)
+    assert.equal(await read(), undefined)
+  })
+})

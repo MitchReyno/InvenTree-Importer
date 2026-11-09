@@ -151,3 +151,58 @@ export async function instructNewSession(
     restartedAttemptId,
   )
 }
+
+/** How many missing instruction items one supervisor pass relays at most. */
+const MAX_RELAYS_PER_PASS = 200
+
+/**
+ * Relays each live session's missing latest instructions, so an instruction saved while delivery
+ * failed, such as Capture's autosave going out while the database was briefly unavailable,
+ * still reaches the agents. The supervisor runs it every pass, before the wake sweep.
+ */
+export async function deliverMissingInstructions(pool: Pool, config: Binding) {
+  return transaction(pool, async (client) => {
+    const missing = await client.query<{
+      lineage_id: string
+      batch_id: string
+      stream_id: string
+      id: string
+      group_id: string | null
+      text: string
+    }>(
+      `WITH latest AS (
+         SELECT DISTINCT ON (i.batch_id, i.group_id) i.id, i.batch_id, i.group_id, i.text, b.stream_id
+           FROM capture_instruction i JOIN capture_batch b ON b.id=i.batch_id
+          WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
+          ORDER BY i.batch_id, i.group_id, i.version DESC, i.created_at DESC
+       ), live AS (
+         SELECT s.session_lineage_id AS lineage_id, a.batch_id
+           FROM agent_session s
+           JOIN processing_attempt a ON a.id=s.attempt_id
+           JOIN processing_job j ON j.current_attempt_id=a.id
+          WHERE s.session_lineage_id IS NOT NULL
+            AND s.session_state NOT IN ('cancelling','cancelled','failed')
+       )
+       SELECT live.lineage_id, live.batch_id, latest.stream_id, latest.id, latest.group_id, latest.text
+         FROM live JOIN latest ON latest.batch_id=live.batch_id
+        WHERE NOT EXISTS (
+          SELECT 1 FROM agent_session_inbox x
+           WHERE x.session_lineage_id=live.lineage_id
+             AND x.idempotency_key LIKE 'instruction:' || latest.id::text || '%')
+        ORDER BY live.lineage_id, latest.id
+        LIMIT $4`,
+      [config.actorId, config.targetId, config.targetContextId, MAX_RELAYS_PER_PASS],
+    )
+    const streams = new Map<string, string>()
+    for (const row of missing.rows) {
+      await appendInstructions(client, config, row.batch_id, row.lineage_id, [
+        { id: row.id, groupId: row.group_id, text: row.text },
+      ])
+      streams.set(row.batch_id, row.stream_id)
+    }
+    for (const [batchId, streamId] of streams) {
+      await appendEvent(client, streamId, 'session_inbox_changed', { batch_id: batchId })
+    }
+    return missing.rows.length
+  })
+}
