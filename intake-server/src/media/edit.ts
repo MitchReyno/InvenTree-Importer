@@ -22,7 +22,7 @@ import {
   mediaLinks,
   mediaMemberships,
 } from './schema.ts'
-import { fail, type CaptureBinding } from '../capture/repository.ts'
+import { fail, type CaptureBinding } from '../capture/model.ts'
 import { advanceMediaRevision, lockMediaBatch } from './commands.ts'
 import { mediaSnapshot } from './read.ts'
 import { DECODER_BUILD } from './repository.ts'

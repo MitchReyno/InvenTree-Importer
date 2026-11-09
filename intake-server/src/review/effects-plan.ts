@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { partIdentities, recordIdentities } from '../execution/schema.ts'
-import { fail } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 import {
   EFFECTS_VERSIONS,
   RECORD_EFFECTS_CAPABILITY,

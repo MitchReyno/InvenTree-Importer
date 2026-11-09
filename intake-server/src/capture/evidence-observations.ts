@@ -21,7 +21,8 @@ import {
   captureParts,
   captureSubjects,
 } from './schema.ts'
-import { fail, lockCaptureForAgentWrite, type CaptureBinding } from './repository.ts'
+import { lockCaptureForAgentWrite } from './repository.ts'
+import { fail, type CaptureBinding } from './model.ts'
 
 /** The Examine lead session writing on its batch. */
 export interface LeadWriter {

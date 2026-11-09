@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import type { ProcessingFieldDto } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/repository.ts'
+import type { CaptureBinding } from '../capture/model.ts'
 import { appendSessionInbox } from '../agents/tools/inbox.ts'
 
 /** Why a proposal stopped being current; mirrors `processing_proposal_stale.reason`. */

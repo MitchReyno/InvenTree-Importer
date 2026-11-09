@@ -24,7 +24,7 @@ import {
   captureSettingsIntents,
 } from './schema.ts'
 import { retainCaptureContext, validateSupplierReference } from './context.ts'
-import { fail } from './repository.ts'
+import { fail } from './model.ts'
 
 export interface SettingsOwner {
   batchId: string

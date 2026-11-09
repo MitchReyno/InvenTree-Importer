@@ -8,7 +8,7 @@ import {
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { captureContexts, captureObservations } from './schema.ts'
-import { fail } from './repository.ts'
+import { fail } from './model.ts'
 
 interface ContextOwner {
   batchId: string

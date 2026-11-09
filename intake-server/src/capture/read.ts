@@ -8,7 +8,7 @@ import type { ReadOperation } from '../inventory/transport.ts'
 import { strictJson } from '@invimport/contracts/json'
 import { approvedTagsPresent } from '../inventory/tags.ts'
 import type { CaptureRead, CaptureReadOperation } from './routes.ts'
-import { fail } from './repository.ts'
+import { fail } from './model.ts'
 import { readBoundedBody } from './bounded-body.ts'
 
 const READ_BODY_MAX_BYTES = 64 * 1024

@@ -7,11 +7,11 @@ import { assertMediaInputManifest } from '@invimport/contracts/media'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import {
-  CaptureError,
   captureRepository,
   lockCaptureForInputs,
   lockCaptureForInputSettlement,
 } from '../../src/capture/repository.ts'
+import { CaptureError } from '../../src/capture/model.ts'
 import { sha256 } from '../../src/db/authority.ts'
 import { blobLockCoordinates, lockBlob } from '../../src/media/blob-store.ts'
 import { readCommandMediaInputs } from '../../src/media/command-inputs.ts'

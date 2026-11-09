@@ -12,7 +12,8 @@ import {
 } from '@invimport/contracts'
 import { pathId, commandKey } from '../api/request.ts'
 import { bootstrap, type DevConfig } from '../config.ts'
-import { CaptureError, captureRepository, fail } from './repository.ts'
+import { captureRepository } from './repository.ts'
+import { CaptureError, fail } from './model.ts'
 import type { CatalogueReader } from './catalogue.ts'
 import { requireCurrentTargetContext } from './target-context.ts'
 

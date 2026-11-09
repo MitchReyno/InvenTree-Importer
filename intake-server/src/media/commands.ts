@@ -3,7 +3,8 @@ import { count, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { mediaBatches, mediaEvidence } from './schema.ts'
 import type { PoolClient } from 'pg'
-import { captureInTransaction, fail, type CaptureBinding } from '../capture/repository.ts'
+import { captureInTransaction } from '../capture/repository.ts'
+import { fail, type CaptureBinding } from '../capture/model.ts'
 
 /** Shared media publishers/readers serialize without granting decoders mutable draft rights. */
 export async function lockMediaRevision(client: PoolClient, batchId: string) {

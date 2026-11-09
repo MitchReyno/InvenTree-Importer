@@ -4,7 +4,7 @@ import type {
   ProcessingBlockerDto,
   ProcessingInputDto,
 } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/repository.ts'
+import type { CaptureBinding } from '../capture/model.ts'
 import { canonical } from '@invimport/contracts/json'
 import { readMediaInputScopeResults, decodeMediaInputs, type MediaInputs } from '../media/inputs.ts'
 import { lockMediaInputScopes, type LockedMediaInputs } from '../media/locked-inputs.ts'
