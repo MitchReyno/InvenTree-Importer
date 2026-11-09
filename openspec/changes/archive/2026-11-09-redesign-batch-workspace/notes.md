@@ -157,4 +157,5 @@ Tasks 1–14 were delivered after planning ([#94](https://github.com/MitchReyno/
 - **Region crops:** the PR-G browser check did not re-check region crops in the evidence pane, because the fixture cannot serve the crop route; BI-006's own qualification checked them.
 - **Review URL:** Review reads its view from the URL at mount, so a hash change on an open Review page does not switch view.
 - **Browser coverage:** Safari, Firefox and real GPUs (WebGL ran on SwiftShader) were not checked, and no check used a live provider session or a real InvenTree: only the owned fixtures and the owned fake.
-- **Remaining tasks:** none; every task and delivery gate is done. Syncing and archiving the change wait for Mitch's authorisation.
+- **Remaining tasks:** none; every task and delivery gate is done. The delta specs were synced into the main specs and the change archived on 2026-11-09.
+- **Long requirements:** `openspec validate --specs --strict` warns that some synced requirements in capture-batch-settings, header-workflow-status, changes-commit, processing-workspace and review-records exceed 500 characters. The sync copied them verbatim; splitting them is follow-up work.
