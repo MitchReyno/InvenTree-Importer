@@ -92,8 +92,15 @@ export function ChatGPTSignIn() {
   const shown = pollFailed ? undefined : polling ? status.data : account
   const shownMessage = pollFailed ? FAILED : message
 
-  function run(action: string, loginId?: string) {
-    const call = queue.current.then(() => callRunner(key.current?.value ?? '', action, loginId))
+  /** Queues a runner call with the key typed now; `wanted` can drop it before its turn. */
+  function run(action: string, loginId?: string, wanted: () => boolean = () => true) {
+    const managementKey = key.current?.value ?? ''
+    const call = queue.current.then(() => {
+      if (!wanted()) {
+        throw new Error('superseded')
+      }
+      return callRunner(managementKey, action, loginId)
+    })
     queue.current = call.catch(() => undefined)
     return call
   }
@@ -112,7 +119,7 @@ export function ChatGPTSignIn() {
     startedIn.current = current
     setBusy(true)
     try {
-      const next = await run(action, loginId)
+      const next = await run(action, loginId, () => startedIn.current === current)
       if (startedIn.current === current) {
         // The new account starts its own polling generation, so no older poll can replace it.
         setGeneration((value) => value + 1)

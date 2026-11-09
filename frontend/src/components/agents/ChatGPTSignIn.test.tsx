@@ -124,6 +124,10 @@ it('a failed poll stops polling and says the status is unconfirmed', async () =>
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
     await act(() => vi.advanceTimersByTimeAsync(9000))
     expect(send).toHaveBeenCalledTimes(2)
+    send.mockResolvedValueOnce(challenge('device-2'))
+    fireEvent.click(screen.getByText('Sign in with ChatGPT'))
+    expect(await screen.findByText('TEST-CODE')).toBeTruthy()
+    expect(send).toHaveBeenCalledTimes(3)
   } finally {
     vi.useRealTimers()
   }
@@ -250,6 +254,34 @@ it('a poll that reconciliation cancels finishes before the next call starts', as
     expect(send).toHaveBeenCalledTimes(2)
     await act(async () => answer(challenge()))
     await waitFor(() => expect(send).toHaveBeenCalledTimes(3))
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('a command superseded by a key edit while it waits is not sent', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    let answer: (value: Response) => void = () => undefined
+
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(challenge())
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+      .mockImplementation(async () => Response.json({ state: 'disconnected' }))
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('fetch', send)
+    render(<ChatGPTSignIn />)
+    await startSignIn()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }))
+    fireEvent.change(screen.getByLabelText('Codex runner management key'), {
+      target: { value: 'other key' },
+    })
+    await act(async () => answer(challenge()))
+    await act(() => vi.advanceTimersByTimeAsync(10))
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).toBeNull()
   } finally {
     vi.useRealTimers()
   }
