@@ -4,7 +4,8 @@ import { and, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import { appendEvent } from '../db/authority.ts'
 import { captureBatches } from '../capture/schema.ts'
-import { CaptureError, captureInTransaction } from '../capture/repository.ts'
+import { captureInTransaction } from '../capture/repository.ts'
+import { CaptureError } from '../capture/model.ts'
 import { lockBatchMediaInputs } from '../media/locked-inputs.ts'
 import { readAgentSettings } from '../agents/settings.ts'
 import { appendSessionInbox } from '../agents/tools/inbox.ts'
@@ -163,7 +164,7 @@ export async function triggerExamine(
           notified.push(version.version_id)
         }
       } else {
-        if (profileId === 'native-agent/2') {
+        if (profileId !== 'synthetic-session/1') {
           // No saved agent default: the lead session waits until the operator chooses one.
           const settings = await readAgentSettings(client, config)
           if (!settings.selection) {

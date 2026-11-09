@@ -24,7 +24,15 @@ async function main() {
       port,
       strictPort: true,
       watch: { ignored: ['**/.amp/**', '**/*.md', '**/*.test.*', '**/*.spec.*', '**/dist/**'] },
-      proxy: { '/api': { target: `http://127.0.0.1:${apiPort}`, ws: true, changeOrigin: false } },
+      proxy: {
+        '/api': { target: `http://127.0.0.1:${apiPort}`, ws: true, changeOrigin: false },
+        ...(process.env.INTAKE_PERSONAL_MANAGEMENT === '1'
+          ? {
+              '/personal-runner/codex': { target: 'http://127.0.0.1:14317', changeOrigin: false },
+              '/personal-runner/claude': { target: 'http://127.0.0.1:14315', changeOrigin: false },
+            }
+          : {}),
+      },
     },
   })
   await vite.listen()

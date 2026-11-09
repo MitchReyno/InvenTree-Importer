@@ -741,6 +741,14 @@ test('a claim needs the worker account and a live batch, and results stop at the
     await fixture.db.pool.query("UPDATE processing_attempt SET state='queued' WHERE id=$1", [
       b.attempt,
     ])
+    assert.equal(
+      await runSessionTurn(
+        deps({ ...fixture.config, profileId: 'shared-vm-agent/1' }),
+        b.attempt,
+        new AbortController().signal,
+      ),
+      'queued',
+    )
     await assert.rejects(
       runSessionTurn(
         deps({ ...fixture.config, targetContextId: randomUUID() }),

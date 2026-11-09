@@ -1,18 +1,9 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { Id, schemas, type BatchAttentionDto } from '@invimport/contracts'
+import type { FastifyInstance } from 'fastify'
+import { schemas, type BatchAttentionDto } from '@invimport/contracts'
+import { readModelError } from '../api/errors.ts'
+import { pathId } from '../api/request.ts'
 import { bootstrap, type DevConfig } from '../config.ts'
-import { CaptureError, fail } from '../capture/repository.ts'
-import { ProcessingError } from '../processing/model.ts'
-
-const ID_PATTERN = new RegExp(Id.pattern!)
-
-function batchId(request: FastifyRequest) {
-  const id = (request.params as { id: string }).id
-  if (!ID_PATTERN.test(id)) {
-    fail('invalid_id', 400)
-  }
-  return id
-}
+import { fail } from '../capture/model.ts'
 
 /** A read model only: it never grants command authority. */
 export function registerAttention(
@@ -22,22 +13,12 @@ export function registerAttention(
 ) {
   const configured = bootstrap(config).status === 'configured'
   app.register(async (scope) => {
-    scope.setErrorHandler((error, request, reply) => {
-      if (!(error instanceof CaptureError) && !(error instanceof ProcessingError)) {
-        throw error
-      }
-      reply.code(error.statusCode).send({
-        code: error.code,
-        message: 'Batch attention is unavailable.',
-        recovery: 'none',
-        correlation_id: request.id,
-      })
-    })
+    scope.setErrorHandler(readModelError('Batch attention is unavailable.'))
     scope.get(
       '/api/v1/batches/:id/attention',
       { schema: { response: { 200: schemas.BatchAttention } } },
       (request) => {
-        const id = batchId(request)
+        const id = pathId(request)
         if (!configured) {
           fail('setup_required', 503)
         }

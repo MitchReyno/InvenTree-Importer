@@ -8,7 +8,7 @@ Provider usage is gated and supervised outside the web process. This capability 
 
 ### Requirement: Provider web process never launches inference
 
-The web process SHALL only register Agent settings, session history and Processing routes and queue durable commands. It MUST NOT import or launch an agent worker, a provider CLI or the session tool server, whether on startup, page load, settings save or a Processing start.
+The web process SHALL only register Agent settings, session history and Processing routes and queue durable commands. In an enabled personal VM deployment it MAY relay authenticated operator credential-management requests to the paired runner without starting inference. It MUST NOT import or launch an agent worker, a provider CLI or the session tool server, whether on startup, page load, settings save or a Processing start.
 
 #### Scenario: Save an agent default
 
@@ -78,7 +78,7 @@ No provider or model SHALL be selected implicitly: queuing a `native-agent/1` at
 
 ### Requirement: Provider authentication route without fallback
 
-A native attempt SHALL use only its sealed authentication route, with no fallback to another route, provider or model. Without an existing first-party CLI login (subscription) or the selected provider's key in the worker environment (API key), the attempt SHALL settle `waiting_for_login` without starting a turn.
+A native attempt SHALL use only its sealed authentication route, with no fallback to another route, provider or model. For the shared VM profile only, a sealed Claude subscription turn MAY use a configured operator setup-token as its exclusive credential and a Codex subscription turn MAY use the guest’s managed ChatGPT login. Without the credential required by the sealed route, the attempt SHALL settle `waiting_for_login` without starting a turn.
 
 #### Scenario: Route-specific invocation
 
@@ -88,7 +88,7 @@ A native attempt SHALL use only its sealed authentication route, with no fallbac
 
 #### Scenario: Claude subscription not signed in
 
-- **GIVEN** an attempt sealed for Claude subscription
+- **GIVEN** an attempt sealed for Claude subscription using native CLI login
 - **WHEN** the CLI's auth status is not a claude.ai first-party login
 - **THEN** no turn starts and the attempt settles `waiting_for_login`.
 
@@ -98,9 +98,14 @@ A native attempt SHALL use only its sealed authentication route, with no fallbac
 - **WHEN** the worker runs it
 - **THEN** no child is started and the attempt settles `waiting_for_login`.
 
+#### Scenario: Personal runner receives a revoked setup-token
+
+- **WHEN** Claude rejects the configured subscription credential
+- **THEN** the runner reports authentication required and never retries using an API key or cached account.
+
 ### Requirement: Provider child environment allowlist
 
-A provider child SHALL receive only `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_ALL`, `SHELL`, `SYSTEMROOT`, a private `TMPDIR`, a dedicated `CODEX_HOME` for Codex, and the selected key only in API-key mode. It MUST NOT receive application, channel or inventory credentials, proxies, alternate endpoints or OAuth tokens, and a customised Codex home SHALL be refused.
+For existing host profiles a provider child SHALL receive only `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_ALL`, `SHELL`, `SYSTEMROOT`, a private `TMPDIR`, a dedicated `CODEX_HOME` for Codex, and the selected key only in API-key mode. It MUST NOT receive application, channel or inventory credentials, proxies, alternate endpoints or OAuth tokens, and a customised Codex home SHALL be refused.
 
 #### Scenario: Hostile parent environment
 
@@ -113,6 +118,11 @@ A provider child SHALL receive only `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `
 - **GIVEN** a dedicated Codex home containing `config.toml`
 - **WHEN** a Codex attempt starts
 - **THEN** it is refused with `agent_home_customizations_refused` before the app server is launched.
+
+#### Scenario: Shared VM token isolation
+
+- **WHEN** a shared VM provider process starts
+- **THEN** the runner explicitly injects the configured setup token only for the selected Claude subscription route and strips unrelated credentials and endpoints.
 
 ### Requirement: Provider tool and policy refusal
 

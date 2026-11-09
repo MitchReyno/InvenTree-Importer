@@ -9,6 +9,7 @@ import {
   type SessionInboxSubmissionDto,
   type SessionReplacementDto,
 } from '@invimport/contracts'
+import { commandKey } from '../api/request.ts'
 import { replaceSession } from './session-replacement.ts'
 import { submitSessionInbox } from '../agents/tools/inbox.ts'
 import { readSessionTimeline } from '../agents/tools/timeline.ts'
@@ -16,21 +17,13 @@ import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
 import { fail, ProcessingError } from './model.ts'
-import { CaptureError } from '../capture/repository.ts'
+import { CaptureError } from '../capture/model.ts'
 import { CommandPayloadConflict } from '../db/authority.ts'
 
 function id(request: FastifyRequest, field = 'id') {
   const value = (request.params as Record<string, string>)[field]
   if (!value || !new RegExp(Id.pattern!).test(value)) {
     fail('invalid_id', 400)
-  }
-  return value
-}
-
-function key(request: FastifyRequest) {
-  const value = request.headers['idempotency-key']
-  if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value)) {
-    fail('idempotency_key_required', 400)
   }
   return value
 }
@@ -44,6 +37,7 @@ export function registerProcessing(
 ) {
   const repository = processingRepository(pool, config, lockCapture)
   app.register(async (scope) => {
+    // CaptureError stays accepted: the shared api/request.ts parsers throw it on these routes.
     scope.setErrorHandler((error, request, reply) => {
       const conflict = error instanceof CommandPayloadConflict
       if (!(error instanceof ProcessingError) && !(error instanceof CaptureError) && !conflict) {
@@ -76,7 +70,9 @@ export function registerProcessing(
       '/api/v1/batches/:id/processing',
       { schema: { body: schemas.ProcessingStart, response: { 202: schemas.ProcessingReceipt } } },
       async (request, reply) =>
-        reply.code(202).send(await repository.start(id(request), key(request), request.body)),
+        reply
+          .code(202)
+          .send(await repository.start(id(request), commandKey(request), request.body)),
     )
     scope.post<{ Body: ProcessingCancellationDto }>(
       '/api/v1/batches/:id/processing/:jobId/cancellation',
@@ -86,7 +82,8 @@ export function registerProcessing(
           response: { 200: schemas.ProcessingReceipt },
         },
       },
-      (request) => repository.cancel(id(request), id(request, 'jobId'), key(request), request.body),
+      (request) =>
+        repository.cancel(id(request), id(request, 'jobId'), commandKey(request), request.body),
     )
     scope.post<{ Body: ProcessingAnswerDto }>(
       '/api/v1/batches/:id/questions/:questionId/answers',
@@ -97,7 +94,12 @@ export function registerProcessing(
         },
       },
       (request) =>
-        repository.answer(id(request), id(request, 'questionId'), key(request), request.body),
+        repository.answer(
+          id(request),
+          id(request, 'questionId'),
+          commandKey(request),
+          request.body,
+        ),
     )
     scope.get(
       '/api/v1/batches/:id/processing/:jobId/session',
@@ -118,7 +120,7 @@ export function registerProcessing(
               config,
               id(request),
               id(request, 'jobId'),
-              key(request),
+              commandKey(request),
               request.body,
             ),
           ),

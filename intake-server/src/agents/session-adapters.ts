@@ -95,6 +95,7 @@ export async function runClaudeSession(
     throw new SessionResumeUnavailable()
   }
   await requireClaudeSessionVersion(host.claudeExecutable, cwd, env, signal, turn.onCliVersion)
+  const builtins = host.guestTools ? ['Bash', 'Read', 'Write', 'Edit'] : []
   const mcpConfig = join(cwd, 'mcp.json')
   // The file names the variable, never the capability; the CLI expands it from the environment.
   await writeFile(
@@ -119,7 +120,7 @@ export async function runClaudeSession(
     'stream-json',
     '--verbose',
     '--tools',
-    '',
+    builtins.join(','),
     '--disable-slash-commands',
     '--disallowedTools',
     'advisor',
@@ -129,7 +130,7 @@ export async function runClaudeSession(
     '--setting-sources',
     '',
     '--allowedTools',
-    `mcp__${SESSION_MCP_SERVER}__*`,
+    [`mcp__${SESSION_MCP_SERVER}__*`, ...builtins].join(','),
     '--model',
     selection.model,
     '--system-prompt',
@@ -155,7 +156,10 @@ export async function runClaudeSession(
     { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
     turnSignal,
   )
-  const expectedTools = turn.tools.map((tool) => `mcp__${SESSION_MCP_SERVER}__${tool}`).sort()
+  const expectedTools = [
+    ...builtins,
+    ...turn.tools.map((tool) => `mcp__${SESSION_MCP_SERVER}__${tool}`),
+  ].sort()
 
   const userMessage = (text: string) => ({
     type: 'user',
@@ -205,6 +209,13 @@ export async function runClaudeSession(
           turnSignal,
           failDelivery,
         )
+      }
+      if (
+        message.type === 'assistant' &&
+        message.error === 'authentication_failed' &&
+        host.guestClaudeToken
+      ) {
+        throw new NativeSessionError('agent_login_required')
       }
       if (message.type === 'assistant') {
         const content = record(message.message).content
@@ -280,6 +291,13 @@ export async function runCodexSession(
   const args = ['app-server', '--strict-config', '--listen', 'stdio://']
   const config = {
     ...CODEX_SESSION_CONFIG,
+    ...(host.guestTools
+      ? {
+          sandbox_mode: 'danger-full-access',
+          'features.shell_tool': true,
+          'features.view_image': true,
+        }
+      : {}),
     forced_login_method: selection.authentication === 'subscription' ? 'chatgpt' : 'api',
   }
   for (const [key, value] of Object.entries(config)) {
@@ -307,8 +325,10 @@ export async function runCodexSession(
 
   const turnSignal = AbortSignal.any([signal, local.signal])
   const child = new AgentChild(
-    host.codexExecutable,
-    args,
+    host.guestCodexSubscription ? 'flock' : host.codexExecutable,
+    host.guestCodexSubscription
+      ? ['-s', '-n', '-F', '/run/codex-state/use.lock', host.codexExecutable, ...args]
+      : args,
     cwd,
     { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
     turnSignal,
@@ -335,7 +355,7 @@ export async function runCodexSession(
       throw new NativeSessionError('agent_tool_refused')
     }
     if (message.method === 'item/started' || message.method === 'item/completed') {
-      requireAppItem(record(record(message.params).item), turn.tools)
+      requireAppItem(record(record(message.params).item), turn.tools, host.guestTools)
     }
     if ('id' in message) {
       const resolve = pending.get(Number(message.id))
@@ -397,7 +417,7 @@ export async function runCodexSession(
             cwd,
             ephemeral: false,
             approvalPolicy: 'never',
-            sandbox: 'read-only',
+            sandbox: host.guestTools ? 'danger-full-access' : 'read-only',
             baseInstructions: turn.instructions,
           })
     } catch (error) {
@@ -413,13 +433,13 @@ export async function runCodexSession(
     // The effective policy, as for earlier profiles: no approvals, read-only, the chosen provider.
     if (
       thread.approvalPolicy !== 'never' ||
-      record(thread.sandbox).type !== 'readOnly' ||
+      record(thread.sandbox).type !== (host.guestTools ? 'dangerFullAccess' : 'readOnly') ||
       thread.modelProvider !== (selection.authentication === 'api_key' ? 'bench_openai' : 'openai')
     ) {
       throw new NativeSessionError('agent_policy_refused')
     }
     const effective = record((await request('config/read', { includeLayers: false, cwd })).config)
-    requireCodexSessionConfig(effective)
+    requireCodexSessionConfig(effective, host.guestTools)
     const servers = Object.keys(record(effective.mcp_servers ?? {}))
     const status = await request('mcpServerStatus/list', {})
     const listed = Array.isArray(status.data) ? status.data.map(record) : []
@@ -499,7 +519,14 @@ const SESSION_ITEM_TYPES = new Set([
   'contextCompaction',
 ])
 
-function requireAppItem(item: Record<string, unknown>, tools: readonly string[]) {
+function requireAppItem(
+  item: Record<string, unknown>,
+  tools: readonly string[],
+  guestTools = false,
+) {
+  if (guestTools && ['commandExecution', 'fileChange', 'imageView'].includes(String(item.type))) {
+    return
+  }
   if (SESSION_ITEM_TYPES.has(String(item.type))) {
     return
   }

@@ -3,7 +3,7 @@ import type {
   ManualPartAttachmentDto,
   SupportedEffectPreviewDto,
 } from '@invimport/contracts'
-import type { EffectsPlan, EffectKind } from '../execution/effects-plan.ts'
+import type { EffectsPlan, EffectKind } from '../execution/effects/effects-plan.ts'
 import { evidencePreview } from './media-preview.ts'
 
 const labels: Record<EffectKind, string> = {

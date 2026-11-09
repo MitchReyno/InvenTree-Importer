@@ -27,7 +27,7 @@ import {
   type CaptureObservationDto,
 } from '@invimport/contracts'
 import { canonical, canonicalRecord } from '@invimport/contracts/json'
-import type { DevConfig } from '../config.ts'
+import { fail, type CaptureBinding } from './model.ts'
 import { transaction } from '../db/database.ts'
 import { validatePartSpec, PartSpecError } from './part-spec.ts'
 import { readCaptureContexts, retainCaptureContext } from './context.ts'
@@ -48,20 +48,6 @@ import {
   observationLot,
 } from './evidence-observations.ts'
 
-export class CaptureError extends Error {
-  constructor(
-    public readonly statusCode: number,
-    public readonly code: string,
-  ) {
-    super(code)
-  }
-}
-
-export function fail(code: string, status = 422): never {
-  throw new CaptureError(status, code)
-}
-
-export type CaptureBinding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
 type Binding = CaptureBinding
 type Batch = {
   id: string

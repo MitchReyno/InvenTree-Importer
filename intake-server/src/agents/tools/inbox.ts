@@ -13,7 +13,7 @@ import { captureBatches } from '../../capture/schema.ts'
 import { processingJobs } from '../../processing/schema.ts'
 import { fail } from '../../processing/model.ts'
 import { agentSessionCursors, agentSessionInbox, agentSessions } from '../schema.ts'
-import type { CaptureBinding } from '../../capture/repository.ts'
+import type { CaptureBinding } from '../../capture/model.ts'
 
 export const INBOX_READ_LIMIT = 20
 

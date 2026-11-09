@@ -358,12 +358,15 @@ async function main() {
       ).ready()
       if (worker) {
         const providerEnv = Object.fromEntries(
-          [
-            'OPENAI_API_KEY',
-            'ANTHROPIC_API_KEY',
-            'INTAKE_CODEX_EXECUTABLE',
-            'INTAKE_CLAUDE_EXECUTABLE',
-          ]
+          (profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/2'
+            ? ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
+            : [
+                'OPENAI_API_KEY',
+                'ANTHROPIC_API_KEY',
+                'INTAKE_CODEX_EXECUTABLE',
+                'INTAKE_CLAUDE_EXECUTABLE',
+              ]
+          )
             .filter((key) => settings[key])
             .map((key) => [key, settings[key]]),
         )
@@ -398,7 +401,15 @@ async function main() {
       [join(repository, 'tooling/dev/ui.cjs')],
       {
         cwd: repository,
-        env: { ...env, INTAKE_DEV_PUBLIC_PORT: String(port), INTAKE_DEV_API_PORT: String(apiPort) },
+        env: {
+          ...env,
+          INTAKE_PERSONAL_MANAGEMENT:
+            profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/2'
+              ? settings.INTAKE_PERSONAL_MANAGEMENT
+              : undefined,
+          INTAKE_DEV_PUBLIC_PORT: String(port),
+          INTAKE_DEV_API_PORT: String(apiPort),
+        },
       },
       (text) => text.includes('DEV_UI_READY'),
     )

@@ -5,8 +5,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { Id, Revision, schemas, type MediaEditDto } from '@invimport/contracts'
 import { CommandPayloadConflict } from '../db/authority.ts'
-import type { DevConfig } from '../config.ts'
-import { CaptureError, fail } from '../capture/repository.ts'
+import { bootstrap, type DevConfig } from '../config.ts'
+import { CaptureError, fail } from '../capture/model.ts'
 import { BlobStore, MAX_UPLOAD_BYTES } from './blob-store.ts'
 import { mediaRepository } from './repository.ts'
 import { mediaContent } from './content.ts'
@@ -59,9 +59,10 @@ export function registerMediaRoutes(
 ) {
   const repository = mediaRepository(pool, config, store)
   const content = mediaContent(pool, config, store)
+  const configured = bootstrap(config).status === 'configured'
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {
-      if (!config.apiKey?.trim() || config.credentialRef === 'unconfigured') {
+      if (!configured) {
         fail('setup_required', 503)
       }
     })

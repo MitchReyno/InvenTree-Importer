@@ -4,7 +4,7 @@ import type {
   ProcessingProposalDto,
   ResearchReceiptSourceDto,
 } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/repository.ts'
+import type { CaptureBinding } from '../capture/model.ts'
 import { verifyResearchReceiptSources } from '../research/receipts.ts'
 import { fail } from './model.ts'
 

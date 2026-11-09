@@ -1,8 +1,8 @@
-import { isEffectsPlan } from './effects-plan.ts'
+import { isEffectsPlan } from './effects/effects-plan.ts'
 import { cancellationVersion } from './cancellation.ts'
-import { stockIndexBytes } from './effects-output.ts'
-import { supportedStates } from './effects-state.ts'
-import { retainSupportedIndex, requireSupportedIndex } from './effects-index.ts'
+import { stockIndexBytes } from './effects/effects-output.ts'
+import { supportedStates } from './effects/effects-state.ts'
+import { retainSupportedIndex, requireSupportedIndex } from './effects/effects-index.ts'
 import { canonical as canonicalStock } from '@invimport/contracts/json'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient, Pool } from 'pg'
@@ -26,13 +26,13 @@ import {
 import { commands, outbox, targets } from '../db/schema.ts'
 import { stockBytes, id } from './plan.ts'
 import { decodeExecutablePlan, type ExecutablePlan } from './media-plan.ts'
-import { attachmentStates, type AttachmentState } from './attachment-state.ts'
+import { attachmentStates, type AttachmentState } from './attachments/attachment-state.ts'
 import {
   lockApprovedMedia,
   retainApprovedMediaPins,
   requireApprovedMediaPins,
 } from '../media/execution-pins.ts'
-import { retainAttachmentIndex, requireAttachmentIndex } from './attachment-index.ts'
+import { retainAttachmentIndex, requireAttachmentIndex } from './attachments/attachment-index.ts'
 
 const approvalColumns = {
   id: executorApprovals.id,

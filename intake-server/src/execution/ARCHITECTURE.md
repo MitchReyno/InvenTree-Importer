@@ -49,7 +49,7 @@ stock-v1 bytes. Its supporting evidence and explicit attachment destinations are
 and pinned inside original approval reservation. No current media pointer can reconstruct
 missing approved scope. Before any stock request, apply checks every supporting blob.
 
-`attachment-apply.ts` and its journal/state/recovery helpers use the same physical supervisor,
+`attachments/attachment-apply.ts` and its journal/state/recovery helpers use the same physical supervisor,
 external witness and source guard as stock. Each attachment read/write has its own committed
 intent. Confirmation requires exact downloaded bytes and stock/artifact identity. A lost ACK
 is unknown until explicit supported verification. A positive no-effect receipt permits only
@@ -59,7 +59,7 @@ owned persistent fake, not an InvenTree API compatibility claim.
 
 ## Additive supported effects
 
-`effects-plan.ts` adds `bench-effects-plan/1` and `owned-fake-effects/1` beside the stock and
+`effects/effects-plan.ts` adds `bench-effects-plan/1` and `owned-fake-effects/1` beside the stock and
 media plans. Migration `0010_supported_effects.sql` adds the effects journal, Part identity
 and transfer tables, and the immutable triggers and projection events those rows use. Legacy
 stock and media bytes stay on their own versions. `applySupportedEffects` only orchestrates:

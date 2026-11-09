@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/repository.ts'
+import type { CaptureBinding } from '../capture/model.ts'
 
 /** The owning capture module implements this seam; processing never writes its SQL tables. */
 export interface LockedCapture {

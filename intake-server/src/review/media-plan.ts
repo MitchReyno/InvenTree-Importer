@@ -1,4 +1,4 @@
-import { effectsCapable } from '../execution/effects-plan.ts'
+import { effectsCapable } from '../execution/effects/effects-plan.ts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
 import { canonicalMedia } from '../media/encoding.ts'

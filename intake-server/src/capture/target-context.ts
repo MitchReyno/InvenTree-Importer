@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { targets } from '../db/schema.ts'
-import { fail, type CaptureBinding } from './repository.ts'
+import { fail, type CaptureBinding } from './model.ts'
 
 /** Fences target reads: a rotated target context makes late results unusable for this scope. */
 export async function requireCurrentTargetContext(

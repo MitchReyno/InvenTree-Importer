@@ -13,7 +13,7 @@ const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',
   'base64',
 )
-import { companyCreateKey, locationCreateKey } from '../../src/execution/effects-plan.ts'
+import { companyCreateKey, locationCreateKey } from '../../src/execution/effects/effects-plan.ts'
 
 type Fixture = Awaited<ReturnType<typeof manualFixture>>
 

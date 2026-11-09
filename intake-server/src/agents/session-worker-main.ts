@@ -1,3 +1,4 @@
+import { startSessionBridge } from './shared-vm/coordinator.ts'
 import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -61,6 +62,7 @@ async function main() {
   let owner: Awaited<ReturnType<typeof acquireAgentSupervisor>> | undefined
   let scheduler: DBOSClient | undefined
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
+  let bridge: Awaited<ReturnType<typeof startSessionBridge>> | undefined
   let launched = false
   const shutdown = new AbortController()
   const examineSkipped = new Map<string, string>()
@@ -89,12 +91,38 @@ async function main() {
       config,
       store,
     })
+    if (
+      (config.profileId === 'shared-vm-agent/1' || config.profileId === 'shared-vm-agent/2') &&
+      !process.env.INTAKE_VM_PAIR
+    ) {
+      throw new Error('session_agent_configuration_required')
+    }
+    if (process.env.INTAKE_VM_PAIR) {
+      if (
+        config.profileId !== 'synthetic-session/1' &&
+        config.profileId !== 'shared-vm-agent/1' &&
+        config.profileId !== 'shared-vm-agent/2'
+      ) {
+        throw new Error('session_agent_configuration_required')
+      }
+      bridge = await startSessionBridge(
+        process.env.INTAKE_VM_PAIR,
+        Number(process.env.INTAKE_VM_PORT),
+      )
+    }
     const deps: SessionRunnerDeps = {
       pool: db.pool,
       config,
       host,
       toolUrl: tools.url,
-      drivers: { 'synthetic-session/1': syntheticSessionDriver },
+      drivers: {
+        'synthetic-session/1':
+          config.profileId === 'synthetic-session/1' && bridge
+            ? bridge.driver
+            : syntheticSessionDriver,
+        'shared-vm-agent/1': bridge?.driver,
+        'shared-vm-agent/2': bridge?.driver,
+      },
     }
     DBOS.setConfig({
       name: processingApplication,
@@ -166,6 +194,7 @@ async function main() {
     if (launched) {
       await DBOS.shutdown({ workflowCompletionTimeoutMS: 10000 })
     }
+    bridge?.close()
     await tools?.close()
     owner?.release(true)
     await writer?.close()

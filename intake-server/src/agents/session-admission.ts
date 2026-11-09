@@ -23,14 +23,12 @@ export function requireCodexSessionVersion(value: unknown) {
   }
 }
 
-export function requireCodexSessionConfig(value: unknown) {
+export function requireCodexSessionConfig(value: unknown, guestTools = false) {
   const config = policyRecord(value)
   const features = policyRecord(config.features)
   const skills = policyRecord(config.skills)
   const disabledFeatures = [
     'goals',
-    'shell_tool',
-    'view_image',
     'apps',
     'plugins',
     'remote_plugin',
@@ -40,7 +38,9 @@ export function requireCodexSessionConfig(value: unknown) {
   ]
   if (
     config.approval_policy !== 'never' ||
-    config.sandbox_mode !== 'read-only' ||
+    config.sandbox_mode !== (guestTools ? 'danger-full-access' : 'read-only') ||
+    features.shell_tool !== guestTools ||
+    features.view_image !== guestTools ||
     config.web_search !== 'disabled' ||
     policyRecord(features.code_mode).enabled !== false ||
     disabledFeatures.some((key) => features[key] !== false) ||

@@ -9,4 +9,5 @@ test('the session list says whether the configured profile runs agent sessions',
   assert.equal(sessionsSupported({} as never), isSessionProfile(mediaProfileId))
   assert.equal(sessionsSupported({ profileId: 'synthetic-session/1' } as never), true)
   assert.equal(sessionsSupported({ profileId: 'native-agent/2' } as never), true)
+  assert.equal(sessionsSupported({ profileId: 'shared-vm-agent/1' } as never), true)
 })

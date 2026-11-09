@@ -13,11 +13,8 @@ import {
 } from '@invimport/contracts'
 import { transaction } from '../db/database.ts'
 import { idempotent, type CommandScope } from '../db/authority.ts'
-import {
-  fail,
-  lockCaptureForOperatorCommand,
-  type OperatorCommandScope,
-} from '../capture/repository.ts'
+import { lockCaptureForOperatorCommand, type OperatorCommandScope } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 import { loadReviewContext } from '../capture/review-context.ts'
 import {
   applyBulkEdit,

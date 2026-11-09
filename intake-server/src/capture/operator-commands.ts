@@ -10,7 +10,8 @@ import type {
   RestructureDto,
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { fail, type OperatorCommandScope } from './repository.ts'
+import type { OperatorCommandScope } from './repository.ts'
+import { fail } from './model.ts'
 import {
   activeObservationIds,
   markLotEdited,

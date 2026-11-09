@@ -3,6 +3,14 @@ export const sessionHandlerVersion = 'processing/5'
 export const sessionToolProfileVersion = 'native-session-tools/1'
 export const sessionCommandQueue = 'bench-sessions'
 export const sessionProfiles = {
+  'shared-vm-agent/1': {
+    instructionVersion: 'shared-vm-agent/1',
+    instructionDigest: '75bd67342904a9578eaa04aceffd664d10dedf0d65743071aed95a36b644dc70',
+  },
+  'shared-vm-agent/2': {
+    instructionVersion: 'shared-vm-agent/2',
+    instructionDigest: '8695228770489604b189728dacca8822d6ec27a24f45ded88e7b5ed55b6d1b07',
+  },
   'native-agent/2': {
     instructionVersion: 'native-agent/2',
     instructionDigest: '75bd67342904a9578eaa04aceffd664d10dedf0d65743071aed95a36b644dc70',

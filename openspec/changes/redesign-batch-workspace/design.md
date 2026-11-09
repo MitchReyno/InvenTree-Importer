@@ -170,7 +170,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
     - the lots and Parts using it;
     - decisions needed.
   - `GET /api/v1/preparations/:id/tree`, alongside the existing `/api/v1/preparations/:id/approvals`. It returns a deterministic hierarchy computed when read from that preparation's stored plan.
-    - It never alters `ManualPreparationResult`, `ManualPreview`, `preview_bytes` or `response_bytes`, all of which are byte-compared or re-validated on replay (`runs.ts`, `preparations.ts`).
+    - It never alters `ManualPreparationResult`, `ManualPreview`, `preview_bytes` or `response_bytes`, all of which are byte-compared or re-validated on replay (`runs.ts`, `prepare-selection.ts`, `approve-preparation.ts`).
     - It returns one flat list of records, each once, with a parent (its category, Part or stock item) and, for a stock item, its location; the By type view and the Tree view (by category or by location) are built from that list.
     - Plans in `bench-effects-plan/1` and `/2` give Category › Part, with the Part's parameters, manufacturer part, supplier part, stock items and attachments under it; new locations and companies are listed with what they set.
     - Plans in `bench-stock-plan/1` and `bench-media-plan/1` give each existing Part with its stock items (located by location) and their attachments.

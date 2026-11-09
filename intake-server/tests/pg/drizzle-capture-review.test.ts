@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 import { transaction } from '../../src/db/database.ts'
-import { CaptureError } from '../../src/capture/repository.ts'
+import { CaptureError } from '../../src/capture/model.ts'
 import { recordDisposition, recordInstruction } from '../../src/capture/operator-commands.ts'
 import { latestInstructions, loadReviewContext } from '../../src/capture/review-context.ts'
 

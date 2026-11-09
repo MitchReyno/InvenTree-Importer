@@ -1,6 +1,6 @@
 import { captureContextRecords } from '../capture/context-input.ts'
 import { validatePartSpec, PartSpecError } from '../capture/part-spec.ts'
-import { locationCreateKey, logicalEffectKey } from '../execution/effects-plan.ts'
+import { locationCreateKey, logicalEffectKey } from '../execution/effects/effects-plan.ts'
 import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
 import {

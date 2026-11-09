@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import {
-  Id,
   schemas,
   type CatalogueModelDto,
   validate,
@@ -11,8 +10,10 @@ import {
   type CaptureObserveDto,
   type InventoryMappingDto,
 } from '@invimport/contracts'
-import type { DevConfig } from '../config.ts'
-import { CaptureError, captureRepository, fail } from './repository.ts'
+import { pathId, commandKey } from '../api/request.ts'
+import { bootstrap, type DevConfig } from '../config.ts'
+import { captureRepository } from './repository.ts'
+import { CaptureError, fail } from './model.ts'
 import type { CatalogueReader } from './catalogue.ts'
 import { requireCurrentTargetContext } from './target-context.ts'
 
@@ -23,28 +24,12 @@ export type CaptureRead = (operation: CaptureReadOperation) => Promise<{
   partIdentity?: { category_id: string; tags?: string[] }
 }>
 
-const resourceId = (request: FastifyRequest) => {
-  const id = (request.params as { id: string }).id
-  if (!new RegExp(Id.pattern!).test(id)) {
-    fail('invalid_id', 400)
-  }
-  return id
-}
-
 const catalogueModel = (request: FastifyRequest): CatalogueModelDto => {
   const model = (request.params as { model: string }).model
   if (model !== 'location' && model !== 'supplier') {
     fail('invalid_catalogue_model', 400)
   }
   return model
-}
-
-const commandKey = (request: FastifyRequest) => {
-  const key = request.headers['idempotency-key']
-  if (typeof key !== 'string' || !new RegExp(Id.pattern!).test(key)) {
-    fail('idempotency_key_required', 400)
-  }
-  return key
 }
 
 /** Explicit registration: no connections, discovery, identity provisioning or target writes. */
@@ -56,6 +41,7 @@ export function registerCapture(
   catalogue?: CatalogueReader,
 ) {
   const repo = captureRepository(pool, config)
+  const configured = bootstrap(config).status === 'configured'
 
   /** Scope, archive and target-context checks all precede any catalogue traffic. */
   async function authorizeCatalogue(id: string): Promise<CatalogueReader> {
@@ -72,7 +58,7 @@ export function registerCapture(
 
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {
-      if (!config.apiKey?.trim() || config.credentialRef === 'unconfigured') {
+      if (!configured) {
         fail('setup_required', 503)
       }
     })
@@ -100,7 +86,7 @@ export function registerCapture(
     scope.get(
       '/api/v1/batches/:id',
       { schema: { response: { 200: schemas.CaptureSnapshot } } },
-      (req) => repo.read(resourceId(req)),
+      (req) => repo.read(pathId(req)),
     )
     scope.post<{ Body: { title: string; note: string } }>(
       '/api/v1/batches',
@@ -110,7 +96,7 @@ export function registerCapture(
     scope.post<{ Body: CaptureEditDto }>(
       '/api/v1/batches/:id/edits',
       { schema: { body: schemas.CaptureEdit, response: { 200: schemas.CaptureSnapshot } } },
-      (req) => repo.edit(resourceId(req), commandKey(req), req.body),
+      (req) => repo.edit(pathId(req), commandKey(req), req.body),
     )
     scope.get<{ Querystring: { q: string } }>(
       '/api/v1/batches/:id/catalogue/:model',
@@ -119,7 +105,7 @@ export function registerCapture(
       },
       async (req) => {
         const model = catalogueModel(req)
-        const reader = await authorizeCatalogue(resourceId(req))
+        const reader = await authorizeCatalogue(pathId(req))
         const result = await reader.search(model, req.query.q)
         await requireCurrentTargetContext(pool, config)
         return result
@@ -130,7 +116,7 @@ export function registerCapture(
       { schema: { response: { 200: schemas.CatalogueCandidates } } },
       async (req) => {
         const model = catalogueModel(req)
-        const reader = await authorizeCatalogue(resourceId(req))
+        const reader = await authorizeCatalogue(pathId(req))
         const result = await reader.candidates(model)
         await requireCurrentTargetContext(pool, config)
         return result
@@ -140,7 +126,7 @@ export function registerCapture(
       '/api/v1/batches/:id/observations',
       { schema: { body: schemas.CaptureObserve, response: { 201: schemas.CaptureObservation } } },
       async (req, reply) => {
-        const id = resourceId(req)
+        const id = pathId(req)
         const key = commandKey(req)
         const saved = await repo.read(id) // Authorize before target traffic, not just before saving the result.
         if (saved.archived) {

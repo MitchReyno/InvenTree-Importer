@@ -1,0 +1,61 @@
+# Internal packaging fixture. API access is confined to the private namespace.
+x-app: &app
+  image: ${INTAKE_APP_IMAGE:?select the local ARM64 app image}
+  pull_policy: never
+  platform: linux/arm64
+  network_mode: service:database
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
+services:
+  database:
+    image: postgres:17@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
+    platform: linux/arm64
+    network_mode: none
+    command: [postgres, -c, listen_addresses=127.0.0.1]
+    environment:
+      POSTGRES_DB: intake
+      POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_password
+    secrets: [admin_password]
+    volumes: [database:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD, pg_isready, -U, postgres, -d, intake]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+  provision:
+    <<: *app
+    depends_on:
+      database: {condition: service_healthy}
+    secrets: [admin_password, api_password]
+    command:
+      - sh
+      - -ec
+      - |
+        export PGPASSWORD="$$(cat /run/secrets/admin_password)"
+        exec node --import tsx src/operations/deployment-provision.ts
+  api:
+    <<: *app
+    depends_on:
+      provision: {condition: service_completed_successfully}
+    environment:
+      INTAKE_DATABASE_URL: postgresql://intake_api@127.0.0.1/intake
+      INTAKE_BLOB_ROOT: /var/lib/intake/blobs/store
+    secrets: [api_password]
+    volumes: [blobs:/var/lib/intake/blobs]
+    command:
+      - sh
+      - -ec
+      - |
+        export PGPASSWORD="$$(cat /run/secrets/api_password)"
+        exec node --import tsx src/main.ts
+secrets:
+  admin_password:
+    file: ${INTAKE_ADMIN_PASSWORD_FILE:?provide a private admin password file}
+  api_password:
+    file: ${INTAKE_API_PASSWORD_FILE:?provide a private API password file}
+volumes:
+  database: {}
+  blobs: {}

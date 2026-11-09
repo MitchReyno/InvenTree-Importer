@@ -537,7 +537,10 @@ function jobManifestQualification(
   digest: Buffer,
 ): ProcessingJobDto['qualification'] {
   const profileId = decodeJobInput(bytes, digest).profile_id
-  return profileId === 'native-agent/1' || profileId === 'native-agent/2'
+  return profileId === 'native-agent/1' ||
+    profileId === 'native-agent/2' ||
+    profileId === 'shared-vm-agent/2' ||
+    profileId === 'shared-vm-agent/1'
     ? 'native_unverified'
     : 'fixture_only'
 }
@@ -575,7 +578,10 @@ function configuredRunnerStatus(
   if (!configured) {
     return 'unconfigured'
   }
-  return config.profileId === 'native-agent/1' || config.profileId === 'native-agent/2'
+  return config.profileId === 'native-agent/1' ||
+    config.profileId === 'native-agent/2' ||
+    config.profileId === 'shared-vm-agent/2' ||
+    config.profileId === 'shared-vm-agent/1'
     ? 'native_unverified'
     : 'fixture_only'
 }

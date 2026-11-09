@@ -1,0 +1,232 @@
+import { evidenceRequest } from './evidence-request.ts'
+// Entrypoint for one paired session turn. The operator transports opaque TLS bytes over
+// stdio into the network-disabled guest. No host socket or host directory enters the container.
+import { connect } from 'node:tls'
+import { providerProxy } from './provider-proxy.ts'
+import { Duplex } from 'node:stream'
+import { once } from 'node:events'
+import { commandDigest, journalTurn, recordedOutcome, type TurnOutcome } from './journal.ts'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { setTimeout as delay } from 'node:timers/promises'
+import { join } from 'node:path'
+import { validate } from '@invimport/contracts'
+import type { ProcessingInputV6Dto } from '@invimport/contracts'
+import { syntheticTurn, type SyntheticResult } from '../synthetic-turn.ts'
+import { evidenceReplyLimit, Frames, protocol } from './frames.ts'
+import { SessionResumeUnavailable } from '../session-adapters.ts'
+import { isolatedToolTurn } from './tool-client.ts'
+import { nativeTurn } from './native-turn.ts'
+import { ResearchReapPendingError } from '../../research/errors.ts'
+import { pairing } from './pair.ts'
+
+const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
+
+async function main() {
+  const socket = connect({
+    ...(await pairing('/run/bench-pair')),
+    servername: 'bench-coordinator',
+    socket: Duplex.from({ readable: process.stdin, writable: process.stdout }),
+  })
+  try {
+    await once(socket, 'secureConnect')
+    const frames = new Frames(socket)
+    const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
+    const codex = process.env.INTAKE_VM_CODEX_SUBSCRIPTION === '1'
+    const provider = codex ? 'codex' : subscription ? 'claude' : undefined
+    const isolated = process.env.INTAKE_VM_TOOL_WORKER === '1'
+    if (provider && !isolated) {
+      const egress = await providerProxy(provider)
+      socket.once('close', () => egress.close())
+    }
+    const reapProof = isolated && process.env.INTAKE_VM_REAP_PROOF === '1'
+    await frames.send({
+      reapProof,
+      ready: protocol,
+      terminalProbe: true,
+      builtinTools: isolated,
+      evidenceFiles: isolated,
+      claudeSubscription: subscription,
+      codexSubscription: codex,
+    })
+    const packet = await frames.read()
+    const probe = 'inspectTerminal' in packet
+    if (
+      probe &&
+      (!packet.inspectTerminal ||
+        typeof packet.inspectTerminal !== 'object' ||
+        Array.isArray(packet.inspectTerminal))
+    ) {
+      throw new Error('invalid_probe')
+    }
+    const command = probe ? (packet.inspectTerminal as Record<string, unknown>) : packet
+    if (
+      command.protocol !== protocol ||
+      typeof command.attemptId !== 'string' ||
+      !uuid.test(command.attemptId) ||
+      typeof command.lineage !== 'string' ||
+      !uuid.test(command.lineage) ||
+      typeof command.turn !== 'string' ||
+      !/^[1-9][0-9]{0,18}$/.test(command.turn)
+    ) {
+      throw new Error('invalid_turn')
+    }
+    validate('ProcessingInputV6', command.manifest)
+    const manifest = command.manifest as ProcessingInputV6Dto
+    if (
+      isolated
+        ? manifest.profile_id !== 'shared-vm-agent/2'
+        : !['synthetic-session/1', 'shared-vm-agent/1'].includes(manifest.profile_id)
+    ) {
+      throw new Error('invalid_profile')
+    }
+    if (
+      provider &&
+      !(
+        (manifest.profile_id === 'shared-vm-agent/1' ||
+          manifest.profile_id === 'shared-vm-agent/2') &&
+        manifest.agent?.provider === provider &&
+        manifest.agent.authentication === 'subscription'
+      )
+    ) {
+      throw new Error('wrong_guest_route')
+    }
+    const identity = { lineage: command.lineage, attemptId: command.attemptId, turn: command.turn }
+    const cwd = join('/home/node/sessions', identity.lineage)
+    const path = join(cwd, command.attemptId + '-' + command.turn)
+    if (probe) {
+      if (packet.requireReap === true) {
+        if (!reapProof) {
+          throw new Error('reap_proof_unavailable')
+        }
+        const digest = commandDigest(command)
+        const deadline = Date.now() + 12000
+        // A second ready relay can receive this probe before the original relay finishes cleanup.
+        while (
+          (await readFile(path + '.reaped', 'utf8').catch(() => undefined)) !==
+          digest + '\n'
+        ) {
+          if (Date.now() >= deadline || socket.destroyed) {
+            throw new Error('unconfirmed_worker_removal')
+          }
+          await delay(100)
+        }
+        await frames.send({ terminalOutcome: 'worker_removed' })
+        socket.end()
+        return
+      }
+      const outcome = await recordedOutcome(path, command)
+      await frames.send({ terminalOutcome: outcome })
+      socket.end()
+      return
+    }
+    await mkdir(cwd, { recursive: true, mode: 0o700 })
+    const abort = new AbortController()
+    socket.once('close', () => abort.abort())
+
+    const execute = async (): Promise<TurnOutcome> => {
+      if (reapProof) {
+        // This directory is visible only to the paired supervisor and the VM-side launcher.
+        await writeFile(
+          '/run/reap/turn',
+          commandDigest(command) +
+            ' ' +
+            identity.lineage +
+            '/' +
+            identity.attemptId +
+            '-' +
+            identity.turn +
+            '\n',
+          { flag: 'wx', mode: 0o600 },
+        )
+      }
+      if (manifest.profile_id !== 'synthetic-session/1') {
+        if (
+          typeof command.text !== 'string' ||
+          typeof command.instructions !== 'string' ||
+          !Array.isArray(command.tools) ||
+          command.tools.some((tool) => typeof tool !== 'string')
+        ) {
+          throw new Error('invalid_opening')
+        }
+        let pending = Promise.resolve()
+
+        const request = (body: Record<string, unknown>) => {
+          const result = pending.then(async () => {
+            try {
+              await frames.send(body)
+              return await frames.read(
+                isolated && evidenceRequest(body.mcp) ? evidenceReplyLimit : undefined,
+              )
+            } catch (error) {
+              abort.abort()
+              throw error
+            }
+          })
+          pending = result.then(
+            () => {},
+            () => {},
+          )
+          return result
+        }
+
+        try {
+          const runNative = isolated ? isolatedToolTurn : nativeTurn
+          await runNative(
+            {
+              manifest,
+              cwd,
+              signal: abort.signal,
+              identity,
+            },
+            {
+              text: command.text,
+              instructions: command.instructions,
+              tools: command.tools,
+              resume: typeof command.resume === 'string' ? command.resume : undefined,
+            },
+            request,
+          )
+        } catch (error) {
+          if (error instanceof ResearchReapPendingError) {
+            throw error
+          }
+          if (error instanceof SessionResumeUnavailable) {
+            return 'resume_unavailable'
+          }
+          const failure =
+            error instanceof Error && error.message === 'agent_login_required'
+              ? 'agent_login_required'
+              : 'agent_turn_failed'
+          return failure
+        }
+      } else {
+        await frames.send({ started: true })
+        if ((await frames.read()).ok !== true) {
+          throw new Error('start_refused')
+        }
+        const resume = typeof command.resume === 'string' ? command.resume : undefined
+        await syntheticTurn({ resume }, { cwd, manifest }, async (tool, args) => {
+          await frames.send({ tool, args })
+          const reply = await frames.read()
+          if (!reply.result || typeof reply.result !== 'object') {
+            throw new Error('invalid_tool_reply')
+          }
+          return reply.result as SyntheticResult
+        })
+      }
+      return 'done'
+    }
+
+    const outcome = await journalTurn(path, command, execute, abort.signal)
+    await frames.send(outcome === 'done' ? { done: true } : { failure: outcome })
+    socket.end()
+  } catch (error) {
+    socket.destroy()
+    throw error
+  }
+}
+
+main().catch(() => {
+  process.stderr.write('guest_turn_refused\n')
+  process.exitCode = 1
+})
