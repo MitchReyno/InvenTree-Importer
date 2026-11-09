@@ -305,7 +305,7 @@ export async function mediaRemovalImpact(
     },
     new Set(evidenceIds),
   )
-  const result = { evidence_ids: [...new Set(evidenceIds)].sort(), ...impact }
+  const result = { evidence_ids: [...evidenceIds].sort(), ...impact }
   validate('MediaRemovalImpact', result)
   return result
 }

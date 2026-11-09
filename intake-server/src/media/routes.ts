@@ -43,6 +43,9 @@ function renditionSize(request: FastifyRequest): MediaRenditionSize | 'full' {
   return fail('invalid_size', 400)
 }
 
+/** A batch holds at most 200 items, removed ones included. */
+const MAX_REMOVAL_IMPACT_IDS = 200
+
 /** Comma-separated evidence IDs, at most the batch's 200 items, each named once. */
 function evidenceIdList(request: FastifyRequest) {
   const value = (request.query as Record<string, unknown> | undefined)?.evidence_ids
@@ -52,8 +55,6 @@ function evidenceIdList(request: FastifyRequest) {
   }
   return ids.map(identifier)
 }
-
-const MAX_REMOVAL_IMPACT_IDS = 200
 
 function parameters(request: FastifyRequest) {
   const values = request.params as Record<string, unknown>

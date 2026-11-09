@@ -431,8 +431,23 @@ test('the impact of removing several items together names a lot they alone suppo
       `/batches/${batchId}/media/removal-impact?evidence_ids=${randomUUID()}`,
     )
     assert.equal(unknown.status, 404)
-    const malformed = await fixture.http(`/batches/${batchId}/media/removal-impact?evidence_ids=x`)
-    assert.equal(malformed.status, 400)
+    const impact = (ids: string) =>
+      fixture.http(`/batches/${batchId}/media/removal-impact?evidence_ids=${ids}`)
+    for (const ids of [
+      'x',
+      '',
+      `${front.evidence},${front.evidence}`,
+      Array.from({ length: 201 }, () => randomUUID()).join(','),
+    ]) {
+      const refused = await impact(ids)
+      assert.deepEqual([refused.status, refused.value.code], [400, 'invalid_id'], ids.slice(0, 80))
+    }
+    await media.applied({ kind: 'remove', evidence_ids: [other.evidence] })
+    const removedItem = await impact(other.evidence)
+    assert.deepEqual([removedItem.status, removedItem.value.code], [409, 'media_evidence_removed'])
+    // A removed item is refused before an unknown one is looked for.
+    const mixed = await impact(`${randomUUID()},${other.evidence}`)
+    assert.deepEqual([mixed.status, mixed.value.code], [409, 'media_evidence_removed'])
   } finally {
     await fixture.dispose()
   }
