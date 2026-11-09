@@ -23,7 +23,7 @@ docker compose -p bench-host-fixture -f tooling/deployment/host.compose.yaml up 
 docker compose -p bench-host-fixture -f tooling/deployment/host.compose.yaml logs api
 ```
 
-Retain the same password files for subsequent starts of that project. Wait for web_ready, then use the container's loopback to exercise the static app and bootstrap endpoint. The host manifest currently covers database initialization, schema migrations and API startup. The guest manifest currently provides an offline tool container for qualification. Pairing, external UI ingress and provider sign-in require further implementation.
+Retain the same password files for subsequent starts of that project. Wait for web_ready, then use the container's loopback to exercise the static app and bootstrap endpoint. The host manifest currently covers database initialization, schema migrations and API startup. The guest manifest currently provides an offline tool container for qualification. For app dispatch and account linking, configure the coordinator and provider relays below. Operator-managed authenticated same-origin ingress is required for access outside loopback.
 
 On an Apple Silicon Mac with Lima 2.3 and Docker installed, create a dedicated VM. Run these commands from the repository root in the same shell as the build commands. The pinned Alpine image runs a second Docker engine in the VM. Only the Compose file, browser policy, smoke script and built image cross the boundary.
 
@@ -78,7 +78,7 @@ tooling/deployment/tests/dispatch/smoke.sh "$vm" bench-intake-runner:controlled
 
 The smoke script starts disposable PostgreSQL and issues disposable pairing certificates. It calls the application's Processing HTTP route, lets DBOS deliver each command, and checks retained provider session IDs and MCP status events for Claude and Codex. A separate scripted session submits a proposal, asks a question and resumes after the answer. When testing from the checkout, it requires the pinned Node runtime and installed pnpm workspace dependencies.
 
-For the relay, run `node tooling/deployment/bridge/relay.mjs VM PORT GUEST_DIRECTORY IMAGE` where the coordinator's loopback listener is reachable. The operator-side relay requires Lima management access. Each relay handles one active turn at a time, creating a bounded, network-disabled container in the shared VM and reusing its guest session storage. The guest directory contains `guest/` for the pairing files and `sessions/` writable by UID 1000. Keep it private inside the VM. The current relay qualifies offline execution. Provider internet access and subscription sign-in require the later network and credential work.
+For the relay, run `node tooling/deployment/bridge/relay.mjs VM PORT GUEST_DIRECTORY IMAGE` where the coordinator's loopback listener is reachable. The operator-side relay requires Lima management access. Each relay handles one active turn at a time, creating a bounded, network-disabled container in the shared VM and reusing its guest session storage. The guest directory contains `guest/` for the pairing files and `sessions/` writable by UID 1000. Keep it private inside the VM. The ordinary relay supports offline controlled execution. The personal subscription and tool-worker sections below configure the selected account and guest egress services.
 
 To exercise the trusted app in its host Docker image as well, pass the app image as a third argument to the smoke script. It shares only the disposable database's isolated network namespace. For that topology the relay accepts a fifth argument, the coordinator container name, and uses a fixed loopback byte pump inside that container. Host Docker management remains outside both the coordinator and the guest.
 
@@ -91,7 +91,7 @@ tooling/deployment/bridge/pair.sh "$vm" "$INTAKE_VM_PAIR" "$guest_directory"
 
 Start the coordinator with the VM profile and its pairing directory, then start the relay using the same port and guest directory. The standard dev launcher reads the two bridge variables for the session worker. For the packaged topology supply the coordinator container name to the relay. Each additional relay permits another simultaneous turn, within the application's configured slot limit.
 
-For an already provisioned installation, layer `host-runner.compose.yaml` over `host.compose.yaml` with Docker Compose's two `-f` arguments. Supply the existing API's private runtime settings in `INTAKE_API_RUNTIME_ENV` and the session coordinator's separately provisioned runtime settings in `INTAKE_COORDINATOR_ENV`. Both need the same actor, target, target context and processing channel secret. The coordinator requires its restricted `INTAKE_AGENT_DATABASE_URL` and its DBOS `INTAKE_AGENT_SCHEDULER_DATABASE_URL`. Set `INTAKE_AGENT_WRITER_DATABASE_URL` to the dedicated Examine writer role for lot formation. The base fixture provisioner creates the API login. Coordinator and scheduler role provisioning and authenticated UI ingress are pending release work.
+For an already provisioned installation, layer `host-runner.compose.yaml` over `host.compose.yaml` with Docker Compose's two `-f` arguments. Supply the existing API's private runtime settings in `INTAKE_API_RUNTIME_ENV` and the session coordinator's separately provisioned runtime settings in `INTAKE_COORDINATOR_ENV`. Both need the same actor, target, target context and processing channel secret. The coordinator requires its restricted `INTAKE_AGENT_DATABASE_URL` and its DBOS `INTAKE_AGENT_SCHEDULER_DATABASE_URL`. Set `INTAKE_AGENT_WRITER_DATABASE_URL` to the dedicated Examine writer role for lot formation. The base fixture provisioner creates the API login. Supply pre-provisioned coordinator and scheduler roles and authenticated UI ingress for a personal installation. These are prerequisites for the overlay.
 
 Set `INTAKE_COORDINATOR_PAIR` to a directory readable by UID 1000 containing only the coordinator's three pairing files. Run the relay against the coordinator container on port 14313. PostgreSQL and the bridge stay on namespace-local loopback. The relay has no network endpoint inside the guest container.
 
@@ -171,8 +171,65 @@ bash tooling/deployment/tests/dispatch/live-tools.sh \
   "$vm" "$guest_directory" "$runner_image" "$coordinator_pair_directory" "$provider"
 ```
 
+### Verify a release or roll back the image pair
+
+Build the personal target with the same app and tools image references used for qualification. Give the app and the resulting runner version-specific tags. Load the app into host Docker and the runner into the dedicated Lima guest. On the source installation, record the full image configuration digests and platforms from both engines.
+
+```sh
+tooling/deployment/image-manifest.sh "$vm" "$app_image" "$runner_image" > release.images
+```
+
+Transfer the two images and the manifest through your trusted deployment channel. On the destination, run the same command with the local VM name into a temporary file and compare the result before starting the services.
+
+```sh
+observed=$(mktemp)
+tooling/deployment/image-manifest.sh "$vm" "$app_image" "$runner_image" > "$observed" &&
+  diff -u release.images "$observed"
+```
+
+The verifier uses Python 3 and exports the selected platform when the engine reports a manifest digest as its image ID. These are Docker image configuration digests suitable for verifying a save/load transfer. Pulling from a registry requires the registry manifest digest. Guest OS packages are resolved during the build, so rebuilding the Dockerfiles can produce different images.
+
+Keep the previous image pair and its manifest until the replacement has completed a turn. For an image rollback, drain active sessions, stop the relays and coordinator, verify the previous pair, and restart with those two references and the same pairing, session and credential directories. Check database migration compatibility before starting an older application. If the schema is incompatible, recovery also requires a matching database backup.
+
 ### Lost turn acknowledgement
 
 If the bridge disconnects after dispatch, a compatible coordinator has a 15-second window to ask another paired peer on the same route for the recorded outcome. The peer reads the journal entry for the same lineage, attempt, turn and command digest. A complete match lets the coordinator settle the original session without invoking the provider again.
 
 A missing, partial or conflicting journal leaves the session awaiting reconciliation. Preserve the guest session journal and investigate the retained attempt before retrying. For a compatible tool worker, cancellation closes the original relay and starts a separate removal check. The VM launcher removes that worker container and records the exact command digest. A paired supervisor verifies that receipt before the coordinator releases the slot. A missing receipt keeps the slot held. This recovery window applies to a running coordinator. A coordinator process restart still follows the retained interruption workflow.
+
+### Packaged media decoding
+
+Build the decoder from the repository's media Dockerfile and the dispatcher from the same app image as the media worker. The dispatcher uses a pinned Docker CLI. Build these as private Linux ARM64 images, load them into the trusted host engine, and obtain the decoder image ID on that engine.
+
+```sh
+docker buildx build --load --platform linux/arm64 -f intake-server/media-image/Dockerfile -t "$decoder_tag" .
+docker buildx build --load --platform linux/arm64 --build-arg APP_IMAGE="$INTAKE_APP_IMAGE" \
+  -f tooling/deployment/images/dispatcher.Dockerfile -t "$INTAKE_DISPATCHER_IMAGE" .
+export INTAKE_MEDIA_DECODER_IMAGE=$(docker image inspect --format '{{.Id}}' "$decoder_tag")
+```
+
+Layer `host-media.compose.yaml` over `host.compose.yaml`. Set `INTAKE_ENGINE_SOCKET` to the trusted engine socket path and `INTAKE_ENGINE_SOCKET_GID` to its numeric group **as seen inside Linux containers**. Set `INTAKE_MEDIA_RUNTIME_ENV` to the private file containing the media worker's restricted database URL and provisioned actor, target and target-context IDs. Use the same retained blob volume as the API.
+
+Start `decoder-dispatch` and use `docker compose run --rm media` with the selected manifests to process one eligible retained command. Only the dispatcher receives the Docker socket. Its Unix endpoint accepts a bounded binary decoder request for the configured immutable image. Media workers have read-only access to that endpoint. The dispatcher has no database credentials, blob mounts or network interface beyond loopback. The decoder image executes with the existing per-command resource, mount and network limits. A dispatcher failure propagates to the media worker through the existing failed-command handling.
+
+Run `tests/decoder-dispatch.sh` from this directory inside a disposable Linux engine with the app, dispatcher and decoder image names as arguments. The smoke test renders a synthetic image through the socket and checks refusal of a different image. It requires no stored evidence or inventory connection.
+
+Run `tests/host-replacement.sh` with the dedicated VM name, candidate app image and previous schema-compatible app image to exercise replacement on one installation. It creates an independent Compose project and removes only its synthetic database and blob volumes. The test checks that the two kernels have distinct boot IDs, Lima exposes no host filesystem mount, the API rejects a foreign origin, and its restricted login and retained blob survive replacement.
+
+### Optional manual Apply service
+
+Include `host-apply.compose.yaml` only for an installation with the existing owned-disposable target and separately provisioned Apply roles. Set `INTAKE_APPLY_CONFIG` to an owner-only runner configuration readable as UID 1000 inside the container. Use `/var/lib/intake/apply` for its gate root and `/var/lib/intake/blobs/store` for its optional attachment source. The service keeps gate evidence in its own volume and mounts blobs read-only. Its fake target must be reachable on the deployment namespace's loopback address. The API and coordinator do not receive its credential. The Apply entrypoint validates the existing target, role and configuration restrictions at startup.
+
+### Qualification, restart and troubleshooting
+
+On the Pi, finish image import and digest verification before starting agent sessions. Drain the dedicated VM before running the restart fixture. From this directory run `tests/guest-restart.sh` with the dedicated VM name, candidate runner image and compatible previous runner image. It changes the VM boot ID, reads the persisted terminal journal with both images and refuses repeated execution. The host Compose project continues running during a guest reboot.
+
+For concurrent cancellation qualification, build the runner Dockerfile's `controlled-lifecycle` target with the same app and tools image arguments as the personal target. Load it into the dedicated VM. Run `tests/dispatch/smoke.sh` with `INTAKE_TEST_VM_LIFECYCLE=controlled`, the VM name, controlled runner and host app image. The fixture opens two paired relays. One worker starts Chromium in its own guest container and deliberately outlives transport loss. The application cancels it, checks capability revocation and confirms its sibling is still running, then lets the sibling finish. This target uses synthetic sessions and requires no linked account.
+
+- **Offline runner.** Check the selected Lima instance, host loopback coordinator port and matching pairing directories. Start one relay per simultaneous turn on the selected provider route. A guest login failure and an unavailable relay require different recovery.
+- **Browser fails to start.** The current public-reader setup installs the packaged Chromium seccomp policy in the guest directory. Existing installations can copy `guest/browser-seccomp.json` into that private directory with mode 0444 before starting a new tool relay. The worker needs a writable temporary profile and enough PID and memory capacity. Public document access uses `bench-web`.
+- **Public reader returns 403.** Check the allowed origins and protected hostnames. Extended policies fail closed when a configured protected hostname cannot be resolved. Keep the operator's real protected hostnames in that policy.
+- **Interrupted turn.** Preserve the original lineage, attempt and journal. Only an exact terminal record or, for a cancelled tool turn, a matching worker-removal receipt can settle the bridge recovery check. Restart the matching relay and inspect the retained attempt. Preserve uncertain slots through the application's interruption workflow.
+- **Credential management unavailable.** Restore the management tunnel and check configuration status. Explicitly repeat a credential change only after checking its acknowledged revision. For ChatGPT, enable device-code sign-in in the operator's security settings and start a fresh challenge after an expired or denied one.
+
+The qualification exercises two simultaneous controlled turns on each installation. The configured worker ceilings are 640 MiB for the tool worker, 256 MiB for its paired supervisor and 64 MiB for its provider tunnel. Chromium shares the worker's 128-task limit. VM memory and deployment load determine available headroom for real sessions. The physical qualification measurements and tested image identities are recorded on the deployment PR.

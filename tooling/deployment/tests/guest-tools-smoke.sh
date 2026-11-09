@@ -5,6 +5,7 @@ test "$(id -u)" = 1000
 test ! -S /var/run/docker.sock
 claude --version
 codex --version
+test -s /opt/guest-tools/node_modules/@anthropic-ai/claude-code/LICENSE.md
 test -s /opt/guest-tools/node_modules/@anthropic-ai/claude-code/README.md
 test -s /usr/share/doc/codex/CODEX-LICENSE
 test -s /usr/share/doc/codex/CODEX-NOTICE

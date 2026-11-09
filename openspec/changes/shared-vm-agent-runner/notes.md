@@ -2,7 +2,7 @@
 
 Bundle A has started with a disposable ARM64 deployment database fixture.
 
-## Open items
+## Implementation history
 
 Physical M1/Pi qualification, image publication conditions, real provider entitlement and Pi concurrency remain tracked in tasks 1 and 4. The installed Codex 0.166.0 protocol schema includes chatgptDeviceCode request and response variants. Live login and persistence still require testing in the guest.
 
@@ -27,3 +27,11 @@ An actual research turn can finish its provider call and settle in `waiting_inpu
 The first M1 device challenge remained pending after OpenAI's verification page displayed an HTML/JSON parsing error. The operator found the device-code sign-in toggle disabled in ChatGPT Security Settings. A newly issued challenge after enabling the toggle supersedes the earlier login. The settings panel now surfaces this prerequisite before sign-in.
 
 The earlier relay co-located the CLI with the pairing identity and journal. Tool-capable turns now use a separate guest container and a new sealed profile. Anonymous public web reads use a validating HTTPS document service on a guest Unix socket. Interactive browser navigation, delivery of original evidence bytes to a safe guest path, and two-host lifecycle qualification remain open. The Pi tool fixture used synthetic data and no provider account.
+
+The two-host release check exposed a Docker storage-backend difference. On the Pi host, image inspect returns the OCI manifest digest as the image ID. Docker Desktop on the M1 returns the image configuration digest for the same save/load transfer. The release verifier reads the selected platform's exported configuration on engines reporting the descriptor digest.
+
+Rolling the qualification API back to an image predating the current schema resulted in `database_version_quarantined`. The replacement gate uses a compatible previous image and checks the retained marker after both rollback and forward replacement. An older schema requires the corresponding database restore.
+
+The cancellation fixture reproduced a browser worker that ignored transport EOF and kept running in its guest container. The operator relay now terminates the unique supervisor for that connection. Its VM launcher removes the specific worker container, then writes a matching digest receipt into the supervisor-owned journal directory. The coordinator retains an uncertain slot when the launcher cannot confirm removal. The opt-in browser fixture uses the packaged Chromium seccomp profile and synthetic sessions.
+
+A Pi synthetic dispatch failed before posting a proposal while an image import/export was competing with the fixture. Verify the release pair before starting dispatch qualification on a resource-constrained host. Record the initial failure and the result of the serialized run in the PR.
