@@ -1509,6 +1509,29 @@ describe('Descriptions on records', () => {
     expect(field).toHaveAccessibleDescription(/couldn’t be read/)
   })
 
+  it('shows a disabled description when no InvenTree read is configured', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    render(
+      <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => mappedYageo()) }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    const field = await within(screen.getByRole('region', { name: 'Yageo' })).findByRole(
+      'textbox',
+      { name: 'Company description' },
+    )
+
+    expect(field).toHaveAttribute('aria-disabled', 'true')
+    expect(field).toHaveAccessibleDescription(/isn’t read in this setup/)
+    expect(edit).not.toHaveBeenCalled()
+  })
+
   it('shows an existing description over its limit in the bad tone without blocking anything', async () => {
     const user = userEvent.setup()
     const read = withRecords(
