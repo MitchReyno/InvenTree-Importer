@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from './Button'
 
 export type ChatMessage = { id: string; who: string; text: string; mine: boolean }

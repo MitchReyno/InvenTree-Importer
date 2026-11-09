@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { BatchRecordsDto, RecordExistingValuesDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '../queries/scope'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
 
 export type RecordsClient = {
   read: (batchId: string) => Promise<BatchRecordsDto>

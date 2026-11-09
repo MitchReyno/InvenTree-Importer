@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { CaptureSnapshotDto, InboxListDto } from '@invimport/contracts'
 import { manualFixture } from '../support/manual.ts'
 import { seedAuthority } from '../support/database.ts'
-import { captureRepository } from '../../src/capture/repository.ts'
+import { captureRepository } from '#/capture/repository.ts'
 
 const list = (value: unknown) => value as InboxListDto
 
@@ -130,8 +130,8 @@ test('inbox observes exact review changes, archive visibility and original appro
 test('inbox publishes only a ready retained original preview and never sends an inventory request', async () => {
   const fixture = await manualFixture({ media: true })
   try {
-    const { mediaRepository } = await import('../../src/media/repository.ts')
-    const { processMediaCommand } = await import('../../src/media/worker.ts')
+    const { mediaRepository } = await import('#/media/repository.ts')
+    const { processMediaCommand } = await import('#/media/worker.ts')
     const sharp = (await import('sharp')).default
     const seeded = await fixture.seedCapture()
     assert.ok(fixture.store)
@@ -170,8 +170,8 @@ test('inbox publishes only a ready retained original preview and never sends an 
 
 test('inbox question and active-job totals match Processing currentness after human dependency edits', async () => {
   const { processingFixture } = await import('../support/processing.ts')
-  const { claimProcessingCommand, acceptEnvelope } = await import('../../src/processing/runner.ts')
-  const { inboxProjection } = await import('../../src/inbox/projection.ts')
+  const { claimProcessingCommand, acceptEnvelope } = await import('#/processing/runner.ts')
+  const { inboxProjection } = await import('#/inbox/projection.ts')
   const { strictJson } = await import('@invimport/contracts/json')
   const fixture = await processingFixture()
   try {

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
+import type { OperatorReviewClient } from '#/operator/types'
 import { RestructureDialog } from './RestructureDialog'
 
 const observation = (id: string, marking: string) => ({

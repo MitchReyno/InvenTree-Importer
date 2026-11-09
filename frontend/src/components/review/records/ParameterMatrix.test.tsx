@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '../../../test/render'
+import { render } from '#/test/render'
 import { ParameterMatrix } from './ParameterMatrix'
 
 const ref = (id: string, pk: string, model: string) => ({

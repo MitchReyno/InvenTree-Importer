@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate, type MediaEditDto, type MediaSnapshotDto } from '@invimport/contracts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { captureRepository } from '../../src/capture/repository.ts'
-import { editMedia } from '../../src/media/edit.ts'
+import { captureRepository } from '#/capture/repository.ts'
+import { editMedia } from '#/media/edit.ts'
 
 test('bulk grouping, rename, notes and ungroup preserve evidence and reject partial moves', async () => {
   const db = await isolatedDatabase()
@@ -133,9 +133,9 @@ test('bulk grouping, rename, notes and ungroup preserve evidence and reject part
       ).rows[0].id,
       instructionId,
     )
-    const { transaction } = await import('../../src/db/database.ts')
-    const { lockCaptureForOperatorCommand } = await import('../../src/capture/repository.ts')
-    const { recordInstruction } = await import('../../src/capture/operator-commands.ts')
+    const { transaction } = await import('#/db/database.ts')
+    const { lockCaptureForOperatorCommand } = await import('#/capture/repository.ts')
+    const { recordInstruction } = await import('#/capture/operator-commands.ts')
     await assert.rejects(
       transaction(db.pool, async (client) => {
         const scope = await lockCaptureForOperatorCommand(

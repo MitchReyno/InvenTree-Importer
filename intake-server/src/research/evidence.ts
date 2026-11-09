@@ -4,9 +4,9 @@ import {
   type ResearchEvidenceChunkDto,
   type ResearchEvidenceReadDto,
 } from '@invimport/contracts'
-import { decodeMediaInputs } from '../media/inputs.ts'
-import { sha256 } from '../db/authority.ts'
-import { MAX_UPLOAD_BYTES } from '../media/blob-store.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { sha256 } from '#/db/authority.ts'
+import { MAX_UPLOAD_BYTES } from '#/media/blob-store.ts'
 import { assertResearchActive, refuseResearch } from './errors.ts'
 import { MAX_RESEARCH_CHUNK_BYTES } from './limits.ts'
 import { awaitResearchResult } from './abort.ts'

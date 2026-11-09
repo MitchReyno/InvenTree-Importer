@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { Id } from '@invimport/contracts'
 import { canonicalMedia } from './encoding.ts'
 import { blobLockCoordinates, lockBlob } from './blob-store.ts'
@@ -13,7 +13,7 @@ import {
   type MediaInputs,
   type MediaSubjectScope,
 } from './inputs.ts'
-import type { CaptureBinding } from '../capture/model.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
 import { mediaPinSet } from './command-inputs.ts'
 
 const lockedHandle = Symbol('locked-media-inputs')

@@ -5,12 +5,12 @@ import {
   type HeaderWorkDto,
   type ProcessingActivityDto,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import { processingSnapshot } from '../processing/read.ts'
-import { processingJobs } from '../processing/schema.ts'
-import { captureInTransaction } from '../capture/repository.ts'
-import { countSteps } from '../processing/steps.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { processingSnapshot } from '#/processing/read.ts'
+import { processingJobs } from '#/processing/schema.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
+import { countSteps } from '#/processing/steps.ts'
 
 type BatchSteps = NonNullable<HeaderWorkDto['batch_steps']>
 

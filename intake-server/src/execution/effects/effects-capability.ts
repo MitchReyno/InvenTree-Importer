@@ -1,5 +1,5 @@
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../../db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 
 /** An explicit fake profile is not a compatibility claim for an InvenTree deployment. */
 export const SUPPORTED_EFFECTS_MANIFEST = Object.freeze({

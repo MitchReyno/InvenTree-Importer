@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { schemas, validate } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { bootstrap, type DevConfig, type RuntimeFeatures } from '../config.ts'
+import { bootstrap, type DevConfig, type RuntimeFeatures } from '#/config.ts'
 
 const liveAuthorities = new WeakMap<FastifyInstance, (token: string) => boolean>()
 

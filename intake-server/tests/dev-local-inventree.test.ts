@@ -3,8 +3,8 @@ import { test } from 'node:test'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readLocalInventree } from '../src/dev/local-inventree.ts'
-import { readDevState } from '../src/dev/state.ts'
+import { readLocalInventree } from '#/dev/local-inventree.ts'
+import { readDevState } from '#/dev/state.ts'
 
 const token = (letter: string) => `inv-${letter.repeat(40)}-20261106`
 const local = {

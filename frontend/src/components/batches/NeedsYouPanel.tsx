@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import type { AttentionItemDto, BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import { hoverTransition } from '../ui/motion'
-import { Button } from '../ui/Button'
-import { NeedsYou, type NeedsYouItem } from '../ui/NeedsYou'
-import { Count, Pill } from '../ui/Pill'
-import { Popover } from '../ui/Popover'
+import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
+import {
+  media,
+  hoverTransition,
+  Button,
+  NeedsYou,
+  type NeedsYouItem,
+  Count,
+  Pill,
+  Popover,
+} from '#/components/ui'
 
 type Tab = AttentionItemDto['tab']
 type Group = AttentionItemDto['group']

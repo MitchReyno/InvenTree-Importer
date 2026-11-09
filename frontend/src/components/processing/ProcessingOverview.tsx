@@ -1,16 +1,21 @@
 import type { ReactNode } from 'react'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { batchHref } from '../../navigation/batch-route'
-import type { ProcessingSource, StepProgress } from '../../processing/source'
-import { color, size, space, type, typeVar } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import { linkTouchArea } from '../ui/primitives'
-import { Count, Pill } from '../ui/Pill'
-import { ProgressSegments, type ProgressStep } from '../ui/ProgressSegments'
-import { StatusTimeline, type TimelineEntry } from '../ui/StatusTimeline'
-import { NeedsYou } from '../ui/NeedsYou'
-import { PauseButton } from '../agents/PauseButton'
+import { batchHref } from '#/navigation/batch-route'
+import type { ProcessingSource, StepProgress } from '#/processing/source'
+import { color, size, space, type, typeVar } from '#/theme/generated/tokens'
+import {
+  media,
+  linkTouchArea,
+  Count,
+  Pill,
+  ProgressSegments,
+  type ProgressStep,
+  StatusTimeline,
+  type TimelineEntry,
+  NeedsYou,
+} from '#/components/ui'
+import { PauseButton } from '#/components/agents/PauseButton'
 import {
   Card,
   CardTitle,

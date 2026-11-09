@@ -1,8 +1,6 @@
 import styled from 'styled-components'
-import { color, radius, space } from '../../../theme/generated/tokens'
-import { Button } from '../../ui/Button'
-import { Pill } from '../../ui/Pill'
-import { Small } from '../../ui/primitives'
+import { color, radius, space } from '#/theme/generated/tokens'
+import { Button, Pill, Small } from '#/components/ui'
 
 type Props = {
   role: 'manufacturer' | 'supplier'

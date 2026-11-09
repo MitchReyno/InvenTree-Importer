@@ -1,7 +1,7 @@
 import { decodeEffectsPlan, isEffectsVersion, type EffectsPlan } from './effects/effects-plan.ts'
 import { Digest } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { sha256, verifyBytes } from '../db/authority.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
 import { CAPABILITY, EXECUTOR_BUILD, decodePlan, id, type StockPlan } from './plan.ts'
 
 export const MEDIA_EXECUTOR_BUILD = 'bench-media/1'

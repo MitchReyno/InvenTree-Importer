@@ -1,15 +1,12 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
-import { Link, Small } from '../ui/primitives'
-import { ProblemCard } from '../ui/ProblemCard'
-import { Button } from '../ui/Button'
+import type { OperatorReviewClient } from '#/operator/types'
+import { Link, Small, ProblemCard, Button, localTime } from '#/components/ui'
 import { DismissWarning } from './DismissWarning'
-import type { ProblemAction } from '../../operator/problem-actions'
-import { batchHref } from '../../navigation/batch-route'
-import { localTime } from '../ui/RelativeTime'
+import type { ProblemAction } from '#/operator/problem-actions'
+import { batchHref } from '#/navigation/batch-route'
 
 interface Props {
   batch: CaptureSnapshotDto

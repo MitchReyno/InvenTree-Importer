@@ -5,16 +5,16 @@ import { join } from 'node:path'
 import { canonical } from '@invimport/contracts/json'
 import { isolatedDatabase, seedAuthority } from './database.ts'
 import { inventoryFake } from '../fixtures/inventory-fake.ts'
-import { transaction } from '../../src/db/database.ts'
+import { transaction } from '#/db/database.ts'
 import {
   reserveApprovedStock,
   retainOriginalSource,
   type Reservation,
-} from '../../src/execution/authority.ts'
-import { CAPABILITY, EXECUTOR_BUILD, encodePlan, type StockPlan } from '../../src/execution/plan.ts'
-import { ExternalGate, WriterConnection, durableExclusive } from '../../src/execution/ownership.ts'
-import type { TargetProfile } from '../../src/inventory/transport.ts'
-import { executeRun, type ApplyDependencies } from '../../src/execution/apply.ts'
+} from '#/execution/authority.ts'
+import { CAPABILITY, EXECUTOR_BUILD, encodePlan, type StockPlan } from '#/execution/plan.ts'
+import { ExternalGate, WriterConnection, durableExclusive } from '#/execution/ownership.ts'
+import type { TargetProfile } from '#/inventory/transport.ts'
+import { executeRun, type ApplyDependencies } from '#/execution/apply.ts'
 
 // Deliberately asymmetric literal source/contribution identities for independent wire assertions.
 export const ORIGINAL = '10000000-0000-4000-8000-000000000011'

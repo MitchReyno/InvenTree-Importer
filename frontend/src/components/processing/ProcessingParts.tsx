@@ -1,17 +1,14 @@
 import styled from 'styled-components'
-import { media } from '../ui/media'
-import { batchHref } from '../../navigation/batch-route'
+import { media, hoverTransition, Pill, type PillTone, linkTouchArea } from '#/components/ui'
+import { batchHref } from '#/navigation/batch-route'
 import type {
   PipelineCell,
   ProcessingSource,
   SourceQuestion,
   SourceSession,
   StepProgress,
-} from '../../processing/source'
-import { color, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
-import { hoverTransition } from '../ui/motion'
-import { Pill, type PillTone } from '../ui/Pill'
-import { linkTouchArea } from '../ui/primitives'
+} from '#/processing/source'
+import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 
 export const STEP_LABEL: Record<string, string> = {
   examine: 'Examine',

@@ -8,7 +8,7 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { STEPS, STEP_BY_STAGE, countSteps, type Step, type StepJobs } from '../processing/steps.ts'
+import { STEPS, STEP_BY_STAGE, countSteps, type Step, type StepJobs } from '#/processing/steps.ts'
 
 export type AttentionSources = {
   batchId: string

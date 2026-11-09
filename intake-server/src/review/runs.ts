@@ -1,8 +1,8 @@
-import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
+import { isEffectsPlan } from '#/execution/effects/effects-plan.ts'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { streams } from '../db/schema.ts'
-import { mediaEvidence } from '../media/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { streams } from '#/db/schema.ts'
+import { mediaEvidence } from '#/media/schema.ts'
 import {
   manualPreparations,
   manualPrepareOutcomes,
@@ -17,11 +17,11 @@ import {
   manualDispatches,
 } from './schema.ts'
 import { preparationColumns, prepareCommandColumns, runColumns } from './row-projections.ts'
-import { partIdentitySatisfies } from '../inventory/part-identity.ts'
+import { partIdentitySatisfies } from '#/inventory/part-identity.ts'
 import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
 import { requirePartTransferReads } from './part-attachments.ts'
-import { supportedStates } from '../execution/effects/effects-state.ts'
-import { logicalEffectKey } from '../execution/effects/effects-plan.ts'
+import { supportedStates } from '#/execution/effects/effects-state.ts'
+import { logicalEffectKey } from '#/execution/effects/effects-plan.ts'
 import type { PoolClient } from 'pg'
 import {
   validate,
@@ -31,15 +31,15 @@ import {
   type ManualRunDto,
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { verifyBytes } from '../db/authority.ts'
-import { captureInTransaction } from '../capture/repository.ts'
-import { fail } from '../capture/model.ts'
-import { partSpecReferences } from '../capture/part-spec.ts'
+import { verifyBytes } from '#/db/authority.ts'
+import { captureInTransaction } from '#/capture/repository.ts'
+import { fail } from '#/capture/model.ts'
+import { partSpecReferences } from '#/capture/part-spec.ts'
 import type { InventoryMappingDto } from '@invimport/contracts'
-import { decodeExecutablePlan } from '../execution/media-plan.ts'
+import { decodeExecutablePlan } from '#/execution/media-plan.ts'
 import { requirePreparationMedia } from './media-preparation.ts'
 import { evidencePreview } from './media-preview.ts'
-import { snapshot } from '../execution/authority.ts'
+import { snapshot } from '#/execution/authority.ts'
 import type { ManualConfig } from './authority.ts'
 import type { ReviewBinding } from './authority.ts'
 

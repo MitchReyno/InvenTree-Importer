@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { desc, eq, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   captureInstructions,
   captureIssueDispositions,

@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate } from '@invimport/contracts'
-import { NativeSessionError, sessionFailure } from '../src/agents/failure-model.ts'
+import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
 
 const context = {
   attemptId: randomUUID(),

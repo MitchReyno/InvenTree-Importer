@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
-import { media } from '../ui/media'
-import type { ElectronicsCurrentController } from '../../electronics-current/scene'
-import type { ThemeId } from '../../theme/generated/tokens'
+import { media } from '#/components/ui'
+import type { ElectronicsCurrentController } from '#/electronics-current/scene'
+import type { ThemeId } from '#/theme/generated/tokens'
 
 // three.js r163+ renders through WebGL 2 only. Detect it before loading the
 // scene chunk so unsupported browsers (and jsdom) never download three.js.
@@ -43,7 +43,7 @@ export function ElectronicsCurrent() {
     let unmounted = false
 
     async function start(target: HTMLCanvasElement): Promise<void> {
-      const { createElectronicsCurrent } = await import('../../electronics-current/scene')
+      const { createElectronicsCurrent } = await import('#/electronics-current/scene')
 
       if (unmounted) {
         return

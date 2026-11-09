@@ -1,7 +1,7 @@
-import { Paragraph, Small, Summary } from '../ui/primitives'
-import type { Snapshot } from '../../capture/types'
+import { Paragraph, Small, Summary } from '#/components/ui'
+import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '#/theme/generated/tokens'
 
 export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; batch: Snapshot }) {
   const subject = [...batch.lots, ...batch.parts].find((s) => s.id === note.subject_id)

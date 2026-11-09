@@ -3,8 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { manualProcess } from '../support/manual-process.ts'
-import { mediaRepository } from '../../src/media/repository.ts'
-import { processMediaCommand } from '../../src/media/worker.ts'
+import { mediaRepository } from '#/media/repository.ts'
+import { processMediaCommand } from '#/media/worker.ts'
 
 const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
 if (!image || !/^sha256:[a-f0-9]{64}$/.test(image)) {

@@ -1,15 +1,15 @@
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { readFile } from 'node:fs/promises'
-import { database } from '../../src/db/database.ts'
-import { BlobStore } from '../../src/media/blob-store.ts'
-import type { ProcessingConfig } from '../../src/processing/attempts.ts'
+import { database } from '#/db/database.ts'
+import { BlobStore } from '#/media/blob-store.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 import {
   dispatchProcessingCommands,
   executeProcessingCommand,
-} from '../../src/processing/delivery.ts'
-import { createResearchBrokerFactory } from '../../src/research/factory.ts'
-import { restrictedResearchRunner } from '../../src/research/adapter.ts'
-import { controlledResearchSession } from '../../src/research/child-transport.ts'
+} from '#/processing/delivery.ts'
+import { createResearchBrokerFactory } from '#/research/factory.ts'
+import { restrictedResearchRunner } from '#/research/adapter.ts'
+import { controlledResearchSession } from '#/research/child-transport.ts'
 
 const configPath = process.env.INTAKE_RESEARCH_PROCESSING_CONFIG
 if (!configPath) {

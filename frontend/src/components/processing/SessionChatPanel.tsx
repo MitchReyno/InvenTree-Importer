@@ -1,10 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type { SessionStateDto, SessionTimelineDto } from '@invimport/contracts'
-import { SessionChat, type ChatMessage } from '../ui/SessionChat'
-import { Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { SessionChat, type ChatMessage, Paragraph, Small, Button } from '#/components/ui'
 
 interface Props {
   /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */

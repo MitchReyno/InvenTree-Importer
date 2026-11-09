@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify'
 import { Id } from '@invimport/contracts'
-import { fail } from '../capture/model.ts'
+import { fail } from '#/capture/model.ts'
 
 const ID_PATTERN = new RegExp(Id.pattern!)
 

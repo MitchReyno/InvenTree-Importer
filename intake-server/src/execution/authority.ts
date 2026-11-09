@@ -8,8 +8,8 @@ import { randomUUID } from 'node:crypto'
 import type { PoolClient, Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { and, eq, inArray } from 'drizzle-orm'
-import { sha256, verifyBytes } from '../db/authority.ts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   supportedIntents,
   executorSources,
@@ -23,7 +23,7 @@ import {
   executorResults,
   executorEffects,
 } from './schema.ts'
-import { commands, outbox, targets } from '../db/schema.ts'
+import { commands, outbox, targets } from '#/db/schema.ts'
 import { stockBytes, id } from './plan.ts'
 import { decodeExecutablePlan, type ExecutablePlan } from './media-plan.ts'
 import { attachmentStates, type AttachmentState } from './attachments/attachment-state.ts'
@@ -31,7 +31,7 @@ import {
   lockApprovedMedia,
   retainApprovedMediaPins,
   requireApprovedMediaPins,
-} from '../media/execution-pins.ts'
+} from '#/media/execution-pins.ts'
 import { retainAttachmentIndex, requireAttachmentIndex } from './attachments/attachment-index.ts'
 
 const approvalColumns = {

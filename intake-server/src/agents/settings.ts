@@ -1,9 +1,9 @@
 import type { Pool, PoolClient } from 'pg'
 import { and, eq } from 'drizzle-orm'
 import { validate, type AgentSettingsDto, type AgentSettingsUpdateDto } from '@invimport/contracts'
-import type { CaptureBinding } from '../capture/model.ts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { fail } from '../processing/model.ts'
+import type { CaptureBinding } from '#/capture/model.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { fail } from '#/processing/model.ts'
 import { agentSettings } from './schema.ts'
 
 export const DEFAULT_SESSION_CONCURRENCY = 3

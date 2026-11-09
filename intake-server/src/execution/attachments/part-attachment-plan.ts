@@ -1,10 +1,10 @@
 import { canonical } from '@invimport/contracts/json'
-import type { MediaPlanEvidence } from '../media-plan.ts'
+import type { MediaPlanEvidence } from '#/execution/media-plan.ts'
 import {
   logicalEffectKey,
   type EffectOperation,
   type PartBinding,
-} from '../effects/effects-plan.ts'
+} from '#/execution/effects/effects-plan.ts'
 
 export interface PartTransfer {
   artifactKey: string

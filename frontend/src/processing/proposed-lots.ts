@@ -1,6 +1,6 @@
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
-import { batchHref } from '../navigation/batch-route'
-import { coverSizes, observationImage, type ImageAttributes } from '../media/images'
+import { batchHref } from '#/navigation/batch-route'
+import { coverSizes, observationImage, type ImageAttributes } from '#/media/images'
 
 export type ProposedLotState = 'approved' | 'ready' | 'to_review' | 'changed' | 'blocked'
 

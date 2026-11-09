@@ -1,7 +1,7 @@
 import { readMediaStoreIdentity } from './store-identity.ts'
 import { mediaRuntimeConfig } from './runtime-config.ts'
-import { database } from '../db/database.ts'
-import { id } from '../execution/plan.ts'
+import { database } from '#/db/database.ts'
+import { id } from '#/execution/plan.ts'
 import { BlobStore } from './blob-store.ts'
 import { processMediaCommand } from './worker.ts'
 

@@ -8,11 +8,11 @@ import {
   type InventoryPartSpecDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { GlobalStyle } from '../../../GlobalStyle'
-import { Masthead } from '../../../masthead/Masthead'
-import { ServerStateProvider } from '../../../query/ServerStateProvider'
-import { Batch } from '../../../batches/Batch'
-import { Main } from '../../../AppLayout'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { Masthead } from '#/components/masthead/Masthead'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { Batch } from '#/components/batches/Batch'
+import { Main } from '#/components/AppLayout'
 
 /**
  * Owned browser fixture: an in-memory capture client applies record edits with the shared

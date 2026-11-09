@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { ProcessingImages } from './ProcessingImages'
 import type { MediaSnapshotDto } from '@invimport/contracts'
 

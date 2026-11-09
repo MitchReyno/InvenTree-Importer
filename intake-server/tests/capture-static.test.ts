@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import fastifyStatic from '@fastify/static'
-import { createServer } from '../src/api/server.ts'
+import { createServer } from '#/api/server.ts'
 
 test('capture static dependency serves only its asset root, preserving API guards; patched glob works', async () => {
   const root = await mkdtemp(join(tmpdir(), 'intake-static-'))

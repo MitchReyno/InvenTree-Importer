@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { validate, type SessionOutboxItemDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
-import { agentSessionOutbox, agentSessions } from '../schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { agentSessionOutbox, agentSessions } from '#/agents/schema.ts'
 
 type OutboxEntry = Pick<SessionOutboxItemDto, 'kind' | 'payload'>
 

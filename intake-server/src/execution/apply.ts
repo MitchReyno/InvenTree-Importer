@@ -1,13 +1,13 @@
 import { isEffectsPlan } from './effects/effects-plan.ts'
 import { cancellationVersion } from './cancellation.ts'
 import { applySupportedEffects } from './effects/effects-apply.ts'
-import type { BlobStore } from '../media/blob-store.ts'
+import type { BlobStore } from '#/media/blob-store.ts'
 import { applyAttachments } from './attachments/attachment-apply.ts'
 import type { AttachmentRecovery } from './attachments/attachment-recovery.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   executorDeployments,
   executorGuards,
@@ -20,8 +20,8 @@ import {
 } from './schema.ts'
 import { canonical } from '@invimport/contracts/json'
 import { executorTransaction as transaction } from './transaction.ts'
-import { sha256 } from '../db/authority.ts'
-import { inventoryTransport, type TargetProfile } from '../inventory/transport.ts'
+import { sha256 } from '#/db/authority.ts'
+import { inventoryTransport, type TargetProfile } from '#/inventory/transport.ts'
 import { loadRun, lockRun, snapshot, type RunAuthority } from './authority.ts'
 import { stockBytes, type StockOperation } from './plan.ts'
 import { ExternalGate, WriterConnection } from './ownership.ts'

@@ -1,4 +1,4 @@
-import { database } from '../db/database.ts'
+import { database } from '#/db/database.ts'
 import { backupArchive, restoreArchive } from './archive.ts'
 
 /** Explicit trusted maintenance only; never discovers application keys or environment files. */

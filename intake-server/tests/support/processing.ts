@@ -1,23 +1,23 @@
-import { registerLive } from '../../src/live/routes.ts'
+import { registerLive } from '#/live/routes.ts'
 import fastifyStatic from '@fastify/static'
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { schemas } from '@invimport/contracts'
-import { registerMediaRoutes } from '../../src/media/routes.ts'
-import { grantMedia } from '../../src/media/grants.ts'
-import type { BlobStore } from '../../src/media/blob-store.ts'
-import { manualRepository } from '../../src/review/repository.ts'
+import { registerMediaRoutes } from '#/media/routes.ts'
+import { grantMedia } from '#/media/grants.ts'
+import type { BlobStore } from '#/media/blob-store.ts'
+import { manualRepository } from '#/review/repository.ts'
 import { randomUUID } from 'node:crypto'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { createServer } from '../../src/api/server.ts'
-import { registerCapture } from '../../src/capture/routes.ts'
-import { lockCaptureForEdit } from '../../src/capture/repository.ts'
-import { registerAgents } from '../../src/agents/routes.ts'
-import { registerProcessing } from '../../src/processing/routes.ts'
-import { grantAgentWriter, grantProcessing } from '../../src/processing/grants.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
-import { grantCapture } from '../../src/capture/grants.ts'
-import { database } from '../../src/db/database.ts'
+import { createServer } from '#/api/server.ts'
+import { registerCapture } from '#/capture/routes.ts'
+import { lockCaptureForEdit } from '#/capture/repository.ts'
+import { registerAgents } from '#/agents/routes.ts'
+import { registerProcessing } from '#/processing/routes.ts'
+import { grantAgentWriter, grantProcessing } from '#/processing/grants.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantCapture } from '#/capture/grants.ts'
+import { database } from '#/db/database.ts'
 import { isolatedDatabase, seedAuthority } from './database.ts'
 import { requestProcessingFixtureJson } from './processing-http.ts'
 
@@ -28,7 +28,7 @@ export interface ProcessingFixtureAllocation {
 }
 
 interface ProcessingFixtureOptions {
-  profileId?: import('../../src/processing/model.ts').SelectedProcessingProfile
+  profileId?: import('#/processing/model.ts').SelectedProcessingProfile
   autoStart?: boolean
   onAllocation?: (allocation: ProcessingFixtureAllocation) => void
   bootstrapFault?: 'close_socket'

@@ -1,12 +1,12 @@
 import { and, eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   executorAttachmentIntents,
   executorAttachmentEffects,
   executorAttachmentVerifications,
-} from '../schema.ts'
+} from '#/execution/schema.ts'
 import type { Pool, PoolClient } from 'pg'
-import { attachmentOperations, type ExecutablePlan } from '../media-plan.ts'
+import { attachmentOperations, type ExecutablePlan } from '#/execution/media-plan.ts'
 
 export interface KnownStockOutput {
   operationKey: string

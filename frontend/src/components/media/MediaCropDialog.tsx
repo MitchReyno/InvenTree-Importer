@@ -2,24 +2,16 @@ import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { media } from '../ui/media'
-import { color, space } from '../../theme/generated/tokens'
+import { media, Heading, Paragraph, Small, Button, DialogSurface } from '#/components/ui'
+import { color, space } from '#/theme/generated/tokens'
 import type {
   MediaEditDto,
   MediaSnapshotDto,
   MediaVersionDto,
   RotatedMediaRecipeDto,
 } from '@invimport/contracts'
-import { Heading, Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { DialogSurface } from '../ui/Dialog'
-import { previewImage } from '../../media/images'
-import {
-  cropRecipe,
-  sameRotatedRecipe,
-  type CropForm,
-  type CropIntent,
-} from '../../media/crop-model'
+import { previewImage } from '#/media/images'
+import { cropRecipe, sameRotatedRecipe, type CropForm, type CropIntent } from '#/media/crop-model'
 import { MediaCropFields } from './MediaCropFields'
 import { RotatedCropSelection } from './RotatedCropSelection'
 

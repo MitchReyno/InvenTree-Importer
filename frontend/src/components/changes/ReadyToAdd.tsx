@@ -18,23 +18,32 @@ import {
   STATE_LABELS,
   changeLines,
   summary,
-} from '../../changes/model'
-import { MAX_SELECTED_LOTS } from '../../manual/types'
-import { batchHref } from '../../navigation/batch-route'
-import { reviewHash } from '../../operator/review-model'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { color, radius, size, space } from '../../theme/generated/tokens'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
-import { ChangeSummary } from '../ui/ChangeSummary'
-import { SegmentedControl } from '../ui/SegmentedControl'
-import { StickyFooter } from '../ui/StickyFooter'
-import { TargetChip } from '../ui/TargetChip'
-import { Heading, Label, Link, Panel, Paragraph, Select, Small, Summary } from '../ui/primitives'
+} from '#/changes/model'
+import { MAX_SELECTED_LOTS } from '#/manual/types'
+import { batchHref } from '#/navigation/batch-route'
+import { reviewHash } from '#/operator/review-model'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { color, radius, size, space } from '#/theme/generated/tokens'
+import {
+  Banner,
+  Button,
+  ChangeSummary,
+  SegmentedControl,
+  StickyFooter,
+  TargetChip,
+  Heading,
+  Label,
+  Link,
+  Panel,
+  Paragraph,
+  Select,
+  Small,
+  Summary,
+  RecordStatePill,
+  media,
+} from '#/components/ui'
 import { PreparationTreeView } from './PreparationTreeView'
-import { RecordStatePill } from '../ui/RecordStatePill'
-import { media } from '../ui/media'
-import { lotCrops } from '../../processing/proposed-lots'
+import { lotCrops } from '#/processing/proposed-lots'
 
 interface Props {
   batch: CaptureSnapshotDto

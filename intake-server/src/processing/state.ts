@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import type { ProcessingStateDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { fail, type Stage } from './model.ts'
 import { processingAttempts, processingJobs, processingLanes } from './schema.ts'
 

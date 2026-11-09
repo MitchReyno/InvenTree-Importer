@@ -2,10 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { database } from '../../src/db/database.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
-import { grantCapture } from '../../src/capture/grants.ts'
-import { captureRepository } from '../../src/capture/repository.ts'
+import { database } from '#/db/database.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantCapture } from '#/capture/grants.ts'
+import { captureRepository } from '#/capture/repository.ts'
 import {
   effectiveSettingsIntent,
   validate,
@@ -603,7 +603,7 @@ test('an unrelated batch_settings save keeps legacy unknown and clear context mo
 
 test('migration 0014 upgrades a legacy batch without rewriting choices, then retains new intent across restart', async () => {
   const { readFile, readdir } = await import('node:fs/promises')
-  const { migrate } = await import('../../src/operations/migrate.ts')
+  const { migrate } = await import('#/operations/migrate.ts')
   const db = await isolatedDatabase({ migrate: false })
   try {
     await db.pool.query('CREATE TABLE schema_migration(name text PRIMARY KEY,sha256 text NOT NULL)')

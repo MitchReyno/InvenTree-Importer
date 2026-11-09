@@ -17,6 +17,23 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      // The barrel re-exports these modules; importing it from inside would form a cycle.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['#/components/ui', '#/components/ui/index', './index', '../index'].map(
+            (name) => ({
+              name,
+              message: 'Import the sibling module directly.',
+            }),
+          ),
+        },
+      ],
+    },
+  },
+  {
     files: ['scripts/**/*.cjs'],
     languageOptions: { sourceType: 'commonjs', globals: globals.node },
     rules: { '@typescript-eslint/no-require-imports': 'off' },

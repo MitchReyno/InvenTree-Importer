@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { color, radius, ring, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, ring, size, space, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
 import { Skeleton } from './Loading'
 import { linkTouchArea } from './primitives'
-import type { ImageAttributes } from '../../media/images'
+import type { ImageAttributes } from '#/media/images'
 
 export type EvidenceKind = 'photo' | 'document'
 export type PreviewState = 'ready' | 'preparing' | 'failed'

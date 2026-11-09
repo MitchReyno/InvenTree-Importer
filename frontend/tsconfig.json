@@ -10,6 +10,7 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
+    "paths": { "#/*": ["./src/*"] },
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]

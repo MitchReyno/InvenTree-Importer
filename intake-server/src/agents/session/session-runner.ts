@@ -1,33 +1,33 @@
-import { NativeSessionError, sessionFailure } from '../failure-model.ts'
-import { retainSessionFailure } from '../failures.ts'
+import { NativeSessionError, sessionFailure } from '#/agents/failure-model.ts'
+import { retainSessionFailure } from '#/agents/failures.ts'
 import type { SessionFailureDto } from '@invimport/contracts'
-import { pinnedIdentityCurrent, successorsCurrent } from '../../processing/stable-identity.ts'
-import { supersedeJobAttempts } from '../../processing/jobs.ts'
+import { pinnedIdentityCurrent, successorsCurrent } from '#/processing/stable-identity.ts'
+import { supersedeJobAttempts } from '#/processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { ProcessingInputV6Dto, SessionStateDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
-import { appendEvent, sha256 } from '../../db/authority.ts'
-import type { ProcessingConfig } from '../../processing/attempts.ts'
-import { captureBatches } from '../../capture/schema.ts'
-import { commands } from '../../db/schema.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
+import { appendEvent, sha256 } from '#/db/authority.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { captureBatches } from '#/capture/schema.ts'
+import { commands } from '#/db/schema.ts'
 import {
   processingAttempts,
   processingInputs,
   processingProfileRecords,
   processingQuestions,
-} from '../../processing/schema.ts'
-import { lockProcessingAttempt, transitionAttempt } from '../../processing/state.ts'
-import { decodeSessionInput } from '../../processing/session-input.ts'
-import { evidenceNotes } from '../../capture/context-input.ts'
-import { decodeMediaInputs } from '../../media/inputs.ts'
-import { agentBatchPauses, agentSessionInbox, agentSessions } from '../schema.ts'
-import { agentEnvironment, privateDirectory, type NativeAgentHost } from '../environment.ts'
+} from '#/processing/schema.ts'
+import { lockProcessingAttempt, transitionAttempt } from '#/processing/state.ts'
+import { decodeSessionInput } from '#/processing/session-input.ts'
+import { evidenceNotes } from '#/capture/context-input.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { agentBatchPauses, agentSessionInbox, agentSessions } from '#/agents/schema.ts'
+import { agentEnvironment, privateDirectory, type NativeAgentHost } from '#/agents/environment.ts'
 import { recordSessionProgress } from './sessions.ts'
-import { issueSessionCapability, revokeSessionCapability } from '../tools/capability.ts'
-import { acknowledgeSessionInbox, pendingSessionInbox } from '../tools/inbox.ts'
+import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
+import { acknowledgeSessionInbox, pendingSessionInbox } from '#/agents/tools/inbox.ts'
 import { syntheticTurn } from './synthetic-turn.ts'
 import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
 import {
@@ -36,7 +36,7 @@ import {
   SessionResumeUnavailable,
   type SessionTurn,
 } from './session-adapters.ts'
-import { ResearchReapPendingError } from '../../research/errors.ts'
+import { ResearchReapPendingError } from '#/research/errors.ts'
 
 /** Tools every session gets; the lot-forming tools are added for the Examine lead session. */
 const SLOT_WAIT_MS = 500

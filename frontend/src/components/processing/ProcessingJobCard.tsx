@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
-import { Heading, Paragraph, Panel, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { Heading, Paragraph, Panel, Small, Button, Pill } from '#/components/ui'
 import { ProcessingSources } from './ProcessingSources'
-import { Pill } from '../ui/Pill'
 
 type Job = ProcessingJobDto
 

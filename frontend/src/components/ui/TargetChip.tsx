@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 
 /** The InvenTree target a change goes to, in the masthead connection chip's style. */
 export function TargetChip({ children }: { children: ReactNode }) {

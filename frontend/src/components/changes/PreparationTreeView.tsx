@@ -1,12 +1,9 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import styled from 'styled-components'
-import type { TreeItem } from '../../changes/model'
-import { STATE_LABELS, changeLines } from '../../changes/model'
-import { RecordStatePill } from '../ui/RecordStatePill'
-import { color, opacity, radius, space, type } from '../../theme/generated/tokens'
-import { CheckboxLabel, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { Pill } from '../ui/Pill'
+import type { TreeItem } from '#/changes/model'
+import { STATE_LABELS, changeLines } from '#/changes/model'
+import { RecordStatePill, CheckboxLabel, Small, Button, Pill } from '#/components/ui'
+import { color, opacity, radius, space, type } from '#/theme/generated/tokens'
 
 type Visible = {
   item: TreeItem

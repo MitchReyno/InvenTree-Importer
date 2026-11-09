@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import styled, { css } from 'styled-components'
-import { color, opacity, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, opacity, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
 import { hoverTransition } from './motion'
 import { Spinner } from './Loading'

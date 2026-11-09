@@ -1,4 +1,4 @@
-import { breakpoint } from '../../theme/generated/tokens'
+import { breakpoint } from '#/theme/generated/tokens'
 
 // Below a breakpoint the narrower layout applies; .02px under the value keeps the edge exclusive.
 function below(width: number) {

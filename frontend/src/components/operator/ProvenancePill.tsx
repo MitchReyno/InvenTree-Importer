@@ -1,5 +1,5 @@
-import { PROVENANCE_LABELS, type Provenance } from '../../operator/review-model'
-import { Pill, type PillTone } from '../ui/Pill'
+import { PROVENANCE_LABELS, type Provenance } from '#/operator/review-model'
+import { Pill, type PillTone } from '#/components/ui'
 
 const PROVENANCE_TONES: Record<Provenance, PillTone> = {
   human: 'acc',

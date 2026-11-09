@@ -7,13 +7,13 @@ import type {
   ProcessingJobDto,
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { sha256 } from '../../src/db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 import {
   acceptEnvelope,
   claimProcessingCommand,
   interruptProcessing,
   type ResearchCommand,
-} from '../../src/processing/runner.ts'
+} from '#/processing/runner.ts'
 import { processingFixture } from '../support/processing.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>

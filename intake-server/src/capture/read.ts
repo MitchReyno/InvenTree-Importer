@@ -4,9 +4,9 @@ import {
   type InventoryMappingDto,
   type InventoryModelDto,
 } from '@invimport/contracts'
-import type { ReadOperation } from '../inventory/transport.ts'
+import type { ReadOperation } from '#/inventory/transport.ts'
 import { strictJson } from '@invimport/contracts/json'
-import { approvedTagsPresent } from '../inventory/tags.ts'
+import { approvedTagsPresent } from '#/inventory/tags.ts'
 import type { CaptureRead, CaptureReadOperation } from './routes.ts'
 import { fail } from './model.ts'
 import { readBoundedBody } from './bounded-body.ts'

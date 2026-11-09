@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { space } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
-import { Input, Label } from '../ui/primitives'
+import { space } from '#/theme/generated/tokens'
+import { Button, Input, Label } from '#/components/ui'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 

@@ -1,6 +1,6 @@
 import { Id, PositivePk, Quantity } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { sha256, verifyBytes } from '../db/authority.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
 
 export const EXECUTOR_BUILD = 'bench-stock/1'
 export const CAPABILITY = 'owned-fake-stock/1'

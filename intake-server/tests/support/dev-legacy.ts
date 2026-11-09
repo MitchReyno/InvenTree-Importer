@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { readDevState } from '../../src/dev/state.ts'
-import { developmentAdminUrl } from '../../src/dev/postgres-url.ts'
-import { database } from '../../src/db/database.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
-import { grantManual } from '../../src/review/grants.ts'
-import { grantMedia } from '../../src/media/grants.ts'
-import { grantProcessing } from '../../src/processing/grants.ts'
+import { readDevState } from '#/dev/state.ts'
+import { developmentAdminUrl } from '#/dev/postgres-url.ts'
+import { database } from '#/db/database.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantManual } from '#/review/grants.ts'
+import { grantMedia } from '#/media/grants.ts'
+import { grantProcessing } from '#/processing/grants.ts'
 
 /** Setup-only legacy role fixture. Never reads private service state or alters a running role. */
 export async function provisionLegacyDevApi(root: string, adminAddress: string) {

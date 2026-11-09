@@ -1,8 +1,6 @@
 import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { Fieldset, Form, Input, Label, Small, TextArea } from '../ui/primitives'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
+import { Fieldset, Form, Input, Label, Small, TextArea, Banner, Button } from '#/components/ui'
 
 type Props = {
   label: string

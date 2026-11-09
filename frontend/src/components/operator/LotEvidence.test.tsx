@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { LotEvidence } from './LotEvidence'
 
 const lot = {

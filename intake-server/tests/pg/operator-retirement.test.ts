@@ -10,9 +10,9 @@ import type {
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
-import { acceptEnvelope, claimProcessingCommand } from '../../src/processing/runner.ts'
-import { operatorRepository } from '../../src/operator-review/repository.ts'
-import { sha256 } from '../../src/db/authority.ts'
+import { acceptEnvelope, claimProcessingCommand } from '#/processing/runner.ts'
+import { operatorRepository } from '#/operator-review/repository.ts'
+import { sha256 } from '#/db/authority.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 type Claimed = NonNullable<Awaited<ReturnType<typeof claim>>>

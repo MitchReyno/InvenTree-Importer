@@ -3,17 +3,17 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import type { CaptureSnapshotDto, ManualPreviewDto, ManualRunDto } from '@invimport/contracts'
 import { manualFixture } from '../support/manual.ts'
-import { executeManualDispatch } from '../../src/review/runner.ts'
+import { executeManualDispatch } from '#/review/runner.ts'
 import { createHash } from 'node:crypto'
-import { mediaRepository } from '../../src/media/repository.ts'
-import { processMediaCommand } from '../../src/media/worker.ts'
-import { editMedia } from '../../src/media/edit.ts'
+import { mediaRepository } from '#/media/repository.ts'
+import { processMediaCommand } from '#/media/worker.ts'
+import { editMedia } from '#/media/edit.ts'
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',
   'base64',
 )
-import { companyCreateKey, locationCreateKey } from '../../src/execution/effects/effects-plan.ts'
+import { companyCreateKey, locationCreateKey } from '#/execution/effects/effects-plan.ts'
 
 type Fixture = Awaited<ReturnType<typeof manualFixture>>
 

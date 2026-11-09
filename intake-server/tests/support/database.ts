@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { Pool } from 'pg'
-import { database } from '../../src/db/database.ts'
-import { migrate } from '../../src/operations/migrate.ts'
+import { database } from '#/db/database.ts'
+import { migrate } from '#/operations/migrate.ts'
 
 /** Historical-upgrade fixtures may provision an empty random database explicitly. */
 export async function isolatedDatabase(

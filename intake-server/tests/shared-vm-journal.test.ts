@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { journalTurn } from '../src/agents/shared-vm/journal.ts'
+import { journalTurn } from '#/agents/shared-vm/journal.ts'
 
 test('an exact redelivery after a lost completion ACK returns the recorded outcome', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'turn-journal-'))
@@ -77,7 +77,7 @@ test('disconnect during final progress leaves reconciliation required even if th
 })
 
 test('a terminal probe never creates or completes a journal, and verifies the exact command', async (t) => {
-  const { recordedOutcome } = await import('../src/agents/shared-vm/journal.ts')
+  const { recordedOutcome } = await import('#/agents/shared-vm/journal.ts')
   const { readFile } = await import('node:fs/promises')
   const root = await mkdtemp(join(tmpdir(), 'turn-probe-'))
   t.after(() => rm(root, { recursive: true, force: true }))

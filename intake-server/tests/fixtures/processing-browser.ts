@@ -9,13 +9,13 @@ import {
   type CaptureSnapshotDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { captureRepository } from '../../src/capture/repository.ts'
-import { syntheticDevelopmentRunner } from '../../src/dev/synthetic-runner.ts'
+import { captureRepository } from '#/capture/repository.ts'
+import { syntheticDevelopmentRunner } from '#/dev/synthetic-runner.ts'
 import {
   dispatchProcessingCommands,
   executeProcessingCommand,
-} from '../../src/processing/delivery.ts'
-import type { RestrictedResearchRunner } from '../../src/processing/runner.ts'
+} from '#/processing/delivery.ts'
+import type { RestrictedResearchRunner } from '#/processing/runner.ts'
 import { processingFixture } from '../support/processing.ts'
 import { processingMediaFixture } from '../support/processing-media.ts'
 import { processingCheckpoint } from '../support/processing-process.ts'

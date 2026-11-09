@@ -1,21 +1,19 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { size, space } from '../../theme/generated/tokens'
+import { size, space } from '#/theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   ProcessingAnswerDto,
   ProcessingSnapshotDto,
   ProcessingStartDto,
 } from '@invimport/contracts'
-import type { AgentsRead, ProcessingClient, ProcessingView } from '../../processing/types'
-import { Heading, Link, Panel, Small, Summary } from '../ui/primitives'
-import { Banner } from '../ui/Banner'
-import { Button } from '../ui/Button'
-import type { MediaClient } from '../../media/types'
+import type { AgentsRead, ProcessingClient, ProcessingView } from '#/processing/types'
+import { Heading, Link, Panel, Small, Summary, Banner, Button, Dialog } from '#/components/ui'
+import type { MediaClient } from '#/media/types'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
@@ -25,14 +23,13 @@ import { StepPage } from './StepPage'
 import { ExamineView, type SharperRequestStore } from './ExamineView'
 import { InstructionField } from './InstructionField'
 import { Muted, STEP_LABEL } from './ProcessingParts'
-import { Dialog } from '../ui/Dialog'
-import { batchHref, processingStepFor } from '../../navigation/batch-route'
-import { lotsFormed } from '../../processing/lots-formed'
-import { retainedJobsSource } from '../../processing/source'
-import { useDirtySources } from '../../operator/useDirtySources'
-import { openQuestionsByLot } from '../../operator/review-model'
+import { batchHref, processingStepFor } from '#/navigation/batch-route'
+import { lotsFormed } from '#/processing/lots-formed'
+import { retainedJobsSource } from '#/processing/source'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { openQuestionsByLot } from '#/operator/review-model'
 import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
-import type { InstructionDelivery } from '../../processing/instruction-delivery'
+import type { InstructionDelivery } from '#/processing/instruction-delivery'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })

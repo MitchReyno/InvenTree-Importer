@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { captureRepository } from '../../src/capture/repository.ts'
+import { captureRepository } from '#/capture/repository.ts'
 import { validate, type CaptureSnapshotDto, type CaptureContextDto } from '@invimport/contracts'
 
 async function checked(value: Promise<unknown>): Promise<CaptureSnapshotDto> {
@@ -247,9 +247,9 @@ test('supplier observations and explicit lot context are target-bound, inherited
 })
 
 test('splitting physical lots preserves explicit human context on the new children', async () => {
-  const { transaction } = await import('../../src/db/database.ts')
-  const { lockCaptureForOperatorCommand } = await import('../../src/capture/repository.ts')
-  const { applyRestructure } = await import('../../src/capture/operator-commands.ts')
+  const { transaction } = await import('#/db/database.ts')
+  const { lockCaptureForOperatorCommand } = await import('#/capture/repository.ts')
+  const { applyRestructure } = await import('#/capture/operator-commands.ts')
   const db = await isolatedDatabase()
   const identity = await seedAuthority(db.pool)
   const binding = {
@@ -319,7 +319,7 @@ test('splitting physical lots preserves explicit human context on the new childr
 test('additive context migrations preserve legacy batches and old edit commands keep the new context', async () => {
   const { readFile, readdir } = await import('node:fs/promises')
   const { createHash } = await import('node:crypto')
-  const { migrate } = await import('../../src/operations/migrate.ts')
+  const { migrate } = await import('#/operations/migrate.ts')
   const db = await isolatedDatabase({ migrate: false })
   try {
     await db.pool.query('CREATE TABLE schema_migration(name text PRIMARY KEY,sha256 text NOT NULL)')

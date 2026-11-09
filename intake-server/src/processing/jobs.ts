@@ -2,16 +2,16 @@ import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
 import { supersedeJobAttempts } from './supersede.ts'
 import { processingAttempts, processingJobs } from './schema.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, mediaProfileId, type Stage } from './model.ts'
 import { processingJobColumns, requireLotJob } from './state.ts'
-import type { LockedMediaInputs } from '../media/locked-inputs.ts'
+import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 import { isSessionProfile } from './session-policy.ts'
-import { instructNewSession } from '../agents/instructions.ts'
+import { instructNewSession } from '#/agents/instructions.ts'
 
 export { supersedeJobAttempts } from './supersede.ts'
 
@@ -99,7 +99,13 @@ export async function queueJob(
   }
   // A session for a new or restarted job starts with the saved batch instructions.
   if (isSessionProfile(config.profileId ?? mediaProfileId)) {
-    await instructNewSession(client, config, snapshot.id, job.id, priorJob ? attempt.attemptId : undefined)
+    await instructNewSession(
+      client,
+      config,
+      snapshot.id,
+      job.id,
+      priorJob ? attempt.attemptId : undefined,
+    )
   }
 
   return { jobId: job.id, attemptId: attempt.attemptId }

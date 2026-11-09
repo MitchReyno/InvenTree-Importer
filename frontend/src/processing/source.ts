@@ -1,5 +1,5 @@
 import { oldestQuestionFirst, type ProcessingSnapshotDto } from '@invimport/contracts'
-import { processingStepFor } from '../navigation/batch-route'
+import { processingStepFor } from '#/navigation/batch-route'
 
 type Job = ProcessingSnapshotDto['jobs'][number]
 

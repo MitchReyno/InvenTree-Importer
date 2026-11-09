@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { PassThrough } from 'node:stream'
-import { Frames, evidenceReplyLimit } from '../src/agents/shared-vm/frames.ts'
-import { evidenceRequest } from '../src/agents/shared-vm/evidence-request.ts'
-import { stageEvidence } from '../src/agents/shared-vm/stage-evidence.ts'
+import { Frames, evidenceReplyLimit } from '#/agents/shared-vm/frames.ts'
+import { evidenceRequest } from '#/agents/shared-vm/evidence-request.ts'
+import { stageEvidence } from '#/agents/shared-vm/stage-evidence.ts'
 
 test('only fetch_evidence negotiates a larger reply and preserves an 8 MiB original', async (t) => {
   const call = { jsonrpc: '2.0', method: 'tools/call', params: { name: 'fetch_evidence' }, id: 1 }

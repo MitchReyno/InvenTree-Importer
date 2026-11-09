@@ -1,5 +1,5 @@
 import { inventoryFake } from '../../tests/fixtures/inventory-fake.ts'
-import { database } from '../db/database.ts'
+import { database } from '#/db/database.ts'
 import { readDevState } from './state.ts'
 
 async function main() {

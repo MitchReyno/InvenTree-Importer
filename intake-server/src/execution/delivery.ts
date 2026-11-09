@@ -1,9 +1,9 @@
 import type { Pool } from 'pg'
 import { eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { executorRuns } from './schema.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
-import { deliverCommand } from '../workers/delivery.ts'
+import { deliverCommand } from '#/workers/delivery.ts'
 import { loadRun } from './authority.ts'
 
 /** One bounded outbox delivery through the qualified DBOS PUBLIC client. A successful

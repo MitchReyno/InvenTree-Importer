@@ -1,11 +1,11 @@
 import type { Pool } from 'pg'
 import type { BatchAttentionDto, BatchRecordsDto } from '@invimport/contracts'
-import { operatorRepository } from '../operator-review/repository.ts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import type { LockCapture } from '../processing/capture.ts'
-import { processingRepository } from '../processing/repository.ts'
-import { manualRepository } from '../review/repository.ts'
-import type { ManualConfig } from '../review/authority.ts'
+import { operatorRepository } from '#/operator-review/repository.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import type { LockCapture } from '#/processing/capture.ts'
+import { processingRepository } from '#/processing/repository.ts'
+import { manualRepository } from '#/review/repository.ts'
+import type { ManualConfig } from '#/review/authority.ts'
 import { projectAttention } from './projection.ts'
 
 /**

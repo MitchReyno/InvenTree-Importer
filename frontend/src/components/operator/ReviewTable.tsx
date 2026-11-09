@@ -1,12 +1,12 @@
 import styled from 'styled-components'
-import { color, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, size, space, typeVar } from '#/theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
   OperatorLotDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import { display } from '../../capture/display'
+import { display } from '#/capture/display'
 import {
   PROVENANCE_LABELS,
   blockingIssues,
@@ -14,11 +14,9 @@ import {
   lotProvenance,
   openWarnings,
   type Provenance,
-} from '../../operator/review-model'
-import { partFacts } from '../../operator/part-facts'
-import { Pill } from '../ui/Pill'
-import { Small } from '../ui/primitives'
-import { DataTable, type DataColumn, type DataRow } from '../ui/DataTable'
+} from '#/operator/review-model'
+import { partFacts } from '#/operator/part-facts'
+import { Pill, Small, DataTable, type DataColumn, type DataRow } from '#/components/ui'
 
 export interface ReviewTableProps {
   batch: CaptureSnapshotDto

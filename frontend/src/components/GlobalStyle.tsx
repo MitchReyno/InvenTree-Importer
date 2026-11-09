@@ -1,9 +1,9 @@
 import '@fontsource-variable/public-sans'
 import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
-import '../theme/generated/tokens.css'
+import '#/theme/generated/tokens.css'
 import { createGlobalStyle } from 'styled-components'
-import { color, font, radius, ring, typeVar } from '../theme/generated/tokens'
+import { color, font, radius, ring, typeVar } from '#/theme/generated/tokens'
 
 /** Application reset and document defaults; component appearance stays locally scoped. */
 export const GlobalStyle = createGlobalStyle`

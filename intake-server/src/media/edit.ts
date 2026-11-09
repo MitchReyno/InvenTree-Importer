@@ -11,8 +11,8 @@ import {
   type MediaSnapshotDto,
 } from '@invimport/contracts'
 import { canonicalMedia, idempotentMedia } from './encoding.ts'
-import { appendEvent, sha256 } from '../db/authority.ts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { appendEvent, sha256 } from '#/db/authority.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import {
   mediaAttachmentSelections,
   mediaDecodeCommands,
@@ -22,7 +22,7 @@ import {
   mediaLinks,
   mediaMemberships,
 } from './schema.ts'
-import { fail, type CaptureBinding } from '../capture/model.ts'
+import { fail, type CaptureBinding } from '#/capture/model.ts'
 import { advanceMediaRevision, lockMediaBatch } from './commands.ts'
 import { mediaSnapshot } from './read.ts'
 import { DECODER_BUILD } from './repository.ts'

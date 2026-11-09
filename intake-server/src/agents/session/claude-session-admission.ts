@@ -1,7 +1,7 @@
-import { NativeSessionError } from '../failure-model.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
-import { AgentChild, record } from '../child.ts'
+import { AgentChild, record } from '#/agents/child.ts'
 
 const ADMISSION_TIMEOUT_MS = 15_000
 const MCP_READY_POLL_MS = 100

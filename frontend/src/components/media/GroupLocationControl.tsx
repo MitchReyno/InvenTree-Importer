@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CaptureAssignedLocationChangeDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { CaptureWorkspaceProps } from '../../capture/types'
-import { AssignedLocationField } from '../capture/AssignedLocationField'
-import { Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import type { CaptureWorkspaceProps } from '#/capture/types'
+import { AssignedLocationField } from '#/components/capture/AssignedLocationField'
+import { Small, Button } from '#/components/ui'
 
 interface Props {
   batch: CaptureSnapshotDto

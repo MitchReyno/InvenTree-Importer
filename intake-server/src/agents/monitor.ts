@@ -1,8 +1,8 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import type { Pool } from 'pg'
 import { eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { processingAttempts } from '../processing/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { processingAttempts } from '#/processing/schema.ts'
 
 /** Poll durable cancellation at a bounded rate; database uncertainty stops new native work. */
 export function monitorNativeAttempt(pool: Pool, attemptId: string, shutdown?: AbortSignal) {

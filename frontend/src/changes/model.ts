@@ -4,7 +4,7 @@ import type {
   PreparationNodeDto,
   PreparationNodeKind,
 } from '@invimport/contracts'
-import type { ReviewFilter } from '../operator/review-model'
+import type { ReviewFilter } from '#/operator/review-model'
 
 type Node = PreparationNodeDto
 export type TreeItem = { node: Node; children: TreeItem[] }

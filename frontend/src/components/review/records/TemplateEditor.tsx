@@ -6,8 +6,8 @@ import {
   partTemplates,
   referenceTo,
   specOf,
-} from '../../../records/model'
-import { CheckboxLabel, Fieldset, Label, Select, Small } from '../../ui/primitives'
+} from '#/records/model'
+import { CheckboxLabel, Fieldset, Label, Select, Small } from '#/components/ui'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {

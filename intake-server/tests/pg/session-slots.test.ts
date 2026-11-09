@@ -2,10 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
-import { transaction } from '../../src/db/database.ts'
-import { claimSessionSlot, releaseSessionSlot } from '../../src/agents/session/slots.ts'
-import { acquireAgentSupervisor } from '../../src/agents/worker.ts'
-import { saveAgentSettings } from '../../src/agents/settings.ts'
+import { transaction } from '#/db/database.ts'
+import { claimSessionSlot, releaseSessionSlot } from '#/agents/session/slots.ts'
+import { acquireAgentSupervisor } from '#/agents/worker.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

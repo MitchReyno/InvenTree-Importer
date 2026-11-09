@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate, type CaptureSnapshotDto, type MediaReceiptDto } from '@invimport/contracts'
 import type { manualFixture } from './manual.ts'
-import { mediaRepository } from '../../src/media/repository.ts'
-import { editMedia } from '../../src/media/edit.ts'
-import { processMediaCommand } from '../../src/media/worker.ts'
+import { mediaRepository } from '#/media/repository.ts'
+import { editMedia } from '#/media/edit.ts'
+import { processMediaCommand } from '#/media/worker.ts'
 
 export const PART_ATTACHMENT_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',

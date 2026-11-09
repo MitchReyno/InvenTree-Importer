@@ -5,13 +5,9 @@ import {
   type BatchRoute,
   type BatchTab,
   type ProcessingStep,
-} from '../../navigation/batch-route'
-import { color, pageWidth, space, type, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
-import { media } from '../ui/media'
-import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
-import { Pill } from '../ui/Pill'
-import { linkTouchArea } from '../ui/primitives'
+} from '#/navigation/batch-route'
+import { color, pageWidth, space, type, typeVar } from '#/theme/generated/tokens'
+import { Button, media, SubTabs, Tabs, type TabItem, Pill, linkTouchArea } from '#/components/ui'
 import { NeedsYouPanel } from './NeedsYouPanel'
 
 /** `unused` is absent while lot lineage is unknown. */

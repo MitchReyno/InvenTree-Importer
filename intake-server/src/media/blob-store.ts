@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
 import type { PoolClient } from 'pg'
 import { sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 
 /** Bytes on disk that no longer match their digest: a positive, permanent mismatch. */
 export class BlobCorruptError extends Error {}

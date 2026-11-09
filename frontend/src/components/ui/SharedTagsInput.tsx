@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
 import { CheckboxLabel, Input, Small } from './primitives'
 import { VisuallyHidden } from './VisuallyHidden'

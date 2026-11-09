@@ -6,8 +6,8 @@ import {
   localhostHostValidation,
 } from '@modelcontextprotocol/node'
 import { schemas } from '@invimport/contracts'
-import type { ProcessingConfig } from '../../processing/attempts.ts'
-import type { BlobStore } from '../../media/blob-store.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import type { BlobStore } from '#/media/blob-store.ts'
 import { resolveSessionCapability } from './capability.ts'
 import { sessionTools, type SessionToolOutput } from './handlers.ts'
 

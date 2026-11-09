@@ -3,8 +3,8 @@ import {
   type ResearchInventoryLookupDto,
   type ResearchInventoryObservationDto,
 } from '@invimport/contracts'
-import type { ReadOperation } from '../inventory/transport.ts'
-import { captureRead } from '../capture/read.ts'
+import type { ReadOperation } from '#/inventory/transport.ts'
+import { captureRead } from '#/capture/read.ts'
 import { awaitResearchResult } from './abort.ts'
 import { assertResearchActive, ResearchError } from './errors.ts'
 

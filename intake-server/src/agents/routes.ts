@@ -7,8 +7,8 @@ import {
   type AgentPauseUpdateDto,
   type AgentSettingsUpdateDto,
 } from '@invimport/contracts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
-import { ProcessingError } from '../processing/model.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { ProcessingError } from '#/processing/model.ts'
 import { readAgentSettings, saveAgentSettings } from './settings.ts'
 import { listAgentSessions } from './session/sessions.ts'
 import { setAllPause, setBatchPause } from './pause.ts'

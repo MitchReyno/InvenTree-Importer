@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
-import type { ImageAttributes } from '../../media/images'
+import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
+import type { ImageAttributes } from '#/media/images'
 import { media } from './media'
 import { hoverTransition } from './motion'
 

@@ -1,8 +1,8 @@
 import type { PoolClient } from 'pg'
 import { and, eq, getTableColumns } from 'drizzle-orm'
 import type { CaptureSnapshotDto, ProcessingInputDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { commands } from '../db/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { commands } from '#/db/schema.ts'
 import { canonical } from '@invimport/contracts/json'
 import {
   fail,
@@ -16,9 +16,9 @@ import {
   decodeProcessingCommand,
   type Stage,
 } from './model.ts'
-import { verifyBytes } from '../db/authority.ts'
+import { verifyBytes } from '#/db/authority.ts'
 import { processingProfiles } from './policy.ts'
-import type { MediaInputs } from '../media/inputs.ts'
+import type { MediaInputs } from '#/media/inputs.ts'
 import { verifyRetainedProcessingMedia } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import {

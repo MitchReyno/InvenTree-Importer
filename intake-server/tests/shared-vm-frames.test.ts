@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { PassThrough } from 'node:stream'
-import { Frames } from '../src/agents/shared-vm/frames.ts'
+import { Frames } from '#/agents/shared-vm/frames.ts'
 
 test('stream boundaries do not split or merge two dispatch messages', async () => {
   const wire = new PassThrough()

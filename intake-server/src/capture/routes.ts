@@ -10,8 +10,8 @@ import {
   type CaptureObserveDto,
   type InventoryMappingDto,
 } from '@invimport/contracts'
-import { pathId, commandKey } from '../api/request.ts'
-import { bootstrap, type DevConfig } from '../config.ts'
+import { pathId, commandKey } from '#/api/request.ts'
+import { bootstrap, type DevConfig } from '#/config.ts'
 import { captureRepository } from './repository.ts'
 import { CaptureError, fail } from './model.ts'
 import type { CatalogueReader } from './catalogue.ts'

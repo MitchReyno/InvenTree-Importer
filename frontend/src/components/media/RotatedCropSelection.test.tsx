@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { RotatedCropSelection, sourceFrame } from './RotatedCropSelection'
-import { fullPreview, previewImage } from '../../media/images'
+import { fullPreview, previewImage } from '#/media/images'
 
 const page = { preview_id: 'p', width: 10000, height: 101 }
 const frame = { centerX: 5000, centerY: 50, width: 4000, height: 60, degrees: 0 }

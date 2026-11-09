@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { intakeClient } from '@invimport/contracts/client'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { Paragraph, Small, Button } from '#/components/ui'
 import styled from 'styled-components'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 
 export function Diagnostics() {
   const scope = useServerScope()

@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { eq, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { executorCancels } from './schema.ts'
 
 export async function cancellationVersion(client: PoolClient, runId: string): Promise<string> {

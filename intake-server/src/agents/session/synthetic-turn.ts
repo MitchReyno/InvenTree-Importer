@@ -1,5 +1,5 @@
-import { sha256 } from '../../db/authority.ts'
-import { evidenceNotes } from '../../capture/context-input.ts'
+import { sha256 } from '#/db/authority.ts'
+import { evidenceNotes } from '#/capture/context-input.ts'
 import { syntheticLeadTurn } from './synthetic-lead.ts'
 import type { SessionDriverContext } from './session-runner.ts'
 import type { SessionTurn } from './session-adapters.ts'

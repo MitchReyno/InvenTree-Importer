@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import type { Pool } from 'pg'
-import { transaction } from '../db/database.ts'
+import { transaction } from '#/db/database.ts'
 
 export async function migrate(pool: Pool): Promise<void> {
   const directory = new URL('../../migrations/', import.meta.url)

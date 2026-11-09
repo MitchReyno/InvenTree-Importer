@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
-import { useNavigationGuard } from '../../navigation/useNavigationGuard'
-import { withEvidence } from '../../operator/evidence-location'
+import { useNavigationGuard } from '#/navigation/useNavigationGuard'
+import { withEvidence } from '#/operator/evidence-location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { EvidenceViewer } from './EvidenceViewer'
-import { mediaDisplayLabels } from '../../media/identity-labels'
+import { mediaDisplayLabels } from '#/media/identity-labels'
 
 const original: MediaVersionDto = {
   id: '20000000-0000-4000-8000-000000000002',

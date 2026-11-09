@@ -1,4 +1,4 @@
-import type { DevConfig } from '../config.ts'
+import type { DevConfig } from '#/config.ts'
 
 /** A refusal with a stable public code; routes publish it without a stack or cause. */
 export class CaptureError extends Error {

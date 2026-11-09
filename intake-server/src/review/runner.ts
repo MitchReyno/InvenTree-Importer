@@ -1,12 +1,12 @@
-import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
+import { isEffectsPlan } from '#/execution/effects/effects-plan.ts'
 import type { Pool } from 'pg'
 import { publishManualRun } from './events.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
-import { supportedVerificationOnly } from '../execution/effects/effects-recovery.ts'
+import { supportedVerificationOnly } from '#/execution/effects/effects-recovery.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { and, eq, isNull } from 'drizzle-orm'
-import { commands, outbox } from '../db/schema.ts'
+import { commands, outbox } from '#/db/schema.ts'
 import {
   manualDispatches,
   manualRuns,
@@ -15,12 +15,12 @@ import {
   manualPrepareCommands,
 } from './schema.ts'
 import { dispatchColumns } from './row-projections.ts'
-import { verifyBytes } from '../db/authority.ts'
-import { loadRun, snapshot } from '../execution/authority.ts'
-import { attachmentVerificationOnly } from '../execution/attachments/attachment-recovery.ts'
-import { startApply } from '../execution/supervisor.ts'
-import type { TargetProfile } from '../inventory/transport.ts'
-import { deliverCommand } from '../workers/delivery.ts'
+import { verifyBytes } from '#/db/authority.ts'
+import { loadRun, snapshot } from '#/execution/authority.ts'
+import { attachmentVerificationOnly } from '#/execution/attachments/attachment-recovery.ts'
+import { startApply } from '#/execution/supervisor.ts'
+import type { TargetProfile } from '#/inventory/transport.ts'
+import { deliverCommand } from '#/workers/delivery.ts'
 
 export interface ManualRunnerConfig {
   runnerDatabaseUrl: string

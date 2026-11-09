@@ -1,23 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { media } from '../ui/media'
-import { color, radius, size, space, typeVar } from '../../theme/generated/tokens'
+import { media, Label, Select, Small, Summary, Button } from '#/components/ui'
+import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
   withEvidence,
   type EvidenceSelection,
-} from '../../operator/evidence-location'
-import { fullPreview, needsFullResolution, previewImage } from '../../media/images'
+} from '#/operator/evidence-location'
+import { fullPreview, needsFullResolution, previewImage } from '#/media/images'
 import {
   mediaDisplayLabels,
   mediaIdentityLabels,
   type MediaIdentityLabels,
-} from '../../media/identity-labels'
-import { MediaNoteSummary } from '../media/MediaNoteSummary'
-import { Label, Select, Small, Summary } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { batchHref } from '../../navigation/batch-route'
+} from '#/media/identity-labels'
+import { MediaNoteSummary } from '#/components/media/MediaNoteSummary'
+import { batchHref } from '#/navigation/batch-route'
 
 interface Props {
   batchId: string

@@ -1,9 +1,17 @@
 import type { BatchRecordDto, CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
-import { Banner } from '../../ui/Banner'
-import { Button } from '../../ui/Button'
-import { batchHref } from '../../../navigation/batch-route'
-import { mappingsFor, observed, referenceTo } from '../../../records/model'
-import { CheckboxLabel, Fieldset, Input, Label, Link, Select, Small } from '../../ui/primitives'
+import {
+  Banner,
+  Button,
+  CheckboxLabel,
+  Fieldset,
+  Input,
+  Label,
+  Link,
+  Select,
+  Small,
+} from '#/components/ui'
+import { batchHref } from '#/navigation/batch-route'
+import { mappingsFor, observed, referenceTo } from '#/records/model'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 import { ParameterEditor, NewParameter } from './ParameterEditor'
 import { SourcingEditor } from './SourcingEditor'
@@ -379,4 +387,3 @@ function CategoryField({
     </Fieldset>
   )
 }
-

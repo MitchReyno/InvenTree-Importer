@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { devListenPort } from '../src/dev/listen.ts'
+import { devListenPort } from '#/dev/listen.ts'
 
 test('private development listener does not change browser origin authority and rejects malformed ports', () => {
   assert.equal(devListenPort('http://127.0.0.1:4330', {}), 4330)

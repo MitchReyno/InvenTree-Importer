@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { captureEditorChange, captureEditorDefaults } from '../capture/editor-model'
+import { captureEditorChange, captureEditorDefaults } from '#/capture/editor-model'
 import { lotLocationFact } from './review-model'
 
 const context = '60000000-0000-4000-8000-000000000006'
@@ -101,7 +101,7 @@ test('a Part edit retains a location only when the assignment changed', () => {
 test('the Review table names the location source next to the value', async () => {
   const { render, screen } = await import('@testing-library/react')
   const { createElement } = await import('react')
-  const { ReviewTable } = await import('../components/operator/ReviewTable')
+  const { ReviewTable } = await import('#/components/operator/ReviewTable')
   const review = {
     lots: batch.lots.map((value) => ({
       lot_id: value.id,
@@ -133,7 +133,7 @@ test('the Review table names the location source next to the value', async () =>
 })
 
 test('an unset batch default with a new-location draft names the draft, never an inventory record', async () => {
-  const { supplierDraftName, contextDescription } = await import('../capture/context')
+  const { supplierDraftName, contextDescription } = await import('#/capture/context')
   const draftId = id(700)
   const companyId = id(701)
   const drafted = {

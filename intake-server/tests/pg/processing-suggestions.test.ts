@@ -4,10 +4,10 @@ import type { ProcessingEnvelopeV2Dto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
 import { processingMediaFixture } from '../support/processing-media.ts'
-import { acceptEnvelope, claimProcessingCommand } from '../../src/processing/runner.ts'
-import { executeProcessingCommand } from '../../src/processing/delivery.ts'
-import { syntheticDevelopmentRunner } from '../../src/dev/synthetic-runner.ts'
-import { automationNoteId } from '../../src/capture/context-input.ts'
+import { acceptEnvelope, claimProcessingCommand } from '#/processing/runner.ts'
+import { executeProcessingCommand } from '#/processing/delivery.ts'
+import { syntheticDevelopmentRunner } from '#/dev/synthetic-runner.ts'
+import { automationNoteId } from '#/capture/context-input.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

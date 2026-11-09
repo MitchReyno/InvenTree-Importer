@@ -5,9 +5,9 @@ import { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingProcess, processingCheckpoint } from '../support/processing-process.ts'
-import { interruptProcessing } from '../../src/processing/runner.ts'
+import { interruptProcessing } from '#/processing/runner.ts'
 import { processingMediaFixture } from '../support/processing-media.ts'
-import { deliverCommand } from '../../src/workers/delivery.ts'
+import { deliverCommand } from '#/workers/delivery.ts'
 
 test(
   'real DBOS child worker persists question, releases lane, survives browser closure and resumes fresh human answer',
@@ -212,7 +212,7 @@ test(
       const conflictId = randomUUID()
       const conflictCommand = randomUUID()
       const bytes = Buffer.from(JSON.stringify({ value: 'expected' }))
-      const digest = (await import('../../src/db/authority.ts')).sha256(bytes)
+      const digest = (await import('#/db/authority.ts')).sha256(bytes)
       await fixture.db.pool.query(
         `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,
         handler_version,workflow_id,queue_name,payload_bytes,payload_digest) VALUES($1,$2,$3,$4,'process',

@@ -2,7 +2,7 @@ import { fork } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { once } from 'node:events'
 import { ExternalGate } from './ownership.ts'
-import type { TargetProfile } from '../inventory/transport.ts'
+import type { TargetProfile } from '#/inventory/transport.ts'
 import type { StockSnapshot } from './authority.ts'
 
 export interface WorkerInput {

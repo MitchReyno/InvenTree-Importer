@@ -1,7 +1,7 @@
 import { useContext, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, ServerScopeContext } from '../../queries/scope'
-import type { BreadcrumbItem } from '../ui/Breadcrumb'
+import { serverQueryKey, ServerScopeContext } from '#/queries/scope'
+import { type BreadcrumbItem } from '#/components/ui'
 import { Masthead } from './Masthead'
 
 type BatchReader = (id: string) => Promise<{ title: string }>

@@ -1,4 +1,4 @@
-import { AgentChild } from '../src/agents/child.ts'
+import { AgentChild } from '#/agents/child.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises'
@@ -7,10 +7,10 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentSelectionDto } from '@invimport/contracts'
 import { validate } from '@invimport/contracts'
-import { agentEnvironment, nativeAgentHost } from '../src/agents/environment.ts'
-import { runCodex } from '../src/agents/codex.ts'
-import { runClaude } from '../src/agents/claude.ts'
-import { decodeNativeResult } from '../src/agents/result.ts'
+import { agentEnvironment, nativeAgentHost } from '#/agents/environment.ts'
+import { runCodex } from '#/agents/codex.ts'
+import { runClaude } from '#/agents/claude.ts'
+import { decodeNativeResult } from '#/agents/result.ts'
 
 async function fixture(mode = 'success') {
   const root = await mkdtemp(join(tmpdir(), 'native-agent-test-'))

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { connectionStatus, observationFreshness } from '../src/header/connection.ts'
+import { connectionStatus, observationFreshness } from '#/header/connection.ts'
 
 const binding = {
   actorId: '00000000-0000-4000-8000-000000000001',
@@ -124,7 +124,7 @@ test('successful HTTP without JSON, denied API and redirects never become reacha
 
 test('actual default HTTP transport retains JSON content type for a healthy owned probe', async () => {
   const { createServer } = await import('node:http')
-  const { inventoryTransport } = await import('../src/inventory/transport.ts')
+  const { inventoryTransport } = await import('#/inventory/transport.ts')
   let calls = 0
   const endpoint = createServer((request, response) => {
     calls += 1

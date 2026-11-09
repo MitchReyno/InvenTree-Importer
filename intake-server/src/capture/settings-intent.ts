@@ -14,8 +14,8 @@ import {
   type CaptureSettingsIntentDto,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { retainedImageVersion } from '../media/context.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { retainedImageVersion } from '#/media/context.ts'
 import {
   captureObservations,
   captureReferenceDraftIdentities,

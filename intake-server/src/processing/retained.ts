@@ -1,5 +1,5 @@
 import { eq, getTableColumns } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   processingQuestions,
   processingAttempts,

@@ -1,8 +1,8 @@
 import { useDraggable } from '@dnd-kit/react'
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, opacity, radius, size, space } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
+import { color, opacity, radius, size, space } from '#/theme/generated/tokens'
+import { media } from '#/components/ui'
 
 type Props = {
   evidenceId: string

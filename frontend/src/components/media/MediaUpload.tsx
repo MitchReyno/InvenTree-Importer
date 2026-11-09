@@ -1,11 +1,9 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type { MediaReceiptDto } from '@invimport/contracts'
-import { Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { Banner } from '../ui/Banner'
-import { CaptureActions } from '../capture/CaptureActions'
+import { Paragraph, Small, Button, Banner } from '#/components/ui'
+import { CaptureActions } from '#/components/capture/CaptureActions'
 
 export type EvidenceUploadHandle = {
   choose: (kind: 'photos' | 'document', groupId?: string) => void

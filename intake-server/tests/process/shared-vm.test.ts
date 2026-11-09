@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
-import { saveAgentSettings } from '../../src/agents/settings.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
 
 for (const route of ['claude', 'codex', 'personal-subscription', 'chatgpt-subscription'] as const) {
   const chatgpt = route === 'chatgpt-subscription'

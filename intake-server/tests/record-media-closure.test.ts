@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { requireBoundedClosure } from '../src/review/media-material.ts'
-import type { MediaInputs, MediaInputVersion } from '../src/media/inputs.ts'
+import { requireBoundedClosure } from '#/review/media-material.ts'
+import type { MediaInputs, MediaInputVersion } from '#/media/inputs.ts'
 
 function version(byteSize = '10'): MediaInputVersion {
   return {

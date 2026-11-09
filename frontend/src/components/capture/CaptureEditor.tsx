@@ -1,12 +1,11 @@
-import { Fieldset, Form, Input, Label, Select, Small, TextArea } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import { Fieldset, Form, Input, Label, Select, Small, TextArea, Button } from '#/components/ui'
 import { Controller, useForm } from 'react-hook-form'
-import type { Snapshot, CaptureWorkspaceProps } from '../../capture/types'
+import type { Snapshot, CaptureWorkspaceProps } from '#/capture/types'
 import {
   captureEditorDefaults,
   captureEditorChange,
   type CaptureEditorValues,
-} from '../../capture/editor-model'
+} from '#/capture/editor-model'
 import { CaptureContextFields } from './CaptureContextFields'
 import { CaptureContextSummary } from './CaptureContextSummary'
 import { PartCreationFields } from './PartCreationFields'

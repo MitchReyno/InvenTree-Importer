@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, space, type } from '../../theme/generated/tokens'
+import { color, radius, space, type } from '#/theme/generated/tokens'
 
 /** The Batches page's surface card. */
 export const Card = styled.section`

@@ -7,14 +7,14 @@ import { join } from 'node:path'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { seedPhoto } from '../support/sessions.ts'
-import { transaction } from '../../src/db/database.ts'
-import { triggerExamine } from '../../src/processing/examine-trigger.ts'
-import { startSessionToolServer } from '../../src/agents/tools/server.ts'
+import { transaction } from '#/db/database.ts'
+import { triggerExamine } from '#/processing/examine-trigger.ts'
+import { startSessionToolServer } from '#/agents/tools/server.ts'
 import {
   queueSessionResume,
   runSessionTurn,
   syntheticSessionDriver,
-} from '../../src/agents/session/session-runner.ts'
+} from '#/agents/session/session-runner.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

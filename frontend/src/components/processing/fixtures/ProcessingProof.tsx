@@ -6,13 +6,13 @@ import type {
   CaptureSnapshotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { GlobalStyle } from '../../GlobalStyle'
-import { Masthead } from '../../masthead/Masthead'
-import { ServerStateProvider } from '../../query/ServerStateProvider'
-import { AgentSessions } from '../../agents/AgentSessions'
-import { ProcessingWorkspace } from '../ProcessingWorkspace'
-import { Main, PageContent } from '../../AppLayout'
-import { useInstructionDelivery } from '../../../processing/instruction-delivery'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { Masthead } from '#/components/masthead/Masthead'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { AgentSessions } from '#/components/agents/AgentSessions'
+import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace'
+import { Main, PageContent } from '#/components/AppLayout'
+import { useInstructionDelivery } from '#/processing/instruction-delivery'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {

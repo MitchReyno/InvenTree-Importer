@@ -6,33 +6,33 @@ import {
   type CaptureSnapshotDto,
   type RecordTypeDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps } from '../../../capture/types'
-import { batchHref, parseBatchRoute, processingStepFor } from '../../../navigation/batch-route'
-import { serverQueryKey, useServerScope } from '../../../queries/scope'
-import { useRetainedPollInterval } from '../../operations/LiveUpdates'
-import { ENDED_SESSIONS } from '../../../processing/source'
-import { clearPending } from '../../../processing/pending-messages'
-import type { ProcessingClient } from '../../../processing/types'
+import type { CaptureWorkspaceProps } from '#/capture/types'
+import { batchHref, parseBatchRoute, processingStepFor } from '#/navigation/batch-route'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { ENDED_SESSIONS } from '#/processing/source'
+import { clearPending } from '#/processing/pending-messages'
+import type { ProcessingClient } from '#/processing/types'
 import { useQuery } from '@tanstack/react-query'
-import { useDirtySources } from '../../../operator/useDirtySources'
-import { TYPE_LABELS, STATE_LABELS } from '../../../records/model'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { TYPE_LABELS, STATE_LABELS } from '#/records/model'
+import { useBatchRecords, useExistingValues, type RecordsClient } from '#/records/useBatchRecords'
+import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import {
-  useBatchRecords,
-  useExistingValues,
-  type RecordsClient,
-} from '../../../records/useBatchRecords'
-import { color, radius, size, space, type, typeVar } from '../../../theme/generated/tokens'
-import { media } from '../../ui/media'
-import { Banner } from '../../ui/Banner'
-import { Button } from '../../ui/Button'
-import { Pill } from '../../ui/Pill'
-import { Link, Small, Summary } from '../../ui/primitives'
-import { MappingReader } from '../../capture/MappingReader'
+  media,
+  Banner,
+  Button,
+  Pill,
+  Link,
+  Small,
+  Summary,
+  RecordStatePill,
+  FilterChips,
+  VisuallyHidden,
+} from '#/components/ui'
+import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
-import { RecordStatePill } from '../../ui/RecordStatePill'
-import { FilterChips } from '../../ui/FilterChips'
-import { VisuallyHidden } from '../../ui/VisuallyHidden'
 import { ReloadContext, SavingContext, type Save } from './draft'
 
 type Props = {

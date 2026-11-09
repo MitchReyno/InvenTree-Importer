@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sessionsSupported } from '../src/agents/session/sessions.ts'
-import { mediaProfileId } from '../src/processing/model.ts'
-import { isSessionProfile } from '../src/processing/session-policy.ts'
+import { sessionsSupported } from '#/agents/session/sessions.ts'
+import { mediaProfileId } from '#/processing/model.ts'
+import { isSessionProfile } from '#/processing/session-policy.ts'
 
 test('the session list says whether the configured profile runs agent sessions', () => {
   assert.equal(sessionsSupported({ profileId: mediaProfileId } as never), false)

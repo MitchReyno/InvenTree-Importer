@@ -2,8 +2,8 @@ import {
   automationIntentNotes,
   captureContextNotes,
   isAutomationIntentNote,
-} from '../capture/context-input.ts'
-import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
+} from '#/capture/context-input.ts'
+import { nativeProfileId, nativeInstructionDigest } from '#/agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
   validate,
@@ -29,10 +29,10 @@ import {
   researchInstructionDigest,
   researchToolProfileVersion,
 } from './policy.ts'
-import { decodeMediaInputs } from '../media/inputs.ts'
-import { sha256, verifyBytes } from '../db/authority.ts'
-import { canonicalSourceUrl } from '../research/source-policy.ts'
-import { MAX_RESEARCH_SOURCE_URLS } from '../research/limits.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
+import { canonicalSourceUrl } from '#/research/source-policy.ts'
+import { MAX_RESEARCH_SOURCE_URLS } from '#/research/limits.ts'
 
 export const handlerVersion = 'processing/1'
 

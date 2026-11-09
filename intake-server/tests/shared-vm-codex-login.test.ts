@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { CodexAccount, parseDevice } from '../src/agents/shared-vm/codex-login.ts'
+import { CodexAccount, parseDevice } from '#/agents/shared-vm/codex-login.ts'
 
 const id = 'be8d5568-670e-4618-a98a-557c7c7862d0'
 const device = {

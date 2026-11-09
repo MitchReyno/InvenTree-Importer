@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Banner } from '../ui/Banner'
+import {
+  Banner,
+  Heading,
+  Link,
+  Paragraph,
+  Small,
+  Button,
+  Kbd,
+  StickyFooter,
+  KeyValue,
+  SourceChip,
+  type KeyValueRow,
+  RecordChain,
+  type RecordLink,
+} from '#/components/ui'
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
+import { color, space, typeVar } from '#/theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -10,37 +24,29 @@ import type {
   OperatorLotDto,
   ProcessingAnswerDto,
 } from '@invimport/contracts'
-import { useDirtySources } from '../../operator/useDirtySources'
-import { display } from '../../capture/display'
+import { useDirtySources } from '#/operator/useDirtySources'
+import { display } from '#/capture/display'
 import {
   lotLocationFact,
   lotProvenance,
   partProvenance,
   type OpenQuestion,
-} from '../../operator/review-model'
-import type { OperatorReviewClient } from '../../operator/types'
-import { Heading, Link, Paragraph, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
-import { Kbd } from '../ui/Kbd'
-import { QuestionAnswer } from '../processing/QuestionAnswer'
-import { StickyFooter } from '../ui/StickyFooter'
+} from '#/operator/review-model'
+import type { OperatorReviewClient } from '#/operator/types'
+import { QuestionAnswer } from '#/components/processing/QuestionAnswer'
 import { CompareMatches } from './CompareMatches'
-import { KeyValue } from '../ui/KeyValue'
 import { ProvenancePill } from './ProvenancePill'
-import { SourceChip } from '../ui/SourceChip'
-import { partFacts, type PartFacts } from '../../operator/part-facts'
-import type { KeyValueRow } from '../ui/KeyValue'
+import { partFacts, type PartFacts } from '#/operator/part-facts'
 import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { ExcludeForm } from './ExcludeLot'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
-import { batchHref } from '../../navigation/batch-route'
-import { RecordChain, type RecordLink } from '../ui/RecordChain'
+import { batchHref } from '#/navigation/batch-route'
 import { AgentLine } from './AgentLine'
-import type { LotStatus } from '../../processing/source'
-import { problemActions } from '../../operator/problem-actions'
-import type { Provenance } from '../../operator/review-model'
+import type { LotStatus } from '#/processing/source'
+import { problemActions } from '#/operator/problem-actions'
+import type { Provenance } from '#/operator/review-model'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]

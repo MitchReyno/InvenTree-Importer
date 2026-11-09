@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { CaptureError } from '../capture/model.ts'
-import { ProcessingError } from '../processing/model.ts'
+import { CaptureError } from '#/capture/model.ts'
+import { ProcessingError } from '#/processing/model.ts'
 
 /** Read models publish a known domain error and leave every other failure to the server handler. */
 export function readModelError(message: string) {

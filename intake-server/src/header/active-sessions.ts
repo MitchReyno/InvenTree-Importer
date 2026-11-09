@@ -1,19 +1,19 @@
 import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import type { HeaderWorkDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { commands } from '../db/schema.ts'
-import { agentSessions, agentSlots } from '../agents/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { commands } from '#/db/schema.ts'
+import { agentSessions, agentSlots } from '#/agents/schema.ts'
 import {
   processingAttempts,
   processingInputs,
   processingJobs,
   processingLanes,
-} from '../processing/schema.ts'
-import { fail } from '../processing/model.ts'
-import { decodeJobInput } from '../processing/session-input.ts'
-import { latestStatuses } from '../agents/tools/outbox.ts'
-import type { ProcessingConfig } from '../processing/attempts.ts'
+} from '#/processing/schema.ts'
+import { fail } from '#/processing/model.ts'
+import { decodeJobInput } from '#/processing/session-input.ts'
+import { latestStatuses } from '#/agents/tools/outbox.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
 
 /** Filter active/physically occupied attempts before the history-independent limit. */
 export async function activeHeaderSessions(

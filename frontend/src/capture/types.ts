@@ -7,10 +7,10 @@ import type {
 } from '@invimport/contracts'
 
 import type { CaptureBatchSettingsChangeDto, MediaReceiptDto } from '@invimport/contracts'
-import type { CatalogueClient } from '../catalogue/types'
-import type { MediaClient } from '../media/types'
-import type { ProcessingClient } from '../processing/types'
-import type { OperatorReviewClient } from '../operator/types'
+import type { CatalogueClient } from '#/catalogue/types'
+import type { MediaClient } from '#/media/types'
+import type { ProcessingClient } from '#/processing/types'
+import type { OperatorReviewClient } from '#/operator/types'
 
 export type Snapshot = CaptureSnapshotDto
 export type Quantity = Snapshot['lots'][number]['quantity']

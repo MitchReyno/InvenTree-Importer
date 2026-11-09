@@ -1,8 +1,8 @@
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type { OperatorLotDto } from '@invimport/contracts'
-import { blockingIssues, dismissedWarnings, openWarnings } from '../../operator/review-model'
-import { Pill } from '../ui/Pill'
+import { blockingIssues, dismissedWarnings, openWarnings } from '#/operator/review-model'
+import { Pill } from '#/components/ui'
 
 /** Compact lot state for queue rows and table cells. */
 export function LotStatusChips({ lot }: { lot: OperatorLotDto }) {

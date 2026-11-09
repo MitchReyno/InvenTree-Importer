@@ -1,9 +1,12 @@
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { canonical } from '@invimport/contracts/json'
-import { sha256, verifyBytes } from '../../db/authority.ts'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
-import { retainPartTransfers, requirePartTransfers } from '../attachments/part-attachment-index.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import {
+  retainPartTransfers,
+  requirePartTransfers,
+} from '#/execution/attachments/part-attachment-index.ts'
 import {
   executorRuns,
   executorApprovals,
@@ -13,7 +16,7 @@ import {
   supportedEffects,
   supportedIntents,
   supportedOperations,
-} from '../schema.ts'
+} from '#/execution/schema.ts'
 import { supportedStates } from './effects-state.ts'
 import {
   companyCreateKey,

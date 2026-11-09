@@ -1,10 +1,10 @@
 import type { PoolClient, Pool } from 'pg'
 import { eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
-import { executorAttachments } from '../schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { executorAttachments } from '#/execution/schema.ts'
 import { canonical } from '@invimport/contracts/json'
-import { sha256, verifyBytes } from '../../db/authority.ts'
-import { attachmentOperations, type ExecutablePlan } from '../media-plan.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
+import { attachmentOperations, type ExecutablePlan } from '#/execution/media-plan.ts'
 
 export async function retainAttachmentIndex(
   client: PoolClient,

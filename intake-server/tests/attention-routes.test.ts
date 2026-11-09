@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { BatchAttentionDto } from '@invimport/contracts'
-import { createServer } from '../src/api/server.ts'
-import { devConfig } from '../src/config.ts'
-import { registerAttention } from '../src/attention/routes.ts'
-import { CaptureError } from '../src/capture/model.ts'
+import { createServer } from '#/api/server.ts'
+import { devConfig } from '#/config.ts'
+import { registerAttention } from '#/attention/routes.ts'
+import { CaptureError } from '#/capture/model.ts'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },

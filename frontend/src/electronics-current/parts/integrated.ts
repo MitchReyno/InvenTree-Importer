@@ -1,7 +1,7 @@
 import { Group } from 'three'
-import { fills } from '../finishes'
-import { createPart, type PartBuilder, type PartType } from '../part-model'
-import { addDipLegs, at, box, cylinder, pick } from '../shapes'
+import { fills } from '#/electronics-current/finishes'
+import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
+import { addDipLegs, at, box, cylinder, pick } from '#/electronics-current/shapes'
 
 const NARROW_DIP_HALF_WIDTH = 0.95
 

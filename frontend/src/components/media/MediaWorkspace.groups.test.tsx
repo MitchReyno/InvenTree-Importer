@@ -3,12 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { test, expect, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
-import { createServerQueryClient } from '../../queries/client'
-import { serverQueryKey } from '../../queries/scope'
-import { ServerStateProvider } from '../query/ServerStateProvider'
-import { fixtureScope, render } from '../../test/render'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { fixtureScope, render } from '#/test/render'
 import { MediaWorkspace } from './MediaWorkspace'
-import type { MediaClient } from '../../media/types'
+import type { MediaClient } from '#/media/types'
 
 const batch: CaptureSnapshotDto = {
   id: '10000000-0000-4000-8000-000000000001',

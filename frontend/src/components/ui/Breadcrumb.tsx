@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import styled from 'styled-components'
-import { color, space } from '../../theme/generated/tokens'
+import { color, space } from '#/theme/generated/tokens'
 import { linkTouchArea } from './primitives'
 
 export type BreadcrumbItem = { label: string; href?: string }

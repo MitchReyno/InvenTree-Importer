@@ -4,8 +4,8 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { isolatedDatabase } from '../support/database.ts'
-import { reownProcessingRows } from '../../src/dev/scheduler-owner.ts'
-import { processingApplication } from '../../src/processing/queue.ts'
+import { reownProcessingRows } from '#/dev/scheduler-owner.ts'
+import { processingApplication } from '#/processing/queue.ts'
 
 const run = promisify(execFile)
 

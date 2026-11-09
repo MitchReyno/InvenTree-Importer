@@ -1,10 +1,13 @@
-import { SessionFailureDetails, FAILED_SESSION_STATES } from '../agents/SessionFailureDetails'
+import {
+  SessionFailureDetails,
+  FAILED_SESSION_STATES,
+} from '#/components/agents/SessionFailureDetails'
 import { useQuery } from '@tanstack/react-query'
 import type { ProcessingJobDto } from '@invimport/contracts'
-import type { ProcessingClient } from '../../processing/types'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
-import { Small } from '../ui/primitives'
+import type { ProcessingClient } from '#/processing/types'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { Small } from '#/components/ui'
 import { chatMessages, SessionChatPanel } from './SessionChatPanel'
 import { SessionTimeline } from './SessionTimeline'
 

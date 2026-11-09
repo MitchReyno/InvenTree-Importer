@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { materialize } from '../src/review/model.ts'
-import type { CaptureReviewContext } from '../src/capture/review-context.ts'
+import { materialize } from '#/review/model.ts'
+import type { CaptureReviewContext } from '#/capture/review-context.ts'
 import {
   reviewVectorSnapshot,
   VECTOR_LOT_A,

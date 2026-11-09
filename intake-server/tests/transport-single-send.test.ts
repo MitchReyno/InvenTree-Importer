@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { inventoryTransport } from '../src/inventory/transport.ts'
+import { inventoryTransport } from '#/inventory/transport.ts'
 
 test('one authorized call makes exactly one POST even on HTTP 421 (fetch otherwise implicitly replays POST)', async () => {
   const observed: { method: string | undefined; path: string | undefined; body: string }[] = []

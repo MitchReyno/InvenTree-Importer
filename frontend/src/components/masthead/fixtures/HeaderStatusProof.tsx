@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@invimport/contracts'
-import { createServerQueryClient } from '../../../queries/client'
-import { serverQueryKey } from '../../../queries/scope'
-import { ServerStateProvider } from '../../query/ServerStateProvider'
-import { UpdateHealthContext } from '../../operations/LiveUpdates'
-import { GlobalStyle } from '../../GlobalStyle'
-import { HeaderStatus } from '../HeaderStatus'
-import { Masthead } from '../Masthead'
-import type { HeaderClient } from '../../../header/types'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { HeaderStatus } from '#/components/masthead/HeaderStatus'
+import { Masthead } from '#/components/masthead/Masthead'
+import type { HeaderClient } from '#/header/types'
 
 const scope = {
   origin: 'http://localhost:3000',

@@ -1,9 +1,9 @@
 import { mkdir, mkdtemp, readdir, rename, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { AgentChild, record } from '../child.ts'
-import { CODEX_CONFIG } from '../codex.ts'
-import { requireCodexSessionVersion } from '../session/session-admission.ts'
+import { AgentChild, record } from '#/agents/child.ts'
+import { CODEX_CONFIG } from '#/agents/codex.ts'
+import { requireCodexSessionVersion } from '#/agents/session/session-admission.ts'
 
 type Device = { loginId: string; verificationUrl: string; userCode: string }
 type Login = { rpc: AccountRpc; device: Device; home: string; expires: number }

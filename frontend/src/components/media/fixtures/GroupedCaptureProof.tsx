@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
 import type { CaptureSnapshotDto, MediaSnapshotDto, MediaEditDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
-import { GlobalStyle } from '../../GlobalStyle'
-import { CaptureWorkspace } from '../../capture/CaptureWorkspace'
-import { ServerStateProvider } from '../../query/ServerStateProvider'
-import type { MediaClient } from '../../../media/types'
-import { EvidenceViewer } from '../../operator/EvidenceViewer'
-import { Main, PageContent } from '../../AppLayout'
+import { GlobalStyle } from '#/components/GlobalStyle'
+import { CaptureWorkspace } from '#/components/capture/CaptureWorkspace'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
+import type { MediaClient } from '#/media/types'
+import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
+import { Main, PageContent } from '#/components/AppLayout'
 
 const actor = '30000000-0000-4000-8000-000000000003'
 const batch: CaptureSnapshotDto = {

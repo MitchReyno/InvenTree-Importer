@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { captureRead } from '../src/capture/read.ts'
+import { captureRead } from '#/capture/read.ts'
 
 test('capture read accepts only exact identity and bounded complete data; no absence from failed reads', async () => {
   const operations: unknown[] = []

@@ -1,8 +1,7 @@
 import { useContext } from 'react'
 import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
-import { mappingsFor, partTemplates, referenceTo } from '../../../records/model'
-import { Button } from '../../ui/Button'
-import { Input, Label, Select } from '../../ui/primitives'
+import { mappingsFor, partTemplates, referenceTo } from '#/records/model'
+import { Button, Input, Label, Select } from '#/components/ui'
 import { SaveRow, SavingContext, useDraft, useRecordSave, type Save } from './draft'
 
 type Parameter = InventoryPartSpecDto['parameters'][number]

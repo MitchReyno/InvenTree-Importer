@@ -3,19 +3,19 @@ import {
   partTransferKey,
   partDestinationKey,
   type PartTransfer,
-} from '../attachments/part-attachment-plan.ts'
-import { approvedTagNamesValid } from '../../inventory/tags.ts'
+} from '#/execution/attachments/part-attachment-plan.ts'
+import { approvedTagNamesValid } from '#/inventory/tags.ts'
 import { effectsManifestDigestFor } from './effects-capability.ts'
 import { createHash } from 'node:crypto'
 import { Quantity, validate, type InventoryPartSpecDto } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { sha256, verifyBytes } from '../../db/authority.ts'
-import { id, pk, contributionBarcode, type StockPlan } from '../plan.ts'
+import { sha256, verifyBytes } from '#/db/authority.ts'
+import { id, pk, contributionBarcode, type StockPlan } from '#/execution/plan.ts'
 import {
   validateEvidence,
   type MediaPlanEvidence,
   type AttachmentOperation,
-} from '../media-plan.ts'
+} from '#/execution/media-plan.ts'
 
 export const EFFECTS_BUILD = 'bench-effects/1'
 export const EFFECTS_CAPABILITY = 'owned-fake-effects/1'

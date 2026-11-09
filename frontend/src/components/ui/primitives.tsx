@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { color, icon, radius, size, space, type, typeVar } from '../../theme/generated/tokens'
+import { color, icon, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
 
 /** Under compact, an inline link keeps its line height and gains an invisible 44px hit area. */

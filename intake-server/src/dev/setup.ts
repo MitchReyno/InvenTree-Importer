@@ -2,12 +2,12 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, writeFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { manualFixture } from '../../tests/support/manual.ts'
-import { database } from '../db/database.ts'
-import { migrate } from '../operations/migrate.ts'
-import { grantProcessing } from '../processing/grants.ts'
-import { grantMedia } from '../media/grants.ts'
-import { grantCaptureRead } from '../capture/grants.ts'
-import { grantProjection } from '../operations/grants.ts'
+import { database } from '#/db/database.ts'
+import { migrate } from '#/operations/migrate.ts'
+import { grantProcessing } from '#/processing/grants.ts'
+import { grantMedia } from '#/media/grants.ts'
+import { grantCaptureRead } from '#/capture/grants.ts'
+import { grantProjection } from '#/operations/grants.ts'
 import {
   assertStateServer,
   readDevState,
@@ -21,9 +21,9 @@ import { developmentTarget, type DevelopmentTarget } from './target.ts'
 import { readonlyState } from './readonly-setup.ts'
 import { readLocalInventree } from './local-inventree.ts'
 import { ensureAgentWriter } from './agent-writer.ts'
-import { grantFoundation } from '../operations/grants.ts'
-import { grantCapture } from '../capture/grants.ts'
-import { grantManual } from '../review/grants.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantCapture } from '#/capture/grants.ts'
+import { grantManual } from '#/review/grants.ts'
 
 function adminUrl() {
   return developmentAdmin(process.env)

@@ -7,9 +7,9 @@ import {
   type CaptureSnapshotDto,
   type MediaSnapshotDto,
 } from '@invimport/contracts'
-import { captureRepository } from '../../src/capture/repository.ts'
-import { editMedia } from '../../src/media/edit.ts'
-import { materializeWithMedia } from '../../src/review/media-material.ts'
+import { captureRepository } from '#/capture/repository.ts'
+import { editMedia } from '#/media/edit.ts'
+import { materializeWithMedia } from '#/review/media-material.ts'
 import { mediaScopeFixture } from '../support/media-input-scopes.ts'
 
 type Fixture = Awaited<ReturnType<typeof mediaScopeFixture>>

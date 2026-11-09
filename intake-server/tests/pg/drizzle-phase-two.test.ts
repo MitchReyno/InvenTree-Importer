@@ -3,7 +3,7 @@ import {
   executorAttachmentResults,
   executorAttachmentEffects,
   executorAttachmentVerifications,
-} from '../../src/execution/schema.ts'
+} from '#/execution/schema.ts'
 import {
   manualPrepareCommands,
   manualReadIntents,
@@ -12,7 +12,7 @@ import {
   manualPrepareOutcomes,
   manualRuns,
   manualDispatches,
-} from '../../src/review/schema.ts'
+} from '#/review/schema.ts'
 import {
   captureSources,
   captureParts,
@@ -21,12 +21,12 @@ import {
   captureSelections,
   captureRevisions,
   captureEditPublications,
-} from '../../src/capture/schema.ts'
+} from '#/capture/schema.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { getTableConfig } from 'drizzle-orm/pg-core'
-import { targets, streams } from '../../src/db/schema.ts'
-import { captureObservations, captureBatches, captureSubjects } from '../../src/capture/schema.ts'
+import { targets, streams } from '#/db/schema.ts'
+import { captureObservations, captureBatches, captureSubjects } from '#/capture/schema.ts'
 import {
   executorDeployments,
   executorSources,
@@ -42,17 +42,17 @@ import {
   executorVerifications,
   executorAttachments,
   executorAttachmentRecoveries,
-} from '../../src/execution/schema.ts'
+} from '#/execution/schema.ts'
 import {
   manualReviews,
   manualPreparations,
   manualApprovals,
   manualPreparationLots,
   manualPreparationMedia,
-} from '../../src/review/schema.ts'
+} from '#/review/schema.ts'
 import { isolatedDatabase } from '../support/database.ts'
 import { manualFixture } from '../support/manual.ts'
-import { stockDeployment } from '../../src/execution/source.ts'
+import { stockDeployment } from '#/execution/source.ts'
 
 test('domain driver mappings match the migrated PostgreSQL columns, keys and defaults', async () => {
   const db = await isolatedDatabase()

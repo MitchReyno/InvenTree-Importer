@@ -1,9 +1,9 @@
 import { useId } from 'react'
 import styled from 'styled-components'
-import { space } from '../../theme/generated/tokens'
+import { space } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaEditDto, MediaSnapshotDto } from '@invimport/contracts'
-import { mediaIdentityLabels } from '../../media/identity-labels'
-import { Label, Select, Small } from '../ui/primitives'
+import { mediaIdentityLabels } from '#/media/identity-labels'
+import { Label, Select, Small } from '#/components/ui'
 
 type Props = {
   batch: CaptureSnapshotDto

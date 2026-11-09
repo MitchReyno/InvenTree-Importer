@@ -1,9 +1,8 @@
 import styled from 'styled-components'
-import { color, size, space } from '../../theme/generated/tokens'
-import { media } from '../ui/media'
-import type { EditMedia } from '../../media/types'
+import { color, size, space } from '#/theme/generated/tokens'
+import { media, Small } from '#/components/ui'
+import type { EditMedia } from '#/media/types'
 import type { CaptureSnapshotDto, MediaEvidenceDto } from '@invimport/contracts'
-import { Small } from '../ui/primitives'
 
 interface Props {
   batch: CaptureSnapshotDto

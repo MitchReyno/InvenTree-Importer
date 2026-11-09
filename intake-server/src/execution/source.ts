@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { targets } from '../db/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { targets } from '#/db/schema.ts'
 import {
   executorDeployments,
   executorSources,

@@ -1,4 +1,4 @@
-import { approvedTagNamesValid } from '../inventory/tags.ts'
+import { approvedTagNamesValid } from '#/inventory/tags.ts'
 import type { CaptureObservationDto, InventoryPartSpecDto } from '@invimport/contracts'
 
 export class PartSpecError extends Error {

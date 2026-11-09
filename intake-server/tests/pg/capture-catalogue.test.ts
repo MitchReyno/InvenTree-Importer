@@ -9,14 +9,14 @@ import {
 import type { AddressInfo } from 'node:net'
 import { validate } from '@invimport/contracts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { database } from '../../src/db/database.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
-import { grantCapture } from '../../src/capture/grants.ts'
-import { createServer } from '../../src/api/server.ts'
-import { registerCapture } from '../../src/capture/routes.ts'
-import { captureRead } from '../../src/capture/read.ts'
-import { catalogueReader } from '../../src/capture/catalogue.ts'
-import { inventoryTransport } from '../../src/inventory/transport.ts'
+import { database } from '#/db/database.ts'
+import { grantFoundation } from '#/operations/grants.ts'
+import { grantCapture } from '#/capture/grants.ts'
+import { createServer } from '#/api/server.ts'
+import { registerCapture } from '#/capture/routes.ts'
+import { captureRead } from '#/capture/read.ts'
+import { catalogueReader } from '#/capture/catalogue.ts'
+import { inventoryTransport } from '#/inventory/transport.ts'
 
 type Handler = (url: URL, response: ServerResponse) => void | Promise<void>
 

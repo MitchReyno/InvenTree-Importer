@@ -2,17 +2,17 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../../src/db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import {
   appendEvent,
   CommandPayloadConflict,
   idempotent,
   sha256,
   verifyBytes,
-} from '../../src/db/authority.ts'
-import { migrate } from '../../src/operations/migrate.ts'
-import { streams } from '../../src/db/schema.ts'
-import { grantFoundation } from '../../src/operations/grants.ts'
+} from '#/db/authority.ts'
+import { migrate } from '#/operations/migrate.ts'
+import { streams } from '#/db/schema.ts'
+import { grantFoundation } from '#/operations/grants.ts'
 import { readFile } from 'node:fs/promises'
 import { canonical } from '@invimport/contracts/json'
 import { validate } from '@invimport/contracts'

@@ -6,8 +6,8 @@ import {
   type RecordMappedDto,
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import type { ReadOperation } from '../inventory/transport.ts'
-import { readBoundedBody } from '../capture/bounded-body.ts'
+import type { ReadOperation } from '#/inventory/transport.ts'
+import { readBoundedBody } from '#/capture/bounded-body.ts'
 
 const DETAIL_BODY_MAX_BYTES = 64 * 1024
 const BODY_DEADLINE_MS = 5000

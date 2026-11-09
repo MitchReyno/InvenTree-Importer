@@ -3,12 +3,12 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { materialize, unresolvedWarnings } from '../src/review/model.ts'
+import { materialize, unresolvedWarnings } from '#/review/model.ts'
 import {
   EMPTY_REVIEW_CONTEXT,
   type CaptureReviewContext,
   type IssueDispositionRecord,
-} from '../src/capture/review-context.ts'
+} from '#/capture/review-context.ts'
 
 const context = randomUUID()
 

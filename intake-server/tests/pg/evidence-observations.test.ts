@@ -4,17 +4,17 @@ import { randomUUID } from 'node:crypto'
 import { lotItemCount, type CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { leadSession, seedPhoto } from '../support/sessions.ts'
-import { transaction } from '../../src/db/database.ts'
-import { devConfig } from '../../src/config.ts'
-import { inboxProjection } from '../../src/inbox/projection.ts'
-import { grantManual } from '../../src/review/grants.ts'
-import { mediaSnapshot } from '../../src/media/read.ts'
+import { transaction } from '#/db/database.ts'
+import { devConfig } from '#/config.ts'
+import { inboxProjection } from '#/inbox/projection.ts'
+import { grantManual } from '#/review/grants.ts'
+import { mediaSnapshot } from '#/media/read.ts'
 import {
   proposeLot,
   recordObservation,
   regroup,
   type LeadWriter,
-} from '../../src/capture/evidence-observations.ts'
+} from '#/capture/evidence-observations.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -492,8 +492,8 @@ test('the agent writer cannot set human-only values or touch edited rows, and th
 
 test('lot-forming tools are for the lead session only, and their writes reach its timeline', async () => {
   const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client')
-  const { startSessionToolServer } = await import('../../src/agents/tools/server.ts')
-  const { issueSessionCapability } = await import('../../src/agents/tools/capability.ts')
+  const { startSessionToolServer } = await import('#/agents/tools/server.ts')
+  const { issueSessionCapability } = await import('#/agents/tools/capability.ts')
   const { lotSession } = await import('../support/sessions.ts')
   const fixture = await processingFixture()
   const server = await startSessionToolServer({
@@ -545,7 +545,7 @@ test('lot-forming tools are for the lead session only, and their writes reach it
       await lotClient.close()
     }
     // The handler refuses on its own as well, whatever a client sends.
-    const { sessionTools } = await import('../../src/agents/tools/handlers.ts')
+    const { sessionTools } = await import('#/agents/tools/handlers.ts')
     const handlers = sessionTools({
       pool: fixture.runner.pool,
       writerPool: fixture.writer.pool,
@@ -627,8 +627,8 @@ test('an operator split and merge carry observations, and the lead session then 
     )
     assert.ok(lot.ok)
     // The processing fixture serves no operator-review routes, so call the repository itself.
-    const { operatorRepository } = await import('../../src/operator-review/repository.ts')
-    const { grantManual } = await import('../../src/review/grants.ts')
+    const { operatorRepository } = await import('#/operator-review/repository.ts')
+    const { grantManual } = await import('#/review/grants.ts')
     await grantManual(fixture.db.pool, fixture.api.name, 'api')
     const restructure = async (change: Record<string, unknown>) => {
       try {
@@ -688,7 +688,7 @@ test('the observation migration upgrades a database already at the session migra
   const { readdir, readFile } = await import('node:fs/promises')
   const { createHash } = await import('node:crypto')
   const { isolatedDatabase } = await import('../support/database.ts')
-  const { migrate } = await import('../../src/operations/migrate.ts')
+  const { migrate } = await import('#/operations/migrate.ts')
   const db = await isolatedDatabase({ migrate: false })
   try {
     const directory = new URL('../../migrations/', import.meta.url)
@@ -733,8 +733,8 @@ test('the observation migration upgrades a database already at the session migra
 
 test('operator moves, bulk edits and splits mark lots edited, so the lead session only suggests', async () => {
   await withLead(async ({ fixture, batchId, writer, photo, write, read }) => {
-    const { operatorRepository } = await import('../../src/operator-review/repository.ts')
-    const { grantManual } = await import('../../src/review/grants.ts')
+    const { operatorRepository } = await import('#/operator-review/repository.ts')
+    const { grantManual } = await import('#/review/grants.ts')
     await grantManual(fixture.db.pool, fixture.api.name, 'api')
     const operator = operatorRepository(fixture.api.pool, fixture.config)
     const observe = async (x: number, marking: string) => {
@@ -889,9 +889,9 @@ test('an agent write that would overflow the snapshot is refused and changes not
 
 test('an unexpected tool failure answers with tool_failed instead of leaving the call hanging', async () => {
   const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client')
-  const { startSessionToolServer } = await import('../../src/agents/tools/server.ts')
-  const { issueSessionCapability } = await import('../../src/agents/tools/capability.ts')
-  const { database } = await import('../../src/db/database.ts')
+  const { startSessionToolServer } = await import('#/agents/tools/server.ts')
+  const { issueSessionCapability } = await import('#/agents/tools/capability.ts')
+  const { database } = await import('#/db/database.ts')
   const fixture = await processingFixture()
   // A writer pool that is already closed makes every lot-forming call throw.
   const broken = database(fixture.writer.url)
@@ -987,9 +987,9 @@ test('extending a lot with a new Part stops at the subject limit', async () => {
 
 test('a lead session asks about the whole batch, and the clarification answer becomes a batch note', async () => {
   const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client')
-  const { startSessionToolServer } = await import('../../src/agents/tools/server.ts')
-  const { issueSessionCapability } = await import('../../src/agents/tools/capability.ts')
-  const { sealed } = await import('../../src/processing/model.ts')
+  const { startSessionToolServer } = await import('#/agents/tools/server.ts')
+  const { issueSessionCapability } = await import('#/agents/tools/capability.ts')
+  const { sealed } = await import('#/processing/model.ts')
   const fixture = await processingFixture()
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
@@ -1099,8 +1099,8 @@ test('a split drops suggestions aimed at the lot it retires', async () => {
     )
     assert.ok(lot.ok)
     const second = await observe(100, 'A again')
-    const { operatorRepository } = await import('../../src/operator-review/repository.ts')
-    const { grantManual } = await import('../../src/review/grants.ts')
+    const { operatorRepository } = await import('#/operator-review/repository.ts')
+    const { grantManual } = await import('#/review/grants.ts')
     await grantManual(fixture.db.pool, fixture.api.name, 'api')
     await fixture.db.pool.query('UPDATE capture_lot SET operator_edited=true WHERE id=$1', [lot.id])
     const suggestedAt = (await read()).revision

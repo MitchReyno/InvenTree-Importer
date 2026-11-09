@@ -10,8 +10,8 @@ import {
   type LiveSubscribeDto,
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { authorizeLive } from '../api/server.ts'
-import { bootstrap, type DevConfig } from '../config.ts'
+import { authorizeLive } from '#/api/server.ts'
+import { bootstrap, type DevConfig } from '#/config.ts'
 import { liveProjection } from './projection.ts'
 import { sendLiveFrame } from './frames.ts'
 

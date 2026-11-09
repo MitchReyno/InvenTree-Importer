@@ -3,15 +3,15 @@ import {
   EFFECTS_CAPABILITY,
   RECORD_EFFECTS_BUILD,
   RECORD_EFFECTS_CAPABILITY,
-} from '../execution/effects/effects-plan.ts'
+} from '#/execution/effects/effects-plan.ts'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { lstat, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { strictJson } from '@invimport/contracts/json'
-import { database } from '../db/database.ts'
-import { MEDIA_EXECUTOR_BUILD, MEDIA_CAPABILITY } from '../execution/media-plan.ts'
-import { EXECUTOR_BUILD, id } from '../execution/plan.ts'
-import { requireHandlerVersion } from '../workers/delivery.ts'
+import { database } from '#/db/database.ts'
+import { MEDIA_EXECUTOR_BUILD, MEDIA_CAPABILITY } from '#/execution/media-plan.ts'
+import { EXECUTOR_BUILD, id } from '#/execution/plan.ts'
+import { requireHandlerVersion } from '#/workers/delivery.ts'
 import { dispatchManualCommands, executeManualDispatch, type ManualRunnerConfig } from './runner.ts'
 
 /** Explicit process entry point. The web process never imports this module.

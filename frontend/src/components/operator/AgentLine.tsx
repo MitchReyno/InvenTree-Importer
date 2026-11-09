@@ -1,10 +1,9 @@
 import styled from 'styled-components'
-import { batchHref } from '../../navigation/batch-route'
-import { WORK_STEPS, type LotStatus } from '../../processing/source'
-import { space } from '../../theme/generated/tokens'
-import { SESSION_STATE } from '../processing/ProcessingParts'
-import { Pill } from '../ui/Pill'
-import { Link } from '../ui/primitives'
+import { batchHref } from '#/navigation/batch-route'
+import { WORK_STEPS, type LotStatus } from '#/processing/source'
+import { space } from '#/theme/generated/tokens'
+import { SESSION_STATE } from '#/components/processing/ProcessingParts'
+import { Pill, Link } from '#/components/ui'
 
 /** The lot's latest agent status line in Lot details, opening its step in Processing. */
 export function AgentLine({ batchId, status }: { batchId: string; status: LotStatus | null }) {

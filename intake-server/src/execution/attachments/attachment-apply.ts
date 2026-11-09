@@ -1,8 +1,8 @@
-import type { AttachmentWire, inventoryTransport } from '../../inventory/transport.ts'
-import type { ApplyDependencies } from '../apply.ts'
-import { resolvedStockOperation } from '../effects/effects-output.ts'
-import { loadRun, snapshot } from '../authority.ts'
-import { attachmentOperations } from '../media-plan.ts'
+import type { AttachmentWire, inventoryTransport } from '#/inventory/transport.ts'
+import type { ApplyDependencies } from '#/execution/apply.ts'
+import { resolvedStockOperation } from '#/execution/effects/effects-output.ts'
+import { loadRun, snapshot } from '#/execution/authority.ts'
+import { attachmentOperations } from '#/execution/media-plan.ts'
 import {
   authorizeAttachmentRequest,
   checkpointAttachment,
@@ -16,9 +16,9 @@ import {
   ATTACHMENT_HEADER_BYTES,
   verifiedAttachmentFrame,
 } from './attachment-frame.ts'
-import { inventoryBody, responseObject, responsePk, stockMatches } from '../response.ts'
+import { inventoryBody, responseObject, responsePk, stockMatches } from '#/execution/response.ts'
 import type { AttachmentRecovery } from './attachment-recovery.ts'
-import { sha256 } from '../../db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 
 interface ReceivedAttachmentResponse {
   intentId: string

@@ -13,7 +13,7 @@ import WebSocket from 'ws'
 import sharp from 'sharp'
 import { LIVE_PROTOCOL } from '@invimport/contracts'
 import { processingCheckpoint } from '../../support/processing-process.ts'
-import { database } from '../../../src/db/database.ts'
+import { database } from '#/db/database.ts'
 import { provisionLegacyDevApi } from '../../support/dev-legacy.ts'
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url))

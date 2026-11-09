@@ -1,11 +1,11 @@
 import { isEffectsPlan } from './effects-plan.ts'
-import { cancellationVersion } from '../cancellation.ts'
+import { cancellationVersion } from '#/execution/cancellation.ts'
 import { randomUUID } from 'node:crypto'
 import { and, eq, inArray, ne } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
-import { supportedRecoveries, executorRuns, executorGuards } from '../schema.ts'
-import { lockRun, snapshot } from '../authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { supportedRecoveries, executorRuns, executorGuards } from '#/execution/schema.ts'
+import { lockRun, snapshot } from '#/execution/authority.ts'
 import { supportedStates } from './effects-state.ts'
 
 export async function selectSupportedRecovery(

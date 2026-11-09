@@ -1,4 +1,4 @@
-import { classifyFailure, type CommandFailure } from '../operator/command-failure'
+import { classifyFailure, type CommandFailure } from '#/operator/command-failure'
 
 export type LaneStatus = 'saved' | 'pending' | 'saving' | 'invalid' | 'rejected'
 export type QueueBlock = 'conflict' | 'unconfirmed'

@@ -5,10 +5,10 @@ import {
   type BatchRecordsDto,
   type RecordExistingValuesDto,
 } from '@invimport/contracts'
-import { readModelError } from '../api/errors.ts'
-import { pathId } from '../api/request.ts'
-import { bootstrap, type DevConfig } from '../config.ts'
-import { fail } from '../capture/model.ts'
+import { readModelError } from '#/api/errors.ts'
+import { pathId } from '#/api/request.ts'
+import { bootstrap, type DevConfig } from '#/config.ts'
+import { fail } from '#/capture/model.ts'
 
 /** A read model only: edits go through the capture edit route. */
 export function registerRecords(

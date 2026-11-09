@@ -1,6 +1,6 @@
-import { captureContextRecords } from '../capture/context-input.ts'
-import { validatePartSpec, PartSpecError } from '../capture/part-spec.ts'
-import { locationCreateKey, logicalEffectKey } from '../execution/effects/effects-plan.ts'
+import { captureContextRecords } from '#/capture/context-input.ts'
+import { validatePartSpec, PartSpecError } from '#/capture/part-spec.ts'
+import { locationCreateKey, logicalEffectKey } from '#/execution/effects/effects-plan.ts'
 import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
 import {
@@ -10,14 +10,14 @@ import {
   type LotLocationResolution,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../db/authority.ts'
-import type { MediaInputs, MediaInputVersion } from '../media/inputs.ts'
-import { contributionBarcode } from '../execution/plan.ts'
+import { sha256 } from '#/db/authority.ts'
+import type { MediaInputs, MediaInputVersion } from '#/media/inputs.ts'
+import { contributionBarcode } from '#/execution/plan.ts'
 import {
   EMPTY_REVIEW_CONTEXT,
   type CaptureReviewContext,
   type IssueDispositionRecord,
-} from '../capture/review-context.ts'
+} from '#/capture/review-context.ts'
 
 export interface SubjectDependency {
   subjectId: string

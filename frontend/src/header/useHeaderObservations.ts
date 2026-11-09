@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '../queries/scope'
-import { useRetainedPollInterval } from '../components/operations/LiveUpdates'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { assertHeaderScope, HEADER_POLL_MS } from './observations'
 import type { HeaderClient } from './types'
 

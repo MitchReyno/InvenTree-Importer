@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { and, eq, getTableColumns, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import type { CaptureEditDto, ProcessingAnswerDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { appendEvent } from '../db/authority.ts'
-import { appendSessionInbox } from '../agents/tools/inbox.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
+import { appendEvent } from '#/db/authority.ts'
+import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 import { fieldsSuperseded } from './currentness.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { fail, sealed } from './model.ts'
@@ -16,7 +16,7 @@ import {
   processingMessages,
   processingQuestions,
 } from './schema.ts'
-import { captureSubjects } from '../capture/schema.ts'
+import { captureSubjects } from '#/capture/schema.ts'
 import { lockProcessingAttempt } from './state.ts'
 
 interface LockedCapture {

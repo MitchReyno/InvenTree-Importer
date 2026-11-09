@@ -7,16 +7,16 @@ import {
   type ProcessingProposalDto,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import {
   processingAttempts,
   processingMessages,
   processingProposals,
   processingQuestions,
 } from './schema.ts'
-import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
-import { lockCaptureForInputSettlement } from '../capture/repository.ts'
-import { isAutomationIntentNote } from '../capture/context-input.ts'
+import { appendEvent, sha256, verifyBytes } from '#/db/authority.ts'
+import { lockCaptureForInputSettlement } from '#/capture/repository.ts'
+import { isAutomationIntentNote } from '#/capture/context-input.ts'
 import { lockLane } from './scope.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { MAX_RUNNER_MESSAGE_BYTES } from './limits.ts'
@@ -29,7 +29,7 @@ import {
   requireLotJob,
 } from './state.ts'
 import { validateProposalSources } from './provenance.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
 import { processingDependencyStatus } from './dependencies.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'

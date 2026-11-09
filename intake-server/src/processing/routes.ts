@@ -9,16 +9,16 @@ import {
   type SessionInboxSubmissionDto,
   type SessionReplacementDto,
 } from '@invimport/contracts'
-import { commandKey } from '../api/request.ts'
+import { commandKey } from '#/api/request.ts'
 import { replaceSession } from './session-replacement.ts'
-import { submitSessionInbox } from '../agents/tools/inbox.ts'
-import { readSessionTimeline } from '../agents/tools/timeline.ts'
+import { submitSessionInbox } from '#/agents/tools/inbox.ts'
+import { readSessionTimeline } from '#/agents/tools/timeline.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
 import { fail, ProcessingError } from './model.ts'
-import { CaptureError } from '../capture/model.ts'
-import { CommandPayloadConflict } from '../db/authority.ts'
+import { CaptureError } from '#/capture/model.ts'
+import { CommandPayloadConflict } from '#/db/authority.ts'
 
 function id(request: FastifyRequest, field = 'id') {
   const value = (request.params as Record<string, string>)[field]

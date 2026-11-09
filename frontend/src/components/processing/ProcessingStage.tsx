@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import type { BatchAttentionDto, CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { MediaClient } from '../../media/types'
-import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
-import type { AgentsRead, ProcessingClient } from '../../processing/types'
+import type { MediaClient } from '#/media/types'
+import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
+import type { AgentsRead, ProcessingClient } from '#/processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
 import type { SharperRequestStore } from './ExamineView'
-import type { InstructionDelivery } from '../../processing/instruction-delivery'
+import type { InstructionDelivery } from '#/processing/instruction-delivery'
 
 interface Props {
   batch: CaptureSnapshotDto

@@ -1,7 +1,5 @@
 import type { SessionTimelineDto } from '@invimport/contracts'
-import { StatusTimeline } from '../ui/StatusTimeline'
-import { Small } from '../ui/primitives'
-import { VisuallyHidden } from '../ui/VisuallyHidden'
+import { StatusTimeline, Small, VisuallyHidden } from '#/components/ui'
 
 type Outbox = SessionTimelineDto['outbox'][number]
 

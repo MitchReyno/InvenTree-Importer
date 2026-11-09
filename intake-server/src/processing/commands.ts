@@ -6,11 +6,11 @@ import {
   type ProcessingStartDto,
   type ProcessingCancellationDto,
 } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { processingAttempts, processingJobs } from './schema.ts'
-import { appendEvent, idempotent } from '../db/authority.ts'
-import { captureInTransaction, lockCaptureForInputs } from '../capture/repository.ts'
-import { prepareMediaTransaction } from '../media/transaction.ts'
+import { appendEvent, idempotent } from '#/db/authority.ts'
+import { captureInTransaction, lockCaptureForInputs } from '#/capture/repository.ts'
+import { prepareMediaTransaction } from '#/media/transaction.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'

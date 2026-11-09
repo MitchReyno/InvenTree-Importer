@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./json": "./src/json.ts",
     "./client": "./generated/client.ts",
+    "./api": "./generated/api.d.ts",
     "./media": "./src/media.ts",
     "./research": "./src/research.ts"
   },

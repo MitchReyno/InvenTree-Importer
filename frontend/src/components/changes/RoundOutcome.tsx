@@ -1,11 +1,19 @@
 import styled from 'styled-components'
-import { Banner } from '../ui/Banner'
+import {
+  Banner,
+  Field,
+  Heading,
+  Link,
+  Panel,
+  Paragraph,
+  Small,
+  Summary,
+  Button,
+} from '#/components/ui'
 import type { ManualRunDto, PartOutputDto } from '@invimport/contracts'
-import type { RunRecoverySelection } from '../../manual/types'
-import { batchHref } from '../../navigation/batch-route'
-import { color, space } from '../../theme/generated/tokens'
-import { Field, Heading, Link, Panel, Paragraph, Small, Summary } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import type { RunRecoverySelection } from '#/manual/types'
+import { batchHref } from '#/navigation/batch-route'
+import { color, space } from '#/theme/generated/tokens'
 import { AttachmentOutcome } from './AttachmentOutcome'
 import { EffectOutcome } from './EffectOutcome'
 import { PartAttachments } from './PartAttachments'

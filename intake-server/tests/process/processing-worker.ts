@@ -2,16 +2,13 @@ import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { readFile } from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import { once } from 'node:events'
-import { database } from '../../src/db/database.ts'
-import type { ProcessingConfig } from '../../src/processing/attempts.ts'
-import {
-  dispatchProcessingCommands,
-  executeProcessingCommand,
-} from '../../src/processing/delivery.ts'
-import type { RestrictedResearchRunner } from '../../src/processing/runner.ts'
-import { sha256 } from '../../src/db/authority.ts'
-import { decodeMediaInputs } from '../../src/media/inputs.ts'
-import { evidenceNotes } from '../../src/capture/context-input.ts'
+import { database } from '#/db/database.ts'
+import type { ProcessingConfig } from '#/processing/attempts.ts'
+import { dispatchProcessingCommands, executeProcessingCommand } from '#/processing/delivery.ts'
+import type { RestrictedResearchRunner } from '#/processing/runner.ts'
+import { sha256 } from '#/db/authority.ts'
+import { decodeMediaInputs } from '#/media/inputs.ts'
+import { evidenceNotes } from '#/capture/context-input.ts'
 import type { ProcessingEnvelopeDto } from '@invimport/contracts'
 
 /** Explicit synthetic process fixture. It cannot infer, authenticate a provider or reach inventory. */

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '../ui/Button'
-import { TextField } from '../ui/TextField'
+import { Button, TextField } from '#/components/ui'
 
 type Account = {
   state: 'pending' | 'connected' | 'disconnected' | 'denied'

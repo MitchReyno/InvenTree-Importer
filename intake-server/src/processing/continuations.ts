@@ -1,14 +1,14 @@
 import type { PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
 import { processingAttempts, processingDependencies, processingJobs } from './schema.ts'
 import { supersedeJobAttempts } from './jobs.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail } from './model.ts'
 import { lockProcessingAttempt, requireLotJob } from './state.ts'
-import type { LockedMediaInputs } from '../media/locked-inputs.ts'
+import type { LockedMediaInputs } from '#/media/locked-inputs.ts'
 import { reservedMediaFor } from './media.ts'
 
 /** Rebuild the retained downstream closure after an answer; old dependency IDs never redirect. */

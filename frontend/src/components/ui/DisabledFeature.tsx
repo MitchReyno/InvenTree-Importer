@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import styled from 'styled-components'
-import { color, radius, space, typeVar } from '../../theme/generated/tokens'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 
 type Props = { label: string; explanation: string }
 

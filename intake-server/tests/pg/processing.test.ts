@@ -9,16 +9,12 @@ import type {
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
-import {
-  claimProcessingCommand,
-  acceptEnvelope,
-  interruptProcessing,
-} from '../../src/processing/runner.ts'
-import { answerQuestion } from '../../src/processing/answers.ts'
-import { lockCaptureForEdit, captureRepository } from '../../src/capture/repository.ts'
-import { database, transaction } from '../../src/db/database.ts'
+import { claimProcessingCommand, acceptEnvelope, interruptProcessing } from '#/processing/runner.ts'
+import { answerQuestion } from '#/processing/answers.ts'
+import { lockCaptureForEdit, captureRepository } from '#/capture/repository.ts'
+import { database, transaction } from '#/db/database.ts'
 import { commitAckProxy } from '../fixtures/commit-ack-proxy.ts'
-import { sha256 } from '../../src/db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

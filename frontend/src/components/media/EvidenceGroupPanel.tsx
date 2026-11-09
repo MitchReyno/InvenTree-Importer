@@ -1,4 +1,4 @@
-import type { CaptureWorkspaceProps } from '../../capture/types'
+import type { CaptureWorkspaceProps } from '#/capture/types'
 import { GroupLocationControl } from './GroupLocationControl'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type {
@@ -7,24 +7,20 @@ import type {
   MediaVersionDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
-import { mediaDisplayLabels, type MediaIdentityLabels } from '../../media/identity-labels'
-import { reviewMap } from '../../operator/review-map'
-import { predecessorLotIds } from '../../operator/review-model'
-import type { EditMedia } from '../../media/types'
-import { Paragraph } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import type { OperatorReviewClient } from '#/operator/types'
+import { mediaDisplayLabels, type MediaIdentityLabels } from '#/media/identity-labels'
+import { reviewMap } from '#/operator/review-map'
+import { predecessorLotIds } from '#/operator/review-model'
+import type { EditMedia } from '#/media/types'
+import { Paragraph, Button, EvidenceGroup, Dialog, EvidenceGrid } from '#/components/ui'
 import { useEvidenceDropZone } from './EvidenceDropZone'
-import { EvidenceGroup } from '../ui/EvidenceGroup'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
 import { EvidenceFileTile } from './EvidenceFileTile'
-import { Dialog } from '../ui/Dialog'
-import { EvidenceGrid } from '../ui/EvidenceTile'
 import { MediaEvidenceRelations } from './MediaEvidenceRelations'
 import { MediaTextEditor } from './MediaTextEditor'
 import { MediaNoteSummary } from './MediaNoteSummary'
-import { InstructionForm } from '../operator/InstructionForm'
+import { InstructionForm } from '#/components/operator/InstructionForm'
 
 type Props = {
   batch: CaptureSnapshotDto

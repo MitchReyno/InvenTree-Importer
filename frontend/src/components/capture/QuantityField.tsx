@@ -1,6 +1,5 @@
-import { Field } from '../ui/primitives'
-import { Input, Label, Select, Small } from '../ui/primitives'
-import type { Quantity } from '../../capture/types'
+import { Field, Input, Label, Select, Small } from '#/components/ui'
+import type { Quantity } from '#/capture/types'
 type QuantityFieldProps = {
   value: Quantity
   defaults: boolean

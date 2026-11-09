@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validate } from '@invimport/contracts'
-import { catalogueReader, type ListOperation } from '../src/capture/catalogue.ts'
-import { inventoryTransport, type ReadOperation } from '../src/inventory/transport.ts'
+import { catalogueReader, type ListOperation } from '#/capture/catalogue.ts'
+import { inventoryTransport, type ReadOperation } from '#/inventory/transport.ts'
 
 const CONTEXT = '6c1f4a2e-9b3d-4e5f-8a7b-0c1d2e3f4a5b'
 
@@ -273,7 +273,7 @@ test('transport list builds fixed paginated paths and refuses unbounded or forei
 })
 
 test('bounded body reader cancels a stalled or oversized target body', async () => {
-  const { readBoundedBody, BoundedBodyError } = await import('../src/capture/bounded-body.ts')
+  const { readBoundedBody, BoundedBodyError } = await import('#/capture/bounded-body.ts')
   let cancelled = 0
   const stalled = new ReadableStream<Uint8Array>({
     start(controller) {

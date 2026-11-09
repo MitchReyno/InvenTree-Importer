@@ -1,6 +1,5 @@
 import type { BatchAttentionDto, HeaderWorkDto } from '@invimport/contracts'
-import type { PillStatus } from '../components/ui/Pill'
-import type { ProgressStep, SegmentState } from '../components/ui/ProgressSegments'
+import { type PillStatus, type ProgressStep, type SegmentState } from '#/components/ui'
 
 type WorkItem = HeaderWorkDto['work'][number]
 /** The header read counts jobs only; the attention read also counts each step's failures. */

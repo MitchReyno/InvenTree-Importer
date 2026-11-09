@@ -9,11 +9,11 @@ import { connect } from 'node:tls'
 import { processingFixture } from '../support/processing.ts'
 import { freePort } from '../support/manual-process.ts'
 import { lotSession } from '../support/sessions.ts'
-import { runSessionTurn } from '../../src/agents/session/session-runner.ts'
-import { startSessionBridge } from '../../src/agents/shared-vm/coordinator.ts'
-import { Frames, protocol } from '../../src/agents/shared-vm/frames.ts'
-import { pairing } from '../../src/agents/shared-vm/pair.ts'
-import { journalTurn, recordedOutcome } from '../../src/agents/shared-vm/journal.ts'
+import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
+import { Frames, protocol } from '#/agents/shared-vm/frames.ts'
+import { pairing } from '#/agents/shared-vm/pair.ts'
+import { journalTurn, recordedOutcome } from '#/agents/shared-vm/journal.ts'
 
 test(
   'a replacement paired peer resolves a lost terminal ACK without a second provider start',

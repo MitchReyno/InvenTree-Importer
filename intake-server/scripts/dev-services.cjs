@@ -4,7 +4,7 @@ const { resolve } = require('node:path')
 const { randomBytes } = require('node:crypto')
 const { Pool } = require('pg')
 // Reuse the runtime grant contract and dev identity through pinned Node's native type stripping.
-const { grantFoundation } = require('../src/operations/grants.ts')
+const { grantFoundation } = require('#/operations/grants.ts')
 const {
   PG,
   ALLOCATION,
@@ -15,10 +15,10 @@ const {
   serverIdentity,
   serverUrl,
   stateDirectory,
-} = require('../src/dev/pg-identity.ts')
+} = require('#/dev/pg-identity.ts')
 // The same allowlisted root .env as `pnpm dev`, so both agree on INTAKE_DEV_STATE.
 const { developmentEnvironment } = require('../../tooling/dev/environment.cjs')
-const { dockerPath, jsonLines, labels, runner } = require('../src/dev/docker-cli.ts')
+const { dockerPath, jsonLines, labels, runner } = require('#/dev/docker-cli.ts')
 
 const ACTIONS = [
   'start',

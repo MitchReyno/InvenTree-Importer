@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createServer } from '../src/api/server.ts'
-import { devConfig } from '../src/config.ts'
-import { registerHeader } from '../src/header/routes.ts'
+import { createServer } from '#/api/server.ts'
+import { devConfig } from '#/config.ts'
+import { registerHeader } from '#/header/routes.ts'
 
 const config = devConfig({
   INTAKE_ORIGIN: 'http://127.0.0.1:4333',

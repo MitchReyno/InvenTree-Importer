@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import { expect, test } from 'vitest'
 import type { SupportedEffectResultDto } from '@invimport/contracts'
-import { render } from '../../test/render'
+import { render } from '#/test/render'
 import { EffectOutcome } from './EffectOutcome'
 
 const id = (n: number) => `0b6f9a52-4e1d-4c1a-9f65-${n.toString(16).padStart(12, '0')}`

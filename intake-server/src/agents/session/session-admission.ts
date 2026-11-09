@@ -1,4 +1,4 @@
-import { NativeSessionError } from '../failure-model.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'

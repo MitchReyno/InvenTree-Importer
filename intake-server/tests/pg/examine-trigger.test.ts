@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { processingFixture } from '../support/processing.ts'
 import { seedPhoto } from '../support/sessions.ts'
-import { triggerExamine } from '../../src/processing/examine-trigger.ts'
+import { triggerExamine } from '#/processing/examine-trigger.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

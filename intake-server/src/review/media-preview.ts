@@ -4,7 +4,7 @@ import type {
   ManualMediaEvidenceDto,
   ManualPreviewDto,
 } from '@invimport/contracts'
-import type { ExecutablePlan, MediaPlanEvidence } from '../execution/media-plan.ts'
+import type { ExecutablePlan, MediaPlanEvidence } from '#/execution/media-plan.ts'
 
 export function evidencePreview(version: MediaPlanEvidence): ManualMediaEvidenceDto {
   return {

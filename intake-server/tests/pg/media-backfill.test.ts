@@ -7,17 +7,17 @@ import { tmpdir } from 'node:os'
 import pg from 'pg'
 import sharp from 'sharp'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
-import { BlobStore } from '../../src/media/blob-store.ts'
-import { grantMedia } from '../../src/media/grants.ts'
-import { grantProjection } from '../../src/operations/grants.ts'
-import { grantCaptureRead } from '../../src/capture/grants.ts'
-import { captureRepository } from '../../src/capture/repository.ts'
-import { mediaRepository } from '../../src/media/repository.ts'
-import { mediaContent } from '../../src/media/content.ts'
-import { processMediaCommand } from '../../src/media/worker.ts'
-import { backfillRenditions, mediaWorkerStep } from '../../src/media/backfill.ts'
-import { database } from '../../src/db/database.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
+import { BlobStore } from '#/media/blob-store.ts'
+import { grantMedia } from '#/media/grants.ts'
+import { grantProjection } from '#/operations/grants.ts'
+import { grantCaptureRead } from '#/capture/grants.ts'
+import { captureRepository } from '#/capture/repository.ts'
+import { mediaRepository } from '#/media/repository.ts'
+import { mediaContent } from '#/media/content.ts'
+import { processMediaCommand } from '#/media/worker.ts'
+import { backfillRenditions, mediaWorkerStep } from '#/media/backfill.ts'
+import { database } from '#/db/database.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 
 const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
@@ -621,7 +621,7 @@ test(
 )
 
 test('a derived documentary crop is backfilled from its own retained page', { skip }, async () => {
-  const { editMedia } = await import('../../src/media/edit.ts')
+  const { editMedia } = await import('#/media/edit.ts')
   const fixture = await retainedFixture()
   try {
     await fixture.upload('Photo', await jpeg(2400, 1600))

@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import {
   executorGuards,
   executorAttachmentRecoveries,
@@ -7,17 +7,17 @@ import {
   executorAttachmentResults,
   executorAttachmentEffects,
   executorAttachmentVerifications,
-} from '../schema.ts'
+} from '#/execution/schema.ts'
 import { sql } from 'drizzle-orm'
-import { cancellationVersion } from '../cancellation.ts'
+import { cancellationVersion } from '#/execution/cancellation.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
-import { sha256 } from '../../db/authority.ts'
-import type { AttachmentWire } from '../../inventory/transport.ts'
-import { executorTransaction } from '../transaction.ts'
-import { lockRun, snapshot } from '../authority.ts'
-import { attachmentOperations, type AttachmentOperation } from '../media-plan.ts'
+import { sha256 } from '#/db/authority.ts'
+import type { AttachmentWire } from '#/inventory/transport.ts'
+import { executorTransaction } from '#/execution/transaction.ts'
+import { lockRun, snapshot } from '#/execution/authority.ts'
+import { attachmentOperations, type AttachmentOperation } from '#/execution/media-plan.ts'
 
 export type AttachmentRequestKind =
   'create_attachment' | 'get_attachment' | 'download_attachment' | 'lookup_attachment' | 'get_stock'

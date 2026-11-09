@@ -8,8 +8,8 @@ import {
   type ResearchSourceChunkDto,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import type { ResearchInput } from '../processing/runner.ts'
-import type { ResearchAttemptAccess } from '../processing/research.ts'
+import type { ResearchInput } from '#/processing/runner.ts'
+import type { ResearchAttemptAccess } from '#/processing/research.ts'
 import type { ResearchReceiptRepository } from './receipts.ts'
 import { stagedEvidenceReader, researchChunk, type EvidenceByteReader } from './evidence.ts'
 import { researchInventoryReader, type ResearchInventoryRead } from './inventory.ts'
@@ -23,7 +23,7 @@ import {
   MAX_RESEARCH_REQUEST_MS,
   MAX_RESEARCH_TOOL_CALLS,
 } from './limits.ts'
-import { sha256 } from '../db/authority.ts'
+import { sha256 } from '#/db/authority.ts'
 import { awaitResearchResult } from './abort.ts'
 
 export interface ResearchToolBroker {

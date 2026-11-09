@@ -1,7 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { expect, test, vi } from 'vitest'
-import { render } from '../test/render'
+import { render } from '#/test/render'
 import { useCachedData } from './useCachedData'
 
 const key = ['shared-read']

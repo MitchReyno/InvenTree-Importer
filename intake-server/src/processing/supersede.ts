@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { processingAttempts, processingQuestions } from './schema.ts'
 
 /** The per-lot sessions a stable identity starts, in parallel. Inventory waits for both. */

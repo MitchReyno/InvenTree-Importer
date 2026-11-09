@@ -1,6 +1,6 @@
 import { attributionJson, strictJson } from '@invimport/contracts/json'
-import { approvedTagsPresent } from '../../inventory/tags.ts'
-import { responsePk } from '../response.ts'
+import { approvedTagsPresent } from '#/inventory/tags.ts'
+import { responsePk } from '#/execution/response.ts'
 
 /** All trustworthy identities survive malformed or multiple output responses. */
 export function attributedPks(value: unknown): string[] {

@@ -8,14 +8,11 @@ import sharp from 'sharp'
 import { validate } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession, leadSession, seedPhoto } from '../support/sessions.ts'
-import { BlobStore } from '../../src/media/blob-store.ts'
-import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
-import { transaction } from '../../src/db/database.ts'
-import {
-  issueSessionCapability,
-  revokeSessionCapability,
-} from '../../src/agents/tools/capability.ts'
-import { sessionTools, SESSION_IMAGE_BUDGET_BYTES } from '../../src/agents/tools/handlers.ts'
+import { BlobStore } from '#/media/blob-store.ts'
+import { readMediaStoreIdentity } from '#/media/store-identity.ts'
+import { transaction } from '#/db/database.ts'
+import { issueSessionCapability, revokeSessionCapability } from '#/agents/tools/capability.ts'
+import { sessionTools, SESSION_IMAGE_BUDGET_BYTES } from '#/agents/tools/handlers.ts'
 
 const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
 

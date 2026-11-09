@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { color, radius, shadow, space } from '../../theme/generated/tokens'
+import { color, radius, shadow, space } from '#/theme/generated/tokens'
 
 type StickyFooterProps = {
   label: string

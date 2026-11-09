@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner } from '../ui/Banner'
+import {
+  Banner,
+  Fieldset,
+  Form,
+  Input,
+  Label,
+  Panel,
+  Paragraph,
+  Select,
+  Small,
+  Button,
+  useConfirmation,
+} from '#/components/ui'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color, radius, space } from '../../theme/generated/tokens'
+import { color, radius, space } from '#/theme/generated/tokens'
 import type { BulkEditDto, CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
-import type { OperatorReviewClient } from '../../operator/types'
-import { classifyFailure, failureMessage } from '../../operator/command-failure'
-import { useRetainedCommand } from '../../operator/useRetainedCommand'
-import { Fieldset, Form, Input, Label, Panel, Paragraph, Select, Small } from '../ui/primitives'
-import { Button } from '../ui/Button'
+import type { OperatorReviewClient } from '#/operator/types'
+import { classifyFailure, failureMessage } from '#/operator/command-failure'
+import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import { ImpactSummary } from './ImpactSummary'
-import { useConfirmation } from '../ui/Confirmation'
 
 const QUANTITY_PATTERN = /^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\.[0-9]{0,5}[1-9])?$/
 

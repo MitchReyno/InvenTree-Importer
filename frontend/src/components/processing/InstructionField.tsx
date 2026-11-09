@@ -1,10 +1,9 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { color, space, typeVar } from '../../theme/generated/tokens'
-import { Button } from '../ui/Button'
-import { Small, TextArea } from '../ui/primitives'
-import { deliveryMessage, type InstructionDelivery } from '../../processing/instruction-delivery'
+import { color, space, typeVar } from '#/theme/generated/tokens'
+import { Button, Small, TextArea } from '#/components/ui'
+import { deliveryMessage, type InstructionDelivery } from '#/processing/instruction-delivery'
 
 type Props = {
   /** Undefined until the saved instructions are read; never assumed empty. */

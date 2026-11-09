@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { inventoryTransport, type TargetProfile } from '../src/inventory/transport.ts'
+import { inventoryTransport, type TargetProfile } from '#/inventory/transport.ts'
 
 test('protected loopback spellings deny before transport across ports; nearby non-loopbacks remain distinct', async (t) => {
   let transportCalls = 0,

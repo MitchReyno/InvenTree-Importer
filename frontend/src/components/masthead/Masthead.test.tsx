@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { createElectronicsCurrent } from '../../electronics-current/scene'
-import { createThemeController } from '../../theme/theme'
+import { createElectronicsCurrent } from '#/electronics-current/scene'
+import { createThemeController } from '#/theme/theme'
 import { Masthead } from './Masthead'
 
-vi.mock('../../electronics-current/scene', () => ({ createElectronicsCurrent: vi.fn() }))
+vi.mock('#/electronics-current/scene', () => ({ createElectronicsCurrent: vi.fn() }))
 
 const createScene = vi.mocked(createElectronicsCurrent)
 
