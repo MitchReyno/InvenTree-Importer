@@ -357,7 +357,9 @@ test('a poll that fails while a file uploads does not stop the file joining its 
       { id, label: 'late.png', group_id: null, linked_subject_ids: [], versions: [version] },
     ],
   }
+
   let acknowledge: () => void = () => undefined
+
   vi.mocked(client.upload).mockImplementation(
     () =>
       new Promise((resolve) => {
