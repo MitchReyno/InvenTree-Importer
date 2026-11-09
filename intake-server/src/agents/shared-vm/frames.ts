@@ -1,6 +1,8 @@
 // Length-prefixed, sequential messages. Reject the declared length before allocating a frame.
 import type { Duplex } from 'node:stream'
 
+// An authorized 8 MiB image expands to 10.7 MiB in base64, plus MCP metadata.
+export const evidenceReplyLimit = 12 * 1024 * 1024
 const limit = 4 * 1024 * 1024
 export const protocol = 'bench-vm-turn/1'
 export class Frames {
@@ -30,9 +32,9 @@ export class Frames {
     return result
   }
 
-  async read(): Promise<Record<string, unknown>> {
+  async read(maxBytes = limit): Promise<Record<string, unknown>> {
     const size = (await this.bytes(4)).readUInt32BE()
-    if (size === 0 || size > limit) {
+    if (size === 0 || size > maxBytes) {
       throw new Error('invalid_runner_frame')
     }
     const value = JSON.parse((await this.bytes(size)).toString('utf8'))
@@ -42,9 +44,9 @@ export class Frames {
     return value
   }
 
-  async send(value: Record<string, unknown>) {
+  async send(value: Record<string, unknown>, maxBytes = limit) {
     const data = Buffer.from(JSON.stringify(value))
-    if (data.length > limit) {
+    if (data.length > maxBytes) {
       throw new Error('runner_frame_limit')
     }
     const header = Buffer.allocUnsafe(4)
@@ -57,12 +59,12 @@ export class Frames {
   }
 }
 
-export async function readBounded(stream: AsyncIterable<Uint8Array>) {
+export async function readBounded(stream: AsyncIterable<Uint8Array>, maxBytes = limit / 2) {
   const chunks: Uint8Array[] = []
   let size = 0
   for await (const chunk of stream) {
     size += chunk.length
-    if (size > limit / 2) {
+    if (size > maxBytes) {
       throw new Error('runner_frame_limit')
     }
     chunks.push(chunk)

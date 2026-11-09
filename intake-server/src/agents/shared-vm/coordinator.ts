@@ -1,3 +1,4 @@
+import { evidenceRequest } from './evidence-request.ts'
 import { checkServerIdentity, createServer, type TLSSocket } from 'node:tls'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { Socket } from 'node:net'
@@ -5,7 +6,7 @@ import { once } from 'node:events'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { SessionDriver } from '../session-runner.ts'
 import { ResearchReapPendingError } from '../../research/errors.ts'
-import { Frames, protocol, readBounded } from './frames.ts'
+import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '../session-adapters.ts'
 import { NativeSessionError } from '../failure-model.ts'
 import { pairing } from './pair.ts'
@@ -17,6 +18,8 @@ export async function startSessionBridge(directory: string, port: number) {
   }
   const idle = new Map<TLSSocket, Frames>()
   const rich = new WeakSet<TLSSocket>()
+  const probePeers = new WeakSet<TLSSocket>()
+  const evidencePeers = new WeakSet<TLSSocket>()
   const subscriptions = new WeakMap<TLSSocket, string>()
   const connected = new Set<TLSSocket>()
   const server = createServer(
@@ -40,6 +43,9 @@ export async function startSessionBridge(directory: string, port: number) {
       try {
         const frames = new Frames(socket)
         const greeting = await frames.read()
+        if (greeting.terminalProbe === true) {
+          probePeers.add(socket)
+        }
         if (greeting.claudeSubscription === true) {
           subscriptions.set(socket, 'claude')
         }
@@ -48,6 +54,9 @@ export async function startSessionBridge(directory: string, port: number) {
         }
         if (greeting.builtinTools === true) {
           rich.add(socket)
+          if (greeting.evidenceFiles === true) {
+            evidencePeers.add(socket)
+          }
         }
         if (greeting.ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
@@ -79,9 +88,10 @@ export async function startSessionBridge(directory: string, port: number) {
         ? context.manifest.agent.provider
         : undefined
 
-    const available = () =>
+    const available = (probe = false) =>
       [...idle].find(
         ([socket]) =>
+          (!probe || probePeers.has(socket)) &&
           subscriptions.get(socket) === subscription &&
           rich.has(socket) === toolWorker,
       )
@@ -108,6 +118,15 @@ export async function startSessionBridge(directory: string, port: number) {
 
     context.signal.addEventListener('abort', stop, { once: true })
     const deliveredItems = new Set<string>()
+    const command = {
+      protocol,
+      ...context.identity,
+      manifest: context.manifest,
+      resume: turn.resume,
+      instructions: turn.instructions,
+      text: turn.text,
+      tools: turn.tools,
+    }
     let dispatched = false
     try {
       if (context.manifest.profile_id === 'synthetic-session/1') {
@@ -119,15 +138,7 @@ export async function startSessionBridge(directory: string, port: number) {
       }
       context.signal.throwIfAborted()
       dispatched = true
-      await frames.send({
-        protocol,
-        ...context.identity,
-        manifest: context.manifest,
-        resume: turn.resume,
-        instructions: turn.instructions,
-        text: turn.text,
-        tools: turn.tools,
-      })
+      await frames.send(command)
       for (;;) {
         const msg = await frames.read()
         context.signal.throwIfAborted()
@@ -192,12 +203,19 @@ export async function startSessionBridge(directory: string, port: number) {
             },
             body: msg.mcp,
           })
-          await frames.send({
-            status: response.status,
-            body: response.body
-              ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>)
-              : '',
-          })
+          const maxBytes =
+            toolWorker && evidencePeers.has(socket) && evidenceRequest(msg.mcp)
+              ? evidenceReplyLimit
+              : undefined
+          await frames.send(
+            {
+              status: response.status,
+              body: response.body
+                ? await readBounded(response.body as unknown as AsyncIterable<Uint8Array>, maxBytes)
+                : '',
+            },
+            maxBytes,
+          )
           continue
         }
         if (msg.done === true) {
@@ -229,6 +247,21 @@ export async function startSessionBridge(directory: string, port: number) {
       }
     } catch (error) {
       if (dispatched) {
+        socket.destroy()
+        if (!context.signal.aborted && probePeers.has(socket)) {
+          // The replacement relay only reads the exact turn journal. A missing or partial
+          // record leaves the original interruption path in control.
+          const outcome = await probeTerminal(available, idle, command, context.signal)
+          if (outcome === 'done') {
+            return
+          }
+          if (outcome === 'resume_unavailable') {
+            throw new SessionResumeUnavailable()
+          }
+          if (outcome === 'agent_login_required' || outcome === 'agent_turn_failed') {
+            throw new NativeSessionError(outcome)
+          }
+        }
         throw new ResearchReapPendingError()
       }
       throw error
@@ -247,5 +280,38 @@ export async function startSessionBridge(directory: string, port: number) {
       }
       server.close()
     },
+  }
+}
+
+async function probeTerminal(
+  available: (probe: boolean) => [TLSSocket, Frames] | undefined,
+  idle: Map<TLSSocket, Frames>,
+  command: Record<string, unknown>,
+  signal: AbortSignal,
+) {
+  const deadline = AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+  let claimed: TLSSocket | undefined
+
+  const stop = () => claimed?.destroy()
+
+  try {
+    while (!deadline.aborted) {
+      const candidate = available(true)
+      if (!candidate) {
+        await delay(100, undefined, { signal: deadline })
+        continue
+      }
+      const [socket, frames] = candidate
+      claimed = socket
+      idle.delete(socket)
+      deadline.addEventListener('abort', stop, { once: true })
+      await frames.send({ inspectTerminal: command })
+      return (await frames.read()).terminalOutcome
+    }
+  } catch {
+    // Only a terminal outcome can release the host claim.
+  } finally {
+    deadline.removeEventListener('abort', stop)
+    claimed?.destroy()
   }
 }

@@ -170,3 +170,9 @@ For live qualification on an already linked test deployment, run the following o
 bash tooling/deployment/tests/dispatch/live-tools.sh \
   "$vm" "$guest_directory" "$runner_image" "$coordinator_pair_directory" "$provider"
 ```
+
+### Lost turn acknowledgement
+
+If the bridge disconnects after dispatch, a compatible coordinator has a 15-second window to ask another paired peer on the same route for the recorded outcome. The peer reads the journal entry for the same lineage, attempt, turn and command digest. A complete match lets the coordinator settle the original session without invoking the provider again.
+
+A missing, partial or conflicting journal leaves the session awaiting reconciliation. Preserve the guest session journal and investigate the retained attempt before retrying. Cancelling the host operation also ends the probe. This recovery window applies to a running coordinator. A coordinator process restart still follows the retained interruption workflow.

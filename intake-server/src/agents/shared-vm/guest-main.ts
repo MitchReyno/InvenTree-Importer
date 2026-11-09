@@ -1,16 +1,17 @@
+import { evidenceRequest } from './evidence-request.ts'
 // Entrypoint for one paired session turn. The operator transports opaque TLS bytes over
 // stdio into the network-disabled guest. No host socket or host directory enters the container.
 import { connect } from 'node:tls'
 import { providerProxy } from './provider-proxy.ts'
 import { Duplex } from 'node:stream'
 import { once } from 'node:events'
-import { journalTurn, type TurnOutcome } from './journal.ts'
+import { journalTurn, recordedOutcome, type TurnOutcome } from './journal.ts'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { validate } from '@invimport/contracts'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { syntheticTurn, type SyntheticResult } from '../synthetic-turn.ts'
-import { Frames, protocol } from './frames.ts'
+import { evidenceReplyLimit, Frames, protocol } from './frames.ts'
 import { SessionResumeUnavailable } from '../session-adapters.ts'
 import { isolatedToolTurn } from './tool-client.ts'
 import { nativeTurn } from './native-turn.ts'
@@ -38,11 +39,23 @@ async function main() {
     }
     await frames.send({
       ready: protocol,
+      terminalProbe: true,
       builtinTools: isolated,
+      evidenceFiles: isolated,
       claudeSubscription: subscription,
       codexSubscription: codex,
     })
-    const command = await frames.read()
+    const packet = await frames.read()
+    const probe = 'inspectTerminal' in packet
+    if (
+      probe &&
+      (!packet.inspectTerminal ||
+        typeof packet.inspectTerminal !== 'object' ||
+        Array.isArray(packet.inspectTerminal))
+    ) {
+      throw new Error('invalid_probe')
+    }
+    const command = probe ? (packet.inspectTerminal as Record<string, unknown>) : packet
     if (
       command.protocol !== protocol ||
       typeof command.attemptId !== 'string' ||
@@ -76,8 +89,14 @@ async function main() {
     }
     const identity = { lineage: command.lineage, attemptId: command.attemptId, turn: command.turn }
     const cwd = join('/home/node/sessions', identity.lineage)
-    await mkdir(cwd, { recursive: true, mode: 0o700 })
     const path = join(cwd, command.attemptId + '-' + command.turn)
+    if (probe) {
+      const outcome = await recordedOutcome(path, command)
+      await frames.send({ terminalOutcome: outcome })
+      socket.end()
+      return
+    }
+    await mkdir(cwd, { recursive: true, mode: 0o700 })
     const abort = new AbortController()
     socket.once('close', () => abort.abort())
 
@@ -97,7 +116,9 @@ async function main() {
           const result = pending.then(async () => {
             try {
               await frames.send(body)
-              return await frames.read()
+              return await frames.read(
+                isolated && evidenceRequest(body.mcp) ? evidenceReplyLimit : undefined,
+              )
             } catch (error) {
               abort.abort()
               throw error
