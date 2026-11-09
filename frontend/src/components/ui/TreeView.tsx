@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, icon, opacity, radius, space, type, typeVar } from '#/theme/generated/tokens'
 
@@ -70,7 +70,7 @@ export function TreeView({
   const collapsed = controlled ?? own
   const [focused, setFocused] = useState<string | null>(null)
   const items = useRef(new Map<string, HTMLLIElement>())
-  const rows = useMemo(() => visibleRows(nodes, collapsed), [nodes, collapsed])
+  const rows = visibleRows(nodes, collapsed)
   const current = rows.some((row) => row.node.id === focused) ? focused : rows[0]?.node.id
 
   function move(id: string | undefined) {

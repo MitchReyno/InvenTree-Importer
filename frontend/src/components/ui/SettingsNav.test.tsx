@@ -21,7 +21,7 @@ test('links back to where Settings was opened, then lists the sections', () => {
 
   expect(links[0]).toHaveAccessibleName('Back to Mouser 3381-22 › Processing')
   expect(links[0]).toHaveAttribute('href', '#b1/processing/overview')
-  expect(within(nav).getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+  expect(within(nav).getByRole('heading', { name: 'Settings', level: 2 })).toBeInTheDocument()
   expect(links.slice(1).map((link) => link.textContent)).toEqual([
     'Agents',
     'InvenTree',

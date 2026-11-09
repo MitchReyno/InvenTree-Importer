@@ -7,7 +7,7 @@ import { NumberStepper } from './NumberStepper'
 const explanation = 'Automatic logo discovery is coming soon. Upload a logo manually for now.'
 
 /** Every control's handler stands in for a request: none may run. */
-function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'button') {
+function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'number' | 'button') {
   const send = vi.fn()
   const user = userEvent.setup()
   render(
@@ -60,6 +60,19 @@ function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'button') {
                   />
                 </label>
               )
+            case 'number':
+              return (
+                <label>
+                  Sessions
+                  <input
+                    type="number"
+                    defaultValue="3"
+                    onChange={send}
+                    onKeyDown={send}
+                    {...disabled}
+                  />
+                </label>
+              )
             case 'button':
               return (
                 <button type="submit" onClick={send} {...disabled}>
@@ -105,7 +118,7 @@ describe('DisabledFeature', () => {
       expect(target).not.toBeChecked()
     }
     if (control === 'select') {
-      await user.keyboard('{ArrowRight}{Home}{End}')
+      await user.keyboard('{ArrowRight}{Home}{End}{F4}')
       expect(target).toHaveValue('a')
       expect(send).not.toHaveBeenCalled()
     }
@@ -144,6 +157,33 @@ describe('DisabledFeature', () => {
     await user.keyboard('{Control>}z{/Control}{Control>}{Backspace}{/Control}')
     expect(send).not.toHaveBeenCalled()
     expect(field).toHaveFocus()
+    document.removeEventListener('keydown', shortcut)
+  })
+
+  it('a number field ignores the arrow keys that would step it', async () => {
+    const { send, user } = setup('number')
+    const field = screen.getByRole('spinbutton', { name: 'Sessions' })
+    await user.click(field)
+
+    await user.keyboard('{ArrowUp}{ArrowDown}{Home}')
+    expect(field).toHaveValue(3)
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('single-key app shortcuts pass a focused button, but Space and Enter do not', async () => {
+    const shortcut = vi.fn()
+    const { send, user } = setup('button')
+    document.addEventListener('keydown', shortcut)
+    await user.click(screen.getByRole('button', { name: 'Check now' }))
+
+    await user.keyboard('j')
+    expect(shortcut).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'j', defaultPrevented: false }),
+    )
+    shortcut.mockClear()
+    await user.keyboard('{Enter} ')
+    expect(shortcut).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
     document.removeEventListener('keydown', shortcut)
   })
 

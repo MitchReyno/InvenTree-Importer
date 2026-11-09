@@ -41,7 +41,7 @@ export function DescriptionField({
 
   const meta = (
     <Meta>
-      {onChange || disabledReason ? source : <span>{label}</span>}
+      {onChange ? source : <span>{label}</span>}
       <Count id={`${id}-count`} data-over={over || undefined}>
         {count} / {limit}
         {over && ' · over the limit'}
