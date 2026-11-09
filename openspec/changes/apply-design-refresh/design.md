@@ -241,4 +241,4 @@ Applied per design change log entry. The table names the owning component, with 
 - **Restore and stale proposals:** a restore can't revive proposals the delete made stale, so an accidental delete costs agent work. The confirmation names the affected lots first, and the lead treats the restored file as new evidence.
 - **Notice load:** deleting a photo used by many lots notifies all their sessions at once. This uses the existing notice path; the dialog states the count first.
 - **Approval-time pinning:** pinning happens only at approval, so a file selected as an attachment but not yet approved can still be removed. Approval then refuses the stale preparation (see the table above), and Review shows the attachment's evidence as removed.
-- **Open decision for the user:** deletion ships with its backend here (recommended) rather than being disabled under BI-015.
+- **Decided (user, 2026-11-09):** deletion ships with its backend here rather than being disabled under BI-015.

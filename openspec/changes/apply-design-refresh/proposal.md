@@ -184,4 +184,4 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 - **Assumption:** a deleted file can be restored at any time from "Deleted files". Restoring adds a new event rather than reverting rows, matching the append-only rules. Approval refuses removed files, so restore never conflicts with an approved run.
 - **Assumption:** deleting a lot's only evidence raises the existing dismissible `no_supporting_evidence` warning rather than a new blocking problem or an automatic exclusion. The canvas said "blocked"; this softens it to the app's existing gate.
 - **Exclusion:** upload tiles show an indeterminate "Uploading…" instead of the canvas's progress bar, because the existing upload request reports no byte progress.
-- **Decision for the user before apply starts:** deletion ships with its backend in this change (recommended, because it was requested directly). The alternative, following the "defer significant backend" rule, builds it disabled under BI-015.
+- **Decided (user, 2026-11-09):** deletion ships with its backend in this change, because it was requested directly. It is not built disabled under BI-015.
