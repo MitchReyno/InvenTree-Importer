@@ -2,10 +2,11 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { VisuallyHidden, media, Banner, Button, Pill } from '#/components/ui'
 import { Select } from '#/forms'
-import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
 import { reviewMap, type MapEdge } from '#/operator/review-map'
 import { color, radius, size, space, type, typeVar, zIndex } from '#/theme/generated/tokens'
+import type { CaptureEdit } from '#/capture/types'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -23,7 +24,7 @@ type Props = {
   /** Marks a region as the same physical item as another of its lot, or clears the mark. */
   markSameItem?: (observationId: string, sameAs: string | null) => Promise<unknown>
   /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
-  editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
+  editRegion?: CaptureEdit
   onRegionDirtyChange?: (dirty: boolean) => void
   /** An unsaved region draft holds the selected photo until it is saved or discarded. */
   selectionLocked?: boolean

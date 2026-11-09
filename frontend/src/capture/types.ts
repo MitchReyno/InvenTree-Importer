@@ -12,15 +12,17 @@ import type { CatalogueClient } from '#/catalogue/types'
 export type Snapshot = CaptureSnapshotDto
 export type Quantity = Snapshot['lots'][number]['quantity']
 export type Reference = Snapshot['lots'][number]['location']
+/** Resolves false when the change was not saved; the host shows why. */
+export type CaptureEdit = (change: CaptureEditDto['change']) => Promise<boolean | void>
+export type CaptureObserve = (
+  model: InventoryModelDto,
+  pk: string,
+) => Promise<CaptureObservationDto | null>
 export type CaptureWorkspaceProps = {
   batch: Snapshot
   busy: boolean
-  /** Resolves false when the change was not saved; the host shows why. */
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
-  observe: (model: InventoryModelDto, pk: string) => Promise<CaptureObservationDto | null>
   onDirtyChange?: (dirty: boolean) => void
   operatorReview?: OperatorReviewDto
-  reload?: () => Promise<void>
   settings?: SettingsPorts
 }
 

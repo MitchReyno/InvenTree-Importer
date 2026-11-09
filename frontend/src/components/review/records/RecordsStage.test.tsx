@@ -14,6 +14,8 @@ import { RecordsStage } from './RecordsStage'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const context = '0b6f9a52-4e1d-4c1a-9f65-1a2b3c4d5e03'
 
@@ -239,13 +241,13 @@ const records: BatchRecordsDto = {
 function stage(edit = vi.fn(async () => true)) {
   const onDirtyChange = vi.fn()
   render(
-    <RecordsStage
-      batch={batch}
-      client={{ read: vi.fn(async () => records) }}
-      edit={edit}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={onDirtyChange}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        onDirtyChange={onDirtyChange}
+      />
+    </BatchCommandsProvider>,
   )
   return { edit, onDirtyChange }
 }
@@ -257,13 +259,15 @@ async function open(user: ReturnType<typeof userEvent.setup>, type: RegExp, reco
 
 function stageWith(read: BatchRecordsDto) {
   render(
-    <RecordsStage
-      batch={batch}
-      client={{ read: vi.fn(async () => read) }}
-      edit={vi.fn(async () => true)}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={vi.fn()}
-    />,
+    <BatchCommandsProvider
+      value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+    >
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => read) }}
+        onDirtyChange={vi.fn()}
+      />
+    </BatchCommandsProvider>,
   )
 }
 
@@ -345,13 +349,13 @@ describe('RecordsStage', () => {
       ),
     }
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => reasoned) }}
-        edit={edit}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => reasoned) }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
@@ -483,13 +487,15 @@ describe('RecordsStage', () => {
       truncated: false,
     }))
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => read), existing }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => read), existing }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Companies/, 'Yageo')
     const detail = screen.getByRole('region', { name: 'Yageo' })
@@ -514,13 +520,15 @@ describe('RecordsStage', () => {
       truncated: false,
     }))
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => read), existing }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => read), existing }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Companies/, 'Yageo')
     const detail = screen.getByRole('region', { name: 'Yageo' })
@@ -734,14 +742,16 @@ describe('RecordsStage', () => {
     const user = userEvent.setup()
     const reload = vi.fn(async () => false)
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => records) }}
-        edit={vi.fn(async () => false)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        reload={reload}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => false), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => records) }}
+          onDirtyChange={vi.fn()}
+          reload={reload}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Companies/, 'Yageo')
     await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
@@ -761,15 +771,17 @@ describe('RecordsStage', () => {
   it('opens a record a link points to, including the one it first opened', async () => {
     const user = userEvent.setup()
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => records) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        initialType="parameter_template"
-        initialRecord="201"
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => records) }}
+          onDirtyChange={vi.fn()}
+          initialType="parameter_template"
+          initialRecord="201"
+        />
+      </BatchCommandsProvider>,
     )
     expect(await screen.findByRole('region', { name: 'Composition' })).toBeInTheDocument()
     await open(user, /^Companies/, 'Yageo')
@@ -793,15 +805,17 @@ describe('RecordsStage', () => {
       decision: { code: 'part_choice_required', detail: 'Choose the Part for this lot.' },
     })
     render(
-      <RecordsStage
-        batch={batch}
-        client={{
-          read: vi.fn(async () => ({ ...records, records: [...records.records, lotless] })),
-        }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{
+            read: vi.fn(async () => ({ ...records, records: [...records.records, lotless] })),
+          }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Stock items/, 'Lot 9')
     const detail = screen.getByRole('region', { name: 'Lot 9' })
@@ -828,15 +842,17 @@ describe('RecordsStage', () => {
       },
     })
     render(
-      <RecordsStage
-        batch={batch}
-        client={{
-          read: vi.fn(async () => ({ ...records, records: [...records.records, estimated] })),
-        }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{
+            read: vi.fn(async () => ({ ...records, records: [...records.records, estimated] })),
+          }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Stock items/, 'Lot 10')
     const detail = screen.getByRole('region', { name: 'Lot 10' })
@@ -863,13 +879,15 @@ describe('RecordsStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ processing }}>
-        <RecordsStage
-          batch={batch}
-          client={{ read: vi.fn(async () => records) }}
-          edit={vi.fn(async () => true)}
-          observe={vi.fn(async () => null)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+        >
+          <RecordsStage
+            batch={batch}
+            client={{ read: vi.fn(async () => records) }}
+            onDirtyChange={vi.fn()}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
@@ -926,15 +944,18 @@ describe('RecordsStage', () => {
       },
     })
     render(
-      <RecordsStage
-        batch={batch}
-        client={{
-          read: vi.fn(async () => ({ ...records, records: [...records.records, proposedCompany] })),
-        }}
-        edit={edit}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+        <RecordsStage
+          batch={batch}
+          client={{
+            read: vi.fn(async () => ({
+              ...records,
+              records: [...records.records, proposedCompany],
+            })),
+          }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Companies/, 'VSY')
     const detail = screen.getByRole('region', { name: 'VSY' })
@@ -980,13 +1001,15 @@ describe('RecordsStage', () => {
       ),
     }
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => withNotes) }}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => withNotes) }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
@@ -1038,13 +1061,15 @@ describe('RecordsStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ processing }}>
-        <RecordsStage
-          batch={batch}
-          client={{ read: vi.fn(async () => disputed) }}
-          edit={vi.fn(async () => true)}
-          observe={vi.fn(async () => null)}
-          onDirtyChange={onDirtyChange}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+        >
+          <RecordsStage
+            batch={batch}
+            client={{ read: vi.fn(async () => disputed) }}
+            onDirtyChange={onDirtyChange}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await user.click(await screen.findByRole('button', { name: /^Parameters/ }))
@@ -1090,13 +1115,15 @@ describe('RecordsStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ processing }}>
-        <RecordsStage
-          batch={batch}
-          client={{ read: vi.fn(async () => reuse) }}
-          edit={vi.fn(async () => true)}
-          observe={vi.fn(async () => null)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+        >
+          <RecordsStage
+            batch={batch}
+            client={{ read: vi.fn(async () => reuse) }}
+            onDirtyChange={vi.fn()}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
@@ -1126,13 +1153,15 @@ describe('RecordsStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ processing }}>
-        <RecordsStage
-          batch={batch}
-          client={{ read: vi.fn(async () => records) }}
-          edit={vi.fn(async () => true)}
-          observe={vi.fn(async () => null)}
-          onDirtyChange={onDirtyChange}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+        >
+          <RecordsStage
+            batch={batch}
+            client={{ read: vi.fn(async () => records) }}
+            onDirtyChange={onDirtyChange}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
@@ -1169,11 +1198,12 @@ describe('RecordsStage', () => {
     const props = {
       batch,
       client: { read: vi.fn(async () => records) },
-      edit: vi.fn(async () => true),
-      observe: vi.fn(async () => null),
       onDirtyChange: vi.fn(),
     }
-    const view = render(<RecordsStage {...props} discarded={0} />, { clients: { processing } })
+    const view = render(<RecordsStage {...props} discarded={0} />, {
+      commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
+      clients: { processing },
+    })
     await open(user, /^Parts/, 'Carbon film resistor')
 
     const category = () => within(screen.getByRole('row', { name: 'Category as saved' }))
@@ -1202,13 +1232,15 @@ describe('RecordsStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ processing }}>
-        <RecordsStage
-          batch={batch}
-          client={{ read: vi.fn(async () => records) }}
-          edit={vi.fn(async () => true)}
-          observe={vi.fn(async () => null)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+        >
+          <RecordsStage
+            batch={batch}
+            client={{ read: vi.fn(async () => records) }}
+            onDirtyChange={vi.fn()}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
@@ -1222,11 +1254,11 @@ describe('RecordsStage', () => {
     const props = {
       batch,
       client: { read: vi.fn(async () => records) },
-      edit: vi.fn(async () => true),
-      observe: vi.fn(async () => null),
       onDirtyChange,
     }
-    const { rerender } = render(<RecordsStage {...props} discarded={0} />)
+    const { rerender } = render(<RecordsStage {...props} discarded={0} />, {
+      commands: { edit: vi.fn(async () => true), observe: vi.fn(async () => null) },
+    })
     await open(user, /^Companies/, 'Yageo')
     await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
     await user.click(screen.getByRole('button', { name: /^Parts/ }))
@@ -1289,13 +1321,15 @@ describe('RecordsStage', () => {
 
   it('says when records cannot be read', async () => {
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => Promise.reject(new Error('down'))) }}
-        edit={vi.fn()}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => Promise.reject(new Error('down'))) }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
     )
     expect(await screen.findByText(/Records are unavailable/)).toBeInTheDocument()
   })
@@ -1341,47 +1375,47 @@ function LiveStage({
   }
 
   return (
-    <RecordsStage
-      batch={current}
-      client={{
-        read: vi.fn(async () => {
-          if (slowReadAfterSave && current.revision !== batch.revision) {
-            await slowReadAfterSave
-          }
-          if (failing && current.revision !== batch.revision) {
-            setFailing(false)
-            throw new Error('records read failed')
-          }
-          return { ...records, revision: current.revision }
-        }),
-      }}
-      edit={edit}
-      observe={vi.fn(async () => null)}
-      onDirtyChange={vi.fn()}
-      reload={async () => {
-        setRefused(false)
-        setCurrent((value) => {
-          const next = { ...value, revision: String(Number(value.revision) + 1) }
-          if (!renamedElsewhere) {
-            return next
-          }
-          const { specs } = applyRecordChange(value, {
-            kind: 'record',
-            target: { kind: 'part', part_subject_id: partA },
-            operation: { op: 'set_name', value: renamedElsewhere },
+    <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+      <RecordsStage
+        batch={current}
+        client={{
+          read: vi.fn(async () => {
+            if (slowReadAfterSave && current.revision !== batch.revision) {
+              await slowReadAfterSave
+            }
+            if (failing && current.revision !== batch.revision) {
+              setFailing(false)
+              throw new Error('records read failed')
+            }
+            return { ...records, revision: current.revision }
+          }),
+        }}
+        onDirtyChange={vi.fn()}
+        reload={async () => {
+          setRefused(false)
+          setCurrent((value) => {
+            const next = { ...value, revision: String(Number(value.revision) + 1) }
+            if (!renamedElsewhere) {
+              return next
+            }
+            const { specs } = applyRecordChange(value, {
+              kind: 'record',
+              target: { kind: 'part', part_subject_id: partA },
+              operation: { op: 'set_name', value: renamedElsewhere },
+            })
+            return {
+              ...next,
+              parts: value.parts.map((item) =>
+                item.id === partA
+                  ? { ...item, choice: { mode: 'create', spec: specs.get(partA)! } }
+                  : item,
+              ),
+            } as CaptureSnapshotDto
           })
-          return {
-            ...next,
-            parts: value.parts.map((item) =>
-              item.id === partA
-                ? { ...item, choice: { mode: 'create', spec: specs.get(partA)! } }
-                : item,
-            ),
-          } as CaptureSnapshotDto
-        })
-        return true
-      }}
-    />
+          return true
+        }}
+      />
+    </BatchCommandsProvider>
   )
 }
 
@@ -1526,14 +1560,16 @@ describe('RecordsStage with saves that move the revision', () => {
 
   it('ignores an unknown record type in the route', async () => {
     render(
-      <RecordsStage
-        batch={batch}
-        client={{ read: vi.fn(async () => records) }}
-        edit={vi.fn()}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={vi.fn()}
-        initialType="bogus"
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{ read: vi.fn(async () => records) }}
+          onDirtyChange={vi.fn()}
+          initialType="bogus"
+        />
+      </BatchCommandsProvider>,
     )
     expect(await screen.findByRole('navigation', { name: 'Record types' })).toBeInTheDocument()
   })

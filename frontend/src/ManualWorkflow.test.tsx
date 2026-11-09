@@ -18,6 +18,8 @@ import {
 import type { ManualClient } from './manual/types'
 import { ManualWorkspace } from './components/review/ManualWorkspace'
 import { Added } from './components/changes/Added'
+import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
+import { batchCommands } from './test/batch-commands'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
@@ -357,11 +359,11 @@ test('a review confirmation survives the remount its new revision causes', async
   const props = {
     batch,
     client,
-    edit: vi.fn(async () => undefined),
     navigate: vi.fn(),
-    reload: vi.fn(async () => undefined),
   }
-  const view = render(<ManualWorkspace {...props} stage="review" />)
+  const view = render(<ManualWorkspace {...props} stage="review" />, {
+    commands: { edit: vi.fn(async () => undefined), reload: vi.fn(async () => undefined) },
+  })
   await user.click(await screen.findByRole('checkbox', { name: 'Select Packet A' }))
   await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
   expect(await screen.findByText('Marked 1 lot reviewed')).toBeVisible()
@@ -377,11 +379,11 @@ test('manual review and approval keep exact A-only scope, scalar text and server
   const props = {
     batch,
     client,
-    edit: vi.fn(async () => undefined),
     navigate,
-    reload: vi.fn(async () => undefined),
   }
-  const view = render(<ManualWorkspace {...props} stage="review" />)
+  const view = render(<ManualWorkspace {...props} stage="review" />, {
+    commands: { edit: vi.fn(async () => undefined), reload: vi.fn(async () => undefined) },
+  })
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
   await user.click(screen.getByRole('button', { name: 'Show Packet A' }))
@@ -429,14 +431,9 @@ test('changed capture never silently reviews unseen values; explicit reload is r
   const reload = vi.fn(async () => undefined)
   const user = userEvent.setup()
   render(
-    <ManualWorkspace
-      batch={batch}
-      client={client}
-      stage="review"
-      edit={vi.fn(async () => undefined)}
-      navigate={vi.fn()}
-      reload={reload}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(async () => undefined), reload })}>
+      <ManualWorkspace batch={batch} client={client} stage="review" navigate={vi.fn()} />
+    </BatchCommandsProvider>,
   )
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
@@ -514,12 +511,12 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   const props = {
     batch,
     client,
-    edit: vi.fn(async () => undefined),
     navigate,
-    reload: vi.fn(async () => undefined),
   }
   const user = userEvent.setup()
-  const view = render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
+  const view = render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />, {
+    commands: { edit: vi.fn(async () => undefined), reload: vi.fn(async () => undefined) },
+  })
   await screen.findByText('Packet A · 0.000001')
   preparations = [later, preview]
   await waitFor(
@@ -570,14 +567,14 @@ test(
     vi.mocked(client.workspace).mockClear()
     const user = userEvent.setup()
     render(
-      <ManualWorkspace
-        batch={batch}
-        client={client}
-        stage="review"
-        edit={vi.fn(async () => undefined)}
-        navigate={vi.fn()}
-        reload={vi.fn(async () => undefined)}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({
+          edit: vi.fn(async () => undefined),
+          reload: vi.fn(async () => undefined),
+        })}
+      >
+        <ManualWorkspace batch={batch} client={client} stage="review" navigate={vi.fn()} />
+      </BatchCommandsProvider>,
     )
     await screen.findByRole('checkbox', { name: 'Select Packet A' })
     await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
@@ -630,15 +627,20 @@ test.each([
   )
   const navigate = vi.fn()
   render(
-    <ManualWorkspace
-      batch={batch}
-      client={client}
-      edit={vi.fn(async () => undefined)}
-      navigate={navigate}
-      reload={vi.fn(async () => undefined)}
-      stage="approve"
-      rememberedPreparationId={prep}
-    />,
+    <BatchCommandsProvider
+      value={batchCommands({
+        edit: vi.fn(async () => undefined),
+        reload: vi.fn(async () => undefined),
+      })}
+    >
+      <ManualWorkspace
+        batch={batch}
+        client={client}
+        navigate={navigate}
+        stage="approve"
+        rememberedPreparationId={prep}
+      />
+    </BatchCommandsProvider>,
   )
 
   await waitFor(() =>
@@ -671,15 +673,20 @@ test('bare Ready to add waits for a fresh read before trusting a cached preparat
   const navigate = vi.fn()
   render(
     <ServerStateProvider scope={fixtureScope} client={cache}>
-      <ManualWorkspace
-        batch={batch}
-        client={client}
-        edit={vi.fn(async () => undefined)}
-        navigate={navigate}
-        reload={vi.fn(async () => undefined)}
-        stage="approve"
-        rememberedPreparationId={prep}
-      />
+      <BatchCommandsProvider
+        value={batchCommands({
+          edit: vi.fn(async () => undefined),
+          reload: vi.fn(async () => undefined),
+        })}
+      >
+        <ManualWorkspace
+          batch={batch}
+          client={client}
+          navigate={navigate}
+          stage="approve"
+          rememberedPreparationId={prep}
+        />
+      </BatchCommandsProvider>
     </ServerStateProvider>,
   )
 
@@ -718,15 +725,20 @@ test('a failed first read does not let a cached preparation be chosen', async ()
   const navigate = vi.fn()
   render(
     <ServerStateProvider scope={fixtureScope} client={cache}>
-      <ManualWorkspace
-        batch={batch}
-        client={client}
-        edit={vi.fn(async () => undefined)}
-        navigate={navigate}
-        reload={vi.fn(async () => undefined)}
-        stage="approve"
-        rememberedPreparationId={prep}
-      />
+      <BatchCommandsProvider
+        value={batchCommands({
+          edit: vi.fn(async () => undefined),
+          reload: vi.fn(async () => undefined),
+        })}
+      >
+        <ManualWorkspace
+          batch={batch}
+          client={client}
+          navigate={navigate}
+          stage="approve"
+          rememberedPreparationId={prep}
+        />
+      </BatchCommandsProvider>
     </ServerStateProvider>,
   )
 
@@ -760,14 +772,14 @@ test('a paused offline read retains cached review but cannot authorize a command
   }
 
   render(
-    <ManualWorkspace
-      batch={batch}
-      client={client}
-      stage="review"
-      edit={vi.fn(async () => undefined)}
-      navigate={vi.fn()}
-      reload={vi.fn(async () => undefined)}
-    />,
+    <BatchCommandsProvider
+      value={batchCommands({
+        edit: vi.fn(async () => undefined),
+        reload: vi.fn(async () => undefined),
+      })}
+    >
+      <ManualWorkspace batch={batch} client={client} stage="review" navigate={vi.fn()} />
+    </BatchCommandsProvider>,
     { wrapper: Wrapper },
   )
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
@@ -807,14 +819,14 @@ test('a failed status refresh does not relabel a confirmed review command as unc
   })
   const user = userEvent.setup()
   render(
-    <ManualWorkspace
-      batch={batch}
-      client={client}
-      stage="review"
-      edit={vi.fn(async () => undefined)}
-      navigate={vi.fn()}
-      reload={vi.fn(async () => undefined)}
-    />,
+    <BatchCommandsProvider
+      value={batchCommands({
+        edit: vi.fn(async () => undefined),
+        reload: vi.fn(async () => undefined),
+      })}
+    >
+      <ManualWorkspace batch={batch} client={client} stage="review" navigate={vi.fn()} />
+    </BatchCommandsProvider>,
   )
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
@@ -848,15 +860,20 @@ test('a cached preparation remains visible but cannot be approved before the mou
   }
 
   render(
-    <ManualWorkspace
-      batch={batch}
-      client={client}
-      stage="approve"
-      preparationId={prep}
-      edit={vi.fn(async () => undefined)}
-      navigate={vi.fn()}
-      reload={vi.fn(async () => undefined)}
-    />,
+    <BatchCommandsProvider
+      value={batchCommands({
+        edit: vi.fn(async () => undefined),
+        reload: vi.fn(async () => undefined),
+      })}
+    >
+      <ManualWorkspace
+        batch={batch}
+        client={client}
+        stage="approve"
+        preparationId={prep}
+        navigate={vi.fn()}
+      />
+    </BatchCommandsProvider>,
     { wrapper: Wrapper },
   )
   await screen.findByText('Packet A · 0.000001')

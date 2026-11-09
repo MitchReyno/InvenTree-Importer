@@ -8,6 +8,8 @@ import { useDirtySources } from '#/operator/useDirtySources'
 import { render } from '#/test/render'
 import { ReviewSubjectEditor } from './ReviewSubjectEditor'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const lotId = '30000000-0000-4000-8000-000000000003'
 const evidenceId = '60000000-0000-4000-8000-000000000006'
@@ -73,20 +75,20 @@ function Harness({ client, reload }: { client: MediaClient; reload: () => Promis
   const drafts = useDirtySources()
   return open ? (
     <ApiClientsProvider value={{ media: client }}>
-      <ReviewSubjectEditor
-        batch={batch}
-        subjectId={lotId}
-        subjectDisabled={drafts.hasOtherSources('subject')}
-        attachmentDisabled={drafts.hasOtherSources('attachment')}
-        dirty={drafts.dirty}
-        edit={vi.fn(async () => true)}
-        observe={vi.fn(async () => null)}
-        onDirtyChange={drafts.forSource('subject')}
-        onAttachmentDirtyChange={drafts.forSource('attachment')}
-        reload={reload}
-        onClose={() => setOpen(false)}
-        retainRoute={vi.fn()}
-      />
+      <BatchCommandsProvider value={batchCommands({ observe: vi.fn(async () => null), reload })}>
+        <ReviewSubjectEditor
+          batch={batch}
+          subjectId={lotId}
+          subjectDisabled={drafts.hasOtherSources('subject')}
+          attachmentDisabled={drafts.hasOtherSources('attachment')}
+          dirty={drafts.dirty}
+          edit={vi.fn(async () => true)}
+          onDirtyChange={drafts.forSource('subject')}
+          onAttachmentDirtyChange={drafts.forSource('attachment')}
+          onClose={() => setOpen(false)}
+          retainRoute={vi.fn()}
+        />
+      </BatchCommandsProvider>
     </ApiClientsProvider>
   ) : (
     <p>Editor closed</p>

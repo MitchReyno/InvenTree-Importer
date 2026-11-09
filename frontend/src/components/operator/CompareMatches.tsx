@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
-import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Paragraph, Small, Button, Dialog, localTime } from '#/components/ui'
 import { OptionRow } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import type { CaptureEdit } from '#/capture/types'
 
 type Part = CaptureSnapshotDto['parts'][number]
 type Observation = CaptureSnapshotDto['observations'][number]
@@ -15,7 +16,7 @@ interface Props {
   /** Active lots sharing this Part proposal, including the focused lot. */
   affectedLotIds: string[]
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit: CaptureEdit
   onClose: () => void
   onDirtyChange?: (dirty: boolean) => void
   /** Opens the shared Part editor in Review, where existing Parts are read. */

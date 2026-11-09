@@ -8,6 +8,8 @@ import type { MediaClient } from '#/media/types'
 import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
 import { Main, PageContent } from '#/components/AppLayout'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const actor = '30000000-0000-4000-8000-000000000003'
 const batch: CaptureSnapshotDto = {
@@ -170,13 +172,11 @@ export function GroupedCaptureProof() {
             />
           ) : (
             <ApiClientsProvider value={{ media }}>
-              <CaptureWorkspace
-                batch={batch}
-                busy={false}
-                observe={async () => null}
-                edit={async () => undefined}
-                onDirtyChange={setDirty}
-              />
+              <BatchCommandsProvider
+                value={batchCommands({ edit: async () => undefined, observe: async () => null })}
+              >
+                <CaptureWorkspace batch={batch} busy={false} onDirtyChange={setDirty} />
+              </BatchCommandsProvider>
             </ApiClientsProvider>
           )}
         </Main>

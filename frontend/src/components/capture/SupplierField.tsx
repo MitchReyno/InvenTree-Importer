@@ -6,12 +6,13 @@ import type {
   CaptureReferenceDraftDto,
   CaptureSettingsIntentDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import { referenceLabel } from '#/capture/settings-model'
 import { useIntentTicket } from '#/capture/useIntentTicket'
 import type { useCatalogue } from '#/catalogue/useCatalogue'
 import { DisabledFeature, Small, Subheading } from '#/components/ui'
 import { SearchableReferencePicker, CheckboxLabel, Field, Input, Label } from '#/forms'
+import type { CaptureObserve } from '#/capture/types'
 
 type Supplier = CaptureSettingsIntentDto['supplier']
 type CompanyDraft = Extract<CaptureReferenceDraftDto, { kind: 'company' }>
@@ -26,7 +27,7 @@ type Props = {
   /** Reads drafts at apply time, so a late result never replaces drafts made meanwhile. */
   currentDrafts: () => CaptureReferenceDraftDto[]
   catalogue: Catalogue
-  observe: CaptureWorkspaceProps['observe']
+  observe: CaptureObserve
   disabled: boolean
   logo: LogoUpload
   onUploadLogo?: (file: File, draftId: string) => void

@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import type { CaptureLotContextDto } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import { Small, Button } from '#/components/ui'
 import { Field, Input, Label, Select, TextArea } from '#/forms'
+import type { CaptureObserve } from '#/capture/types'
 
 type Props = {
   value: CaptureLotContextDto
   defaults: boolean
   batch: Snapshot
   onChange: (value: CaptureLotContextDto) => void
-  observe: CaptureWorkspaceProps['observe']
+  observe: CaptureObserve
 }
 
 type Mode = 'inherit' | 'unset' | 'unknown' | 'clear'

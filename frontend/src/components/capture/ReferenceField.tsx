@@ -2,7 +2,8 @@ import { Small, Button } from '#/components/ui'
 import { Field, Input, Label, Select } from '#/forms'
 import { useState } from 'react'
 import type { CaptureObservationDto } from '@invimport/contracts'
-import type { Snapshot, CaptureWorkspaceProps, Reference } from '#/capture/types'
+import type { Snapshot, Reference } from '#/capture/types'
+import type { CaptureObserve } from '#/capture/types'
 type ReferenceFieldProps = {
   title: string
   model: 'part' | 'location'
@@ -10,7 +11,7 @@ type ReferenceFieldProps = {
   defaults: boolean
   batch: Snapshot
   onChange: (value: Reference) => void
-  observe: CaptureWorkspaceProps['observe']
+  observe: CaptureObserve
 }
 
 export function ReferenceField({

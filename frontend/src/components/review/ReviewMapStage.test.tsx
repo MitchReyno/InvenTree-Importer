@@ -7,6 +7,8 @@ import type { MediaClient } from '#/media/types'
 import type { ProcessingClient } from '#/processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const lot = (id: string, label: string) => ({ id, label, part_subject_id: null })
 
@@ -60,13 +62,14 @@ describe('ReviewMapStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ media: client, processing }}>
-        <ReviewMapStage
-          batch={batch}
-          edit={vi.fn(async () => true)}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({
+            edit: vi.fn(async () => true),
+            reload: vi.fn(async () => undefined),
+          })}
+        >
+          <ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     const field = await screen.findByLabelText('Instruction for Examine')
@@ -90,13 +93,14 @@ describe('ReviewMapStage', () => {
     } as unknown as ProcessingClient
     render(
       <ApiClientsProvider value={{ media: media(), processing }}>
-        <ReviewMapStage
-          batch={batch}
-          edit={vi.fn(async () => true)}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({
+            edit: vi.fn(async () => true),
+            reload: vi.fn(async () => undefined),
+          })}
+        >
+          <ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     const lots = await screen.findByRole('region', { name: 'Lots' })
@@ -111,13 +115,14 @@ describe('ReviewMapStage', () => {
     const client = media()
     render(
       <ApiClientsProvider value={{ media: client }}>
-        <ReviewMapStage
-          batch={batch}
-          edit={vi.fn(async () => true)}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({
+            edit: vi.fn(async () => true),
+            reload: vi.fn(async () => undefined),
+          })}
+        >
+          <ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     const stray = await screen.findByRole('listitem', { name: /Stray photo/ })
@@ -141,12 +146,13 @@ describe('ReviewMapStage', () => {
     const client = media()
     const edit = vi.fn(async () => true)
     const props = {
-      edit,
       retiredLotIds: new Set<string>(),
-      reload: vi.fn(async () => undefined),
       onDirtyChange: vi.fn(),
     }
-    const view = render(<ReviewMapStage batch={batch} {...props} />, { clients: { media: client } })
+    const view = render(<ReviewMapStage batch={batch} {...props} />, {
+      commands: { edit, reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
     await user.click(await screen.findByRole('button', { name: 'New lot from this: Stray photo' }))
 
     expect(edit).toHaveBeenCalledWith({
@@ -242,13 +248,11 @@ describe('ReviewMapStage', () => {
     const edit = vi.fn(async () => true)
     const view = render(
       <ApiClientsProvider value={{ media: versioned() }}>
-        <ReviewMapStage
-          batch={regioned}
-          edit={edit}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit, reload: vi.fn(async () => undefined) })}
+        >
+          <ReviewMapStage batch={regioned} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await user.selectOptions(await screen.findByLabelText('Move 1N4148 to'), 'b')
@@ -268,13 +272,11 @@ describe('ReviewMapStage', () => {
     } as CaptureSnapshotDto
     view.rerender(
       <ApiClientsProvider value={{ media: versioned() }}>
-        <ReviewMapStage
-          batch={moved}
-          edit={edit}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit, reload: vi.fn(async () => undefined) })}
+        >
+          <ReviewMapStage batch={moved} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     expect(screen.getByLabelText('Move 1N4148 to')).toHaveValue('')
@@ -299,12 +301,11 @@ describe('ReviewMapStage', () => {
       ],
     } as unknown as CaptureSnapshotDto
     const props = {
-      edit,
       retiredLotIds: new Set<string>(),
-      reload: vi.fn(async () => undefined),
       onDirtyChange: vi.fn(),
     }
     const view = render(<ReviewMapStage batch={twoViews} {...props} />, {
+      commands: { edit, reload: vi.fn(async () => undefined) },
       clients: { media: versioned() },
     })
     const packetA = await screen.findByRole('listitem', { name: 'Packet A' })
@@ -347,12 +348,11 @@ describe('ReviewMapStage', () => {
     const user = userEvent.setup()
     const edit = vi.fn(async () => true)
     const props = {
-      edit,
       retiredLotIds: new Set<string>(),
-      reload: vi.fn(async () => undefined),
       onDirtyChange: vi.fn(),
     }
     const view = render(<ReviewMapStage batch={regioned} {...props} />, {
+      commands: { edit, reload: vi.fn(async () => undefined) },
       clients: { media: versioned() },
     })
     await user.click(await screen.findByRole('button', { name: 'New lot from region: 1N4148' }))
@@ -383,12 +383,11 @@ describe('ReviewMapStage', () => {
     const user = userEvent.setup()
     const edit = vi.fn(async (change: { kind: string }) => change.kind !== 'observation_move')
     const props = {
-      edit,
       retiredLotIds: new Set<string>(),
-      reload: vi.fn(async () => undefined),
       onDirtyChange: vi.fn(),
     }
     const view = render(<ReviewMapStage batch={regioned} {...props} />, {
+      commands: { edit, reload: vi.fn(async () => undefined) },
       clients: { media: versioned() },
     })
     await user.click(await screen.findByRole('button', { name: 'New lot from region: 1N4148' }))
@@ -419,13 +418,11 @@ describe('ReviewMapStage', () => {
     const edit = vi.fn(async () => true)
     render(
       <ApiClientsProvider value={{ media: versioned() }}>
-        <ReviewMapStage
-          batch={regioned}
-          edit={edit}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit, reload: vi.fn(async () => undefined) })}
+        >
+          <ReviewMapStage batch={regioned} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
@@ -458,13 +455,15 @@ describe('ReviewMapStage', () => {
     const onDirtyChange = vi.fn()
     render(
       <ApiClientsProvider value={{ media: versioned() }}>
-        <ReviewMapStage
-          batch={regioned}
-          edit={edit}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={onDirtyChange}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit, reload: vi.fn(async () => undefined) })}
+        >
+          <ReviewMapStage
+            batch={regioned}
+            retiredLotIds={new Set()}
+            onDirtyChange={onDirtyChange}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
@@ -487,12 +486,11 @@ describe('ReviewMapStage', () => {
     const onDirtyChange = vi.fn()
     const props = {
       batch: regioned,
-      edit: vi.fn(async () => false),
       retiredLotIds: new Set<string>(),
-      reload: vi.fn(async () => undefined),
       onDirtyChange,
     }
     const view = render(<ReviewMapStage {...props} discarded={0} />, {
+      commands: { edit: vi.fn(async () => false), reload: vi.fn(async () => undefined) },
       clients: { media: versioned() },
     })
     await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
@@ -522,13 +520,14 @@ describe('ReviewMapStage', () => {
     } as unknown as CaptureSnapshotDto
     render(
       <ApiClientsProvider value={{ media: versioned() }}>
-        <ReviewMapStage
-          batch={twoPages}
-          edit={vi.fn(async () => true)}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({
+            edit: vi.fn(async () => true),
+            reload: vi.fn(async () => undefined),
+          })}
+        >
+          <ReviewMapStage batch={twoPages} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
@@ -542,13 +541,11 @@ describe('ReviewMapStage', () => {
     const edit = vi.fn(async () => true)
     render(
       <ApiClientsProvider value={{ media: versioned() }}>
-        <ReviewMapStage
-          batch={regioned}
-          edit={edit}
-          retiredLotIds={new Set()}
-          reload={vi.fn(async () => undefined)}
-          onDirtyChange={vi.fn()}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit, reload: vi.fn(async () => undefined) })}
+        >
+          <ReviewMapStage batch={regioned} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />
+        </BatchCommandsProvider>
       </ApiClientsProvider>,
     )
     await user.click(await screen.findByRole('button', { name: 'Show links for Front label' }))
@@ -575,12 +572,13 @@ describe('ReviewMapStage', () => {
     const user = userEvent.setup()
     const client = media()
     const props = {
-      edit: vi.fn(async () => false),
       retiredLotIds: new Set<string>(),
-      reload: vi.fn(async () => undefined),
       onDirtyChange: vi.fn(),
     }
-    const view = render(<ReviewMapStage batch={batch} {...props} />, { clients: { media: client } })
+    const view = render(<ReviewMapStage batch={batch} {...props} />, {
+      commands: { edit: vi.fn(async () => false), reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
     await user.click(await screen.findByRole('button', { name: 'New lot from this: Stray photo' }))
     view.rerender(
       <ReviewMapStage

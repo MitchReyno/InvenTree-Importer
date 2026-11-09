@@ -11,6 +11,8 @@ import type { CatalogueClient } from '#/catalogue/types'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { CaptureWorkspace } from '#/components/capture/CaptureWorkspace'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const scope = {
   origin: 'http://fixture.invalid',
@@ -162,13 +164,11 @@ export function CaptureSettingsProof() {
       <GlobalStyle />
       <Main>
         <p>Owned synthetic Capture fixture · in-memory saves, no inventory or provider requests.</p>
-        <CaptureWorkspace
-          batch={batch}
-          busy={false}
-          observe={observe as never}
-          edit={async () => true}
-          settings={ports}
-        />
+        <BatchCommandsProvider
+          value={batchCommands({ edit: async () => true, observe: observe as never })}
+        >
+          <CaptureWorkspace batch={batch} busy={false} settings={ports} />
+        </BatchCommandsProvider>
         <ol aria-label="Acknowledged fixture saves">
           {log.map((item) => (
             <li key={item}>{item}</li>

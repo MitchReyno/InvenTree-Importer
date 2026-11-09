@@ -6,12 +6,13 @@ import type {
   CaptureDefaultLocationSettingDto,
   CaptureReferenceDraftDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import { referenceLabel } from '#/capture/settings-model'
 import { useIntentTicket } from '#/capture/useIntentTicket'
 import type { useCatalogue } from '#/catalogue/useCatalogue'
 import { Small, Subheading, Button } from '#/components/ui'
 import { SearchableReferencePicker, Field, Input, Label } from '#/forms'
+import type { CaptureObserve } from '#/capture/types'
 
 type LocationDraft = Extract<CaptureReferenceDraftDto, { kind: 'location' }>
 type Catalogue = ReturnType<typeof useCatalogue>
@@ -23,7 +24,7 @@ type Props = {
   /** Reads drafts at apply time, so a late result never replaces drafts made meanwhile. */
   currentDrafts: () => CaptureReferenceDraftDto[]
   catalogue: Catalogue
-  observe: CaptureWorkspaceProps['observe']
+  observe: CaptureObserve
   disabled: boolean
   onChange: (value: CaptureDefaultLocationSettingDto, drafts: CaptureReferenceDraftDto[]) => void
   onTextEdit: () => void

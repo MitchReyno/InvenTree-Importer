@@ -1,4 +1,3 @@
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import { GroupLocationControl } from './GroupLocationControl'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type {
@@ -21,6 +20,7 @@ import { MediaTextEditor } from './MediaTextEditor'
 import { MediaNoteSummary } from './MediaNoteSummary'
 import { InstructionForm } from '#/components/operator/InstructionForm'
 import { useApiClients } from '#/clients/api-clients'
+import type { CaptureEdit } from '#/capture/types'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -44,7 +44,7 @@ type Props = {
   review?: OperatorReviewDto
   reload?: () => Promise<void>
   /** Capture command for the group's location assignment; absent where capture is read-only. */
-  captureEdit?: CaptureWorkspaceProps['edit']
+  captureEdit?: CaptureEdit
 }
 
 export function EvidenceGroupPanel({

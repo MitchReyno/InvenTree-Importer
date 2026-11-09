@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { Paragraph, Summary } from '#/components/ui'
-import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import { MediaWorkspace } from '#/components/media/MediaWorkspace'
@@ -9,12 +9,11 @@ import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type Props = {
   batch: Snapshot
   review?: OperatorReviewDto
-  reload?: () => Promise<void>
-  edit: CaptureWorkspaceProps['edit']
   frozen: boolean
   onMediaDirtyChange: (dirty: boolean) => void
   onNoteDirtyChange: (dirty: boolean) => void
@@ -29,13 +28,12 @@ export function EvidencePanel({
   batch,
   frozen,
   review,
-  reload,
-  edit,
   onMediaDirtyChange,
   onNoteDirtyChange,
   notesSlot,
   afterActions,
 }: Props) {
+  const { edit, reload } = useBatchCommands()
   const { media } = useApiClients()
   const [writing, setWriting] = useState(false)
   // Notes and media each advance the revision; one owner's save must not remount the other's draft.

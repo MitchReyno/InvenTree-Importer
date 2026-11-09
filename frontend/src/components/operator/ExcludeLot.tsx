@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { space } from '#/theme/generated/tokens'
 import { Button } from '#/components/ui'
 import { Input, Label } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import type { CaptureEdit } from '#/capture/types'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 
@@ -18,7 +19,7 @@ export function ExcludeForm({
 }: {
   lot: Lot
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit: CaptureEdit
   onDone: () => void
   onDirtyChange: (dirty: boolean) => void
 }) {

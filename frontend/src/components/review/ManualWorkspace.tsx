@@ -13,7 +13,6 @@ import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
-  CaptureEditDto,
   ManualPreviewDto,
   ManualRunDto,
   OperatorReviewDto,
@@ -28,11 +27,11 @@ import {
 } from '#/manual/types'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { ReviewWorkspace } from './ReviewWorkspace'
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
 import { Added } from '#/components/changes/Added'
 import { useTargetNavigation } from '#/header/useTargetNavigation'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -42,10 +41,7 @@ interface Props {
   preparationId?: string
   /** The preparation last shown in this batch, which bare Ready to add returns to. */
   rememberedPreparationId?: string | null
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
-  observe?: CaptureWorkspaceProps['observe']
   navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
-  reload: () => Promise<void>
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
   onDirtyChange?: (dirty: boolean) => void
@@ -79,13 +75,11 @@ export function ManualWorkspace({
   runId,
   preparationId,
   rememberedPreparationId,
-  edit,
-  observe,
   navigate,
-  reload,
   operatorReview,
   onDirtyChange,
 }: Props) {
+  const { reload } = useBatchCommands()
   const { media, processing } = useApiClients()
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
@@ -353,9 +347,6 @@ export function ManualWorkspace({
         reviewLots={reviewLots}
         answerQuestion={processing ? answerQuestion : undefined}
         prepare={prepare}
-        edit={edit}
-        reload={reload}
-        observe={observe}
         onDirtyChange={drafts.forSource('review')}
       />
     )

@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
 import { Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import type { CaptureEdit } from '#/capture/types'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Mode = 'inherit' | 'set' | 'unknown' | 'clear' | 'unset'
@@ -24,7 +25,7 @@ interface Props {
   batch: CaptureSnapshotDto
   lot: Lot
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit: CaptureEdit
   onDirtyChange?: (dirty: boolean) => void
 }
 

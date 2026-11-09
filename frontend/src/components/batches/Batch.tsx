@@ -39,6 +39,7 @@ import { RecordsStage } from '#/components/review/records/RecordsStage'
 import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
+import { BatchCommandsProvider } from './BatchCommandsProvider'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -448,8 +449,6 @@ export function Batch({
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
         sharperRequests={sharperRequests}
-        edit={edit}
-        reload={reloadForStage}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         attention={attentionCurrent}
@@ -478,8 +477,6 @@ export function Batch({
       <RecordsStage
         batch={batch}
         client={records}
-        edit={edit}
-        observe={observe}
         onDirtyChange={reportDirty}
         reload={reloadSavedValues}
         discarded={discarded}
@@ -492,12 +489,10 @@ export function Batch({
       <ReviewMapStage
         batch={batch}
         discarded={discarded}
-        edit={edit}
         retiredLotIds={retired}
         predecessors={predecessors}
         restructureUnavailable={operatorUnavailable}
         approvedLotIds={approvedLotIds(currentOperatorReview, acceptedOperatorReview)}
-        reload={reloadForStage}
         onDirtyChange={reportDirty}
       />
     )
@@ -518,11 +513,8 @@ export function Batch({
             ? batchRoute.preparationId
             : undefined
         }
-        edit={edit}
-        observe={observe}
         navigate={navigate}
         rememberedPreparationId={shownPreparation.current}
-        reload={reloadForStage}
         operatorReview={currentOperatorReview}
         onDirtyChange={reportDirty}
       />
@@ -533,14 +525,11 @@ export function Batch({
         key={`${batch.id}:${reset}`}
         batch={activeBatch}
         operatorReview={operatorReview}
-        reload={reloadForStage}
         busy={
           readOrCommandBusy ||
           readUnavailable ||
           (acceptedOperatorReview !== undefined && operatorUnavailable)
         }
-        edit={edit}
-        observe={observe}
         onDirtyChange={reportCaptureDirty}
         settings={settingsPorts}
       />
@@ -621,7 +610,9 @@ export function Batch({
             </Banner>
           </div>
         )}
-        {content}
+        <BatchCommandsProvider value={{ edit, observe, reload: reloadForStage }}>
+          {content}
+        </BatchCommandsProvider>
       </PageContent>
     </>
   )

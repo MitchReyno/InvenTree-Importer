@@ -1,12 +1,13 @@
 import Moveable from 'react-moveable'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { previewImage } from '#/media/images'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import { Button, Small } from '#/components/ui'
 import { Input, Label, Select } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import type { CaptureEdit } from '#/capture/types'
 
 type Evidence = MediaSnapshotDto['evidence'][number]
 type Box = { x: number; y: number; width: number; height: number }
@@ -18,7 +19,7 @@ type Props = {
   label: string
   observations: NonNullable<CaptureSnapshotDto['evidence_observations']>
   disabled: boolean
-  save: (change: CaptureEditDto['change']) => Promise<unknown>
+  save: CaptureEdit
   /** Reports an unsaved region draft to the navigation guard. */
   onDirtyChange?: (dirty: boolean) => void
 }

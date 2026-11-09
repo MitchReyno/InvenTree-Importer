@@ -1,10 +1,6 @@
-import {
-  tagKey,
-  type CaptureEditDto,
-  type CaptureSnapshotDto,
-  type ProcessingProposalDto,
-} from '@invimport/contracts'
+import { tagKey, type CaptureSnapshotDto, type ProcessingProposalDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
+import type { CaptureEdit } from '#/capture/types'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -18,7 +14,7 @@ interface Props {
   /** Only a finished attempt whose input is still current may be accepted; others are history. */
   current: boolean
   disabled: boolean
-  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit?: CaptureEdit
 }
 
 /** Uses the inventory adapter's duplicate policy, so only all-ASCII names fold case. */

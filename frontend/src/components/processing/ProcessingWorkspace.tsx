@@ -27,9 +27,10 @@ import { lotsFormed } from '#/processing/lots-formed'
 import { retainedJobsSource } from '#/processing/source'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { openQuestionsByLot } from '#/operator/review-model'
-import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
+import type { AgentSessionListDto, BatchAttentionDto } from '@invimport/contracts'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
 import { useApiClients } from '#/clients/api-clients'
+import type { CaptureEdit } from '#/capture/types'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -71,7 +72,7 @@ function onStep(stage: string, view: ProcessingView) {
 
 interface Props {
   /** The batch's capture edit, for Examine's reading and region corrections. */
-  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit?: CaptureEdit
   /** A job whose session drawer opens on arrival, from a session link. */
   sessionId?: string | null
   sharperRequests?: SharperRequestStore

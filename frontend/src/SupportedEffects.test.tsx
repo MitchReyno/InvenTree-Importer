@@ -6,6 +6,8 @@ import { CaptureEditor } from './components/capture/CaptureEditor'
 import { DecisionPanel } from './components/operator/DecisionPanel'
 import { EffectOutcome as SupportedEffectResult } from './components/changes/EffectOutcome'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
+import { batchCommands } from './test/batch-commands'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
@@ -43,15 +45,16 @@ test('human explicitly chooses one shared new Part with an observed category and
   const edit = vi.fn().mockResolvedValue(undefined)
   const onDirty = vi.fn()
   render(
-    <CaptureEditor
-      batch={batch}
-      selected={partId}
-      frozen={false}
-      dirty={true}
-      onDirty={onDirty}
-      edit={edit}
-      observe={vi.fn()}
-    />,
+    <BatchCommandsProvider value={batchCommands({ observe: vi.fn() })}>
+      <CaptureEditor
+        batch={batch}
+        selected={partId}
+        frozen={false}
+        dirty={true}
+        onDirty={onDirty}
+        edit={edit}
+      />
+    </BatchCommandsProvider>,
   )
   await user.selectOptions(screen.getByLabelText('Part action'), 'create')
   await user.type(screen.getByLabelText('New Part name'), 'Resistor Ω')
@@ -141,27 +144,27 @@ test('Review presents an explicit new shared Part without asking for an existing
     location: { mode: 'inherit' },
   }
   render(
-    <DecisionPanel
-      batch={{ ...batch, parts: [part], lots: [lot] }}
-      lot={lot}
-      part={part}
-      workspace={{
-        batch_id: batchId,
-        revision: batch.revision,
-        supported: true,
-        capability: 'owned-fake-stock/1',
-        lots: [{ lot_id: lot.id, reviewed: false, issues: [] }],
-        runs: [],
-        preparations: [],
-        preparations_truncated: false,
-        cursor: batch.cursor,
-      }}
-      activeLotIds={[lot.id]}
-      disabled={false}
-      edit={vi.fn()}
-      reload={vi.fn()}
-      inspect={vi.fn()}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), reload: vi.fn() })}>
+      <DecisionPanel
+        batch={{ ...batch, parts: [part], lots: [lot] }}
+        lot={lot}
+        part={part}
+        workspace={{
+          batch_id: batchId,
+          revision: batch.revision,
+          supported: true,
+          capability: 'owned-fake-stock/1',
+          lots: [{ lot_id: lot.id, reviewed: false, issues: [] }],
+          runs: [],
+          preparations: [],
+          preparations_truncated: false,
+          cursor: batch.cursor,
+        }}
+        activeLotIds={[lot.id]}
+        disabled={false}
+        inspect={vi.fn()}
+      />
+    </BatchCommandsProvider>,
   )
   expect(screen.getByText('New shared Part')).toBeVisible()
   expect(screen.getByText('Create shared Part: Resistor Ω')).toBeVisible()

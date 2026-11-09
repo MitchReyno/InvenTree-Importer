@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Button } from '#/components/ui'
 import { Label, Select } from '#/forms'
+import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -9,7 +10,7 @@ interface Props {
   /** The observation's current lot, if it is in a live one. */
   lotId: string | null
   name: string
-  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit?: CaptureEdit
   disabled: boolean
 }
 

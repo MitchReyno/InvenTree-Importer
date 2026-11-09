@@ -17,6 +17,8 @@ import type { Client } from './capture/client'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
+import { batchCommands } from './test/batch-commands'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -139,7 +141,9 @@ test('no-photo capture shows human provenance; the Review subject editor emits e
   const user = userEvent.setup()
   const edit = vi.fn(async () => undefined)
   render(
-    <CaptureWorkspace batch={fixture} busy={false} edit={edit} observe={vi.fn(async () => null)} />,
+    <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+      <CaptureWorkspace batch={fixture} busy={false} />
+    </BatchCommandsProvider>,
   )
   expect(screen.getByText('Human · Packet A')).toBeVisible()
   expect(screen.getByText('Original approx.20; human count differs.')).toBeVisible()
@@ -148,15 +152,16 @@ test('no-photo capture shows human provenance; the Review subject editor emits e
   function Editor() {
     const [dirty, setDirty] = useState(false)
     return (
-      <CaptureEditor
-        batch={fixture}
-        selected={lotId}
-        frozen={false}
-        dirty={dirty}
-        onDirty={setDirty}
-        edit={edit}
-        observe={vi.fn(async () => null)}
-      />
+      <BatchCommandsProvider value={batchCommands({ observe: vi.fn(async () => null) })}>
+        <CaptureEditor
+          batch={fixture}
+          selected={lotId}
+          frozen={false}
+          dirty={dirty}
+          onDirty={setDirty}
+          edit={edit}
+        />
+      </BatchCommandsProvider>
     )
   }
 
@@ -259,12 +264,9 @@ test('archive is read-only until explicit resume; no approval or write button is
   const user = userEvent.setup()
   const edit = vi.fn(async () => undefined)
   render(
-    <CaptureWorkspace
-      batch={{ ...fixture, archived: true }}
-      busy={false}
-      edit={edit}
-      observe={vi.fn(async () => null)}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit, observe: vi.fn(async () => null) })}>
+      <CaptureWorkspace batch={{ ...fixture, archived: true }} busy={false} />
+    </BatchCommandsProvider>,
   )
   expect(screen.getByText(/Archived, not deleted/).closest('[role="status"]')).not.toBeNull()
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
@@ -561,9 +563,10 @@ test('capture form reports input dirty synchronously and preserves exact draft a
     dirty: true,
     onDirty,
     edit,
-    observe: vi.fn(async () => null),
   }
-  const { rerender } = render(<CaptureEditor batch={fixture} {...props} />)
+  const { rerender } = render(<CaptureEditor batch={fixture} {...props} />, {
+    commands: { observe: vi.fn(async () => null) },
+  })
   const label = screen.getByRole('textbox', { name: 'Lot label' })
   fireEvent.change(label, { target: { value: 'My retained draft' } })
   expect(onDirty).toHaveBeenLastCalledWith(true)

@@ -2,13 +2,15 @@ import { useCallback, useRef } from 'react'
 import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { MediaEditDto } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { CaptureEditor } from '#/components/capture/CaptureEditor'
 import { SubjectAttachmentChoice } from '#/components/media/SubjectAttachmentChoice'
 import { Heading, HeadingRow, Panel, Small, Button } from '#/components/ui'
 import { useApiClients } from '#/clients/api-clients'
+import type { CaptureEdit } from '#/capture/types'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 export const ADD_LOT = 'add_lot'
 export const ADD_PART = 'add_part'
@@ -20,12 +22,9 @@ type Props = {
   subjectDisabled: boolean
   attachmentDisabled: boolean
   dirty: boolean
-  edit: CaptureWorkspaceProps['edit']
-  observe: CaptureWorkspaceProps['observe']
+  edit: CaptureEdit
   onDirtyChange: (dirty: boolean) => void
   onAttachmentDirtyChange: (dirty: boolean) => void
-  /** Reloads saved values after a confirmed attachment change advances the revision. */
-  reload: () => Promise<void>
   onClose: () => void
   /** Keeps the subject in the URL while the editor is open; cleared while a save is in flight. */
   retainRoute: (retain: boolean) => void
@@ -39,13 +38,12 @@ export function ReviewSubjectEditor({
   attachmentDisabled,
   dirty,
   edit,
-  observe,
   onDirtyChange,
   onAttachmentDirtyChange,
-  reload,
   onClose,
   retainRoute,
 }: Props) {
+  const { reload } = useBatchCommands()
   const { media } = useApiClients()
   const lot = batch.lots.find((item) => item.id === subjectId)
   const part = batch.parts.find((item) => item.id === subjectId)
@@ -59,7 +57,7 @@ export function ReviewSubjectEditor({
   }
 
   // A successful save remounts Review at the new revision, which must not reopen this editor.
-  const save = useCallback<CaptureWorkspaceProps['edit']>(
+  const save = useCallback<CaptureEdit>(
     async (change) => {
       retainRoute(false)
       const saved = await edit(change)
@@ -97,7 +95,6 @@ export function ReviewSubjectEditor({
         dirty={dirty}
         onDirty={onDirtyChange}
         edit={save}
-        observe={observe}
       />
       {media && (lot || part) && (
         <ReviewAttachment

@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import type { CaptureWorkspaceProps } from '#/capture/types'
+import type { CaptureObserve } from '#/capture/types'
 import type { InventoryModelDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
 import { Input, Label, Select } from '#/forms'
 
-export function MappingReader({ observe }: Pick<CaptureWorkspaceProps, 'observe'>) {
+export function MappingReader({ observe }: { observe: CaptureObserve }) {
   const [model, setModel] = useState<InventoryModelDto>('category')
   const [pk, setPk] = useState('')
   return (

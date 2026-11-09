@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type {
-  CaptureEditDto,
   CaptureSnapshotDto,
   MediaSnapshotDto,
   ProcessingSnapshotDto,
@@ -26,6 +25,7 @@ import { Label, TextArea } from '#/forms'
 import { RegionStage } from '#/components/review/RegionStage'
 import { Card, CardTitle, Muted, plural } from './ProcessingParts'
 import { ProcessingSources } from './ProcessingSources'
+import type { CaptureEdit } from '#/capture/types'
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 type Job = ProcessingSnapshotDto['jobs'][number]
@@ -75,7 +75,7 @@ function ReadingEdit({
   onDirty,
 }: {
   observation: Observation
-  save: (change: CaptureEditDto['change']) => Promise<unknown>
+  save: CaptureEdit
   /** Another correction is unsaved, so this one waits. */
   locked: boolean
   onDirty: (dirty: boolean) => void
@@ -224,7 +224,7 @@ export function ExamineView({
   /** Lots with an open question, which read "Question" rather than "Stable". */
   questionedLots?: ReadonlySet<string>
   /** Corrects a reading or region through the capture edit `kind: 'observation'`. */
-  edit?: (change: CaptureEditDto['change']) => Promise<unknown>
+  edit?: CaptureEdit
   /** Asks the Examine lead session, through its chat, for a sharper photo of the named file. */
   askSharper?: (name: string, key: string) => Promise<void>
   /** Reports an unsaved correction to the navigation guard. */
