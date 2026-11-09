@@ -65,11 +65,12 @@ function photoNames(media: MediaSnapshotDto | undefined) {
   return names
 }
 
-/**
- * What the Examine lead session found: every region it read in each photo with the lot it
- * belongs to, then each lot with its observations, candidates and quantity basis.
- */
-/** A reading's markings, edited as a comma-separated list. */
+/** The form a reading is saved in: trimmed, without empty markings. */
+function savedForm(markings: string[], text: string) {
+  return { markings: markings.map((marking) => marking.trim()).filter(Boolean), text: text.trim() }
+}
+
+/** A reading's markings and text, one field per marking. */
 function ReadingEdit({
   observation,
   save,
@@ -107,14 +108,20 @@ function ReadingEdit({
       ? confirmed
       : { markings: readings.markings, text: readings.text ?? '' }
 
-  const differs = (nextMarkings: string[], nextText: string) =>
-    nextText !== baseline.text ||
-    nextMarkings.length !== baseline.markings.length ||
-    nextMarkings.some((marking, index) => marking !== baseline.markings[index])
+  // Compares what Save would send, so spacing or an empty marking is not an unsaved change.
+  const differs = (nextMarkings: string[], nextText: string) => {
+    const next = savedForm(nextMarkings, nextText)
+    return (
+      next.text !== baseline.text ||
+      next.markings.length !== baseline.markings.length ||
+      next.markings.some((marking, index) => marking !== baseline.markings[index])
+    )
+  }
 
   const dirty = differs(markings, text)
   useReportDirty(dirty, onDirty)
-  // Polled readings can make the draft clean or dirty with no event here.
+  // Readings passed in by the parent can make the draft clean or dirty with no event here.
+  // Processing currently remounts on each revision, so this covers the component's contract.
   useEffect(() => {
     onDirty(dirty)
   }, [dirty, onDirty])
@@ -136,8 +143,7 @@ function ReadingEdit({
       onSubmit={(event) => {
         event.preventDefault()
         setSaving(true)
-        const kept = text.trim()
-        const saved = markings.map((marking) => marking.trim()).filter(Boolean)
+        const { markings: saved, text: kept } = savedForm(markings, text)
         void save({
           kind: 'observation',
           observation_id: observation.id,
@@ -253,6 +259,10 @@ export function createSharperRequestStore() {
 
 export type SharperRequestStore = ReturnType<typeof createSharperRequestStore>
 
+/**
+ * What the Examine lead session found: every region it read in each photo with the lot it
+ * belongs to, then each lot with its observations, candidates and quantity basis.
+ */
 export function ExamineView({
   batch,
   lead,
