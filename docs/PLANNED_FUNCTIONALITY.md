@@ -94,6 +94,16 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 - Prerequisites: A tool-lockdown spike (not started) and BI-006's session protocol and tool server (Done).
 - OpenSpec: None — no change is registered.
 
+#### BI-015 — Design refresh backend follow-ups
+
+Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates, and reading existing manufacturer part, supplier part and location type descriptions. The rest is the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
+
+- Change: `complete-design-refresh-backend`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first; not yet satisfied (BI-014 is Planned).
+- OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
+
 ## Fixes
 
 ### High
@@ -109,6 +119,18 @@ BI-006's live qualification (#118) found that a native Codex session is not conf
 - OpenSpec: [harden-native-agent-sessions](../openspec/changes/harden-native-agent-sessions/)
 
 ## Improvements
+
+### High
+
+#### BI-014 — Design refresh
+
+Carry the refined design and design system into the app: a calmer masthead and batch header (one attention count, tabs on their own row under the title, server menu holding Open InvenTree, Settings gear), short source chips with details in a popover, help buttons instead of helper text, a purple AI mark at agent touchpoints, and InvenTree descriptions where the app can show them. It adds a Settings page, a Processing › Inventory step page, Review › Records · Locations, and a slim phone header that condenses on scroll. Capture uploads start as soon as files are picked, and evidence can be deleted with undo. Controls that need new backend work ship disabled and are tracked as BI-015.
+
+- Change: `apply-design-refresh`
+- Status: Planned
+- Size: XL — every batch screen, the header, a new Settings page and one append-only removal backend, in seven PRs (PR-A to PR-G).
+- Prerequisites: BI-008 (`redesign-batch-workspace`) is Done and archived.
+- OpenSpec: [apply-design-refresh](../openspec/changes/apply-design-refresh/)
 
 ### Normal
 
