@@ -11,7 +11,7 @@ import {
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { authorizeLive } from '../api/server.ts'
-import type { DevConfig } from '../config.ts'
+import { bootstrap, type DevConfig } from '../config.ts'
 import { liveProjection } from './projection.ts'
 import { sendLiveFrame } from './frames.ts'
 
@@ -22,6 +22,7 @@ const MAX_LIFETIME_MS = 5 * 60 * 1000
 
 /** Explicit web-only projection service. No worker, inventory transport or mutation closure. */
 export function registerLive(app: FastifyInstance, pool: Pool, config: DevConfig) {
+  const configured = bootstrap(config).status === 'configured'
   const sockets = new Set<WebSocket>()
   app.register(async (scope) => {
     await scope.register(websocket, { options: { maxPayload: 16384, perMessageDeflate: false } })
@@ -32,8 +33,7 @@ export function registerLive(app: FastifyInstance, pool: Pool, config: DevConfig
         preValidation: async (request, reply) => {
           if (
             request.headers.origin !== config.origin ||
-            !config.apiKey?.trim() ||
-            config.credentialRef === 'unconfigured' ||
+            !configured ||
             sockets.size >= MAX_CONNECTIONS
           ) {
             return reply.code(403).send({

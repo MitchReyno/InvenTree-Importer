@@ -25,7 +25,12 @@ import { registerRecords } from './records/routes.ts'
 import { recordsReader } from './records/reader.ts'
 import { existingValuesReader } from './records/existing.ts'
 import { requireCurrentTargetContext } from './capture/target-context.ts'
-import { inventoryTransport } from './inventory/transport.ts'
+import {
+  inventoryTransport,
+  type ListOperation,
+  type ReadOperation,
+  type TargetBinding,
+} from './inventory/transport.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -57,6 +62,24 @@ function startupFailureCode(error: unknown) {
   return error instanceof Error && safe.includes(error.message)
     ? error.message
     : 'web_startup_refused'
+}
+
+/** Fixes this process's target on the read-only transport. Callers receive closures, not the transport. */
+function bindReadOnlyTarget(
+  transport: ReturnType<typeof inventoryTransport>,
+  binding: TargetBinding,
+) {
+  return {
+    read: (operation: ReadOperation) => transport.read(binding, operation),
+    list: (operation: ListOperation, timeoutMs: number) =>
+      transport.list(binding, operation, timeoutMs),
+    probe: () => transport.probe(binding),
+    attachments: {
+      metadata: (pk: string) => transport.readPartAttachmentMetadata(binding, pk),
+      file: (input: { pk: string; partPk: string; path: string }) =>
+        transport.readPartAttachmentFile(binding, input),
+    },
+  }
 }
 
 async function main() {
@@ -94,44 +117,36 @@ async function main() {
               credential: config.apiKey,
             })
           : undefined
-      const read = transport
-        ? captureRead((op) =>
-            transport.read({ targetId: config.targetId, contextId: config.targetContextId }, op),
-          )
+      const targetReads = transport
+        ? bindReadOnlyTarget(transport, {
+            targetId: config.targetId,
+            contextId: config.targetContextId,
+          })
         : undefined
-      const targetBinding = { targetId: config.targetId, contextId: config.targetContextId }
-      const catalogue = transport
+      const read = targetReads ? captureRead(targetReads.read) : undefined
+      const catalogue = targetReads
         ? catalogueReader({
-            list: (operation, timeoutMs) => transport.list(targetBinding, operation, timeoutMs),
-            read: (operation) => transport.read(targetBinding, operation),
+            list: targetReads.list,
+            read: targetReads.read,
             targetContextId: config.targetContextId,
           })
         : undefined
       await registerCapture(server, db.pool, config, read, catalogue)
       const processing = processingConfig(config, process.env)
-      registerProcessing(server, db.pool, processing, lockCaptureForEdit)
-      registerAgents(server, db.pool, processing)
-      const headerPool = db.pool
-      const headerConfig = {
-        ...config,
-        ...processing,
+      const runtime = {
         deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
         readOrigin: process.env.INTAKE_READ_ORIGIN,
         mediaEnabled: mediaStore !== undefined,
       }
+      const manualConfig = { ...config, ...runtime }
+      const headerConfig = { ...manualConfig, ...processing }
+      registerProcessing(server, db.pool, processing, lockCaptureForEdit)
+      registerAgents(server, db.pool, processing)
       registerHeader(
         server,
         config,
-        scopedConnectionStatus(
-          headerPool,
-          config,
-          process.env.INTAKE_READ_ORIGIN,
-          transport
-            ? () =>
-                transport.probe({ targetId: config.targetId, contextId: config.targetContextId })
-            : undefined,
-        ),
-        (batchId) => headerWork(headerPool, headerConfig, batchId),
+        scopedConnectionStatus(db.pool, config, runtime.readOrigin, targetReads?.probe),
+        (batchId) => headerWork(db.pool, headerConfig, batchId),
       )
       if (mediaStore) {
         // Region crops are cached privately beside, never inside, the blob store.
@@ -143,18 +158,12 @@ async function main() {
           `${process.env.INTAKE_BLOB_ROOT!.replace(/\/+$/, '')}-region-crops`,
         )
       }
-      const manualConfig = {
-        ...config,
-        mediaEnabled: mediaStore !== undefined,
-        deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
-        readOrigin: process.env.INTAKE_READ_ORIGIN,
-      }
       const readRecords = recordsReader(
         db.pool,
         config,
         processing,
         lockCaptureForEdit,
-        mediaStore !== undefined,
+        runtime.mediaEnabled,
       )
       registerAttention(
         server,
@@ -165,37 +174,15 @@ async function main() {
         server,
         config,
         readRecords,
-        transport
-          ? {
-              read: existingValuesReader({
-                targetContextId: config.targetContextId,
-                read: (operation) => transport.read(targetBinding, operation),
-              }),
-              fence: () => requireCurrentTargetContext(db.pool, config),
-            }
-          : undefined,
+        targetReads && {
+          read: existingValuesReader({
+            targetContextId: config.targetContextId,
+            read: targetReads.read,
+          }),
+          fence: () => requireCurrentTargetContext(db.pool, config),
+        },
       )
-      registerManual(
-        server,
-        db.pool,
-        manualConfig,
-        read,
-        transport
-          ? {
-              metadata: (pk) =>
-                transport.readPartAttachmentMetadata(
-                  { targetId: config.targetId, contextId: config.targetContextId },
-                  pk,
-                ),
-              file: (input) =>
-                transport.readPartAttachmentFile(
-                  { targetId: config.targetId, contextId: config.targetContextId },
-                  input,
-                ),
-            }
-          : undefined,
-        processing,
-      )
+      registerManual(server, db.pool, manualConfig, read, targetReads?.attachments, processing)
     }
     const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
     if (existsSync(assets)) {

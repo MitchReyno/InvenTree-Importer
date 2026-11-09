@@ -5,10 +5,10 @@ import {
   type HeaderWorkDto,
   type HeaderWorkQueryDto,
 } from '@invimport/contracts'
+import { readModelError } from '../api/errors.ts'
 import { bootstrap, type DevConfig } from '../config.ts'
 import { connectionStatus } from './connection.ts'
-import { CaptureError, fail } from '../capture/repository.ts'
-import { ProcessingError } from '../processing/model.ts'
+import { fail } from '../capture/repository.ts'
 
 export function registerHeader(
   app: FastifyInstance,
@@ -19,17 +19,7 @@ export function registerHeader(
   const configured = bootstrap(config).status === 'configured'
   const unconfigured = connectionStatus(config, undefined)
   app.register(async (scope) => {
-    scope.setErrorHandler((error, request, reply) => {
-      if (!(error instanceof CaptureError) && !(error instanceof ProcessingError)) {
-        throw error
-      }
-      reply.code(error.statusCode).send({
-        code: error.code,
-        message: 'Header observation is unavailable.',
-        recovery: 'none',
-        correlation_id: request.id,
-      })
-    })
+    scope.setErrorHandler(readModelError('Header observation is unavailable.'))
     scope.get(
       '/api/v1/connection-status',
       { schema: { response: { 200: schemas.ConnectionStatus } } },

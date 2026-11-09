@@ -1,24 +1,14 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import {
-  Id,
   schemas,
   type BatchRecordDto,
   type BatchRecordsDto,
   type RecordExistingValuesDto,
 } from '@invimport/contracts'
+import { readModelError } from '../api/errors.ts'
+import { pathId } from '../api/request.ts'
 import { bootstrap, type DevConfig } from '../config.ts'
-import { CaptureError, fail } from '../capture/repository.ts'
-import { ProcessingError } from '../processing/model.ts'
-
-const ID_PATTERN = new RegExp(Id.pattern!)
-
-function batchId(request: FastifyRequest) {
-  const id = (request.params as { id: string }).id
-  if (!ID_PATTERN.test(id)) {
-    fail('invalid_id', 400)
-  }
-  return id
-}
+import { fail } from '../capture/repository.ts'
 
 /** A read model only: edits go through the capture edit route. */
 export function registerRecords(
@@ -34,22 +24,12 @@ export function registerRecords(
 ) {
   const configured = bootstrap(config).status === 'configured'
   app.register(async (scope) => {
-    scope.setErrorHandler((error, request, reply) => {
-      if (!(error instanceof CaptureError) && !(error instanceof ProcessingError)) {
-        throw error
-      }
-      reply.code(error.statusCode).send({
-        code: error.code,
-        message: 'Batch records are unavailable.',
-        recovery: 'none',
-        correlation_id: request.id,
-      })
-    })
+    scope.setErrorHandler(readModelError('Batch records are unavailable.'))
     scope.get(
       '/api/v1/batches/:id/records',
       { schema: { response: { 200: schemas.BatchRecords } } },
       (request) => {
-        const id = batchId(request)
+        const id = pathId(request)
         if (!configured) {
           fail('setup_required', 503)
         }
@@ -61,7 +41,7 @@ export function registerRecords(
       '/api/v1/batches/:id/records/existing',
       { schema: { response: { 200: schemas.RecordExistingValues } } },
       async (request) => {
-        const id = batchId(request)
+        const id = pathId(request)
         if (!configured) {
           fail('setup_required', 503)
         }

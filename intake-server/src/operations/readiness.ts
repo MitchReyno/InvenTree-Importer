@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
 import { schemas } from '@invimport/contracts'
-import type { DevConfig } from '../config.ts'
+import { bootstrap, type DevConfig } from '../config.ts'
 import { compatibleSchema } from './compatibility.ts'
 
 export function registerReadiness(
@@ -10,13 +10,14 @@ export function registerReadiness(
   config: DevConfig,
   media: boolean,
 ) {
+  const configured = bootstrap(config).status === 'configured'
   app.get(
     '/api/v1/readiness',
     { schema: { response: { 200: schemas.Readiness, 503: schemas.ErrorDto } } },
     async (request, reply) => {
       let ready = false
       try {
-        if (pool && config.apiKey?.trim() && config.credentialRef !== 'unconfigured') {
+        if (pool && configured) {
           const authority = await pool.query(
             'SELECT id FROM public.target WHERE id=$1 AND current_context_id=$2',
             [config.targetId, config.targetContextId],
