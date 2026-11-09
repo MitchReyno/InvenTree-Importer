@@ -21,7 +21,7 @@ import {
 import { attributedPks, supportedResponseEvidence } from '../src/execution/effects/effects-apply.ts'
 import { contributionBarcode } from '../src/execution/plan.ts'
 import { validatePartSpec } from '../src/capture/part-spec.ts'
-import { planCapacityIssue } from '../src/review/preparations.ts'
+import { planCapacityIssue } from '../src/review/prepare-selection.ts'
 
 function fixture() {
   const context = randomUUID()

@@ -17,12 +17,10 @@ import { manualRunSnapshot, retainedPreparation } from './runs.ts'
 import { preparationTree } from './preparation-tree.ts'
 import { captureObservations } from '../capture/schema.ts'
 import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
-import {
-  markReviewed,
-  prepareSelection,
-  approvePreparation,
-  warningIssues,
-} from './preparations.ts'
+import { approvePreparation } from './approve-preparation.ts'
+import { markReviewed } from './mark-reviewed.ts'
+import { prepareSelection } from './prepare-selection.ts'
+import { warningIssues } from './selection.ts'
 import { runCommand } from './commands.ts'
 
 export function manualRepository(

@@ -1,10 +1,16 @@
-import { effectsCapable, RECORD_EFFECTS_CAPABILITY } from '../execution/effects/effects-plan.ts'
-import { isEffectsPlan } from '../execution/effects/effects-plan.ts'
+import {
+  effectsCapable,
+  isEffectsPlan,
+  MAX_PLAN_BYTES,
+  MAX_PLAN_EFFECTS,
+  MAX_PLAN_OPERATIONS,
+  MAX_PLAN_PARTS,
+  type PartBinding,
+} from '../execution/effects/effects-plan.ts'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { mediaEvidence } from '../media/schema.ts'
-import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import {
-  manualReviews,
   manualPrepareCommands,
   manualReadIntents,
   manualReadResults,
@@ -12,10 +18,7 @@ import {
   manualPreparationReviews,
   manualPreparationLots,
   manualPrepareOutcomes,
-  manualApprovals,
-  manualRuns,
 } from './schema.ts'
-
 import { partIdentitySatisfies } from '../inventory/part-identity.ts'
 import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
 import {
@@ -27,15 +30,8 @@ import type { PartTransfer } from '../execution/attachments/part-attachment-plan
 import { knownPartBindings, knownRecordBindings, supportedPlan } from './effects-plan.ts'
 import { partSpecReferences } from '../capture/part-spec.ts'
 import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contracts'
-import {
-  MAX_PLAN_BYTES,
-  MAX_PLAN_EFFECTS,
-  MAX_PLAN_OPERATIONS,
-  MAX_PLAN_PARTS,
-  type PartBinding,
-} from '../execution/effects/effects-plan.ts'
 import { randomUUID } from 'node:crypto'
-import type { Pool, PoolClient } from 'pg'
+import type { Pool } from 'pg'
 import {
   validate,
   type ManualEffectDto,
@@ -45,16 +41,14 @@ import {
   type ManualPreparationResultDto,
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { transaction } from '../db/database.ts'
 import { idempotent, appendEvent, sha256, verifyBytes } from '../db/authority.ts'
 import { fail } from '../capture/model.ts'
 import type { CaptureRead } from '../capture/routes.ts'
-import { loadRun, reserveApprovedStock } from '../execution/authority.ts'
 import { encodeExecutablePlan, type ExecutablePlan } from '../execution/media-plan.ts'
 import { mediaPreview } from './media-preview.ts'
 import { retainPreparationMedia } from './media-preparation.ts'
 import { preparedPlan } from './media-plan.ts'
-import { issue, unresolvedWarnings, type ManualMaterial } from './model.ts'
+import { issue, type ManualMaterial } from './model.ts'
 import {
   lockedCapture,
   deploymentBinding,
@@ -67,20 +61,7 @@ import {
   type ReviewBinding,
 } from './authority.ts'
 import { materializeWithMedia } from './media-material.ts'
-import { retainedPreparation } from './runs.ts'
-
-function scope(config: ManualConfig, action: string, batchId: string, key: string) {
-  return {
-    actorId: config.actorId,
-    action,
-    resourceKey: `${config.targetId}:${config.targetContextId}:${batchId}`,
-    key,
-  }
-}
-
-function normalized(input: ManualScopeDto) {
-  return { ...input, selected_lot_ids: [...input.selected_lot_ids].sort() }
-}
+import { commandScope, normalizedScope, warningIssues, checkedSelection } from './selection.ts'
 
 /** Report an oversized selection as a typed issue before the plan decoder refuses it. */
 export function planCapacityIssue(plan: ExecutablePlan) {
@@ -96,127 +77,6 @@ export function planCapacityIssue(plan: ExecutablePlan) {
     )
   }
   return null
-}
-
-/** A warning blocks review and preparation until fixed or dismissed with a reason. */
-export function warningIssues(material: ManualMaterial) {
-  return unresolvedWarnings(material).map((warning) =>
-    issue('warning_unresolved', warning.message, warning.lotId),
-  )
-}
-
-async function checkedSelection(
-  client: PoolClient,
-  config: ManualConfig,
-  batchId: string,
-  input: ManualScopeDto,
-) {
-  const capture = await lockedCapture(client, config, batchId)
-  if (capture.snapshot.revision !== input.expected_batch_revision) {
-    fail('revision_conflict', 412)
-  }
-  const material = await materializeWithMedia(
-    client,
-    config,
-    capture.snapshot,
-    input.selected_lot_ids,
-  )
-  const binding = await deploymentBinding(client, config)
-  const issues = [...material.issues, ...warningIssues(material)]
-  if (!binding) {
-    issues.push(
-      issue(
-        'unsupported_capability',
-        'Stock execution is available only for a separately configured owned fake target.',
-      ),
-    )
-  }
-  if (
-    (material.locations?.length || material.companies?.length) &&
-    binding?.capability !== RECORD_EFFECTS_CAPABILITY
-  ) {
-    issues.push(
-      issue(
-        'record_creation_unavailable',
-        'Creating a new location or supplier is not available for this target. Choose an existing record, or keep the draft for later.',
-      ),
-    )
-  }
-  if (material.parts.length && !effectsCapable(binding?.capability)) {
-    issues.push(
-      issue(
-        'unsupported_part_creation',
-        'This deployment does not support explicit Part creation.',
-      ),
-    )
-  }
-  if (
-    material.mediaInputs?.size &&
-    binding?.capability !== 'owned-fake-media/1' &&
-    !effectsCapable(binding?.capability)
-  ) {
-    issues.push(
-      issue(
-        'unsupported_media_capability',
-        'This retained media scope needs the separately qualified owned fake media capability.',
-      ),
-    )
-  }
-  const partAttachmentSelected = [...(material.mediaInputs?.values() ?? [])].some((inputs) =>
-    inputs.attachments.some((selection) => selection.destination === 'part_attachment'),
-  )
-  if (partAttachmentSelected && !effectsCapable(binding?.capability)) {
-    issues.push(
-      issue(
-        'unsupported_part_attachment',
-        'This deployment does not support Part attachments. Decline the Part attachment or use the owned fake effects capability.',
-      ),
-    )
-  }
-  issues.push(...(await historyIssues(client, capture.source, material, capture.guard.activeRunId)))
-  return { capture, material, binding, issues }
-}
-
-export async function markReviewed(
-  pool: Pool,
-  config: ManualConfig,
-  batchId: string,
-  key: string,
-  input: ManualScopeDto,
-) {
-  return transaction(pool, (client) =>
-    idempotent(
-      client,
-      scope(config, 'manual_review', batchId, key),
-      normalized(input),
-      async () => {
-        const selected = await checkedSelection(client, config, batchId, input)
-        if (selected.issues.length) {
-          fail(selected.issues[0].code, 409)
-        }
-        for (const subject of selected.material.subjects) {
-          await executeDatabaseQuery(
-            queryDatabase(client).insert(manualReviews).values({
-              id: randomUUID(),
-              batchId,
-              subjectId: subject.subjectId,
-              actorId: config.actorId,
-              dependencyBytes: subject.bytes,
-              dependencyDigest: subject.digest,
-            }),
-          )
-        }
-        const sequence = await appendEvent(client, selected.capture.streamId, 'manual_reviewed', {
-          batch_id: batchId,
-          selected_lot_ids: selected.material.selected,
-        })
-        return {
-          reviewed_subject_ids: selected.material.subjects.map((value) => value.subjectId),
-          cursor: { stream_id: selected.capture.streamId, sequence },
-        }
-      },
-    ),
-  )
 }
 
 interface PreparationContext {
@@ -425,8 +285,8 @@ export async function prepareSelection(
   const started = (await transaction(pool, (client) =>
     idempotent(
       client,
-      scope(config, 'manual_prepare', batchId, key),
-      normalized(input),
+      commandScope(config, 'manual_prepare', batchId, key),
+      normalizedScope(input),
       async () => {
         const selected = await checkedSelection(client, config, batchId, input)
         if (selected.issues.length) {
@@ -699,169 +559,4 @@ export async function prepareSelection(
     )
     return response
   })
-}
-
-export interface ApprovalInput {
-  preparation_id: string
-  expected_plan_sha256: string
-  expected_review_fingerprint: string
-  selected_lot_ids: string[]
-  expected_target_revision: string
-}
-
-export async function approvePreparation(
-  pool: Pool,
-  config: ManualConfig,
-  key: string,
-  input: ApprovalInput,
-) {
-  const payload = { ...input, selected_lot_ids: [...input.selected_lot_ids].sort() }
-  return transaction(pool, (client) =>
-    idempotent(
-      client,
-      scope(config, 'manual_approve', input.preparation_id, key),
-      payload,
-      async () => {
-        const preparation = await retainedPreparation(client, config, input.preparation_id)
-        const preview = preparation.preview
-        if (
-          input.expected_plan_sha256 !== preview.plan_sha256 ||
-          input.expected_review_fingerprint !== preview.review_fingerprint ||
-          input.expected_target_revision !== preview.target_revision ||
-          canonical(payload.selected_lot_ids) !== canonical(preview.selected_lot_ids)
-        ) {
-          fail('approval_binding_mismatch', 409)
-        }
-        const capture = await lockedCapture(client, config, preview.batch_id)
-        const previous = await executeDatabaseQuery(
-          queryDatabase(client)
-            .select({ id: manualApprovals.id })
-            .from(manualApprovals)
-            .where(
-              and(
-                eq(manualApprovals.preparationId, preview.id),
-                eq(manualApprovals.actorId, config.actorId),
-              ),
-            ),
-        )
-        if (previous[0]) {
-          const runResult = await executeDatabaseQuery(
-            queryDatabase(client)
-              .select({ id: manualRuns.id })
-              .from(manualRuns)
-              .where(eq(manualRuns.approvalId, previous[0].id)),
-          )
-          if (!runResult[0]) {
-            fail('run_authority_missing', 409)
-          }
-          const original = await loadRun(client, runResult[0].id)
-          await reserveApprovedStock(client, {
-            approvalId: original.approvalId,
-            preparationId: preview.id,
-            runId: original.runId,
-            commandId: original.commandId,
-            actorId: config.actorId,
-            bytes: preparation.row.plan_bytes,
-            digest: preparation.row.plan_digest,
-          })
-          return {
-            run_id: original.runId,
-            approval_id: original.approvalId,
-            preparation_id: preview.id,
-          }
-        }
-        const material = await materializeWithMedia(
-          client,
-          config,
-          capture.snapshot,
-          preview.selected_lot_ids,
-        )
-        const binding = await deploymentBinding(client, config)
-        const reviews = await currentReviews(client, preview.batch_id, material)
-        const problems = [
-          ...material.issues,
-          ...warningIssues(material),
-          ...(await historyIssues(client, capture.source, material, capture.guard.activeRunId)),
-        ]
-        if (problems.length) {
-          fail(problems[0].code, 409)
-        }
-        if (
-          !binding ||
-          binding.targetRevision !== preview.target_revision ||
-          !material.bytes.equals(preparation.row.dependency_bytes) ||
-          canonical(reviews) !== preparation.row.review_bytes.toString('utf8')
-        ) {
-          fail('stale_preparation', 409)
-        }
-        requireReviews(material, reviews)
-        const currentPlan = encodeExecutablePlan(
-          isEffectsBinding(binding)
-            ? supportedPlan(
-                binding,
-                capture.sourceId,
-                capture.originalSourceKey,
-                material,
-                await knownPartBindings(client, capture.source, material),
-                await selectedPartTransfers(
-                  client,
-                  capture.source,
-                  material,
-                  await knownPartBindings(client, capture.source, material),
-                ),
-                await knownRecordBindings(client, capture.source, material),
-              )
-            : preparedPlan(binding, capture.sourceId, capture.originalSourceKey, material),
-        )
-        if (!currentPlan.bytes.equals(preparation.row.plan_bytes)) {
-          fail('stale_preparation', 409)
-        }
-        const approved = await reserveApprovedStock(client, {
-          approvalId: randomUUID(),
-          preparationId: preview.id,
-          runId: randomUUID(),
-          commandId: randomUUID(),
-          actorId: config.actorId,
-          bytes: preparation.row.plan_bytes,
-          digest: preparation.row.plan_digest,
-        })
-        const roundResult = await executeDatabaseQuery(
-          queryDatabase(client)
-            .select({ next: sql<string>`(count(*)+1)::text` })
-            .from(manualApprovals)
-            .where(eq(manualApprovals.batchId, preview.batch_id)),
-        )
-        await executeDatabaseQuery(
-          queryDatabase(client)
-            .insert(manualApprovals)
-            .values({
-              id: approved.approvalId,
-              batchId: preview.batch_id,
-              preparationId: preview.id,
-              actorId: config.actorId,
-              roundNumber: BigInt(roundResult[0].next),
-            }),
-        )
-        await executeDatabaseQuery(
-          queryDatabase(client).insert(manualRuns).values({
-            id: approved.runId,
-            batchId: preview.batch_id,
-            approvalId: approved.approvalId,
-            actorId: config.actorId,
-            streamId: capture.streamId,
-          }),
-        )
-        await appendEvent(client, capture.streamId, 'manual_approved', {
-          batch_id: preview.batch_id,
-          run_id: approved.runId,
-          approval_id: approved.approvalId,
-        })
-        return {
-          run_id: approved.runId,
-          approval_id: approved.approvalId,
-          preparation_id: preview.id,
-        }
-      },
-    ),
-  )
 }
