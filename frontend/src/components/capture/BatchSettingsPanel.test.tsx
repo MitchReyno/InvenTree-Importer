@@ -576,7 +576,7 @@ test('a refused logo is reported and a replacement file can be chosen', async ()
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
-test('an unconfirmed logo upload says so until the same upload is retried and attached', async () => {
+test('an unconfirmed logo upload says so until the same upload is retried', async () => {
   const uploadLogo = vi
     .fn()
     .mockRejectedValueOnce(new Error('lost'))

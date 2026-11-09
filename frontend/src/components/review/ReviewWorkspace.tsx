@@ -194,7 +194,7 @@ export function ReviewWorkspace({
   const drafts = useDirtySources(onDirtyChange)
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
-  // The lot whose quick editor E asked to open; moving to another lot drops the request.
+  // The lot whose quick editor E asked to open; any successful navigation drops the request.
   const [quickEditLotId, setQuickEditLotId] = useState<string | null>(null)
   const [editing, setEditing] = useState(() => initialEditor(batch))
   const evidenceRef = useRef<HTMLElement>(null)
