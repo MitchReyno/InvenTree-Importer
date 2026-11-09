@@ -48,7 +48,7 @@ Each photo or document SHALL offer Delete from its actions menu, and a multi-sel
 
 #### Scenario: Delete a photo used by three lots
 
-- **GIVEN** a photo whose observations feed three lots, one of which has no other evidence
+- **GIVEN** a photo linked to three lots, one of which has no other linked evidence or notes, and whose observations feed those lots
 - **WHEN** the operator deletes it and confirms
 - **THEN** the photo disappears from Capture, proposals citing it become stale, the Examine lead and the three lots' Research and Images sessions are told, and the lot without other evidence shows the existing "no supporting evidence" warning rather than being excluded
 

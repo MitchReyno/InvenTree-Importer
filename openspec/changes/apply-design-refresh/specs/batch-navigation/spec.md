@@ -4,7 +4,7 @@
 
 ### Requirement: Four batch tabs
 
-The batch header SHALL show the tabs Capture, Processing, Review and Changes on their own row under the batch title, each with at most one count from retained reads: the thing to act on in its attention tone when there is one, otherwise the total. Approve and Results SHALL no longer be tabs.
+The batch header SHALL show the tabs Capture, Processing, Review and Changes on their own row under the batch title, each with at most one count from retained reads: the thing to act on in its attention tone when there is one, otherwise the total. Two exceptions: Processing shows no count when it has no open questions, and Review always shows lots to check as a plain count, because its sub-tabs carry the record decisions. Approve and Results SHALL no longer be tabs.
 
 #### Scenario: Header on any tab
 

@@ -24,7 +24,7 @@ The masthead SHALL end with an icon-only Settings button (`aria-label` "Settings
 
 ### Requirement: Agent settings section
 
-Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status after the operator checks it in the existing credential panel ("Not checked" until then, "Unavailable" when personal management is off), authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
+Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status after the operator checks it in the existing credential panel ("Not checked" until then, "Unavailable" when the check fails because personal management is off), authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
 
 #### Scenario: Change sessions at once
 
@@ -47,8 +47,8 @@ Settings › Agents SHALL edit the stored agent settings: provider (Claude or Co
 #### Scenario: Personal management off
 
 - **GIVEN** a profile without personal management
-- **WHEN** Settings › Agents opens
-- **THEN** the provider cards read "Unavailable" and the credential panels explain why
+- **WHEN** the operator runs the check in a provider's credential panel
+- **THEN** that provider card reads "Unavailable" and the panel shows the error the check returned
 
 ### Requirement: Deferred settings are disabled and explained
 

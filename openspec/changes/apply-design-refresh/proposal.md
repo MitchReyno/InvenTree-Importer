@@ -120,6 +120,8 @@ Each is shown with a `DisabledFeature`-style explanation and no fabricated behav
 
 - Autosave on Settings › Agents. The design shows "✓ Saved", but `AgentSettingsForm` saves explicitly under one revision for provider, authentication and model together. Autosave would need per-field saves and conflict handling for a form edited rarely, so Settings keeps the explicit Save.
 
+- No `reexamine` flag on delete. Change log D31 asks for lot re-examination (0022), but a media command writing `capture_lot` would cross into capture authority; the Examine lead's batch notice and the lot sessions' notices replace it.
+
 **Non-goals:**
 
 - Undecided proposals: P2 (Batches · Agents masthead links), P5 (phone bottom tab bar), R10 ("Coming later" in one place).

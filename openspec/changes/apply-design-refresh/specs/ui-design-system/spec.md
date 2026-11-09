@@ -8,9 +8,9 @@ The AI sparkle (`AiMark`, `ai` on `ai-weak`) SHALL mark the places where the ope
 
 #### Scenario: Marked once per touchpoint
 
-- **GIVEN** the Part record screen
-- **WHEN** it renders
-- **THEN** the "Ask an agent about this Part" box carries the mark, and none of the Part's values or source chips do
+- **GIVEN** Review › Map with the Tell Examine box, and a Part record screen with per-field Ask buttons
+- **WHEN** they render
+- **THEN** the Tell Examine box carries the mark, and none of the Part's values, source chips or per-field Ask buttons do
 
 ### Requirement: Short source chips with details on demand
 
@@ -40,7 +40,7 @@ Headings, legends and shortcut lists SHALL NOT carry grey explanatory sentences.
 
 ### Requirement: Descriptions with InvenTree's limits
 
-Wherever a record has an InvenTree description (Part, category, company, manufacturer part, supplier part, parameter template, stock location, location type), screens SHALL show it with its source and a character count against InvenTree's limit: 500 for companies, 250 for the rest. Stock items SHALL show no description. A description over its limit SHALL show the count in the bad tone. A proposed description the app would write SHALL block approval until it fits; an existing InvenTree description is shown but doesn't block, because the app doesn't write it. Descriptions the app can't yet store or read SHALL render as disabled fields with an explanation.
+Wherever a record has an InvenTree description (Part, category, company, manufacturer part, supplier part, parameter template, stock location, location type), screens SHALL show it with its source and a character count against InvenTree's limit: 500 for companies, 250 for the rest. Stock items SHALL show no description. A description over its limit SHALL show the count in the bad tone. A proposed description over its limit SHALL NOT be written and SHALL show the existing "Not supported yet" state; an existing InvenTree description is shown but doesn't block, because the app doesn't write it. Descriptions the app can't yet store or read SHALL render as disabled fields with an explanation.
 
 #### Scenario: Count against the limit
 
