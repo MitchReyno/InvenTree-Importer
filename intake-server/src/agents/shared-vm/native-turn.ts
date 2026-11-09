@@ -117,6 +117,8 @@ export async function nativeTurn(
   } finally {
     proxy.closeAllConnections()
     proxy.close()
-    if (evidenceDir) await rm(await evidenceDir, { recursive: true, force: true })
+    if (evidenceDir) {
+      await rm(await evidenceDir, { recursive: true, force: true })
+    }
   }
 }

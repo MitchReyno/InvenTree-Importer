@@ -17,9 +17,13 @@ export async function stageEvidence(
   const reply = JSON.parse(body)
   const result = reply?.result
   const metadata = result?.structuredContent
-  if (reply?.id !== id || result?.isError || metadata?.ok !== true) return body
+  if (reply?.id !== id || result?.isError || metadata?.ok !== true) {
+    return body
+  }
   const image = result.content?.find((item: { type: string }) => item.type === 'image')
-  if (!image) return body
+  if (!image) {
+    return body
+  }
   const extension = extensions.get(image.mimeType)
   if (!extension || typeof image.data !== 'string' || metadata.source?.kind !== 'media_version') {
     throw new Error('invalid_evidence_file')

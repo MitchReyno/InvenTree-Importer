@@ -50,7 +50,9 @@ export async function startSessionBridge(directory: string, port: number) {
         }
         if (greeting.builtinTools === true) {
           rich.add(socket)
-          if (greeting.evidenceFiles === true) evidencePeers.add(socket)
+          if (greeting.evidenceFiles === true) {
+            evidencePeers.add(socket)
+          }
         }
         if (greeting.ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
