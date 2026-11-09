@@ -25,7 +25,7 @@ const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '3',
   processing: { questions: 3, failed: 0, running: 0, steps: noSteps },
-  review: { to_check: 8, changed_after_review: 0, to_decide: 3, records: 46 },
+  review: { to_check: 8, changed_after_review: 2, needs_answer: 0, to_decide: 3, records: 46 },
   changes: { ready: 6, failed: 1, uncertain: 1, runs: 1 },
   items: [],
   items_truncated: false,
@@ -286,8 +286,14 @@ describe('BatchHeader at phone width', () => {
     expect(within(row).getByText(batch.title)).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: '5 need you' })).toHaveTextContent('5')
     expect(within(row).getByRole('button', { name: 'Compact status' })).toBeInTheDocument()
-    // The sub-tabs stay below it.
-    expect(within(row).getByRole('navigation', { name: 'Processing steps' })).toBeInTheDocument()
+    // The sub-tabs stay below it, named apart from the full row's, which keeps the current page.
+    const copy = within(row).getByRole('navigation', { name: 'Processing steps, condensed' })
+    expect(within(copy).queryByRole('link', { current: 'page' })).toBeNull()
+    expect(within(copy).getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'data-current',
+      'true',
+    )
+    expect(document.querySelectorAll('[aria-current="page"]')).toHaveLength(2)
 
     act(() => observer.scroll(true))
     expect(screen.queryByRole('region', { name: 'Batch, condensed' })).toBeNull()
@@ -300,6 +306,77 @@ describe('BatchHeader at phone width', () => {
 
     expect(observer.observed).toHaveLength(0)
     act(() => observer.scroll(false))
+    expect(screen.queryByRole('region', { name: 'Batch, condensed' })).toBeNull()
+  })
+})
+
+describe('BatchHeader condensed row focus and scrolling', () => {
+  let restore = () => undefined as void
+
+  beforeEach(() => {
+    restore = stubPhoneViewport()
+  })
+
+  afterEach(() => {
+    restore()
+    vi.unstubAllGlobals()
+    document.documentElement.style.scrollPaddingTop = ''
+  })
+
+  function phone() {
+    return render(
+      <BatchHeader
+        batch={batch}
+        route={{ tab: 'processing', step: 'research' }}
+        attention={{
+          ...attention,
+          items: [
+            {
+              key: 'q1',
+              group: 'question',
+              tab: 'processing',
+              title: 'Which Part?',
+              detail: null,
+              route: `${batchId}/processing/research/q1`,
+            },
+          ],
+        }}
+        activeLotCount={8}
+        busy={false}
+        onArchive={vi.fn()}
+      />,
+    )
+  }
+
+  it('keeps focused content clear of the row while it shows', () => {
+    const observer = stubIntersectionObserver()
+    phone()
+
+    act(() => observer.scroll(false))
+    expect(document.documentElement.style.scrollPaddingTop).not.toBe('')
+    act(() => observer.scroll(true))
+    expect(document.documentElement.style.scrollPaddingTop).toBe('')
+  })
+
+  it('hands focus to the same control in the full header before the row goes', () => {
+    const observer = stubIntersectionObserver()
+    phone()
+    act(() => observer.scroll(false))
+    const row = screen.getByRole('region', { name: 'Batch, condensed' })
+
+    within(row)
+      .getByRole('link', { name: /^Research/ })
+      .focus()
+    act(() => observer.scroll(true))
+    const full = within(screen.getByRole('navigation', { name: 'Processing steps' }))
+    expect(full.getByRole('link', { name: /^Research/ })).toHaveFocus()
+
+    act(() => observer.scroll(false))
+    within(screen.getByRole('region', { name: 'Batch, condensed' }))
+      .getByRole('button', { name: '1 need you' })
+      .focus()
+    act(() => observer.scroll(true))
+    expect(document.activeElement).toHaveTextContent('1 need you')
     expect(screen.queryByRole('region', { name: 'Batch, condensed' })).toBeNull()
   })
 })

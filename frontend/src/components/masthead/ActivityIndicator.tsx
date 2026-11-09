@@ -76,8 +76,9 @@ export function ActivityIndicator({
   } else if (ownBatch) {
     name = ''
   }
-  // Processing work is agent work, so a fresh pill for it leads with the AI mark.
-  const agentWork = fresh && preferred?.kind === 'processing'
+  // Processing work is agent work, so a fresh desktop pill for it leads with the AI mark. The phone
+  // button is the agents status button, so it always carries it.
+  const showMark = layout !== 'bar' || (fresh && preferred?.kind === 'processing')
   const counts = batchStepCounts(data, preferred?.batch_id, attention)
   const segments =
     preferred?.kind === 'processing'
@@ -119,7 +120,7 @@ export function ActivityIndicator({
       onOpenChange={onOpenChange}
       trigger={
         <>
-          {agentWork && <AiMark size="sm" />}
+          {showMark && <AiMark size="sm" />}
           {running && (
             <SpinnerSlot data-held={held}>
               <Spinner />
@@ -138,7 +139,11 @@ export function ActivityIndicator({
           {/* At phone width a read that is not current says so first, then the spinner or the
               job's word, beside the step segments. */}
           {(!fresh || !running || held) && <ShortText aria-hidden="true" data-short={compact} />}
-          {showSegments && <ProgressSegments steps={segments} />}
+          {showSegments && (
+            <Segments>
+              <ProgressSegments steps={segments} />
+            </Segments>
+          )}
           {showSegments && layout === 'phone' && (
             <VisuallyHidden id={`${ids}-steps`}>{stepWords}</VisuallyHidden>
           )}
@@ -264,5 +269,16 @@ const WideOnly = styled.span`
   display: contents;
   ${media.compact} {
     display: none;
+  }
+`
+
+/** Narrower segments at phone width, so the button fits beside the brand and menu at 360px. */
+const Segments = styled.span`
+  display: contents;
+  ${media.compact} {
+    [data-state] {
+      /* literal-allowed: a phone segment's width, as ProgressSegments' own 14px; no token has this role */
+      width: 8px;
+    }
   }
 `

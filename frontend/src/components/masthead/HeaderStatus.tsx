@@ -3,12 +3,13 @@ import styled from 'styled-components'
 import { color, typeVar } from '#/theme/generated/tokens'
 import { Button, IconButton, media, SettingsIcon, useMediaQuery } from '#/components/ui'
 import type { HeaderClient } from '#/header/types'
-import { useHeaderObservations } from '#/header/useHeaderObservations'
+import type { useHeaderObservations } from '#/header/useHeaderObservations'
 import { safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useUpdateHealth } from '#/components/operations/LiveUpdates'
 import { ActivityIndicator } from './ActivityIndicator'
 import { ConnectionDetails } from './ConnectionDetails'
 import { ConnectionStatus } from './ConnectionStatus'
+import { HeaderObservationsProvider, useSharedHeaderObservations } from './HeaderObservations'
 import { PhoneMenu } from './PhoneMenu'
 
 interface Props {
@@ -24,15 +25,38 @@ type Panel = 'connection' | 'workflow' | 'menu'
 /**
  * The masthead's status group, one panel open at a time. On a desktop: activity, the connection's
  * server menu and Settings. At phone width: the agents status button and a menu holding Agents,
- * Settings, the server and the theme, its button carrying the connection dot.
+ * Settings, the server and the theme, its button carrying the connection dot. Under a
+ * `HeaderObservationsProvider` it shows the provider's reads; alone it reads for itself.
  */
-export function HeaderStatus({
-  client,
+export function HeaderStatus(props: Props) {
+  const shared = useSharedHeaderObservations()
+
+  if (shared) {
+    return <HeaderStatusView {...props} observations={shared} />
+  }
+
+  return (
+    <HeaderObservationsProvider client={props.client} batchId={props.batchId}>
+      <SharedHeaderStatus {...props} />
+    </HeaderObservationsProvider>
+  )
+}
+
+function SharedHeaderStatus(props: Props) {
+  const shared = useSharedHeaderObservations()
+
+  return shared && <HeaderStatusView {...props} observations={shared} />
+}
+
+type ViewProps = Omit<Props, 'client'> & { observations: ReturnType<typeof useHeaderObservations> }
+
+function HeaderStatusView({
   batchId,
   bootstrapUnavailable = false,
   variant = 'bar',
-}: Props) {
-  const { now, connection, work } = useHeaderObservations(client, batchId)
+  observations,
+}: ViewProps) {
+  const { now, connection, work } = observations
   const health = useUpdateHealth()
   const phone = useMediaQuery(media.compact)
   const [open, setOpen] = useState<Panel | null>(null)
@@ -75,6 +99,7 @@ export function HeaderStatus({
       <StatusRow aria-label="Application status">
         {activity}
         <PhoneMenu
+          announce={variant === 'bar'}
           status={targetStatus(target, connectionUnavailable, now)}
           server={
             <ConnectionDetails

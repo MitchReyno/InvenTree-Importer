@@ -91,6 +91,9 @@ export function ConnectionDetails({
       {target?.kind === 'owned_test' && (
         <Line>Approvals write only to this test InvenTree, never to a real one.</Line>
       )}
+      {target?.kind === 'configured' && (
+        <Line>Approvals write to this InvenTree, your live inventory.</Line>
+      )}
       <DevBadge />
       <Actions aria-label="Server">
         {inventree}

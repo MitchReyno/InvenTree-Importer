@@ -41,6 +41,7 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 ### Decisions made during implementation
 
 - **2026-11-10T02:32+11:00, task 2:** The server menu shows the Dev mode badge whenever the masthead does. The app has no production build flag; the masthead's badge is always shown in this development-only app.
+- **2026-11-10T03:26+11:00, task 2 (review round 1):** The server menu says where approvals write for a configured target too ("Approvals write to this InvenTree, your live inventory."), as `header-connection-status` › Safe target details asks, not only for the test target.
 - **2026-11-10T02:32+11:00, task 2:** Check connection now is a `DisabledFeature` button, so it shows the same dashed "Coming later" frame and explanation as other deferred controls.
 - **2026-11-10T02:32+11:00, task 2:** The activity pill's `AiMark` appears only on fresh Processing work, so it is absent from the idle pill, an unavailable or stale read and an import run, which is not agent work.
 - **2026-11-10T02:32+11:00, task 2:** Outside a batch the pill names the batch it shows from that batch's cached capture read, falling back to "Application-wide" when the batch has not been opened in this session. It still never fetches.
@@ -50,7 +51,6 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 
 ### Changes to the plan
 
-- **2026-11-10T02:41+11:00, task 3 (PR-B):** The attention read has no count of lots with open questions, so Review › Lots reads "lots needing answers" as lots changed since review (`changed_after_review`), the Review items the need-you panel lists under Lots, else all active lots. Open questions stay on Processing. Counting lots by their questions would need the processing snapshot in the header, a read Capture and Changes do not otherwise make.
 - **2026-11-10T02:41+11:00, task 3 (PR-B):** Processing and its steps now count questions only, as the design D3 table says. Failed attempts no longer raise a tab badge; they stay in the need-you list and on the step pages.
 - **2026-11-10T02:41+11:00, task 3 (PR-B):** A finished step shows ✓ with no "12/12", as on the phone canvas, unless it has questions ("✓ Examine 1").
 - **2026-11-10T02:41+11:00, task 3 (PR-B):** The short summary drops "(N retired)": the count stays active lots only. `BatchHeader` loses `retiredLotCount` and the Capture file count, so it now takes only `unusedFiles` from the media read.
@@ -59,13 +59,15 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 ### Decisions made during implementation
 
 - **2026-11-10T02:41+11:00, task 3:** `TabItem` now takes one `count` (`value`, `label`, `tone`) and a `status` (`running` or `done`) in place of `count`, `countLabel`, `countTone`, `badge` and `progress`, so a tab cannot show two badges or a phrase. The words go only into the accessible name ("Review, 8 to check"); the tab shows "8". Each count carries `data-tone` for tests and inspection.
+- **2026-11-10T03:26+11:00, task 3 (review round 1):** The attention projection gains `review.needs_answer`: lots that are not excluded and have an open Processing question on the lot or on its Part, the definition Review's Needs answer filter (`openQuestionsByLot`) uses. Review › Lots shows it in the warning tone, else all lots. It counts an approved lot with an open question, as the filter shows one. The contract, generated API and the projection's tests carry it.
+- **2026-11-10T03:26+11:00, task 3 (review round 1):** `processing/steps.ts` `countSteps` leaves out superseded, cancelled and failed attempts, so each step counts the attempts still to finish and can reach ✓. A failed attempt is still reported as failed in the need-you list. The same count feeds the header's `batch_steps` and the inbox's steps.
 - **2026-11-10T02:41+11:00, task 3:** Each tab row shifts left by its own tab padding (`TAB_INSET`), so the first label lines up with the title, as change log D2 asks. The phone rule that runs the rows into the band's padding is unchanged.
 
 ## Task 4: phone header
 
 ### Changes to the plan
 
-- **2026-11-10T02:51+11:00, task 4 (PR-B):** The condensed row's status button and menu need the masthead's observations, which `BatchHeader` does not hold. App provides them through `masthead/CompactStatus.ts` as a second `HeaderStatus` with `variant="condensed"`. It shares the masthead's TanStack queries, so it adds no requests, keeps its own open panel, and renders no live region, so state changes are not announced twice.
+- **2026-11-10T03:26+11:00, task 4 (PR-B, review round 1):** The condensed row's status button and menu need the masthead's observations, which `BatchHeader` does not hold. App wraps the page in `HeaderObservationsProvider` (`masthead/HeaderObservations.tsx`), which calls `useHeaderObservations` once, and provides the condensed copy through `masthead/CompactStatus.ts` as a second `HeaderStatus` with `variant="condensed"`. Both copies show the provider's reads, so mounting the row sends no reads and it shows the current state at once; there is one clock and one foreground listener. The copy keeps its own open panel and renders no live region, so state changes are not announced twice.
 - **2026-11-10T02:51+11:00, task 4 (PR-B):** The condensed row is `position: fixed` rather than sticky, and appears once the whole batch header band has left the viewport. A sticky row that replaced the full header would shrink the band and could flip the observer back and forth; the fixed row never shifts the page. Its sub-tabs are a second copy of the row's links while it shows.
 - **2026-11-10T02:51+11:00, task 4 (PR-B):** The phone menu is a `Popover` named "Menu", like the server menu, rather than the canvas's side sheet over an overlay. It keeps the tested Escape, focus-return and viewport bounds; it holds Agents, Settings, the server details (status line, connection details with Open InvenTree) and the theme. It has no Batches link: the brand already links there.
 
@@ -76,7 +78,10 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 ### Decisions made during implementation
 
 - **2026-11-10T02:51+11:00, task 4:** `HeaderStatus` picks the phone layout with `useMediaQuery(media.compact)`, so phone and desktop render different controls instead of hiding duplicates with CSS. jsdom has no `matchMedia`, so tests stub it through `test/viewport.ts`, which also drives a fake `IntersectionObserver`.
-- **2026-11-10T02:51+11:00, task 4:** The `AiMark` now leads the activity pill at every width, before the spinner, so it stays visible at phone width where the labels are hidden.
+- **2026-11-10T02:51+11:00, task 4:** The `AiMark` now leads the activity pill at every width, before the spinner, so it stays visible at phone width where the labels are hidden. On phones it is always shown, since that button is the agents status button; on a desktop it marks fresh Processing work.
+- **2026-11-10T03:26+11:00, task 4 (review round 1):** At phone width the agents status button keeps its content's width (`min-width: max-content`), its segments narrow to 8px, the bar's lead gap tightens and the brand drops to the canvas's 19px, ellipsising only below 360px, so the button never clips its mark or segments. A visually hidden status beside the bar's menu button announces connection changes; the condensed copy has none.
+- **2026-11-10T03:26+11:00, task 4 (review round 1):** While the condensed row shows, the document's `scroll-padding-top` is its height, so focused content is not hidden under it. Its sub-tabs are named "…, condensed" and mark the current one with `data-current` rather than a second `aria-current`. When the full header returns, a control focused in the row hands focus to the same control (by `data-focus-key`, else by address), the full header first, then the masthead.
+- **2026-11-10T03:26+11:00, task 4:** The header-status fixture now draws its masthead full width above the page, as the app does, so phone widths measure the real bar.
 - **2026-11-10T02:51+11:00, task 4:** At phone width the step segments show beside the spinner, and the pill's description adds the step states ("Examine: done, Research: running, …"). The one-word state (Offline, Stale, Failed, Slot held, Idle) still shows when there is no spinner.
 
 ## Task 10: direct upload

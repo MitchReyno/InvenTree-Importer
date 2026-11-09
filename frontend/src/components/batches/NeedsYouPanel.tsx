@@ -77,12 +77,12 @@ export function NeedsYouPanel({ attention, compact = false }: NeedsYouPanelProps
       onOpenChange={setOpen}
       trigger={
         compact ? (
-          <Trigger type="button" aria-label={label}>
+          <Trigger type="button" aria-label={label} data-focus-key="needs-you">
             <i aria-hidden="true">?</i>
             {count}
           </Trigger>
         ) : (
-          <Trigger type="button">
+          <Trigger type="button" data-focus-key="needs-you">
             <i aria-hidden="true">?</i>
             {label}
             <span aria-hidden="true">▾</span>

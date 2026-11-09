@@ -38,7 +38,7 @@ const attention: BatchAttentionDto = {
       inventory: noWork,
     },
   },
-  review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 0 },
+  review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
   changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
@@ -172,21 +172,22 @@ export function HeaderStatusProof() {
   return (
     <ServerStateProvider scope={scope} client={cache}>
       <GlobalStyle />
+      {/* Full width above the page, as in the app. */}
+      <Masthead
+        breadcrumb={[{ label: 'Batches', href: '#' }]}
+        status={
+          <UpdateHealthContext.Provider
+            value={{
+              state: 'live',
+              observedAt: Date.now() - (selected === 'transport-stale' ? 61_000 : 0),
+              truncated: false,
+            }}
+          >
+            <HeaderStatus client={client} batchId={batchId} />
+          </UpdateHealthContext.Provider>
+        }
+      />
       <Main>
-        <Masthead
-          breadcrumb={[{ label: 'Batches', href: '#' }]}
-          status={
-            <UpdateHealthContext.Provider
-              value={{
-                state: 'live',
-                observedAt: Date.now() - (selected === 'transport-stale' ? 61_000 : 0),
-                truncated: false,
-              }}
-            >
-              <HeaderStatus client={client} batchId={batchId} />
-            </UpdateHealthContext.Provider>
-          }
-        />
         <p>
           Owned synthetic header fixture · simulated transport and retained client · no API,
           inventory or provider traffic. The external target link is inspection-only and must not be

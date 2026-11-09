@@ -105,21 +105,25 @@ const Row = styled.div`
   }
 `
 
+/** At phone width the brand side gives way to the status buttons, which never clip. */
 const Lead = styled.div`
   display: flex;
   flex: 0 1 auto;
-  ${media.compact} {
-    flex: none;
-  }
   align-items: center;
   gap: ${space[6]};
   min-width: 0;
+  ${media.compact} {
+    gap: ${space[4]};
+  }
 `
 
 const End = styled.div`
   display: flex;
   flex: 0 1 auto;
   min-width: 0;
+  ${media.compact} {
+    flex: none;
+  }
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
@@ -136,6 +140,16 @@ const Wordmark = styled.a`
   white-space: nowrap;
   text-decoration: none;
   ${linkTouchArea}
+  /* The phone canvas sets the brand smaller; below 360px it ellipsises before the buttons clip.
+     The clip margin keeps the touch area's full height. */
+  ${media.compact} {
+    min-width: 0;
+    overflow: clip;
+    overflow-clip-margin: ${space[4]};
+    text-overflow: ellipsis;
+    /* literal-allowed: the phone brand size from the canvas; no type token has it */
+    font-size: 19px;
+  }
   span {
     font-weight: 450;
   }

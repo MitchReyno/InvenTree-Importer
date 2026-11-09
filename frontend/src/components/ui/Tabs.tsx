@@ -19,7 +19,16 @@ export type TabItem = {
   disabled?: boolean
 }
 
-type TabsProps = { label: string; items: TabItem[]; current: string }
+type TabsProps = {
+  label: string
+  items: TabItem[]
+  current: string
+  /**
+   * False for a second copy of a row shown elsewhere on the page: its current tab is drawn as
+   * current but not announced, so only one link per row reads as the current page.
+   */
+  announceCurrent?: boolean
+}
 
 function accessibleName(item: TabItem) {
   // The icons are decorative, so their meaning is read here.
@@ -38,6 +47,7 @@ function TabLinks({
   label,
   items,
   current,
+  announceCurrent = true,
   level,
 }: TabsProps & { level: 'primary' | 'secondary' }) {
   return (
@@ -51,7 +61,8 @@ function TabLinks({
             key={item.id}
             $level={level}
             href={item.disabled ? undefined : item.href}
-            aria-current={isCurrent ? 'page' : undefined}
+            aria-current={isCurrent && announceCurrent ? 'page' : undefined}
+            data-current={isCurrent && !announceCurrent ? 'true' : undefined}
             aria-disabled={item.disabled || undefined}
             tabIndex={item.disabled ? -1 : undefined}
             aria-label={name === item.label ? undefined : name}
@@ -60,11 +71,7 @@ function TabLinks({
             {item.status === 'running' && <Spinner />}
             {item.status === 'done' && <Done aria-hidden="true">✓</Done>}
             <TabLabel>{item.label}</TabLabel>
-            {item.count && (
-              <span data-tone={item.count.tone}>
-                <Badge tone={item.count.tone}>{item.count.value}</Badge>
-              </span>
-            )}
+            {item.count && <Badge tone={item.count.tone}>{item.count.value}</Badge>}
           </TabLink>
         )
       })}
@@ -109,7 +116,8 @@ const levels = {
     &:hover {
       background: ${color.surface2};
     }
-    &[aria-current='page'] {
+    &[aria-current='page'],
+    &[data-current='true'] {
       font-weight: ${typeVar.bodyStrong.weight};
     }
   `,
@@ -130,7 +138,8 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   &:hover {
     color: ${color.fg};
   }
-  &[aria-current='page'] {
+  &[aria-current='page'],
+  &[data-current='true'] {
     color: ${color.fg};
     border-bottom-color: ${color.accent};
   }

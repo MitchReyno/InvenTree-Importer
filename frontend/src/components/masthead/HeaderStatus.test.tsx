@@ -8,6 +8,7 @@ import { stubPhoneViewport } from '#/test/viewport'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { HeaderStatus } from './HeaderStatus'
+import { HeaderObservationsProvider } from './HeaderObservations'
 import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import type { HeaderClient } from '#/header/types'
 
@@ -616,7 +617,7 @@ const attention: BatchAttentionDto = {
       inventory: stepCounts,
     },
   },
-  review: { to_check: 0, changed_after_review: 0, to_decide: 0, records: 0 },
+  review: { to_check: 0, changed_after_review: 0, needs_answer: 0, to_decide: 0, records: 0 },
   changes: { ready: 0, failed: 0, uncertain: 0, runs: 0 },
   items: [],
   items_truncated: false,
@@ -1055,6 +1056,54 @@ describe('at phone width', () => {
     expect(trigger).toHaveFocus()
   })
 
+  test('the bar announces connection changes; the condensed copy does not repeat them', async () => {
+    const api = client()
+    const { unmount } = render(<HeaderStatus client={api} batchId={batchId} />)
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('status').some((node) => node.textContent === 'InvenTree unreachable'),
+      ).toBe(true),
+    )
+    unmount()
+
+    render(<HeaderStatus client={api} batchId={batchId} variant="condensed" />)
+    await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+    expect(
+      screen.queryAllByRole('status').some((node) => node.textContent === 'InvenTree unreachable'),
+    ).toBe(false)
+  })
+
+  test('the agents status button always carries the AI mark, even with nothing running', async () => {
+    render(<HeaderStatus client={client()} batchId={batchId} />)
+
+    expect(await screen.findByText('Idle')).toBeInTheDocument()
+    const status = screen.getByRole('button', { name: 'Workflow activity' })
+    expect(status.querySelector('[data-ai-mark]')).not.toBeNull()
+  })
+
+  test("the condensed copy shares the bar's reads: mounting it sends none and shows them at once", async () => {
+    const api = client()
+    const view = render(
+      <HeaderObservationsProvider client={api} batchId={batchId}>
+        <HeaderStatus client={api} batchId={batchId} />
+      </HeaderObservationsProvider>,
+    )
+    await screen.findByRole('button', { name: 'Menu, InvenTree unreachable' })
+    const reads =
+      vi.mocked(api.connection).mock.calls.length + vi.mocked(api.work).mock.calls.length
+
+    view.rerender(
+      <HeaderObservationsProvider client={api} batchId={batchId}>
+        <HeaderStatus client={api} batchId={batchId} />
+        <HeaderStatus client={api} batchId={batchId} variant="condensed" />
+      </HeaderObservationsProvider>,
+    )
+    expect(screen.getAllByRole('button', { name: 'Menu, InvenTree unreachable' })).toHaveLength(2)
+    expect(
+      vi.mocked(api.connection).mock.calls.length + vi.mocked(api.work).mock.calls.length,
+    ).toBe(reads)
+  })
+
   test('the condensed variant shows only the mark and spinner, with no second live region', async () => {
     const api = client()
     vi.mocked(api.work).mockResolvedValue(processingWork())
@@ -1066,4 +1115,24 @@ describe('at phone width', () => {
     expect(within(status).queryByRole('status')).toBeNull()
     expect(screen.getByRole('button', { name: 'Menu, InvenTree unreachable' })).toBeInTheDocument()
   })
+})
+
+test('the server menu says where approvals write for a live target too', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: {
+      ...connection().target,
+      state: 'reachable',
+      kind: 'configured',
+      failure_code: null,
+    },
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
+    'Approvals write to this InvenTree, your live inventory.',
+  )
 })

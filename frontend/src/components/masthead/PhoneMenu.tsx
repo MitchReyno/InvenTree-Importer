@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, icon, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import type { TargetStatus } from '#/header/observations'
-import { hoverTransition, MenuIcon, Popover } from '#/components/ui'
+import { hoverTransition, MenuIcon, Popover, VisuallyHidden } from '#/components/ui'
 import { ConnectionDot } from './ConnectionDot'
 import { ThemeChoice } from './ThemeChoice'
 
@@ -11,43 +11,52 @@ type PhoneMenuProps = {
   status: TargetStatus
   /** The server details, Open InvenTree among them. */
   server: ReactNode
+  /** Announce connection changes; false on a second copy, so a change is read once. */
+  announce: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 /** The phone bar's menu: Agents, Settings, the server and the theme, behind one button. */
-export function PhoneMenu({ status, server, open, onOpenChange }: PhoneMenuProps) {
+export function PhoneMenu({ status, server, announce, open, onOpenChange }: PhoneMenuProps) {
   return (
-    <Popover
-      label="Menu"
-      width={`min(360px, calc(100vw - ${space[8]}))`}
-      open={open}
-      onOpenChange={onOpenChange}
-      trigger={
-        <Trigger type="button" aria-label={`Menu, ${status.summary}`}>
-          <MenuIcon />
-          <DotSlot>
-            <ConnectionDot tone={status.tone} />
-          </DotSlot>
-        </Trigger>
-      }
-    >
-      <Links aria-label="Application">
-        <a href="#agents">Agents</a>
-        <a href="#settings">Settings</a>
-      </Links>
-      <Section>
-        <Label>Server</Label>
-        <Summary>
-          <ConnectionDot tone={status.tone} />
+    <>
+      {announce && (
+        <VisuallyHidden role="status" aria-live="polite">
           {status.summary}
-        </Summary>
-        {server}
-      </Section>
-      <Section>
-        <ThemeChoice />
-      </Section>
-    </Popover>
+        </VisuallyHidden>
+      )}
+      <Popover
+        label="Menu"
+        width={`min(360px, calc(100vw - ${space[8]}))`}
+        open={open}
+        onOpenChange={onOpenChange}
+        trigger={
+          <Trigger type="button" aria-label={`Menu, ${status.summary}`} data-focus-key="menu">
+            <MenuIcon />
+            <DotSlot>
+              <ConnectionDot tone={status.tone} />
+            </DotSlot>
+          </Trigger>
+        }
+      >
+        <Links aria-label="Application">
+          <a href="#agents">Agents</a>
+          <a href="#settings">Settings</a>
+        </Links>
+        <Section>
+          <Label>Server</Label>
+          <Summary>
+            <ConnectionDot tone={status.tone} />
+            {status.summary}
+          </Summary>
+          {server}
+        </Section>
+        <Section>
+          <ThemeChoice />
+        </Section>
+      </Popover>
+    </>
   )
 }
 

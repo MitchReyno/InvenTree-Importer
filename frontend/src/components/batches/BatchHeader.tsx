@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { batchHref, type BatchRoute, type ProcessingStep } from '#/navigation/batch-route'
@@ -122,6 +123,35 @@ function secondRow(batchId: string, route: BatchRoute, input: TabCountInput) {
   }
 }
 
+/**
+ * Moves focus from a control in the condensed row to the same control elsewhere (the full header
+ * first, then the masthead), so it is not lost when the row goes. Controls match by their
+ * `data-focus-key` or, for links, their address.
+ */
+function handFocusBack(row: HTMLElement | null) {
+  const active = document.activeElement
+  if (!row || !(active instanceof HTMLElement) || !row.contains(active)) {
+    return
+  }
+  const key = active.dataset.focusKey
+  const href = active.getAttribute('href')
+  let selector = ''
+  if (key) {
+    selector = `[data-focus-key="${CSS.escape(key)}"]`
+  } else if (href !== null) {
+    selector = `a[href="${CSS.escape(href)}"]`
+  }
+  if (!selector) {
+    return
+  }
+
+  const elsewhere = (scope: ParentNode) =>
+    [...scope.querySelectorAll<HTMLElement>(selector)].find((element) => !row.contains(element))
+
+  const target = (row.parentElement && elsewhere(row.parentElement)) ?? elsewhere(document)
+  target?.focus()
+}
+
 /** "12 lots · 6 ready to add": the tabs and the need-you pill carry everything else. */
 function summary(batch: CaptureSnapshotDto, activeLotCount: number, attention?: BatchAttentionDto) {
   return [
@@ -152,13 +182,28 @@ export function BatchHeader({
   const row = secondRow(batch.id, route, input)
   const width = route.tab === 'review' ? 'review' : 'content'
   const phone = useMediaQuery(media.compact)
-  const header = useOutOfView(phone)
+  const condensed = useRef<HTMLElement>(null)
+  const header = useOutOfView(phone, () => handFocusBack(condensed.current))
   const compactStatus = useCompactStatus()
+
+  // While the fixed row shows, focused content scrolls clear of it.
+  useLayoutEffect(() => {
+    const row = condensed.current
+    if (!header.outOfView || !row) {
+      return
+    }
+    const root = document.documentElement
+    root.style.scrollPaddingTop = `${row.offsetHeight}px`
+
+    return () => {
+      root.style.scrollPaddingTop = ''
+    }
+  }, [header.outOfView])
 
   return (
     <Band ref={header.ref}>
       <Inner $width={width}>
-        <BackLink href="#">
+        <BackLink href="#" data-focus-key="back">
           <span aria-hidden="true">←</span> Batches
         </BackLink>
         <TitleLine>
@@ -185,14 +230,26 @@ export function BatchHeader({
         </SubBand>
       )}
       {header.outOfView && (
-        <Condensed aria-label="Batch, condensed">
+        <Condensed ref={condensed} aria-label="Batch, condensed">
           <CondensedRow>
-            <IconButton href="#" label="Back to batches" icon={<BackIcon />} />
+            <IconButton
+              href="#"
+              label="Back to batches"
+              icon={<BackIcon />}
+              data-focus-key="back"
+            />
             <CondensedTitle title={batch.title}>{batch.title}</CondensedTitle>
             {attention && <NeedsYouPanel attention={attention} compact />}
             {compactStatus}
           </CondensedRow>
-          {row && <SubTabs label={row.label} items={row.items} current={row.current} />}
+          {row && (
+            <SubTabs
+              label={`${row.label}, condensed`}
+              items={row.items}
+              current={row.current}
+              announceCurrent={false}
+            />
+          )}
         </Condensed>
       )}
     </Band>
