@@ -576,6 +576,32 @@ test('a refused logo is reported and a replacement file can be chosen', async ()
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
+test('an unconfirmed logo upload says so until the same upload is retried and attached', async () => {
+  const uploadLogo = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('lost'))
+    .mockResolvedValueOnce({ evidence_id: 'e-logo', version: { id: 'v-logo' } })
+  const dirty = vi.fn()
+  const { user, panel } = setup({ uploadLogo, onDirtyChange: dirty })
+  const supplier = within(panel).getByRole('combobox', { name: 'Supplier' })
+  await user.type(supplier, 'Rare Parts')
+  await user.click(await screen.findByRole('option', { name: 'New supplier “Rare Parts”' }))
+  await settle()
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await settle()
+  const file = new File(['png'], 'logo.png', { type: 'image/png' })
+  await user.upload(within(panel).getByLabelText('Supplier logo (optional)'), file)
+  await settle()
+  const unconfirmed = 'Logo upload not confirmed. Retry the same upload or reload saved values.'
+  expect(await within(panel).findByText(unconfirmed)).toBeVisible()
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
+  await settle()
+  expect(uploadLogo).toHaveBeenCalledTimes(2)
+  expect(uploadLogo.mock.calls[1][3]).toBe(uploadLogo.mock.calls[0][3])
+  expect(within(panel).queryByText(unconfirmed)).not.toBeInTheDocument()
+})
+
 test('composing in one field resumes the other lane once composition ends', async () => {
   const { title, panel, user } = setup()
   await user.type(title, ' A')
