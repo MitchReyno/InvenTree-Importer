@@ -1,5 +1,6 @@
 import userEvent from '@testing-library/user-event'
 import { act, render, screen, within } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { expect, it } from 'vitest'
 import type {
   CaptureSnapshotDto,
@@ -723,4 +724,124 @@ it('a confirmed save of an untidy draft stays clean when the batch reloads its s
   expect(dirty.at(-1)).toBe(false)
   expect(within(first).queryByRole('button', { name: 'Discard' })).toBeNull()
   expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeEnabled()
+})
+
+const withReading = (marking: string | null) =>
+  ({
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      {
+        ...observation('o2', 'v1', marking ?? '', null),
+        readings: { markings: marking === null ? [] : [marking] },
+      },
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  }) as unknown as CaptureSnapshotDto
+
+it('an untidy unconfirmed draft is released when the readings catch up with its saved form', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+
+  const view = (current: CaptureSnapshotDto) => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view(batch))
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' 2  ')
+  await user.click(within(first).getByRole('button', { name: 'Add a marking for 16 MHz crystal' }))
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(true)
+  mounted.rerender(view(withReading('16 MHz crystal 2')))
+  expect(dirty.at(-1)).toBe(false)
+  expect(within(first).queryByRole('button', { name: 'Discard' })).toBeNull()
+})
+
+it('discarding after a confirmed save returns to the saved form', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  render(
+    <ExamineView
+      batch={batch}
+      lead={lead}
+      edit={async () => true}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  const field = within(first).getByLabelText('Marking 1 for 16 MHz crystal')
+  await user.type(field, ' 2 ')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(field).toHaveValue('16 MHz crystal 2')
+  await user.type(field, 'x')
+  expect(dirty.at(-1)).toBe(true)
+  await user.click(within(first).getByRole('button', { name: 'Discard' }))
+  expect(field).toHaveValue('16 MHz crystal 2')
+  expect(dirty.at(-1)).toBe(false)
+})
+
+it('clearing every marking saves an empty reading that stays clean after the reload', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  let current = batch
+
+  const view = () => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async (change) => {
+        expect(change).toMatchObject({ readings: { markings: [] } })
+        current = withReading(null)
+        mounted.rerender(view())
+        return true
+      }}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view())
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.clear(within(first).getByLabelText('Marking 1 for 16 MHz crystal'))
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(false)
+  expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeEnabled()
+})
+
+it('under StrictMode a reading reports unsaved, typed back and unmounted correctly', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  const mounted = render(
+    <StrictMode>
+      <ExamineView
+        batch={batch}
+        lead={lead}
+        edit={async () => false}
+        askSharper={async () => {}}
+        onDirtyChange={(value) => dirty.push(value)}
+      />
+    </StrictMode>,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  const field = within(first).getByLabelText('Marking 1 for 16 MHz crystal')
+  await user.type(field, '!')
+  expect(dirty.at(-1)).toBe(true)
+  await user.type(field, '{Backspace}')
+  expect(dirty.at(-1)).toBe(false)
+  await user.type(field, '!')
+  expect(dirty.at(-1)).toBe(true)
+  mounted.unmount()
+  expect(dirty.at(-1)).toBe(false)
 })
