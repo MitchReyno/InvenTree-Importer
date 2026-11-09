@@ -64,12 +64,14 @@ async function abortOpenSearch(abort: AbortController, signal?: AbortSignal) {
 
 /** Runs `body` as a browser without `AbortSignal.any` would, then restores it. */
 async function withoutAbortSignalAny(body: () => Promise<void>) {
-  const native = AbortSignal.any
+  const native = Object.getOwnPropertyDescriptor(AbortSignal, 'any')
   Reflect.deleteProperty(AbortSignal, 'any')
   try {
     await body()
   } finally {
-    AbortSignal.any = native
+    if (native) {
+      Object.defineProperty(AbortSignal, 'any', native)
+    }
   }
 }
 

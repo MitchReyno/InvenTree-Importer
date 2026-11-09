@@ -84,7 +84,7 @@ it('shows each photo’s regions with their lot, and each lot’s observations, 
 })
 
 it('renders nothing while no observation is active, and returns when they come back', () => {
-  const none = { ...batch, evidence_observations: [] } as CaptureSnapshotDto
+  const none = { ...batch, evidence_observations: [] }
   const mounted = render(<ExamineView batch={batch} lead={lead} />)
   expect(screen.getByLabelText('Photo 1')).toBeVisible()
 
