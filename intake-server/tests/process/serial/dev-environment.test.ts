@@ -9,10 +9,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer as portServer } from 'node:net'
-import { database } from '../../src/db/database.ts'
-import { processingCheckpoint } from '../support/processing-process.ts'
+import { database } from '../../../src/db/database.ts'
+import { processingCheckpoint } from '../../support/processing-process.ts'
 
-const repository = fileURLToPath(new URL('../../../', import.meta.url))
+const repository = fileURLToPath(new URL('../../../../', import.meta.url))
 
 async function freePort() {
   const server = portServer()

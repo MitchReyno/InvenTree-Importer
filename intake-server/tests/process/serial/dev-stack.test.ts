@@ -12,11 +12,11 @@ import { setTimeout as delay } from 'node:timers/promises'
 import WebSocket from 'ws'
 import sharp from 'sharp'
 import { LIVE_PROTOCOL } from '@invimport/contracts'
-import { processingCheckpoint } from '../support/processing-process.ts'
-import { database } from '../../src/db/database.ts'
-import { provisionLegacyDevApi } from '../support/dev-legacy.ts'
+import { processingCheckpoint } from '../../support/processing-process.ts'
+import { database } from '../../../src/db/database.ts'
+import { provisionLegacyDevApi } from '../../support/dev-legacy.ts'
 
-const repository = fileURLToPath(new URL('../../../', import.meta.url))
+const repository = fileURLToPath(new URL('../../../../', import.meta.url))
 type Running = { supervisor: number; origin: string; children: { name: string; pid: number }[] }
 
 async function freePort() {

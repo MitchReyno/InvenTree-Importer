@@ -7,6 +7,14 @@ const { resolve } = require('node:path')
 const { developmentAdmin } = require('../src/dev/pg-identity.ts')
 const { developmentEnvironment } = require('../../tooling/dev/environment.cjs')
 
+async function testFiles(directory) {
+  const entries = await readdir(resolve(__dirname, '..', directory), { withFileTypes: true })
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.test.ts'))
+    .map((entry) => `${directory}/${entry.name}`)
+    .sort()
+}
+
 /** Reuses retained helper credentials silently. Never starts, stops or migrates a service. */
 async function main() {
   const settings = await developmentEnvironment(resolve(__dirname, '../..'))
@@ -44,13 +52,11 @@ async function main() {
   const browserSuite = suite === 'browser' || suite === 'processing-browser'
   let files = [suites[suite]]
   if (suite === 'all-pg' || suite === 'all-process') {
-    const entries = await readdir(resolve(__dirname, '..', suites[suite]), {
-      withFileTypes: true,
-    })
-    files = entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.test.ts'))
-      .map((entry) => `${suites[suite]}/${entry.name}`)
-      .sort()
+    files = await testFiles(suites[suite])
+    if (suite === 'all-process') {
+      // Serial-only process tests live one level down and run after the rest.
+      files.push(...(await testFiles(`${suites[suite]}/serial`)))
+    }
     if (files.length === 0) {
       throw new Error('owned_pg_test_suite_empty')
     }
