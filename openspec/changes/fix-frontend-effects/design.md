@@ -31,7 +31,7 @@ A report-on-change Effect stays only where the change has no event in the compon
 
 - `TellExamine`, whose form hides when a poll changes session visibility.
 - A saved value catching up with a dirty draft, which makes it clean with no event in the component: `useDraft`, `EvidenceGroup` and `InstructionField`.
-- `ExamineView`'s ReadingEdit, whose polled readings can make its draft clean or dirty.
+- `ExamineView`'s ReadingEdit, whose readings from the parent can make its draft clean or dirty. Processing currently remounts on each revision, so this covers the component's contract rather than an observed path.
 
 The React Hook Form editors report from the form's `onChange`, comparing the values with their baseline, so typing a value back reports clean from the event.
 
