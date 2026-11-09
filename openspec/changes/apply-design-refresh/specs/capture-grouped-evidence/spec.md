@@ -66,7 +66,7 @@ Each photo or document SHALL offer Delete from its actions menu, and a multi-sel
 
 ### Requirement: Restore deleted evidence
 
-After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted files" list from which any deleted file can be restored. Restoring SHALL record an append-only event and bring the file back with its notes and links, into its group if that group is still active and otherwise into "Not in a group". Restore SHALL be disabled with the reason and refused by the server when the batch is at its upload capacity or archived. A cleared attachment selection SHALL stay cleared. The Examine lead SHALL receive the restored file as new evidence. Proposals made stale by the delete SHALL stay stale until their sessions revise them.
+After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted files" list from which any deleted file can be restored. Restoring SHALL record an append-only event and bring the file back with its notes and links, into its group if that group is still active and otherwise into "Not in a group". Restore SHALL be disabled with the reason and refused by the server when the batch is archived. A cleared attachment selection SHALL stay cleared. The Examine lead SHALL receive the restored file as new evidence. Proposals made stale by the delete SHALL stay stale until their sessions revise them.
 
 #### Scenario: Restore from the list
 
@@ -79,12 +79,6 @@ After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted file
 - **GIVEN** a deleted photo whose group has since been ungrouped
 - **WHEN** the operator restores it
 - **THEN** it returns to "Not in a group"
-
-#### Scenario: Restore when the batch is full
-
-- **GIVEN** a deleted photo and a batch that has since reached 200 present files
-- **WHEN** the operator looks at "Deleted files"
-- **THEN** Restore is disabled with "This batch is full", and a restore request sent anyway is refused with `media_capacity`
 
 ### Requirement: Delete refused where history must stay
 

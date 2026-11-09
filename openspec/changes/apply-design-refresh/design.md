@@ -64,7 +64,20 @@ Changes to existing components:
 
 ### D3. Batch header counts from one helper
 
-`batches/BatchHeader.tsx` moves the tabs onto their own row under the title. A pure `tabCount(attention)` helper picks one count per tab: the attention count if any, otherwise the total. It is unit-tested against the D16 table in the change log.
+`batches/BatchHeader.tsx` moves the tabs onto their own row under the title. A pure `tabCount(tab, attention)` helper returns one count and tone per tab, unit-tested against this table:
+
+| Tab | Count and tone |
+| --- | --- |
+| Capture | none |
+| Processing | open questions (warn), else none |
+| Processing › Overview | none |
+| Processing › step | lots done of total ("7/12"), or that step's questions (warn) when any |
+| Review | lots to check (plain); its sub-tabs carry the decisions |
+| Review › Lots | lots needing answers (warn), else all lots (plain) |
+| Review › Map | unused photos or observations (warn), else none |
+| Review › Records | record decisions (warn), else all records (plain) |
+| Changes and Ready to add | lots ready to add (ok) |
+| Changes › Added | items needing attention (bad), else none |
 
 The need-you aggregate from `redesign-batch-workspace` (design D8) still feeds the pill. The activity chip and Overview sub-tab stop rendering their copies.
 
@@ -72,7 +85,7 @@ The need-you aggregate from `redesign-batch-workspace` (design D8) still feeds t
 
 `App.tsx` routes `#settings` and `#settings/<section>` to a new `components/settings/Settings.tsx`. Its route match and the `currentBatch` derivation (`App.tsx:123`) change from an exact `settings` match to a `settings` prefix, so `#settings/inventree` isn't read as a batch. The sections are `agents` (default), `inventree`, `defaults`, `descriptions` and `appearance`.
 
-- **Agents section:** restyles `AgentSettingsForm` onto `SettingRow`s: option cards for provider, a segmented control for authentication, a model select and a `NumberStepper` for sessions at once. The contract, revision and conflict handling stay the same, and saving stays explicit with one Save action. The existing `PersonalClaudeCredential` and `ChatGPTSignIn` panels from `AgentSettings.tsx` move into the section unchanged, and each provider card shows its sign-in status from their existing endpoints (`/personal-runner/claude`, `/personal-runner/codex`). The disabled "More control" card sits below. Pause all reuses the pause command behind `AgentSessions.tsx`, and the slot meter reads the existing agent sessions query.
+- **Agents section:** restyles `AgentSettingsForm` onto `SettingRow`s: option cards for provider, a segmented control for authentication, a model select and a `NumberStepper` for sessions at once. The contract, revision and conflict handling stay the same, and saving stays explicit with one Save action. The existing `PersonalClaudeCredential` and `ChatGPTSignIn` panels from `AgentSettings.tsx` move into the section unchanged, and each provider card shows the status from the last check the operator ran in those panels: the endpoints (`/personal-runner/claude`, `/personal-runner/codex`) are POST-only, need the typed management key and exist only under `INTAKE_PERSONAL_MANAGEMENT`. Until a check runs the card reads "Not checked", and "Unavailable" without personal management. The disabled "More control" card sits below. Pause all reuses the pause command behind `AgentSessions.tsx`, and the slot meter reads the existing agent sessions query.
 - **InvenTree section:** reads the existing connection observation. The token row, Check now, Replace token and import reference prefix render disabled (BI-015).
 - **Back link:** uses a `returnTo` held in navigation state when Settings is opened. It falls back to Batches for a direct load.
 - **Unsaved edits:** leaving Settings uses the existing navigation guard.
@@ -119,7 +132,7 @@ It is protected by the same `reject_authority_change()` trigger. An item's curre
 **Commands.** `contracts/src/media.ts` adds `remove` and `restore` to the `MediaEdit` kinds, handled in `media/edit.ts` and posted to `/media/commands`. Each carries `evidence_ids[]`, the expected revision and an idempotency key. One transaction:
 
 1. locks the media batch and checks the revision;
-2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (an approval used it, as an attachment or supporting evidence); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409. `restore` also runs `requireUploadCapacity` and refuses with `media_capacity` 409 when the batch is full, and `lockMediaBatch` refuses it in an archived batch;
+2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (an approval used it, as an attachment or supporting evidence); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409. `lockMediaBatch` also refuses `restore` in an archived batch;
 3. inserts one row per item, and appends an `unset` attachment selection for any removed version that was selected, so a new preparation can't silently drop it;
 4. marks current proposals stale with the existing `evidence_removed` reason (`processing/currentness.ts`) when they rely on the removed item through any of three joins: a media source on one of its versions, an `evidence_observation` source whose observation's `evidence_version_id` is one of its versions, or one of its evidence notes. Its notes also leave new inputs. Stale marks are final (`processing-stage-pipeline` › Evidence-based currentness), so a restore doesn't revive them; the sessions revise. It sends a batch notice to the Examine lead, and notices to the affected lots' Research and Images sessions (`lotSessions`), keyed by the removal revision so a later removal after a restore is delivered again. A restore appends its own `evidence` inbox item for the lead, keyed `restored:<evidence>:<revision>`, because `examine-trigger.ts` skips versions the lead has seen, observed or pinned;
 5. advances the revision and records a `media_removed` or `media_restored` event.
@@ -136,7 +149,9 @@ A replay with the same key returns the first result. The command doesn't write `
 | Other media edits (`move`, `move_many`, `link`, attachment selection, `derive`, evidence note) | Refused with `media_evidence_removed` 409 on a removed item |
 | `ungroup` | Also moves removed members to ungrouped, so a restore never returns a file to a retired group; restore uses the file's group only if it is still active |
 | `review/model.ts` `hasSupportingEvidence` | Ignores removed items, so a lot left without present evidence raises the existing dismissible `no_supporting_evidence` warning |
-| `media/commands.ts` `requireUploadCapacity` | Counts only present items, so deleted files free capacity |
+| `media/commands.ts` `requireUploadCapacity` | Unchanged: removed items keep counting towards the 200-item cap, so `MediaSnapshot.evidence` (max 200) plus the `removed` list (max 200) together stay within it |
+| `capture/evidence-observations.ts` `requireEvidenceRegion` (used by `recordObservation` and `applyObservationEdit`) | Refuses removed versions with `media_evidence_removed`, taking the media batch lock before the capture lock as the removal command does |
+| `leadBatchView` | Omits observations on removed versions |
 | `processing/examine-trigger.ts` (candidate query and `uncoveredVersions`) | Skips removed versions |
 | Agent evidence reads (research broker and session tools) | Refuse or omit removed versions |
 | Processing input builder and preparation | Skip removed evidence; frozen inputs keep their manifest, so provenance checks still hold |
@@ -173,7 +188,7 @@ Applied per design change log entry. The table names the owning component, with 
 | D3, D21 | `changes/ReadyToAdd.tsx` and `PreparationTreeView.tsx`: a two-column layout in both views, and a location shown only when it differs from the batch default |
 | D7 | `processing/StepPage.tsx` with a new `ProcessingInventory.tsx`, using `CompareTable` when the duplicate question carries both records; missing fields read "Not known" |
 | D8 | `review/records/RecordsStage.tsx`: Locations type with list and detail; mapping edits follow "Unsupported record changes are honest" |
-| D17 | `review/records/PartEditor.tsx`: the "Who proposed what" panel is removed; `AskControl` is headed "Ask an agent about this Part" |
+| D17 | No app change: the app never had the canvas's "Who proposed what" panel, and its per-field `AskControl` ("Ask {step}", `RecordDetail.tsx:232-240`) already meets `review-records` › Steering routed to the proposing step, so it stays |
 | D18–D20 | Hand-off cards and helper sentences removed; help moves to `HelpButton` (Capture groups, Map legend); Review shortcuts become a "Shortcuts" button |
 | D22–D27 | `AiMark` placements per the log; `SourceChip` popover everywhere chips render; `KeyValue` uses it |
 
@@ -182,7 +197,7 @@ Applied per design change log entry. The table names the owning component, with 
 | Area | State and authority | Failure and recovery |
 | --- | --- | --- |
 | Upload queue | Browser memory only until each receipt; server authority unchanged | Per-file "Not added" or Retry with the same key; the navigation guard protects the queue |
-| Removal | Append-only `media_evidence_removal` rows under the media revision and actor; batch-scoped authorization as other media commands | Stale revision 412, pinned 409 `media_removal_refused`, replay returns the first result; restore is a later `removed=false` row, available unless the batch is full or archived; removed files can't be approved |
+| Removal | Append-only `media_evidence_removal` rows under the media revision and actor; batch-scoped authorization as other media commands | Stale revision 412, pinned 409 `media_removal_refused`, replay returns the first result; restore is a later `removed=false` row, available unless the batch is archived; removed files can't be approved |
 | Agent notice | Existing `evidence_removed` stale reason and revision notices, written in the same transaction | Sessions pick them up through the existing notice path; a lost wake is retried by the existing delivery loop |
 | Settings | Existing agent settings contract and revision; theme preference unchanged | Conflict shows Reload and keeps the edit; deferred controls send nothing |
 | Server menu | Existing bounded connection observation and sanitized URL | Unavailable states as today |
@@ -203,6 +218,7 @@ Applied per design change log entry. The table names the owning component, with 
   - the Settings back link;
   - phone header at 390px via the existing viewport helpers.
 - **Contracts:** schema tests for `remove`/`restore` and the projection's removed and pinned fields.
+- **Masthead check:** `pnpm --filter @invimport/frontend check:masthead` for the masthead layout and mask (PR-B).
 - **Intake server Postgres tier** (`pnpm test:intake:pg`):
   - removal and restore commands: revision, idempotent replay, refusal when pinned or archived;
   - triggers refuse UPDATE and DELETE on the new table;

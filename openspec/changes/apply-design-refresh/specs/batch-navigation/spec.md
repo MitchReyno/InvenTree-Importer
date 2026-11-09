@@ -10,7 +10,7 @@ The batch header SHALL show the tabs Capture, Processing, Review and Changes on 
 
 - **GIVEN** a batch with 3 open questions, 8 lots to check, 3 record decisions and 6 lots ready to add
 - **WHEN** any batch tab is open
-- **THEN** the tabs read Capture with no count, Processing "3", Review "8" and Changes "6", with warning counts visually distinct from plain counts, and no tab shows a phrase or two badges.
+- **THEN** the tabs read Capture with no count, Processing "3" in the warning tone, Review "8" as a plain count (its sub-tabs carry the decisions) and Changes "6" in the ready tone, and no tab shows a phrase or two badges.
 
 ### Requirement: Second tab row
 

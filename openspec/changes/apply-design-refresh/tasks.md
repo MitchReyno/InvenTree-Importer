@@ -50,7 +50,8 @@ Tasks 1, 10 and 11 can start in parallel.
 **Gates for every bundle:**
 
 - Frontend gate: `pnpm lint && pnpm build && pnpm test` from the repository root.
-- Full gate: the frontend gate, plus `pnpm contracts:check && pnpm typecheck:intake && pnpm test:intake`.
+- Full gate: the frontend gate, plus `pnpm contracts:check && pnpm typecheck:intake` (root `pnpm test` already runs the intake tests).
+- PR-B also runs `pnpm --filter @invimport/frontend check:masthead`.
 - Every task also updates the architecture docs it affects (`frontend/ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`) and `notes.md` in its own PR.
 - Then local review rounds until clean, green selected CI, and merge pinned to the reviewed head.
 
@@ -63,7 +64,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - Add `components/ui/icons.tsx` with `AiSparkle`, `Help`, `Info`, `Settings`, `Menu` and `Back` as inline `currentColor` SVGs.
   - Add components: `AiMark` (sm, md, lg; it makes its parent a centred flex row), `IconButton`, `HelpButton`, `SettingsNav`, `SettingRow`, `Switch`, `NumberStepper`, `DescriptionField`, `TreeView`, `CompareTable`, `SourceChipPopover`.
   - Change `SourceChip` to the short form (source, info icon, attention glyph, full text as its tooltip) with the popover.
-  - `Pill` drops ✦.
+  - `Pill` drops ✦ and the "AI-proposed" state.
   - `KeyValue` and `Breadcrumb` follow D29.
   - Show everything in the component gallery fixture.
 - **Prerequisites:** none.
@@ -111,7 +112,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - The Overview sub-tab and the Needs you card heading drop their counts, and the "Elsewhere in this batch" card goes (`processing/ProcessingOverview.tsx`).
 - **Prerequisites:** Task 1.
 - **Acceptance:** `batch-navigation` › Four batch tabs, Second tab row (both scenarios) and Calm batch header; `processing-workspace` › Processing overview.
-- **TDD approach:** test `tabCount` against the change log's D16 table, and a header test asserts one badge per tab. Both fail first.
+- **TDD approach:** test `tabCount` against the table in design D3, and a header test asserts one badge per tab. Both fail first.
 - **Verification:** frontend gate.
 - **Risks and decisions:** none.
 
@@ -152,7 +153,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D4):**
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings` and `#settings/<section>`; the route match and `currentBatch` derivation at `App.tsx:123` change from an exact match to a `settings` prefix, with a test that `#settings/inventree` isn't read as a batch.
-  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section unchanged, with tests; provider cards show their sign-in status from those endpoints.
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section unchanged, with tests; provider cards show the status of the last check run in those panels, "Not checked" before one, and "Unavailable" without personal management.
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
@@ -199,7 +200,6 @@ Tasks 1, 10 and 11 can start in parallel.
   - Short source chips are used everywhere.
   - The AI mark sits at each agent touchpoint.
 - **Scope and approach (design D8):** change log entries D17–D22 and D26–D27:
-  - remove the Part "Who proposed what" panel;
   - remove the Review "ready to add" banner;
   - remove the helper sentences (Batches, Capture notes, Proposed lots, Records subtitle, Tree footnote, "Your edits are kept…");
   - add `HelpButton` for Capture groups and the Map legend;
@@ -207,7 +207,6 @@ Tasks 1, 10 and 11 can start in parallel.
   - drop the duplicate "Test InvenTree" on Added;
   - change "✦ New" pills to "＋ New";
   - migrate every `SourceChip` call site, and move `operator/ProvenancePill.tsx` (used by `DecisionPanel`) onto the short chip;
-  - give "Ask an agent about this Part" its step select (`AskControl`);
   - place `AiMark` where the change log lists it.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `ui-design-system` › AI mark at agent touchpoints, Short source chips with details on demand, Help instead of helper text.
@@ -233,7 +232,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - Lot rows show a location only when it differs from the batch default.
 - **Scope and approach (design D8):** `review/records/RecordsStage.tsx` and `RecordDetail.tsx`; `changes/ReadyToAdd.tsx` and `PreparationTreeView.tsx`, using `TreeView`.
 - **Prerequisites:** Tasks 1 and 6.
-- **Acceptance:** `review-records` › Locations view; `changes-commit` › Tree view keeps the lot list.
+- **Acceptance:** `review-records` › Locations view; `changes-commit` › Tree view, Lot rows name only an overriding location.
 - **TDD approach:** Locations list and detail from the projection; unticking a lot updates the tree beside the list; location shown only on a difference. All fail first.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** location mapping edits stay under "Unsupported record changes are honest" where the app can't store them.
@@ -250,7 +249,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Outcome:** Inventory has its own step page with Part matches, a duplicate-stock comparison, location and company matches, and the session drawer.
 - **Scope and approach (design D8):** a new `processing/ProcessingInventory.tsx` on `StepPage.tsx`, with `CompareTable` built from the retained duplicate question. Fields the data doesn't hold read "Not known".
 - **Prerequisites:** Task 1.
-- **Acceptance:** `processing-workspace` › Inventory step page.
+- **Acceptance:** `processing-workspace` › Inventory step page, Inventory session drawer.
 - **TDD approach:**
   - Fixture-based tests: the comparison renders both records; missing fields read "Not known"; answering resolves the question.
   - They fail first.
@@ -296,10 +295,11 @@ Tasks 1, 10 and 11 can start in parallel.
   - Migration `0031_media_evidence_removal.sql` with its immutability trigger, and grants in `media/grants.ts`.
   - `contracts/src/media.ts` `remove` and `restore` `MediaEdit` kinds, handled in `media/edit.ts`.
   - The media read model returns removed items in a separate list, and each item gains `pinned_by`, `lot_ids` and `sole_evidence_lot_ids`.
-  - Other edits on a removed item (`move`, `move_many`, `link`, attachment selection, `derive`, evidence note) are refused with `media_evidence_removed`; `ungroup` also moves removed members; `requireUploadCapacity` counts only present items.
+  - Other edits on a removed item (`move`, `move_many`, `link`, attachment selection, `derive`, evidence note) are refused with `media_evidence_removed`; `ungroup` also moves removed members; removed items keep counting towards capacity.
+  - `requireEvidenceRegion` refuses observations on removed versions; `leadBatchView` omits them.
   - The delete command appends an `unset` attachment selection for any selected removed version; the projection adds `selected_attachment_of`, and `pinned_by` joins `executor_approval` for its time.
   - `review/model.ts` `hasSupportingEvidence` ignores removed items, so the existing `no_supporting_evidence` warning applies.
-  - `evidence_removed` stale reasons through all three joins (media sources, observation sources via `evidence_version_id`, evidence notes); the removed item's notes leave new inputs. A batch notice to the Examine lead, and notices to the lots' Research and Images sessions keyed by removal revision. A restore appends its own lead `evidence` item keyed `restored:<evidence>:<revision>` and re-checks capacity.
+  - `evidence_removed` stale reasons through all three joins (media sources, observation sources via `evidence_version_id`, evidence notes); the removed item's notes leave new inputs. A batch notice to the Examine lead, and notices to the lots' Research and Images sessions keyed by removal revision. A restore appends its own lead `evidence` item keyed `restored:<evidence>:<revision>`.
   - Filtering in `processing/examine-trigger.ts`, the agent evidence reads, the processing input builder and preparation.
   - `media/execution-pins.ts` refuses removed versions with `approval_evidence_removed` (409).
   - Operator byte routes serve only a removed version's thumbnail; Review projections omit its observations.
@@ -313,9 +313,11 @@ Tasks 1, 10 and 11 can start in parallel.
     - pinned evidence refused with `media_removal_refused`;
     - UPDATE and DELETE on the new table rejected;
     - stale reasons and notices written, and remove → restore → remove delivers a second notice while the proposal stays stale;
-    - edits on a removed item refused; capacity freed;
+    - edits on a removed item refused;
     - projection fields `pinned_by`, `lot_ids`, `sole_evidence_lot_ids`;
-    - restore appends a lead notice, refuses at capacity with `media_capacity` and in an archived batch, and returns to ungrouped when its group was retired;
+    - restore appends a lead notice, is refused in an archived batch, and returns to ungrouped when its group was retired;
+    - observations recorded or edited on a removed version are refused; the lead batch view omits them;
+    - a snapshot with 200 items, some removed, validates against the contract;
     - deleting a selected attachment clears the selection; `move_many` refuses removed IDs; `ungroup` moves removed members;
     - a lot whose only evidence is removed raises `no_supporting_evidence`;
     - each of the three stale joins marks a proposal stale;
@@ -345,13 +347,13 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D6):** `ui/EvidenceTile.tsx`, `capture/EvidencePanel.tsx`, the bulk bar, `Dialog` and `Toast`, using the projection's lot links and pinned state.
 - **Prerequisites:** Tasks 1, 10 and 11.
 - **Acceptance:** same as Task 11 (UI parts).
-- **TDD approach:** UI tests for menu keyboard use, dialog content with lots and a no-evidence warning, Undo and Restore sending `restore`, the disabled refusal, Restore disabled at capacity, the disabled note delete, and the bulk delete. They fail first.
+- **TDD approach:** UI tests for menu keyboard use, dialog content with lots and a no-evidence warning, Undo and Restore sending `restore`, the disabled refusal, the disabled note delete, and the bulk delete. They fail first.
 - **Verification:** full gate; film.
 - **Risks and decisions:** none.
 
 - [ ] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `removed`) cover the dialog, refusal and Deleted files list.
 - [ ] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
-- [ ] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states, including Restore disabled with "This batch is full".
+- [ ] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states.
 - [ ] 12.4 Refactor; check focus return after the dialog and toast.
 - [ ] 12.5 Run the full gate, update the docs it affects, and record the results.
 

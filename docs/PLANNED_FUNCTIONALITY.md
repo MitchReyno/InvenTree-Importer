@@ -74,7 +74,6 @@ Find a suitable supplier logo automatically when creating a supplier. This is a 
 - Prerequisites: Unknown — discovery sources, image handling and execution support need assessment; BI-003 supplies the planned entry point as a disabled Find automatically control; automatic discovery is not implemented.
 - OpenSpec: [automatic-supplier-logos](../openspec/changes/automatic-supplier-logos/)
 
-
 #### BI-005 — Purchase-order support
 
 Enable purchase-order creation from retained batch supplier and order context through explicit review, approval and supervised execution. Assess order numbering, dates, line mapping, duplicate prevention and uncertain-result recovery before enabling the currently disabled controls.

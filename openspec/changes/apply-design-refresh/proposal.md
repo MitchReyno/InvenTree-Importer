@@ -98,7 +98,7 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
   - Tree view keeps "Lots to include".
   - Processing › Inventory step page.
   - Review › Records · Locations.
-  - The approved removals.
+  - The approved removals. D17 needs no app change: the canvas's "Who proposed what" panel never existed in the app, whose per-field Ask controls stay.
   - AI sparkle placements, help buttons and short source chips across screens.
 - **Capture:**
   - Direct multi-file upload (D30).
@@ -160,7 +160,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 
 - `capture-grouped-evidence`: uploads start on pick and accept several files. Adds deleting and restoring photos and documents.
 - `header-connection-status`: Open InvenTree moves into the connection menu; at phone width the indicator is a dot on the menu button, with the control inside the menu.
-- `capture-media`: removed evidence keeps its bytes, isn't served or counted against capacity, and refuses edits.
+- `capture-media`: removed evidence keeps its bytes and still counts towards capacity, isn't served beyond a thumbnail, and refuses edits and new observations.
 - `processing-stage-pipeline`: stale reasons and notices on removal; restore as new evidence.
 - `approval-preparation`: removed evidence blocks approval.
 - `header-workflow-status` (modified by `redesign-batch-workspace`): the masthead's order ends with the Settings button, and the phone bar holds brand, Dev, agents status button and menu.

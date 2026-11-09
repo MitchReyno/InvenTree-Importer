@@ -30,6 +30,12 @@ The connection control SHALL be keyboard operable, announce expanded state, and 
 
 #### Scenario: Keyboard and narrow viewport
 
+- **GIVEN** keyboard focus on the connection trigger in a 360px viewport
+- **WHEN** it is opened, explored and dismissed with Escape
+- **THEN** its labelled details and link remain usable without document horizontal scrolling, and focus returns to the trigger.
+
+#### Scenario: Phone menu
+
 - **GIVEN** keyboard focus on the menu button in a 360px viewport
 - **WHEN** the menu is opened, the connection details are explored and the menu is dismissed with Escape
 - **THEN** the labelled details and Open InvenTree link remain usable without document horizontal scrolling, and focus returns to the menu button.

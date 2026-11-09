@@ -4,7 +4,7 @@
 
 ### Requirement: AI mark at agent touchpoints
 
-The AI sparkle (`AiMark`, `ai` on `ai-weak`) SHALL mark the places where the operator meets an agent: the activity chip, the Agents page and Agent settings, session drawer headers, live agent lists (Proposed lots, Agent sessions) and every Ask, Tell or Instructions box. It SHALL NOT mark proposed values, source chips, pills, counts or table rows. It SHALL centre on its label and be hidden from assistive technology, since the label names the agent. Pills SHALL NOT use a sparkle glyph; New uses ＋.
+The AI sparkle (`AiMark`, `ai` on `ai-weak`) SHALL mark the places where the operator meets an agent: the activity chip, the Agents page and Agent settings, session drawer headers, live agent lists (Proposed lots, Agent sessions) and every free-text Ask, Tell or Instructions box. Per-field Ask buttons don't carry it. It SHALL NOT mark proposed values, source chips, pills, counts or table rows. It SHALL centre on its label and be hidden from assistive technology, since the label names the agent. Pills SHALL NOT use a sparkle glyph; New uses ＋.
 
 #### Scenario: Marked once per touchpoint
 
