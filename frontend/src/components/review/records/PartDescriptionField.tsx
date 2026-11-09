@@ -51,6 +51,7 @@ export function PartDescriptionField({
       <DescriptionField
         label="Description"
         value={value}
+        counted={normalized}
         limit={DESCRIPTION_LIMIT.default}
         source={field && <FieldSourceChip label="Description" field={field} />}
         disabled={disabled || busy}

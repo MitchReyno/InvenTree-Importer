@@ -6,12 +6,12 @@ import type {
   BatchRecordsDto,
   CaptureSnapshotDto,
   InventoryPartSpecDto,
+  RecordExistingValuesDto,
 } from '@invimport/contracts'
 import { applyRecordChange, type CaptureEditDto } from '@invimport/contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '#/test/render'
 import { RecordsStage } from './RecordsStage'
-import type { RecordsClient as RecordsClientLike } from '#/records/useBatchRecords'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
@@ -1348,22 +1348,20 @@ describe('RecordsStage', () => {
   })
 })
 
-/** Saves move the revision as the server does; the first save can be refused as a 412. */
 describe('Descriptions on records', () => {
   const COMPANY_TEXT = 'Interconnect manufacturer: USB, board-to-board and card-edge connectors'
   const LONG_TEXT = 'Surface-mount chip resistors, '.repeat(9).trim()
 
   function stageRecords(
     read: BatchRecordsDto,
-    existingRecords: Awaited<
-      ReturnType<NonNullable<RecordsClientLike['existing']>>
-    >['records'] = [],
+    existingRecords: RecordExistingValuesDto['records'] = [],
     snapshot: CaptureSnapshotDto = batch,
+    truncated = false,
   ) {
     const existing = vi.fn(async () => ({
       target_context_id: id(1),
       records: existingRecords,
-      truncated: false,
+      truncated,
     }))
     const edit = vi.fn(async () => true)
     render(
@@ -1409,12 +1407,106 @@ describe('Descriptions on records', () => {
 
     expect(description).toHaveTextContent(COMPANY_TEXT)
     expect(description).toHaveTextContent('71 / 500')
-    expect(
+    expect(within(description).queryByRole('textbox')).not.toBeInTheDocument()
+
+    await user.click(
       within(description).getByRole('button', {
         name: 'Source: InvenTree, Existing. Show details.',
       }),
-    ).toBeInTheDocument()
-    expect(within(description).queryByRole('textbox')).not.toBeInTheDocument()
+    )
+    const details = await screen.findByRole('dialog', { name: 'Company description source' })
+    expect(details).toHaveTextContent(`Company description · ${COMPANY_TEXT}`)
+    expect(details).toHaveTextContent('The description saved on this record in InvenTree.')
+  })
+
+  function mappedYageo() {
+    const read = structuredClone(records)
+    Object.assign(
+      read.records.find((record) => record.key === 'company:supplier:12')!,
+      {
+        mapped: { model: 'company', pk: '12' },
+      },
+    )
+    return read
+  }
+
+  it('says when an existing record has no description in InvenTree', async () => {
+    const user = userEvent.setup()
+    stageRecords(mappedYageo(), [
+      {
+        key: 'company:supplier:12',
+        status: 'found',
+        fields: [
+          { name: 'name', value: 'Yageo' },
+          { name: 'description', value: null },
+        ],
+      },
+    ])
+    await open(user, /^Companies/, 'Yageo')
+    const description = await within(screen.getByRole('region', { name: 'Yageo' })).findByRole(
+      'group',
+      { name: 'Company description' },
+    )
+
+    expect(description).toHaveTextContent('No description')
+    expect(description).toHaveTextContent('0 / 500')
+  })
+
+  it.each([
+    [
+      'could not be read',
+      [{ key: 'company:supplier:12', status: 'unavailable' as const }],
+      false,
+      /couldn’t be read/,
+    ],
+    [
+      'was not found',
+      [{ key: 'company:supplier:12', status: 'not_found' as const }],
+      false,
+      /wasn’t found in InvenTree/,
+    ],
+    ['was left out of a truncated read', [], true, /wasn’t in this read/],
+  ])(
+    'shows a disabled description when the record %s',
+    async (_state, existingRecords, truncated, reason) => {
+      const user = userEvent.setup()
+      const { edit } = stageRecords(mappedYageo(), existingRecords, batch, truncated)
+      await open(user, /^Companies/, 'Yageo')
+      const field = await within(screen.getByRole('region', { name: 'Yageo' })).findByRole(
+        'textbox',
+        { name: 'Company description' },
+      )
+
+      expect(field).toHaveAttribute('aria-disabled', 'true')
+      expect(field).toHaveAttribute('readonly')
+      expect(field).toHaveAccessibleDescription(reason)
+      expect(edit).not.toHaveBeenCalled()
+    },
+  )
+
+  it('shows a disabled description when the InvenTree read fails', async () => {
+    const user = userEvent.setup()
+    render(
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{
+            read: vi.fn(async () => mappedYageo()),
+            existing: vi.fn(async () => Promise.reject(new Error('down'))),
+          }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    const field = await within(screen.getByRole('region', { name: 'Yageo' })).findByRole(
+      'textbox',
+      { name: 'Company description' },
+    )
+
+    expect(field).toHaveAccessibleDescription(/couldn’t be read/)
   })
 
   it('shows an existing description over its limit in the bad tone without blocking anything', async () => {
@@ -1527,6 +1619,31 @@ describe('Descriptions on records', () => {
     expect(description).toHaveTextContent('Left of the scope')
     expect(description).toHaveTextContent('17 / 250')
     expect(within(description).queryByRole('textbox')).not.toBeInTheDocument()
+
+    await user.click(within(description).getByRole('button', { name: /^Source: You/ }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Location description source' }),
+    ).toHaveTextContent('Entered with this new location in Capture.')
+  })
+
+  it('counts a new Part’s description as it will be saved, so a trailing space can still save', async () => {
+    const user = userEvent.setup()
+    const { edit } = stageRecords(records)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const field = within(detail).getByRole('textbox', { name: 'Description' })
+
+    await user.clear(field)
+    await user.click(field)
+    await user.paste(`${'x'.repeat(250)} `)
+    expect(within(detail).getByText('250 / 250')).toBeInTheDocument()
+    expect(field).not.toHaveAttribute('aria-invalid')
+    await user.click(within(detail).getByRole('button', { name: 'Save description' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'record',
+      target: { kind: 'part', part_subject_id: partA },
+      operation: { op: 'set_description', value: 'x'.repeat(250) },
+    })
   })
 
   it('shows a proposed description over the limit as not supported, never as a saved value', async () => {
@@ -1561,6 +1678,7 @@ describe('Descriptions on records', () => {
   })
 })
 
+/** Saves move the revision as the server does; the first save can be refused as a 412. */
 function LiveStage({
   conflictFirst = false,
   renamedElsewhere,

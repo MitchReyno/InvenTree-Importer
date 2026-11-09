@@ -23,9 +23,19 @@ const PROVENANCE_SOURCE: Record<
     tone: 'default',
     why: 'Taken from the batch settings in Capture.',
   },
-  unknown: { source: 'Unknown', tone: 'likely', why: 'Where this value came from is not known.' },
+  unknown: {
+    source: 'Unknown',
+    certainty: 'Not known',
+    tone: 'likely',
+    why: 'Where this value came from is not known.',
+  },
   cleared: { source: 'You', tone: 'user', why: 'You cleared this value.' },
-  unset: { source: 'Not set', tone: 'likely', why: 'Nothing has set this value yet.' },
+  unset: {
+    source: 'Not set',
+    certainty: 'Needs a value',
+    tone: 'likely',
+    why: 'Nothing has set this value yet.',
+  },
   shared_part: {
     source: 'Shared Part',
     tone: 'default',

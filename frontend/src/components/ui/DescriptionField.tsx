@@ -16,6 +16,8 @@ type DescriptionFieldProps = {
   source?: ReactNode
   /** Makes the description editable; without it the value is read-only. */
   onChange?: (value: string) => void
+  /** The text InvenTree will store, when it differs from the draft (such as trimmed); it is counted. */
+  counted?: string
   /** Holds an editable description while its save is in flight. */
   disabled?: boolean
   /** A description the app cannot store or read yet renders disabled with this reason. */
@@ -34,12 +36,13 @@ export function DescriptionField({
   limit,
   source,
   onChange,
+  counted,
   disabled = false,
   disabledReason,
 }: DescriptionFieldProps) {
   const id = useId()
   const text = value ?? ''
-  const count = characters(text)
+  const count = characters(counted ?? text)
   const over = count > limit
 
   const meta = (
@@ -83,7 +86,7 @@ export function DescriptionField({
   return (
     <Field role="group" aria-labelledby={`${id}-label`}>
       <Value>
-        <span>{text}</span>
+        {text ? <span>{text}</span> : <Empty>No description</Empty>}
         {source}
       </Value>
       {meta}
@@ -109,6 +112,10 @@ const Value = styled.div`
   align-items: baseline;
   gap: ${space[2]} ${space[4]};
   overflow-wrap: anywhere;
+`
+
+const Empty = styled.span`
+  color: ${color.muted};
 `
 
 const Meta = styled.div`

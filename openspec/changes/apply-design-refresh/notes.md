@@ -72,6 +72,7 @@ None for task 10.
 
 ### Changes to the plan
 
+- **2026-11-10T02:55+11:00, task 6 (PR-D):** Task 6 named `CompanyEditor`, `ProposedCompanyEditor`, `SourcingEditor` and `TemplateEditor` as the places for `DescriptionField`. Each record's description renders once instead, through `RecordDescription` in `RecordDetail`, after the In InvenTree table. Those editors render only for some records (a company with no edit target has no `CompanyEditor`), they would each need the existing-values query passed down, and the description belongs to the record rather than to the edit each editor makes. A new Part's description stays in `PartEditor`, because it is editable there.
 - **2026-11-10T02:39+11:00, task 6 (PR-D):** `ParameterMatrix` gets no `DescriptionField`. The app's matrix shows only existing templates, which open their own record, where the description shows; it has no "Create template" decision for a proposed description to sit under.
 - **2026-11-10T02:39+11:00, task 6 (PR-D):** A Part's category description isn't shown under its category picker (change log D1). The existing-values read runs only while a mapped record is open, and a new Part isn't mapped, so showing it there would add a target read on every Part. The category's own record shows it.
 - **2026-11-10T02:39+11:00, task 6 (PR-D):** New suppliers created in Capture have no record in Records: the projection lists only companies a Part spec uses. Only a new location's description shows, on its `location:draft:` record.
@@ -80,9 +81,9 @@ None for task 10.
 ### Decisions made during implementation
 
 - **2026-11-10T02:39+11:00, task 6:** The In InvenTree table no longer has a Description row. The description shows once, as its own read-only field with the InvenTree chip and its count.
-- **2026-11-10T02:39+11:00, task 6:** While the existing-values read is pending, failed, or didn't cover the record, no description field shows. The In InvenTree section already says so, and a disabled field would claim the app can't store it.
+- **2026-11-10T02:55+11:00, task 6 (review round 1):** Once the existing-values read settles without the record's description (the read failed, InvenTree has no such record, the read was truncated, or no read is configured), a disabled description field says which, as `review-records` › Descriptions on records requires. While the read is in flight, no field shows. An InvenTree record whose description is empty shows "No description".
 - **2026-11-10T02:39+11:00, task 6:** A proposed description that doesn't fit moves from the Description row's source column to "Not supported yet", as a read-only "Proposed description" field. The projection clips the value to 256 characters, so a longer proposal counts as "256 / 250"; the count is a floor.
-- **2026-11-10T02:39+11:00, task 6:** A new Part's description Save waits while the text is over 250 characters, because the contract refuses it. The field no longer stops typing at 250, so the count can show the over-limit state.
+- **2026-11-10T02:39+11:00, task 6:** A new Part's description Save waits while the text is over 250 characters, because the contract refuses it. The field no longer stops typing at 250, so the count can show the over-limit state. The count and the Save check both measure the text as it will be saved (one line, trimmed), so a trailing space doesn't hold a 250-character description.
 
 ## Task 7: screen clean-up and agent marks
 
@@ -96,7 +97,7 @@ None for task 10.
 ### Decisions made during implementation
 
 - **2026-11-10T02:39+11:00, task 7:** Review's shortcuts use a new `ShortcutsButton` in `components/ui`: a ghost "Shortcuts" button with the 20px help disc, the one-line list as its tooltip and the keys in its popover, as the design system's HelpButton guide describes.
-- **2026-11-10T02:39+11:00, task 7:** `operator/ProvenancePill.tsx` becomes `ProvenanceChip.tsx`. Each provenance has a short source ("Batch default", "Not set", "Evidence groups"), its existing label as the certainty, and one sentence on why. Human and override values keep "You · Your edit".
+- **2026-11-10T02:39+11:00, task 7:** `operator/ProvenancePill.tsx` becomes `ProvenanceChip.tsx`. Each provenance has a short source ("Batch default", "Not set", "Evidence groups"), its existing label as the certainty, and one sentence on why. Human and override values keep "You · Your edit"; unknown and unset read "Not known" and "Needs a value", so the chip doesn't repeat its source.
 - **2026-11-10T02:39+11:00, task 7:** `Dialog` takes a node title so the session drawer can carry the mark; the accessible name is unchanged.
 - **2026-11-10T02:39+11:00, task 7:** Task 1's focus question checked: Radix's non-modal popover returns focus to its trigger only when nothing outside it took focus. Open evidence focuses the evidence panel before the popover unmounts, so focus stays there; an action that moves no focus returns it to the chip. `SourceChip.test.tsx` covers both.
 
