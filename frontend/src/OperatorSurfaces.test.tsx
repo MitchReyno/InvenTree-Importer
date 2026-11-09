@@ -18,6 +18,8 @@ import type { OperatorReviewClient } from './operator/types'
 import type { SettingsPorts } from './capture/types'
 import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
+import { batchCommands } from './test/batch-commands'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const active = '30000000-0000-4000-8000-000000000003'
@@ -131,15 +133,15 @@ test('Custom instructions keep their version and autosave with the loaded revisi
     instruct: vi.fn(async () => ({ ...review, revision: '9' })),
   }
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      edit={vi.fn()}
-      observe={vi.fn()}
-      operatorReview={review}
-      onDirtyChange={dirty}
-      settings={settings}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), observe: vi.fn() })}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        operatorReview={review}
+        onDirtyChange={dirty}
+        settings={settings}
+      />
+    </BatchCommandsProvider>,
   )
   expect(screen.getByText(/instructions do not approve inventory values/)).toBeVisible()
   const text = screen.getByLabelText('Custom instructions')
@@ -271,16 +273,17 @@ test('a settings acknowledgement cannot erase a sibling instruction draft', asyn
   }
   render(
     <ApiClientsProvider value={{ operator }}>
-      <CaptureWorkspace
-        batch={batch}
-        busy={false}
-        edit={vi.fn()}
-        observe={vi.fn()}
-        operatorReview={review}
-        reload={vi.fn()}
-        onDirtyChange={vi.fn()}
-        settings={settings}
-      />
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(), observe: vi.fn(), reload: vi.fn() })}
+      >
+        <CaptureWorkspace
+          batch={batch}
+          busy={false}
+          operatorReview={review}
+          onDirtyChange={vi.fn()}
+          settings={settings}
+        />
+      </BatchCommandsProvider>
     </ApiClientsProvider>,
   )
   const instructions = screen.getByLabelText('Custom instructions')
@@ -302,12 +305,11 @@ test('a settings acknowledgement cannot erase a sibling instruction draft', asyn
 test('Capture omits subject panes and opens Review for subject editing', () => {
   history.replaceState(null, '', `#${batchId}/capture`)
   render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      edit={vi.fn(async () => undefined)}
-      observe={vi.fn()}
-    />,
+    <BatchCommandsProvider
+      value={batchCommands({ edit: vi.fn(async () => undefined), observe: vi.fn() })}
+    >
+      <CaptureWorkspace batch={batch} busy={false} />
+    </BatchCommandsProvider>,
   )
   expect(screen.getByRole('heading', { name: 'Batch settings' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Evidence' })).toBeInTheDocument()

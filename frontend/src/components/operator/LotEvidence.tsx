@@ -1,6 +1,5 @@
 import styled from 'styled-components'
 import type {
-  CaptureEditDto,
   CaptureSnapshotDto,
   MediaSnapshotDto,
   OperatorLotDto,
@@ -14,6 +13,7 @@ import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '#/components/processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
 import { LotObservations } from './LotObservations'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -29,8 +29,6 @@ interface Props {
   processingCurrent?: boolean
   mediaUnavailable?: boolean
   mediaLoading?: boolean
-  /** Explicit human edits that accept a suggestion; absent where Review is read-only. */
-  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
   editDisabled?: boolean
 }
 
@@ -82,9 +80,9 @@ export function LotEvidence({
   processingCurrent = false,
   mediaUnavailable,
   mediaLoading,
-  edit,
   editDisabled = true,
 }: Props) {
+  const { edit } = useBatchCommands()
   const predecessorIds = operatorLot?.predecessor_lot_ids ?? []
   const notes = evidenceNotes(batch, lot, part, predecessorIds)
   const subjects = new Set([lot.id, ...predecessorIds, ...(part ? [part.id] : [])])

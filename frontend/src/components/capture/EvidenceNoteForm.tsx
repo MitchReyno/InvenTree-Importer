@@ -1,13 +1,13 @@
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import { Small, Button } from '#/components/ui'
 import { Fieldset, Form, Label, TextArea } from '#/forms'
+import type { CaptureEdit } from '#/capture/types'
 
 type Props = {
   disabled: boolean
-  edit: CaptureWorkspaceProps['edit']
+  edit: CaptureEdit
   onDirtyChange: (dirty: boolean) => void
   onClose: () => void
 }

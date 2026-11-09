@@ -6,7 +6,6 @@ import {
   type CaptureSnapshotDto,
   type RecordTypeDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import { batchHref, parseBatchRoute, processingStepFor } from '#/navigation/batch-route'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
@@ -34,12 +33,11 @@ import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
 import { ReloadContext, SavingContext, type Save } from './draft'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type Props = {
   batch: CaptureSnapshotDto
   client: RecordsClient | undefined
-  edit: Save
-  observe: CaptureWorkspaceProps['observe']
   onDirtyChange: (dirty: boolean) => void
   /** Loads the current batch; record drafts stay, so a refused save can be retried. */
   reload?: () => Promise<boolean>
@@ -54,14 +52,17 @@ type Props = {
 export function RecordsStage({
   batch,
   client,
-  edit,
-  observe,
   onDirtyChange,
   reload,
   discarded = 0,
   initialType,
   initialRecord,
 }: Props) {
+  const { edit, observe } = useBatchCommands()
+
+  // Record editors need a definite outcome; only false means the change was not saved.
+  const save: Save = async (change) => (await edit(change)) !== false
+
   const { processing } = useApiClients()
   const routeType = RECORD_TYPES.find((value) => value === initialType) ?? null
   const query = useBatchRecords(client, batch.id, batch.revision)
@@ -320,7 +321,7 @@ export function RecordsStage({
                 batch={batch}
                 records={records.records}
                 open={(key) => choose('parameter', key)}
-                edit={edit}
+                edit={save}
                 ask={(record, step) => askFor(record)(step)}
                 disabled={disabled}
                 reportFor={drafts.forSource}
@@ -369,7 +370,7 @@ export function RecordsStage({
                 key={`${selected.key}:${discards}:${discarded}`}
                 batch={batch}
                 record={selected}
-                save={edit}
+                save={save}
                 disabled={disabled}
                 reportFor={drafts.forSource}
                 dirty={drafts.dirty}

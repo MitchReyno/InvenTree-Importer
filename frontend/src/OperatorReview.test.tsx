@@ -23,6 +23,8 @@ import { ManualWorkspace } from './components/review/ManualWorkspace'
 import type { ManualClient } from './manual/types'
 import type { OperatorReviewClient } from './operator/types'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
+import { batchCommands } from './test/batch-commands'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -266,16 +268,16 @@ function renderReview(
   const onDirtyChange = vi.fn()
   const view = render(
     <ApiClientsProvider value={{ operator, processing: overrides.processing }}>
-      <ManualWorkspace
-        batch={overrides.batch ?? batch}
-        client={manual}
-        stage="review"
-        edit={edit}
-        navigate={vi.fn()}
-        reload={reload}
-        operatorReview={overrides.review ?? operatorReview}
-        onDirtyChange={onDirtyChange}
-      />
+      <BatchCommandsProvider value={batchCommands({ edit, reload })}>
+        <ManualWorkspace
+          batch={overrides.batch ?? batch}
+          client={manual}
+          stage="review"
+          navigate={vi.fn()}
+          operatorReview={overrides.review ?? operatorReview}
+          onDirtyChange={onDirtyChange}
+        />
+      </BatchCommandsProvider>
     </ApiClientsProvider>,
   )
   return { manual, operator, reload, edit, onDirtyChange, unmount: view.unmount }
@@ -648,14 +650,14 @@ test('snapshot retirement hides lots while the operator projection is unavailabl
     lots: batch.lots.map((lot) => (lot.id === c ? { ...lot, retired: true as const } : lot)),
   }
   render(
-    <ManualWorkspace
-      batch={retiredBatch}
-      client={manualClient()}
-      stage="review"
-      edit={vi.fn()}
-      navigate={vi.fn()}
-      reload={vi.fn()}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), reload: vi.fn() })}>
+      <ManualWorkspace
+        batch={retiredBatch}
+        client={manualClient()}
+        stage="review"
+        navigate={vi.fn()}
+      />
+    </BatchCommandsProvider>,
   )
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   expect(screen.queryByRole('checkbox', { name: 'Select Original bag' })).not.toBeInTheDocument()
@@ -672,15 +674,15 @@ test.each(['bulk', 'dismissal'] as const)(
 
     const element = (projection: OperatorReviewDto | undefined) => (
       <ApiClientsProvider value={{ operator }}>
-        <ManualWorkspace
-          batch={batch}
-          client={manual}
-          stage="review"
-          edit={vi.fn()}
-          navigate={vi.fn()}
-          reload={reload}
-          operatorReview={projection}
-        />
+        <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), reload })}>
+          <ManualWorkspace
+            batch={batch}
+            client={manual}
+            stage="review"
+            navigate={vi.fn()}
+            operatorReview={projection}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>
     )
 
@@ -824,15 +826,15 @@ test.each(['quick', 'bulk'] as const)(
 
     const element = (projection: OperatorReviewDto | undefined) => (
       <ApiClientsProvider value={{ operator }}>
-        <ManualWorkspace
-          batch={batch}
-          client={manual}
-          stage="review"
-          edit={edit}
-          navigate={vi.fn()}
-          reload={vi.fn()}
-          operatorReview={projection}
-        />
+        <BatchCommandsProvider value={batchCommands({ edit, reload: vi.fn() })}>
+          <ManualWorkspace
+            batch={batch}
+            client={manual}
+            stage="review"
+            navigate={vi.fn()}
+            operatorReview={projection}
+          />
+        </BatchCommandsProvider>
       </ApiClientsProvider>
     )
 
@@ -866,15 +868,15 @@ test('keyboard review cannot bypass an unavailable current operator projection',
 
   const element = (projection: OperatorReviewDto | undefined) => (
     <ApiClientsProvider value={{ operator }}>
-      <ManualWorkspace
-        batch={batch}
-        client={manual}
-        stage="review"
-        edit={vi.fn()}
-        navigate={vi.fn()}
-        reload={vi.fn()}
-        operatorReview={projection}
-      />
+      <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), reload: vi.fn() })}>
+        <ManualWorkspace
+          batch={batch}
+          client={manual}
+          stage="review"
+          navigate={vi.fn()}
+          operatorReview={projection}
+        />
+      </BatchCommandsProvider>
     </ApiClientsProvider>
   )
 

@@ -9,6 +9,7 @@ import { BulkBar, Button } from '#/components/ui'
 import { BulkEditPanel } from './BulkEditPanel'
 import { RestructureDialog } from './RestructureDialog'
 import { ReviewTable, type ReviewTableProps } from './ReviewTable'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 const MAX_MERGE_LOTS = 10
 
@@ -26,7 +27,6 @@ interface Props {
   setSelection: (ids: string[]) => void
   inspect: (lotId: string) => void
   reviewLots: (lotIds: string[]) => void
-  reload: () => Promise<void>
   onDirtyChange?: (dirty: boolean) => void
 }
 
@@ -55,9 +55,9 @@ export function TableWorkspace({
   setSelection,
   inspect,
   reviewLots,
-  reload,
   onDirtyChange,
 }: Props) {
+  const { reload } = useBatchCommands()
   const drafts = useDirtySources(onDirtyChange)
   const selection: ReadonlySet<string> = new Set(shared)
   const [dialog, setDialog] = useState<'merge' | 'move' | null>(null)

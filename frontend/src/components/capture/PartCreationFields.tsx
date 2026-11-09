@@ -1,16 +1,17 @@
 import type { Control, UseFormRegister } from 'react-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import type { CaptureEditorValues } from '#/capture/editor-model'
-import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import { Small, Button } from '#/components/ui'
 import { Input, Label, Select, Field } from '#/forms'
 import { MappingReader } from './MappingReader'
+import type { CaptureObserve } from '#/capture/types'
 
 interface Props {
   batch: Snapshot
   control: Control<CaptureEditorValues>
   register: UseFormRegister<CaptureEditorValues>
-  observe: CaptureWorkspaceProps['observe']
+  observe: CaptureObserve
   onDirty: () => void
 }
 

@@ -5,7 +5,6 @@ import { color, radius, space, type } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Paragraph, Small, Banner, Toast, Button } from '#/components/ui'
 import { Label, Select } from '#/forms'
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
@@ -14,6 +13,7 @@ import { EvidenceDragContext } from './EvidenceDragContext'
 import { EvidenceGroupPanel } from './EvidenceGroupPanel'
 import { MediaTextEditor } from './MediaTextEditor'
 import { SubjectAttachmentChoice } from './SubjectAttachmentChoice'
+import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -25,7 +25,7 @@ interface Props {
   noteDisabled?: boolean
   review?: OperatorReviewDto
   reload?: () => Promise<void>
-  captureEdit?: CaptureWorkspaceProps['edit']
+  captureEdit?: CaptureEdit
   /** Id for the "Evidence" heading, so the enclosing area can be named by it. */
   headingId?: string
   /** Shown right after the capture actions. */

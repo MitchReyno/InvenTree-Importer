@@ -1,10 +1,7 @@
-import {
-  effectiveSettingsIntent,
-  type CaptureEditDto,
-  type CaptureSnapshotDto,
-} from '@invimport/contracts'
+import { effectiveSettingsIntent, type CaptureSnapshotDto } from '@invimport/contracts'
 import { Small, Button } from '#/components/ui'
 import { mergeTags } from './ProcessingSuggestions'
+import type { CaptureEdit } from '#/capture/types'
 
 type Part = CaptureSnapshotDto['parts'][number]
 
@@ -12,7 +9,7 @@ interface Props {
   batch: CaptureSnapshotDto
   part: Part
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit: CaptureEdit
 }
 
 /**

@@ -3,6 +3,8 @@ import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
 import { render } from '#/test/render'
 import { LotEvidence } from './LotEvidence'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const lot = {
   id: '30000000-0000-4000-8000-000000000003',
@@ -51,28 +53,30 @@ const processing = {
 
 test('a ready job from a cached or older Processing read is history, not acceptable', () => {
   const view = render(
-    <LotEvidence
-      batch={batch}
-      lot={lot}
-      part={undefined}
-      processing={processing}
-      processingCurrent={false}
-      edit={vi.fn()}
-      editDisabled={false}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn() })}>
+      <LotEvidence
+        batch={batch}
+        lot={lot}
+        part={undefined}
+        processing={processing}
+        processingCurrent={false}
+        editDisabled={false}
+      />
+    </BatchCommandsProvider>,
   )
   expect(screen.queryByRole('button', { name: /Use estimated quantity/ })).not.toBeInTheDocument()
   expect(screen.getByText(/superseded by newer input, history only/)).toBeVisible()
   view.rerender(
-    <LotEvidence
-      batch={batch}
-      lot={lot}
-      part={undefined}
-      processing={processing}
-      processingCurrent
-      edit={vi.fn()}
-      editDisabled={false}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn() })}>
+      <LotEvidence
+        batch={batch}
+        lot={lot}
+        part={undefined}
+        processing={processing}
+        processingCurrent
+        editDisabled={false}
+      />
+    </BatchCommandsProvider>,
   )
   expect(screen.getByRole('button', { name: /Use estimated quantity 40/ })).toBeEnabled()
 })

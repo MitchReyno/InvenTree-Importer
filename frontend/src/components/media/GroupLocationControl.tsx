@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CaptureAssignedLocationChangeDto, CaptureSnapshotDto } from '@invimport/contracts'
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import { AssignedLocationField } from '#/components/capture/AssignedLocationField'
 import { Small, Button } from '#/components/ui'
+import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
   batch: CaptureSnapshotDto
   groupId: string
   name: string
   disabled: boolean
-  edit: CaptureWorkspaceProps['edit']
+  edit: CaptureEdit
   /** The owner's explicit discard: reloads saved values and clears its retained command. */
   reload?: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void

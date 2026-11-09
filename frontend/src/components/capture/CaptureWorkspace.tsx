@@ -10,6 +10,7 @@ import { proposedLots } from '#/processing/proposed-lots'
 import { batchHref } from '#/navigation/batch-route'
 import { useSessionStatuses } from '#/processing/session-status'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -20,13 +21,11 @@ type DirtySource = 'settings' | 'media' | 'note'
 export function CaptureWorkspace({
   batch,
   busy,
-  edit,
-  observe,
   onDirtyChange,
   operatorReview,
-  reload,
   settings,
 }: CaptureWorkspaceProps) {
+  const { observe, reload } = useBatchCommands()
   const { processing } = useApiClients()
   // The evidence card hosts the batch notes field, which Batch settings still owns and saves.
   const [notesTarget, setNotesTarget] = useState<HTMLElement | null>(null)
@@ -144,8 +143,6 @@ export function CaptureWorkspace({
           batch={batch}
           frozen={frozen || sources.settings}
           review={operatorReview}
-          reload={reload}
-          edit={edit}
           onMediaDirtyChange={reportMedia}
           onNoteDirtyChange={reportNote}
           notesSlot={setNotesTarget}

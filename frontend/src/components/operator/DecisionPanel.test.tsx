@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { render } from '#/test/render'
 import { DecisionPanel, recordLinks } from './DecisionPanel'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 const batch = { id: 'b' } as unknown as CaptureSnapshotDto
 const lot = { id: 'l', label: 'Packet A' } as unknown as CaptureSnapshotDto['lots'][number]
@@ -64,19 +66,21 @@ describe('the inline answer', () => {
   } as unknown as CaptureSnapshotDto
 
   const panel = (openQuestion: never | null) => (
-    <DecisionPanel
-      batch={panelBatch}
-      lot={panelBatch.lots[0]}
-      part={undefined}
-      workspace={{ lots: [], preparations: [], runs: [] } as never}
-      activeLotIds={['l']}
-      disabled={false}
-      edit={async () => true}
-      reload={async () => {}}
-      inspect={() => {}}
-      openQuestion={openQuestion}
-      answerQuestion={async () => {}}
-    />
+    <BatchCommandsProvider
+      value={batchCommands({ edit: async () => true, reload: async () => {} })}
+    >
+      <DecisionPanel
+        batch={panelBatch}
+        lot={panelBatch.lots[0]}
+        part={undefined}
+        workspace={{ lots: [], preparations: [], runs: [] } as never}
+        activeLotIds={['l']}
+        disabled={false}
+        inspect={() => {}}
+        openQuestion={openQuestion}
+        answerQuestion={async () => {}}
+      />
+    </BatchCommandsProvider>
   )
 
   it('waits for the lot editor, and the lot editor waits for it', async () => {
@@ -147,19 +151,19 @@ describe('excluding a lot', () => {
   const panel = (edit: (change: unknown) => Promise<boolean>, excluded?: object) => {
     const batch = batchWith(excluded)
     return (
-      <DecisionPanel
-        batch={batch}
-        lot={batch.lots[0]}
-        part={undefined}
-        workspace={{ lots: [], preparations: [], runs: [] } as never}
-        operatorLot={operatorLot(excluded)}
-        activeLotIds={['l']}
-        disabled={false}
-        edit={edit as never}
-        reload={async () => {}}
-        inspect={() => {}}
-        markReviewed={() => {}}
-      />
+      <BatchCommandsProvider value={batchCommands({ edit: edit as never, reload: async () => {} })}>
+        <DecisionPanel
+          batch={batch}
+          lot={batch.lots[0]}
+          part={undefined}
+          workspace={{ lots: [], preparations: [], runs: [] } as never}
+          operatorLot={operatorLot(excluded)}
+          activeLotIds={['l']}
+          disabled={false}
+          inspect={() => {}}
+          markReviewed={() => {}}
+        />
+      </BatchCommandsProvider>
     )
   }
 
@@ -191,19 +195,21 @@ describe('excluding a lot', () => {
   it('offers no Exclude for a lot an approval already includes', () => {
     const batch = batchWith()
     render(
-      <DecisionPanel
-        batch={batch}
-        lot={batch.lots[0]}
-        part={undefined}
-        workspace={{ lots: [], preparations: [], runs: [] } as never}
-        operatorLot={{ ...(operatorLot() as object), approved: true } as never}
-        activeLotIds={['l']}
-        disabled={false}
-        edit={async () => true}
-        reload={async () => {}}
-        inspect={() => {}}
-        markReviewed={() => {}}
-      />,
+      <BatchCommandsProvider
+        value={batchCommands({ edit: async () => true, reload: async () => {} })}
+      >
+        <DecisionPanel
+          batch={batch}
+          lot={batch.lots[0]}
+          part={undefined}
+          workspace={{ lots: [], preparations: [], runs: [] } as never}
+          operatorLot={{ ...(operatorLot() as object), approved: true } as never}
+          activeLotIds={['l']}
+          disabled={false}
+          inspect={() => {}}
+          markReviewed={() => {}}
+        />
+      </BatchCommandsProvider>,
     )
     const footer = screen.getByRole('region', { name: 'Lot actions' })
     expect(within(footer).getByRole('button', { name: 'Exclude…' })).toBeDisabled()

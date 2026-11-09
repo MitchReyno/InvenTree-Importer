@@ -17,7 +17,6 @@ import {
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import type {
-  CaptureEditDto,
   CaptureSnapshotDto,
   ManualWorkspaceDto,
   MediaSnapshotDto,
@@ -47,6 +46,7 @@ import type { LotStatus } from '#/processing/source'
 import { problemActions } from '#/operator/problem-actions'
 import type { Provenance } from '#/operator/review-model'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -62,8 +62,6 @@ interface Props {
   /** Active lot IDs, used for shared-Part counts and impact previews. */
   activeLotIds: string[]
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
-  reload: () => Promise<void>
   inspect: (lotId: string) => void
   /** The lot's open Processing question, which problems can offer to answer. */
   openQuestion?: OpenQuestion | null
@@ -74,7 +72,7 @@ interface Props {
   /** Opens Review's shared Part editor for this Part. */
   /** Opens the subject editor for a lot or Part; also the lot's "Edit lot details". */
   editPart?: (partId: string) => void
-  /** Locks the subject editor entry points (no observe client, archived or unsaved work). */
+  /** Locks the subject editor entry points (busy, archived or unsaved work). */
   subjectsDisabled?: boolean
   /** Moves focus to the lot's evidence, where a proposed value's source is shown. */
   openEvidence?: () => void
@@ -177,8 +175,6 @@ export function DecisionPanel({
   media,
   activeLotIds,
   disabled,
-  edit,
-  reload,
   inspect,
   markReviewed,
   openQuestion = null,
@@ -190,6 +186,7 @@ export function DecisionPanel({
   onDirtyChange,
   agent = null,
 }: Props) {
+  const { edit, reload } = useBatchCommands()
   const { operator } = useApiClients()
   const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)

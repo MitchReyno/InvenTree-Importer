@@ -22,7 +22,12 @@ import type {
   MediaReceiptDto,
   OperatorReviewDto,
 } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '#/capture/types'
+import type {
+  CaptureObserve,
+  CaptureWorkspaceProps,
+  SettingsPorts,
+  Snapshot,
+} from '#/capture/types'
 import {
   referenceLabel,
   settingsChange,
@@ -37,7 +42,9 @@ import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
 import { batchHref } from '#/navigation/batch-route'
 
-type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
+type Props = Pick<CaptureWorkspaceProps, 'operatorReview'> & {
+  observe: CaptureObserve
+  reload?: () => Promise<void>
   batch: Snapshot
   ports?: SettingsPorts
   /** An evidence change is pending; settings wait so the two commands cannot race. */

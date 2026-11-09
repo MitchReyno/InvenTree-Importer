@@ -6,12 +6,13 @@ import { Small, Subheading, Button } from '#/components/ui'
 import { Field } from '#/forms'
 import { ObservationMove } from './ObservationMove'
 import { observationNames } from './observation-names'
+import type { CaptureEdit } from '#/capture/types'
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 
 interface Props {
   batch: CaptureSnapshotDto
-  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit?: CaptureEdit
   disabled: boolean
 }
 

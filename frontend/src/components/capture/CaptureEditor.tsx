@@ -1,7 +1,7 @@
 import { Small, Button } from '#/components/ui'
 import { Fieldset, Form, Input, Label, Select, TextArea } from '#/forms'
 import { Controller, useForm } from 'react-hook-form'
-import type { Snapshot, CaptureWorkspaceProps } from '#/capture/types'
+import type { Snapshot } from '#/capture/types'
 import {
   captureEditorDefaults,
   captureEditorChange,
@@ -13,6 +13,8 @@ import { PartCreationFields } from './PartCreationFields'
 import { QuantityField } from './QuantityField'
 import { AssignedLocationField } from './AssignedLocationField'
 import { ReferenceField } from './ReferenceField'
+import type { CaptureEdit } from '#/capture/types'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type EditorProps = {
   batch: Snapshot
@@ -20,19 +22,11 @@ type EditorProps = {
   frozen: boolean
   dirty: boolean
   onDirty: (value: boolean) => void
-  edit: CaptureWorkspaceProps['edit']
-  observe: CaptureWorkspaceProps['observe']
+  edit: CaptureEdit
 }
 
-export function CaptureEditor({
-  batch,
-  selected,
-  frozen,
-  dirty,
-  onDirty,
-  edit,
-  observe,
-}: EditorProps) {
+export function CaptureEditor({ batch, selected, frozen, dirty, onDirty, edit }: EditorProps) {
+  const { observe } = useBatchCommands()
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
   let labelCaption = 'Lot label'

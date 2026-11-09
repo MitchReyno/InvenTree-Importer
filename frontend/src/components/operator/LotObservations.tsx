@@ -1,12 +1,13 @@
 import styled from 'styled-components'
 import { radius, space } from '#/theme/generated/tokens'
-import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { coverSizes, observationImage } from '#/media/images'
 import { Small, Subheading, Button, Pill, SourceChip } from '#/components/ui'
 import { Field } from '#/forms'
 import { ObservationMove } from './ObservationMove'
 import { readingSource } from '#/operator/value-evidence'
 import { observationNames } from './observation-names'
+import type { CaptureEdit } from '#/capture/types'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
@@ -14,7 +15,7 @@ type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[numb
 interface Props {
   batch: CaptureSnapshotDto
   lot: Lot
-  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  edit?: CaptureEdit
   disabled: boolean
 }
 

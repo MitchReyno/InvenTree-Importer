@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
@@ -9,16 +9,15 @@ import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 type Props = {
   batch: CaptureSnapshotDto
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   retiredLotIds: ReadonlySet<string>
   predecessors?: ReadonlyMap<string, readonly string[]>
   approvedLotIds?: ReadonlySet<string>
   /** True while the latest operator review is unread, so added lots may not be known yet. */
   restructureUnavailable?: boolean
-  reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
   /** Counts discards of the batch's local edits; an unsaved region draft is dropped on each. */
   discarded?: number
@@ -35,15 +34,14 @@ type Unfinished = Pick<PendingLot, 'from' | 'label'> & { lotId: string; lotLabel
 /** Review › Map: reads the evidence and applies its direct edits through the existing commands. */
 export function ReviewMapStage({
   batch,
-  edit,
   retiredLotIds,
   predecessors,
   approvedLotIds = NO_LOTS,
   restructureUnavailable = false,
-  reload,
   onDirtyChange,
   discarded,
 }: Props) {
+  const { edit, reload } = useBatchCommands()
   const { media, operator } = useApiClients()
   const drafts = useDirtySources(onDirtyChange)
   const scope = useServerScope()

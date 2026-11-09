@@ -4,6 +4,9 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { ConfirmationProvider } from '#/components/ui'
 import type { ServerScope } from '#/queries/scope'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import type { BatchCommands } from '#/capture/batch-commands'
+import { batchCommands } from './batch-commands'
 import { type ApiClients } from '#/clients/api-clients'
 
 export const fixtureScope: ServerScope = {
@@ -16,13 +19,21 @@ export const fixtureScope: ServerScope = {
 /** Use the same explicit query provider as production, with a fresh cache per render. */
 export function render(
   ui: ReactElement,
-  { clients = {}, ...options }: RenderOptions & { clients?: ApiClients } = {},
+  {
+    clients = {},
+    commands,
+    ...options
+  }: RenderOptions & { clients?: ApiClients; commands?: Partial<BatchCommands> } = {},
 ) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ServerStateProvider scope={fixtureScope}>
         <ConfirmationProvider>
-          <ApiClientsProvider value={clients}>{children}</ApiClientsProvider>
+          <ApiClientsProvider value={clients}>
+            <BatchCommandsProvider value={batchCommands(commands)}>
+              {children}
+            </BatchCommandsProvider>
+          </ApiClientsProvider>
         </ConfirmationProvider>
       </ServerStateProvider>
     )

@@ -14,7 +14,6 @@ import { subjectStatuses, type LotStatus } from '#/processing/source'
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'
 import type {
-  CaptureEditDto,
   CaptureSnapshotDto,
   ManualWorkspaceDto,
   MediaSnapshotDto,
@@ -42,10 +41,10 @@ import { ReviewFilters } from '#/components/operator/ReviewFilters'
 import { LotEvidence } from '#/components/operator/LotEvidence'
 import { DecisionPanel } from '#/components/operator/DecisionPanel'
 import { TableWorkspace } from '#/components/operator/TableWorkspace'
-import type { CaptureWorkspaceProps } from '#/capture/types'
 import { UnassignedObservations } from '#/components/operator/UnassignedObservations'
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 import { useApiClients } from '#/clients/api-clients'
+import { useBatchCommands } from '#/capture/batch-commands'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -69,9 +68,6 @@ interface Props {
   /** Replaces the shared selection; the Table may select more than the Workspace cap. */
   setSelection: (ids: string[]) => void
   prepare: () => void
-  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
-  reload: () => Promise<void>
-  observe?: CaptureWorkspaceProps['observe']
   onDirtyChange?: (dirty: boolean) => void
 }
 
@@ -185,11 +181,9 @@ export function ReviewWorkspace({
   answerQuestion,
   setSelection,
   prepare,
-  edit,
-  reload,
-  observe,
   onDirtyChange,
 }: Props) {
+  const { edit } = useBatchCommands()
   const { operator } = useApiClients()
   const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
     observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined,
@@ -386,7 +380,7 @@ export function ReviewWorkspace({
           Adding stock isn’t available for this target, so lots can be reviewed but not added.
         </Banner>
       )}
-      {editing && observe && (
+      {editing && (
         <ReviewSubjectEditor
           batch={batch}
           subjectId={editing}
@@ -396,10 +390,8 @@ export function ReviewWorkspace({
           }
           dirty={drafts.dirty}
           edit={edit}
-          observe={observe}
           onDirtyChange={drafts.forSource('subject')}
           onAttachmentDirtyChange={drafts.forSource('attachment')}
-          reload={reload}
           onClose={closeEditor}
           retainRoute={retainEditorRoute}
         />
@@ -420,7 +412,7 @@ export function ReviewWorkspace({
           <Button
             size="sm"
             type="button"
-            disabled={busy || batch.archived || !observe || drafts.dirty}
+            disabled={busy || batch.archived || drafts.dirty}
             onClick={() => openEditor(ADD_LOT)}
           >
             Add physical lot
@@ -428,7 +420,7 @@ export function ReviewWorkspace({
           <Button
             size="sm"
             type="button"
-            disabled={busy || batch.archived || !observe || drafts.dirty}
+            disabled={busy || batch.archived || drafts.dirty}
             onClick={() => openEditor(ADD_PART)}
           >
             Add shared Part proposal
@@ -441,7 +433,7 @@ export function ReviewWorkspace({
                 key={item.id}
                 size="sm"
                 type="button"
-                disabled={busy || batch.archived || !observe || drafts.dirty}
+                disabled={busy || batch.archived || drafts.dirty}
                 onClick={() => openEditor(item.id)}
               >
                 Edit unlinked shared Part: {item.label}
@@ -483,7 +475,6 @@ export function ReviewWorkspace({
           setSelection={setSelection}
           inspect={inspect}
           reviewLots={reviewLots}
-          reload={reload}
           onDirtyChange={drafts.forSource('workspace')}
         />
       ) : (
@@ -520,7 +511,6 @@ export function ReviewWorkspace({
                 mediaLoading={mediaLoading}
                 processing={processing}
                 processingCurrent={processingCurrent}
-                edit={edit}
                 // Accepting remounts Review at the new revision, so any open draft fences it.
                 editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
@@ -552,15 +542,13 @@ export function ReviewWorkspace({
                   batch.archived ||
                   drafts.hasOtherSources('workspace')
                 }
-                edit={edit}
-                reload={reload}
                 inspect={inspect}
                 markReviewed={() => reviewLots([lot.id])}
                 openQuestion={openQuestions.get(lot.id) ?? null}
                 answerQuestion={answerQuestion}
                 agent={agentLines.get(lot.id) ?? null}
                 editPart={openEditor}
-                subjectsDisabled={busy || batch.archived || !observe || drafts.dirty}
+                subjectsDisabled={busy || batch.archived || drafts.dirty}
                 openEvidence={() => evidenceRef.current?.focus()}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}

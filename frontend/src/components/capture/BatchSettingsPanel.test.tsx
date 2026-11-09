@@ -15,6 +15,8 @@ import { fixtureScope, render } from '#/test/render'
 import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import { CaptureWorkspace } from './CaptureWorkspace'
 import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { batchCommands } from '#/test/batch-commands'
 
 /** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
 function savedRevision(label: string) {
@@ -104,15 +106,17 @@ function Host({
   }
   return (
     <ApiClientsProvider value={{ operator: {} as never }}>
-      <CaptureWorkspace
-        batch={current}
-        busy={false}
-        edit={vi.fn(async () => true)}
-        observe={observe as never}
-        operatorReview={withoutReview ? undefined : operatorReview}
-        onDirtyChange={onDirtyChange}
-        settings={ports}
-      />
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: observe as never })}
+      >
+        <CaptureWorkspace
+          batch={current}
+          busy={false}
+          operatorReview={withoutReview ? undefined : operatorReview}
+          onDirtyChange={onDirtyChange}
+          settings={ports}
+        />
+      </BatchCommandsProvider>
     </ApiClientsProvider>
   )
 }
@@ -324,35 +328,27 @@ test('a clean panel follows newer saved values but a dirty one keeps its draft',
     read: vi.fn(async () => batch),
   }
   const shown = render(
-    <CaptureWorkspace
-      batch={batch}
-      busy={false}
-      edit={vi.fn()}
-      observe={vi.fn()}
-      settings={ports}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), observe: vi.fn() })}>
+      <CaptureWorkspace batch={batch} busy={false} settings={ports} />
+    </BatchCommandsProvider>,
   )
   const newer = { ...batch, revision: '3', title: 'Renamed elsewhere' }
   shown.rerender(
-    <CaptureWorkspace
-      batch={newer}
-      busy={false}
-      edit={vi.fn()}
-      observe={vi.fn()}
-      settings={ports}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), observe: vi.fn() })}>
+      <CaptureWorkspace batch={newer} busy={false} settings={ports} />
+    </BatchCommandsProvider>,
   )
   await settle()
   expect(screen.getByLabelText('Batch title')).toHaveValue('Renamed elsewhere')
   await user.type(screen.getByLabelText('Batch title'), ' mine')
   shown.rerender(
-    <CaptureWorkspace
-      batch={{ ...newer, revision: '4', title: 'Third' }}
-      busy={false}
-      edit={vi.fn()}
-      observe={vi.fn()}
-      settings={ports}
-    />,
+    <BatchCommandsProvider value={batchCommands({ edit: vi.fn(), observe: vi.fn() })}>
+      <CaptureWorkspace
+        batch={{ ...newer, revision: '4', title: 'Third' }}
+        busy={false}
+        settings={ports}
+      />
+    </BatchCommandsProvider>,
   )
   await settle()
   expect(screen.getByLabelText('Batch title')).toHaveValue('Renamed elsewhere mine')
