@@ -38,8 +38,10 @@ export function PauseAllAgents({ pauseAll, list }: Props) {
     )
   }
 
+  const pause = pauseAll
+
   async function change(paused: boolean) {
-    await pauseAll!(paused)
+    await pause(paused)
     await queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
   }
 

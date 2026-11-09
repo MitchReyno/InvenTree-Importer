@@ -6,8 +6,11 @@ import { render } from '#/test/render'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { fixtureScope } from '#/test/render'
 import { ChatGPTSignIn } from './ChatGPTSignIn'
-import { useChatGPTSignIn } from './useChatGPTSignIn'
-afterEach(() => vi.unstubAllGlobals())
+import { resetRunnerQueue, useChatGPTSignIn } from './useChatGPTSignIn'
+afterEach(() => {
+  resetRunnerQueue()
+  vi.unstubAllGlobals()
+})
 
 /** The panel with its state, as the Agents settings section holds it. */
 function SignIn() {

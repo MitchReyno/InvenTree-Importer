@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, serverScopeIdentity, useServerScope } from '#/queries/scope'
+import { serverQueryKey, useServerScope } from '#/queries/scope'
 import type { ProviderStatus } from './provider-status'
 
 type Account = {
@@ -20,11 +20,19 @@ const CARD_STATUS: Record<Account['state'], ProviderStatus> = {
 }
 
 /**
- * The runner takes one action at a time. Its queue outlives the panel, because leaving the
- * Settings section unmounts the panel while a call can still be running; a remounted panel's
- * first command then waits for it. Keyed by server scope, so another scope never waits.
+ * The runner takes one action at a time, and `/personal-runner/codex` is one same-origin endpoint,
+ * so every panel shares one queue. It outlives the panel, because leaving the Settings section
+ * unmounts the panel while a call can still be running; a remounted panel's command waits for it.
  */
-const runnerQueues = new Map<string, Promise<unknown>>()
+let runnerQueue: Promise<unknown> = Promise.resolve()
+
+/** Gives tests a fresh queue, so a call one test leaves pending can't hold up the next. */
+export function resetRunnerQueue() {
+  runnerQueue = Promise.resolve()
+}
+
+// A runner call that hasn't answered by then fails, so a hung call can't hold the queue for good.
+const RUNNER_TIMEOUT_MS = 30_000
 
 const FAILED =
   'Could not confirm sign-in status. Check the management key and reconnect to the runner.'
@@ -34,6 +42,26 @@ async function callRunner(managementKey: string, action: string, loginId?: strin
   if (!window.isSecureContext) {
     throw new Error('insecure_context')
   }
+  // A timer rather than `AbortSignal.timeout`, so the bound follows the page's clock in tests too.
+  // It covers reading the answer as well as sending the request.
+  const deadline = new AbortController()
+  const timer = setTimeout(
+    () => deadline.abort(new DOMException('runner_timeout', 'TimeoutError')),
+    RUNNER_TIMEOUT_MS,
+  )
+  try {
+    return await sendRunnerCall(managementKey, action, loginId, deadline.signal)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function sendRunnerCall(
+  managementKey: string,
+  action: string,
+  loginId: string | undefined,
+  signal: AbortSignal,
+) {
   const r = await fetch('/personal-runner/codex', {
     method: 'POST',
     cache: 'no-store',
@@ -44,6 +72,7 @@ async function callRunner(managementKey: string, action: string, loginId?: strin
       authorization: 'Bearer ' + managementKey,
     },
     body: JSON.stringify({ action, loginId }),
+    signal,
   })
   if (!r.ok) {
     throw new Error('runner_refused')
@@ -77,8 +106,6 @@ export function useChatGPTSignIn() {
   const [busy, setBusy] = useState(false)
   // Each new key or sign-in step starts a generation; results of an older one are dropped.
   const [generation, setGeneration] = useState(0)
-  // A cancelled poll's result is dropped, but its call still finishes before the next starts.
-  const queueKey = serverScopeIdentity(scope)
   // A status call can end the login, so a replayed poll adopts the call still running for it.
   const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
   const polling = open && account?.state === 'pending'
@@ -114,12 +141,8 @@ export function useChatGPTSignIn() {
   /** Queues a runner call with the key typed now. */
   function run(action: string, loginId?: string) {
     const managementKey = key.current?.value ?? ''
-    const previous = runnerQueues.get(queueKey) ?? Promise.resolve()
-    const call = previous.then(() => callRunner(managementKey, action, loginId))
-    runnerQueues.set(
-      queueKey,
-      call.catch(() => undefined),
-    )
+    const call = runnerQueue.then(() => callRunner(managementKey, action, loginId))
+    runnerQueue = call.catch(() => undefined)
     return call
   }
 

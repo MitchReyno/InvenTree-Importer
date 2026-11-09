@@ -29,8 +29,8 @@ interface Props {
   providerStatus: Record<Provider, ProviderStatus>
   /** Slot use beside the sessions stepper, read from the agent sessions list. */
   slots?: ReactNode
-  /** Hears each confirmed save, so readers of the saved settings follow it. */
-  onSaved?: (saved: AgentSettingsDto) => void
+  /** Hears the settings each confirmed save or reload returns, so other readers follow them. */
+  onLoaded?: (settings: AgentSettingsDto) => void
 }
 
 const EMPTY: AgentSelectionDto = { provider: 'codex', authentication: 'subscription', model: '' }
@@ -98,7 +98,7 @@ export function AgentSettingsForm({
   onDirtyChange,
   providerStatus,
   slots,
-  onSaved,
+  onLoaded,
 }: Props) {
   const fieldId = useId()
   const modelHelpId = `${fieldId}-model-help`
@@ -148,7 +148,7 @@ export function AgentSettingsForm({
       }
       setRevision(saved.revision)
       reset(formValues(saved))
-      onSaved?.(saved)
+      onLoaded?.(saved)
       onDirtyChange(false)
       setMessage(
         'Default saved. New attempts use this selection; queued and running sessions keep their original model.',
@@ -181,6 +181,7 @@ export function AgentSettingsForm({
       }
       setRevision(current.revision)
       reset(formValues(current))
+      onLoaded?.(current)
       setConflict(false)
       onDirtyChange(false)
       setMessage('Loaded the current saved default.')

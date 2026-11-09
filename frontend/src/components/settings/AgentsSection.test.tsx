@@ -6,6 +6,7 @@ import { IntakeRequestError, type agentsClient } from '@invimport/contracts/clie
 import { render } from '#/test/render'
 import type { SettingsSectionId } from '#/navigation/app-route'
 import { Settings } from './Settings'
+import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
 
 const initial: AgentSettingsDto = {
   revision: '7',
@@ -110,6 +111,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  resetRunnerQueue()
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
@@ -339,6 +341,7 @@ test('a stale revision is refused as a conflict, keeps the edit and offers Reloa
   expect(
     within(screen.getAllByRole('group', { name: 'Sessions at once' })[0]).getByRole('status'),
   ).toHaveTextContent('5')
+  expect(await screen.findByText('3 of 5 in use · 1 queued')).toBeVisible()
 })
 
 test('after a save the slot meter compares slot use with the saved limit', async () => {
@@ -414,4 +417,29 @@ test('after leaving and returning, a Codex command waits for the runner call sti
   await act(async () => answer(Response.json({ state: 'disconnected' })))
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
   await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
+})
+
+test('a Codex runner call that never answers fails after its time limit and frees the queue', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  send.mockImplementationOnce(
+    (_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+      }),
+  )
+  send.mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+  await renderAgents()
+  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
+  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
+    target: { value: 'key' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
+
+  await act(() => vi.advanceTimersByTimeAsync(30_000))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
+  expectCard('Codex', 'Check failed')
+  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
+  await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
+  expect(send).toHaveBeenCalledTimes(2)
 })

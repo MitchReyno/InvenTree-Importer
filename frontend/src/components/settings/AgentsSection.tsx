@@ -75,7 +75,7 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
           client={client}
           onDirtyChange={onDirtyChange}
           providerStatus={{ claude: credential.card, codex: signIn.card }}
-          onSaved={(saved) => queryClient.setQueryData(settingsKey, saved)}
+          onLoaded={(loaded) => queryClient.setQueryData(settingsKey, loaded)}
           slots={
             <SlotMeter
               list={sessions.data}
