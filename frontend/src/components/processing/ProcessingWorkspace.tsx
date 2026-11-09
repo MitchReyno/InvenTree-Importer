@@ -484,26 +484,29 @@ export function ProcessingWorkspace({
     setCloseBlocked(false)
     setSessionJobId(null)
     // A session link's query would reopen the drawer when the batch next reloads.
-    const [hash, query] = location.hash.split('?')
-    if (query && new URLSearchParams(query).has('session')) {
-      location.replace(hash)
-    }
+    clearSessionLink()
   }
 
-  // A drawer kept open for an unsaved answer after its session left closes once that answer is
-  // discarded. The Effect syncs the URL: the session link goes too, so the drawer doesn't come
-  // back with the session.
-  const keptDrawerEmptied =
+  // An open drawer whose session has left the read closes once it holds no unsaved answer: at
+  // once if it held none, or when its last draft is saved or discarded. Its session link goes
+  // too, so the drawer doesn't come back with the session.
+  const sessionLeft =
     sessionJobId !== null &&
     liveSessionJob === undefined &&
     !unsavedInDrawer &&
     lastDrawerJob?.id === sessionJobId
+  const [leftSession, setLeftSession] = useState<string | null>(null)
+  if (sessionLeft) {
+    setDrawer({ route, jobId: null })
+    setCloseBlocked(false)
+    setLeftSession(sessionJobId)
+  }
+  // Syncs the URL with that close: a session link left in it would reopen the drawer.
   useEffect(() => {
-    if (keptDrawerEmptied) {
-      closeDrawer()
+    if (leftSession !== null) {
+      clearSessionLink(leftSession)
     }
-    // Runs when the drawer empties; closeDrawer only sets state and replaces the URL.
-  }, [keptDrawerEmptied])
+  }, [leftSession])
 
   const activity = recentActivity(snapshot, subjectLabel)
   const queue = snapshot && (
@@ -831,6 +834,15 @@ export function ProcessingWorkspace({
       )}
     </Workspace>
   )
+}
+
+/** Drops the URL's `?session=` link, or only that session's when one is named. */
+function clearSessionLink(jobId?: string) {
+  const [hash, query] = location.hash.split('?')
+  const linked = query ? new URLSearchParams(query).get('session') : null
+  if (linked !== null && (jobId === undefined || linked === jobId)) {
+    location.replace(hash)
+  }
 }
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
