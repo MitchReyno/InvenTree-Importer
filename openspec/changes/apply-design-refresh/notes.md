@@ -127,6 +127,8 @@ None for task 10.
 - **2026-11-10T07:40+11:00, task 11 (review round 1):** The first stale query read only a proposal's top-level `sources` and `relies_on`, while publication also checked catalogue values' sources. A proposal citing a removed photo only for one parameter value stayed current. The query now walks every nested `sources` array (`lax $.**.sources[*]`).
 - **2026-11-10T07:40+11:00, task 11 (review round 1):** The batch-list counts and thumbnail, and a removal queued behind an approval, already behaved as intended, so their new tests passed on first run. To show they discriminate, the batch-list filter and the pin refusal were disabled from backups; both tests then failed, and passed again once restored.
 
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** Earlier full PostgreSQL tier runs each had one or two child-process startup or decoder deadline failures, and the failing test changed between runs. The last of them was `media-startup-authority.test.ts` › "actual main reopens its bound store…" (`manual_checkpoint_timeout`), which failed twice and passed once when rerun alone. Review found the change adds no startup work and timed that test at 8.3 s under load, so these were load timeouts. After review round 1, a serial run of the full tier on `786bde3c` passed 316 of 316, so 11.5 is ticked.
+
 ### Decisions made during implementation
 
 - **2026-11-10T03:00+11:00, task 11:** Restoring an item that isn't removed is refused with `media_evidence_not_removed` (409), and removing one already removed with `media_evidence_removed`.
@@ -145,4 +147,3 @@ None for task 10.
 ### Open items
 
 - Review's supporting-evidence rule should stop counting an `unset` lot-attachment selection as evidence (see Changes to the plan).
-- 11.5 stays open: no full PostgreSQL tier run has been green. Each run had one or two child-process startup or decoder deadline failures, and every new removal test passed in every run. On a serial rerun, only `media-startup-authority.test.ts` › "actual main reopens its bound store…" failed (`manual_checkpoint_timeout`: its 5-second wait for the web process to report healthy). Run alone, it failed twice and passed once. It needs a run on a quiet machine, or a look at whether that startup is now slower.
