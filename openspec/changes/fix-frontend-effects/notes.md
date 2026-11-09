@@ -19,6 +19,7 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T22:48+11:00, task 3:** Review round 4 found that `InstructionField` released the guard when its saved text dropped out after load, such as a failed or paused read or a newer batch revision, while the typed draft was still shown. Dirty no longer depends on the text being loaded, so the draft stays guarded; Save stays disabled until the text is readable again. A regression test fails on the old code.
 - **2026-11-09T23:06+11:00, task 1 (review round 5):** `ExamineView`'s ReadingEdit compares its draft with readings that arrive by poll, so a reload can make it clean (an unconfirmed save the server applied) or dirty (a region read again) with no event in the component. Only its handlers reported, so the guard kept the stale value. It keeps a commented report Effect for that case, and two tests fail on the previous code.
 - **2026-11-09T23:15+11:00, task 1 (review round 6):** After one confirmed save, ReadingEdit's confirmed baseline hid every later poll, so the round-5 bug returned. The confirmed values are now the baseline only until the readings they were saved over change; then the polled readings are the baseline again, as before any save.
+- **2026-11-09T23:22+11:00, task 1 (review round 7):** ReadingEdit saves trimmed markings without empty ones but kept the raw draft, so once the batch reloaded the saved form an untidy draft read as unsaved again. A confirmed save now puts the saved form into the draft.
 
 ## Decisions made during implementation
 

@@ -686,3 +686,41 @@ it('after a confirmed save, a region read again reports the editor unsaved', asy
   mounted.rerender(view(reread))
   expect(dirty.at(-1)).toBe(true)
 })
+
+it('a confirmed save of an untidy draft stays clean when the batch reloads its saved form', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  const saved = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      observation('o2', 'v1', '16 MHz crystal X', null),
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  } as unknown as CaptureSnapshotDto
+  let current = batch
+
+  const view = () => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async () => {
+        current = saved
+        mounted.rerender(view())
+        return true
+      }}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view())
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' X  ')
+  await user.click(within(first).getByRole('button', { name: 'Add a marking for 16 MHz crystal' }))
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(false)
+  expect(within(first).queryByRole('button', { name: 'Discard' })).toBeNull()
+  expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeEnabled()
+})
