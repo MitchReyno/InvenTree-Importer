@@ -9,6 +9,7 @@ import {
   Small,
   Summary,
   Button,
+  ShortcutsButton,
 } from '#/components/ui'
 import { subjectStatuses, type LotStatus } from '#/processing/source'
 import styled from 'styled-components'
@@ -439,10 +440,22 @@ export function ReviewWorkspace({
             ))}
         </SubjectActions>
         {operatorReview && (
-          <KeyboardHint>
-            <Kbd>J</Kbd>/<Kbd>K</Kbd> move · <Kbd>R</Kbd> mark reviewed · <Kbd>E</Kbd> edit quantity
-            · <Kbd>V</Kbd> view evidence
-          </KeyboardHint>
+          <KeyboardHelp>
+            <ShortcutsButton summary="J / K move · R mark reviewed · E edit quantity · V view evidence">
+              <li>
+                <Kbd>J</Kbd>/<Kbd>K</Kbd> move
+              </li>
+              <li>
+                <Kbd>R</Kbd> mark reviewed
+              </li>
+              <li>
+                <Kbd>E</Kbd> edit quantity
+              </li>
+              <li>
+                <Kbd>V</Kbd> view evidence
+              </li>
+            </ShortcutsButton>
+          </KeyboardHelp>
         )}
       </Toolbar>
       {operatorReview && (
@@ -602,7 +615,8 @@ const ContextFold = styled.details`
   margin-bottom: ${space[4]};
   color: ${color.muted};
 `
-const KeyboardHint = styled(Small)`
+// Phones have no keyboard to use the shortcuts with.
+const KeyboardHelp = styled.span`
   ${media.compact} {
     display: none;
   }

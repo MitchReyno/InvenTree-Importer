@@ -59,7 +59,11 @@ it('shows the lot’s observations as crops and resolves suggestions as operator
     <LotObservations batch={batch} lot={lot} edit={edit} disabled={false} />,
   )
   const section = screen.getByRole('region', { name: 'Observations' })
-  expect(within(section).getByText('AI-proposed')).toBeInTheDocument()
+  expect(within(section).getByText('New').closest('[data-tone]')).toHaveAttribute(
+    'data-tone',
+    'info',
+  )
+  expect(section).not.toHaveTextContent('AI-proposed')
   expect(
     within(section).getByText(/Estimated 500 · label · same item in 2 photos/),
   ).toBeInTheDocument()
@@ -163,4 +167,27 @@ it('says in words what each reading came from and how well it agrees', () => {
   } as unknown as CaptureSnapshotDto
   render(<LotObservations batch={said} lot={lot} disabled={false} />)
   expect(screen.getByTitle('Examine · Label · Likely')).toBeInTheDocument()
+})
+
+it('says why a reading’s sources disagree in its source chip', async () => {
+  const disputed = {
+    ...observation('o1', 'LED 0603 red', 'l1'),
+    readings: { markings: ['LED 0603 red'], source_kind: 'label', agreement: 'disagree' },
+  }
+  render(
+    <LotObservations
+      batch={{ ...batch, evidence_observations: [disputed] } as unknown as CaptureSnapshotDto}
+      lot={lot}
+      disabled={false}
+    />,
+  )
+  const chip = screen.getByRole('button', {
+    name: 'Source: Examine · Label, Sources disagree. Show details.',
+  })
+  expect(chip).toHaveTextContent('×Examine · Label')
+
+  await userEvent.click(chip)
+  const details = await screen.findByRole('dialog', { name: 'Reading source' })
+  expect(details).toHaveTextContent('Reading · LED 0603 red')
+  expect(details).toHaveTextContent('The sources Examine read give different values.')
 })

@@ -189,11 +189,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate.
 - **Risks and decisions:** InvenTree descriptions set outside the app can exceed 250 characters. Show them with an over-limit count but don't block, because the app doesn't write them.
 
-- [ ] 6.1 Confirm which existing types the existing-values query returns and how `RecordDetail` reads them.
-- [ ] 6.2 RED: write the UI tests for the three description states and the over-limit problem.
-- [ ] 6.3 GREEN: wire `DescriptionField` into the editors and record detail, and surface the existing `description_unsupported` problem as the field's over-limit state.
-- [ ] 6.4 Refactor; verify the record edit tests are unchanged.
-- [ ] 6.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 6.1 Confirm which existing types the existing-values query returns and how `RecordDetail` reads them.
+- [x] 6.2 RED: write the UI tests for the three description states and the over-limit problem.
+- [x] 6.3 GREEN: wire `DescriptionField` into the editors and record detail, and surface the existing `description_unsupported` problem as the field's over-limit state.
+- [x] 6.4 Refactor; verify the record edit tests are unchanged.
+- [x] 6.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 7. Screen clean-up and agent marks
 
@@ -220,11 +220,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 7.1 List every `SourceChip` call site and each removal target from the change log.
-- [ ] 7.2 RED: update the screen tests for removals, help buttons and mark placement.
-- [ ] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
-- [ ] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
-- [ ] 7.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 7.1 List every `SourceChip` call site and each removal target from the change log.
+- [x] 7.2 RED: update the screen tests for removals, help buttons and mark placement.
+- [x] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
+- [x] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
+- [x] 7.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 8. Records › Locations and Tree view

@@ -3,6 +3,7 @@ import { batchHref } from '#/navigation/batch-route'
 import type { ProposedLot, ProposedLotState } from '#/processing/proposed-lots'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import {
+  AiMark,
   Button,
   Skeleton,
   Spinner,
@@ -61,7 +62,7 @@ export function ProposedLotsGlance({
     <Glance aria-label={`Proposed lots, ${lots.length}`}>
       <Head>
         <Title>
-          Proposed lots <Count value={lots.length} />
+          <AiMark>Proposed lots</AiMark> <Count value={lots.length} />
           {leadRunning && (
             <SortingPill>
               <Pill status="running">Sorting</Pill>
@@ -101,7 +102,7 @@ export function ProposedLotsGlance({
                     (lot.edited ? (
                       <Pill tone="neutral">Edited</Pill>
                     ) : (
-                      <Pill tone="acc">AI-proposed</Pill>
+                      <Pill status="new">New</Pill>
                     ))}
                   <Pill tone={STATE[lot.state].tone}>{STATE[lot.state].word}</Pill>
                 </Pills>
@@ -127,7 +128,6 @@ export function ProposedLotsGlance({
         </More>
       )}
       <Footer>
-        <span>A glance only. Lots are edited in Review.</span>
         <Button as="a" size="sm" href={batchHref(batchId, { tab: 'review', view: 'map' })}>
           See the map in Review
         </Button>
@@ -274,7 +274,4 @@ const Footer = styled.div`
   border-radius: 0 0 ${radius.card} ${radius.card};
   background: ${color.surface2};
   ${type.small}
-  span {
-    flex: 1 1 200px;
-  }
 `

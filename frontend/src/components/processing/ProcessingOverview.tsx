@@ -4,6 +4,7 @@ import { batchHref } from '#/navigation/batch-route'
 import type { ProcessingSource, StepProgress } from '#/processing/source'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import {
+  AiMark,
   linkTouchArea,
   Count,
   ProgressSegments,
@@ -165,7 +166,9 @@ export function ProcessingOverview({
         <Aside>
           <Card aria-label="Agent sessions">
             <TitleRow>
-              <CardTitle>Agent sessions</CardTitle>
+              <CardTitle>
+                <AiMark>Agent sessions</AiMark>
+              </CardTitle>
               <Count value={source.sessions.length} />
               <Muted>
                 {runningSessions} running

@@ -359,9 +359,9 @@ test('batch notes are always shown, autosave, and clearing them sends a tombston
   const { user } = setup()
   // Batch settings owns the field; Capture draws it in the evidence card.
   const notes = screen.getByRole('textbox', { name: 'Notes for the whole batch' })
-  expect(notes).toHaveAccessibleDescription(
-    'Plain language is fine. Agents read these notes while they work.',
-  )
+  // The label says what the field is; no grey helper sentence explains it.
+  expect(notes).toHaveAccessibleDescription('')
+  expect(screen.queryByText(/Plain language is fine/)).not.toBeInTheDocument()
   await user.type(notes, 'Two bags')
   await idle()
   expect(saves[0].change.notes).toEqual({ batch: 'Two bags', order: null })

@@ -72,12 +72,7 @@ export function Batches({ client, onDirtyChange }: Props) {
   return (
     <Inbox>
       <PageHead>
-        <div>
-          <Title>Batches</Title>
-          <Lead>
-            Photograph what's on the bench; we propose the stock lots and Parts for you to check.
-          </Lead>
-        </div>
+        <Title>Batches</Title>
         <Button variant="primary" icon="+" onClick={() => setCreating(true)}>
           New batch
         </Button>
@@ -209,11 +204,6 @@ const PageHead = styled.div`
 const Title = styled.h1`
   margin: 0;
   ${type.h1}
-`
-
-const Lead = styled.p`
-  margin: ${space[2]} 0 0;
-  color: ${color.muted};
 `
 
 const Meta = styled.span`

@@ -7,7 +7,7 @@ import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { chatConfirmation } from '#/components/processing/SessionChatPanel'
-import { Button, Small } from '#/components/ui'
+import { AiMark, Button, Small } from '#/components/ui'
 import { Label, TextArea } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import { useApiClients } from '#/clients/api-clients'
@@ -86,7 +86,7 @@ export function TellExamine({
       }}
     >
       <Label>
-        Instruction for Examine
+        <AiMark size="sm">Instruction for Examine</AiMark>
         <TextArea
           value={text}
           rows={2}

@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
-import { Paragraph, Small, Banner, Toast, Button } from '#/components/ui'
+import { Paragraph, Small, Banner, Toast, Button, HelpButton } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
@@ -32,6 +32,9 @@ interface Props {
   /** Shown right after the capture actions. */
   afterActions?: ReactNode
 }
+
+const GROUPS_EXPLANATION =
+  'Group photos that belong together, such as the front and back of one packet. Groups are hints: one photo can still feed several lots.'
 
 function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? '' : 's'}`
@@ -204,6 +207,7 @@ export function MediaWorkspace({
             {plural(snapshot.evidence.length, 'file')} · {plural(snapshot.groups.length, 'group')}
           </Small>
         )}
+        <HelpButton label="About groups" explanation={GROUPS_EXPLANATION} />
         <Spacer />
         {snapshot && (
           <Button
@@ -230,10 +234,6 @@ export function MediaWorkspace({
           Refresh
         </Button>
       </LabelRow>
-      <Small>
-        Group photos that belong together, such as the front and back of one packet. Originals,
-        links and lot identities are kept; up to 200 selected files move together.
-      </Small>
       {state.unavailable && (
         <div role="alert">
           <Banner tone="warn">

@@ -116,6 +116,15 @@ test('the summary counts slots against the limit, the model and the sessions wai
   expect(within(summary).getByText('Codex · chosen-model')).toBeInTheDocument()
 })
 
+test('the Agents heading carries the AI mark; session rows do not', async () => {
+  render(<AgentSessions client={client()} batches={batches} />)
+  const heading = await screen.findByRole('heading', { name: 'Agents', level: 1 })
+
+  expect(heading.querySelector('[data-ai-mark]')).toHaveAttribute('data-size', 'lg')
+  await screen.findByRole('region', { name: 'Summary' })
+  expect(document.querySelectorAll('[data-ai-mark]')).toHaveLength(1)
+})
+
 test('waiting sessions do not count as running: 3 of 3 slots, 2 waiting, each holding no slot', async () => {
   const running = (id: string): Session => ({
     ...base,

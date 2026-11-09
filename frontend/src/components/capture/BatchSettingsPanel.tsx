@@ -529,7 +529,6 @@ export function BatchSettingsPanel({
                 <TextField
                   as="textarea"
                   label="Notes for the whole batch"
-                  help="Plain language is fine. Agents read these notes while they work."
                   value={field.value ?? ''}
                   maxLength={8192}
                   disabled={!editable}

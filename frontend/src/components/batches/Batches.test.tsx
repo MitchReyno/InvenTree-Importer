@@ -208,3 +208,10 @@ test('the Continue card counts the lots its Review filter opens', async () => {
     `#${saved.id}/review/lots?filter=needs_review`,
   )
 })
+
+test('the page heading carries no helper sentence', async () => {
+  render(<Batches client={client()} onDirtyChange={vi.fn()} />)
+
+  expect(await screen.findByRole('heading', { name: 'Batches', level: 1 })).toBeVisible()
+  expect(screen.queryByText(/Photograph what's on the bench/)).not.toBeInTheDocument()
+})
