@@ -328,7 +328,8 @@ async function leadSession(client: PoolClient, batchId: string) {
 
 /**
  * Evidence items were removed at `revision`. Every current proposal relying on one of them, through
- * a cited version, an observation on one of its versions or one of its evidence notes, is stale
+ * a cited version, an observation on one of its versions or one of its evidence notes, wherever the
+ * proposal names it (its sources, its catalogue values or `relies_on`), is stale
  * with `evidence_removed`, and so is everything built on those. The Examine lead gets a batch
  * notice and the affected lots' Research and Images sessions a notice each, keyed by the revision
  * so a later removal after a restore is told again.
@@ -357,7 +358,8 @@ export async function evidenceRemoved(
     [input.batchId, [...input.evidenceIds]],
   )
   const { versions, observations, notes } = cited.rows[0]
-  // A session proposal cites in its value and relies through `relies_on`; either counts.
+  // A session proposal cites in its value, including every catalogue value's sources, and relies
+  // through `relies_on`; any of them counts.
   const affected = await client.query<{ id: string; lineage: string }>(
     `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id
@@ -365,13 +367,16 @@ export async function evidenceRemoved(
      WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
        AND EXISTS (
-         SELECT 1 FROM jsonb_array_elements(
-           (p.relies_on->'sources')
-           || COALESCE(convert_from(p.value_bytes,'UTF8')::jsonb->'sources','[]'::jsonb)) source
-         WHERE (source->>'kind'='media_version' AND source->>'version_id' = ANY($2::text[]))
-            OR (source->>'kind'='evidence_observation'
-                AND source->>'evidence_observation_id' = ANY($3::text[]))
-            OR (source->>'kind'='note' AND source->>'note_id' = ANY($4::text[])))
+         SELECT 1 FROM (
+           SELECT jsonb_array_elements(p.relies_on->'sources') AS source
+           UNION ALL
+           SELECT jsonb_path_query(convert_from(p.value_bytes,'UTF8')::jsonb, 'lax $.**.sources[*]')
+         ) cited
+         WHERE (cited.source->>'kind'='media_version'
+                AND cited.source->>'version_id' = ANY($2::text[]))
+            OR (cited.source->>'kind'='evidence_observation'
+                AND cited.source->>'evidence_observation_id' = ANY($3::text[]))
+            OR (cited.source->>'kind'='note' AND cited.source->>'note_id' = ANY($4::text[])))
      ORDER BY p.id`,
     [input.batchId, versions, observations, notes],
   )

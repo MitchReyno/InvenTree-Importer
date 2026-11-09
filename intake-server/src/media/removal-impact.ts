@@ -1,4 +1,5 @@
 import type { CaptureSnapshotDto, MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
+import { selectionsOfVersions } from './removal.ts'
 
 type Attachment = MediaSnapshotDto['attachments'][number]
 
@@ -61,10 +62,16 @@ function supported(
   return linked || selected
 }
 
-/** What removing each present item would change, for the delete dialog and its refusal state. */
-export function removalImpacts(input: RemovalImpactInput): Map<string, RemovalImpact> {
+interface LotSupport {
+  lots: CaptureSnapshotDto['lots']
+  lotIds: ReadonlySet<string>
+  /** Each active lot's evidence subjects: itself, its ancestors and its Part. */
+  evidenceSubjects: ReadonlyMap<string, ReadonlySet<string>>
+  noted: ReadonlyMap<string, boolean>
+}
+
+function lotSupport(input: RemovalImpactInput): LotSupport {
   const lots = input.capture.lots.filter((lot) => lot.retired !== true)
-  const lotIds = new Set(lots.map((lot) => lot.id))
   const evidenceSubjects = new Map(
     lots.map((lot) => {
       const subjects = new Set([lot.id, ...ancestors(input.predecessors, lot.id)])
@@ -84,45 +91,70 @@ export function removalImpacts(input: RemovalImpactInput): Map<string, RemovalIm
       return [lot.id, hasNote]
     }),
   )
+  return { lots, lotIds: new Set(lots.map((lot) => lot.id)), evidenceSubjects, noted }
+}
+
+/** What removing these present items together would change. */
+function impactOf(
+  input: RemovalImpactInput,
+  support: LotSupport,
+  evidenceIds: ReadonlySet<string>,
+): Required<RemovalImpact> {
+  const removed = input.evidence.filter((item) => evidenceIds.has(item.id))
+  const versionIds = new Set(removed.flatMap((item) => item.versions.map((version) => version.id)))
+  const cleared = selectionsOfVersions(input.attachments, versionIds)
+  // The delete appends an `unset` selection in place of each cleared one.
+  const attachmentsAfter = input.attachments.map((selection) =>
+    cleared.includes(selection)
+      ? { ...selection, mode: 'unset' as const, version_id: null }
+      : selection,
+  )
+  const remaining = input.evidence.filter((item) => !evidenceIds.has(item.id))
+  const sole = support.lots
+    .filter((lot) => {
+      const subjects = support.evidenceSubjects.get(lot.id)!
+      const noted = support.noted.get(lot.id)!
+      const before = supported(subjects, noted, input.evidence, input.attachments)
+      const after = supported(subjects, noted, remaining, attachmentsAfter)
+      return before && !after
+    })
+    .map((lot) => lot.id)
+  const fed = new Set(
+    removed.flatMap((item) =>
+      item.linked_subject_ids.filter((subjectId) => support.lotIds.has(subjectId)),
+    ),
+  )
+  return {
+    lot_ids: [...fed].sort(),
+    sole_evidence_lot_ids: sole.sort(),
+    selected_attachment_of: cleared.map((selection) => ({
+      subject_id: selection.subject_id,
+      destination: selection.destination,
+    })),
+  }
+}
+
+/** What removing each present item alone would change, for the delete dialog and its refusals. */
+export function removalImpacts(input: RemovalImpactInput): Map<string, RemovalImpact> {
+  const support = lotSupport(input)
   const impacts = new Map<string, RemovalImpact>()
   for (const item of input.evidence) {
-    const versionIds = new Set(item.versions.map((version) => version.id))
-    const cleared = input.attachments.filter(
-      (selection) =>
-        selection.mode === 'selected' &&
-        selection.version_id !== null &&
-        versionIds.has(selection.version_id),
-    )
-    // The delete appends an `unset` selection in place of each cleared one.
-    const attachmentsAfter = input.attachments.map((selection) =>
-      cleared.includes(selection)
-        ? { ...selection, mode: 'unset' as const, version_id: null }
-        : selection,
-    )
-    const others = input.evidence.filter((other) => other.id !== item.id)
-    const sole = lots
-      .filter((lot) => {
-        const subjects = evidenceSubjects.get(lot.id)!
-        const before = supported(subjects, noted.get(lot.id)!, input.evidence, input.attachments)
-        const after = supported(subjects, noted.get(lot.id)!, others, attachmentsAfter)
-        return before && !after
-      })
-      .map((lot) => lot.id)
-    const fed = item.linked_subject_ids.filter((subjectId) => lotIds.has(subjectId))
-    const impact: RemovalImpact = {}
-    if (fed.length) {
-      impact.lot_ids = [...fed].sort()
-    }
-    if (sole.length) {
-      impact.sole_evidence_lot_ids = sole.sort()
-    }
-    if (cleared.length) {
-      impact.selected_attachment_of = cleared.map((selection) => ({
-        subject_id: selection.subject_id,
-        destination: selection.destination,
-      }))
-    }
-    impacts.set(item.id, impact)
+    const impact = impactOf(input, support, new Set([item.id]))
+    // Each field is omitted while empty, so existing snapshots keep their bytes.
+    impacts.set(item.id, {
+      ...(impact.lot_ids.length ? { lot_ids: impact.lot_ids } : {}),
+      ...(impact.sole_evidence_lot_ids.length
+        ? { sole_evidence_lot_ids: impact.sole_evidence_lot_ids }
+        : {}),
+      ...(impact.selected_attachment_of.length
+        ? { selected_attachment_of: impact.selected_attachment_of }
+        : {}),
+    })
   }
   return impacts
+}
+
+/** What removing these present items together would change, for a bulk delete. */
+export function combinedRemovalImpact(input: RemovalImpactInput, evidenceIds: ReadonlySet<string>) {
+  return impactOf(input, lotSupport(input), evidenceIds)
 }

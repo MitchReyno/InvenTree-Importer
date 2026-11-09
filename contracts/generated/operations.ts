@@ -245,6 +245,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{batchId}/media/removal-impact",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "MediaRemovalImpact"
+    }
+  ],
+  [
     "POST /api/v1/batches/{batchId}/media/commands",
     {
       "timeoutMs": 45000,

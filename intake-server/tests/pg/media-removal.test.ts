@@ -6,6 +6,9 @@ import { manualFixture } from '../support/manual.ts'
 import { mediaEditor, seedStoredPhoto } from '../support/media-removal.ts'
 import { mediaContent } from '#/media/content.ts'
 import { CaptureError } from '#/capture/model.ts'
+import { inboxEvidenceCounts, inboxThumbnail } from '#/media/read.ts'
+import { transaction } from '#/db/database.ts'
+import { setTimeout } from 'node:timers/promises'
 
 type Fixture = Awaited<ReturnType<typeof manualFixture>>
 type Refusal = { refused: string; status: number }
@@ -353,6 +356,195 @@ test('removal rows are append-only', async () => {
     // The runtime role has no such grant either.
     await assert.rejects(fixture.api.pool.query('DELETE FROM media_evidence_removal'))
   } finally {
+    await fixture.dispose()
+  }
+})
+
+async function packetC(fixture: Fixture, batch: { id: string; revision: string }) {
+  const added = await fixture.http(`/batches/${batch.id}/edits`, {
+    expected_revision: batch.revision,
+    change: { kind: 'add_lot', label: 'Packet C', note: '', part_subject_id: null },
+  })
+  assert.equal(added.status, 200, JSON.stringify(added.value))
+  return (added.value.lots as { id: string; label: string }[]).find(
+    (lot) => lot.label === 'Packet C',
+  )!
+}
+
+test('the impact of removing several items together names a lot they alone support', async () => {
+  const fixture = await manualFixture({ media: true })
+  try {
+    assert.ok(fixture.store)
+    const capture = await fixture.seedCapture()
+    const batchId = capture.batch.id
+    const lotC = await packetC(fixture, capture.batch)
+    const [front, back, other] = await Promise.all(
+      ['Front', 'Back', 'Other'].map((label, index) =>
+        seedStoredPhoto(fixture.db.pool, fixture.store!, {
+          batchId,
+          actorId: fixture.identity.actor,
+          label,
+          seed: 20 + index,
+        }),
+      ),
+    )
+    const media = mediaEditor(fixture.api.pool, fixture.config, batchId)
+    for (const photo of [front, back]) {
+      await media.applied({
+        kind: 'link',
+        evidence_id: photo.evidence,
+        subject_id: lotC.id,
+        linked: true,
+      })
+    }
+    await media.applied({
+      kind: 'link',
+      evidence_id: other.evidence,
+      subject_id: capture.a.id,
+      linked: true,
+    })
+    await media.applied({
+      kind: 'select_attachment',
+      subject_id: capture.b.id,
+      mode: 'selected',
+      version_id: back.version,
+      destination: 'lot_attachment',
+    })
+    const snapshot = await media.snapshot()
+    // Alone, each leaves the other supporting Packet C.
+    for (const photo of [front, back]) {
+      const item = snapshot.evidence.find((evidence) => evidence.id === photo.evidence)!
+      assert.equal(item.sole_evidence_lot_ids, undefined)
+    }
+    const read = await fixture.http(
+      `/batches/${batchId}/media/removal-impact?evidence_ids=${[back.evidence, front.evidence].join(',')}`,
+    )
+    assert.equal(read.status, 200, JSON.stringify(read.value))
+    validate('MediaRemovalImpact', read.value)
+    assert.deepEqual(read.value, {
+      evidence_ids: [back.evidence, front.evidence].sort(),
+      lot_ids: [lotC.id],
+      sole_evidence_lot_ids: [lotC.id],
+      selected_attachment_of: [{ subject_id: capture.b.id, destination: 'lot_attachment' }],
+    })
+    const unknown = await fixture.http(
+      `/batches/${batchId}/media/removal-impact?evidence_ids=${randomUUID()}`,
+    )
+    assert.equal(unknown.status, 404)
+    const malformed = await fixture.http(`/batches/${batchId}/media/removal-impact?evidence_ids=x`)
+    assert.equal(malformed.status, 400)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('the batch list stops counting and showing a removed item', async () => {
+  const fixture = await manualFixture({ media: true })
+  try {
+    assert.ok(fixture.store)
+    const capture = await fixture.seedCapture()
+    const batchId = capture.batch.id
+    const first = await seedStoredPhoto(fixture.db.pool, fixture.store, {
+      batchId,
+      actorId: fixture.identity.actor,
+      label: 'First',
+      seed: 30,
+    })
+    const second = await seedStoredPhoto(fixture.db.pool, fixture.store, {
+      batchId,
+      actorId: fixture.identity.actor,
+      label: 'Second',
+      seed: 31,
+    })
+    const listed = () =>
+      transaction(fixture.api.pool, async (client) => ({
+        counts: await inboxEvidenceCounts(client, batchId),
+        thumbnail: await inboxThumbnail(client, batchId),
+      }))
+    const before = await listed()
+    assert.deepEqual(before.counts, { photos: 2, documents: 0, other: 0 })
+    assert.equal(before.thumbnail?.preview_id, first.preview)
+    await mediaEditor(fixture.api.pool, fixture.config, batchId).applied({
+      kind: 'remove',
+      evidence_ids: [first.evidence],
+    })
+    const after = await listed()
+    assert.deepEqual(after.counts, { photos: 1, documents: 0, other: 0 })
+    assert.deepEqual(after.thumbnail, { preview_id: second.preview, label: 'Second' })
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a removal waiting behind an approval is refused once the approval pins the item', async () => {
+  const fixture = await manualFixture({ media: true })
+  const holder = await fixture.db.pool.connect()
+  try {
+    assert.ok(fixture.store)
+    const capture = await fixture.seedCapture()
+    const batchId = capture.batch.id
+    const photo = await seedStoredPhoto(fixture.db.pool, fixture.store, {
+      batchId,
+      actorId: fixture.identity.actor,
+      label: 'Packet A label',
+      seed: 40,
+    })
+    const media = mediaEditor(fixture.api.pool, fixture.config, batchId)
+    await media.applied({
+      kind: 'link',
+      evidence_id: photo.evidence,
+      subject_id: capture.a.id,
+      linked: true,
+    })
+    await media.applied({
+      kind: 'select_attachment',
+      subject_id: capture.a.id,
+      mode: 'selected',
+      version_id: photo.version,
+      destination: 'lot_attachment',
+    })
+    const batch = (await fixture.http(`/batches/${batchId}`)).value as {
+      id: string
+      revision: string
+    }
+    const prepared = await prepare(fixture, batch, capture.a.id)
+    const revision = (await media.snapshot()).revision
+
+    // Hold the capture lock both commands need, then queue the approval ahead of the removal.
+    await holder.query('BEGIN')
+    await holder.query('SELECT id FROM capture_batch WHERE id=$1 FOR UPDATE', [batchId])
+    const holderPid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+      .rows[0].pid
+    const blocked = async (count: number) => {
+      const deadline = Date.now() + 5000
+      while (Date.now() < deadline) {
+        const waiting = await fixture.db.pool.query<{ count: number }>(
+          `SELECT count(*)::int AS count FROM pg_stat_activity
+           WHERE datname=current_database() AND cardinality(pg_blocking_pids(pid)) > 0
+             AND ($1::integer=ANY(pg_blocking_pids(pid)) OR wait_event_type='Lock')`,
+          [holderPid],
+        )
+        if (waiting.rows[0].count >= count) {
+          return
+        }
+        await setTimeout(10)
+      }
+      assert.fail(`expected ${count} blocked transactions`)
+    }
+    const approval = approve(fixture, prepared)
+    await blocked(1)
+    const removal = media.edit({ kind: 'remove', evidence_ids: [photo.evidence] }, { revision })
+    await blocked(2)
+    await holder.query('ROLLBACK')
+
+    const approved = await approval
+    assert.equal(approved.status, 200, JSON.stringify(approved.value))
+    assert.deepEqual(refusal(await removal), [409, 'media_removal_refused'])
+    const removals = await fixture.db.pool.query('SELECT 1 FROM media_evidence_removal')
+    assert.equal(removals.rowCount, 0)
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined)
+    holder.release()
     await fixture.dispose()
   }
 })

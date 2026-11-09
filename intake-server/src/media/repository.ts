@@ -7,7 +7,7 @@ import { type CaptureBinding } from '#/capture/model.ts'
 import { idempotentMedia } from './encoding.ts'
 import { mediaEvidence, mediaVersions, mediaDecodeCommands } from './schema.ts'
 import { BlobStore } from './blob-store.ts'
-import { operatorMediaSnapshot } from './read.ts'
+import { mediaRemovalImpact, operatorMediaSnapshot } from './read.ts'
 import { inspectMediaType, retainBlob } from './blob-reference.ts'
 import { advanceMediaRevision, lockMediaBatch, requireUploadCapacity } from './commands.ts'
 
@@ -19,6 +19,12 @@ export function mediaRepository(pool: Pool, binding: CaptureBinding, store: Blob
       return transaction(pool, async (client) => {
         await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         return operatorMediaSnapshot(client, binding, batchId)
+      })
+    },
+    removalImpact(batchId: string, evidenceIds: readonly string[]) {
+      return transaction(pool, async (client) => {
+        await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
+        return mediaRemovalImpact(client, binding, batchId, evidenceIds)
       })
     },
     async upload(

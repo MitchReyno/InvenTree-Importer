@@ -18,10 +18,22 @@ import { issueSessionCapability } from '#/agents/tools/capability.ts'
 import { sessionTools } from '#/agents/tools/handlers.ts'
 import { runSessionTurn } from '#/agents/session/session-runner.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
+import { successorsCurrent } from '#/processing/stable-identity.ts'
 import { requireUploadCapacity } from '#/media/commands.ts'
 import { mediaContent } from '#/media/content.ts'
 import { CaptureError } from '#/capture/model.ts'
-import { validate } from '@invimport/contracts'
+import {
+  validate,
+  type ProcessingInputV4Dto,
+  type ProcessingReceiptDto,
+} from '@invimport/contracts'
+import { canonical, strictJson } from '@invimport/contracts/json'
+import { nativeProfileId } from '#/agents/policy.ts'
+import { saveAgentSettings } from '#/agents/settings.ts'
+import { stageNativePrompt, verifyInspectedSources } from '#/agents/prompt.ts'
+import { startProcessing } from '#/processing/commands.ts'
+import { claimProcessingCommand } from '#/processing/runner.ts'
+import type { BlobStore as Store } from '#/media/blob-store.ts'
 
 const sha = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex')
 
@@ -408,5 +420,207 @@ test('a full batch with removed items still validates, and removed items keep co
   await assert.rejects(
     transaction(fixture.api.pool, (client) => requireUploadCapacity(client, capture.batch.id)),
     (error: unknown) => error instanceof CaptureError && error.code === 'media_capacity',
+  )
+})
+
+test('a proposal citing a removed photo only in its catalogue goes stale, and Inventory waits', async (t) => {
+  const fixture = await processingFixture()
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'removal-catalogue-')))
+  t.after(async () => {
+    await fixture.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const capture = await fixture.seedCapture()
+  const batchId = capture.batch.id
+  const store = await BlobStore.initialize(
+    join(root, 'blobs'),
+    await readMediaStoreIdentity(fixture.db.pool),
+  )
+  const content = await photoBytes(7)
+  const kept = await photoBytes(8)
+  await transaction(fixture.db.pool, async (client) => {
+    for (const bytes of [content.original, content.preview, kept.original, kept.preview]) {
+      await store.publish(client, bytes)
+    }
+  })
+  const photo = await seedPhoto(fixture, batchId, { width: 32, height: 24 }, 'Reel', 0, content)
+  const other = await seedPhoto(fixture, batchId, { width: 32, height: 24 }, 'Box', 0, kept)
+  for (const evidence of [photo.evidence, other.evidence]) {
+    await fixture.db.pool.query(
+      'INSERT INTO media_subject_link(id,batch_id,evidence_id,subject_id,linked,revision,actor_id) VALUES($1,$2,$3,$4,true,1,$5)',
+      [randomUUID(), batchId, evidence, capture.packetA.id, fixture.identity.actor],
+    )
+  }
+  const research = await lotSession(fixture, capture, capture.packetA)
+  const images = await lotSession(fixture, capture, capture.packetA, { stage: 'images' })
+  const tools = sessionTools({
+    pool: fixture.runner.pool,
+    config: fixture.config,
+    store,
+    statusIntervalMs: 0,
+    imageBudget: new Map<string, number>(),
+    deliveredMedia: new Map<string, Set<string>>(),
+  })
+  const source = (version: { evidence: string; version: string }, bytes: Buffer) => ({
+    kind: 'media_version' as const,
+    evidence_id: version.evidence,
+    version_id: version.version,
+    sha256: sha(bytes),
+  })
+  const photoSource = source(photo, content.original)
+  const otherSource = source(other, kept.original)
+  for (const session of [research, images]) {
+    const token = await transaction(fixture.runner.pool, (client) =>
+      issueSessionCapability(client, session.attempt),
+    )
+    for (const version of [photo, other]) {
+      const fetched = await tools.fetch_evidence(token, {
+        evidence_id: version.evidence,
+        version_id: version.version,
+      })
+      assert.ok(fetched.result.ok, JSON.stringify(fetched.result))
+    }
+    // Research cites the photo only for one parameter value; Images never cites it.
+    const catalogue =
+      session === research
+        ? {
+            catalogue: {
+              category: null,
+              parameters: [
+                {
+                  name: 'Package',
+                  value: '0603',
+                  template: null,
+                  category_mapping: null,
+                  sources: [photoSource],
+                },
+              ],
+              manufacturer: null,
+              supplier: null,
+              description: null,
+            },
+          }
+        : {}
+    const published = await tools.propose(token, {
+      proposal: {
+        schema_version: 'bench-intake-proposal/5',
+        subject_id: capture.packetA.id,
+        summary: session === research ? 'Package from the reel' : 'Box photo',
+        sources: [otherSource],
+        relies_on: {
+          fields: [session === research ? 'research' : 'images'],
+          sources: [otherSource],
+        },
+        ...catalogue,
+      },
+    })
+    assert.ok(published.result.ok, JSON.stringify(published.result))
+  }
+  const current = () =>
+    transaction(fixture.api.pool, (client) =>
+      successorsCurrent(client, batchId, capture.packetA.id),
+    )
+  assert.equal(await current(), true)
+
+  await mediaEditor(fixture.api.pool, fixture.config, batchId).applied({
+    kind: 'remove',
+    evidence_ids: [photo.evidence],
+  })
+
+  const stale = await fixture.db.pool.query<{ job: string; reason: string }>(
+    `SELECT a.job_id AS job, s.reason FROM processing_proposal_stale s
+     JOIN processing_proposal p ON p.id=s.proposal_id JOIN processing_attempt a ON a.id=p.attempt_id`,
+  )
+  assert.deepEqual(stale.rows, [{ job: research.job, reason: 'evidence_removed' }])
+  assert.equal(await current(), false, 'Inventory waits for a current Research result')
+})
+
+test('a native attempt sealed before a removal stages none of the removed item and goes stale', async (t) => {
+  const fixture = await processingFixture({ profileId: nativeProfileId })
+  t.after(() => fixture.dispose())
+  await grantMedia(fixture.db.pool, fixture.api.name, 'api')
+  const capture = await fixture.seedCapture()
+  const batchId = capture.batch.id
+  const photo = await seedPhoto(fixture, batchId, { width: 32, height: 24 }, 'Reel')
+  const noteText = 'Reel label reads 0603'
+  const noteId = randomUUID()
+  await fixture.db.pool.query(
+    'INSERT INTO media_subject_link(id,batch_id,evidence_id,subject_id,linked,revision,actor_id) VALUES($1,$2,$3,$4,true,1,$5)',
+    [randomUUID(), batchId, photo.evidence, capture.packetA.id, fixture.identity.actor],
+  )
+  await fixture.db.pool.query(
+    'INSERT INTO media_evidence_note(id,batch_id,evidence_id,revision,text,actor_id) VALUES($1,$2,$3,1,$4,$5)',
+    [noteId, batchId, photo.evidence, noteText, fixture.identity.actor],
+  )
+  await saveAgentSettings(fixture.api.pool, fixture.config, {
+    expected_revision: '0',
+    selection: { provider: 'codex', authentication: 'subscription', model: 'gpt-test-one' },
+  })
+  const batch = (await fixture.http(`/batches/${batchId}`)).value as { revision: string }
+  const queued = (await startProcessing(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    schema_version: 'bench-intake-processing/1',
+    expected_capture_revision: batch.revision,
+    subject_ids: [capture.packetA.id],
+    stages: ['reading'],
+  })) as ProcessingReceiptDto
+  const retained = await fixture.db.pool.query(
+    'SELECT workflow_id,payload_bytes FROM command WHERE id=(SELECT command_id FROM processing_attempt WHERE id=$1)',
+    [queued.attempt_ids[0]],
+  )
+  const claimed = await claimProcessingCommand(
+    fixture.runner.pool,
+    fixture.config,
+    retained.rows[0].workflow_id,
+    strictJson(retained.rows[0].payload_bytes.toString()),
+    'processing/4',
+  )
+  assert.ok(claimed)
+  const sealed = canonical(claimed.manifest)
+  assert.ok(sealed.includes(noteId) && sealed.includes(photo.version), 'sealed before the delete')
+
+  await mediaEditor(fixture.api.pool, fixture.config, batchId).applied({
+    kind: 'remove',
+    evidence_ids: [photo.evidence],
+  })
+
+  const prompt = await stageNativePrompt(
+    fixture.runner.pool,
+    fixture.config,
+    {} as Store,
+    claimed,
+    claimed.manifest as ProcessingInputV4Dto,
+  )
+  assert.equal(prompt.text.includes(noteText), false, 'its note is not shown')
+  assert.equal(prompt.text.includes(noteId), false)
+  assert.equal(
+    prompt.sources.some(
+      (source) =>
+        (source.kind === 'note' && source.note_id === noteId) ||
+        (source.kind === 'media_version' && source.version_id === photo.version),
+    ),
+    false,
+    'neither its note nor its version is citable',
+  )
+  // A native proposal citing the removed note is refused, as uninspected.
+  assert.throws(
+    () =>
+      verifyInspectedSources(prompt, {
+        schema_version: 'bench-intake-proposal/2',
+        subject_id: capture.packetA.id,
+        summary: 'From the reel label',
+        sources: [{ kind: 'note', note_id: noteId, text_sha256: sha(noteText) }],
+      }),
+    /agent_uninspected_source/,
+  )
+  // Its input no longer matches the batch, so the attempt reads as superseded.
+  const jobs = (
+    (await fixture.http(`/batches/${batchId}/processing`)).value as {
+      jobs: { state: string }[]
+    }
+  ).jobs
+  assert.deepEqual(
+    jobs.map((job) => job.state),
+    ['superseded'],
   )
 })

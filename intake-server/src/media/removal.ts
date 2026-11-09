@@ -4,7 +4,7 @@ import type { PoolClient } from 'pg'
 import type { MediaSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { fail, type CaptureBinding } from '#/capture/model.ts'
-import { mediaEvidenceRemovals, mediaVersions } from './schema.ts'
+import { mediaEvidenceNotes, mediaEvidenceRemovals, mediaVersions } from './schema.ts'
 
 /**
  * SQL that is true while the evidence item owning the `media_version` row aliased `alias` is
@@ -115,7 +115,7 @@ export async function retainRemoval(
 
 /** Current attachment selections that name one of these versions. */
 export function selectionsOfVersions(
-  attachments: MediaSnapshotDto['attachments'],
+  attachments: readonly MediaSnapshotDto['attachments'][number][],
   versionIds: ReadonlySet<string>,
 ) {
   return attachments.filter(
@@ -124,4 +124,27 @@ export function selectionsOfVersions(
       selection.version_id !== null &&
       versionIds.has(selection.version_id),
   )
+}
+
+/**
+ * The batch's removed items and every version of their evidence notes, for inputs sealed before
+ * a removal: neither may reach an agent.
+ */
+export async function removedEvidenceAndNotes(client: PoolClient, batchId: string) {
+  const evidence = await removedEvidenceIds(client, batchId)
+  if (!evidence.size) {
+    return { evidence, notes: new Set<string>() }
+  }
+  const notes = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: mediaEvidenceNotes.id })
+      .from(mediaEvidenceNotes)
+      .where(
+        and(
+          eq(mediaEvidenceNotes.batchId, batchId),
+          inArray(mediaEvidenceNotes.evidenceId, [...evidence]),
+        ),
+      ),
+  )
+  return { evidence, notes: new Set(notes.map((row) => row.id)) }
 }

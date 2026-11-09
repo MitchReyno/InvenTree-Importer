@@ -1917,6 +1917,60 @@
         }
       ]
     },
+    "/api/v1/batches/{batchId}/media/removal-impact": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "MediaRemovalImpact",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaRemovalImpact"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "evidence_ids",
+            "in": "query",
+            "required": true,
+            "description": "Comma-separated evidence IDs, each named once.",
+            "schema": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 7399
+            }
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/batches/{batchId}/media/commands": {
       "post": {
         "x-intake-client": {
@@ -73542,6 +73596,76 @@
                 }
               }
             ]
+          }
+        }
+      },
+      "MediaRemovalImpact": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "evidence_ids",
+          "lot_ids",
+          "sole_evidence_lot_ids",
+          "selected_attachment_of"
+        ],
+        "properties": {
+          "evidence_ids": {
+            "minItems": 1,
+            "maxItems": 200,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "lot_ids": {
+            "maxItems": 200,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "sole_evidence_lot_ids": {
+            "maxItems": 200,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "selected_attachment_of": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "subject_id",
+                "destination"
+              ],
+              "properties": {
+                "subject_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "destination": {
+                  "anyOf": [
+                    {
+                      "const": "lot_attachment",
+                      "type": "string"
+                    },
+                    {
+                      "const": "part_attachment",
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       },

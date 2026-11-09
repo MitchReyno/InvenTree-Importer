@@ -284,6 +284,20 @@ async function main() {
         post: post('ProcessingAnswer', 'ProcessingAnswerReceipt'),
       },
       '/api/v1/batches/{batchId}/media': { get: get('MediaSnapshot') },
+      '/api/v1/batches/{batchId}/media/removal-impact': {
+        get: {
+          ...get('MediaRemovalImpact'),
+          parameters: [
+            {
+              name: 'evidence_ids',
+              in: 'query',
+              required: true,
+              description: 'Comma-separated evidence IDs, each named once.',
+              schema: { type: 'string', minLength: 36, maxLength: 7399 },
+            },
+          ],
+        },
+      },
       '/api/v1/batches/{batchId}/media/commands': { post: post('MediaEdit', 'MediaSnapshot') },
       '/api/v1/batches/{batchId}/media/originals': {
         post: {

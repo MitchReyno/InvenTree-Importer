@@ -38,6 +38,13 @@ export function mediaClient(baseUrl: string, csrfToken: string, transport: typeo
         }),
       ),
 
+    removalImpact: (batchId: string, evidenceIds: readonly string[]) =>
+      successfulData(
+        client.GET('/api/v1/batches/{batchId}/media/removal-impact', {
+          params: { path: { batchId }, query: { evidence_ids: evidenceIds.join(',') } },
+        }),
+      ),
+
     edit: (batchId: string, input: MediaEditDto, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{batchId}/media/commands', {

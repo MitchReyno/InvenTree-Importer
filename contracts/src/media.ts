@@ -196,6 +196,21 @@ export const MediaEvidence = object({
     ),
   ),
 })
+const removalSelections = Type.Array(
+  object({
+    subject_id: Id,
+    destination: Type.Union([Type.Literal('lot_attachment'), Type.Literal('part_attachment')]),
+  }),
+  { maxItems: 200 },
+)
+/** What removing several present items together would change, for a bulk delete. */
+export const MediaRemovalImpact = object({
+  evidence_ids: Type.Array(Id, { minItems: 1, maxItems: 200, uniqueItems: true }),
+  lot_ids: Type.Array(Id, { maxItems: 200, uniqueItems: true }),
+  /** Lots left with no supporting evidence once all of them are removed. */
+  sole_evidence_lot_ids: Type.Array(Id, { maxItems: 200, uniqueItems: true }),
+  selected_attachment_of: removalSelections,
+})
 /** A removed item: kept with its history, shown only by its label and thumbnail until restored. */
 export const MediaRemovedEvidence = object({
   id: Id,
@@ -285,10 +300,18 @@ export type MediaRecipeDto = Static<typeof MediaRecipe>
 export type MediaVersionDto = Static<typeof MediaVersion>
 export type MediaEvidenceDto = Static<typeof MediaEvidence>
 export type MediaRemovedEvidenceDto = Static<typeof MediaRemovedEvidence>
+export type MediaRemovalImpactDto = Static<typeof MediaRemovalImpact>
 export type MediaSnapshotDto = Static<typeof MediaSnapshot>
 export type MediaReceiptDto = Static<typeof MediaReceipt>
 export type MediaEditDto = Static<typeof MediaEdit>
-export const mediaSchemas = { MediaRecipe, MediaVersion, MediaSnapshot, MediaReceipt, MediaEdit }
+export const mediaSchemas = {
+  MediaRecipe,
+  MediaVersion,
+  MediaSnapshot,
+  MediaReceipt,
+  MediaEdit,
+  MediaRemovalImpact,
+}
 
 /** Interpreted validation for the isolated decoder, where dynamic code generation is disabled. */
 export function assertMediaRecipe(value: unknown): asserts value is MediaRecipeDto {

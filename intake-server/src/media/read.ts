@@ -2,9 +2,9 @@ import { activeMediaGroups, enrichMediaNotes } from './context.ts'
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
-import { validate, type MediaSnapshotDto } from '@invimport/contracts'
+import { validate, type MediaRemovalImpactDto, type MediaSnapshotDto } from '@invimport/contracts'
 import { captureInTransaction } from '#/capture/repository.ts'
-import { type CaptureBinding } from '#/capture/model.ts'
+import { fail, type CaptureBinding } from '#/capture/model.ts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureEvidenceObservations, captureLotEvidenceObservations } from '#/capture/schema.ts'
 import {
@@ -22,7 +22,7 @@ import {
 } from './schema.ts'
 import { projectMediaSnapshot, type MediaRows } from './projection.ts'
 import { currentRemovals, versionRemovedSql } from './removal.ts'
-import { removalImpacts } from './removal-impact.ts'
+import { combinedRemovalImpact, removalImpacts } from './removal-impact.ts'
 import { loadReviewContext } from '#/capture/review-context.ts'
 
 async function readMediaRows(client: PoolClient, batchId: string): Promise<MediaRows> {
@@ -199,14 +199,16 @@ async function approvalPins(client: PoolClient, batchId: string) {
     [[...new Set(pins.rows.map((row) => row.approval_id))]],
   )
   const approvedAt = new Map(approvals.rows.map((row) => [row.approval_id, row.approved_at]))
+  // A pin is written in its approval's transaction, beside the run that names the approval.
+  if (approvedAt.size !== new Set(pins.rows.map((row) => row.approval_id)).size) {
+    throw new Error('media_pin_without_run')
+  }
   const byEvidence = new Map<string, { approval_id: string; approved_at: string }>()
   // The earliest approval names the item; any one of them refuses the removal.
-  const ordered = pins.rows
-    .filter((row) => approvedAt.has(row.approval_id))
-    .sort(
-      (left, right) =>
-        approvedAt.get(left.approval_id)!.getTime() - approvedAt.get(right.approval_id)!.getTime(),
-    )
+  const ordered = [...pins.rows].sort(
+    (left, right) =>
+      approvedAt.get(left.approval_id)!.getTime() - approvedAt.get(right.approval_id)!.getTime(),
+  )
   for (const row of ordered) {
     if (!byEvidence.has(row.evidence_id)) {
       byEvidence.set(row.evidence_id, {
@@ -272,6 +274,40 @@ export async function operatorMediaSnapshot(
   }
   validate('MediaSnapshot', snapshot)
   return snapshot
+}
+
+/**
+ * What removing these present items together would change: a bulk delete can leave a lot without
+ * evidence that no single item's own impact names.
+ */
+export async function mediaRemovalImpact(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  evidenceIds: readonly string[],
+): Promise<MediaRemovalImpactDto> {
+  const { snapshot, capture } = await authorizedMediaSnapshot(client, binding, batchId)
+  const present = new Set(snapshot.evidence.map((item) => item.id))
+  const removed = new Set(snapshot.removed?.map((item) => item.id) ?? [])
+  if (evidenceIds.some((id) => removed.has(id))) {
+    fail('media_evidence_removed', 409)
+  }
+  if (evidenceIds.some((id) => !present.has(id))) {
+    fail('not_found', 404)
+  }
+  const context = await loadReviewContext(client, batchId)
+  const impact = combinedRemovalImpact(
+    {
+      capture,
+      predecessors: context.predecessors,
+      evidence: snapshot.evidence,
+      attachments: snapshot.attachments,
+    },
+    new Set(evidenceIds),
+  )
+  const result = { evidence_ids: [...new Set(evidenceIds)].sort(), ...impact }
+  validate('MediaRemovalImpact', result)
+  return result
 }
 
 /** First decoded original page for an already scoped batch, inside the caller's read transaction. */

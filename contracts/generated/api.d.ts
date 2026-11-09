@@ -1903,6 +1903,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{batchId}/media/removal-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    /** @description Comma-separated evidence IDs, each named once. */
+                    evidence_ids: string;
+                };
+                header?: never;
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description MediaRemovalImpact */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaRemovalImpact"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{batchId}/media/commands": {
         parameters: {
             query?: never;
@@ -16960,6 +17011,15 @@ export interface components {
                 destination: "lot_attachment" | "part_attachment";
             };
         };
+        MediaRemovalImpact: {
+            evidence_ids: string[];
+            lot_ids: string[];
+            sole_evidence_lot_ids: string[];
+            selected_attachment_of: {
+                subject_id: string;
+                destination: "lot_attachment" | "part_attachment";
+            }[];
+        };
         LiveCursor: {
             stream_id: string;
             /** Format: int64 */
@@ -18782,6 +18842,7 @@ export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']
 export type MediaReceipt = components['schemas']['MediaReceipt']
 export type MediaEdit = components['schemas']['MediaEdit']
+export type MediaRemovalImpact = components['schemas']['MediaRemovalImpact']
 export type LiveCursor = components['schemas']['LiveCursor']
 export type LiveSubscribe = components['schemas']['LiveSubscribe']
 export type LiveFrame = components['schemas']['LiveFrame']
