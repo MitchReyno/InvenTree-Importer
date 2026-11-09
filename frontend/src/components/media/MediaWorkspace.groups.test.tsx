@@ -416,6 +416,115 @@ test('a poll that fails while a file uploads does not stop the file joining its 
   )
 })
 
+function keptVersion(id: string, versionId: string) {
+  return {
+    id: versionId,
+    evidence_id: id,
+    kind: 'original' as const,
+    digest: 'f'.repeat(64),
+    byte_size: '1',
+    media_type: 'image/png' as const,
+    state: 'queued' as const,
+    decoder_build: null,
+    recipe: null,
+    pages: [],
+  }
+}
+
+test('reading again a file already placed in a group leaves it there without a selection', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const id = '95000000-0000-4000-8000-000000000009'
+  const version = keptVersion(id, 'a5000000-0000-4000-8000-00000000000a')
+  vi.mocked(client.upload).mockImplementation(async () => {
+    // The read that adopts the receipt fails, so the file waits for Read again.
+    vi.mocked(client.snapshot).mockRejectedValueOnce(new Error('offline'))
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['1'], 'placed.png', { type: 'image/png' }),
+  )
+  const readAgain = await screen.findByRole('button', { name: 'Read placed.png again' })
+
+  // Meanwhile the file was put in Packet B elsewhere.
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    revision: '3',
+    evidence: [
+      ...initial.evidence,
+      { id, label: 'placed.png', group_id: groupB, linked_subject_ids: [], versions: [version] },
+    ],
+  })
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+  await waitFor(() => expect(readAgain).toBeEnabled())
+  await user.click(readAgain)
+
+  await waitFor(() =>
+    expect(screen.queryByRole('group', { name: 'Upload of placed.png' })).toBeNull(),
+  )
+  expect(client.edit).not.toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: 'Clear evidence selection' })).toBeNull()
+})
+
+test('a batch frozen while a file uploads sends no move and holds no selection', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const id = '96000000-0000-4000-8000-000000000009'
+  const version = keptVersion(id, 'a6000000-0000-4000-8000-00000000000a')
+
+  let acknowledge: () => void = () => undefined
+
+  vi.mocked(client.upload).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        acknowledge = () =>
+          resolve({ status: 'retained', batch_id: batch.id, evidence_id: id, version })
+      }),
+  )
+  const props = {
+    batch,
+    client,
+    selectedSubject: 'defaults',
+    onDirtyChange: vi.fn(),
+  }
+  const view = render(<MediaWorkspace {...props} disabled={false} />)
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['1'], 'frozen.png', { type: 'image/png' }),
+  )
+  await waitFor(() => expect(client.upload).toHaveBeenCalledOnce())
+
+  view.rerender(<MediaWorkspace {...props} disabled />)
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    revision: '2',
+    evidence: [
+      ...initial.evidence,
+      { id, label: 'frozen.png', group_id: null, linked_subject_ids: [], versions: [version] },
+    ],
+  })
+  await act(async () => acknowledge())
+
+  const tile = await screen.findByRole('group', { name: 'Upload of frozen.png' })
+  await waitFor(() =>
+    expect(within(tile).getByRole('status')).toHaveTextContent(/Added to Ungrouped/),
+  )
+  expect(client.edit).not.toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: 'Clear evidence selection' })).toBeNull()
+})
+
 test('after one move is refused, later files stay in Ungrouped without replacing the selection', async () => {
   const user = userEvent.setup()
   const client = mediaClient()

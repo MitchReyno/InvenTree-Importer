@@ -7,6 +7,11 @@ import { useDirtySources } from '#/operator/useDirtySources'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import type { MediaClient } from './types'
 
+/** `readConfirmed`: the caller has just completed a fresh read in the same handler. */
+interface MediaCommandOptions {
+  readConfirmed?: boolean
+}
+
 export function useEvidenceWorkspace(
   batchId: string,
   client: MediaClient,
@@ -79,15 +84,12 @@ export function useEvidenceWorkspace(
     return true
   }
 
-  /**
-   * `readConfirmed` is for a caller that has just completed a fresh read in the same handler: its
-   * render-time `unavailable` may still describe an earlier failed poll.
-   */
+  /** A confirmed read overrides render-time `unavailable`, which may describe an earlier failed poll. */
   async function edit(
     change: MediaEditDto['change'],
     revision = snapshot?.revision,
     onConfirmed?: () => void,
-    readConfirmed = false,
+    { readConfirmed = false }: MediaCommandOptions = {},
   ) {
     const readUnavailable = unavailable && !readConfirmed
     if (disabled || readUnavailable || command.busy || command.hasPendingIntent() || !revision) {
@@ -121,7 +123,7 @@ export function useEvidenceWorkspace(
     ids: string[],
     groupId: string | null,
     revision = selectionRevision.current ?? snapshot?.revision,
-    readConfirmed = false,
+    options: MediaCommandOptions = {},
   ) {
     const current = accepted.current
     if (ids.length > 200) {
@@ -139,7 +141,7 @@ export function useEvidenceWorkspace(
       { kind: 'move_many', evidence_ids: ids, group_id: groupId },
       revision ?? undefined,
       undefined,
-      readConfirmed,
+      options,
     )
     if (saved) {
       select([])

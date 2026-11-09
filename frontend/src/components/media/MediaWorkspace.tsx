@@ -65,7 +65,8 @@ export function MediaWorkspace({
       }
       state.accept(current)
       uploads.forgetPlaced(current.evidence)
-      if (!groupId) {
+      // Already in a group, whether the intended one or one the operator chose: nothing to move.
+      if (!groupId || original.group_id !== null) {
         return true
       }
       // An unconfirmed or refused move still owns the command and selection, and a frozen batch
@@ -76,7 +77,9 @@ export function MediaWorkspace({
       // Original retention is complete before membership is attempted. The read above is fresh,
       // even if this handler's render still shows an earlier failed poll.
       state.select([receipt.evidence_id], current.revision)
-      const moved = await state.move([receipt.evidence_id], groupId, current.revision, true)
+      const moved = await state.move([receipt.evidence_id], groupId, current.revision, {
+        readConfirmed: true,
+      })
       return moved !== 'unconfirmed'
     },
     onDirtyChange: drafts.forSource('upload'),
