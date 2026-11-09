@@ -38,7 +38,7 @@ Alternative rejected: a shared hook that reports every change from an Effect. Th
 
 ### Derive drafts instead of copying props into state
 
-A draft that follows a saved value is stored as a nullable draft (`{ value: T } | null`, so `T` may itself be null), where `null` means "following saved". The rendered value is the draft's value, or `saved` when there is none, and dirty is computed in render. This removes the copy Effect and its one-render flicker. It also enforces "never replace a dirty draft" by construction, because a newer saved value only shows through while the draft is `null`.
+A draft that follows a saved value is stored as a nullable draft (`{ value: T } | null` so that `T` may itself be null, or `string | null` where the value cannot itself be null, as in `InstructionField`), where `null` means "following saved". The rendered value is the draft's value, or `saved` when there is none, and dirty is computed in render. This removes the copy Effect and its one-render flicker. It also enforces "never replace a dirty draft" by construction, because a newer saved value only shows through while the draft is `null`.
 
 Alternative rejected: keying the editor by the saved revision. That would drop a dirty draft and its focus, which the architecture forbids.
 
@@ -64,14 +64,14 @@ The audit lists four copies of a mounted-flag ref and two copies of a React Hook
 
 - **Navigation guard:** handlers report the computed next dirty state. `useDirtySources` aggregates multiple sources, and its ref pattern releases on unmount. The `ExamineView` corrections use it instead of a copy.
 - **Commands:** keys stay bound to their payload. An uncertain acknowledgement keeps the exact retry path. A follow-up command is only sent after the first is confirmed.
-- **Batch settings reconnection:** a generation counter drops a read that started before a disconnect, so reconnection always reads current state before admitting writes (audit item 15).
+- **Batch settings reconnection:** each run of the reconnection Effect sets a cancelled flag in its cleanup, so a read that started before a disconnect is dropped and the next connection issues a fresh one. Reconnection always reads current state before admitting writes, and a failed read retries on a timer that the cleanup clears (audit item 15).
 - **Reads:** failed or paused queries show unavailable even with cached data, per "Server reads and command authority".
 
 ## Verification strategy
 
 Each fix gets a regression test in Vitest with Testing Library, written to fail first where the behaviour changes. Typical shapes:
 
-- a navigation-guard assertion with no `waitFor`, proving the report is synchronous;
+- a navigation-guard assertion with no `waitFor`, pinning the synchronous report (a characterization test, since React 19 already flushes the old Effect before the event returns);
 - an unmount-while-dirty assertion;
 - fake-timer tests for reconnection, polling and debounce;
 - a keyboard test for J/K after E.

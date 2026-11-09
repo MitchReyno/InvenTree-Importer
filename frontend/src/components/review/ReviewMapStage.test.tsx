@@ -193,6 +193,21 @@ describe('ReviewMapStage', () => {
     expect(client.edit).not.toHaveBeenCalled()
   })
 
+  it('says the file still needs linking when the save does not return the new lot', async () => {
+    const user = userEvent.setup()
+    const client = media()
+    const edit = vi.fn(async () => true)
+    render(<ReviewMapStage batch={batch} retiredLotIds={new Set()} onDirtyChange={vi.fn()} />, {
+      commands: { edit, reload: vi.fn(async () => undefined) },
+      clients: { media: client },
+    })
+    await user.click(await screen.findByRole('button', { name: 'New lot from this: Stray photo' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The lot was made, but its file was not linked. Link it from the Map.',
+    )
+    expect(client.edit).not.toHaveBeenCalled()
+  })
+
   const regioned = {
     ...batch,
     lots: [lot('a', 'Packet A'), lot('b', 'Packet B')],
@@ -265,11 +280,14 @@ describe('ReviewMapStage', () => {
     )
     await user.selectOptions(await screen.findByLabelText('Move 1N4148 to'), 'b')
     await user.click(screen.getByRole('button', { name: 'Move 1N4148' }))
-    expect(edit).toHaveBeenCalledWith({
-      kind: 'observation_move',
-      observation_id: 'o1',
-      lot_id: 'b',
-    })
+    expect(edit).toHaveBeenCalledWith(
+      {
+        kind: 'observation_move',
+        observation_id: 'o1',
+        lot_id: 'b',
+      },
+      undefined,
+    )
     // Once refreshed into Packet B, B is no longer a destination, so Move cannot send it again.
     const moved = {
       ...regioned,
@@ -402,11 +420,14 @@ describe('ReviewMapStage', () => {
     const finish = await screen.findByRole('button', { name: 'Move 1N4148 into lot 1N4148' })
     edit.mockImplementation(async () => true as never)
     await user.click(finish)
-    expect(edit).toHaveBeenLastCalledWith({
-      kind: 'observation_move',
-      observation_id: 'o1',
-      lot_id: 'n',
-    })
+    expect(edit).toHaveBeenLastCalledWith(
+      {
+        kind: 'observation_move',
+        observation_id: 'o1',
+        lot_id: 'n',
+      },
+      undefined,
+    )
     expect(edit.mock.calls.filter(([change]) => change.kind === 'add_lot')).toHaveLength(1)
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Move 1N4148 into lot 1N4148' })).toBeNull(),

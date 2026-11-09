@@ -1,6 +1,7 @@
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
+import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import type { ProcessingClient } from '#/processing/types'
 import { render } from '#/test/render'
 import { TellExamine } from './TellExamine'
@@ -17,10 +18,11 @@ const snapshot = (state: string | null) => ({
   ],
 })
 
-function client(session: boolean | string) {
+/** `session` may be a getter, for a state that changes between polls. */
+function client(session: boolean | string | (() => string)) {
   const state = session === true ? 'running' : session === false ? null : session
   return {
-    read: vi.fn(async () => snapshot(state)),
+    read: vi.fn(async () => snapshot(typeof state === 'function' ? state() : state)),
     session: vi.fn(),
     chat: vi.fn(async () => ({ id: 'inbox-1' })),
   } as unknown as ProcessingClient & { chat: ReturnType<typeof vi.fn> }
@@ -149,4 +151,33 @@ it('reports clean when it leaves, and a kept draft is not unsaved work while no 
   )
   await waitFor(() => expect(hidden.read).toHaveBeenCalled())
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+it('reports clean when a poll hides the form with text unsent, and dirty when it shows again', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    let state = 'running'
+    const processing = client(() => state)
+    const onDirtyChange = vi.fn()
+    render(
+      <ApiClientsProvider value={{ processing }}>
+        <TellExamine batchId="polled" onDirtyChange={onDirtyChange} />
+      </ApiClientsProvider>,
+    )
+    await user.type(await screen.findByLabelText('Instruction for Examine'), 'Hold this')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+    state = 'cancelled'
+    await act(() => vi.advanceTimersByTimeAsync(RETAINED_POLL_INTERVAL_MS))
+    expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+    state = 'running'
+    await act(() => vi.advanceTimersByTimeAsync(RETAINED_POLL_INTERVAL_MS))
+    expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('Hold this')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  } finally {
+    vi.useRealTimers()
+  }
 })
