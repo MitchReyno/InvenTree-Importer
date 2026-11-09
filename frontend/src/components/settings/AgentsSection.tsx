@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
-import type { AgentSessionListDto } from '@invimport/contracts'
+import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
@@ -50,6 +50,12 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
   })
   const loaded = settings.isFetchedAfterMount && settings.data
 
+  /** A read already running is older than the confirmed settings, so it must not replace them. */
+  async function adoptLoaded(confirmed: AgentSettingsDto) {
+    await queryClient.cancelQueries({ queryKey: settingsKey })
+    queryClient.setQueryData(settingsKey, confirmed)
+  }
+
   return (
     <SettingsSection
       title="Agents"
@@ -75,7 +81,7 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
           client={client}
           onDirtyChange={onDirtyChange}
           providerStatus={{ claude: credential.card, codex: signIn.card }}
-          onLoaded={(loaded) => queryClient.setQueryData(settingsKey, loaded)}
+          onLoaded={(loaded) => void adoptLoaded(loaded)}
           slots={
             <SlotMeter
               list={sessions.data}

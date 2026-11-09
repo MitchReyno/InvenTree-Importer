@@ -3,7 +3,9 @@ import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
-import { render } from '#/test/render'
+import { useQueryClient } from '@tanstack/react-query'
+import { fixtureScope, render } from '#/test/render'
+import { serverQueryKey } from '#/queries/scope'
 import type { SettingsSectionId } from '#/navigation/app-route'
 import { Settings } from './Settings'
 import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
@@ -76,9 +78,19 @@ type Api = ReturnType<typeof client>
 /** Settings with its section held in state, as the route would hold it. */
 function Harness({ api, dirty }: { api: Api; dirty?: (value: boolean) => void }) {
   const [section, setSection] = useState<SettingsSectionId>('agents')
+  const queryClient = useQueryClient()
 
   return (
     <>
+      <button
+        onClick={() =>
+          void queryClient.refetchQueries({
+            queryKey: serverQueryKey(fixtureScope, 'agent-settings'),
+          })
+        }
+      >
+        Read settings again
+      </button>
       <button onClick={() => setSection('inventree')}>Leave Agents</button>
       <button onClick={() => setSection('agents')}>Return to Agents</button>
       <Settings
@@ -419,7 +431,7 @@ test('after leaving and returning, a Codex command waits for the runner call sti
   await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
 })
 
-test('a Codex runner call that never answers fails after its time limit and frees the queue', async () => {
+test('a Codex runner call outlasting the guest limits fails and frees the queue', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   send.mockImplementationOnce(
     (_url: string, init: RequestInit) =>
@@ -436,10 +448,35 @@ test('a Codex runner call that never answers fails after its time limit and free
   fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
 
-  await act(() => vi.advanceTimersByTimeAsync(30_000))
+  await act(() => vi.advanceTimersByTimeAsync(90_000))
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
   expectCard('Codex', 'Check failed')
   fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
   await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
   expect(send).toHaveBeenCalledTimes(2)
+})
+
+test('a settings read that was already running cannot replace a confirmed save', async () => {
+  const api = client()
+
+  let answerStale: (value: AgentSettingsDto) => void = () => undefined
+
+  api.settings
+    .mockResolvedValueOnce(initial)
+    .mockImplementationOnce(() => new Promise((resolve) => (answerStale = resolve)))
+  await renderAgents(api)
+  expect(await screen.findByText('3 of 3 in use · 1 queued')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
+  await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
+
+  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+  fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
+  await act(async () => {
+    answerStale(initial)
+    await new Promise((done) => setTimeout(done, 20))
+  })
+
+  expect(screen.getByText('3 of 2 in use · 1 queued')).toBeVisible()
 })

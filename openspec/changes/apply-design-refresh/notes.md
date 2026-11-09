@@ -186,7 +186,9 @@ None for task 10.
 - **2026-11-10T08:40+11:00, task 5 (review round 1):** After a reload the batch read is no longer cached, so the back link names the tab only ("Back to the batch › Review"); it still returns to the exact route.
 
 - **2026-11-10T09:10+11:00, task 5 (review round 2):** A confirmed reload (Discard and reload, or the conflict's Reload) also reports the settings it read (`onLoaded`, formerly `onSaved`), so the slot meter follows it.
-- **2026-11-10T09:10+11:00, task 5 (review round 2):** Each Codex runner call fails after 30 seconds, reading the answer included, with the panel's usual failure message, so a hung call can't hold the shared queue. It uses an `AbortController` and `setTimeout` rather than `AbortSignal.timeout`, because the latter doesn't follow Vitest's fake clock and the test couldn't drive it. Tests reset the queue after each test (`resetRunnerQueue`).
+- **2026-11-10T09:10+11:00, task 5 (review round 2):** Each Codex runner call fails after 90 seconds (round 3: the guest's 20-second limit for each of up to four RPCs in a disconnect, plus a margin), reading the answer included, with the panel's usual failure message, so a hung call can't hold the shared queue. It uses an `AbortController` and `setTimeout` rather than `AbortSignal.timeout`, because the latter doesn't follow Vitest's fake clock and the test couldn't drive it. Tests reset the queue after each test (`resetRunnerQueue`).
+
+- **2026-11-10T09:45+11:00, task 5 (review round 3):** Before writing confirmed settings into the `agent-settings` query, the section cancels any read of it still running, so an older answer can't replace them.
 
 ### Open items
 
