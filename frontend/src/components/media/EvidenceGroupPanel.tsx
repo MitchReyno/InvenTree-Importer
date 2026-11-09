@@ -129,7 +129,6 @@ export function EvidenceGroupPanel({
   const uploadingText =
     uploadProgress && `Uploading ${uploadProgress.current} of ${uploadProgress.total}`
   const metaParts = [lineageKnown ? lotCount : null, uploadingText].filter(Boolean)
-  const shownUploads = uploads.filter((item) => item.status !== 'done')
   const meta = metaParts.length ? metaParts.join(' · ') : undefined
   const drop = useEvidenceDropZone(groupId, label, frozen)
 
@@ -142,6 +141,7 @@ export function EvidenceGroupPanel({
       meta={meta}
       ungrouped={!group}
       label={label}
+      tabIndex={-1}
       nameLabel={`Name for ${name}`}
       nameDisabled={blocked(renameKey)}
       onDraftChange={dirty(renameKey)}
@@ -224,7 +224,7 @@ export function EvidenceGroupPanel({
           )}
         </>
       )}
-      {!evidence.length && !shownUploads.length && <Paragraph>No files in this group.</Paragraph>}
+      {!evidence.length && !uploads.length && <Paragraph>No files in this group.</Paragraph>}
       <EvidenceGrid>
         {evidence.map((item) => {
           const controlLabel = fileName(item)
@@ -264,7 +264,7 @@ export function EvidenceGroupPanel({
           )
         })}
         {uploadQueue &&
-          shownUploads.map((item) => (
+          uploads.map((item) => (
             <UploadTile
               key={item.id}
               item={item}

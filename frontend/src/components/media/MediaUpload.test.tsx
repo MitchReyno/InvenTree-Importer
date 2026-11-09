@@ -4,7 +4,7 @@ import { expect, test, vi } from 'vitest'
 import type { MediaReceiptDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { render } from '#/test/render'
-import { useUploadQueue, type UploadQueuePorts } from '#/media/useUploadQueue'
+import { uploadProgress, useUploadQueue, type UploadQueuePorts } from '#/media/useUploadQueue'
 import { MediaUpload } from './MediaUpload'
 import { UploadTile } from './UploadTile'
 
@@ -108,8 +108,11 @@ test('several files upload one after another, each with its own key and the curr
   ])
 
   await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
-  expect(screen.getAllByRole('group', { name: /^Upload of / })).toHaveLength(3)
-  expect(screen.getAllByText('Uploading…')).toHaveLength(3)
+  const tiles = screen.getAllByRole('group', { name: /^Upload of / })
+  expect(tiles).toHaveLength(3)
+  for (const tile of tiles) {
+    expect(within(tile).getByRole('status')).toHaveTextContent('Uploading…')
+  }
   expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
 
   await act(async () => first.resolve(receipt('a.png')))
@@ -139,8 +142,7 @@ test('a refused file shows Not added with its reason and Dismiss, and later file
   await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
 
   const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
-  expect(within(refused).getByText(/Not added/)).toBeVisible()
-  expect(within(refused).getByText(/evidence limit/)).toBeVisible()
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*evidence limit/)
   await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
   expect(vi.mocked(queue.upload).mock.calls[1][0].name).toBe('b.png')
   // A file that was not added leaves nothing to protect.
@@ -184,7 +186,7 @@ test('a lost response leaves Retry, later files continue, and Retry resends the 
   await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
 
   const unconfirmed = await screen.findByRole('group', { name: 'Upload of a.png' })
-  expect(within(unconfirmed).getByText(/Upload not confirmed/)).toBeVisible()
+  expect(within(unconfirmed).getByRole('alert')).toHaveTextContent(/Upload not confirmed/)
   await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
   expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
 
@@ -313,4 +315,87 @@ test('Dismiss moves focus to the next tile rather than losing it', async () => {
   await user.click(within(first).getByRole('button', { name: 'Dismiss one.gif' }))
 
   expect(screen.getByRole('button', { name: 'Dismiss two.gif' })).toHaveFocus()
+})
+
+test('a file whose name the server would refuse is not sent', async () => {
+  const user = userEvent.setup()
+  const queue = ports()
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('bad\u0007name.png'))
+
+  const refused = screen.getByRole('group', { name: 'Upload of bad\u0007name.png' })
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*Rename the file/)
+  expect(queue.upload).not.toHaveBeenCalled()
+})
+
+test('a file over 20 MiB is not sent', async () => {
+  const user = userEvent.setup()
+  const queue = ports()
+  render(<Harness {...queue} disabled={false} />)
+  const large = photo('large.png')
+  Object.defineProperty(large, 'size', { value: 20 * 1024 * 1024 + 1 })
+
+  await user.upload(screen.getByLabelText('Choose photos'), large)
+
+  const refused = screen.getByRole('group', { name: 'Upload of large.png' })
+  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*up to 20 MiB/)
+  expect(queue.upload).not.toHaveBeenCalled()
+})
+
+test('a failed revision read leaves the file unsent and Not added', async () => {
+  const user = userEvent.setup()
+  const queue = ports({ currentRevision: vi.fn(async () => Promise.reject(new Error('offline'))) })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+
+  const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
+  await waitFor(() =>
+    expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*was not sent/),
+  )
+  expect(queue.upload).not.toHaveBeenCalled()
+  await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
+})
+
+test('unmounting stops later files and the follow-up read of one in flight', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const view = render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  view.unmount()
+  await act(async () => first.resolve(receipt('a.png')))
+
+  expect(queue.upload).toHaveBeenCalledOnce()
+  expect(queue.finish).not.toHaveBeenCalled()
+})
+
+test('unmounting after a revision refusal does not send the file again', async () => {
+  const user = userEvent.setup()
+  const first = deferred<MediaReceiptDto>()
+  const queue = ports({ upload: vi.fn(() => first.promise) })
+  const view = render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
+  view.unmount()
+  await act(async () => first.reject(new IntakeRequestError(412, 'revision_conflict')))
+
+  expect(queue.upload).toHaveBeenCalledOnce()
+  expect(queue.currentRevision).toHaveBeenCalledOnce()
+})
+
+test('progress counts every file picked together, including one already refused', () => {
+  const pick = { pickId: 'pick', pickSize: 3, groupId: 'group' }
+  expect(
+    uploadProgress([
+      { ...pick, id: '1', name: 'a.png', status: 'not_added' },
+      { ...pick, id: '3', name: 'c.png', status: 'uploading' },
+      { ...pick, id: '4', name: 'd.png', status: 'waiting' },
+    ]),
+  ).toEqual({ current: 2, total: 3 })
+  expect(uploadProgress([{ ...pick, id: '1', name: 'a.png', status: 'not_added' }])).toBeNull()
 })

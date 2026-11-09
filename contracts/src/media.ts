@@ -4,6 +4,30 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Digest, Id, Revision } from './scalars.ts'
 
 export const MEDIA_SOURCE_MAX_BYTES = 20 * 1024 * 1024
+const MEDIA_LABEL_MAX_CODE_POINTS = 256
+
+/** An original upload holds 1 byte up to MEDIA_SOURCE_MAX_BYTES. */
+export function isMediaSourceSize(bytes: number) {
+  return Number.isInteger(bytes) && bytes > 0 && bytes <= MEDIA_SOURCE_MAX_BYTES
+}
+
+function isControlCharacter(character: string) {
+  const code = character.codePointAt(0) ?? 0
+  return code <= 0x1f || code === 0x7f
+}
+
+/** An original's label: not blank, at most 256 code points and no control characters. */
+export function isMediaLabel(label: unknown): label is string {
+  if (typeof label !== 'string' || !label.trim()) {
+    return false
+  }
+  const characters = [...label]
+  if (characters.length > MEDIA_LABEL_MAX_CODE_POINTS) {
+    return false
+  }
+  return !characters.some(isControlCharacter)
+}
+
 /** A decoded page is a lossless PNG, so a 50 MP photo's preview can exceed its upload. */
 export const MEDIA_PREVIEW_MAX_BYTES = 64 * 1024 * 1024
 

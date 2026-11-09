@@ -4,7 +4,7 @@
 
 ### Requirement: Three prominent evidence actions
 
-The main evidence panel SHALL show Take photos, Add document and Write a note as three prominent actions at the top, before the evidence groups. Camera/library and document choices SHALL reuse retained upload limits and receipts. Picking files SHALL start uploading them straight away, with no separate retain or discard step. A picker SHALL accept several files, uploaded one after another, each with its own request identity and the media revision current when it starts. Each file SHALL show its own state (uploading, preparing, not added with the reason, or unconfirmed with Retry). Unsupported/unavailable media SHALL be explained without fabricated success. Write a note SHALL support typed or pasted text with human provenance.
+The main evidence panel SHALL show Take photos, Add document and Write a note as three prominent actions at the top, before the evidence groups. Camera/library and document choices SHALL reuse retained upload limits and receipts. Picking files SHALL start uploading them straight away, with no separate retain or discard step. A picker SHALL accept several files, uploaded one after another, each with its own request identity and the media revision current when it starts. Each file SHALL show its own state as a tile in its target group's evidence grid (uploading, preparing, not added with the reason, unconfirmed with Retry, kept but unread with Read again, or kept outside its intended group). Unsupported/unavailable media SHALL be explained without fabricated success. Write a note SHALL support typed or pasted text with human provenance.
 
 #### Scenario: Add a supported original or note
 

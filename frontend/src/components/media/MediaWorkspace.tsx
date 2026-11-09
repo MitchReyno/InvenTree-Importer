@@ -67,6 +67,11 @@ export function MediaWorkspace({
       if (!groupId) {
         return true
       }
+      // An unconfirmed or refused move still owns the command and selection; this file waits in
+      // Ungrouped rather than replacing them.
+      if (command.hasPendingIntent() || drafts.isDirty('selection')) {
+        return false
+      }
       // Original retention is complete before membership is attempted.
       state.select([receipt.evidence_id], current.revision)
       const moved = await state.move([receipt.evidence_id], groupId, current.revision)
@@ -90,11 +95,23 @@ export function MediaWorkspace({
   const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
   const activeGroups = new Set(snapshot?.groups.map((group) => group.id))
 
+  // A notice that a file missed its group no longer applies once the latest read has it there.
+  // The latest read, not the shown snapshot, which drafts can hold back.
+  const latestRead = state.query.data ?? snapshot
+
+  function settledInGroup(item: UploadItem) {
+    if (item.status !== 'ungrouped' || !item.evidenceId) {
+      return false
+    }
+    const evidence = latestRead?.evidence.find((entry) => entry.id === item.evidenceId)
+    return evidence !== undefined && evidence.group_id === item.groupId
+  }
+
   // A file bound for a group that has since gone is shown with the ungrouped files.
   function uploadsIn(groupId: string | null) {
-    return uploads.items.filter((item: UploadItem) => {
+    return uploads.items.filter((item) => {
       const shownIn = item.groupId && activeGroups.has(item.groupId) ? item.groupId : null
-      return shownIn === groupId
+      return shownIn === groupId && !settledInGroup(item)
     })
   }
 

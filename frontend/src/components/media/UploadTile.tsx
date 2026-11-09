@@ -17,7 +17,6 @@ function statusText(item: UploadItem) {
     case 'uploading':
       return 'Uploading…'
     case 'preparing':
-    case 'done':
       return 'Preparing…'
     case 'not_added':
       return `Not added. ${item.reason ?? ''}`.trim()
@@ -34,7 +33,7 @@ const FOCUSABLE = 'button:not(:disabled), input:not(:disabled)'
 
 /**
  * Where focus goes once this tile is dismissed: the next tile's control, else the previous one's,
- * else the group region that held it, so focus never falls back to the page.
+ * else the group region holding it, which takes focus without being a tab stop.
  */
 function focusAfterDismiss(tile: HTMLElement | null): HTMLElement | null {
   const neighbour = tile?.nextElementSibling ?? tile?.previousElementSibling
@@ -42,25 +41,15 @@ function focusAfterDismiss(tile: HTMLElement | null): HTMLElement | null {
   if (sibling) {
     return sibling
   }
-  const region = tile?.parentElement?.closest<HTMLElement>('section[aria-label]')
-  if (!region) {
-    return null
-  }
-  // A region is not a tab stop; -1 lets it hold focus without adding one.
-  region.tabIndex = -1
-  return region
+  return tile?.parentElement?.closest<HTMLElement>('section[tabindex="-1"]') ?? null
 }
 
 /**
  * A picked file in its target group's grid. fetch reports no byte progress, so uploading is
- * indeterminate. Files already in their group are shown by their evidence tile instead.
+ * indeterminate. A file that reached its group leaves the queue and shows as its evidence tile.
  */
 export function UploadTile({ item, disabled, queue }: Props) {
   const tile = useRef<HTMLDivElement>(null)
-
-  if (item.status === 'done') {
-    return null
-  }
 
   const working = ['waiting', 'uploading', 'preparing'].includes(item.status)
   const failed = item.status === 'not_added' || item.status === 'unconfirmed'
@@ -87,7 +76,10 @@ export function UploadTile({ item, disabled, queue }: Props) {
       <Stage aria-hidden="true">{working ? <Spinner size={16} /> : <Glyph>▧</Glyph>}</Stage>
       <Caption>
         <Name title={item.name}>{item.name}</Name>
-        <Status $failed={failed}>{statusText(item)}</Status>
+        {/* Refusals interrupt; progress and settled outcomes are announced politely. */}
+        <Status $failed={failed} role={failed ? 'alert' : 'status'}>
+          {statusText(item)}
+        </Status>
         {item.status === 'unconfirmed' && (
           <Button size="sm" disabled={disabled} aria-label={`Retry ${item.name}`} onClick={retry}>
             Retry

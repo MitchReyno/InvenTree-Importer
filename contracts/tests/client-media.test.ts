@@ -5,6 +5,8 @@ import { once } from 'node:events'
 import { mediaClient, IntakeRequestError } from '../generated/client.ts'
 import {
   MEDIA_SOURCE_MAX_BYTES,
+  isMediaLabel,
+  isMediaSourceSize,
   type MediaReceiptDto,
   type MediaSnapshotDto,
 } from '../src/media.ts'
@@ -99,6 +101,18 @@ test('media refuses empty/oversized sources and invalid metadata before any tran
     )
   }
   assert.equal(sends, 0)
+})
+
+test('shared upload checks bound size and labels as the client and browser queue apply them', () => {
+  assert.equal(isMediaSourceSize(1), true)
+  assert.equal(isMediaSourceSize(MEDIA_SOURCE_MAX_BYTES), true)
+  assert.equal(isMediaSourceSize(0), false)
+  assert.equal(isMediaSourceSize(MEDIA_SOURCE_MAX_BYTES + 1), false)
+  assert.equal(isMediaLabel('é'.repeat(256)), true)
+  assert.equal(isMediaLabel('packet.png'), true)
+  for (const label of ['', '  ', 'bad\nlabel', 'del\u007f', 'a'.repeat(257), 7]) {
+    assert.equal(isMediaLabel(label), false)
+  }
 })
 
 test('media commands/JSON receipts are runtime validated and 409/412 retain typed errors', async () => {

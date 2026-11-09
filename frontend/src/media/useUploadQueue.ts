@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { MEDIA_SOURCE_MAX_BYTES, type MediaReceiptDto } from '@invimport/contracts'
+import { useRef, useState } from 'react'
+import { isMediaLabel, isMediaSourceSize, type MediaReceiptDto } from '@invimport/contracts'
 import { classifyFailure } from '#/operator/command-failure'
+import { useMountedRef } from '#/lifecycle/useMountedRef'
 
 export type UploadKind = 'photos' | 'document'
 
@@ -10,22 +11,20 @@ export type UploadKind = 'photos' | 'document'
  * work: an exact Retry, or a fresh read of a file the server already kept.
  */
 export type UploadStatus =
-  | 'waiting'
-  | 'uploading'
-  | 'preparing'
-  | 'done'
-  | 'not_added'
-  | 'unconfirmed'
-  | 'unread'
-  | 'ungrouped'
+  'waiting' | 'uploading' | 'preparing' | 'not_added' | 'unconfirmed' | 'unread' | 'ungrouped'
 
 export interface UploadItem {
   /** Transient UI identity; file names are not unique. */
   id: string
   name: string
   groupId?: string
+  /** The files picked together, which progress counts as one run. */
+  pickId: string
+  pickSize: number
   status: UploadStatus
   reason?: string
+  /** The kept file's evidence, once the server has acknowledged it. */
+  evidenceId?: string
 }
 
 interface UploadRequest {
@@ -54,17 +53,8 @@ export interface UploadProgress {
   total: number
 }
 
-/** "Uploading 2 of 3" for the files shown in one group; null once none is still in progress. */
-export function uploadProgress(items: UploadItem[]): UploadProgress | null {
-  const active = items.filter((item) => ACTIVE.includes(item.status))
-  if (!active.length) {
-    return null
-  }
-  const done = items.filter((item) => item.status === 'done').length
-  return { current: done + 1, total: done + active.length }
-}
-
 export interface UploadQueue {
+  /** Files still uploading or needing attention; a file in its group leaves the list. */
   items: UploadItem[]
   add: (files: File[], kind: UploadKind, groupId?: string) => void
   retry: (id: string) => void
@@ -76,9 +66,22 @@ const ACCEPTED_TYPES: Record<UploadKind, string[]> = {
   photos: ['image/jpeg', 'image/png'],
   document: ['application/pdf'],
 }
-const MAX_LABEL_CODE_POINTS = 256
 const ACTIVE: UploadStatus[] = ['waiting', 'uploading', 'preparing']
 const UNSAVED: UploadStatus[] = [...ACTIVE, 'unconfirmed', 'unread']
+
+/**
+ * "Uploading 2 of 3" for the files shown in one group, counting every file picked with those still
+ * in progress, including any already added, refused or dismissed. Null once none is in progress.
+ */
+export function uploadProgress(items: UploadItem[]): UploadProgress | null {
+  const active = items.filter((item) => ACTIVE.includes(item.status))
+  if (!active.length) {
+    return null
+  }
+  const picks = new Map(active.map((item) => [item.pickId, item.pickSize]))
+  const total = [...picks.values()].reduce((sum, size) => sum + size, 0)
+  return { current: total - active.length + 1, total }
+}
 
 const REFUSAL_REASONS: Record<string, string> = {
   media_capacity: 'The batch has reached its evidence limit.',
@@ -91,73 +94,55 @@ function refusalReason(code: string | null) {
   return (code && REFUSAL_REASONS[code]) ?? 'The server did not accept this file.'
 }
 
-/** Mirrors the server's label rule, so a bad name is refused here rather than left unconfirmed. */
+/** The client's own upload rules, so a bad file is refused here rather than left unconfirmed. */
 function invalidReason(file: File, kind: UploadKind) {
   if (!ACCEPTED_TYPES[kind].includes(file.type) || !file.size) {
     return 'Choose a nonempty JPEG or PNG photo, or a PDF document.'
   }
-  if (file.size > MEDIA_SOURCE_MAX_BYTES) {
+  if (!isMediaSourceSize(file.size)) {
     return 'Files can be up to 20 MiB.'
   }
-  if (!acceptedLabel(file.name)) {
+  if (!isMediaLabel(file.name)) {
     return 'Rename the file: its name must be 1 to 256 characters without control characters.'
   }
   return null
 }
 
-function isControlCharacter(character: string) {
-  const code = character.codePointAt(0) ?? 0
-  return code <= 0x1f || code === 0x7f
-}
-
-function acceptedLabel(label: string) {
-  const characters = [...label]
-  if (!label.trim() || characters.length > MAX_LABEL_CODE_POINTS) {
-    return false
+function visibleItem(entry: QueueEntry): UploadItem {
+  return {
+    id: entry.id,
+    name: entry.name,
+    groupId: entry.groupId,
+    pickId: entry.pickId,
+    pickSize: entry.pickSize,
+    status: entry.status,
+    reason: entry.reason,
+    evidenceId: entry.evidenceId,
   }
-  return !characters.some(isControlCharacter)
 }
 
 type SendOutcome =
   | { kind: 'retained'; receipt: MediaReceiptDto }
   | { kind: 'refused'; code: string | null }
   | { kind: 'unconfirmed'; request: UploadRequest }
+  | { kind: 'stopped' }
 
 /**
  * Uploads picked files one at a time, because each upload advances the batch's media revision.
  * Each file keeps its own idempotency key; a lost response keeps the exact request for Retry.
+ * Unmounting stops new requests and follow-up reads; one already sent finishes on its own.
  */
 export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
   const entries = useRef<QueueEntry[]>([])
   const [items, setItems] = useState<UploadItem[]>([])
   const running = useRef(false)
   const reportedDirty = useRef(false)
-  // Unmounting stops new uploads from starting; one already sent finishes on its own.
-  const mounted = useRef(true)
+  const mounted = useMountedRef()
   const latest = useRef(ports)
   latest.current = ports
 
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
-
   function publish() {
-    // Completed files leave once nothing is uploading; until then they count towards progress.
-    if (!entries.current.some((entry) => ACTIVE.includes(entry.status))) {
-      entries.current = entries.current.filter((entry) => entry.status !== 'done')
-    }
-    setItems(
-      entries.current.map(({ id, name, groupId, status, reason }) => ({
-        id,
-        name,
-        groupId,
-        status,
-        reason,
-      })),
-    )
+    setItems(entries.current.map(visibleItem))
     const dirty = entries.current.some((entry) => UNSAVED.includes(entry.status))
     if (dirty !== reportedDirty.current) {
       reportedDirty.current = dirty
@@ -169,6 +154,11 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     entries.current = entries.current.map((entry) =>
       entry.id === id ? { ...entry, ...change } : entry,
     )
+    publish()
+  }
+
+  function remove(id: string) {
+    entries.current = entries.current.filter((entry) => entry.id !== id)
     publish()
   }
 
@@ -207,7 +197,13 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     if (outcome.kind !== 'refused' || outcome.code !== 'revision_conflict') {
       return outcome
     }
+    if (!mounted.current) {
+      return { kind: 'stopped' }
+    }
     const second = await freshRequest()
+    if (!mounted.current) {
+      return { kind: 'stopped' }
+    }
     if (!second) {
       return { kind: 'refused', code: 'current_revision_unread' }
     }
@@ -215,10 +211,19 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
   }
 
   async function finishEntry(id: string, receipt: MediaReceiptDto, groupId?: string) {
-    update(id, { status: 'preparing', receipt, request: undefined })
+    update(id, {
+      status: 'preparing',
+      receipt,
+      evidenceId: receipt.evidence_id,
+      request: undefined,
+    })
     try {
       const grouped = await latest.current.finish(receipt, groupId)
-      update(id, grouped ? { status: 'done' } : { status: 'ungrouped' })
+      if (grouped) {
+        remove(id)
+      } else {
+        update(id, { status: 'ungrouped' })
+      }
     } catch {
       update(id, { status: 'unread' })
     }
@@ -232,6 +237,9 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     }
     update(entry.id, { status: 'uploading', reason: undefined })
     const outcome = await send(entry)
+    if (outcome.kind === 'stopped') {
+      return
+    }
     if (outcome.kind === 'unconfirmed') {
       update(entry.id, { status: 'unconfirmed', request: outcome.request })
       return
@@ -242,6 +250,9 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
         request: undefined,
         reason: refusalReason(outcome.code),
       })
+      return
+    }
+    if (!mounted.current) {
       return
     }
     await finishEntry(entry.id, outcome.receipt, entry.groupId)
@@ -264,12 +275,15 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
   }
 
   function add(files: File[], kind: UploadKind, groupId?: string) {
+    const pickId = crypto.randomUUID()
     const added = files.map((file): QueueEntry => {
       const reason = invalidReason(file, kind)
       return {
         id: crypto.randomUUID(),
         name: file.name,
         groupId,
+        pickId,
+        pickSize: files.length,
         file,
         status: reason ? 'not_added' : 'waiting',
         reason: reason ?? undefined,
@@ -306,8 +320,7 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     if (entry?.status !== 'not_added' && entry?.status !== 'ungrouped') {
       return
     }
-    entries.current = entries.current.filter((item) => item.id !== id)
-    publish()
+    remove(id)
   }
 
   return { items, add, retry, readAgain, dismiss }

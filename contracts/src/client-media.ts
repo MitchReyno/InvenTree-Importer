@@ -1,11 +1,11 @@
 import type { MediaEditDto } from './media.ts'
-import { MEDIA_SOURCE_MAX_BYTES } from './media.ts'
+import { isMediaLabel, isMediaSourceSize } from './media.ts'
 import { Revision } from './scalars.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
 
 function uploadHeaders(revision: string, label: string, bytes: Blob, key: string) {
-  if (!(bytes instanceof Blob) || bytes.size === 0 || bytes.size > MEDIA_SOURCE_MAX_BYTES) {
+  if (!(bytes instanceof Blob) || !isMediaSourceSize(bytes.size)) {
     throw new Error('invalid_upload_size')
   }
   if (
@@ -15,12 +15,7 @@ function uploadHeaders(revision: string, label: string, bytes: Blob, key: string
   ) {
     throw new Error('invalid_contract')
   }
-  if (
-    typeof label !== 'string' ||
-    !label.trim() ||
-    [...label].length > 256 ||
-    /[\u0000-\u001f\u007f]/.test(label)
-  ) {
+  if (!isMediaLabel(label)) {
     throw new Error('invalid_upload_label')
   }
   return {

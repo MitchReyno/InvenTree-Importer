@@ -186,11 +186,19 @@ Session history is scoped by origin/operator/target/context, paginated and inval
 
 Picking files uploads them at once; there is no separate retain step. `media/useUploadQueue.ts` owns each picked File with its own idempotency key and expected revision, outside form state, and `MediaWorkspace` provides its ports. Photo and PDF pickers accept several files and bind their intended group before the picker opens. The queue sends one file at a time, because each upload and each group move advances the media revision: it reads the current revision, uploads, then adopts the receipt through a fresh membership read and a separate move command.
 
-Each picked file shows as an `UploadTile` in its target group's evidence grid, or the ungrouped grid when it has no group or its group has gone, and the group header shows "Uploading 2 of 3". `MediaUpload` keeps only the pickers. Uploading is indeterminate because the fetch request reports no byte progress. Retry and Read again keep focus on their tile; Dismiss moves it to the next tile, the previous one or the group region. Outcomes are handled per file:
+Each picked file shows as an `UploadTile` in its target group's evidence grid, or the ungrouped grid when it has no group or its group has gone. `MediaUpload` keeps only the pickers. The group header shows "Uploading 2 of 3", counting every file picked together, including any already added or refused. Uploading is indeterminate because the fetch request reports no byte progress.
 
-- **Refused:** an unsupported file, a 4xx or a second revision refusal shows "Not added" with the reason and Dismiss; later files continue.
+Each tile's status is a live region: "Not added" and "Upload not confirmed" are alerts, and the other states are polite status messages. Retry and Read again keep focus on their tile. Dismiss moves focus to the next tile, the previous one or the group region. Unmounting the workspace stops new requests and follow-up reads; a request already sent finishes on its own.
+
+Outcomes are handled per file:
+
+- **Refused:** each of these shows "Not added" with the reason and Dismiss, and later files continue:
+  - a file that fails the type, size or label check shared with the contracts client;
+  - a failed revision read before sending, so nothing was sent;
+  - a 4xx response;
+  - a second revision refusal.
 - **Lost response:** "Upload not confirmed" keeps the exact request. Retry resends the same key, revision, label and bytes; a receipt is adopted, and a 412 proves the file was not kept, so it is sent once more with a new key at the current revision.
-- **Move not saved:** the retained original stays selected in its confirmed ungrouped projection, and its tile in the target group says so.
+- **Move not saved:** the retained original stays selected in its confirmed ungrouped projection, and its tile in the target group says "Added to Ungrouped". While that move's intent or selection is held, later files are not moved: they stay in Ungrouped with the same notice and leave the selection unchanged. The notice clears once a later read shows the file in its group.
 - **Failed read after a receipt:** reported separately and read again on request; it never authorizes another upload.
 
 Files uploading or awaiting Retry or a read count as unsaved work. Media, settings and instruction drafts share navigation protection without allowing a clean sibling to clear it.
