@@ -1219,7 +1219,7 @@ test('a settings section route opens that Settings section and never reads a bat
   expect(requested.some((path) => path.includes('/batches/settings'))).toBe(false)
 })
 
-test('Settings opened from a batch tab goes back to it, across sections, and the guard holds unsaved settings', async () => {
+test('Settings opened from Agents goes back to it across sections, and the guard holds unsaved settings', async () => {
   history.replaceState(null, '', '#agents')
   const settings = {
     revision: '7',
@@ -1267,6 +1267,85 @@ test('Settings opened from a batch tab goes back to it, across sections, and the
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
   expect(location.hash).toBe('#settings/agents')
   expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('opus')
+})
+
+test('a refused browser Back from unsaved settings keeps the return route for a reload', async () => {
+  history.replaceState(null, '', '#agents')
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    if (path.endsWith('/agent-settings')) {
+      return response({
+        revision: '7',
+        selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
+        session_concurrency: 3,
+      })
+    }
+    if (path.endsWith('/agent-sessions')) {
+      return response({ sessions: [], next_before: null, sessions_supported: true })
+    }
+    return headerRead(path) ?? navigationFallback(path)
+  })
+  render(<App />)
+  await screen.findByRole('link', { name: 'Agent settings' })
+  await act(async () => {
+    location.hash = '#settings/agents'
+  })
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Model' }), {
+    target: { value: 'opus' },
+  })
+
+  await act(async () => {
+    history.back()
+    await new Promise((done) => setTimeout(done, 50))
+  })
+  expect(location.hash).toBe('#settings/agents')
+  expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('opus')
+  cleanup()
+  render(<App />)
+  expect(await screen.findByRole('link', { name: 'Back to Agents' })).toHaveAttribute(
+    'href',
+    '#agents',
+  )
+})
+
+test('Settings opened from a batch Review route names it, and reload and Back keep the link', async () => {
+  history.replaceState(null, '', `#${batchId}/review/lots`)
+  navigationServer()
+  render(<App />)
+  await screen.findByRole('heading', { name: fixture.title })
+
+  await act(async () => {
+    location.hash = '#settings/appearance'
+  })
+  const back = await screen.findByRole('link', { name: `Back to ${fixture.title} › Review` })
+  expect(back).toHaveAttribute('href', `#${batchId}/review/lots`)
+
+  await act(async () => {
+    location.hash = '#settings/defaults'
+  })
+  expect(
+    await screen.findByRole('link', { name: `Back to ${fixture.title} › Review` }),
+  ).toBeVisible()
+
+  // A reload keeps history.state; the batch is no longer cached, so the link names the tab.
+  cleanup()
+  render(<App />)
+  expect(await screen.findByRole('link', { name: 'Back to the batch › Review' })).toHaveAttribute(
+    'href',
+    `#${batchId}/review/lots`,
+  )
+
+  await act(async () => {
+    history.back()
+    await new Promise((done) => setTimeout(done, 50))
+  })
+  expect(location.hash).toBe('#settings/appearance')
+  expect(await screen.findByRole('radiogroup', { name: 'Theme' })).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Back to the batch › Review' })).toHaveAttribute(
+    'href',
+    `#${batchId}/review/lots`,
+  )
 })
 
 /** Bootstrap and empty reads for routes that open no batch. */

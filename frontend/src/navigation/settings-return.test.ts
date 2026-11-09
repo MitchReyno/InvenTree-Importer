@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { settingsBack, settingsReturnAfter, storedSettingsReturn } from './settings-return'
+import {
+  settingsBack,
+  settingsReturnAfter,
+  storedSettingsReturn,
+  withSettingsReturn,
+} from './settings-return'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 
@@ -12,6 +17,15 @@ describe('the screen Settings returns to', () => {
     expect(settingsReturnAfter('settings', 'settings/inventree', opened)).toBe(records)
     expect(settingsReturnAfter('settings/inventree', records, opened)).toBeUndefined()
     expect(settingsReturnAfter('', 'settings', undefined)).toBe('')
+  })
+
+  it('replaces or removes the return route and keeps the rest of a history state', () => {
+    expect(withSettingsReturn({ settingsReturnTo: 'x', other: 1 }, 'agents')).toEqual({
+      settingsReturnTo: 'agents',
+      other: 1,
+    })
+    expect(withSettingsReturn({ settingsReturnTo: 'x', other: 1 }, undefined)).toEqual({ other: 1 })
+    expect(withSettingsReturn(null, '')).toEqual({ settingsReturnTo: '' })
   })
 
   it('reads only a string it stored in the history entry', () => {

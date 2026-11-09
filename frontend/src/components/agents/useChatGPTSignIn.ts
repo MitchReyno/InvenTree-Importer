@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey, serverScopeIdentity, useServerScope } from '#/queries/scope'
 import type { ProviderStatus } from './provider-status'
 
 type Account = {
@@ -18,6 +18,13 @@ const CARD_STATUS: Record<Account['state'], ProviderStatus> = {
   disconnected: 'Not connected',
   denied: 'Declined',
 }
+
+/**
+ * The runner takes one action at a time. Its queue outlives the panel, because leaving the
+ * Settings section unmounts the panel while a call can still be running; a remounted panel's
+ * first command then waits for it. Keyed by server scope, so another scope never waits.
+ */
+const runnerQueues = new Map<string, Promise<unknown>>()
 
 const FAILED =
   'Could not confirm sign-in status. Check the management key and reconnect to the runner.'
@@ -70,9 +77,8 @@ export function useChatGPTSignIn() {
   const [busy, setBusy] = useState(false)
   // Each new key or sign-in step starts a generation; results of an older one are dropped.
   const [generation, setGeneration] = useState(0)
-  // The runner takes one action at a time, so this panel's calls run one after another. A
-  // cancelled poll's result is dropped, but its call still finishes before the next starts.
-  const queue = useRef<Promise<unknown>>(Promise.resolve())
+  // A cancelled poll's result is dropped, but its call still finishes before the next starts.
+  const queueKey = serverScopeIdentity(scope)
   // A status call can end the login, so a replayed poll adopts the call still running for it.
   const statusCall = useRef<{ id: string; call: Promise<Account> } | null>(null)
   const polling = open && account?.state === 'pending'
@@ -108,8 +114,12 @@ export function useChatGPTSignIn() {
   /** Queues a runner call with the key typed now. */
   function run(action: string, loginId?: string) {
     const managementKey = key.current?.value ?? ''
-    const call = queue.current.then(() => callRunner(managementKey, action, loginId))
-    queue.current = call.catch(() => undefined)
+    const previous = runnerQueues.get(queueKey) ?? Promise.resolve()
+    const call = previous.then(() => callRunner(managementKey, action, loginId))
+    runnerQueues.set(
+      queueKey,
+      call.catch(() => undefined),
+    )
     return call
   }
 

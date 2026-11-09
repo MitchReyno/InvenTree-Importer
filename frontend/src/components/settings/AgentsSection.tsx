@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
@@ -34,8 +34,10 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
   const poll = useRetainedPollInterval()
   const credential = usePersonalClaudeCredential()
   const signIn = useChatGPTSignIn()
+  const queryClient = useQueryClient()
+  const settingsKey = serverQueryKey(scope, 'agent-settings')
   const settings = useQuery({
-    queryKey: serverQueryKey(scope, 'agent-settings'),
+    queryKey: settingsKey,
     queryFn: () => client.settings(),
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
@@ -73,6 +75,7 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
           client={client}
           onDirtyChange={onDirtyChange}
           providerStatus={{ claude: credential.card, codex: signIn.card }}
+          onSaved={(saved) => queryClient.setQueryData(settingsKey, saved)}
           slots={
             <SlotMeter
               list={sessions.data}

@@ -20,10 +20,20 @@ export function storedSettingsReturn(state: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
+/**
+ * `state` with its return route replaced by `returnTo`, or removed when there is none. A refused
+ * navigation re-pushes the page it keeps with this, since the state at hand is the destination's.
+ */
+export function withSettingsReturn(state: unknown, returnTo: string | undefined) {
+  const { [STATE_KEY]: _replaced, ...rest } =
+    typeof state === 'object' && state !== null ? (state as Record<string, unknown>) : {}
+
+  return returnTo === undefined ? rest : { ...rest, [STATE_KEY]: returnTo }
+}
+
 /** Keeps the return route in the current history entry, so reload and Back restore it. */
 export function storeSettingsReturn(returnTo: string) {
-  const state = typeof history.state === 'object' && history.state !== null ? history.state : {}
-  history.replaceState({ ...state, [STATE_KEY]: returnTo }, '')
+  history.replaceState(withSettingsReturn(history.state, returnTo), '')
 }
 
 /**

@@ -39,7 +39,16 @@ function session(overrides: Partial<Session>): Session {
 function client() {
   return {
     settings: vi.fn(async () => initial),
-    saveSettings: vi.fn(async () => ({ ...initial, revision: '8' })),
+    saveSettings: vi.fn(
+      async (input: {
+        selection: AgentSettingsDto['selection']
+        session_concurrency: number
+      }): Promise<AgentSettingsDto> => ({
+        revision: '8',
+        selection: input.selection,
+        session_concurrency: input.session_concurrency,
+      }),
+    ),
     sessions: vi.fn(
       async (): Promise<AgentSessionListDto> =>
         ({
@@ -87,12 +96,9 @@ async function renderAgents(api = client(), dirty?: (value: boolean) => void) {
   return api
 }
 
-function card(provider: 'Claude' | 'Codex') {
-  return screen.getByRole('radio', { name: new RegExp(`^${provider}`) }).closest('label')!
-}
-
+/** The card's status is its radio's description, not part of its name. */
 function expectCard(provider: 'Claude' | 'Codex', status: string) {
-  expect(within(card(provider)).getByTestId('provider-status')).toHaveTextContent(status)
+  expect(screen.getByRole('radio', { name: provider })).toHaveAccessibleDescription(status)
 }
 
 let send: ReturnType<typeof vi.fn>
@@ -265,8 +271,8 @@ describe('the Codex card mirrors its sign-in panel', () => {
 
 test('provider is an option card, sign-in a segmented control, and the stepper sets sessions at once', async () => {
   const api = await renderAgents()
-  expect(screen.getByRole('radio', { name: /^Claude/ })).toBeChecked()
-  fireEvent.click(screen.getByRole('radio', { name: /^Codex/ }))
+  expect(screen.getByRole('radio', { name: 'Claude' })).toBeChecked()
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
   expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('')
   expect(screen.getByText(/codex login/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'API key' }))
@@ -333,4 +339,79 @@ test('a stale revision is refused as a conflict, keeps the edit and offers Reloa
   expect(
     within(screen.getAllByRole('group', { name: 'Sessions at once' })[0]).getByRole('status'),
   ).toHaveTextContent('5')
+})
+
+test('after a save the slot meter compares slot use with the saved limit', async () => {
+  await renderAgents()
+  expect(await screen.findByText('3 of 3 in use · 1 queued')).toBeVisible()
+  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+  fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
+  expect(screen.getByText('3 of 3 in use · 1 queued')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
+  expect(within(sessions).getByRole('status')).toHaveTextContent('2')
+})
+
+test('while a save is pending the sign-in method and the stepper show they are unavailable', async () => {
+  const api = client()
+
+  let finish: (value: AgentSettingsDto) => void = () => undefined
+
+  api.saveSettings.mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)),
+  )
+  await renderAgents(api)
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalled())
+  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+
+  expect(screen.getByRole('button', { name: 'API key' })).toHaveAttribute('aria-disabled', 'true')
+  expect(within(sessions).getByRole('button', { name: 'One more' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  )
+  await act(async () => finish({ ...initial, revision: '8' }))
+  expect(screen.getByRole('button', { name: 'API key' })).not.toHaveAttribute('aria-disabled')
+})
+
+test('the model field is described by its presets help and, when invalid, its error', async () => {
+  await renderAgents()
+  const model = screen.getByRole('combobox', { name: 'Model' })
+
+  expect(model).toHaveAccessibleDescription(/Presets do not verify account access/)
+  fireEvent.change(model, { target: { value: '-bad' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(model).toHaveAccessibleDescription(/Choose a valid model ID/))
+  expect(model).toHaveAccessibleDescription(/Presets do not verify account access/)
+})
+
+test('after leaving and returning, a Codex command waits for the runner call still running', async () => {
+  let answer: (value: Response) => void = () => undefined
+
+  send
+    .mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)))
+    .mockResolvedValueOnce(Response.json({ state: 'disconnected' }))
+  await renderAgents()
+  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
+  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
+    target: { value: 'key' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
+
+  fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
+  await screen.findByRole('radiogroup', { name: 'Provider' })
+  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
+  fireEvent.change(screen.getByLabelText('Codex runner management key'), {
+    target: { value: 'key' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
+  await new Promise((done) => setTimeout(done, 20))
+  expect(send).toHaveBeenCalledTimes(1)
+
+  await act(async () => answer(Response.json({ state: 'disconnected' })))
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2))
+  await screen.findByRole('button', { name: 'Sign in with ChatGPT' })
 })

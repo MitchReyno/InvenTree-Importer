@@ -90,7 +90,7 @@ test('switching providers requires choosing a new model and shows host authentic
   render(
     <AgentSettingsForm initial={initial} client={client()} onDirtyChange={vi.fn()} {...status} />,
   )
-  fireEvent.click(screen.getByRole('radio', { name: /^Codex/ }))
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
   expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('')
   expect(screen.getByText(/codex login/)).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'API key' }))

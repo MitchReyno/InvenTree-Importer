@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
 import { useForm } from 'react-hook-form'
@@ -29,6 +29,8 @@ interface Props {
   providerStatus: Record<Provider, ProviderStatus>
   /** Slot use beside the sessions stepper, read from the agent sessions list. */
   slots?: ReactNode
+  /** Hears each confirmed save, so readers of the saved settings follow it. */
+  onSaved?: (saved: AgentSettingsDto) => void
 }
 
 const EMPTY: AgentSelectionDto = { provider: 'codex', authentication: 'subscription', model: '' }
@@ -96,7 +98,11 @@ export function AgentSettingsForm({
   onDirtyChange,
   providerStatus,
   slots,
+  onSaved,
 }: Props) {
+  const fieldId = useId()
+  const modelHelpId = `${fieldId}-model-help`
+  const modelErrorId = `${fieldId}-model-error`
   const mounted = useMountedRef()
   const [revision, setRevision] = useState(initial.revision)
   const [message, setMessage] = useState('')
@@ -142,6 +148,7 @@ export function AgentSettingsForm({
       }
       setRevision(saved.revision)
       reset(formValues(saved))
+      onSaved?.(saved)
       onDirtyChange(false)
       setMessage(
         'Default saved. New attempts use this selection; queued and running sessions keep their original model.',
@@ -201,13 +208,15 @@ export function AgentSettingsForm({
                     type="radio"
                     value={option.id}
                     disabled={busy}
+                    aria-label={option.label}
+                    aria-describedby={`${fieldId}-${option.id}-status`}
                     {...register('provider', {
                       onChange: () => setValue('model', '', { shouldDirty: true }),
                     })}
                   />
                   <span>
                     <b>{option.label}</b>
-                    <ProviderState data-testid="provider-status">
+                    <ProviderState id={`${fieldId}-${option.id}-status`}>
                       {providerStatus[option.id]}
                     </ProviderState>
                   </span>
@@ -222,6 +231,7 @@ export function AgentSettingsForm({
               label="Sign-in method"
               options={AUTHENTICATION}
               value={authentication}
+              disabled={busy}
               onChange={(id) => chooseAuthentication(id as Authentication)}
             />
             <Small>{signInHelp(provider, authentication)}</Small>
@@ -237,6 +247,9 @@ export function AgentSettingsForm({
                 })}
                 {...named}
                 aria-invalid={formState.errors.model ? true : undefined}
+                aria-describedby={
+                  formState.errors.model ? `${modelErrorId} ${modelHelpId}` : modelHelpId
+                }
                 list="agent-models"
                 required
                 maxLength={128}
@@ -249,8 +262,12 @@ export function AgentSettingsForm({
                   <option key={model} value={model} />
                 ))}
               </datalist>
-              {formState.errors.model && <Invalid role="alert">Choose a valid model ID.</Invalid>}
-              <Small>
+              {formState.errors.model && (
+                <Invalid id={modelErrorId} role="alert">
+                  Choose a valid model ID.
+                </Invalid>
+              )}
+              <Small id={modelHelpId}>
                 Presets do not verify account access. Claude aliases resolve when the CLI starts.
                 There is no automatic model or billing fallback.
               </Small>
@@ -269,6 +286,7 @@ export function AgentSettingsForm({
               value={sessions}
               min={MIN_SESSIONS}
               max={MAX_SESSIONS}
+              aria-disabled={busy || undefined}
               onChange={chooseSessions}
             />
             {slots}

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { appPage } from './app-route'
-import { settingsReturnAfter, storeSettingsReturn, storedSettingsReturn } from './settings-return'
+import {
+  settingsReturnAfter,
+  storeSettingsReturn,
+  storedSettingsReturn,
+  withSettingsReturn,
+} from './settings-return'
 
 /** The return route stored with the current history entry, read only on a Settings route. */
 function storedSettingsReturnFor(route: string) {
@@ -35,7 +40,11 @@ export function useNavigationGuard() {
         if (protectedUrl.current && location.href !== protectedUrl.current) {
           // Restore the editor URL without consuming the requested history destination.
           // Retrying Back after save/discard can still reach that destination.
-          history.pushState(history.state, '', protectedUrl.current)
+          history.pushState(
+            withSettingsReturn(history.state, accepted.current.settingsReturn),
+            '',
+            protectedUrl.current,
+          )
           setNavigationBlocked(true)
         }
         return

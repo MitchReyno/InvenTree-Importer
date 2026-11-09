@@ -113,3 +113,33 @@ describe('FilterChips', () => {
     expect(screen.getByRole('button', { name: 'All, 12' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+describe('SegmentedControl while disabled', () => {
+  it('shows each segment unavailable and ignores clicks and keys', async () => {
+    const user = userEvent.setup()
+    const changes: string[] = []
+    render(
+      <SegmentedControl
+        label="Sign-in method"
+        value="subscription"
+        disabled
+        onChange={(id) => changes.push(id)}
+        options={[
+          { id: 'subscription', label: 'Subscription' },
+          { id: 'api_key', label: 'API key' },
+        ]}
+      />,
+    )
+    const key = screen.getByRole('button', { name: 'API key' })
+
+    expect(key).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Subscription' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await user.click(key)
+    key.focus()
+    await user.keyboard('{Enter} ')
+    expect(changes).toEqual([])
+  })
+})

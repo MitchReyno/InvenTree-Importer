@@ -50,7 +50,10 @@ function session(index: number, running: boolean) {
   }
 }
 
-/** An in-memory agents client; nothing leaves the page. */
+/**
+ * An in-memory agents client. The credential panels still POST to `/personal-runner/*`, which this
+ * fixture's server doesn't answer, so their checks fail.
+ */
 const agents = {
   settings: async () => saved,
   saveSettings: async (input: {
@@ -79,19 +82,20 @@ const agents = {
 } as unknown as ReturnType<typeof agentsClient>
 
 const header: HeaderClient = {
-  connection: async (): Promise<ConnectionStatusDto> => ({
-    ...identity,
-    target: {
-      kind: 'owned_test',
-      state: 'reachable',
-      freshness: 'fresh',
-      observed_at: new Date().toISOString(),
-      failure_code: null,
-      navigation_url: 'https://inventory.example.test/',
-      label: 'Bench test InvenTree',
-      version: '1.1.0',
-    },
-  }) as ConnectionStatusDto,
+  connection: async (): Promise<ConnectionStatusDto> =>
+    ({
+      ...identity,
+      target: {
+        kind: 'owned_test',
+        state: 'reachable',
+        freshness: 'fresh',
+        observed_at: new Date().toISOString(),
+        failure_code: null,
+        navigation_url: 'https://inventory.example.test/',
+        label: 'Bench test InvenTree',
+        version: '1.1.0',
+      },
+    }) as ConnectionStatusDto,
   work: async () => ({
     ...identity,
     observed_at: new Date().toISOString(),

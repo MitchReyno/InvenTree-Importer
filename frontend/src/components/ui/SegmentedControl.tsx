@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { color, radius, ring, size, space, typeVar } from '#/theme/generated/tokens'
+import { color, opacity, radius, ring, size, space, typeVar } from '#/theme/generated/tokens'
 import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 import { hoverTransition } from './motion'
@@ -11,10 +11,21 @@ type SegmentedControlProps = {
   options: SegmentOption[]
   value: string
   onChange: (id: string) => void
+  /**
+   * Shows every segment unavailable and ignores choices, while focus can still reach it; for a
+   * moment such as a pending save, not a deferred feature (that is `DisabledFeature`).
+   */
+  disabled?: boolean
 }
 
 /** Switches between views of the same list. */
-export function SegmentedControl({ label, options, value, onChange }: SegmentedControlProps) {
+export function SegmentedControl({
+  label,
+  options,
+  value,
+  onChange,
+  disabled = false,
+}: SegmentedControlProps) {
   const optionProps = useRovingFocus(
     options.map((option) => option.id),
     value,
@@ -27,7 +38,12 @@ export function SegmentedControl({ label, options, value, onChange }: SegmentedC
           key={option.id}
           type="button"
           aria-pressed={option.id === value}
-          onClick={() => onChange(option.id)}
+          aria-disabled={disabled ? 'true' : undefined}
+          onClick={() => {
+            if (!disabled) {
+              onChange(option.id)
+            }
+          }}
           {...optionProps(option.id)}
         >
           {option.label}
@@ -51,8 +67,12 @@ const Segment = styled.button`
   font-weight: ${typeVar.buttonLg.weight};
   cursor: pointer;
   ${hoverTransition}
-  &:hover {
+  &:hover:not([aria-disabled='true']) {
     background: ${color.surface2};
+  }
+  &[aria-disabled='true'] {
+    opacity: ${opacity.disabled};
+    cursor: not-allowed;
   }
   &[aria-pressed='true'] {
     background: ${color.fg};

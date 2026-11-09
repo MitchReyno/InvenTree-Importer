@@ -178,6 +178,13 @@ None for task 10.
 - **2026-11-10T08:00+11:00, task 5:** The slot meter compares slots in use with the saved limit, not an unsaved stepper value, because the server applies only the saved one.
 - **2026-11-10T08:00+11:00, task 5:** `tests/fixtures/settings.html` (`SettingsProof`) renders Settings, opened from a batch's Processing, from in-memory clients for screenshots and the film; the hash picks the section.
 
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** A confirmed save writes the saved settings into the `agent-settings` query, so the slot meter's limit follows it. The form keeps its own state from its first `initial`, so the write doesn't reset a draft.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** While Save or Discard and reload is pending, the sign-in method and the sessions stepper show `aria-disabled`. `SegmentedControl` gained a `disabled` option that marks every segment and ignores choices while focus can still reach them.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** The model field is described by its presets help and, when invalid, its error. Each provider card's status is its radio's description rather than part of its name.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** A refused navigation re-pushes the protected page with its own Settings return route (`withSettingsReturn`), since `history.state` at that point belongs to the destination. Other keys of that state are kept as before.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** The Codex runner's serial queue is now module-scoped and keyed by server scope, so a panel remounted after a section switch waits for a call the earlier mount left running. The Claude credential panel needs no queue: it sends one request at a time behind `busy`, its save and remove carry the last acknowledged revision, which a remounted panel only gets from a fresh status check, and a stale revision is refused by the guest.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** After a reload the batch read is no longer cached, so the back link names the tab only ("Back to the batch › Review"); it still returns to the exact route.
+
 ### Open items
 
 - The PR film is not recorded by this bundle's implementer; the fixture or `pnpm dev` can be filmed.
