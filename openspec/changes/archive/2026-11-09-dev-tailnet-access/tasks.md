@@ -49,4 +49,4 @@ Check each action after it is done and verified, and commit the `tasks.md` updat
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Codex gpt-6.1-sol clear at `a28d63811de199cdd4cb47fcd1f866535cb8429a` (round 3); selected CI green; merged as `d1141900cea765434683770b587dfe9688ad52f7` in [#136](https://github.com/MitchReyno/InvenTree-Importer/pull/136).
