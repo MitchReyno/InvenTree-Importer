@@ -17,7 +17,7 @@ import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
 import { fail, ProcessingError } from './model.ts'
-import { CaptureError } from '../capture/repository.ts'
+import { CaptureError } from '../capture/model.ts'
 import { CommandPayloadConflict } from '../db/authority.ts'
 
 function id(request: FastifyRequest, field = 'id') {

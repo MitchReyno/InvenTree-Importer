@@ -6,7 +6,8 @@ import { effectsDeployment, type EffectsDeployment } from '../execution/effects-
 import type { PoolClient } from 'pg'
 import type { ManualIssueDto } from '@invimport/contracts'
 import type { DevConfig } from '../config.ts'
-import { captureInTransaction, fail } from '../capture/repository.ts'
+import { captureInTransaction } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 import {
   lockStockSource,
   stockSourceHistory,

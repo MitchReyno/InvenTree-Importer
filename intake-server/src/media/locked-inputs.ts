@@ -13,7 +13,7 @@ import {
   type MediaInputs,
   type MediaSubjectScope,
 } from './inputs.ts'
-import type { CaptureBinding } from '../capture/repository.ts'
+import type { CaptureBinding } from '../capture/model.ts'
 import { mediaPinSet } from './command-inputs.ts'
 
 const lockedHandle = Symbol('locked-media-inputs')

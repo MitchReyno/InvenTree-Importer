@@ -6,7 +6,8 @@ import {
   type OperatorReviewDto,
 } from '@invimport/contracts'
 import { canonicalRecord } from '@invimport/contracts/json'
-import { captureInTransaction, fail } from '../capture/repository.ts'
+import { captureInTransaction } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 import {
   latestInstructions,
   loadReviewContext,

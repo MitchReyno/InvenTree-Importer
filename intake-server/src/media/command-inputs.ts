@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg'
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import { captureInTransaction, fail, type CaptureBinding } from '../capture/repository.ts'
+import { captureInTransaction } from '../capture/repository.ts'
+import { fail, type CaptureBinding } from '../capture/model.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
 import { canonicalMedia } from './encoding.ts'

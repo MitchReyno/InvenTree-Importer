@@ -20,10 +20,10 @@ import { onLeadIdentity } from '../../processing/stable-identity.ts'
 import { appendEvent } from '../../db/authority.ts'
 import { captureBatches } from '../../capture/schema.ts'
 import {
-  CaptureError,
   lockCaptureForAgentWrite,
   lockCaptureForInputSettlement,
 } from '../../capture/repository.ts'
+import { CaptureError } from '../../capture/model.ts'
 import {
   leadBatchView,
   proposeLot,

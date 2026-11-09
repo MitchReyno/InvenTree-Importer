@@ -8,7 +8,7 @@ import {
 import { readModelError } from '../api/errors.ts'
 import { bootstrap, type DevConfig } from '../config.ts'
 import { connectionStatus } from './connection.ts'
-import { fail } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 
 export function registerHeader(
   app: FastifyInstance,

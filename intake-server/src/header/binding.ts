@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { targets } from '../db/schema.ts'
-import { fail } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 import type { DevConfig } from '../config.ts'
 import { connectionStatus } from './connection.ts'
 

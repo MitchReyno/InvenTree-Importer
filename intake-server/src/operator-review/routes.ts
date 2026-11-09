@@ -10,7 +10,7 @@ import {
 import { pathId, commandKey } from '../api/request.ts'
 import { bootstrap } from '../config.ts'
 import { CommandPayloadConflict } from '../db/authority.ts'
-import { CaptureError, fail } from '../capture/repository.ts'
+import { CaptureError, fail } from '../capture/model.ts'
 import type { ManualConfig } from '../review/authority.ts'
 import { operatorRepository } from './repository.ts'
 

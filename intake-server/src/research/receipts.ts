@@ -8,7 +8,8 @@ import {
   type ResearchReceiptDescriptorDto,
   type ResearchReceiptSourceDto,
 } from '@invimport/contracts'
-import { captureInTransaction, type CaptureBinding } from '../capture/repository.ts'
+import { captureInTransaction } from '../capture/repository.ts'
+import { type CaptureBinding } from '../capture/model.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import { sha256, verifyBytes } from '../db/authority.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'

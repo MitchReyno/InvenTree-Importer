@@ -11,7 +11,7 @@ import {
 import { strictJson } from '@invimport/contracts/json'
 import type { ListOperation, ReadOperation } from '../inventory/transport.ts'
 import { readBoundedBody } from './bounded-body.ts'
-import { fail } from './repository.ts'
+import { fail } from './model.ts'
 
 export type { ListOperation }
 

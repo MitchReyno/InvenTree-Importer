@@ -8,7 +8,7 @@ import type {
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { activeMediaGroups } from '../media/context.ts'
 import { captureGroupLocations, captureObservations } from './schema.ts'
-import { fail } from './repository.ts'
+import { fail } from './model.ts'
 
 type Owner = { id: string; actor_id: string; target_id: string; target_context_id: string }
 

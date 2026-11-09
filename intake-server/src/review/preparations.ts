@@ -47,7 +47,7 @@ import {
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { transaction } from '../db/database.ts'
 import { idempotent, appendEvent, sha256, verifyBytes } from '../db/authority.ts'
-import { fail } from '../capture/repository.ts'
+import { fail } from '../capture/model.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import { loadRun, reserveApprovedStock } from '../execution/authority.ts'
 import { encodeExecutablePlan, type ExecutablePlan } from '../execution/media-plan.ts'
