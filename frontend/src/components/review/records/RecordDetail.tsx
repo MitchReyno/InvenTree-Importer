@@ -29,6 +29,7 @@ import { SourcingEditor } from './SourcingEditor'
 import { TemplateEditor } from './TemplateEditor'
 import { FieldSourceChip } from './FieldSourceChip'
 import { RecordDescription } from './RecordDescription'
+import { LocationDetail } from './LocationDetail'
 import type { Save } from './draft'
 
 const FIELD_LABELS: Record<string, string> = {
@@ -117,9 +118,9 @@ function ExistingValues({
     <DataTable
       caption="In InvenTree"
       columns={EXISTING_COLUMNS}
-      // The description is shown once, as its own field beside this table.
+      // The description is shown once, as its own field beside this table, as is a location's path.
       rows={entry.fields
-        .filter((field) => field.name !== 'description')
+        .filter((field) => field.name !== 'description' && field.name !== 'path')
         .map((field) => {
           const label = FIELD_LABELS[field.name] ?? field.name
           const set = record.fields.find((item) => item.name === field.name)
@@ -166,7 +167,7 @@ export function RecordDetail({
         <RecordStatePill state={record.state}>{STATE_LABELS[record.state]}</RecordStatePill>
       </Head>
       {target && <Small>{scopeText(batch, target)}</Small>}
-      {record.lot_ids.length > 0 && (
+      {record.lot_ids.length > 0 && record.type !== 'location' && (
         <Small>
           Used by{' '}
           {record.lot_ids.map((lotId, index) => (
@@ -201,6 +202,15 @@ export function RecordDetail({
       )}
       {existing && <ExistingValues record={record} query={existing} />}
       <RecordDescription batch={batch} record={record} existing={existing} />
+      {record.type === 'location' && (
+        <LocationDetail
+          batch={batch}
+          record={record}
+          existing={existing}
+          ask={ask?.('inventory')}
+          report={reportFor('ask:location')}
+        />
+      )}
       {record.fields.length > 0 && (
         <DataTable
           caption={`${record.label}: saved values and who set them`}

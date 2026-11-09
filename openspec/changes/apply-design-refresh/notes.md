@@ -104,3 +104,25 @@ None for task 10.
 ### Open items
 
 - No call site passes `onEdit` yet, so no chip offers Edit value on a screen.
+
+## Task 8: Records › Locations and Tree view
+
+### Changes to the plan
+
+- **2026-11-10T06:48+11:00, task 8 (PR-E):** Ready to add already kept "Lots to add" beside the Tree: both views render inside the same two-column grid. What changes is the canvas's layout: the lots column is a 320px column beside the Tree (the By type view keeps its wider split), it is renamed "Lots to include", and unticking a lot now updates the Tree at once rather than only after the new preparation is read.
+- **2026-11-10T06:48+11:00, task 8 (PR-E):** Change log D3's "same heading row as By type, with the 3 record decisions in Review pill" needs no change: `ManualWorkspace` renders one "Ready to add" heading row above both views, and the app has no record-decisions pill in By type either.
+- **2026-11-10T06:48+11:00, task 8 (PR-E):** Records already listed Locations as a type with the projection's location records (batch default, lot overrides and decisions). Task 8 adds the canvas's path, "why it's used" and stock count to the list, and a location detail. Change log D8's Use existing / Create new / Use another choices are not built: Records doesn't store a location mapping, so the detail keeps the existing "Locations are set on lots in Lots, or for the batch in Batch settings" line, as "Unsupported record changes are honest" requires.
+
+### Decisions made during implementation
+
+- **2026-11-10T06:48+11:00, task 8:** A location's path is InvenTree's `pathstring`, which only the existing-values read returns. So the read now also runs while Records › Locations lists a mapped location, not only while a mapped record is open; it is still one bounded read of the batch's mapped records. A new location drafted in Capture shows its parent's label and its own name. The In InvenTree table no longer has a Path row, because the detail shows the path once.
+- **2026-11-10T06:48+11:00, task 8:** "Why it's used" compares the record with the batch default (its pk, or the default's new-location draft). Any other location reads "from N lot overrides", whether a lot, its shared Part or its evidence group set it, because each of those lots overrides the default. A location record that needs a decision reads "needs a decision".
+- **2026-11-10T06:48+11:00, task 8:** The location type renders as a disabled "Location type" field, because the server doesn't read location types yet (design D7, BI-015). This also covers the location type description Task 6 left to this task.
+- **2026-11-10T06:48+11:00, task 8:** The Ask Inventory box reuses `AskControl` and `RecordsStage`'s session lookup, so it appears only when an Inventory session still reading messages works on one of the location's lots, as per-field Ask does.
+- **2026-11-10T06:48+11:00, task 8:** A lot row's location is omitted when the stock effect's location is the batch default: the same pk, or, for a default that is a new-location draft, a stock item placed by an operation key, since a plan creates a location only for that draft. With no batch default, every row names its location.
+- **2026-11-10T06:48+11:00, task 8:** `PreparationTreeView` now renders `TreeView`, as Task 1 planned, and keeps its toolbar (counts, Expand all or Collapse all through `TreeView`'s controlled collapse, Only changes). The folded summary, a node's detail and change lines, and the Review link of a lot left out are the node's `detail`. `TreeView` has no selected state, so rows lose `aria-selected`; focus still marks the one tab stop. Rows of lots left out use `TreeView`'s `dimmed`.
+- **2026-11-10T06:48+11:00, task 8:** Unticking a lot marks its stock item and its attachments Not ticked ("Left for later") through `withTicks` until the new preparation is read; a lot ticked again shows its preparation's own Not ticked row until then, because what it would create is not known yet.
+
+### Open items
+
+- Location types and their descriptions need a server read (BI-015).

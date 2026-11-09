@@ -17,9 +17,17 @@ const lots = [1, 2, 3].map((n) => id(100 + n))
 const batch = {
   id: id(1),
   archived: false,
+  defaults: {
+    quantity: { mode: 'unknown' },
+    location: {
+      mode: 'set',
+      value: { observation_id: id(900), target_context_id: id(901), model: 'location', pk: '43' },
+    },
+  },
   lots: lots.map((lot, index) => ({ id: lot, label: `Packet ${'ABC'[index]}` })),
 } as unknown as CaptureSnapshotDto
 
+/** Packet C goes to Bench bin B3; the others go to the batch default, Bin 43. */
 function preview(selected: string[], n = 50): ManualPreviewDto {
   return {
     id: id(n),
@@ -35,8 +43,8 @@ function preview(selected: string[], n = 50): ManualPreviewDto {
       lot_label: batch.lots.find((value) => value.id === lot)!.label,
       part_label: 'Existing resistor',
       quantity: '10',
-      location_id: '43',
-      location_label: 'Bin 43',
+      location_id: lot === lots[2] ? '44' : '43',
+      location_label: lot === lots[2] ? 'Bench bin B3' : 'Bin 43',
       contribution_key: id(200),
       barcode: 'bi1:x:y',
       part_id: '29',
@@ -129,11 +137,52 @@ describe('ReadyToAdd', () => {
     setup()
     const row = screen.getByRole('checkbox', { name: 'Packet B' }).closest('label')!
     expect(row.querySelector('[data-thumb]')).not.toBeNull()
-    expect(row).toHaveTextContent('10 pcs · Bin 43')
-    expect(screen.getByRole('region', { name: 'Lots to add' }).parentElement).toHaveAttribute(
+    expect(row).toHaveTextContent('10 pcs')
+    expect(screen.getByRole('region', { name: 'Lots to include' }).parentElement).toHaveAttribute(
       'data-columns',
       'two',
     )
+  })
+
+  it('names a lot’s location only when it differs from the batch default', () => {
+    setup()
+
+    const row = (name: string) => screen.getByRole('checkbox', { name }).closest('label')!
+
+    expect(row('Packet A')).not.toHaveTextContent('Bin 43')
+    expect(row('Packet B')).not.toHaveTextContent('Bin 43')
+    expect(row('Packet C')).toHaveTextContent('10 pcs · Bench bin B3')
+  })
+
+  it('without a batch default, every lot names its location', () => {
+    const { props, rerender } = setup()
+    const noDefault = {
+      ...batch,
+      defaults: { quantity: { mode: 'unknown' }, location: { mode: 'clear' } },
+    } as unknown as CaptureSnapshotDto
+    rerender(<ReadyToAdd {...props} batch={noDefault} />)
+    expect(screen.getByRole('checkbox', { name: 'Packet A' }).closest('label')).toHaveTextContent(
+      '10 pcs · Bin 43',
+    )
+  })
+
+  it('keeps the lots beside the Tree, and unticking a lot marks its stock item at once', async () => {
+    const user = userEvent.setup()
+    const { prepareLots } = setup()
+    await user.click(await screen.findByRole('button', { name: 'Tree' }))
+    const lotsPane = screen.getByRole('region', { name: 'Lots to include' })
+    expect(lotsPane.parentElement).toHaveAttribute('data-view', 'tree')
+    const tree = screen.getByRole('tree', { name: 'By category' })
+    expect(within(tree).getByRole('treeitem', { name: /Packet A · 10/ })).toHaveTextContent('New')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    expect(prepareLots).toHaveBeenCalledWith([lots[1], lots[2]])
+    // The lot list stays beside the tree, which shows the untick before the new preparation.
+    expect(lotsPane).toBeVisible()
+    const stock = within(tree).getByRole('treeitem', { name: /Packet A/ })
+    expect(stock).toHaveTextContent('Not ticked')
+    expect(stock).toHaveAttribute('data-dimmed', 'true')
+    expect(within(stock).getByRole('link', { name: /^Review Packet A/ })).toBeVisible()
   })
 
   it('unticking a lot prepares the rest, and approval waits for that preparation', async () => {
@@ -356,7 +405,7 @@ describe('ReadyToAdd', () => {
     const row = within(tree).getByRole('treeitem', { name: /Packet B/ })
     expect(row).toHaveTextContent('Not ticked')
     expect(row).toHaveTextContent('Changed since review')
-    expect(row).toHaveAttribute('data-unticked', 'true')
+    expect(row).toHaveAttribute('data-dimmed', 'true')
     expect(within(row).getByRole('link', { name: 'Review Packet B' })).toHaveAttribute(
       'href',
       `#${batch.id}/review/lots/${left}`,

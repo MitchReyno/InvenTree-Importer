@@ -1,8 +1,10 @@
-import type {
-  ManualPreviewDto,
-  ManualWorkspaceDto,
-  PreparationNodeDto,
-  PreparationNodeKind,
+import {
+  defaultLocationDraft,
+  type CaptureSnapshotDto,
+  type ManualPreviewDto,
+  type ManualWorkspaceDto,
+  type PreparationNodeDto,
+  type PreparationNodeKind,
 } from '@invimport/contracts'
 import type { ReviewFilter } from '#/operator/review-model'
 
@@ -223,4 +225,39 @@ export function previewNodes(preview: ManualPreviewDto): Node[] {
     })
   }
   return [...nodes.values()]
+}
+
+type StockEffect = ManualPreviewDto['effects'][number]
+
+/**
+ * The lot's location when it differs from the batch default, else null. A new location appears in
+ * a plan only as the batch default's draft, so a stock item placed by an operation key is at it.
+ */
+export function overridingLocation(batch: CaptureSnapshotDto, effect: StockEffect) {
+  const fallback = batch.defaults.location
+  const atDefault =
+    fallback.mode === 'set'
+      ? effect.location_id === fallback.value.pk
+      : effect.location_id === null &&
+        effect.location_operation_key !== undefined &&
+        defaultLocationDraft(batch) !== null
+
+  return atDefault ? null : effect.location_label || 'No location'
+}
+
+/**
+ * The preparation's records as the operator's ticks leave them: a lot unticked since it was
+ * prepared keeps its stock item and attachments, marked Not ticked, until the new preparation is read.
+ */
+export function withTicks(nodes: Node[], prepared: readonly string[], ticked: readonly string[]) {
+  const unticked = new Set(prepared.filter((lot) => !ticked.includes(lot)))
+  if (unticked.size === 0) {
+    return nodes
+  }
+
+  return nodes.map((node) =>
+    node.lot_id !== null && unticked.has(node.lot_id)
+      ? { ...node, state: 'not_ticked' as const, detail: 'Left for later', changes: undefined }
+      : node,
+  )
 }
