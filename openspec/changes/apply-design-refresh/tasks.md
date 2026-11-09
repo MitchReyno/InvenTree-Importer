@@ -155,7 +155,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings/<section>` to the new sections (the `settings` prefix match came in Task 2), with a test that `#settings/inventree` opens Settings › InvenTree.
   - `AiMark` on the Settings › Agents heading and its nav item.
-  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section unchanged, with tests; provider cards show the status of the last check run in those panels, "Not checked" before one, and "Unavailable" after a check that fails because personal management is off.
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; provider cards show the status of the last check run in those panels: "Not checked" before one, the signed-in status after a success, and "Check failed" after a failure.
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
@@ -303,7 +303,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - `review/model.ts` `hasSupportingEvidence` ignores removed items, so the existing `no_supporting_evidence` warning applies.
   - `evidence_removed` stale reasons through all three joins (media sources, observation sources via `evidence_version_id`, evidence notes); the removed item's notes leave new inputs. A batch notice to the Examine lead, and notices to the lots' Research and Images sessions keyed by removal revision. A restore appends its own lead `evidence` item keyed `restored:<evidence>:<revision>`.
   - Filtering in `processing/examine-trigger.ts`, the agent evidence reads, lot-session observation views, the processing input builder and preparation.
-  - The proposal publication source check in `agents/tools/handlers.ts` refuses removed `media_version` sources and observations on removed versions.
+  - The proposal publication source check in `agents/tools/handlers.ts` refuses removed `media_version` sources, observations on removed versions, and notes that are a removed item's evidence notes.
   - `review/approve-preparation.ts` checks for removed evidence before re-materialising and refuses with `approval_evidence_removed` (409); `media/execution-pins.ts` also refuses removed versions as defence in depth.
   - Removal cascades staleness through `cascadeAll(..., 'evidence_removed')`.
   - Operator byte routes serve only a removed version's thumbnail; Review projections omit its observations.
@@ -327,7 +327,7 @@ Tasks 1, 10 and 11 can start in parallel.
     - each of the three stale joins marks a proposal stale, and a downstream proposal goes stale through the cascade;
     - operator routes refuse a removed original and region crop but serve its thumbnail;
     - approval refused with `approval_evidence_removed`;
-    - publishing a proposal that cites a removed version, or an observation on one, is refused even after earlier delivery, and lot-session views omit those observations;
+    - publishing a proposal that cites a removed version, an observation on one, or a removed item's evidence note is refused even after earlier delivery, and lot-session views omit those observations;
     - approval of a preparation citing a removed version refused;
     - new processing inputs exclude removed evidence while frozen inputs keep their manifest.
   - Process tests (`pnpm test:intake:process`): the Examine trigger and agent evidence reads skip removed versions.

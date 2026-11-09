@@ -14,7 +14,7 @@ The batch header SHALL show the tabs Capture, Processing, Review and Changes on 
 
 ### Requirement: Second tab row
 
-Processing, Review and Changes SHALL each show their sub-views as a second row of tabs inside the header band, left-aligned with the batch title. Each main tab and sub-tab SHALL show one count at most: the thing to act on in its attention tone when there is one, otherwise the total or progress ("8", "7/12"). Capture and Overview SHALL show none. Step sub-tabs SHALL show their status as an icon (spinner while running, ✓ when done):
+Processing, Review and Changes SHALL each show their sub-views as a second row of tabs inside the header band, left-aligned with the batch title. Each main tab and sub-tab SHALL show one count at most, following the table in design D3: usually the thing to act on in its attention tone when there is one, otherwise the total or progress ("8", "7/12"). Capture and Overview SHALL show none; Processing, Review › Map and Changes › Added SHALL show none when they have nothing to act on; and Review keeps the plain lots-to-check count. Step sub-tabs SHALL show their status as an icon (spinner while running, ✓ when done):
 
 - **Processing:** Overview · Examine · Research · Images · Inventory.
 - **Review:** Lots · Map · Records.
