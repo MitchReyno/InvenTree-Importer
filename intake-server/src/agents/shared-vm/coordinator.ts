@@ -69,7 +69,9 @@ export async function startSessionBridge(directory: string, port: number) {
   await once(server, 'listening')
 
   const driver: SessionDriver = async (turn, context) => {
-    const deadline = Date.now() + 15000
+    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/2'
+    // The tool relay starts its provider tunnel, worker and paired supervisor on a cold VM.
+    const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
     const subscription =
       (context.manifest.profile_id === 'shared-vm-agent/1' ||
         context.manifest.profile_id === 'shared-vm-agent/2') &&
@@ -81,7 +83,7 @@ export async function startSessionBridge(directory: string, port: number) {
       [...idle].find(
         ([socket]) =>
           subscriptions.get(socket) === subscription &&
-          rich.has(socket) === (context.manifest.profile_id === 'shared-vm-agent/2'),
+          rich.has(socket) === toolWorker,
       )
 
     let connection = available()
@@ -90,6 +92,9 @@ export async function startSessionBridge(directory: string, port: number) {
       connection = available()
     }
     if (!connection) {
+      if (toolWorker) {
+        throw new NativeSessionError('agent_process_unavailable')
+      }
       if (subscription) {
         throw new NativeSessionError('agent_login_required')
       }
