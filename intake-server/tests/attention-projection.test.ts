@@ -259,8 +259,7 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
     failed: 2,
     running: 0,
     steps: {
-      // The failed attempt is reported as failed, not counted as work still to finish.
-      examine: { questions: 1, failed: 1, jobs: 1, ready: 0, running: 0 },
+      examine: { questions: 1, failed: 1, jobs: 2, ready: 0, running: 0 },
       research: { questions: 1, failed: 1, jobs: 3, ready: 0, running: 0 },
       images: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
       inventory: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },
@@ -469,7 +468,7 @@ test('counts lots needing an answer as the Review queue does: an open question o
   assert.equal(none.review.needs_answer, 0)
 })
 
-test('a step counts only attempts that can still finish, so it can reach done', () => {
+test('each lot job counts toward its step, so failed or replaced work is never done', () => {
   const states = ['ready', 'ready', 'superseded', 'failed', 'cancelled']
   const jobs = states.map((state, index) => ({ ...job(10 + index, 'research', []), state }))
   const attention = projectAttention({
@@ -480,10 +479,11 @@ test('a step counts only attempts that can still finish, so it can reach done', 
     records,
   })
 
+  // Each job is one lot's current attempt; nothing replaces a failed, superseded or cancelled one.
   assert.deepEqual(attention.processing.steps.research, {
     questions: 0,
     failed: 1,
-    jobs: 2,
+    jobs: 5,
     ready: 2,
     running: 0,
   })

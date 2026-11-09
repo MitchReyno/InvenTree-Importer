@@ -106,7 +106,27 @@ describe('stepStatus', () => {
 
     expect(stepStatus('examine', read)).toBe('done')
     expect(stepStatus('research', read)).toBe('running')
-    expect(stepStatus('inventory', read)).toBeUndefined()
+    // Inventory has a failed attempt, so it is marked failed rather than left plain.
+    expect(stepStatus('inventory', read)).toBe('failed')
     expect(stepStatus('research', undefined)).toBeUndefined()
+  })
+
+  it('marks a step with a failed attempt failed, never done, even when the rest are ready', () => {
+    const read = attention({
+      processing: {
+        questions: 0,
+        failed: 1,
+        running: 0,
+        steps: {
+          examine: { ...none, failed: 1, jobs: 3, ready: 2 },
+          research: { ...none, failed: 1, jobs: 1 },
+          images: none,
+          inventory: none,
+        },
+      },
+    })
+
+    expect(stepStatus('examine', read)).toBe('failed')
+    expect(stepStatus('research', read)).toBe('failed')
   })
 })

@@ -50,7 +50,7 @@ function header(route: Parameters<typeof BatchHeader>[0]['route'], unusedFiles?:
 }
 
 describe('BatchHeader', () => {
-  it('counts Processing by its questions only; failed attempts stay in the need-you list', () => {
+  it('counts Processing by its questions only; a failed step shows a cross, not a count', () => {
     render(
       <BatchHeader
         batch={batch}
@@ -79,7 +79,7 @@ describe('BatchHeader', () => {
     expect(tabs.getByRole('link', { name: 'Processing, 3 questions' })).toBeInTheDocument()
     // Overview carries no count: the pill and the Processing tab already show the questions.
     expect(steps.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
-    expect(steps.getByRole('link', { name: 'Research' })).toBeInTheDocument()
+    expect(steps.getByRole('link', { name: 'Research, failed' })).toHaveTextContent('×')
   })
 
   it('marks each step running or done with an icon, and counts its progress or questions', () => {

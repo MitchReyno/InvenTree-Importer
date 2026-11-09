@@ -114,7 +114,10 @@ export function tabCount(tab: TabKey, input: TabCountInput): TabCount | undefine
   }
 }
 
-/** A step's status icon: a spinner while any attempt runs, a tick once every attempt is ready. */
+/**
+ * A step's status icon: a spinner while any attempt runs, a cross while one has failed, and a tick
+ * only once every job is ready with none failed.
+ */
 export function stepStatus(step: Step, attention: BatchAttentionDto | undefined) {
   const work = attention?.processing.steps[step]
   if (!work) {
@@ -122,6 +125,9 @@ export function stepStatus(step: Step, attention: BatchAttentionDto | undefined)
   }
   if (work.running > 0) {
     return 'running' as const
+  }
+  if (work.failed > 0) {
+    return 'failed' as const
   }
   if (work.jobs > 0 && work.ready === work.jobs) {
     return 'done' as const

@@ -14,8 +14,8 @@ export type TabItem = {
   href: string
   /** At most one count per tab: the thing to act on, otherwise the total or progress. */
   count?: TabItemCount
-  /** A step's status icon: a spinner while running, a tick once done. */
-  status?: 'running' | 'done'
+  /** A step's status icon: a spinner while running, a cross once failed, a tick once done. */
+  status?: 'running' | 'failed' | 'done'
   disabled?: boolean
 }
 
@@ -70,6 +70,7 @@ function TabLinks({
           >
             {item.status === 'running' && <Spinner />}
             {item.status === 'done' && <Done aria-hidden="true">✓</Done>}
+            {item.status === 'failed' && <Failed aria-hidden="true">×</Failed>}
             <TabLabel>{item.label}</TabLabel>
             {item.count && <Badge tone={item.count.tone}>{item.count.value}</Badge>}
           </TabLink>
@@ -167,5 +168,10 @@ const TabLabel = styled.span`
 
 const Done = styled.span`
   color: ${color.ok};
+  font-weight: ${typeVar.pill.weight};
+`
+
+const Failed = styled.span`
+  color: ${color.bad};
   font-weight: ${typeVar.pill.weight};
 `

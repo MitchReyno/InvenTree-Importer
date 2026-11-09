@@ -55,6 +55,7 @@ describe('SubTabs', () => {
         current="research"
         items={[
           { id: 'examine', label: 'Examine', href: '#e', status: 'done' },
+          { id: 'images', label: 'Images', href: '#i', status: 'failed' },
           {
             id: 'research',
             label: 'Research',
@@ -68,6 +69,7 @@ describe('SubTabs', () => {
 
     const examine = screen.getByRole('link', { name: 'Examine, done' })
     expect(examine).toHaveTextContent('✓')
+    expect(screen.getByRole('link', { name: 'Images, failed' })).toHaveTextContent('×')
     const research = screen.getByRole('link', { name: 'Research, running, 7 of 12 ready' })
     expect(research).toHaveAttribute('aria-current', 'page')
     expect(research).toHaveTextContent('7/12')
