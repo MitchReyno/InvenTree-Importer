@@ -18,6 +18,8 @@ export type Reference = Snapshot['lots'][number]['location']
  */
 export type CaptureEdit = (
   change: CaptureEditDto['change'],
+  /** The revision the change applies to, for a command that follows one just confirmed. */
+  expectedRevision?: string,
 ) => Promise<CaptureSnapshotDto | boolean | void>
 export type CaptureObserve = (
   model: InventoryModelDto,

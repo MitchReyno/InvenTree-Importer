@@ -807,3 +807,54 @@ test('a question URL pins its first read without ever showing the question as un
     observer.disconnect()
   }
 })
+
+test('returning to a route reopens only the session its link names, not an earlier drawer', async () => {
+  const withSession: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
+  }
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(withSession),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  const cache = createServerQueryClient()
+  const props = {
+    batch,
+    client,
+    questionId,
+    navigate: vi.fn(),
+    onDirtyChange: vi.fn(),
+    onSaved: vi.fn().mockResolvedValue(undefined),
+  }
+  const view = render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="overview" />
+    </ServerStateProvider>,
+  )
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
+  )
+  expect(screen.getByRole('dialog', { name: 'Examine · Packet A' })).toBeInTheDocument()
+
+  // The link's route is the Examine step with the same question.
+  view.rerender(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="examine" />
+    </ServerStateProvider>,
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  view.rerender(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="overview" />
+    </ServerStateProvider>,
+  )
+  expect(screen.queryByRole('dialog', { name: 'Examine · Packet A' })).not.toBeInTheDocument()
+})

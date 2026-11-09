@@ -732,3 +732,45 @@ test('a refused new group keeps its name for another try', async () => {
   await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
   expect(screen.getByLabelText('New group name')).toHaveValue('Packet C')
 })
+
+function renderMoves(client: MediaClient) {
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+}
+
+async function moveFrontToB(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.selectOptions(screen.getByLabelText('Move selected evidence to'), groupB)
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+}
+
+test('an unconfirmed move that its exact retry confirms is announced with Undo', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new Error('lost'))
+  renderMoves(client)
+  await moveFrontToB(user)
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  expect(await screen.findByText('Moved 1 file to Packet B')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
+})
+
+test('an unconfirmed move that its retry has refused is never announced', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit)
+    .mockRejectedValueOnce(new Error('lost'))
+    .mockRejectedValueOnce(new IntakeRequestError(422, 'group_not_found'))
+  renderMoves(client)
+  await moveFrontToB(user)
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(2))
+  expect(screen.queryByText('Moved 1 file to Packet B')).toBeNull()
+})
