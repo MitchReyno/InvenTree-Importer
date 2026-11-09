@@ -67,6 +67,7 @@ export const SessionToolError = Type.Union(
       'session_not_running',
       'capacity_reached',
       'tool_failed',
+      'media_evidence_removed',
     ] as const
   ).map((code) => Type.Literal(code)),
 )

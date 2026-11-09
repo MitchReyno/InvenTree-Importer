@@ -311,3 +311,125 @@ export async function lotRegroupedNotices(
     })
   }
 }
+
+/** The batch's Examine lead lineage while its session can still be told, if any. */
+async function leadSession(client: PoolClient, batchId: string) {
+  const rows = await client.query<{ id: string }>(
+    `SELECT j.id FROM public.processing_job j
+     JOIN public.processing_attempt a ON a.id=j.current_attempt_id
+     JOIN public.agent_session s ON s.attempt_id=a.id
+     WHERE j.batch_id=$1 AND j.stage='examine' AND j.subject_id IS NULL
+       AND a.state NOT IN ('cancelled','superseded') AND s.session_state IS NOT NULL
+     ORDER BY j.id LIMIT 1`,
+    [batchId],
+  )
+  return rows.rows[0]?.id ?? null
+}
+
+/**
+ * Evidence items were removed at `revision`. Every current proposal relying on one of them, through
+ * a cited version, an observation on one of its versions or one of its evidence notes, is stale
+ * with `evidence_removed`, and so is everything built on those. The Examine lead gets a batch
+ * notice and the affected lots' Research and Images sessions a notice each, keyed by the revision
+ * so a later removal after a restore is told again.
+ */
+export async function evidenceRemoved(
+  client: PoolClient,
+  input: {
+    batchId: string
+    evidenceIds: readonly string[]
+    lotIds: readonly string[]
+    revision: string
+  },
+) {
+  if (!(await processingVisible(client))) {
+    return { stale: [] as string[], notified: [] as string[] }
+  }
+  const cited = await client.query<{ versions: string[]; observations: string[]; notes: string[] }>(
+    `SELECT
+       ARRAY(SELECT v.id::text FROM public.media_version v
+             WHERE v.batch_id=$1 AND v.evidence_id = ANY($2::uuid[])) AS versions,
+       ARRAY(SELECT o.id::text FROM public.capture_evidence_observation o
+             JOIN public.media_version v ON v.id=o.evidence_version_id
+             WHERE v.batch_id=$1 AND v.evidence_id = ANY($2::uuid[])) AS observations,
+       ARRAY(SELECT n.id::text FROM public.media_evidence_note n
+             WHERE n.batch_id=$1 AND n.evidence_id = ANY($2::uuid[])) AS notes`,
+    [input.batchId, [...input.evidenceIds]],
+  )
+  const { versions, observations, notes } = cited.rows[0]
+  // A session proposal cites in its value and relies through `relies_on`; either counts.
+  const affected = await client.query<{ id: string; lineage: string }>(
+    `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
+     JOIN public.processing_attempt a ON a.id=p.attempt_id
+     JOIN public.processing_job j ON j.id=a.job_id
+     WHERE j.batch_id=$1 AND p.relies_on IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.processing_proposal_stale s WHERE s.proposal_id=p.id)
+       AND EXISTS (
+         SELECT 1 FROM jsonb_array_elements(
+           (p.relies_on->'sources')
+           || COALESCE(convert_from(p.value_bytes,'UTF8')::jsonb->'sources','[]'::jsonb)) source
+         WHERE (source->>'kind'='media_version' AND source->>'version_id' = ANY($2::text[]))
+            OR (source->>'kind'='evidence_observation'
+                AND source->>'evidence_observation_id' = ANY($3::text[]))
+            OR (source->>'kind'='note' AND source->>'note_id' = ANY($4::text[])))
+     ORDER BY p.id`,
+    [input.batchId, versions, observations, notes],
+  )
+  const ids = affected.rows.map((row) => row.id)
+  if (ids.length) {
+    await client.query(
+      `INSERT INTO public.processing_proposal_stale(proposal_id,reason)
+       SELECT unnest($1::uuid[]),'evidence_removed' ON CONFLICT DO NOTHING`,
+      [ids],
+    )
+    await cascadeAll(client, ids, 'evidence_removed')
+  }
+  const lead = await leadSession(client, input.batchId)
+  const lineages = new Set(affected.rows.map((row) => row.lineage))
+  for (const lotId of input.lotIds) {
+    for (const lineage of await lotSessions(client, lotId)) {
+      lineages.add(lineage)
+    }
+  }
+  if (lead) {
+    lineages.add(lead)
+  }
+  for (const lineage of [...lineages].sort()) {
+    await notice(client, lineage, `evidence_removed:${input.revision}:${lineage}`, 'revision', {
+      fields: ['identity'],
+      reason:
+        lineage === lead
+          ? 'The operator deleted evidence from this batch; observations on it no longer count. Revise the lots that relied on them.'
+          : 'The operator deleted evidence this lot used; revise what relied on it.',
+    })
+  }
+  return { stale: ids, notified: [...lineages].sort() }
+}
+
+/**
+ * Restored items reach the Examine lead as new evidence, keyed by the restore revision: the
+ * Examine trigger skips versions the lead has already seen, observed or pinned.
+ */
+export async function evidenceRestored(
+  client: PoolClient,
+  input: {
+    batchId: string
+    versions: readonly { evidenceId: string; versionId: string }[]
+    revision: string
+  },
+) {
+  if (!(await processingVisible(client))) {
+    return [] as string[]
+  }
+  const lead = await leadSession(client, input.batchId)
+  if (!lead) {
+    return []
+  }
+  for (const version of input.versions) {
+    await notice(client, lead, `restored:${version.evidenceId}:${input.revision}`, 'evidence', {
+      evidence_id: version.evidenceId,
+      version_id: version.versionId,
+    })
+  }
+  return [lead]
+}

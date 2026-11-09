@@ -1,5 +1,10 @@
 import { assertMediaRecipe } from '@invimport/contracts/media'
-import type { MediaEvidenceDto, MediaSnapshotDto, MediaVersionDto } from '@invimport/contracts'
+import type {
+  MediaEvidenceDto,
+  MediaRemovedEvidenceDto,
+  MediaSnapshotDto,
+  MediaVersionDto,
+} from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { verifyBytes } from '#/db/authority.ts'
 
@@ -45,6 +50,8 @@ export interface MediaRows {
   observation_links: { evidence_id: string; subject_id: string }[]
   attachments: MediaSnapshotDto['attachments']
   derivations: DerivationRow[]
+  /** Each item's latest removal row; items without one are present. */
+  removals: { evidence_id: string; removed: boolean; revision: string; created_at: Date }[]
 }
 
 export function decodeMediaRecipe(bytes: Buffer | null, digest: Buffer | null) {
@@ -120,26 +127,56 @@ function projectEvidence(rows: MediaRows): MediaEvidenceDto[] {
   }))
 }
 
-/** Pure projection over named relational results; caller validates the complete public schema. */
+/** A removed item shows only its label and the first page of its original, as a thumbnail. */
+function projectRemoved(
+  evidence: MediaEvidenceDto,
+  removal: MediaRows['removals'][number],
+): MediaRemovedEvidenceDto {
+  const original = evidence.versions.find((version) => version.kind === 'original')
+  const first = original?.pages.find((page) => page.page === 1)
+  return {
+    id: evidence.id,
+    label: evidence.label,
+    preview_id: first?.preview_id ?? null,
+    removed_revision: removal.revision,
+    removed_at: removal.created_at.toISOString(),
+  }
+}
+
+/**
+ * Pure projection over named relational results; caller validates the complete public schema.
+ * Removed items leave the evidence and derivation lists and are listed apart.
+ */
 export function projectMediaSnapshot(batchId: string, rows: MediaRows): MediaSnapshotDto {
+  const removals = new Map(
+    rows.removals.filter((row) => row.removed).map((row) => [row.evidence_id, row]),
+  )
+  const projected = projectEvidence(rows)
+  const removed = projected.flatMap((item) => {
+    const removal = removals.get(item.id)
+    return removal ? [projectRemoved(item, removal)] : []
+  })
   return {
     batch_id: batchId,
     revision: rows.revision,
     groups: rows.groups,
     attachments: rows.attachments,
-    evidence: projectEvidence(rows),
-    derivations: rows.derivations.map((derivation) => {
-      const recipe = decodeMediaRecipe(derivation.recipe_bytes, derivation.recipe_digest)
-      if (!recipe) {
-        throw new Error('recipe_authority_missing')
-      }
-      return {
-        id: derivation.id,
-        evidence_id: derivation.evidence_id,
-        recipe,
-        state: derivation.state ?? 'queued',
-        version_id: derivation.produced_version_id,
-      }
-    }),
+    evidence: projected.filter((item) => !removals.has(item.id)),
+    ...(removed.length ? { removed } : {}),
+    derivations: rows.derivations
+      .filter((derivation) => !removals.has(derivation.evidence_id))
+      .map((derivation) => {
+        const recipe = decodeMediaRecipe(derivation.recipe_bytes, derivation.recipe_digest)
+        if (!recipe) {
+          throw new Error('recipe_authority_missing')
+        }
+        return {
+          id: derivation.id,
+          evidence_id: derivation.evidence_id,
+          recipe,
+          state: derivation.state ?? 'queued',
+          version_id: derivation.produced_version_id,
+        }
+      }),
   }
 }

@@ -72187,6 +72187,120 @@
                       }
                     }
                   }
+                },
+                "pinned_by": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "approval_id",
+                    "approved_at"
+                  ],
+                  "properties": {
+                    "approval_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "approved_at": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "lot_ids": {
+                  "minItems": 1,
+                  "maxItems": 200,
+                  "uniqueItems": true,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "sole_evidence_lot_ids": {
+                  "minItems": 1,
+                  "maxItems": 200,
+                  "uniqueItems": true,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "selected_attachment_of": {
+                  "minItems": 1,
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "subject_id",
+                      "destination"
+                    ],
+                    "properties": {
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "destination": {
+                        "anyOf": [
+                          {
+                            "const": "lot_attachment",
+                            "type": "string"
+                          },
+                          {
+                            "const": "part_attachment",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "removed": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "label",
+                "preview_id",
+                "removed_revision",
+                "removed_at"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "preview_id": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "removed_revision": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "removed_at": {
+                  "type": "string"
                 }
               }
             }
@@ -73084,6 +73198,54 @@
                         "type": "null"
                       }
                     ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "evidence_ids"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "remove",
+                    "type": "string"
+                  },
+                  "evidence_ids": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "evidence_ids"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "restore",
+                    "type": "string"
+                  },
+                  "evidence_ids": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    }
                   }
                 }
               },
@@ -79897,6 +80059,10 @@
           {
             "const": "tool_failed",
             "type": "string"
+          },
+          {
+            "const": "media_evidence_removed",
+            "type": "string"
           }
         ]
       },
@@ -80705,6 +80871,10 @@
                   },
                   {
                     "const": "tool_failed",
+                    "type": "string"
+                  },
+                  {
+                    "const": "media_evidence_removed",
                     "type": "string"
                   }
                 ]

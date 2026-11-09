@@ -1,7 +1,7 @@
 import { activeMediaGroups, enrichMediaNotes } from './context.ts'
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
-import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
 import { validate, type MediaSnapshotDto } from '@invimport/contracts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import { type CaptureBinding } from '#/capture/model.ts'
@@ -21,6 +21,9 @@ import {
   mediaVersions,
 } from './schema.ts'
 import { projectMediaSnapshot, type MediaRows } from './projection.ts'
+import { currentRemovals, versionRemovedSql } from './removal.ts'
+import { removalImpacts } from './removal-impact.ts'
+import { loadReviewContext } from '#/capture/review-context.ts'
 
 async function readMediaRows(client: PoolClient, batchId: string): Promise<MediaRows> {
   const db = queryDatabase(client)
@@ -157,8 +160,15 @@ async function readMediaRows(client: PoolClient, batchId: string): Promise<Media
       .where(eq(mediaDerivations.batchId, batchId))
       .orderBy(asc(mediaDerivations.createdAt), asc(mediaDerivations.id)),
   )
+  const removals = [...(await currentRemovals(client, batchId)).values()].map((state) => ({
+    evidence_id: state.evidenceId,
+    removed: state.removed,
+    revision: state.revision,
+    created_at: state.createdAt,
+  }))
   return {
     revision: revision[0]?.revision ?? '1',
+    removals,
     evidence,
     versions,
     previews,
@@ -171,18 +181,95 @@ async function readMediaRows(client: PoolClient, batchId: string): Promise<Media
   }
 }
 
-/** Authorization precedes relational reads; schema validation checks the complete projection. */
+/** Approvals that pinned a version of each item, with when they were approved. */
+async function approvalPins(client: PoolClient, batchId: string) {
+  const pins = await client.query<{ evidence_id: string; approval_id: string }>(
+    `SELECT DISTINCT v.evidence_id, p.approval_id FROM public.media_approval_pin p
+     JOIN public.media_version v ON v.id=p.version_id AND v.batch_id=p.batch_id
+     WHERE p.batch_id=$1`,
+    [batchId],
+  )
+  // Only a deployment that approved media holds pins, and it can read its runs.
+  if (!pins.rows.length) {
+    return new Map<string, { approval_id: string; approved_at: string }>()
+  }
+  const approvals = await client.query<{ approval_id: string; approved_at: Date }>(
+    `SELECT r.approval_id, c.created_at AS approved_at FROM public.executor_run r
+     JOIN public.command c ON c.id=r.command_id WHERE r.approval_id = ANY($1::uuid[])`,
+    [[...new Set(pins.rows.map((row) => row.approval_id))]],
+  )
+  const approvedAt = new Map(approvals.rows.map((row) => [row.approval_id, row.approved_at]))
+  const byEvidence = new Map<string, { approval_id: string; approved_at: string }>()
+  // The earliest approval names the item; any one of them refuses the removal.
+  const ordered = pins.rows
+    .filter((row) => approvedAt.has(row.approval_id))
+    .sort(
+      (left, right) =>
+        approvedAt.get(left.approval_id)!.getTime() - approvedAt.get(right.approval_id)!.getTime(),
+    )
+  for (const row of ordered) {
+    if (!byEvidence.has(row.evidence_id)) {
+      byEvidence.set(row.evidence_id, {
+        approval_id: row.approval_id,
+        approved_at: approvedAt.get(row.approval_id)!.toISOString(),
+      })
+    }
+  }
+  return byEvidence
+}
+
+/**
+ * Authorization precedes relational reads; schema validation checks the complete projection.
+ * Every evidence consumer reads this, so removed items are already left out of `evidence`.
+ */
 export async function mediaSnapshot(
   client: PoolClient,
   binding: CaptureBinding,
   batchId: string,
 ): Promise<MediaSnapshotDto> {
+  return (await authorizedMediaSnapshot(client, binding, batchId)).snapshot
+}
+
+async function authorizedMediaSnapshot(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+) {
   await prepareMediaTransaction(client)
-  await captureInTransaction(client, binding, batchId)
+  const capture = await captureInTransaction(client, binding, batchId)
   const snapshot = await enrichMediaNotes(
     client,
     projectMediaSnapshot(batchId, await readMediaRows(client, batchId)),
   )
+  validate('MediaSnapshot', snapshot)
+  return { snapshot, capture: capture.snapshot }
+}
+
+/**
+ * The operator's snapshot: each item also says which approval used it and what removing it
+ * would change, for the delete dialog and its refusal state.
+ */
+export async function operatorMediaSnapshot(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+): Promise<MediaSnapshotDto> {
+  const { snapshot: projected, capture } = await authorizedMediaSnapshot(client, binding, batchId)
+  const pins = await approvalPins(client, batchId)
+  const context = await loadReviewContext(client, batchId)
+  const impacts = removalImpacts({
+    capture,
+    predecessors: context.predecessors,
+    evidence: projected.evidence,
+    attachments: projected.attachments,
+  })
+  const snapshot = {
+    ...projected,
+    evidence: projected.evidence.map((item) => {
+      const pinnedBy = pins.get(item.id)
+      return { ...item, ...(pinnedBy ? { pinned_by: pinnedBy } : {}), ...impacts.get(item.id) }
+    }),
+  }
   validate('MediaSnapshot', snapshot)
   return snapshot
 }
@@ -198,7 +285,12 @@ export async function inboxEvidenceCounts(client: PoolClient, batchId: string) {
         mediaVersions,
         and(eq(mediaVersions.evidenceId, mediaEvidence.id), eq(mediaVersions.kind, 'original')),
       )
-      .where(eq(mediaEvidence.batchId, batchId)),
+      .where(
+        and(
+          eq(mediaEvidence.batchId, batchId),
+          sql.raw(`NOT ${versionRemovedSql('media_version')}`),
+        ),
+      ),
   )
   const photos = rows.filter((row) => row.mediaType.startsWith('image/')).length
   const documents = rows.filter((row) => row.mediaType === 'application/pdf').length
@@ -222,7 +314,12 @@ export async function inboxThumbnail(client: PoolClient, batchId: string) {
           eq(mediaDecodeResults.state, 'ready'),
         ),
       )
-      .where(eq(mediaEvidence.batchId, batchId))
+      .where(
+        and(
+          eq(mediaEvidence.batchId, batchId),
+          sql.raw(`NOT ${versionRemovedSql('media_version')}`),
+        ),
+      )
       .orderBy(mediaEvidence.createdAt, mediaEvidence.id, mediaPreviews.page, mediaPreviews.id)
       .limit(1),
   )

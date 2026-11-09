@@ -337,14 +337,14 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Risks and decisions:** a file selected as an unapproved attachment can be removed; approval then refuses the stale preparation.
 
 - [x] 11.1 Gate: the user decided on 2026-11-09 that deletion ships with its backend. For reference, the fallback had they chosen otherwise was to: move Tasks 11–12 to BI-015 and build the delete UI disabled; rewrite the deletion deltas (`capture-media`, `processing-stage-pipeline`, `approval-preparation` and the three `capture-grouped-evidence` deletion requirements) into one disabled-delete requirement; and update BI-014, BI-015 and the `complete-design-refresh-backend` README.
-- [ ] 11.1a Before writing deletion code, confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
-- [ ] 11.2 RED: write the Postgres and process tests above and confirm they fail.
-- [ ] 11.3 GREEN: implement the removal backend.
-  - [ ] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
-  - [ ] 11.3.2 Stale reasons and notices on remove and restore.
-  - [ ] 11.3.3 Filtering in the read model, Examine trigger, agent reads, processing inputs and preparation; approval refusal.
-  - [ ] 11.3.4 `hasSupportingEvidence` ignores removed items; the delete clears attachment selections; `ungroup` and restore handle retired groups.
-- [ ] 11.4 Refactor; update the `intake-server/ARCHITECTURE.md` media section.
+- [x] 11.1a Before writing deletion code, confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
+- [x] 11.2 RED: write the Postgres and process tests above and confirm they fail.
+- [x] 11.3 GREEN: implement the removal backend.
+  - [x] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
+  - [x] 11.3.2 Stale reasons and notices on remove and restore.
+  - [x] 11.3.3 Filtering in the read model, Examine trigger, agent reads, processing inputs and preparation; approval refusal.
+  - [x] 11.3.4 `hasSupportingEvidence` ignores removed items; the delete clears attachment selections; `ungroup` and restore handle retired groups.
+- [x] 11.4 Refactor; update the `intake-server/ARCHITECTURE.md` media section.
 - [ ] 11.5 Run the full gate and both intake tiers, and record the results.
 - [ ] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, existing evidence stays present with no removal rows, and an app build without the change still runs with the table unused. Record the evidence.
 

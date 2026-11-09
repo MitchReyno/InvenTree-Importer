@@ -9,6 +9,7 @@ import { observationCropRevision, type MediaRenditionSize } from '@invimport/con
 import type { BlobStore } from './blob-store.ts'
 import type { EvidenceRegionDto } from '@invimport/contracts'
 import { regionCropCache } from './region-crops.ts'
+import { requirePresentVersion } from './removal.ts'
 
 /** Object authorization precedes every private-byte read; hashes are never capabilities. */
 export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobStore) {
@@ -34,6 +35,9 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
       if (!rows.length) {
         fail('not_found', 404)
       }
+      if (kind === 'version') {
+        await requirePresentVersion(client, batchId, resourceId)
+      }
       return rows[0].digest.toString('hex')
     })
     // Immutable retained version/preview references keep this exact blob ineligible for GC.
@@ -56,12 +60,16 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
         const db = queryDatabase(client)
         const pages = await executeDatabaseQuery(
           db
-            .select({ digest: mediaPreviews.blobDigest })
+            .select({ digest: mediaPreviews.blobDigest, versionId: mediaPreviews.versionId })
             .from(mediaPreviews)
             .where(and(eq(mediaPreviews.id, previewId), eq(mediaPreviews.batchId, batchId))),
         )
         if (!pages.length) {
           fail('not_found', 404)
+        }
+        // A removed item keeps only its thumbnail, for Deleted files and the delete dialog.
+        if (size !== 'thumb') {
+          await requirePresentVersion(client, batchId, pages[0].versionId)
         }
         if (size !== 'full') {
           const sized = await executeDatabaseQuery(
@@ -111,7 +119,11 @@ export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobSto
            FROM public.capture_evidence_observation o WHERE o.batch_id=$1 AND o.id=$2`,
           [batchId, observationId],
         )
-        return rows.rows[0]
+        const observation = rows.rows[0]
+        if (observation) {
+          await requirePresentVersion(client, batchId, observation.version_id)
+        }
+        return observation
       })
       if (!found || found.region.kind !== 'pixels' || !found.preview_id) {
         fail('not_found', 404)

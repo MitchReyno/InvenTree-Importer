@@ -2,7 +2,8 @@ import type { Pool } from 'pg'
 
 const tables = `media_store_identity,media_batch,media_blob,media_group,media_evidence,media_version,media_decode_command,
 media_derivation,media_decode_claim,media_decode_result,media_preview,media_preview_rendition,media_group_history,media_evidence_note,
-media_group_selection,media_subject_link,media_attachment_selection,media_approval_pin,media_command_binding,media_command_pin`
+media_group_selection,media_subject_link,media_attachment_selection,media_approval_pin,media_command_binding,media_command_pin,
+media_evidence_removal`
 
 /** Explicit trusted provisioning; media workers cannot choose or approve inventory effects. */
 export async function grantMedia(
@@ -18,7 +19,7 @@ export async function grantMedia(
       GRANT SELECT ON media_store_identity,media_batch,media_blob,media_group,media_evidence,media_version,
       media_decode_command,media_derivation,media_decode_result,media_preview,media_preview_rendition,
       media_group_history,media_evidence_note,media_group_selection,media_subject_link,media_attachment_selection,
-      media_command_binding,media_command_pin TO ${role};
+      media_command_binding,media_command_pin,media_evidence_removal TO ${role};
       GRANT SELECT ON capture_evidence_observation,capture_lot_evidence_observation TO ${role}`)
     return
   }
@@ -38,7 +39,8 @@ export async function grantMedia(
   if (purpose === 'api') {
     await pool.query(`GRANT INSERT ON media_batch,media_blob,media_group,media_evidence,media_version,
       media_decode_command,media_derivation,media_group_history,media_evidence_note,media_group_selection,media_subject_link,
-      media_attachment_selection,media_approval_pin,media_command_binding,media_command_pin TO ${role}`)
+      media_attachment_selection,media_approval_pin,media_command_binding,media_command_pin,
+      media_evidence_removal TO ${role}`)
     await pool.query(`GRANT UPDATE(revision) ON media_batch TO ${role}`)
   } else if (purpose === 'processing') {
     await pool.query(`GRANT INSERT ON media_command_binding,media_command_pin TO ${role}`)

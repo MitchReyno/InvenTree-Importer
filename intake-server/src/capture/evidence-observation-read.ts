@@ -1,8 +1,15 @@
 import type { PoolClient } from 'pg'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import type { CaptureEvidenceObservationDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { captureEvidenceObservations, captureLotEvidenceObservations } from './schema.ts'
+import { versionRemovedSql } from '#/media/removal.ts'
+
+/** True while the observation's evidence item is removed; it then leaves the snapshot. */
+const onRemovedEvidence = sql.raw(
+  `EXISTS (SELECT 1 FROM public.media_version v
+    WHERE v.id=capture_evidence_observation.evidence_version_id AND ${versionRemovedSql('v')})`,
+)
 
 export interface EvidenceObservationRead {
   observations: CaptureEvidenceObservationDto[]
@@ -10,7 +17,10 @@ export interface EvidenceObservationRead {
   activeByLot: Map<string, string[]>
 }
 
-/** Evidence observations of a batch with their lot membership, for the capture snapshot. */
+/**
+ * Evidence observations of a batch with their lot membership, for the capture snapshot. Those on
+ * removed evidence are left out, so Review and its counts stop using them.
+ */
 export async function readEvidenceObservations(
   client: PoolClient,
   batchId: string,
@@ -20,10 +30,11 @@ export async function readEvidenceObservations(
     db
       .select()
       .from(captureEvidenceObservations)
-      .where(eq(captureEvidenceObservations.batchId, batchId))
+      .where(and(eq(captureEvidenceObservations.batchId, batchId), sql`NOT ${onRemovedEvidence}`))
       .orderBy(asc(captureEvidenceObservations.createdAt), asc(captureEvidenceObservations.id)),
   )
-  const members = await executeDatabaseQuery(
+  const visible = new Set(rows.map((row) => row.id))
+  const allMembers = await executeDatabaseQuery(
     db
       .select({
         lotId: captureLotEvidenceObservations.lotId,
@@ -37,6 +48,7 @@ export async function readEvidenceObservations(
         asc(captureLotEvidenceObservations.evidenceObservationId),
       ),
   )
+  const members = allMembers.filter((member) => visible.has(member.observationId))
   const activeByLot = new Map<string, string[]>()
   const lotOf = new Map<string, string>()
   const suggested = new Map<string, string[]>()

@@ -7,6 +7,7 @@ import { captureBatches } from '#/capture/schema.ts'
 import { captureInTransaction } from '#/capture/repository.ts'
 import { CaptureError } from '#/capture/model.ts'
 import { lockBatchMediaInputs } from '#/media/locked-inputs.ts'
+import { versionRemovedSql } from '#/media/removal.ts'
 import { readAgentSettings } from '#/agents/settings.ts'
 import { appendSessionInbox } from '#/agents/tools/inbox.ts'
 import type { ProcessingConfig } from './attempts.ts'
@@ -31,8 +32,9 @@ interface Candidate {
 }
 
 /**
- * Batches in this worker's account whose ready originals are not yet covered by an evidence
- * observation or an evidence notice, once no evidence has become ready for the quiet period.
+ * Batches in this worker's account whose ready, present originals are not yet covered by an
+ * evidence observation or an evidence notice, once no evidence has become ready for the quiet
+ * period. Removed evidence never wakes the lead.
  */
 async function candidates(
   pool: Pool,
@@ -58,7 +60,7 @@ async function candidates(
        AND EXISTS (SELECT 1 FROM public.media_version v
          JOIN public.media_decode_command c ON c.version_id=v.id AND c.derivation_id IS NULL
          JOIN public.media_decode_result r ON r.command_id=c.id AND r.state='ready'
-         WHERE v.batch_id=b.id AND v.kind='original'
+         WHERE v.batch_id=b.id AND v.kind='original' AND NOT ${versionRemovedSql('v')}
            AND NOT EXISTS (SELECT 1 FROM public.capture_evidence_observation o WHERE o.evidence_version_id=v.id)
            AND NOT EXISTS (SELECT 1 FROM public.agent_session_inbox i
              JOIN public.processing_job lj ON lj.id=i.session_lineage_id AND lj.stage='examine'
@@ -89,7 +91,7 @@ async function uncoveredVersions(
     `SELECT v.evidence_id, v.id AS version_id FROM public.media_version v
      JOIN public.media_decode_command c ON c.version_id=v.id AND c.derivation_id IS NULL
      JOIN public.media_decode_result r ON r.command_id=c.id AND r.state='ready'
-     WHERE v.batch_id=$1 AND v.kind='original'
+     WHERE v.batch_id=$1 AND v.kind='original' AND NOT ${versionRemovedSql('v')}
        AND NOT EXISTS (SELECT 1 FROM public.capture_evidence_observation o WHERE o.evidence_version_id=v.id)
        AND NOT EXISTS (SELECT 1 FROM public.agent_session_inbox i
          WHERE i.session_lineage_id=$2 AND i.kind='evidence' AND i.payload->>'version_id'=v.id::text)

@@ -16735,6 +16735,24 @@ export interface components {
                         preview_id: string;
                     }[];
                 }[];
+                pinned_by?: {
+                    approval_id: string;
+                    approved_at: string;
+                };
+                lot_ids?: string[];
+                sole_evidence_lot_ids?: string[];
+                selected_attachment_of?: {
+                    subject_id: string;
+                    destination: "lot_attachment" | "part_attachment";
+                }[];
+            }[];
+            removed?: {
+                id: string;
+                label: string;
+                preview_id: string | null;
+                /** Format: int64 */
+                removed_revision: string;
+                removed_at: string;
             }[];
             attachments: {
                 id: string;
@@ -16881,6 +16899,14 @@ export interface components {
                 kind: "move";
                 evidence_id: string;
                 group_id: string | null;
+            } | {
+                /** @constant */
+                kind: "remove";
+                evidence_ids: string[];
+            } | {
+                /** @constant */
+                kind: "restore";
+                evidence_ids: string[];
             } | {
                 /** @constant */
                 kind: "link";
@@ -18075,7 +18101,7 @@ export interface components {
                 };
             };
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -18217,7 +18243,7 @@ export interface components {
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed";
             issues?: {
                 path: string;
                 rule: string;

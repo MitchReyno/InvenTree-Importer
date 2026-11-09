@@ -4,12 +4,14 @@ import { manualApprovals, manualRuns } from './schema.ts'
 import { selectedPartTransfers } from './part-attachments.ts'
 import { knownPartBindings, knownRecordBindings, supportedPlan } from './effects-plan.ts'
 import { randomUUID } from 'node:crypto'
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { idempotent, appendEvent } from '#/db/authority.ts'
 import { fail } from '#/capture/model.ts'
 import { loadRun, reserveApprovedStock } from '#/execution/authority.ts'
-import { encodeExecutablePlan } from '#/execution/media-plan.ts'
+import { encodeExecutablePlan, type ExecutablePlan } from '#/execution/media-plan.ts'
+import { lockMediaRevision } from '#/media/commands.ts'
+import { removedVersionIds } from '#/media/removal.ts'
 import { preparedPlan } from './media-plan.ts'
 import {
   lockedCapture,
@@ -23,6 +25,25 @@ import {
 import { materializeWithMedia } from './media-material.ts'
 import { retainedPreparation } from './runs.ts'
 import { commandScope, warningIssues } from './selection.ts'
+
+/**
+ * Removed evidence can't be approved. Checked before the plan is materialized again, which would
+ * otherwise report only a stale preparation.
+ */
+async function requirePresentPreparationEvidence(
+  client: PoolClient,
+  batchId: string,
+  plan: ExecutablePlan,
+) {
+  if (plan.version === 'bench-stock-plan/1') {
+    return
+  }
+  await lockMediaRevision(client, batchId)
+  const cited = plan.evidence.map((version) => version.versionId)
+  if ((await removedVersionIds(client, batchId, cited)).size) {
+    fail('approval_evidence_removed', 409)
+  }
+}
 
 export interface ApprovalInput {
   preparation_id: string
@@ -93,6 +114,7 @@ export async function approvePreparation(
             preparation_id: preview.id,
           }
         }
+        await requirePresentPreparationEvidence(client, preview.batch_id, preparation.plan)
         const material = await materializeWithMedia(
           client,
           config,

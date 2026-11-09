@@ -11,6 +11,7 @@ import type { BlobStore } from '#/media/blob-store.ts'
 import { mediaContent } from '#/media/content.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
+import { CaptureError } from '#/capture/model.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import type { ResearchInput } from '#/processing/runner.ts'
 import { loadProcessingAuthority } from '#/processing/authority.ts'
@@ -64,10 +65,17 @@ export async function stageNativePrompt(
       unavailable.push(version.versionId)
       continue
     }
-    const bytes = await mediaContent(pool, config, store).original(
-      manifest.batch_id,
-      version.versionId,
-    )
+    let bytes: Buffer
+    try {
+      bytes = await mediaContent(pool, config, store).original(manifest.batch_id, version.versionId)
+    } catch (error) {
+      // Evidence removed after the input was sealed never reaches the agent.
+      if (error instanceof CaptureError && error.code === 'media_evidence_removed') {
+        unavailable.push(version.versionId)
+        continue
+      }
+      throw error
+    }
     if (
       bytes.length.toString() !== version.byteSize ||
       sha256(bytes).toString('hex') !== version.digest

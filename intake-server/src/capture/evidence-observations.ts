@@ -14,6 +14,8 @@ import type {
 import { lotItemCount } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { mediaPreviews, mediaVersions } from '#/media/schema.ts'
+import { lockMediaRevision } from '#/media/commands.ts'
+import { requirePresentVersion, versionRemovedSql } from '#/media/removal.ts'
 import {
   captureEvidenceObservations,
   captureLotEvidenceObservations,
@@ -79,6 +81,9 @@ export async function requireEvidenceRegion(
   if (!versions[0]) {
     fail('evidence_version_not_found', 404)
   }
+  // Media's own order: the caller holds the capture batch lock, then the media revision.
+  await lockMediaRevision(client, batchId)
+  await requirePresentVersion(client, batchId, versionId)
   const previews = await executeDatabaseQuery(
     db
       .select({
@@ -1182,15 +1187,26 @@ export async function leadBatchView(
     operator_edited: boolean
     same_item_as: string | null
   }>(
-    `SELECT id,evidence_version_id,page,region,readings,visible_count,status,supersedes_observation_id,operator_edited,same_item_as
-     FROM public.capture_evidence_observation WHERE batch_id=$1 ORDER BY created_at,id`,
+    `SELECT o.id,o.evidence_version_id,o.page,o.region,o.readings,o.visible_count,o.status,
+       o.supersedes_observation_id,o.operator_edited,o.same_item_as
+     FROM public.capture_evidence_observation o
+     JOIN public.media_version v ON v.id=o.evidence_version_id
+     WHERE o.batch_id=$1 AND NOT ${versionRemovedSql('v')}
+     ORDER BY o.created_at,o.id`,
     [batchId],
   )
-  const members = await client.query<{ lot_id: string; observation_id: string; status: string }>(
+  const allMembers = await client.query<{
+    lot_id: string
+    observation_id: string
+    status: string
+  }>(
     `SELECT lot_id,evidence_observation_id AS observation_id,status
      FROM public.capture_lot_evidence_observation WHERE batch_id=$1 ORDER BY lot_id,evidence_observation_id`,
     [batchId],
   )
+  // Observations on deleted evidence leave the view, membership included.
+  const visible = new Set(observations.rows.map((row) => row.id))
+  const members = { rows: allMembers.rows.filter((row) => visible.has(row.observation_id)) }
   const activeLot = new Map(
     members.rows.filter((m) => m.status === 'active').map((m) => [m.observation_id, m.lot_id]),
   )
