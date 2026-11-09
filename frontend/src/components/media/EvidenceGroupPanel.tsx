@@ -10,11 +10,13 @@ import { mediaDisplayLabels, type MediaIdentityLabels } from '#/media/identity-l
 import { reviewMap } from '#/operator/review-map'
 import { predecessorLotIds } from '#/operator/review-model'
 import type { EditMedia } from '#/media/types'
+import type { UploadItem, UploadProgress, UploadQueue } from '#/media/useUploadQueue'
 import { Paragraph, Button, EvidenceGroup, Dialog, EvidenceGrid } from '#/components/ui'
 import { useEvidenceDropZone } from './EvidenceDropZone'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
 import { EvidenceFileTile } from './EvidenceFileTile'
+import { UploadTile } from './UploadTile'
 import { MediaEvidenceRelations } from './MediaEvidenceRelations'
 import { MediaTextEditor } from './MediaTextEditor'
 import { MediaNoteSummary } from './MediaNoteSummary'
@@ -39,6 +41,13 @@ type Props = {
   dirty: (owner: string) => (value: boolean) => void
   select: (ids: string[]) => void
   choose: (kind: 'photos' | 'document', groupId?: string) => void
+  /** Picked files bound for this group, shown as tiles after its evidence. */
+  uploads?: UploadItem[]
+  /** Shown in the header as "Uploading 2 of 3". */
+  uploadProgress?: UploadProgress | null
+  uploadQueue?: Pick<UploadQueue, 'retry' | 'readAgain' | 'dismiss'>
+  /** Retry and Read again wait while media commands are frozen. */
+  uploadActionsDisabled?: boolean
   crop: (version: MediaVersionDto, page: number) => void
   review?: OperatorReviewDto
   reload?: () => Promise<void>
@@ -61,6 +70,10 @@ export function EvidenceGroupPanel({
   dirty,
   select,
   choose,
+  uploads = [],
+  uploadProgress,
+  uploadQueue,
+  uploadActionsDisabled = true,
   crop,
   review,
   reload,
@@ -115,6 +128,11 @@ export function EvidenceGroupPanel({
   }
 
   const label = `${name} · ${evidence.length} files`
+  const lotCount = groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`
+  const uploadingText =
+    uploadProgress && `Uploading ${uploadProgress.current} of ${uploadProgress.total}`
+  const metaParts = [lineageKnown ? lotCount : null, uploadingText].filter(Boolean)
+  const meta = metaParts.length ? metaParts.join(' · ') : undefined
   const drop = useEvidenceDropZone(groupId, label, frozen)
 
   return (
@@ -123,9 +141,10 @@ export function EvidenceGroupPanel({
       dropState={drop.dropState}
       name={name}
       count={evidence.length}
-      meta={!lineageKnown ? undefined : groupLots.size === 1 ? '1 lot' : `${groupLots.size} lots`}
+      meta={meta}
       ungrouped={!group}
       label={label}
+      tabIndex={-1}
       nameLabel={`Name for ${name}`}
       nameDisabled={blocked(renameKey)}
       onDraftChange={dirty(renameKey)}
@@ -208,7 +227,7 @@ export function EvidenceGroupPanel({
           )}
         </>
       )}
-      {!evidence.length && <Paragraph>No files in this group.</Paragraph>}
+      {!evidence.length && !uploads.length && <Paragraph>No files in this group.</Paragraph>}
       <EvidenceGrid>
         {evidence.map((item) => {
           const controlLabel = fileName(item)
@@ -247,6 +266,15 @@ export function EvidenceGroupPanel({
             </EvidenceDragHandle>
           )
         })}
+        {uploadQueue &&
+          uploads.map((item) => (
+            <UploadTile
+              key={item.id}
+              item={item}
+              disabled={uploadActionsDisabled}
+              queue={uploadQueue}
+            />
+          ))}
       </EvidenceGrid>
       {opened && (
         <Dialog title={fileName(opened)} onClose={closeViewer} closeDisabled={noteDirty}>
