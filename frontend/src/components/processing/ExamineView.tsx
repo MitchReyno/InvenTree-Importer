@@ -108,13 +108,16 @@ function ReadingEdit({
       ? confirmed
       : { markings: readings.markings, text: readings.text ?? '' }
 
-  // Compares what Save would send, so spacing or an empty marking is not an unsaved change.
+  // Both sides are compared in saved form: spacing or an empty marking is not an unsaved change,
+  // and readings from an agent may carry spacing a save would trim.
+  const baselineForm = savedForm(baseline.markings, baseline.text)
+
   const differs = (nextMarkings: string[], nextText: string) => {
     const next = savedForm(nextMarkings, nextText)
     return (
-      next.text !== baseline.text ||
-      next.markings.length !== baseline.markings.length ||
-      next.markings.some((marking, index) => marking !== baseline.markings[index])
+      next.text !== baselineForm.text ||
+      next.markings.length !== baselineForm.markings.length ||
+      next.markings.some((marking, index) => marking !== baselineForm.markings[index])
     )
   }
 
