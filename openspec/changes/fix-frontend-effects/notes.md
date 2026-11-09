@@ -21,6 +21,7 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T23:15+11:00, task 1 (review round 6):** After one confirmed save, ReadingEdit's confirmed baseline hid every later poll, so the round-5 bug returned. The confirmed values are now the baseline only until the readings they were saved over change; then the polled readings are the baseline again, as before any save.
 - **2026-11-09T23:22+11:00, task 1 (review round 7):** ReadingEdit saves trimmed markings without empty ones but kept the raw draft, so once the batch reloaded the saved form an untidy draft read as unsaved again. A confirmed save now puts the saved form into the draft.
 - **2026-11-09T23:34+11:00, task 1 (review round 8):** ReadingEdit now compares the form Save would send (trimmed, without empty markings) with its baseline, so spacing or an empty marking is not an unsaved change and an untidy unconfirmed draft is released when the readings catch up. The review rounds 5–7 entries say readings arrive by poll; in the app Processing remounts on each revision, so these paths cover the component's prop contract rather than an observed one.
+- **2026-11-09T23:38+11:00, task 1 (review round 9):** The round-8 comparison normalised only the draft, so an agent reading with stray spacing read as unsaved as soon as the editor opened. The baseline is now compared in saved form too.
 
 ## Decisions made during implementation
 
