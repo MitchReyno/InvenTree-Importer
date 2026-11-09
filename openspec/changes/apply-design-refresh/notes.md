@@ -123,6 +123,10 @@ None for task 10.
 - **2026-11-10T06:48+11:00, task 8:** `PreparationTreeView` now renders `TreeView`, as Task 1 planned, and keeps its toolbar (counts, Expand all or Collapse all through `TreeView`'s controlled collapse, Only changes). The folded summary, a node's detail and change lines, and the Review link of a lot left out are the node's `detail`. `TreeView` has no selected state, so rows lose `aria-selected`; focus still marks the one tab stop. Rows of lots left out use `TreeView`'s `dimmed`.
 - **2026-11-10T06:48+11:00, task 8:** Unticking a lot marks its stock item and its attachments Not ticked ("Left for later") through `withTicks` until the new preparation is read; a lot ticked again shows its preparation's own Not ticked row until then, because what it would create is not known yet.
 
+- **2026-11-10T07:17+11:00, task 8 (review round 1):** Each lot's quantity under a location, and in the Inventory comparison, comes from the projection's stock item record rather than being re-derived from the capture, because the projection never gives an AI lot that inherits its quantity the batch default. An Examine estimate reads "About N pcs · Examine’s estimate, not yet accepted", and a lot with no count reads "Quantity needs a decision".
+- **2026-11-10T07:17+11:00, task 8 (review round 1):** A failed or paused existing-values read shows "Path unavailable: InvenTree couldn’t be read" in the list and the detail. A new location's path is its parent's InvenTree path and its name, only when the default's draft parent is valid and the read gives the parent's path; otherwise it reads "Not known". The location type is a disabled select rather than a description field.
+- **2026-11-10T07:17+11:00, task 8 (review round 1):** The Ready to add heading, footer and By type use the same ticked nodes as the Tree. A failed preparation leaves the previous one shown, so a status line says the unticked lots aren't prepared without them yet, and approval waits.
+
 ### Open items
 
 - Location types and their descriptions need a server read (BI-015).
@@ -133,17 +137,19 @@ None for task 10.
 
 - **2026-11-10T06:53+11:00, task 9 (PR-E):** The retained question carries only its kind (quantity or clarification), subject, prompt, reason and assumption. It names no existing stock item, holds none of its fields and offers no options. So:
   - **Comparison:** one "Compare before answering" card per open Inventory question about a lot. The "This batch" column shows the lot's Part, location and quantity from the records projection and the capture; the date code and the whole "In InvenTree" column read "Not known". The card isn't titled "Possible duplicate stock", because the app can't tell a duplicate-stock question from a Part or location question. Full data is BI-015.
-  - **Drawer:** the open question is answered in the drawer through `QuestionAnswer`, a clarification text or a quantity with Counted or Estimated, rather than the canvas's option cards, which would need options the question doesn't carry.
+  - **Drawer:** the open question is answered in the drawer through `QuestionAnswer`, a clarification text or a quantity with Counted or Estimated. The canvas's option cards are built but disabled above it, because the question carries no options (BI-015); the spec, proposal, design D7 and BI-015's scope now say so.
 - **2026-11-10T06:53+11:00, task 9 (PR-E):** The Inventory sub-tab already opened its step page (`#<batch>/processing/inventory`), so "link the sub-tab" needed no change; the sub-tab itself belongs to PR-B's batch header.
 - **2026-11-10T06:53+11:00, task 9 (PR-E):** The Part, location and company matches come from Review's records projection, the same records Review › Records edits, rather than from Inventory's proposals, which hold no match fields. The page shows them only while the step has retained work, like the other step pages, and keeps the job cards below them.
 
 ### Decisions made during implementation
 
 - **2026-11-10T06:53+11:00, task 9:** Only an Inventory session's drawer answers in place; other steps' drawers keep linking to the question on its step page, so their behaviour is unchanged. A question already pinned on the page keeps its link in the drawer, so one question never has two answer forms. Like the pinned answer, a drawer answer form appears only after this mount's fresh Processing read, so a warm cache never pins its question; until then the drawer shows the link.
+- **2026-11-10T07:17+11:00, task 9 (review round 1):** `DrawerAnswers` remembers which questions have forms and the capture revision each pinned, so a failed or paused read no longer unmounts a form or clears its guard. A clean form, and the page's pinned form, re-pin when another answer moves the capture revision; a form with a draft keeps its pin. No answer form sends while another answer form, the instructions or a correction has a draft, and it says why, so saving one never leaves another superseded.
+- **2026-11-10T07:17+11:00, task 9 (review round 1):** Closing the drawer with an unsaved answer shows "Save or discard your answer before closing this session" with "Discard answer and close", as the navigation guard keeps the route while a draft is open. After an answer saves, focus moves to the next form's field or the drawer title, which `Dialog` now makes focusable by script.
+- **2026-11-10T07:17+11:00, task 9 (review round 1):** A quantity question asks for a count, not about an existing record, so it gets no comparison card. Each comparison card is named for its lot, and each drawer form and option group for its question.
 - **2026-11-10T06:53+11:00, task 9:** Each drawer answer reports to its own navigation-guard source (`answer:<question>`). The workspace treats any answer source as an answer draft (`answerDirty`), so the batch instructions and Examine corrections still wait while one is unsaved, as they do for the pinned answer.
 
 ### Open items
 
-- Closing the drawer discards an unsaved drawer answer, as leaving the pinned question's page does today; keeping it across the drawer closing would need the answer draft stored like unsent chat messages.
 - The comparison's InvenTree column and date code need the question to carry the existing record (BI-015).
 - The Processing fixture (`tests/fixtures/processing.html`) has no Inventory work, so the step page isn't in the screenshot set yet.

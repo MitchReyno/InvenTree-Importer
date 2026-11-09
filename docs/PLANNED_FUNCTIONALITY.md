@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates, and reading existing manufacturer part, supplier part and location type descriptions. The rest is the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
+Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates, and reading existing manufacturer part, supplier part and location type descriptions. The rest is the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the option cards and the Inventory comparison.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed

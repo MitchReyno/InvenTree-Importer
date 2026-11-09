@@ -188,7 +188,7 @@ Applied per design change log entry. The table names the owning component, with 
 | Entries | Owner and change |
 | --- | --- |
 | D3, D21 | `changes/ReadyToAdd.tsx` and `PreparationTreeView.tsx`: a two-column layout in both views, and a location shown only when it differs from the batch default |
-| D7 | `processing/StepPage.tsx` with a new `ProcessingInventory.tsx`, using `CompareTable` when the duplicate question carries both records; missing fields read "Not known" |
+| D7 | `processing/StepPage.tsx` with a new `ProcessingInventory.tsx`, with a `CompareTable` for each open Inventory clarification about a lot: this batch's values beside the InvenTree record's, which read "Not known" because questions don't carry them yet (BI-015). The drawer's option cards show disabled for the same reason, above the working answer form |
 | D8 | `review/records/RecordsStage.tsx`: Locations type with list and detail; mapping edits follow "Unsupported record changes are honest" |
 | D17 | No app change: the app never had the canvas's "Who proposed what" panel, and its per-field `AskControl` ("Ask {step}", `RecordDetail.tsx:232-240`) already meets `review-records` › Steering routed to the proposing step, so it stays |
 | D18–D20 | Hand-off cards and helper sentences removed; help moves to `HelpButton` (Capture groups, Map legend); Review shortcuts become a "Shortcuts" button |
