@@ -246,7 +246,9 @@ test('group membership conflict retains one uploaded original in ungrouped witho
     },
     expect.any(String),
   )
-  const item = await screen.findByRole('listitem', { name: 'packet.png' })
+  // The notice stays where the file was meant to go; the file itself is in Ungrouped.
+  const target = screen.getByRole('region', { name: /Packet A/ })
+  const item = await within(target).findByRole('group', { name: 'Upload of packet.png' })
   expect(within(item).getByText(/Added to Ungrouped/)).toBeVisible()
   expect(within(item).queryByRole('button', { name: 'Retry packet.png' })).toBeNull()
 })
@@ -320,6 +322,16 @@ test('three photos picked into a group upload one after another and each joins t
 
   const group = screen.getByRole('region', { name: /Packet A/ })
   await waitFor(() => expect(within(group).getByText(/Uploading 2 of 3/)).toBeVisible())
+  // The file uploading and the one waiting show as tiles in the group's own grid.
+  expect(within(group).getByRole('group', { name: 'Upload of two.png' })).toHaveTextContent(
+    'Uploading…',
+  )
+  expect(within(group).getByRole('group', { name: 'Upload of three.png' })).toBeVisible()
+  expect(
+    within(screen.getByRole('region', { name: /Ungrouped/ })).queryByRole('group', {
+      name: /^Upload of/,
+    }),
+  ).toBeNull()
   await act(async () => release())
   await waitFor(() => expect(client.upload).toHaveBeenCalledTimes(3))
   await waitFor(() =>
@@ -348,10 +360,14 @@ test('unsupported media is refused before any upload intent is sent', async () =
   const input = screen.getByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
   await user.upload(input, new File(['bad'], 'packet.gif', { type: 'image/gif' }))
-  const item = screen.getByRole('listitem', { name: 'packet.gif' })
+  const ungrouped = screen.getByRole('region', { name: /Ungrouped/ })
+  const item = within(ungrouped).getByRole('group', { name: 'Upload of packet.gif' })
   expect(item).toHaveTextContent('Not added')
   expect(item).toHaveTextContent('JPEG or PNG')
   expect(client.upload).not.toHaveBeenCalled()
+  await user.click(within(item).getByRole('button', { name: 'Dismiss packet.gif' }))
+  expect(within(ungrouped).queryByRole('group', { name: 'Upload of packet.gif' })).toBeNull()
+  expect(document.activeElement).not.toBe(document.body)
 })
 
 test('a saved note remains acknowledged when its follow-up read fails', async () => {

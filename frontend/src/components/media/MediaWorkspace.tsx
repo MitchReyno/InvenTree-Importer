@@ -7,7 +7,7 @@ import { Paragraph, Small, Banner, Toast, Button } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
 import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
-import { useUploadQueue } from '#/media/useUploadQueue'
+import { uploadProgress, useUploadQueue, type UploadItem } from '#/media/useUploadQueue'
 import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
 import { EvidenceDragContext } from './EvidenceDragContext'
@@ -88,6 +88,16 @@ export function MediaWorkspace({
     revision: string
   } | null>(null)
   const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
+  const activeGroups = new Set(snapshot?.groups.map((group) => group.id))
+
+  // A file bound for a group that has since gone is shown with the ungrouped files.
+  function uploadsIn(groupId: string | null) {
+    return uploads.items.filter((item: UploadItem) => {
+      const shownIn = item.groupId && activeGroups.has(item.groupId) ? item.groupId : null
+      return shownIn === groupId
+    })
+  }
+
   const frozen = disabled || command.busy || command.pending || !snapshot || state.unavailable
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
@@ -153,7 +163,6 @@ export function MediaWorkspace({
     <Workspace aria-label="Retained evidence">
       <MediaUpload
         ref={upload}
-        disabled={blocked('upload')}
         chooseDisabled={blocked('upload')}
         noteDisabled={noteDisabled}
         onWriteNote={onWriteNote}
@@ -309,7 +318,9 @@ export function MediaWorkspace({
                   dirty={drafts.forSource}
                   select={state.select}
                   choose={(kind, id) => upload.current?.choose(kind, id)}
-                  uploading={uploads.progress(groupId)}
+                  uploads={uploadsIn(groupId)}
+                  uploadProgress={uploadProgress(uploadsIn(groupId))}
+                  uploadQueue={uploads}
                   crop={(version, page) => {
                     drafts.forSource('crop')(true)
                     setCrop({ version, page, revision: snapshot.revision })

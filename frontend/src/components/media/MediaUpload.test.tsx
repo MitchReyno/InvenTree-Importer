@@ -6,13 +6,21 @@ import { IntakeRequestError } from '@invimport/contracts/client'
 import { render } from '#/test/render'
 import { useUploadQueue, type UploadQueuePorts } from '#/media/useUploadQueue'
 import { MediaUpload } from './MediaUpload'
+import { UploadTile } from './UploadTile'
 
 type HarnessProps = UploadQueuePorts & { disabled: boolean }
 
 function Harness({ disabled, ...ports }: HarnessProps) {
   const queue = useUploadQueue(ports)
   return (
-    <MediaUpload disabled={disabled} chooseDisabled={disabled} noteDisabled={false} queue={queue} />
+    <>
+      <MediaUpload chooseDisabled={disabled} noteDisabled={false} queue={queue} />
+      <section aria-label="Grid">
+        {queue.items.map((item) => (
+          <UploadTile key={item.id} item={item} disabled={disabled} queue={queue} />
+        ))}
+      </section>
+    </>
   )
 }
 
@@ -100,8 +108,8 @@ test('several files upload one after another, each with its own key and the curr
   ])
 
   await waitFor(() => expect(queue.upload).toHaveBeenCalledOnce())
-  const files = screen.getByRole('list', { name: 'Uploads' })
-  expect(within(files).getAllByText('Uploading…')).toHaveLength(3)
+  expect(screen.getAllByRole('group', { name: /^Upload of / })).toHaveLength(3)
+  expect(screen.getAllByText('Uploading…')).toHaveLength(3)
   expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
 
   await act(async () => first.resolve(receipt('a.png')))
@@ -113,7 +121,7 @@ test('several files upload one after another, each with its own key and the curr
   expect(calls.map(([, , revision]) => revision)).toEqual(['1', '2', '3'])
   expect(new Set(calls.map(([, key]) => key)).size).toBe(3)
   await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
-  expect(screen.queryByRole('list', { name: 'Uploads' })).toBeNull()
+  expect(screen.queryAllByRole('group', { name: /^Upload of / })).toHaveLength(0)
 })
 
 test('a refused file shows Not added with its reason and Dismiss, and later files continue', async () => {
@@ -130,7 +138,7 @@ test('a refused file shows Not added with its reason and Dismiss, and later file
 
   await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
 
-  const refused = await screen.findByRole('listitem', { name: 'a.png' })
+  const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
   expect(within(refused).getByText(/Not added/)).toBeVisible()
   expect(within(refused).getByText(/evidence limit/)).toBeVisible()
   await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
@@ -139,7 +147,7 @@ test('a refused file shows Not added with its reason and Dismiss, and later file
   await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
 
   await user.click(within(refused).getByRole('button', { name: 'Dismiss a.png' }))
-  expect(screen.queryByRole('listitem', { name: 'a.png' })).toBeNull()
+  expect(screen.queryByRole('group', { name: 'Upload of a.png' })).toBeNull()
 })
 
 test('an unsupported file shows Not added without sending anything', async () => {
@@ -152,7 +160,7 @@ test('an unsupported file shows Not added without sending anything', async () =>
     new File(['gif'], 'packet.gif', { type: 'image/gif' }),
   )
 
-  const refused = screen.getByRole('listitem', { name: 'packet.gif' })
+  const refused = screen.getByRole('group', { name: 'Upload of packet.gif' })
   expect(within(refused).getByText(/Not added/)).toBeVisible()
   expect(within(refused).getByText(/JPEG or PNG/)).toBeVisible()
   expect(queue.upload).not.toHaveBeenCalled()
@@ -175,7 +183,7 @@ test('a lost response leaves Retry, later files continue, and Retry resends the 
 
   await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
 
-  const unconfirmed = await screen.findByRole('listitem', { name: 'a.png' })
+  const unconfirmed = await screen.findByRole('group', { name: 'Upload of a.png' })
   expect(within(unconfirmed).getByText(/Upload not confirmed/)).toBeVisible()
   await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
   expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
@@ -189,7 +197,7 @@ test('a lost response leaves Retry, later files continue, and Retry resends the 
   await waitFor(() => expect(queue.finish).toHaveBeenCalledTimes(2))
   expect(vi.mocked(queue.finish).mock.calls[1][0]).toEqual(receipt('a.png'))
   await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
-  expect(screen.queryByRole('listitem', { name: 'a.png' })).toBeNull()
+  expect(screen.queryByRole('group', { name: 'Upload of a.png' })).toBeNull()
 })
 
 test('Retry that meets a revision refusal sends the file once more with a new key at the current revision', async () => {
@@ -210,7 +218,7 @@ test('Retry that meets a revision refusal sends the file once more with a new ke
   render(<Harness {...queue} disabled={false} />)
 
   await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
-  const unconfirmed = await screen.findByRole('listitem', { name: 'a.png' })
+  const unconfirmed = await screen.findByRole('group', { name: 'Upload of a.png' })
   await user.click(within(unconfirmed).getByRole('button', { name: 'Retry a.png' }))
 
   await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
@@ -233,7 +241,7 @@ test('a second revision refusal marks the file Not added', async () => {
 
   await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
 
-  const refused = await screen.findByRole('listitem', { name: 'a.png' })
+  const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
   expect(within(refused).getByText(/Not added/)).toBeVisible()
   expect(queue.upload).toHaveBeenCalledTimes(2)
   expect(queue.finish).not.toHaveBeenCalled()
@@ -247,7 +255,7 @@ test('a retained file whose read fails stays protected and offers the read again
 
   await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
 
-  const unread = await screen.findByRole('listitem', { name: 'a.png' })
+  const unread = await screen.findByRole('group', { name: 'Upload of a.png' })
   expect(within(unread).getByText(/Added\. The current evidence could not be read/)).toBeVisible()
   expect(queue.onDirtyChange).toHaveBeenLastCalledWith(true)
   expect(within(unread).queryByRole('button', { name: 'Retry a.png' })).toBeNull()
@@ -265,9 +273,44 @@ test('a file that could not join its group says so and stays dismissible', async
 
   await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
 
-  const ungrouped = await screen.findByRole('listitem', { name: 'a.png' })
+  const ungrouped = await screen.findByRole('group', { name: 'Upload of a.png' })
   expect(within(ungrouped).getByText(/Added to Ungrouped/)).toBeVisible()
   await waitFor(() => expect(queue.onDirtyChange).toHaveBeenLastCalledWith(false))
   await user.click(within(ungrouped).getByRole('button', { name: 'Dismiss a.png' }))
-  expect(screen.queryByRole('listitem', { name: 'a.png' })).toBeNull()
+  expect(screen.queryByRole('group', { name: 'Upload of a.png' })).toBeNull()
+})
+
+test('Retry keeps focus on its tile while the file uploads again', async () => {
+  const user = userEvent.setup()
+  let lose = true
+  const queue = ports({
+    upload: vi.fn(async (file: File) => {
+      if (lose) {
+        lose = false
+        throw new TypeError('network')
+      }
+      return receipt(file.name)
+    }),
+  })
+  render(<Harness {...queue} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), photo('a.png'))
+  const tile = await screen.findByRole('group', { name: 'Upload of a.png' })
+  vi.mocked(queue.upload).mockImplementation(() => new Promise(() => undefined))
+  await user.click(within(tile).getByRole('button', { name: 'Retry a.png' }))
+  expect(tile).toHaveFocus()
+})
+
+test('Dismiss moves focus to the next tile rather than losing it', async () => {
+  const user = userEvent.setup({ applyAccept: false })
+  render(<Harness {...ports()} disabled={false} />)
+
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['gif'], 'one.gif', { type: 'image/gif' }),
+    new File(['gif'], 'two.gif', { type: 'image/gif' }),
+  ])
+  const first = screen.getByRole('group', { name: 'Upload of one.gif' })
+  await user.click(within(first).getByRole('button', { name: 'Dismiss one.gif' }))
+
+  expect(screen.getByRole('button', { name: 'Dismiss two.gif' })).toHaveFocus()
 })

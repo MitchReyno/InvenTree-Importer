@@ -307,7 +307,9 @@ for (const order of ['older first', 'newer first'] as const) {
     await waitFor(() => expect(input).toBeEnabled())
     for (const name of ['a.png', 'b.png']) {
       await user.upload(input, new File(['x'], name, { type: 'image/png' }))
-      await within(await screen.findByRole('listitem', { name })).findByText(/Not added/)
+      await within(await screen.findByRole('group', { name: `Upload of ${name}` })).findByText(
+        /Not added/,
+      )
     }
     expect(reads).toHaveLength(2)
     const older = { ...batch, revision: '2' }

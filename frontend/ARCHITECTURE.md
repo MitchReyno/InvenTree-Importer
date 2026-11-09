@@ -186,11 +186,11 @@ Session history is scoped by origin/operator/target/context, paginated and inval
 
 Picking files uploads them at once; there is no separate retain step. `media/useUploadQueue.ts` owns each picked File with its own idempotency key and expected revision, outside form state, and `MediaWorkspace` provides its ports. Photo and PDF pickers accept several files and bind their intended group before the picker opens. The queue sends one file at a time, because each upload and each group move advances the media revision: it reads the current revision, uploads, then adopts the receipt through a fresh membership read and a separate move command.
 
-Each file shows its own state in `MediaUpload`, and its group header shows "Uploading 2 of 3". Uploading is indeterminate because the fetch request reports no byte progress. Outcomes are handled per file:
+Each picked file shows as an `UploadTile` in its target group's evidence grid, or the ungrouped grid when it has no group or its group has gone, and the group header shows "Uploading 2 of 3". `MediaUpload` keeps only the pickers. Uploading is indeterminate because the fetch request reports no byte progress. Retry and Read again keep focus on their tile; Dismiss moves it to the next tile, the previous one or the group region. Outcomes are handled per file:
 
 - **Refused:** an unsupported file, a 4xx or a second revision refusal shows "Not added" with the reason and Dismiss; later files continue.
 - **Lost response:** "Upload not confirmed" keeps the exact request. Retry resends the same key, revision, label and bytes; a receipt is adopted, and a 412 proves the file was not kept, so it is sent once more with a new key at the current revision.
-- **Move not saved:** the retained original stays selected in its confirmed ungrouped projection, and its row says so.
+- **Move not saved:** the retained original stays selected in its confirmed ungrouped projection, and its tile in the target group says so.
 - **Failed read after a receipt:** reported separately and read again on request; it never authorizes another upload.
 
 Files uploading or awaiting Retry or a read count as unsaved work. Media, settings and instruction drafts share navigation protection without allowing a clean sibling to clear it.

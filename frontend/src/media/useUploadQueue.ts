@@ -54,14 +54,22 @@ export interface UploadProgress {
   total: number
 }
 
+/** "Uploading 2 of 3" for the files shown in one group; null once none is still in progress. */
+export function uploadProgress(items: UploadItem[]): UploadProgress | null {
+  const active = items.filter((item) => ACTIVE.includes(item.status))
+  if (!active.length) {
+    return null
+  }
+  const done = items.filter((item) => item.status === 'done').length
+  return { current: done + 1, total: done + active.length }
+}
+
 export interface UploadQueue {
   items: UploadItem[]
   add: (files: File[], kind: UploadKind, groupId?: string) => void
   retry: (id: string) => void
   readAgain: (id: string) => void
   dismiss: (id: string) => void
-  /** "Uploading 2 of 3" for files bound for a group, or the ungrouped area when null. */
-  progress: (groupId: string | null) => UploadProgress | null
 }
 
 const ACCEPTED_TYPES: Record<UploadKind, string[]> = {
@@ -302,15 +310,5 @@ export function useUploadQueue(ports: UploadQueuePorts): UploadQueue {
     publish()
   }
 
-  function progress(groupId: string | null): UploadProgress | null {
-    const bound = items.filter((item) => (item.groupId ?? null) === groupId)
-    const active = bound.filter((item) => ACTIVE.includes(item.status))
-    if (!active.length) {
-      return null
-    }
-    const done = bound.filter((item) => item.status === 'done').length
-    return { current: done + 1, total: done + active.length }
-  }
-
-  return { items, add, retry, readAgain, dismiss, progress }
+  return { items, add, retry, readAgain, dismiss }
 }
