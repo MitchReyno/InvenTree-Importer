@@ -2,8 +2,9 @@ import { useState } from 'react'
 import type { OperatorReviewDto } from '@invimport/contracts'
 
 /**
- * The newest operator review projection accepted for this batch revision. A matching projection
- * keeps draft owners mounted when a later poll fails; callers still fence commands on `current`.
+ * The newest operator review projection seen since mount, kept when a later poll fails so draft
+ * owners stay mounted. It is not checked against a batch revision: callers whose revision can
+ * change compare it themselves, and still fence commands on `current`.
  */
 export function useAcceptedOperatorReview(current: OperatorReviewDto | undefined) {
   const [accepted, setAccepted] = useState(current)
