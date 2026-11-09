@@ -92,7 +92,7 @@ function ReadingEdit({
   const [text, setText] = useState(readings.text ?? '')
   const [saving, setSaving] = useState(false)
 
-  // A confirmed save is the baseline until the readings it was saved over move on.
+  // A confirmed save is the baseline until new readings arrive; the draft then compares with them.
   const over = JSON.stringify(readings)
   const [confirmed, setConfirmed] = useState<{
     markings: string[]
@@ -137,6 +137,7 @@ function ReadingEdit({
         event.preventDefault()
         setSaving(true)
         const kept = text.trim()
+        const saved = markings.map((marking) => marking.trim()).filter(Boolean)
         void save({
           kind: 'observation',
           observation_id: observation.id,
@@ -144,14 +145,17 @@ function ReadingEdit({
           page: observation.page,
           region: observation.region,
           readings: {
-            markings: markings.map((marking) => marking.trim()).filter(Boolean),
+            markings: saved,
             ...(kept ? { text: kept } : {}),
           },
         })
           .then((result) => {
-            // A confirmed save is the new saved value, so the guard is released.
+            // The draft takes the saved form, so the reloaded readings match it and the guard stays
+            // released.
             if (result !== false) {
-              setConfirmed({ markings, text, over })
+              setMarkings(saved)
+              setText(kept)
+              setConfirmed({ markings: saved, text: kept, over })
               onDirty(false)
             }
           })
