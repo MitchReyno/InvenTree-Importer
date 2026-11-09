@@ -8,7 +8,7 @@ test('the dev server accepts the session profile and starts its worker', () => {
     'native-agent/2',
   )
   assert.deepEqual(processingWorker('native-agent/2'), {
-    entry: 'src/agents/session-worker-main.ts',
+    entry: 'src/agents/session/session-worker-main.ts',
     ready: 'session supervisor ready',
   })
 })
@@ -28,5 +28,5 @@ test('any other profile is still refused', () => {
 
 test('the shared VM profile selects the session coordinator', () => {
   const profile = developmentProfile({ INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/1' })
-  assert.equal(processingWorker(profile).entry, 'src/agents/session-worker-main.ts')
+  assert.equal(processingWorker(profile).entry, 'src/agents/session/session-worker-main.ts')
 })

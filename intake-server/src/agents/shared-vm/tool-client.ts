@@ -4,7 +4,7 @@ import { NativeSessionError } from '../failure-model.ts'
 import { connect } from 'node:net'
 import { once } from 'node:events'
 import { evidenceReplyLimit, Frames } from './frames.ts'
-import { SessionResumeUnavailable } from '../session-adapters.ts'
+import { SessionResumeUnavailable } from '../session/session-adapters.ts'
 import type { nativeTurn } from './native-turn.ts'
 
 /** The tool worker can use only the coordinator operations of its assigned turn. */

@@ -105,7 +105,7 @@ for (const lead of [false, true]) {
 
 test('replacement retains a successor identity pin and refuses stale identity work', async (t) => {
   const { formedBatch } = await import('../support/lot-pipeline.ts')
-  const { runSessionTurn } = await import('../../src/agents/session-runner.ts')
+  const { runSessionTurn } = await import('../../src/agents/session/session-runner.ts')
   const { fixture, deps, batchId, read, lot, successors, identities, pinned } = await formedBatch(t)
   const formed = await lot('led 0603 red')
   const [identity] = await identities(formed.id)

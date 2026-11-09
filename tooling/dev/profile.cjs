@@ -22,7 +22,7 @@ function processingWorker(profile) {
     profile === 'shared-vm-agent/1'
   ) {
     return {
-      entry: 'src/agents/session-worker-main.ts',
+      entry: 'src/agents/session/session-worker-main.ts',
       ready: 'session supervisor ready',
     }
   }

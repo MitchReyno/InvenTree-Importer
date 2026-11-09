@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { saveAgentSettings } from '../../src/agents/settings.ts'
-import { listAgentSessions } from '../../src/agents/sessions.ts'
+import { listAgentSessions } from '../../src/agents/session/sessions.ts'
 import { nativeProfileId } from '../../src/agents/policy.ts'
 
 for (const provider of ['codex', 'claude'] as const) {

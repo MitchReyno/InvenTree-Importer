@@ -14,7 +14,7 @@ import {
   interruptRunningSessions,
   queueSessionResume,
   runSessionTurn,
-} from '../../src/agents/session-runner.ts'
+} from '../../src/agents/session/session-runner.ts'
 
 type Provider = 'claude' | 'codex'
 

@@ -9,7 +9,7 @@ services:
     image: ${INTAKE_APP_IMAGE:?select the ARM64 app image}
     platform: linux/arm64
     pull_policy: never
-    command: [node, --import, tsx, src/agents/session-worker-main.ts]
+    command: [node, --import, tsx, src/agents/session/session-worker-main.ts]
     depends_on:
       provision: {condition: service_completed_successfully}
       api: {condition: service_started}

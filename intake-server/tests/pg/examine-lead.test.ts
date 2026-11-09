@@ -14,7 +14,7 @@ import {
   queueSessionResume,
   runSessionTurn,
   syntheticSessionDriver,
-} from '../../src/agents/session-runner.ts'
+} from '../../src/agents/session/session-runner.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 

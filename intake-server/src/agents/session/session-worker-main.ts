@@ -1,24 +1,24 @@
-import { startSessionBridge } from './shared-vm/coordinator.ts'
+import { startSessionBridge } from '../shared-vm/coordinator.ts'
 import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
-import { database } from '../db/database.ts'
-import { devConfig, processingConfig } from '../config.ts'
-import { compatibleSchema } from '../operations/compatibility.ts'
-import { readMediaStoreIdentity } from '../media/store-identity.ts'
-import { BlobStore } from '../media/blob-store.ts'
-import { dispatchProcessingCommands } from '../processing/delivery.ts'
-import { requireHandlerVersion } from '../workers/delivery.ts'
-import { processingApplication } from '../processing/queue.ts'
+import { database } from '../../db/database.ts'
+import { devConfig, processingConfig } from '../../config.ts'
+import { compatibleSchema } from '../../operations/compatibility.ts'
+import { readMediaStoreIdentity } from '../../media/store-identity.ts'
+import { BlobStore } from '../../media/blob-store.ts'
+import { dispatchProcessingCommands } from '../../processing/delivery.ts'
+import { requireHandlerVersion } from '../../workers/delivery.ts'
+import { processingApplication } from '../../processing/queue.ts'
 import {
   isSessionProfile,
   sessionCommandQueue,
   sessionHandlerVersion,
-} from '../processing/session-policy.ts'
-import { nativeAgentHost, privateDirectory } from './environment.ts'
-import { triggerExamine } from '../processing/examine-trigger.ts'
-import { acquireAgentSupervisor } from './worker.ts'
-import { startSessionToolServer } from './tools/server.ts'
+} from '../../processing/session-policy.ts'
+import { nativeAgentHost, privateDirectory } from '../environment.ts'
+import { triggerExamine } from '../../processing/examine-trigger.ts'
+import { acquireAgentSupervisor } from '../worker.ts'
+import { startSessionToolServer } from '../tools/server.ts'
 import {
   interruptRunningSessions,
   runSessionTurn,
@@ -30,7 +30,7 @@ import {
   SESSION_RESUME_WORKFLOW,
   wakePendingSessions,
 } from './session-execution.ts'
-import { deliverMissingInstructions } from './instructions.ts'
+import { deliverMissingInstructions } from '../instructions.ts'
 
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {

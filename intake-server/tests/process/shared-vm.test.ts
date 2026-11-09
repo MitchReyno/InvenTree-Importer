@@ -39,7 +39,7 @@ for (const route of ['claude', 'codex', 'personal-subscription', 'chatgpt-subscr
       })
       const worker = spawn(
         process.execPath,
-        ['--import', 'tsx', 'src/agents/session-worker-main.ts'],
+        ['--import', 'tsx', 'src/agents/session/session-worker-main.ts'],
         {
           env: {
             PATH: process.env.PATH,

@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
-import { decodeMediaInputs } from '../media/inputs.ts'
-import { sha256 } from '../db/authority.ts'
+import { decodeMediaInputs } from '../../media/inputs.ts'
+import { sha256 } from '../../db/authority.ts'
 
 type Call = (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>
 

@@ -10,7 +10,7 @@ import { triggerExamine } from '../../src/processing/examine-trigger.ts'
 import { decodeSessionInput } from '../../src/processing/session-input.ts'
 import { saveAgentSettings } from '../../src/agents/settings.ts'
 import { startSessionToolServer } from '../../src/agents/tools/server.ts'
-import { runSessionTurn, syntheticSessionDriver } from '../../src/agents/session-runner.ts'
+import { runSessionTurn, syntheticSessionDriver } from '../../src/agents/session/session-runner.ts'
 
 export type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
