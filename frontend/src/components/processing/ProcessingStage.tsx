@@ -5,6 +5,7 @@ import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
 import type { AgentsRead, ProcessingClient } from '../../processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
 import type { SharperRequestStore } from './ExamineView'
+import type { InstructionDelivery } from '../../processing/instruction-delivery'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -27,6 +28,10 @@ interface Props {
     text: string | undefined
     unavailable?: boolean
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
+    /** Whether the saved instructions reached the agents, kept across Processing's remounts. */
+    delivery?: InstructionDelivery
+    /** Sends the saved instructions to the agents again. */
+    deliver?: () => Promise<void>
   }
 }
 

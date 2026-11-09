@@ -1,5 +1,5 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
-import { Id, Digest, Revision, PositivePk, Quantity, CursorSequence } from './scalars.ts'
+import { Id, Digest, Revision, PositivePk, Quantity, CursorSequence, IsoTime } from './scalars.ts'
 import { PartOutput, SupportedEffectPreview, SupportedEffectResult } from './effects.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -112,6 +112,8 @@ export const ManualRun = object({
   batch_id: Id,
   revision: Revision,
   round_number: Revision,
+  /** When the round was approved; absent from runs read before it was carried. */
+  approved_at: Type.Optional(IsoTime),
   state: Type.Union(
     (
       [

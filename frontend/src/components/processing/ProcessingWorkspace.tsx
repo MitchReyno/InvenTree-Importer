@@ -27,10 +27,12 @@ import { InstructionField } from './InstructionField'
 import { Muted, STEP_LABEL } from './ProcessingParts'
 import { Dialog } from '../ui/Dialog'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
+import { lotsFormed } from '../../processing/lots-formed'
 import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { openQuestionsByLot } from '../../operator/review-model'
 import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
+import type { InstructionDelivery } from '../../processing/instruction-delivery'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -96,6 +98,10 @@ interface Props {
     text: string | undefined
     unavailable?: boolean
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
+    /** Whether the saved instructions reached the agents, kept across Processing's remounts. */
+    delivery?: InstructionDelivery
+    /** Sends the saved instructions to the agents again. */
+    deliver?: () => Promise<void>
   }
 }
 
@@ -185,6 +191,20 @@ export function ProcessingWorkspace({
       ? firstStart(agentSessions.data.sessions, batch.id)
       : undefined
   const sessionLimit = liveRead(agentSettings) ? agentSettings.data?.session_concurrency : undefined
+  // The batch's own read says whether it is paused; a change shows once it is read again.
+  const pause =
+    agents?.pause && liveRead(snapshotQuery)
+      ? {
+          paused: snapshotQuery.data?.paused === true,
+          change: async (paused: boolean) => {
+            await agents.pause!(batch.id, paused)
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey }),
+              queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') }),
+            ])
+          },
+        }
+      : undefined
   // Capture's media read names Examine's photos by file and group.
   const mediaSnapshot = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
@@ -574,6 +594,12 @@ export function ProcessingWorkspace({
                   instruct={
                     batch.archived || !instructions?.instruct ? undefined : saveInstructions
                   }
+                  delivery={instructions?.delivery}
+                  deliver={
+                    batch.archived || !instructions?.deliver
+                      ? undefined
+                      : () => void instructions.deliver!()
+                  }
                   locked={saving === 'answer'}
                   unavailable={instructions?.unavailable}
                   readOnlyReason={
@@ -593,7 +619,9 @@ export function ProcessingWorkspace({
               queue={queue}
               unusedFiles={unusedFiles}
               started={started}
+              lotsFormed={lotsFormed(batch.lots)}
               sessionLimit={sessionLimit}
+              pause={pause}
             />
           ) : (
             <StepPage

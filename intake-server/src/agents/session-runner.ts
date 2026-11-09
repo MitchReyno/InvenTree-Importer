@@ -23,7 +23,7 @@ import { lockProcessingAttempt, transitionAttempt } from '../processing/state.ts
 import { decodeSessionInput } from '../processing/session-input.ts'
 import { evidenceNotes } from '../capture/context-input.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
-import { agentSessions, agentSessionInbox } from './schema.ts'
+import { agentBatchPauses, agentSessionInbox, agentSessions } from './schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from './environment.ts'
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from './tools/capability.ts'
@@ -58,7 +58,7 @@ const LEAD_INSTRUCTIONS = [
   'Fetch each photo with fetch_evidence. Previews arrive downscaled; give regions in the page sizes it returns. A photo can hold several items, and one item can appear in several photos.',
   'Record each item you see with record_observation: one region per item, with its markings and any visible count. Say in its readings what the markings were read from (source_kind) and how sure you are (agreement).',
   'Group observations of the same physical thing with propose_lot: the front and back of one packet are one lot; the same part number with different date codes are separate lots that may share one Part.',
-  'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items.',
+  'Publish markings, identity and quantity for each lot with propose. A quantity is an estimate with its basis; never add up photos of the same items, and count an observation with same_item_as once with the one it names.',
   'An identity relies on the lot’s current observation set: cite it in relies_on as {kind: "observation_set", lot_id, version} with the observation_set_version read_batch returns. That makes the identity stable, which starts the lot’s Research and Images; after you regroup a lot, publish its identity again.',
   'Call read_batch for the current lots, Parts and observations. Pass the revision from your last tool response as base_revision. On a stale result, read_batch again and re-plan. Lots and observations the operator edited only accept suggestions; a response with suggested: true changed nothing else.',
   'Evidence notes and groups are hints, not lot boundaries. When new evidence arrives in the inbox, examine only that evidence.',
@@ -362,8 +362,8 @@ function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: b
     pending_inbox: pending,
     instructions:
       (manifest.stage === 'examine' ? `${LEAD_INSTRUCTIONS} ` : '') +
-      'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero. ' +
-      'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator.',
+      'Report steps with status, publish proposals with propose, ask questions with ask and keep working. Check read_inbox whenever pending_inbox is above zero. An instruction item is the operator’s saved instruction for the batch, or for one evidence group when it names one: follow it from then on; empty text withdraws the earlier one. ' +
+      'Put catalogue values in the proposal’s catalogue block, each with its sources, and with source_kind and agreement when you know them: an existing category, parameter, manufacturer or supplier as the observed reference, or a proposed_new name with a reason when none exists. Only existing references can enter a Part spec; the rest are kept for the operator. When sources disagree on a parameter, give the value you used, the others as alternatives with their sources, and chosen_because. List the category’s mapped templates you found no value for in required_missing, each with why. For an existing category, give the reason you chose it and any alternative you considered; name the nearest existing Part you chose not to reuse in not_reused, with why.',
   })
 }
 
@@ -430,6 +430,16 @@ export async function runSessionTurn(
       if (batch[0].archived) {
         // Archived work does not run; it stays queued and is not woken while archived.
         return 'archived' as const
+      }
+      // A paused batch's sessions stay queued, their inbox kept, until Resume.
+      const paused = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ batchId: agentBatchPauses.batchId })
+          .from(agentBatchPauses)
+          .where(eq(agentBatchPauses.batchId, row.batchId)),
+      )
+      if (paused.length) {
+        return 'paused' as const
       }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
       // Drain a sealed VM turn on its paired deployment. A VM worker must also leave
@@ -516,7 +526,7 @@ export async function runSessionTurn(
   if (claimed === 'cancelled') {
     return 'cancelled' as const
   }
-  if (claimed === 'archived' || claimed === 'waiting') {
+  if (claimed === 'archived' || claimed === 'paused' || claimed === 'waiting') {
     return 'queued' as const
   }
   const current = claimed

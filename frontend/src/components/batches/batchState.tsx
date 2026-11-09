@@ -61,6 +61,49 @@ export function BatchState({ workflow }: { workflow?: InboxWorkflowDto }) {
   return <Pill tone="neutral">In review</Pill>
 }
 
+const LATER_STEPS = [
+  ['research', 'Research'],
+  ['images', 'Images'],
+  ['inventory', 'Inventory'],
+] as const
+
+/** What the batch's agents are doing now: "Sorting into lots · 5 found so far", "Research · 3 of 5". */
+export function stageLine(workflow: InboxWorkflowDto) {
+  const steps = workflow.steps
+  if (!steps) {
+    return null
+  }
+  if (steps.examine.running > 0) {
+    return workflow.lots > 0
+      ? `Sorting into lots · ${workflow.lots} found so far`
+      : 'Sorting into lots'
+  }
+  const running = LATER_STEPS.find(([step]) => steps[step].running > 0)
+  if (!running) {
+    return null
+  }
+  const counts = steps[running[0]]
+
+  return `${running[1]} · ${counts.ready} of ${counts.jobs}`
+}
+
+const counted = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
+
+/** The batch's evidence by kind: "4 photos · 1 document". */
+export function evidenceLine(workflow: InboxWorkflowDto) {
+  const evidence = workflow.evidence
+  if (!evidence) {
+    return null
+  }
+  const parts = [
+    evidence.photos ? counted(evidence.photos, 'photo', 'photos') : '',
+    evidence.documents ? counted(evidence.documents, 'document', 'documents') : '',
+    evidence.other ? counted(evidence.other, 'other file', 'other files') : '',
+  ].filter(Boolean)
+
+  return parts.length ? parts.join(' · ') : null
+}
+
 /** How much of the batch is approved, as a thin bar; it turns green only once added complete. */
 export function AddedBar({ workflow }: { workflow?: InboxWorkflowDto }) {
   if (!workflow || workflow.lots === 0) {
@@ -81,6 +124,10 @@ export function BatchCounts({ workflow }: { workflow: InboxWorkflowDto }) {
     [workflow.ready, 'ready'],
     [workflow.open_questions, workflow.open_questions === 1 ? 'question' : 'questions'],
     [workflow.blocked, 'blocked'],
+    [
+      workflow.possible_duplicates ?? 0,
+      workflow.possible_duplicates === 1 ? 'possible duplicate' : 'possible duplicates',
+    ],
   ]
   return (
     <Counts aria-label="Batch counts">

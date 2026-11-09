@@ -298,6 +298,12 @@ export function RecordsStage({
                         if (selected) {
                           clearPending(`${batch.id}:ask:${selected.key}:`)
                         }
+                        // The matrix's conflict questions are drafts of this page too.
+                        for (const record of records.records) {
+                          if (record.type === 'parameter') {
+                            clearPending(`${batch.id}:ask:${record.key}:conflict`)
+                          }
+                        }
                         setDiscards((value) => value + 1)
                         setBlocked(false)
                       }}
@@ -312,9 +318,14 @@ export function RecordsStage({
             )}
             {type === 'parameter' && (
               <ParameterMatrix
+                key={`${discards}:${discarded}`}
                 batch={batch}
                 records={records.records}
                 open={(key) => choose('parameter', key)}
+                edit={edit}
+                ask={(record, step) => askFor(record)(step)}
+                disabled={disabled}
+                reportFor={drafts.forSource}
               />
             )}
             {selected && (
@@ -363,6 +374,7 @@ export function RecordsStage({
                 save={edit}
                 disabled={disabled}
                 reportFor={drafts.forSource}
+                dirty={drafts.dirty}
                 ask={askFor(selected)}
                 existing={selected.mapped && client?.existing ? existing : undefined}
               />

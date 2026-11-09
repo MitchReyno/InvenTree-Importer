@@ -5,6 +5,7 @@ import { color, radius, space, typeVar } from '../../theme/generated/tokens'
 import { observationFresh, preferredWork, workflowSummary } from '../../header/observations'
 import { useCachedBatchReads } from '../../header/useCachedBatchReads'
 import {
+  batchStepCounts,
   compactJobWord,
   jobGroup,
   otherOpenJobs,
@@ -54,13 +55,14 @@ export function ActivityIndicator({ data, batchId, unavailable, now, open, onOpe
       ? (cached.title ?? 'Current batch')
       : 'Application-wide'
   const questions = attention?.processing.questions ?? 0
+  const counts = batchStepCounts(data, preferred?.batch_id, attention)
   const segments =
     preferred?.kind === 'processing'
-      ? processingSegments(jobs, attention)
+      ? processingSegments(jobs, counts)
       : preferred
         ? segmentSteps(preferred)
         : []
-  const progress = fresh && preferred?.kind === 'processing' ? processingProgress(attention) : ''
+  const progress = fresh && preferred?.kind === 'processing' ? processingProgress(counts) : ''
   const more = fresh && data ? otherOpenJobs(data.work, preferred) : 0
   const compact = !fresh
     ? compactWord(unavailable, !!data)

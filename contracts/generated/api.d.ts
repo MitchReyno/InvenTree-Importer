@@ -955,6 +955,289 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgentPauseUpdate"];
+                };
+            };
+            responses: {
+                /** @description AgentPauseAll */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentPauseAll"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/agents/instructions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description InstructionDelivery */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InstructionDelivery"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/agents/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgentPauseUpdate"];
+                };
+            };
+            responses: {
+                /** @description AgentPause */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentPause"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/processing-activity": {
         parameters: {
             query?: never;
@@ -3731,6 +4014,34 @@ export interface components {
                 preview_id: string;
                 label: string;
             };
+            steps?: {
+                examine: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+                research: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+                images: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+                inventory: {
+                    jobs: number;
+                    ready: number;
+                    running: number;
+                };
+            };
+            evidence?: {
+                photos: number;
+                documents: number;
+                other: number;
+            };
+            possible_duplicates?: number;
         };
         InboxList: {
             batches: {
@@ -3760,6 +4071,34 @@ export interface components {
                         preview_id: string;
                         label: string;
                     };
+                    steps?: {
+                        examine: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                        research: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                        images: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                        inventory: {
+                            jobs: number;
+                            ready: number;
+                            running: number;
+                        };
+                    };
+                    evidence?: {
+                        photos: number;
+                        documents: number;
+                        other: number;
+                    };
+                    possible_duplicates?: number;
                 };
             }[];
             truncated: boolean;
@@ -4844,6 +5183,11 @@ export interface components {
                 lot_id?: string | null;
             } | {
                 /** @constant */
+                kind: "observation_same_item";
+                observation_id: string;
+                same_as: string | null;
+            } | {
+                /** @constant */
                 kind: "observation_move";
                 observation_id: string;
                 lot_id: string | null;
@@ -5312,6 +5656,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -5355,6 +5700,7 @@ export interface components {
                 revision: string;
                 lot_id: string | null;
                 suggested_lot_ids: string[];
+                same_item_as?: string;
             }[];
             notes: {
                 id: string;
@@ -5698,6 +6044,14 @@ export interface components {
             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
             agreement?: "read" | "likely" | "disagree";
+            alternatives?: {
+                value: string;
+                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                agreement?: "read" | "likely" | "disagree";
+            }[];
+            chosen_because?: string;
         } | {
             /** @constant */
             kind: "estimate";
@@ -5719,6 +6073,14 @@ export interface components {
                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                 agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
             } | {
                 /** @constant */
                 kind: "estimate";
@@ -5771,6 +6133,14 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
                 } | {
                     /** @constant */
                     kind: "estimate";
@@ -5813,6 +6183,31 @@ export interface components {
                 /** Format: int64 */
                 pk: string;
             };
+            reuse?: {
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "part";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                label: string;
+                reason: string;
+            };
+            category_reason?: {
+                reason: string | null;
+                alternative: {
+                    name: string;
+                    reason: string | null;
+                } | null;
+            };
+            required_missing?: {
+                /** Format: int64 */
+                template_pk: string;
+                name: string;
+                reason: string | null;
+            }[];
         };
         BatchRecords: {
             batch_id: string;
@@ -5869,6 +6264,14 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
                     } | {
                         /** @constant */
                         kind: "estimate";
@@ -5911,6 +6314,31 @@ export interface components {
                     /** Format: int64 */
                     pk: string;
                 };
+                reuse?: {
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
+                category_reason?: {
+                    reason: string | null;
+                    alternative: {
+                        name: string;
+                        reason: string | null;
+                    } | null;
+                };
+                required_missing?: {
+                    /** Format: int64 */
+                    template_pk: string;
+                    name: string;
+                    reason: string | null;
+                }[];
             }[];
         };
         RecordMapped: {
@@ -6079,6 +6507,7 @@ export interface components {
                 failure_code: ("invalid_configuration" | "timeout" | "http_error" | "redirect_refused" | "unexpected_response" | "unavailable") | null;
                 navigation_url: string | null;
                 label: string | null;
+                version?: string | null;
                 kind?: "owned_test" | "configured";
             };
         };
@@ -6139,6 +6568,31 @@ export interface components {
                     text: string;
                     at: string;
                 } | null;
+            }[];
+            batch_steps?: {
+                batch_id: string;
+                steps: {
+                    examine: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                    research: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                    images: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                    inventory: {
+                        jobs: number;
+                        ready: number;
+                        running: number;
+                    };
+                };
             }[];
             work_truncated: boolean;
             sessions_truncated: boolean;
@@ -6713,6 +7167,7 @@ export interface components {
             revision: string;
             /** Format: int64 */
             round_number: string;
+            approved_at?: string;
             state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
             effect_certainty: "none" | "confirmed" | "unknown" | "mixed";
             part_attachments?: ({
@@ -6837,6 +7292,7 @@ export interface components {
                 revision: string;
                 /** Format: int64 */
                 round_number: string;
+                approved_at?: string;
                 state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
                 effect_certainty: "none" | "confirmed" | "unknown" | "mixed";
                 part_attachments?: ({
@@ -7070,11 +7526,16 @@ export interface components {
             kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
             label: string;
             detail: string | null;
-            state: "new" | "update" | "exists" | "choose";
+            state: "new" | "update" | "exists" | "choose" | "not_ticked";
             parent_key: string | null;
             location_key: string | null;
             lot_id: string | null;
             part_subject_id: string | null;
+            changes?: {
+                field: string;
+                before: string | null;
+                after: string | null;
+            }[];
         };
         PreparationTree: {
             preparation_id: string;
@@ -7084,11 +7545,16 @@ export interface components {
                 kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
                 label: string;
                 detail: string | null;
-                state: "new" | "update" | "exists" | "choose";
+                state: "new" | "update" | "exists" | "choose" | "not_ticked";
                 parent_key: string | null;
                 location_key: string | null;
                 lot_id: string | null;
                 part_subject_id: string | null;
+                changes?: {
+                    field: string;
+                    before: string | null;
+                    after: string | null;
+                }[];
             }[] | null;
         };
         ProcessingStageV2: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
@@ -7373,6 +7839,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -7853,6 +8320,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -8333,6 +8801,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -8803,6 +9272,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -9079,6 +9549,11 @@ export interface components {
                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                 agreement?: "read" | "likely" | "disagree";
+                reason?: string;
+                alternative?: {
+                    name: string;
+                    reason?: string;
+                };
             } | {
                 /** @constant */
                 choice: "proposed_new";
@@ -9136,6 +9611,58 @@ export interface components {
                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                 agreement?: "read" | "likely" | "disagree";
+                alternatives?: {
+                    value: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                    agreement?: "read" | "likely" | "disagree";
+                }[];
+                chosen_because?: string;
+            }[];
+            not_reused?: {
+                part: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "part";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                label: string;
+                reason: string;
+            };
+            required_missing?: {
+                name: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                reason: string;
             }[];
             manufacturer: {
                 company: {
@@ -9165,6 +9692,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -9233,6 +9765,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -9383,6 +9920,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -9440,6 +9982,58 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
+                }[];
+                not_reused?: {
+                    part: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
+                required_missing?: {
+                    name: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    reason: string;
                 }[];
                 manufacturer: {
                     company: {
@@ -9469,6 +10063,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -9537,6 +10136,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -9715,6 +10319,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10171,6 +10776,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10531,6 +11137,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -10894,6 +11501,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11607,6 +12215,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -11966,6 +12575,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -12328,6 +12938,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -12690,6 +13301,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -13053,6 +13665,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -13422,6 +14035,7 @@ export interface components {
                     reason: string;
                     at: string;
                 };
+                formed_at?: string;
                 estimated_quantity?: string;
                 quantity_basis?: string;
                 evidence_observation_ids?: string[];
@@ -13948,6 +14562,11 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    reason?: string;
+                    alternative?: {
+                        name: string;
+                        reason?: string;
+                    };
                 } | {
                     /** @constant */
                     choice: "proposed_new";
@@ -14005,6 +14624,58 @@ export interface components {
                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                     agreement?: "read" | "likely" | "disagree";
+                    alternatives?: {
+                        value: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                        source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                        /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                        agreement?: "read" | "likely" | "disagree";
+                    }[];
+                    chosen_because?: string;
+                }[];
+                not_reused?: {
+                    part: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "part";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    reason: string;
+                };
+                required_missing?: {
+                    name: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    reason: string;
                 }[];
                 manufacturer: {
                     company: {
@@ -14034,6 +14705,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -14102,6 +14778,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -14687,6 +15368,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -14744,6 +15430,58 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            alternatives?: {
+                                value: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                                /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                agreement?: "read" | "likely" | "disagree";
+                            }[];
+                            chosen_because?: string;
+                        }[];
+                        not_reused?: {
+                            part: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "part";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            label: string;
+                            reason: string;
+                        };
+                        required_missing?: {
+                            name: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            reason: string;
                         }[];
                         manufacturer: {
                             company: {
@@ -14773,6 +15511,11 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -14841,6 +15584,11 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -15116,6 +15864,11 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                reason?: string;
+                                alternative?: {
+                                    name: string;
+                                    reason?: string;
+                                };
                             } | {
                                 /** @constant */
                                 choice: "proposed_new";
@@ -15173,6 +15926,58 @@ export interface components {
                                 source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                 /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                 agreement?: "read" | "likely" | "disagree";
+                                alternatives?: {
+                                    value: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                    /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                                    source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                                    /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                                    agreement?: "read" | "likely" | "disagree";
+                                }[];
+                                chosen_because?: string;
+                            }[];
+                            not_reused?: {
+                                part: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "part";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                label: string;
+                                reason: string;
+                            };
+                            required_missing?: {
+                                name: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                reason: string;
                             }[];
                             manufacturer: {
                                 company: {
@@ -15202,6 +16007,11 @@ export interface components {
                                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                     agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
                                 } | {
                                     /** @constant */
                                     choice: "proposed_new";
@@ -15270,6 +16080,11 @@ export interface components {
                                     source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                                     /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                                     agreement?: "read" | "likely" | "disagree";
+                                    reason?: string;
+                                    alternative?: {
+                                        name: string;
+                                        reason?: string;
+                                    };
                                 } | {
                                     /** @constant */
                                     choice: "proposed_new";
@@ -15371,6 +16186,8 @@ export interface components {
                 /** Format: int64 */
                 sequence: string;
             };
+            /** @constant */
+            paused?: true;
         };
         ProcessingReceipt: {
             batch_id: string;
@@ -16263,9 +17080,29 @@ export interface components {
                     text: string;
                     at: string;
                 } | null;
+                /** @constant */
+                paused?: true;
             }[];
+            paused_batch_ids?: string[];
+            /** @constant */
+            paused_truncated?: true;
             next_before: string | null;
             sessions_supported: boolean;
+        };
+        AgentPauseUpdate: {
+            paused: boolean;
+        };
+        AgentPause: {
+            batch_id: string;
+            paused: boolean;
+        };
+        AgentPauseAll: {
+            paused: boolean;
+            batch_ids: string[];
+        };
+        InstructionDelivery: {
+            sessions: number;
+            woken: number;
         };
         SessionReplacement: {
             /** Format: int64 */
@@ -16408,6 +17245,18 @@ export interface components {
                 seq: string;
                 created_at: string;
                 /** @constant */
+                kind: "instruction";
+                payload: {
+                    instruction_id: string;
+                    text: string;
+                    group_id: string | null;
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
                 kind: "revision";
                 payload: {
                     fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -16513,6 +17362,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -16570,6 +17424,58 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
+                    }[];
+                    not_reused?: {
+                        part: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "part";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        label: string;
+                        reason: string;
+                    };
+                    required_missing?: {
+                        name: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        reason: string;
                     }[];
                     manufacturer: {
                         company: {
@@ -16599,6 +17505,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -16667,6 +17578,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -16872,6 +17788,11 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        reason?: string;
+                        alternative?: {
+                            name: string;
+                            reason?: string;
+                        };
                     } | {
                         /** @constant */
                         choice: "proposed_new";
@@ -16929,6 +17850,58 @@ export interface components {
                         source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                         /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                         agreement?: "read" | "likely" | "disagree";
+                        alternatives?: {
+                            value: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                            /** @description Where the value was read: a printed label, a packing slip, handwriting, or a distributor page. */
+                            source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
+                            /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
+                            agreement?: "read" | "likely" | "disagree";
+                        }[];
+                        chosen_because?: string;
+                    }[];
+                    not_reused?: {
+                        part: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "part";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        label: string;
+                        reason: string;
+                    };
+                    required_missing?: {
+                        name: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        reason: string;
                     }[];
                     manufacturer: {
                         company: {
@@ -16958,6 +17931,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -17026,6 +18004,11 @@ export interface components {
                             source_kind?: "label" | "packing_slip" | "handwriting" | "distributor_page";
                             /** @description read: stated plainly by its source; likely: inferred or partly legible; disagree: sources conflict. */
                             agreement?: "read" | "likely" | "disagree";
+                            reason?: string;
+                            alternative?: {
+                                name: string;
+                                reason?: string;
+                            };
                         } | {
                             /** @constant */
                             choice: "proposed_new";
@@ -17155,6 +18138,18 @@ export interface components {
                 seq: string;
                 created_at: string;
                 /** @constant */
+                kind: "instruction";
+                payload: {
+                    instruction_id: string;
+                    text: string;
+                    group_id: string | null;
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
                 kind: "revision";
                 payload: {
                     fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -17216,6 +18211,7 @@ export interface components {
                     supersedes_observation_id: string | null;
                     lot_id: string | null;
                     operator_edited: boolean;
+                    same_item_as?: string;
                 }[];
             };
         } | {
@@ -17360,6 +18356,18 @@ export interface components {
             seq: string;
             created_at: string;
             /** @constant */
+            kind: "instruction";
+            payload: {
+                instruction_id: string;
+                text: string;
+                group_id: string | null;
+            };
+        } | {
+            id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
             kind: "revision";
             payload: {
                 fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
@@ -17465,6 +18473,7 @@ export interface components {
             revision: string;
             lot_id: string | null;
             suggested_lot_ids: string[];
+            same_item_as?: string;
         };
         RecordObservationArgs: {
             /** Format: int64 */
@@ -17573,6 +18582,7 @@ export interface components {
                 supersedes_observation_id: string | null;
                 lot_id: string | null;
                 operator_edited: boolean;
+                same_item_as?: string;
             }[];
         };
         SessionReadBatchArgs: Record<string, never>;
@@ -17755,6 +18765,10 @@ export type AgentSelection = components['schemas']['AgentSelection']
 export type AgentSettings = components['schemas']['AgentSettings']
 export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
 export type AgentSessionList = components['schemas']['AgentSessionList']
+export type AgentPauseUpdate = components['schemas']['AgentPauseUpdate']
+export type AgentPause = components['schemas']['AgentPause']
+export type AgentPauseAll = components['schemas']['AgentPauseAll']
+export type InstructionDelivery = components['schemas']['InstructionDelivery']
 export type SessionReplacement = components['schemas']['SessionReplacement']
 export type SessionLatestStatus = components['schemas']['SessionLatestStatus']
 export type SessionTimeline = components['schemas']['SessionTimeline']

@@ -1,4 +1,6 @@
-import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
+import type { BatchRecordDto, CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
+import { Banner } from '../../ui/Banner'
+import { Button } from '../../ui/Button'
 import { batchHref } from '../../../navigation/batch-route'
 import { mappingsFor, observed, referenceTo } from '../../../records/model'
 import { CheckboxLabel, Fieldset, Input, Label, Link, Select, Small } from '../../ui/primitives'
@@ -13,13 +15,56 @@ type Props = {
   save: Save
   disabled: boolean
   reportFor: (source: string) => (dirty: boolean) => void
+  /** Some draft on the page is unsaved, such as one of this Part's fields or a question. */
+  dirty?: boolean
+  /** The Part's record: the existing Part its step did not reuse, and its category reasoning. */
+  record?: Pick<BatchRecordDto, 'reuse' | 'category_reason'>
 }
 
 /** One Part's own fields; each section saves on its own and says what it applies to. */
-export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: Props) {
+export function PartEditor({
+  batch,
+  partId,
+  spec,
+  save,
+  disabled,
+  reportFor,
+  dirty = false,
+  record,
+}: Props) {
   const target = { kind: 'part' as const, part_subject_id: partId }
+  const reuse = record?.reuse
+  const reasoning = record?.category_reason
+  const reusing = useRecordSave(batch, save)
   return (
     <>
+      {reuse && (
+        <Banner tone="info" icon="≈">
+          Not reusing {reuse.label}: {reuse.reason}{' '}
+          <Button
+            size="sm"
+            variant="link"
+            disabled={disabled || dirty || reusing.busy}
+            onClick={() =>
+              void reusing.send({
+                kind: 'part',
+                id: partId,
+                choice: { mode: 'set', value: reuse.reference },
+              })
+            }
+          >
+            Use {reuse.label} instead
+          </Button>
+          {/* Reusing replaces this Part's record, so its unsaved drafts would be lost. */}
+          {dirty && <Small> Save or discard this Part’s changes first.</Small>}
+          {reusing.problem && <Small role="alert"> {reusing.problem}</Small>}
+          {reusing.retry && (
+            <Button size="sm" variant="ghost" onClick={() => void reusing.retry?.()}>
+              Load current values
+            </Button>
+          )}
+        </Banner>
+      )}
       <TextField
         batch={batch}
         label="Name"
@@ -73,6 +118,17 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: P
         disabled={disabled}
         report={reportFor('category')}
       />
+      {reasoning && (
+        <Small>
+          {[
+            reasoning.reason && `Chosen because ${reasoning.reason.replace(/\.$/, '')}.`,
+            reasoning.alternative &&
+              `Alternative considered: ${reasoning.alternative.name}${reasoning.alternative.reason ? ` (${reasoning.alternative.reason.replace(/\.$/, '')})` : ''}.`,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        </Small>
+      )}
       <Fieldset>
         <legend>Parameters</legend>
         {spec.parameters.length === 0 && <Small>No parameters.</Small>}
@@ -323,3 +379,4 @@ function CategoryField({
     </Fieldset>
   )
 }
+

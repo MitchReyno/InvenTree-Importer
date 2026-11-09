@@ -25,13 +25,14 @@ export function scopedConnectionStatus(
   binding: Binding,
   origin: string | undefined,
   probe?: () => Promise<Response>,
+  version?: () => Promise<Response>,
 ) {
   const scope = {
     actorId: binding.actorId,
     targetId: binding.targetId,
     targetContextId: binding.targetContextId,
   }
-  const read = connectionStatus(scope, origin, probe)
+  const read = connectionStatus(scope, origin, probe, Date.now, version)
   return async () => {
     await requireHeaderContext(pool, scope)
     const result = await read()

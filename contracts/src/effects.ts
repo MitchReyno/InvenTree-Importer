@@ -12,7 +12,7 @@ export const InventoryModel = Type.Union(
 )
 
 export const mappedReference = <
-  M extends 'category' | 'parameter_template' | 'category_parameter' | 'company',
+  M extends 'category' | 'parameter_template' | 'category_parameter' | 'company' | 'part',
 >(
   model: M,
 ) =>

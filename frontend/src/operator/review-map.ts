@@ -1,4 +1,4 @@
-import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import { lotItemCount, type CaptureSnapshotDto, type MediaSnapshotDto } from '@invimport/contracts'
 import { evidenceDisplayNames } from '../media/identity-labels'
 
 /**
@@ -34,6 +34,8 @@ export type MapRegion = {
   lotId: string | null
   /** A photo region shows the item; a document line only supports it. */
   kind: 'pixels' | 'lines'
+  /** The region of the same lot that shows the same physical item. */
+  sameItemAs?: string
 }
 
 /** A drawn connector: solid where the file shows the lot, dotted where it only supports it. */
@@ -59,6 +61,10 @@ export type MapLot = {
   observations: number
   /** One observation once observations exist, otherwise one file. */
   singleSource: boolean
+  /** Items the observations count, each physical item once; null when none counts. */
+  counted: number | null
+  /** Observations marked as showing an item another one already shows. */
+  seenAgain: number
 }
 
 /**
@@ -106,6 +112,7 @@ export function reviewMap(
             ? item.lot_id
             : null,
         kind: item.region.kind,
+        ...(item.same_item_as ? { sameItemAs: item.same_item_as } : {}),
       }))
   }
 
@@ -146,6 +153,8 @@ export function reviewMap(
       fileIds,
       observations: count,
       singleSource: count > 0 ? count === 1 : fileIds.length === 1,
+      counted: lotItemCount(observations, lot.id),
+      seenAgain: observations.filter((item) => item.lot_id === lot.id && item.same_item_as).length,
     }
   })
 

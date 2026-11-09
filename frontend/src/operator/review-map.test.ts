@@ -109,6 +109,8 @@ describe('reviewMap', () => {
         fileIds: ['photo', 'slip'],
         observations: 0,
         singleSource: false,
+        counted: null,
+        seenAgain: 0,
       },
     ])
   })

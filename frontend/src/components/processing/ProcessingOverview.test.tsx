@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BatchAttentionDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -292,13 +292,44 @@ describe('InstructionField', () => {
     expect(screen.getByText(/not available in this setup/)).toBeInTheDocument()
   })
 
-  it('says the instruction is saved for the batch, not yet sent to running agents', () => {
+  it('says a saved instruction reaches running agents and wakes finished ones', () => {
     render(<InstructionField text="" revision="4" instruct={undefined} onDirtyChange={vi.fn()} />)
     expect(
       screen.getByText(
-        'Saved for the batch. Running agents are not told of a change yet. Instructions do not approve inventory values.',
+        'Saved for the batch and sent to its agents: running ones pick it up as they work, and finished ones are woken to apply it. Instructions do not approve inventory values.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('says when saved instructions could not reach the agents, and offers to send them again', async () => {
+    const user = userEvent.setup()
+    const deliver = vi.fn()
+    const view = render(
+      <InstructionField
+        text="Keep packets apart."
+        revision="5"
+        instruct={vi.fn()}
+        delivery={{ status: 'failed' }}
+        deliver={deliver}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('Saved, but the agents could not be told yet.')
+    await user.click(screen.getByRole('button', { name: 'Send to the agents again' }))
+    expect(deliver).toHaveBeenCalledOnce()
+    view.rerender(
+      <InstructionField
+        text="Keep packets apart."
+        revision="5"
+        instruct={vi.fn()}
+        delivery={{ status: 'sent', sessions: 2, woken: 1 }}
+        deliver={deliver}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Sent to 2 sessions; 1 finished one is woken to apply it.',
+    )
   })
 
   it('heads the progress card with who is working and draws the steps as one bar', () => {
@@ -380,6 +411,33 @@ describe('InstructionField', () => {
     expect(screen.getByRole('region', { name: 'Agent sessions' })).toHaveTextContent(
       '1 running · limit 3',
     )
+  })
+
+  it('says how many lots were formed and by when, beside the start time', () => {
+    overview({ started: '13:02', lotsFormed: '5 lots formed by 13:20' })
+    expect(screen.getByRole('region', { name: 'Progress' })).toHaveTextContent(
+      'Started 13:02 · 5 lots formed by 13:20',
+    )
+  })
+
+  it('pauses the batch sessions from the sessions card, and says while they are paused', async () => {
+    const pause = vi.fn(async () => undefined)
+    const withSession = {
+      ...source,
+      sessions: [
+        { jobId: 'j3', step: 'images', subject: 'C', lotId: null, state: 'running', status: null },
+      ],
+    } as typeof source
+    const { unmount } = overview({ source: withSession, pause: { paused: false, change: pause } })
+    const card = screen.getByRole('region', { name: 'Agent sessions' })
+    within(card).getByRole('button', { name: 'Pause all' }).click()
+    await waitFor(() => expect(pause).toHaveBeenCalledWith(true))
+    unmount()
+
+    overview({ source: withSession, pause: { paused: true, change: pause } })
+    const paused = screen.getByRole('region', { name: 'Agent sessions' })
+    expect(paused).toHaveTextContent('Paused: no session starts new work until you resume.')
+    expect(within(paused).getByRole('button', { name: 'Resume' })).toBeVisible()
   })
 
   it('calls only running work running', () => {

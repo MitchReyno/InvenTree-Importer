@@ -35,6 +35,9 @@ interface Props {
   targetUrl: string | null
 }
 
+const shortTime = (at: string) =>
+  new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`
 
@@ -170,11 +173,11 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
                 label="Activity"
                 entries={runs.map((run, index) => ({
                   text: `Round ${run.round_number} approved: ${roundSummary(run)}`,
-                  time: '',
+                  time: run.approved_at ? shortTime(run.approved_at) : '',
+                  at: run.approved_at,
                   current: index === runs.length - 1,
                 }))}
               />
-              <Small>Rounds are listed in the order they were approved; no times are kept.</Small>
             </Panel>
           )}
         </Aside>

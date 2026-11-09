@@ -322,6 +322,53 @@ describe('ReadyToAdd', () => {
     expect(tree).not.toHaveTextContent('Capacitors')
   })
 
+  it('the tree keeps an unticked lot with its reason, and an update says what it changes', async () => {
+    const user = userEvent.setup()
+    const left = id(990)
+    setup({
+      tree: [
+        ...treeNodes,
+        node({
+          key: 'part:pk:42',
+          kind: 'part',
+          label: 'CAP 100nF',
+          state: 'update',
+          changes: [{ field: 'Image', before: null, after: 'Image for CAP 100nF' }],
+        }),
+        node({
+          key: `unticked:${left}`,
+          kind: 'stock_item',
+          label: 'Packet B',
+          state: 'not_ticked',
+          detail: 'Changed since review',
+          parent_key: 'part:p',
+          lot_id: left,
+        }),
+      ],
+    })
+    // By type lists the change on the update and leaves the unticked lot out.
+    const updates = await screen.findByRole('region', { name: 'Changes to existing records, 2' })
+    expect(updates).toHaveTextContent('Image · none → Image for CAP 100nF')
+    expect(screen.getByRole('region', { name: 'Stock items, 1' })).not.toHaveTextContent('Packet B')
+
+    await user.click(screen.getByRole('button', { name: 'Tree' }))
+    const tree = screen.getByRole('tree', { name: 'By category' })
+    const row = within(tree).getByRole('treeitem', { name: /Packet B/ })
+    expect(row).toHaveTextContent('Not ticked')
+    expect(row).toHaveTextContent('Changed since review')
+    expect(row).toHaveAttribute('data-unticked', 'true')
+    expect(within(row).getByRole('link', { name: 'Review Packet B' })).toHaveAttribute(
+      'href',
+      `#${batch.id}/review/lots/${left}`,
+    )
+    expect(within(tree).getByRole('treeitem', { name: /CAP 100nF/ })).toHaveTextContent(
+      'Image · none → Image for CAP 100nF',
+    )
+    // Leaving a lot out changes nothing in InvenTree.
+    await user.click(screen.getByRole('checkbox', { name: 'Only changes' }))
+    expect(within(tree).queryByRole('treeitem', { name: /Packet B/ })).toBeNull()
+  })
+
   it('the tree follows the WAI-ARIA keyboard pattern and states each node in text', async () => {
     const user = userEvent.setup()
     setup()

@@ -121,6 +121,13 @@ test('manual HTTP/PG approval selects only A, retains original authority through
     )
     const completed = (await fixture.http(`/runs/${accepted.value.run_id}`)).value as ManualRunDto
     assert.equal(completed.state, 'settled_complete')
+    const approvedAt = (
+      await fixture.db.pool.query(
+        'SELECT a.created_at FROM manual_approval a JOIN manual_run r ON r.approval_id=a.id WHERE r.id=$1',
+        [accepted.value.run_id],
+      )
+    ).rows[0].created_at as Date
+    assert.equal(completed.approved_at, approvedAt.toISOString())
     assert.deepEqual(completed.confirmed_stock_ids, ['7101'])
     assert.equal(completed.operations[0].lot_id, capture.a.id)
     const head = (

@@ -53,6 +53,7 @@ observe('category', '83', 'Diodes', { kind: 'category' })
 const resistance = observe('parameter_template', '201', 'Resistance', template)
 const composition = observe('parameter_template', '202', 'Composition', template)
 observe('parameter_template', '203', 'Dielectric', template)
+const power = observe('parameter_template', '204', 'Power', template)
 
 const mapping = (pk: string, label: string, category: string, templatePk: string) =>
   observe('category_parameter', pk, label, {
@@ -66,6 +67,7 @@ const resistorsComposition = mapping('302', 'Resistors · Composition', '81', '2
 mapping('303', 'Capacitors · Resistance', '82', '201')
 const capacitorsComposition = mapping('304', 'Capacitors · Composition', '82', '202')
 mapping('305', 'Capacitors · Dielectric', '82', '203')
+const resistorsPower = mapping('306', 'Resistors · Power', '81', '204')
 
 const company = (pk: string, label: string, manufacturer: boolean, supplier: boolean) =>
   observe('company', pk, label, { kind: 'company', manufacturer, supplier })
@@ -77,6 +79,7 @@ company('14', 'Vishay', true, false)
 const mouser = company('21', 'Mouser Electronics', false, true)
 company('22', 'DigiKey', false, true)
 const existingDiode = observe('part', '29', '1N4148 small-signal diode')
+const stocked = observe('part', '31', 'RES 10k 5% 0603')
 
 const resistorSpec: InventoryPartSpecDto = {
   name: '10 kΩ thick-film resistor 0603',
@@ -165,8 +168,42 @@ const processing = {
             sources: [],
             tags: ['SMD', '0603'],
             catalogue: {
-              category: { choice: 'existing', reference: resistors },
-              parameters: [{ template: resistance, value: '10 kΩ' }],
+              category: {
+                choice: 'existing',
+                reference: resistors,
+                sources: [],
+                reason: 'the other 0603 resistors live here and share its templates',
+                alternative: { name: 'Thick film resistors', reason: 'a new sub-category' },
+              },
+              not_reused: {
+                part: stocked,
+                label: 'RES 10k 5% 0603',
+                reason: 'Different tolerance.',
+              },
+              parameters: [
+                {
+                  name: 'Resistance',
+                  template: resistance,
+                  category_mapping: resistorsResistance,
+                  value: '10 kΩ',
+                  sources: [],
+                  source_kind: 'label',
+                  agreement: 'disagree',
+                  // The packet and a distributor page disagree; Research kept both.
+                  alternatives: [
+                    { value: '10.2 kΩ', sources: [], source_kind: 'distributor_page' },
+                  ],
+                  chosen_because: 'Using the label.',
+                },
+              ],
+              required_missing: [
+                {
+                  name: 'Power',
+                  template: power,
+                  category_mapping: resistorsPower,
+                  reason: 'Not in the datasheet pages read.',
+                },
+              ],
               manufacturer: {
                 company: { choice: 'existing', reference: yageo },
                 mpn: 'RC0603FR-0710KL',

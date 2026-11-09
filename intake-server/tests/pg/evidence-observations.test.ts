@@ -1,10 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { lotItemCount, type CaptureSnapshotDto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { leadSession, seedPhoto } from '../support/sessions.ts'
 import { transaction } from '../../src/db/database.ts'
+import { devConfig } from '../../src/config.ts'
+import { inboxProjection } from '../../src/inbox/projection.ts'
+import { grantManual } from '../../src/review/grants.ts'
 import { mediaSnapshot } from '../../src/media/read.ts'
 import {
   proposeLot,
@@ -1236,6 +1239,312 @@ test('the operator excludes a lot with a reason and includes it again; the lead 
 
     const notALot = await edit({ kind: 'lot_exclusion', lot_id: photo.version, reason: 'Nope' })
     assert.equal(notALot.status, 404)
+  })
+})
+
+test('a lot keeps when it was formed, set by the database and never changed', async () => {
+  await withLead(async ({ writer, photo, write, read }) => {
+    const start = await read()
+    const seen = await write((client) =>
+      recordObservation(client, writer, {
+        base_revision: start.revision,
+        evidence_version_id: photo.version,
+        region: region(0),
+        readings: readings('BC547'),
+      }),
+    )
+    assert.ok(seen.ok)
+    const before = Date.now()
+    const lot = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: seen.revision,
+        label: 'BC547 transistors',
+        observation_ids: [seen.id],
+      }),
+    )
+    assert.ok(lot.ok)
+    const formed = (await read()).lots.find((item) => item.id === lot.id)!.formed_at
+    assert.ok(formed)
+    assert.ok(Date.parse(formed) >= before - 1000 && Date.parse(formed) <= Date.now() + 1000)
+
+    await assert.rejects(
+      write((client) =>
+        client.query("UPDATE capture_lot SET formed_at='2000-01-01T00:00:00Z' WHERE id=$1", [
+          lot.id,
+        ]),
+      ),
+      (error: { code?: string }) => error.code === '42501' || error.code === '23000',
+    )
+    const stored = await write(
+      async (client) =>
+        (await client.query(`SELECT formed_at FROM capture_lot WHERE id=$1`, [lot.id])).rows[0]
+          .formed_at as Date,
+    )
+    assert.equal(stored.toISOString(), formed)
+  })
+})
+
+test("a lot's quantity taken from its counts follows a same-item mark, and the lead looks again", async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const observe = async (x: number, count: number) => {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings('1N4148'),
+          visible_count: count,
+        }),
+      )
+      assert.ok(seen.ok)
+      return seen
+    }
+    const first = await observe(0, 200)
+    const second = await observe(200, 200)
+    const bag = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: second.revision,
+        label: '1N4148 diodes',
+        observation_ids: [first.id, second.id],
+        estimated_quantity: '400',
+        quantity_basis: 'Two bags of 200.',
+      }),
+    )
+    assert.ok(bag.ok)
+    const lot = async () => (await read()).lots.find((item) => item.id === bag.id)!
+    const quantity = async () => (await lot()).quantity
+
+    // Before the estimate is accepted, an estimate taken from the counts follows them too.
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    assert.equal((await lot()).estimated_quantity, '200')
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: null })
+    assert.equal((await lot()).estimated_quantity, '400')
+
+    await edit({ kind: 'lot', id: bag.id!, quantity: { mode: 'set', value: '400' } })
+
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '200' })
+    assert.equal((await lot()).reexamine, true)
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: null })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '400' })
+
+    // A quantity the operator chose apart from the counts is theirs, and stays.
+    await edit({ kind: 'lot', id: bag.id!, quantity: { mode: 'set', value: '350' } })
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '350' })
+  })
+})
+
+test('an operator lot inheriting the batch quantity takes its own count when a mark changes it', async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const ids: string[] = []
+    for (const x of [0, 200]) {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings('1N4148'),
+          visible_count: 200,
+        }),
+      )
+      assert.ok(seen.ok)
+      ids.push(seen.id!)
+    }
+    await edit({ kind: 'add_lot', label: 'Diode bag', note: 'Diode bag', part_subject_id: null })
+    const bag = (await read()).lots.find((item) => item.label === 'Diode bag')!
+    for (const observation of ids) {
+      await edit({ kind: 'observation_move', observation_id: observation, lot_id: bag.id })
+    }
+    await edit({ kind: 'defaults', quantity: { mode: 'set', value: '400' } })
+    const quantity = async () => (await read()).lots.find((item) => item.id === bag.id)!.quantity
+    assert.deepEqual(await quantity(), { mode: 'inherit' })
+
+    await edit({ kind: 'observation_same_item', observation_id: ids[1], same_as: ids[0] })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '200' })
+    await edit({ kind: 'observation_same_item', observation_id: ids[1], same_as: null })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '400' })
+  })
+})
+
+test('the operator marks one bag seen twice as the same item, so the lot counts it once', async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const observe = async (x: number, count: number) => {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings('1N4148'),
+          visible_count: count,
+        }),
+      )
+      assert.ok(seen.ok)
+      return seen
+    }
+    const first = await observe(0, 200)
+    const second = await observe(200, 200)
+    const lone = await observe(400, 50)
+    const bag = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: lone.revision,
+        label: '1N4148 diodes',
+        observation_ids: [first.id, second.id],
+      }),
+    )
+    assert.ok(bag.ok)
+    const other = await write(async (client) =>
+      proposeLot(client, writer, {
+        base_revision: bag.revision,
+        label: 'Loose diodes',
+        observation_ids: [lone.id],
+      }),
+    )
+    assert.ok(other.ok)
+    const count = async () => lotItemCount((await read()).evidence_observations ?? [], bag.id!)
+    assert.equal(await count(), 400)
+
+    const marked = await edit({
+      kind: 'observation_same_item',
+      observation_id: second.id,
+      same_as: first.id,
+    })
+    assert.equal(marked.status, 200, JSON.stringify(marked.value))
+    const after = await read()
+    assert.equal(
+      after.evidence_observations?.find((item) => item.id === second.id)?.same_item_as,
+      first.id,
+    )
+    assert.deepEqual(
+      after.lots.find((item) => item.id === bag.id)?.evidence_observation_ids?.sort(),
+      [first.id, second.id].sort(),
+    )
+    assert.equal(await count(), 200)
+
+    // The lead session has no grant on the mark.
+    await assert.rejects(
+      write((client) =>
+        client.query('UPDATE capture_evidence_observation SET same_item_as=NULL WHERE id=$1', [
+          second.id,
+        ]),
+      ),
+      (error: { code?: string }) => error.code === '42501',
+    )
+
+    const across = await edit({
+      kind: 'observation_same_item',
+      observation_id: lone.id,
+      same_as: first.id,
+    })
+    assert.equal(across.status, 409)
+    assert.equal((across.value as { code?: string }).code, 'same_item_different_lots')
+    const itself = await edit({
+      kind: 'observation_same_item',
+      observation_id: first.id,
+      same_as: first.id,
+    })
+    assert.equal(itself.status, 400)
+
+    const cleared = await edit({
+      kind: 'observation_same_item',
+      observation_id: second.id,
+      same_as: null,
+    })
+    assert.equal(cleared.status, 200, JSON.stringify(cleared.value))
+    assert.equal(
+      (await read()).evidence_observations?.find((item) => item.id === second.id)?.same_item_as,
+      undefined,
+    )
+    assert.equal(await count(), 400)
+
+    // Moving one of a marked pair to another lot ends the mark.
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    const moved = await edit({
+      kind: 'observation_move',
+      observation_id: second.id,
+      lot_id: other.id!,
+    })
+    assert.equal(moved.status, 200, JSON.stringify(moved.value))
+    const final = await read()
+    assert.equal(
+      final.evidence_observations?.find((item) => item.id === second.id)?.same_item_as,
+      undefined,
+    )
+    assert.equal(
+      (
+        await write(
+          async (client) =>
+            (
+              await client.query(
+                'SELECT same_item_as FROM capture_evidence_observation WHERE id=$1',
+                [second.id],
+              )
+            ).rows[0],
+        )
+      ).same_item_as,
+      null,
+    )
+  })
+})
+
+test('the batch list counts steps, evidence and possible duplicates until they are marked as one', async () => {
+  await withLead(async ({ fixture, batchId, writer, photo, write, read, edit }) => {
+    await grantManual(fixture.db.pool, fixture.api.name, 'api')
+    const config = {
+      ...devConfig({
+        INTAKE_ORIGIN: 'http://127.0.0.1:4333',
+        INTAKE_CREDENTIAL_REF: 'inbox-fixture',
+        INTAKE_DEV_API_KEY: 'fake-only',
+      }),
+      ...fixture.config,
+      mediaEnabled: true,
+    }
+    const workflow = async () =>
+      (await inboxProjection(fixture.api.pool, config, {}, fixture.config)).batches.find(
+        (batch) => batch.id === batchId,
+      )!.workflow
+    const observe = async (x: number, marking: string) => {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings(marking),
+          visible_count: 200,
+        }),
+      )
+      assert.ok(seen.ok)
+      return seen
+    }
+    const first = await observe(0, '1N4148')
+    const second = await observe(200, '1N4148')
+    const lot = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: second.revision,
+        label: '1N4148 diodes',
+        observation_ids: [first.id, second.id],
+      }),
+    )
+    assert.ok(lot.ok)
+
+    const listed = await workflow()
+    assert.equal(listed.possible_duplicates, 1)
+    assert.deepEqual(listed.evidence, { photos: 1, documents: 0, other: 0 })
+    assert.ok(listed.steps)
+    assert.ok(listed.steps.examine.jobs >= 1)
+    assert.deepEqual(listed.steps.research, { jobs: 0, ready: 0, running: 0 })
+
+    const marked = await edit({
+      kind: 'observation_same_item',
+      observation_id: second.id,
+      same_as: first.id,
+    })
+    assert.equal(marked.status, 200, JSON.stringify(marked.value))
+    assert.equal((await workflow()).possible_duplicates, 0)
   })
 })
 

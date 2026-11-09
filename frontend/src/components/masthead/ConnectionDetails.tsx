@@ -77,11 +77,14 @@ export function ConnectionDetails({
     <Body>
       <KeyValue
         rows={[
-          { label: 'Host', value: host, state: 'plain' },
+          { label: 'Host', value: host, state: 'plain' as const },
+          ...(target?.version
+            ? [{ label: 'Version', value: `InvenTree ${target.version}`, state: 'plain' as const }]
+            : []),
           {
             label: 'Last check',
             value: target?.observed_at ? shortTime(target.observed_at) : 'Not yet checked',
-            state: 'plain',
+            state: 'plain' as const,
           },
         ]}
       />

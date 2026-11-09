@@ -931,3 +931,275 @@ test('cancelling an idle session settles it, with or without pending chat', asyn
     )
   })
 })
+
+test('a paused batch keeps its sessions queued and their messages, and resuming lets them run', async () => {
+  const { runSessionTurn } = await import('../../src/agents/session-runner.ts')
+  const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
+  const { setBatchPause, setAllPause } = await import('../../src/agents/pause.ts')
+  const { listAgentSessions } = await import('../../src/agents/sessions.ts')
+  await withSessions(async ({ fixture, url, a, b, capture }) => {
+    const batchId = capture.batch.id
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='queued',turn_count=1 WHERE attempt_id=ANY($1)",
+      [[a.attempt, b.attempt]],
+    )
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='queued' WHERE id=ANY($1)", [
+      [a.attempt, b.attempt],
+    ])
+    await submitSessionInbox(fixture.api.pool, {
+      binding: fixture.config,
+      lineageId: a.job,
+      actorId: fixture.identity.actor,
+      idempotencyKey: 'while-paused',
+      kind: 'chat',
+      payload: { text: 'Use the datasheet values.' },
+    })
+    const before = await counts(fixture, a.attempt, a.job)
+
+    assert.deepEqual(await setBatchPause(fixture.api.pool, fixture.config, batchId, true), {
+      batch_id: batchId,
+      paused: true,
+    })
+    // Pausing twice is the same pause.
+    await setBatchPause(fixture.api.pool, fixture.config, batchId, true)
+    const deps = {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot: '/x', env: {} },
+      toolUrl: url,
+    }
+    assert.equal(await runSessionTurn(deps, a.attempt, new AbortController().signal), 'queued')
+    const enqueued: string[] = []
+    const scheduler = {
+      getWorkflow: async () => undefined,
+      enqueue: async (options: { workflowID: string }) => {
+        enqueued.push(options.workflowID)
+      },
+    }
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    assert.deepEqual(enqueued, [])
+    // Nothing is cancelled and the queued message is kept.
+    const states = await fixture.db.pool.query<{ session_state: string; state: string }>(
+      `SELECT s.session_state, a.state FROM agent_session s JOIN processing_attempt a ON a.id=s.attempt_id
+        WHERE s.attempt_id=ANY($1) ORDER BY s.attempt_id`,
+      [[a.attempt, b.attempt]],
+    )
+    assert.deepEqual(
+      states.rows.map((row) => [row.session_state, row.state]),
+      [
+        ['queued', 'queued'],
+        ['queued', 'queued'],
+      ],
+    )
+    assert.deepEqual(await counts(fixture, a.attempt, a.job), before)
+    const listed = await listAgentSessions(fixture.api.pool, fixture.config)
+    assert.ok(
+      listed.sessions.filter((item) => item.batch_id === batchId).every((item) => item.paused),
+    )
+    assert.deepEqual(listed.paused_batch_ids, [batchId])
+
+    assert.deepEqual(await setBatchPause(fixture.api.pool, fixture.config, batchId, false), {
+      batch_id: batchId,
+      paused: false,
+    })
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    assert.equal(enqueued.length, 2)
+    const resumed = await listAgentSessions(fixture.api.pool, fixture.config)
+    assert.ok(resumed.sessions.every((item) => !item.paused))
+    assert.deepEqual(resumed.paused_batch_ids, [])
+
+    // Pause all reaches every live batch of the account, and Resume all clears them.
+    const other = await fixture.seedCapture()
+    const all = await setAllPause(fixture.api.pool, fixture.config, true)
+    assert.deepEqual(all.batch_ids.sort(), [batchId, other.batch.id].sort())
+    assert.equal(all.paused, true)
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids?.sort(),
+      [batchId, other.batch.id].sort(),
+    )
+    await setAllPause(fixture.api.pool, fixture.config, false)
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids,
+      [],
+    )
+
+    // Another account's batch is not found.
+    await assert.rejects(
+      setBatchPause(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }, batchId, true),
+      (error: { code?: string }) => error.code === 'not_found',
+    )
+  })
+})
+
+test('a saved batch instruction reaches the running session and wakes the finished one, once', async () => {
+  const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
+  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, a, b, capture }) => {
+    const batchId = capture.batch.id
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='running' WHERE attempt_id=$1",
+      [a.attempt],
+    )
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='finished',turn_count=1 WHERE attempt_id=$1",
+      [b.attempt],
+    )
+    const instruction = randomUUID()
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES($1,$2,NULL,(SELECT revision FROM capture_batch WHERE id=$2),$3,$4)`,
+      [instruction, batchId, 'Keep the two resistor packets apart.', fixture.identity.actor],
+    )
+    const delivered = await deliverInstructions(fixture.api.pool, fixture.config, batchId)
+    assert.deepEqual(delivered, { sessions: 2, woken: 1 })
+    const items = await fixture.db.pool.query<{ session_lineage_id: string; payload: unknown }>(
+      "SELECT session_lineage_id,payload FROM agent_session_inbox WHERE kind='instruction' ORDER BY session_lineage_id",
+    )
+    assert.deepEqual(
+      items.rows.map((row) => row.payload),
+      [
+        { instruction_id: instruction, text: 'Keep the two resistor packets apart.', group_id: null },
+        { instruction_id: instruction, text: 'Keep the two resistor packets apart.', group_id: null },
+      ],
+    )
+    // Delivering again sends nothing new.
+    assert.deepEqual(await deliverInstructions(fixture.api.pool, fixture.config, batchId), {
+      sessions: 2,
+      woken: 1,
+    })
+    assert.equal(
+      (await fixture.db.pool.query("SELECT 1 FROM agent_session_inbox WHERE kind='instruction'"))
+        .rowCount,
+      2,
+    )
+    // The finished session is woken to apply it; the running one reads it as it works.
+    const enqueued: string[] = []
+    await wakePendingSessions(fixture.runner.pool, fixture.config, {
+      getWorkflow: async () => undefined,
+      enqueue: async (options: { workflowID: string }) => {
+        enqueued.push(options.workflowID)
+      },
+    } as never)
+    const states = await fixture.db.pool.query<{ attempt_id: string; session_state: string }>(
+      'SELECT attempt_id,session_state FROM agent_session WHERE attempt_id=ANY($1)',
+      [[a.attempt, b.attempt]],
+    )
+    assert.equal(states.rows.find((row) => row.attempt_id === a.attempt)?.session_state, 'running')
+    assert.equal(states.rows.find((row) => row.attempt_id === b.attempt)?.session_state, 'queued')
+    assert.ok(enqueued.some((workflow) => workflow.includes(b.attempt)))
+
+    await assert.rejects(
+      deliverInstructions(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }, batchId),
+      (error: { code?: string }) => error.code === 'not_found',
+    )
+  })
+})
+
+test('the longest instruction, in four-byte characters, still reaches a session', async () => {
+  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    const text = '🔧'.repeat(8192)
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1),$2,$3)`,
+      [capture.batch.id, text, fixture.identity.actor],
+    )
+    assert.deepEqual(
+      await deliverInstructions(fixture.api.pool, fixture.config, capture.batch.id),
+      { sessions: 2, woken: 0 },
+    )
+    const stored = await fixture.db.pool.query<{ text: string }>(
+      "SELECT payload->>'text' AS text FROM agent_session_inbox WHERE kind='instruction'",
+    )
+    assert.ok(stored.rows.length === 2 && stored.rows.every((row) => row.text === text))
+  })
+})
+
+test('Pause all refuses rather than pausing only some batches, and an archived batch is not listed', async () => {
+  const { setAllPause, setBatchPause } = await import('../../src/agents/pause.ts')
+  const { listAgentSessions } = await import('../../src/agents/sessions.ts')
+  await withSessions(async ({ fixture }) => {
+    const other = await fixture.seedCapture()
+    await assert.rejects(setAllPause(fixture.api.pool, fixture.config, true, 1), {
+      code: 'pause_scope_too_large',
+    })
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids,
+      [],
+    )
+    await setBatchPause(fixture.api.pool, fixture.config, other.batch.id, true)
+    await other.edit({ kind: 'batch', archived: true })
+    assert.deepEqual(
+      (await listAgentSessions(fixture.api.pool, fixture.config)).paused_batch_ids,
+      [],
+    )
+  })
+})
+
+test('an instruction saved while delivery failed reaches the sessions on the next supervisor pass', async () => {
+  const { deliverMissingInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    await fixture.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1),$2,$3)`,
+      [capture.batch.id, 'Keep the two resistor packets apart.', fixture.identity.actor],
+    )
+    assert.equal(await deliverMissingInstructions(fixture.runner.pool, fixture.config), 2)
+    const items = await fixture.db.pool.query(
+      "SELECT 1 FROM agent_session_inbox WHERE kind='instruction'",
+    )
+    assert.equal(items.rowCount, 2)
+    assert.equal(await deliverMissingInstructions(fixture.runner.pool, fixture.config), 0)
+  })
+})
+
+test("a batch's own processing read says it is paused", async () => {
+  const { setBatchPause } = await import('../../src/agents/pause.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    const read = async () =>
+      ((await fixture.http(`/batches/${capture.batch.id}/processing`)).value as { paused?: true })
+        .paused
+    assert.equal(await read(), undefined)
+    await setBatchPause(fixture.api.pool, fixture.config, capture.batch.id, true)
+    assert.equal(await read(), true)
+    await setBatchPause(fixture.api.pool, fixture.config, capture.batch.id, false)
+    assert.equal(await read(), undefined)
+  })
+})
+
+test('a relay pass waits for a save in progress and sends the newer instruction, not the one it replaced', async () => {
+  const { deliverMissingInstructions } = await import('../../src/agents/instructions.ts')
+  await withSessions(async ({ fixture, capture }) => {
+    const insert = (client: { query: typeof fixture.db.pool.query }, text: string, ahead: number) =>
+      client.query(
+        `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+         VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1)+$4,$2,$3)`,
+        [capture.batch.id, text, fixture.identity.actor, ahead],
+      )
+    await insert(fixture.db.pool, 'Older instruction.', 0)
+    // An operator save holds the batch while it writes the newer version.
+    const save = await fixture.db.pool.connect()
+    try {
+      await save.query('BEGIN')
+      await save.query('SELECT 1 FROM capture_batch WHERE id=$1 FOR UPDATE', [capture.batch.id])
+      await insert(save, 'Newer instruction.', 1)
+      let settled = false
+      const pass = deliverMissingInstructions(fixture.runner.pool, fixture.config).finally(() => {
+        settled = true
+      })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      assert.equal(settled, false)
+      await save.query('COMMIT')
+      await pass
+    } finally {
+      save.release()
+    }
+    const texts = await fixture.db.pool.query<{ text: string }>(
+      "SELECT DISTINCT payload->>'text' AS text FROM agent_session_inbox WHERE kind='instruction'",
+    )
+    assert.deepEqual(
+      texts.rows.map((row) => row.text),
+      ['Newer instruction.'],
+    )
+  })
+})

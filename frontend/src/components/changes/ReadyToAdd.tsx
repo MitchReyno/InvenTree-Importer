@@ -16,6 +16,7 @@ import {
   previewNodes,
   readyLotIds,
   STATE_LABELS,
+  changeLines,
   summary,
 } from '../../changes/model'
 import { MAX_SELECTED_LOTS } from '../../manual/types'
@@ -276,6 +277,7 @@ export function ReadyToAdd({
                 items={
                   grouping === 'category' ? categoryTree(tree.nodes) : locationTree(tree.nodes)
                 }
+                lotHref={lotHref}
               />
             ) : (
               <ChangeSummary
@@ -291,7 +293,8 @@ export function ReadyToAdd({
                         {STATE_LABELS[node.state]}
                       </RecordStatePill>
                     ),
-                    detail: node.detail ?? undefined,
+                    detail:
+                      [node.detail, ...changeLines(node)].filter(Boolean).join(' · ') || undefined,
                   })),
                 }))}
               />

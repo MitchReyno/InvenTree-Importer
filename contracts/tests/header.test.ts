@@ -77,3 +77,44 @@ test('the connection target may name its kind, and only the two known kinds', ()
     validate('ConnectionStatus', { ...status, target: { ...status.target, kind: 'production' } }),
   )
 })
+
+test('the connection target may carry the InvenTree version, and older reads without it stay valid', () => {
+  const target = {
+    state: 'reachable',
+    freshness: 'fresh',
+    observed_at: '2026-11-03T00:00:00Z',
+    failure_code: null,
+    navigation_url: 'http://127.0.0.1:4999/',
+    label: '127.0.0.1:4999',
+  }
+  const status = { actor_id: id, target_id: id, target_context_id: id, target }
+  validate('ConnectionStatus', status)
+  validate('ConnectionStatus', { ...status, target: { ...target, version: '0.17.10' } })
+  validate('ConnectionStatus', { ...status, target: { ...target, version: null } })
+  for (const version of ['', 'x'.repeat(65), 'line\nbreak']) {
+    assert.throws(() => validate('ConnectionStatus', { ...status, target: { ...target, version } }))
+  }
+})
+
+test('the header may count each step of a batch, and reads without counts stay valid', () => {
+  validate('HeaderWork', work)
+  const step = { jobs: 5, ready: 3, running: 1 }
+  const steps = { examine: step, research: step, images: step, inventory: step }
+  validate('HeaderWork', { ...work, batch_steps: [{ batch_id: id, steps }] })
+  validate('HeaderWork', { ...work, batch_steps: [] })
+  assert.throws(() =>
+    validate('HeaderWork', { ...work, batch_steps: [{ batch_id: id, steps: { examine: step } }] }),
+  )
+  assert.throws(() =>
+    validate('HeaderWork', {
+      ...work,
+      batch_steps: [{ batch_id: id, steps: { ...steps, research: { ...step, ready: -1 } } }],
+    }),
+  )
+  assert.throws(() =>
+    validate('HeaderWork', {
+      ...work,
+      batch_steps: Array.from({ length: 6 }, () => ({ batch_id: id, steps })),
+    }),
+  )
+})

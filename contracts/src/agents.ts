@@ -57,12 +57,31 @@ export const AgentSessionList = object({
       session_state: Type.Union([SessionState, Type.Null()]),
       failure: Type.Optional(SessionFailureSummary),
       latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
+      /** Its batch's agents are paused: it starts no new work until resumed. */
+      paused: Type.Optional(Type.Literal(true)),
     }),
     { maxItems: 50 },
   ),
+  /** Every paused batch of the account, whether or not its sessions are on this page. */
+  paused_batch_ids: Type.Optional(Type.Array(Id, { maxItems: 1000 })),
+  /** More batches are paused than the list holds; each session row still says its own. */
+  paused_truncated: Type.Optional(Type.Literal(true)),
   next_before: Type.Union([Id, Type.Null()]),
   /** False when the configured profile runs no agent sessions, so an empty list means nothing. */
   sessions_supported: Type.Boolean(),
+})
+/** A saved instruction sent to the batch's sessions; finished ones are woken to apply it. */
+export const InstructionDelivery = object({
+  sessions: Type.Integer({ minimum: 0, maximum: 100000 }),
+  woken: Type.Integer({ minimum: 0, maximum: 100000 }),
+})
+/** Pauses or resumes agent sessions; pausing cancels nothing. */
+export const AgentPauseUpdate = object({ paused: Type.Boolean() })
+export const AgentPause = object({ batch_id: Id, paused: Type.Boolean() })
+export const AgentPauseAll = object({
+  paused: Type.Boolean(),
+  /** The batches the change reached. */
+  batch_ids: Type.Array(Id, { maxItems: 1000 }),
 })
 export const NativeAgentResult = object({
   proposal: Type.Union([ProcessingProposalV2, Type.Null()]),
@@ -75,7 +94,15 @@ export const agentSchemas = {
   AgentSettings,
   AgentSettingsUpdate,
   AgentSessionList,
+  AgentPauseUpdate,
+  AgentPause,
+  AgentPauseAll,
+  InstructionDelivery,
 }
+export type InstructionDeliveryDto = Static<typeof InstructionDelivery>
+export type AgentPauseUpdateDto = Static<typeof AgentPauseUpdate>
+export type AgentPauseDto = Static<typeof AgentPause>
+export type AgentPauseAllDto = Static<typeof AgentPauseAll>
 export type AgentSettingsDto = Static<typeof AgentSettings>
 export type AgentSettingsUpdateDto = Static<typeof AgentSettingsUpdate>
 export type AgentSessionListDto = Static<typeof AgentSessionList>

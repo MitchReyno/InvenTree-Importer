@@ -51,4 +51,8 @@ export type ProcessingView = 'overview' | 'examine' | 'research' | 'images' | 'i
 export type AgentsRead = {
   sessions: (before?: string) => Promise<AgentSessionListDto>
   settings: () => Promise<AgentSettingsDto>
+  /** Pauses or resumes the batch's sessions; absent where this setup cannot. */
+  pause?: (batchId: string, paused: boolean) => Promise<unknown>
+  /** Sends the batch's saved instructions to its sessions. */
+  deliverInstructions?: (batchId: string) => Promise<{ sessions: number; woken: number }>
 }

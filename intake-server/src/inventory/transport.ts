@@ -241,6 +241,11 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       assertBinding(binding)
       return request('/api/part/?limit=1', 'GET', undefined, {}, 3000)
     },
+    /** The API root names the server's version; it is read beside, never instead of, the probe. */
+    async serverVersion(binding: TargetBinding) {
+      assertBinding(binding)
+      return request('/api/', 'GET', undefined, {}, 3000)
+    },
     async read(binding: TargetBinding, operation: ReadOperation) {
       assertBinding(binding)
       if (

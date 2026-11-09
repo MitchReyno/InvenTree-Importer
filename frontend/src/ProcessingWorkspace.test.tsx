@@ -734,3 +734,35 @@ test('the drawer closes when its link moves from Overview to the step page', asy
   )
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
+
+test('the batch is shown paused from its own read, whatever the account-wide list holds', async () => {
+  const client = { ...clientFixture(), read: vi.fn().mockResolvedValue({
+      ...snapshot,
+      jobs: [{ ...snapshot.jobs[0], session_state: 'running' }],
+      paused: true,
+    }) }
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client as ProcessingClient}
+        view="overview"
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+        agents={{
+          sessions: vi.fn(async () => ({
+            sessions: [],
+            paused_batch_ids: [],
+            paused_truncated: true as const,
+            next_before: null,
+            sessions_supported: true,
+          })),
+          settings: vi.fn(async () => ({ revision: '1', selection: null, session_concurrency: 1 })),
+          pause: vi.fn(async () => undefined),
+        }}
+      />
+    </ServerStateProvider>,
+  )
+  expect(await screen.findByRole('button', { name: 'Resume' })).toBeVisible()
+})

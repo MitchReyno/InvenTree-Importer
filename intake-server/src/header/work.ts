@@ -25,7 +25,7 @@ export async function headerWork(
     const sessions = await activeHeaderSessions(client, config, batchId)
     const processing = await processingHeaderWork(client, config, activity, batchId)
     const imports = await importHeaderWork(client, config, batchId)
-    const work = [...processing, ...imports.work]
+    const work = [...processing.work, ...imports.work]
     work.sort(
       (left, right) =>
         Number(right.batch_id === batchId) - Number(left.batch_id === batchId) ||
@@ -40,6 +40,7 @@ export async function headerWork(
       observed_at: new Date().toISOString(),
       work: work.slice(0, 100),
       active_sessions: sessions.sessions,
+      batch_steps: processing.batchSteps,
       work_truncated: activity.truncated || imports.truncated || work.length > 100,
       sessions_truncated: sessions.truncated,
       lane_occupied: activity.lane_occupied,

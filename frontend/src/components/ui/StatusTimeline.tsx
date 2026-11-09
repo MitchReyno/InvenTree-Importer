@@ -1,7 +1,8 @@
 import styled from 'styled-components'
 import { color, radius, ring, space, typeVar, zIndex } from '../../theme/generated/tokens'
 
-export type TimelineEntry = { text: string; time: string; current?: boolean }
+/** `at` is the machine-readable instant behind the shown `time`, when one is known. */
+export type TimelineEntry = { text: string; time: string; at?: string; current?: boolean }
 
 /** Session status lines, newest last. */
 export function StatusTimeline({ label, entries }: { label: string; entries: TimelineEntry[] }) {
@@ -15,7 +16,7 @@ export function StatusTimeline({ label, entries }: { label: string; entries: Tim
         >
           <Marker aria-hidden="true" />
           <span>{entry.text}</span>
-          <time>{entry.time}</time>
+          <time dateTime={entry.at}>{entry.time}</time>
         </li>
       ))}
     </List>

@@ -1,23 +1,37 @@
 import { inArray } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
-import type { HeaderWorkDto, ProcessingActivityDto } from '@invimport/contracts'
+import {
+  MAX_HEADER_BATCH_STEPS,
+  type HeaderWorkDto,
+  type ProcessingActivityDto,
+} from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { processingSnapshot } from '../processing/read.ts'
 import { processingJobs } from '../processing/schema.ts'
 import { captureInTransaction } from '../capture/repository.ts'
+import { countSteps } from '../processing/steps.ts'
+
+type BatchSteps = NonNullable<HeaderWorkDto['batch_steps']>
 
 export async function processingHeaderWork(
   client: PoolClient,
   config: ProcessingConfig,
   activity: ProcessingActivityDto,
   batchId?: string,
-): Promise<HeaderWorkDto['work']> {
+): Promise<{ work: HeaderWorkDto['work']; batchSteps: BatchSteps }> {
   const work: HeaderWorkDto['work'] = []
-  if (batchId) {
-    const capture = await captureInTransaction(client, config, batchId)
+  const batchSteps: BatchSteps = []
+
+  const currentJobs = async (id: string) => {
+    const capture = await captureInTransaction(client, config, id)
     const current = await processingSnapshot(client, config, capture.snapshot)
-    for (const job of current.jobs) {
+    batchSteps.push({ batch_id: id, steps: countSteps(current.jobs) })
+    return current.jobs
+  }
+
+  if (batchId) {
+    for (const job of await currentJobs(batchId)) {
       const active = activity.jobs.find((candidate) => candidate.attempt_id === job.attempt_id)
       work.push({
         kind: 'processing',
@@ -71,5 +85,12 @@ export async function processingHeaderWork(
       steps_complete: false,
     })
   }
-  return work
+  // Counts come from each batch's current snapshot, as the attention read's do, so a few suffice.
+  const others = [...new Set(remaining.map((job) => job.batch_id))]
+    .filter((id) => id !== batchId)
+    .sort()
+  for (const id of others.slice(0, MAX_HEADER_BATCH_STEPS - batchSteps.length)) {
+    await currentJobs(id)
+  }
+  return { work, batchSteps }
 }

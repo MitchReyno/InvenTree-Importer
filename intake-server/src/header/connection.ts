@@ -1,12 +1,15 @@
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { InventoryTransportError } from '../inventory/transport.ts'
 import type { DevConfig } from '../config.ts'
+import { readBoundedBody } from '../capture/bounded-body.ts'
 
 type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId' | 'targetKind'>
 type Observation = ConnectionStatusDto['target']
 const CACHE_MS = 30000
 const STALE_MS = 60000
 const DEADLINE_MS = 3000
+const VERSION_BODY_MAX_BYTES = 16 * 1024
+const VERSION_PATTERN = /^[ -~]{1,64}$/
 
 class ProbeTimeout extends Error {}
 
@@ -81,12 +84,44 @@ async function probeResult(
   }
 }
 
+/** The root's `version` string, or null for anything unreadable; never fails the probe. */
+async function versionResult(read: () => Promise<Response>): Promise<string | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), DEADLINE_MS)
+  })
+  const attempt = (async () => {
+    const response = await read()
+    if (!response.ok || !response.body) {
+      await response.body?.cancel()
+      return null
+    }
+    if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')) {
+      await response.body.cancel()
+      return null
+    }
+    const bytes = await readBoundedBody(response.body, VERSION_BODY_MAX_BYTES, DEADLINE_MS)
+    const root: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+    const version =
+      root && typeof root === 'object' && !Array.isArray(root)
+        ? (root as Record<string, unknown>).version
+        : undefined
+    return typeof version === 'string' && VERSION_PATTERN.test(version) ? version : null
+  })().catch(() => null)
+  try {
+    return await Promise.race([attempt, timeout])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** One fixed profile owns one bounded cached observation and one coalesced probe. */
 export function connectionStatus(
   binding: Binding,
   origin: string | undefined,
   probe?: () => Promise<Response>,
   now: () => number = Date.now,
+  version?: () => Promise<Response>,
 ) {
   const scope = {
     actor_id: binding.actorId,
@@ -115,12 +150,16 @@ export function connectionStatus(
     }
     if (!completed || now() - completed.at >= CACHE_MS || now() < completed.at) {
       pending ??= (async () => {
-        const result = await probeResult(probe)
+        const [result, read] = await Promise.all([
+          probeResult(probe),
+          version ? versionResult(version) : Promise.resolve(null),
+        ])
         const at = now()
         completed = {
           at,
           value: {
             ...result,
+            version: result.state === 'reachable' ? read : null,
             freshness: 'fresh',
             observed_at: new Date(at).toISOString(),
             navigation_url: url.href,

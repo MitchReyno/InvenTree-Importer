@@ -177,3 +177,95 @@ test('the connection names the owned test target, and anything else as configure
   assert.equal(configured.target.kind, 'configured')
   assert.equal(unconfigured.target.kind, 'owned_test')
 })
+
+test('a reachable target carries its InvenTree version, read once with the probe', async () => {
+  let clock = 100000
+  let versions = 0
+  const healthy = async () =>
+    new Response('{}', { headers: { 'content-type': 'application/json' } })
+  const version = async () => {
+    versions += 1
+    return new Response(
+      JSON.stringify({ server: 'InvenTree', version: '0.17.10', apiVersion: 300 }),
+      {
+        headers: { 'content-type': 'application/json' },
+      },
+    )
+  }
+  const read = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    healthy,
+    () => clock,
+    version,
+  )
+  assert.equal((await read()).target.version, '0.17.10')
+  clock += 29999
+  assert.equal((await read()).target.version, '0.17.10')
+  assert.equal(versions, 1)
+})
+
+test('an unreadable version is null and never makes a reachable target unavailable', async () => {
+  const healthy = async () =>
+    new Response('{}', { headers: { 'content-type': 'application/json' } })
+  const json =
+    (body: unknown, status = 200) =>
+    async () =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'content-type': 'application/json' },
+      })
+  for (const version of [
+    json({ version: 17 }),
+    json({ version: '' }),
+    json({ version: 'v'.repeat(65) }),
+    json({ version: 'bad\u0000value' }),
+    json({}),
+    json([1]),
+    json({ version: '0.17.10' }, 500),
+    async () => new Response('<html>', { headers: { 'content-type': 'text/html' } }),
+    async () =>
+      new Response('x'.repeat(20000), { headers: { 'content-type': 'application/json' } }),
+    async () => {
+      throw new Error('private transport detail')
+    },
+  ]) {
+    const observed = await connectionStatus(
+      binding,
+      'https://inventory.example.invalid/',
+      healthy,
+      Date.now,
+      version,
+    )()
+    assert.equal(observed.target.state, 'reachable')
+    assert.equal(observed.target.version, null)
+    assert(!JSON.stringify(observed).includes('private transport detail'))
+  }
+})
+
+test('an unavailable target reports no version, and a hung version read ends at the deadline', async (t) => {
+  const failed = await connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    async () => new Response('{}', { status: 503 }),
+    Date.now,
+    async () =>
+      new Response('{"version":"0.17.10"}', { headers: { 'content-type': 'application/json' } }),
+  )()
+  assert.equal(failed.target.state, 'unavailable')
+  assert.equal(failed.target.version, null)
+
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const pending = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    async () => new Response('{}', { headers: { 'content-type': 'application/json' } }),
+    Date.now,
+    () => new Promise<Response>(() => {}),
+  )()
+  await Promise.resolve()
+  t.mock.timers.tick(3000)
+  const observed = await pending
+  assert.equal(observed.target.state, 'reachable')
+  assert.equal(observed.target.version, null)
+})

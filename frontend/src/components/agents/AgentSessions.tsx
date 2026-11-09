@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { batchHref, processingStepFor, sessionHref } from '../../navigation/batch-route'
@@ -10,6 +10,7 @@ import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { SESSION_STATE, STEP_LABEL } from '../processing/ProcessingParts'
 import { Banner } from '../ui/Banner'
 import { Button } from '../ui/Button'
+import { PauseButton } from './PauseButton'
 import { FilterChips } from '../ui/FilterChips'
 import { Pill } from '../ui/Pill'
 import { DataTable, TableWrap } from '../ui/DataTable'
@@ -29,6 +30,10 @@ type Props = {
     sessions: (before?: string) => Promise<AgentSessionListDto>
     failure?: FailureLoader
     settings: () => Promise<AgentSettingsDto>
+    /** Pauses or resumes one batch's sessions; absent where this setup cannot. */
+    pause?: (batchId: string, paused: boolean) => Promise<unknown>
+    /** Pauses or resumes every batch's sessions at once. */
+    pauseAll?: (paused: boolean) => Promise<unknown>
   }
   /** Names a batch and its subjects; sessions carry only identifiers. */
   batches: (batchId: string) => Promise<BatchNames>
@@ -70,6 +75,10 @@ function matches(session: Session, filter: Filter) {
 }
 
 function stateWord(session: Session) {
+  // A paused batch's unfinished session starts nothing new until Resume.
+  if (session.paused && !FINISHED.has(session.state) && session.session_state !== 'finished') {
+    return { word: 'Paused', tone: 'neutral' as const }
+  }
   if (session.session_state) {
     return SESSION_STATE[session.session_state]
   }
@@ -89,7 +98,13 @@ function since(session: Session) {
 /** Every agent session in scope, grouped by batch, with capacity and what waits for the operator. */
 export function AgentSessions({ client, batches }: Props) {
   const scope = useServerScope()
+  const queryClient = useQueryClient()
   const poll = useRetainedPollInterval()
+
+  // A pause shows once the list is read again, so a refused one leaves the old state shown.
+  const reread = () =>
+    queryClient.invalidateQueries({ queryKey: serverQueryKey(scope, 'agent-sessions') })
+
   const [filter, setFilter] = useState<Filter>('all')
   const [before, setBefore] = useState<string>()
   // Global history can include streams beyond the bounded live subscription.
@@ -118,6 +133,12 @@ export function AgentSessions({ client, batches }: Props) {
   const shown = sessions.filter((session) => matches(session, filter))
   const limit = settings.data?.session_concurrency
 
+  // The account list is bounded; each session row says its own batch's pause, so both count.
+  const pausedBatches = new Set([
+    ...(query.data?.paused_batch_ids ?? []),
+    ...sessions.filter((session) => session.paused).map((session) => session.batch_id),
+  ])
+  const somePaused = pausedBatches.size > 0 || query.data?.paused_truncated === true
   const inUse = sessions.filter((session) => session.occupies_lane).length
   const queued = sessions.filter((session) => session.state === 'queued').length
 
@@ -184,9 +205,33 @@ export function AgentSessions({ client, batches }: Props) {
               <Muted>Waiting sessions hold no slot.</Muted>
             </Block>
             <Push>
-              <Button size="sm" disabledReason="Pausing every agent comes in a later release.">
-                Pause all agents
-              </Button>
+              {client.pauseAll ? (
+                <>
+                  {/* Some batches can be paused while others run, so both stay on offer. */}
+                  <PauseButton
+                    paused={false}
+                    change={async (paused) => {
+                      await client.pauseAll!(paused)
+                      await reread()
+                    }}
+                    pauseLabel="Pause all agents"
+                  />
+                  {somePaused && (
+                    <PauseButton
+                      paused
+                      change={async (paused) => {
+                        await client.pauseAll!(paused)
+                        await reread()
+                      }}
+                      resumeLabel="Resume all agents"
+                    />
+                  )}
+                </>
+              ) : (
+                <Button size="sm" disabledReason="Pausing is not available for this setup.">
+                  Pause all agents
+                </Button>
+              )}
             </Push>
           </Summary>
           <FilterChips
@@ -282,6 +327,15 @@ export function AgentSessions({ client, batches }: Props) {
                     <h2>{title}</h2>
                     {waitingIn(batchId) > 0 && (
                       <Pill status="needs-answer">{waitingIn(batchId)} need you</Pill>
+                    )}
+                    {client.pause && (
+                      <PauseButton
+                        paused={pausedBatches.has(batchId)}
+                        change={async (paused) => {
+                          await client.pause!(batchId, paused)
+                          await reread()
+                        }}
+                      />
                     )}
                     <a href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>
                       Open Processing

@@ -98,6 +98,9 @@ type Step = Extract<RecordOriginDto, { kind: 'step' }>['step']
 type Origin = RecordOriginDto
 type Field = BatchRecordDto['fields'][number]
 
+/** The output contract's bound on a Part's missing templates. */
+const MAX_REQUIRED_MISSING = 32
+
 const OPERATOR: Origin = { kind: 'operator' }
 const ESTIMATE: Origin = { kind: 'estimate', step: 'examine' }
 
@@ -150,6 +153,85 @@ function originsFor(spec: InventoryPartSpecDto, all: readonly Proposed[]) {
   const first = (pick: (origins: ReturnType<typeof originsFromOne>) => Origin) =>
     each.map(pick).find((origin) => origin.kind === 'step') ?? OPERATOR
 
+  /** Templates of the Part's category a proposal about that category found no value for. */
+  const requiredMissing = () => {
+    const present = new Set(spec.parameters.map((parameter) => parameter.template.pk))
+    const found = new Map<string, { template_pk: string; name: string; reason: string | null }>()
+    for (const entry of proposals) {
+      const catalogue = (
+        entry.proposal.value as {
+          catalogue?: {
+            category: { choice: string; reference?: { pk: string } } | null
+            required_missing?: { name: string; template: { pk: string }; reason: string }[]
+          }
+        }
+      ).catalogue
+      const category = catalogue?.category
+      if (category?.choice !== 'existing' || category.reference?.pk !== spec.category.pk) {
+        continue
+      }
+      for (const missing of catalogue?.required_missing ?? []) {
+        // The record shows as many as a Part can hold parameters; the rest stay on the proposals.
+        if (found.size === MAX_REQUIRED_MISSING) {
+          break
+        }
+        if (!present.has(missing.template.pk) && !found.has(missing.template.pk)) {
+          found.set(missing.template.pk, {
+            template_pk: missing.template.pk,
+            name: missing.name,
+            reason: missing.reason,
+          })
+        }
+      }
+    }
+    return [...found.values()]
+  }
+
+  type PartCatalogue = {
+    category?: {
+      choice: string
+      reference?: { pk: string }
+      reason?: string
+      alternative?: { name: string; reason?: string }
+    } | null
+    not_reused?: { part: Reference; label: string; reason: string }
+  }
+  const catalogues = proposals
+    .map((entry) => (entry.proposal.value as { catalogue?: PartCatalogue }).catalogue)
+    .filter((catalogue): catalogue is PartCatalogue => catalogue !== undefined)
+
+  /** The first existing Part a proposal chose not to reuse. */
+  const reuse = () => {
+    const found = catalogues.find((catalogue) => catalogue.not_reused)?.not_reused
+    return found
+      ? {
+          reference: { ...found.part, model: 'part' as const },
+          label: clip(found.label),
+          reason: found.reason,
+        }
+      : undefined
+  }
+
+  /** The reasoning of a proposal that chose the category the Part has now. */
+  const categoryReason = () => {
+    const chosen = catalogues
+      .map((catalogue) => catalogue.category)
+      .find(
+        (category) =>
+          category?.choice === 'existing' &&
+          category.reference?.pk === spec.category.pk &&
+          (category.reason || category.alternative),
+      )
+    return chosen
+      ? {
+          reason: chosen.reason ?? null,
+          alternative: chosen.alternative
+            ? { name: clip(chosen.alternative.name), reason: chosen.alternative.reason ?? null }
+            : null,
+        }
+      : undefined
+  }
+
   return {
     category: () => first((origins) => origins.category()),
     tags: () => first((origins) => origins.tags()),
@@ -157,6 +239,9 @@ function originsFor(spec: InventoryPartSpecDto, all: readonly Proposed[]) {
     parameter: (templatePk: string, value: string) =>
       first((origins) => origins.parameter(templatePk, value)),
     manufacturer: () => first((origins) => origins.manufacturer()),
+    requiredMissing,
+    reuse,
+    categoryReason,
     mpn: () => first((origins) => origins.mpn()),
     supplier: () => first((origins) => origins.supplier()),
     sku: () => first((origins) => origins.sku()),
@@ -181,11 +266,17 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
   }
   type Said = { source_kind?: SourceKindDto; agreement?: SourceAgreementDto }
   type Choice = Said & { choice: string; reference?: { pk: string } }
+  type Alternative = Said & { value: string }
   const value = latest.proposal.value as Record<string, unknown> & {
     tags?: string[]
     catalogue?: {
       category: Choice | null
-      parameters: (Said & { template: { pk: string } | null; value: string })[]
+      parameters: (Said & {
+        template: { pk: string } | null
+        value: string
+        alternatives?: Alternative[]
+        chosen_because?: string
+      })[]
       manufacturer: (Said & { company: Choice; mpn: string }) | null
       supplier: (Said & { company: Choice; sku: string | null }) | null
       description: (Said & { text: string }) | null
@@ -225,11 +316,24 @@ function originsFromOne(spec: InventoryPartSpecDto, latest: Proposed | undefined
         spec.description !== undefined && catalogue?.description?.text === spec.description,
         catalogue?.description,
       ),
-    parameter: (templatePk: string, parameterValue: string) => {
+    parameter: (templatePk: string, parameterValue: string): Origin => {
       const item = catalogue?.parameters.find(
         (candidate) => candidate.template?.pk === templatePk && candidate.value === parameterValue,
       )
-      return when(item !== undefined, item)
+      const matched = when(item !== undefined, item)
+      if (matched.kind !== 'step' || !item?.alternatives?.length) {
+        return matched
+      }
+      // The sources stay with the proposal; the record says only what each value came from.
+      return {
+        ...matched,
+        alternatives: item.alternatives.map((other) => ({
+          value: other.value,
+          ...(other.source_kind ? { source_kind: other.source_kind } : {}),
+          ...(other.agreement ? { agreement: other.agreement } : {}),
+        })),
+        ...(item.chosen_because ? { chosen_because: item.chosen_because } : {}),
+      }
     },
     manufacturer: () =>
       when(
@@ -476,6 +580,9 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
           ),
           field('tags', spec.tags.length ? spec.tags.join(', ') : null, origin.tags()),
         ],
+        ...(origin.requiredMissing().length ? { required_missing: origin.requiredMissing() } : {}),
+        ...(origin.reuse() ? { reuse: origin.reuse() } : {}),
+        ...(origin.categoryReason() ? { category_reason: origin.categoryReason() } : {}),
       })
       if (spec.manufacturer) {
         record({

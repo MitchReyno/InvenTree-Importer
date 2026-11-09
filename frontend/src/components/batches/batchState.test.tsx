@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import { describe, expect, it } from 'vitest'
-import { AddedBar, BatchState } from './batchState'
+import { AddedBar, BatchState, evidenceLine, stageLine } from './batchState'
 
 const approved: InboxWorkflowDto = {
   lots: 2,
@@ -83,5 +83,54 @@ describe('BatchState before any lot exists', () => {
 
     rerender(<BatchState workflow={empty} />)
     expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+})
+
+describe('stageLine', () => {
+  const idle = { jobs: 0, ready: 0, running: 0 }
+
+  const steps = (examine = idle, research = idle) => ({
+    examine,
+    research,
+    images: idle,
+    inventory: idle,
+  })
+
+  it('says lots are being sorted while Examine runs, with how many it has found', () => {
+    expect(
+      stageLine({ ...approved, lots: 5, steps: steps({ jobs: 1, ready: 0, running: 1 }) }),
+    ).toBe('Sorting into lots · 5 found so far')
+    expect(
+      stageLine({ ...approved, lots: 0, steps: steps({ jobs: 1, ready: 0, running: 1 }) }),
+    ).toBe('Sorting into lots')
+  })
+
+  it('names a later running step with how many of its jobs are done', () => {
+    expect(
+      stageLine({
+        ...approved,
+        steps: steps({ jobs: 1, ready: 1, running: 0 }, { jobs: 5, ready: 3, running: 2 }),
+      }),
+    ).toBe('Research · 3 of 5')
+  })
+
+  it('says nothing when no step runs or the read has no step counts', () => {
+    expect(stageLine({ ...approved, steps: steps({ jobs: 1, ready: 1, running: 0 }) })).toBeNull()
+    expect(stageLine(approved)).toBeNull()
+  })
+})
+
+describe('evidenceLine', () => {
+  it('counts photos, documents and other files, leaving out what there is none of', () => {
+    expect(evidenceLine({ ...approved, evidence: { photos: 4, documents: 1, other: 0 } })).toBe(
+      '4 photos · 1 document',
+    )
+    expect(evidenceLine({ ...approved, evidence: { photos: 1, documents: 0, other: 2 } })).toBe(
+      '1 photo · 2 other files',
+    )
+    expect(
+      evidenceLine({ ...approved, evidence: { photos: 0, documents: 0, other: 0 } }),
+    ).toBeNull()
+    expect(evidenceLine(approved)).toBeNull()
   })
 })

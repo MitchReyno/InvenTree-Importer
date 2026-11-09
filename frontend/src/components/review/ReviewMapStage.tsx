@@ -127,6 +127,25 @@ export function ReviewMapStage({
     }
   }
 
+  async function markSameItem(observationId: string, sameAs: string | null) {
+    setBusy(true)
+    setError('')
+    try {
+      const saved = await edit({
+        kind: 'observation_same_item',
+        observation_id: observationId,
+        same_as: sameAs,
+      })
+      if (saved === false) {
+        setError('The region could not be marked. Refresh and try again.')
+      }
+    } catch {
+      setError('The region could not be marked. Refresh and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function moveRegion(observationId: string, lotId: string | null) {
     setBusy(true)
     setError('')
@@ -257,6 +276,7 @@ export function ReviewMapStage({
           newLotFrom={newLotFrom}
           moveRegion={moveRegion}
           newLotFromRegion={newLotFromRegion}
+          markSameItem={markSameItem}
           editRegion={edit}
           onRegionDirtyChange={drafts.forSource('region')}
           selectionLocked={drafts.isDirty('region')}

@@ -5,10 +5,13 @@ import { media } from '../ui/media'
 import { hoverTransition } from '../ui/motion'
 import { RelativeTime } from '../ui/RelativeTime'
 import { BatchThumbnail } from './BatchThumbnail'
-import { AddedBar, BatchState, type InboxBatch } from './batchState'
+import { AddedBar, BatchState, evidenceLine, stageLine, type InboxBatch } from './batchState'
 
 /** One batch in the list: its photo, title, lots and last activity, and its state. */
 export function BatchRow({ batch }: { batch: InboxBatch }) {
+  const stage = batch.workflow ? stageLine(batch.workflow) : null
+  const files = batch.workflow ? evidenceLine(batch.workflow) : null
+  const duplicates = batch.workflow?.possible_duplicates ?? 0
   return (
     <Link
       href={batchHref(batch.id, { tab: 'capture' })}
@@ -20,14 +23,22 @@ export function BatchRow({ batch }: { batch: InboxBatch }) {
         <strong aria-hidden="true">{batch.title}</strong>
         <Meta id={`${batch.id}-meta`}>
           {batch.archived ? 'Archived · ' : ''}
-          {batch.workflow
-            ? `${batch.workflow.lots} ${batch.workflow.lots === 1 ? 'lot' : 'lots'} · `
-            : ''}
+          {stage
+            ? `${stage} · `
+            : batch.workflow
+              ? `${batch.workflow.lots} ${batch.workflow.lots === 1 ? 'lot' : 'lots'} · `
+              : ''}
           <RelativeTime at={batch.updated_at} />
         </Meta>
       </RowText>
       <RowState id={`${batch.id}-state`}>
         <BatchState workflow={batch.workflow} />
+        {files && <Meta>{files}</Meta>}
+        {duplicates > 0 && (
+          <Meta>
+            {duplicates} {duplicates === 1 ? 'possible duplicate' : 'possible duplicates'}
+          </Meta>
+        )}
         <AddedBar workflow={batch.workflow} />
       </RowState>
     </Link>

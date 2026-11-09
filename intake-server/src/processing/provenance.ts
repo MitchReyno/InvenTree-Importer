@@ -95,7 +95,7 @@ export function validateProposalSources(
   }
 }
 
-/** Every source a `/5` catalogue value cites, including choices and companies. */
+/** Every source a `/5` catalogue value cites, including choices, companies and alternatives. */
 export function catalogueSources(proposal: ProcessingProposalV5Dto) {
   const catalogue = proposal.catalogue
   if (!catalogue) {
@@ -103,7 +103,10 @@ export function catalogueSources(proposal: ProcessingProposalV5Dto) {
   }
   return [
     ...(catalogue.category?.sources ?? []),
-    ...catalogue.parameters.flatMap((parameter) => parameter.sources),
+    ...catalogue.parameters.flatMap((parameter) => [
+      ...parameter.sources,
+      ...(parameter.alternatives ?? []).flatMap((other) => other.sources),
+    ]),
     ...(catalogue.manufacturer
       ? [...catalogue.manufacturer.sources, ...catalogue.manufacturer.company.sources]
       : []),

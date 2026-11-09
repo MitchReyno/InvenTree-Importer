@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { color, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Small, TextArea } from '../ui/primitives'
+import { deliveryMessage, type InstructionDelivery } from '../../processing/instruction-delivery'
 
 type Props = {
   /** Undefined until the saved instructions are read; never assumed empty. */
@@ -11,6 +12,10 @@ type Props = {
   revision: string
   /** Absent where this setup cannot save instructions. */
   instruct: ((text: string, revision: string, key: string) => Promise<unknown>) | undefined
+  /** Whether the last saved instructions reached the agents; kept by the caller across reloads. */
+  delivery?: InstructionDelivery
+  /** Sends the saved instructions to the agents again; absent where this setup has none. */
+  deliver?: () => void
   onDirtyChange: (dirty: boolean) => void
   /** The saved instructions could not be read, so they are not assumed empty. */
   unavailable?: boolean
@@ -29,6 +34,8 @@ export function InstructionField({
   text,
   revision,
   instruct,
+  delivery = { status: 'idle' },
+  deliver,
   onDirtyChange,
   unavailable = false,
   readOnlyReason,
@@ -40,6 +47,8 @@ export function InstructionField({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const loaded = text !== undefined
+  const sent = deliveryMessage(delivery)
+
   const dirty = loaded && edited && draft !== text
 
   // Saved instructions can arrive after mount; take them unless the operator is editing.
@@ -92,6 +101,17 @@ export function InstructionField({
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
+      {delivery.status === 'failed' && (
+        <Problem role="alert">
+          Saved, but the agents could not be told yet.{' '}
+          {deliver && (
+            <Button size="sm" variant="link" onClick={deliver}>
+              Send to the agents again
+            </Button>
+          )}
+        </Problem>
+      )}
+      {sent && <Small role="status">{sent}</Small>}
       {!loaded && unavailable && (
         <Problem role="alert">
           The saved instructions are unavailable, so they cannot be changed here right now.
@@ -117,8 +137,8 @@ export function InstructionField({
         <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}
       <Small>
-        Saved for the batch. Running agents are not told of a change yet. Instructions do not
-        approve inventory values.
+        Saved for the batch and sent to its agents: running ones pick it up as they work, and
+        finished ones are woken to apply it. Instructions do not approve inventory values.
       </Small>
     </Field>
   )

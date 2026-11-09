@@ -186,6 +186,57 @@ test('current batch work precedes global work and incomplete step knowledge stay
   }
 })
 
+test('the header counts each step of the open batch and of other batches with live work', async () => {
+  const fixture = await processingFixture()
+  try {
+    await grantManual(fixture.db.pool, fixture.api.name, 'api')
+    const first = await fixture.seedCapture()
+    const second = await fixture.seedCapture()
+    await startProcessing(fixture.api.pool, fixture.config, first.batch.id, randomUUID(), {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: first.batch.revision,
+      subject_ids: [first.packetA.id],
+      stages: ['reading'],
+    })
+    await startProcessing(fixture.api.pool, fixture.config, second.batch.id, randomUUID(), {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: second.batch.revision,
+      subject_ids: [second.packetA.id, second.packetB.id],
+      stages: ['reading'],
+    })
+    const config = {
+      ...devConfig({
+        INTAKE_ORIGIN: 'http://127.0.0.1:4333',
+        INTAKE_CREDENTIAL_REF: 'header-fixture',
+        INTAKE_DEV_API_KEY: 'fake-only',
+      }),
+      ...fixture.config,
+    }
+    const none = { jobs: 0, ready: 0, running: 0 }
+    const counted = (result: Awaited<ReturnType<typeof headerWork>>, batchId: string) =>
+      result.batch_steps?.find((entry) => entry.batch_id === batchId)?.steps
+
+    const open = await headerWork(fixture.api.pool, config, second.batch.id)
+    assert.deepEqual(counted(open, second.batch.id), {
+      examine: { jobs: 2, ready: 0, running: 0 },
+      research: none,
+      images: none,
+      inventory: none,
+    })
+    assert.deepEqual(counted(open, first.batch.id)?.examine, { jobs: 1, ready: 0, running: 0 })
+
+    await fixture.db.pool.query(
+      `UPDATE processing_job SET state='ready' WHERE batch_id=$1 AND subject_id=$2`,
+      [second.batch.id, second.packetA.id],
+    )
+    const global = await headerWork(fixture.api.pool, config)
+    assert.deepEqual(counted(global, second.batch.id)?.examine, { jobs: 2, ready: 1, running: 0 })
+    validate('HeaderWork', global)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
 test('retained import approval and dispatch receipts appear without starting execution', async () => {
   const fixture = await manualFixture()
   try {

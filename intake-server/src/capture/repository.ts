@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { streams } from '../db/schema.ts'
 import {
@@ -40,7 +40,13 @@ import {
 } from './settings-intent.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
 import { readEvidenceObservations } from './evidence-observation-read.ts'
-import { applyObservationEdit, markLotEdited } from './evidence-observations.ts'
+import {
+  applyObservationEdit,
+  currentLotItemCount,
+  followItemCountEstimate,
+  markLotEdited,
+  observationLot,
+} from './evidence-observations.ts'
 
 type Binding = CaptureBinding
 type Batch = {
@@ -160,6 +166,7 @@ async function snapshot(
         reexamine: captureLots.reexamine,
         excluded_reason: captureLots.excludedReason,
         excluded_at: captureLots.excludedAt,
+        formed_at: captureLots.formedAt,
         estimated_quantity: captureLots.estimatedQuantity,
         quantity_basis: captureLots.quantityBasis,
         observation_set_version: captureLots.observationSetVersion,
@@ -248,6 +255,7 @@ async function snapshot(
         reexamine,
         excluded_reason,
         excluded_at,
+        formed_at,
         estimated_quantity,
         quantity_basis,
         observation_set_version,
@@ -264,6 +272,7 @@ async function snapshot(
         ...(excluded_reason && excluded_at
           ? { excluded: { reason: excluded_reason, at: excluded_at.toISOString() } }
           : {}),
+        ...(formed_at ? { formed_at: formed_at.toISOString() } : {}),
         ...(estimated_quantity ? { estimated_quantity } : {}),
         ...(quantity_basis ? { quantity_basis } : {}),
         ...(members.length ? { evidence_observation_ids: members } : {}),
@@ -734,6 +743,24 @@ async function applyLockedCaptureEdit(
     case 'observation_suggestion':
       await applyObservationEdit(c, id, change, nextRevision)
       break
+    case 'observation_same_item': {
+      const lotId = await observationLot(c, id, change.observation_id)
+      const before = lotId ? await currentLotItemCount(c, id, lotId) : null
+      await applyObservationEdit(c, id, change, nextRevision)
+      if (lotId && before !== null) {
+        // A quantity equal to the counts was taken from them, so it follows them; any other
+        // quantity is the operator's own and stays.
+        const after = await currentLotItemCount(c, id, lotId)
+        const quantity = await effectiveLotQuantity(c, id, lotId)
+        if (after && after !== before) {
+          if (quantity.mode === 'set' && Number(quantity.value) === before) {
+            await select(lotId, 'quantity', { mode: 'set', value: String(after) })
+          }
+          await followItemCountEstimate(c, lotId, before, after)
+        }
+      }
+      break
+    }
   }
   b.revision = nextRevision
   await executeDatabaseQuery(
@@ -743,6 +770,50 @@ async function applyLockedCaptureEdit(
       .where(eq(captureBatches.id, id)),
   )
   await retainRevision(c, b, input, false)
+}
+
+/**
+ * The quantity a lot would be imported with: its own, or the batch default it inherits. An agent
+ * lot's quantity is only ever its own, because the operator must accept its estimate explicitly.
+ */
+async function effectiveLotQuantity(c: PoolClient, batchId: string, lotId: string) {
+  const own = await quantitySelection(c, batchId, lotId, inherit)
+  if (own.mode !== 'inherit') {
+    return own
+  }
+  const lots = await executeDatabaseQuery(
+    queryDatabase(c)
+      .select({ origin: captureLots.origin })
+      .from(captureLots)
+      .where(eq(captureLots.id, lotId)),
+  )
+  return lots[0]?.origin === 'operator' ? await quantitySelection(c, batchId, null, unset) : own
+}
+
+/** A lot's or the batch's latest quantity selection, or what an absent one means. */
+async function quantitySelection(
+  c: PoolClient,
+  batchId: string,
+  subjectId: string | null,
+  absent: Selection,
+): Promise<Selection> {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(c)
+      .select({ value: captureSelections.value })
+      .from(captureSelections)
+      .where(
+        and(
+          eq(captureSelections.batchId, batchId),
+          subjectId === null
+            ? isNull(captureSelections.subjectId)
+            : eq(captureSelections.subjectId, subjectId),
+          eq(captureSelections.field, 'quantity'),
+        ),
+      )
+      .orderBy(desc(captureSelections.version))
+      .limit(1),
+  )
+  return (rows[0]?.value as Selection | undefined) ?? absent
 }
 
 type RecordChange = Extract<CaptureEditDto['change'], { kind: 'record' }>

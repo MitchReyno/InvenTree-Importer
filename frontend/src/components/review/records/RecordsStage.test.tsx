@@ -319,6 +319,61 @@ describe('RecordsStage', () => {
     expect(matrix).toHaveTextContent(/missing/)
   })
 
+  it('says which existing Part a new one does not reuse, and why its category was chosen', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    const reference = {
+      observation_id: id(912),
+      target_context_id: batch.target_context_id,
+      model: 'part' as const,
+      pk: '31',
+    }
+    const reasoned = {
+      ...records,
+      records: records.records.map((record) =>
+        record.key === `part:${partA}`
+          ? {
+              ...record,
+              reuse: { reference, label: 'RES 10k 5% 0603', reason: 'Different tolerance.' },
+              category_reason: {
+                reason: '14 existing resistors live here.',
+                alternative: { name: 'Thick film', reason: null },
+              },
+            }
+          : record,
+      ),
+    }
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => reasoned) }}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    expect(detail).toHaveTextContent('Not reusing RES 10k 5% 0603: Different tolerance.')
+    expect(detail).toHaveTextContent(
+      'Chosen because 14 existing resistors live here. Alternative considered: Thick film.',
+    )
+    // Reusing replaces this Part's fields, so a field's unsaved draft holds it back.
+    const reuse = within(detail).getByRole('button', { name: 'Use RES 10k 5% 0603 instead' })
+    const name = within(detail).getByLabelText('Name')
+    await user.type(name, ' x')
+    expect(reuse).toBeDisabled()
+    expect(detail).toHaveTextContent('Save or discard this Part’s changes first.')
+    await user.type(name, '{backspace}{backspace}')
+    expect(reuse).toBeEnabled()
+    await user.click(reuse)
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'part',
+      id: partA,
+      choice: { mode: 'set', value: reference },
+    })
+  })
+
   it('maps a shared company to another in the same role, stating every Part it reaches', async () => {
     const user = userEvent.setup()
     const { edit } = stage()
@@ -942,6 +997,115 @@ describe('RecordsStage', () => {
     expect(
       within(detail).queryByRole('region', { name: 'Not supported yet' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('Discard also drops an unsent question on a parameter conflict', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const disputed = structuredClone(records)
+    disputed.records.push(
+      entry({
+        key: `parameter:${partA}:201`,
+        type: 'parameter',
+        label: 'Composition: Carbon',
+        state: 'new',
+        target: { kind: 'parameter', part_subject_id: partA, template_pk: '201' },
+        part_ids: [partA],
+        lot_ids: [id(101), id(102)],
+        fields: [
+          {
+            name: 'value',
+            value: 'Carbon',
+            origin: {
+              ...research,
+              agreement: 'disagree',
+              alternatives: [{ value: 'Metal film' }],
+            },
+          },
+        ],
+      }),
+    )
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(async () => ({ id: 'inbox' })),
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => disputed) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={onDirtyChange}
+        processing={processing}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: /^Parameters/ }))
+    const conflict = screen.getByRole('group', { name: /Composition: sources disagree/ })
+    await user.click(await within(conflict).findByRole('button', { name: 'Ask Research' }))
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+    await user.click(screen.getByRole('button', { name: /^Companies/ }))
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }))
+    expect(screen.queryByLabelText('Message to Research')).not.toBeInTheDocument()
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('holds Use <Part> instead back while a question about the Part is unsent', async () => {
+    const user = userEvent.setup()
+    const reuse = {
+      ...records,
+      records: records.records.map((record) =>
+        record.key === `part:${partA}`
+          ? {
+              ...record,
+              reuse: {
+                reference: {
+                  observation_id: id(912),
+                  target_context_id: batch.target_context_id,
+                  model: 'part' as const,
+                  pk: '31',
+                },
+                label: 'RES 10k 5% 0603',
+                reason: 'Different tolerance.',
+              },
+            }
+          : record,
+      ),
+    }
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'running' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(async () => ({ id: 'inbox' })),
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => reuse) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const button = within(detail).getByRole('button', { name: 'Use RES 10k 5% 0603 instead' })
+    expect(button).toBeEnabled()
+    await user.click(
+      await within(within(detail).getByRole('row', { name: 'Category as saved' })).findByRole(
+        'button',
+        { name: 'Ask Research' },
+      ),
+    )
+    expect(button).toBeDisabled()
   })
 
   it('discarding a record also discards its unsent Ask message', async () => {

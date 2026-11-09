@@ -343,6 +343,9 @@ const catalogueChoice = <M extends 'category' | 'company'>(model: M) =>
       reference: mappedReference(model),
       sources: catalogueSources,
       ...valueEvidence,
+      /** Why this one, and the other choice the step considered. */
+      reason: Type.Optional(text),
+      alternative: Type.Optional(object({ name: catalogueText, reason: Type.Optional(text) })),
     }),
     object({
       choice: Type.Literal('proposed_new'),
@@ -368,8 +371,33 @@ export const CatalogueProposal = object({
       category_mapping: Type.Union([mappedReference('category_parameter'), Type.Null()]),
       sources: catalogueSources,
       ...valueEvidence,
+      /** Other values the sources gave for it, each with its own sources. */
+      alternatives: Type.Optional(
+        Type.Array(object({ value: catalogueText, sources: catalogueSources, ...valueEvidence }), {
+          minItems: 1,
+          maxItems: 4,
+        }),
+      ),
+      /** Why this value was used over its alternatives. */
+      chosen_because: Type.Optional(text),
     }),
     { maxItems: 32 },
+  ),
+  /** The nearest existing Part the step chose not to reuse, and why. */
+  not_reused: Type.Optional(
+    object({ part: mappedReference('part'), label: catalogueText, reason: text }),
+  ),
+  /** Templates the category maps that the step found no value for, with why. */
+  required_missing: Type.Optional(
+    Type.Array(
+      object({
+        name: catalogueText,
+        template: mappedReference('parameter_template'),
+        category_mapping: mappedReference('category_parameter'),
+        reason: text,
+      }),
+      { maxItems: 32 },
+    ),
   ),
   manufacturer: Type.Union([
     object({
@@ -600,6 +628,8 @@ export const ProcessingSnapshot = object({
   capture_revision: Revision,
   jobs: Type.Array(ProcessingJob, { maxItems: 100 }),
   cursor: object({ stream_id: Id, sequence: CursorSequence }),
+  /** The batch's agents are paused: its sessions start no new work until resumed. */
+  paused: Type.Optional(Type.Literal(true)),
 })
 export const ProcessingReceipt = object({
   batch_id: Id,

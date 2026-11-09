@@ -476,18 +476,18 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - **TDD approach:** failing contract tests first (RED) for each new field or command, including that older snapshots stay readable, then the server and screens (GREEN).
 - **Verification:** as task 22, with `pnpm test:intake:process` also covering pause and resume: queued answers and messages kept, nothing cancelled, and a paused batch staying paused across a worker restart.
 
-- [ ] 23.1 Add each batch's current stage line, evidence counts and possible-duplicate count to the batch list read, and show them on Batches (B8).
-- [ ] 23.2 Keep unticked lots in the preparation tree with their reason, and give Update records field-level before and after values, shown in the Tree and By type (X8).
-- [ ] 23.3 Mark parameter templates a category requires, and retain each conflicting value's alternatives with their sources and the reason one was used; show the matrix's "required here" and conflict markers and each conflict's row with "Use <value>" and "Ask <step>" (R26).
-- [ ] 23.4 Retain the nearest existing Part a proposal did not reuse and why, and the reason a category was chosen with the alternative considered, and show the reuse banner and the category reasoning (R28).
-- [ ] 23.5 Retain when each run happened, and show times in Added's activity log (X9).
-- [ ] 23.6 Add commands that pause and resume a batch's agent sessions and every batch's at once, and turn on "Pause all" for the batch on Processing and in each batch group on Agents, and "Pause all agents" in Agents' summary (P16, A2).
-- [ ] 23.7 Add a command that joins observations as one physical item, and turn on the Map's "Same item as…" (R22).
-- [ ] 23.8 Retain the InvenTree server's version in the connection status, and show it in the connection details (M18).
-- [ ] 23.9 Retain completed and total counts per step in the header's activity read, and show the running step's partial fill and "Research: 3 of 5" in the activity indicator (M16).
-- [ ] 23.10 Retain when each lot was formed, and show "N lots formed by HH:MM" on the Processing overview (P16).
-- [ ] 23.11 Deliver a changed batch instruction to the batch's running sessions and wake finished ones to apply it, and change the instruction's help text to say so (P16).
-- [ ] 23.12 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
+- [x] 23.1 Add each batch's current stage line, evidence counts and possible-duplicate count to the batch list read, and show them on Batches (B8).
+- [x] 23.2 Keep unticked lots in the preparation tree with their reason, and give Update records field-level before and after values, shown in the Tree and By type (X8).
+- [x] 23.3 Mark parameter templates a category requires, and retain each conflicting value's alternatives with their sources and the reason one was used; show the matrix's "required here" and conflict markers and each conflict's row with "Use <value>" and "Ask <step>" (R26).
+- [x] 23.4 Retain the nearest existing Part a proposal did not reuse and why, and the reason a category was chosen with the alternative considered, and show the reuse banner and the category reasoning (R28).
+- [x] 23.5 Retain when each run happened, and show times in Added's activity log (X9).
+- [x] 23.6 Add commands that pause and resume a batch's agent sessions and every batch's at once, and turn on "Pause all" for the batch on Processing and in each batch group on Agents, and "Pause all agents" in Agents' summary (P16, A2).
+- [x] 23.7 Add a command that joins observations as one physical item, and turn on the Map's "Same item as…" (R22).
+- [x] 23.8 Retain the InvenTree server's version in the connection status, and show it in the connection details (M18).
+- [x] 23.9 Retain completed and total counts per step in the header's activity read, and show the running step's partial fill and "Research: 3 of 5" in the activity indicator (M16).
+- [x] 23.10 Retain when each lot was formed, and show "N lots formed by HH:MM" on the Processing overview (P16).
+- [x] 23.11 Deliver a changed batch instruction to the batch's running sessions and wake finished ones to apply it, and change the instruction's help text to say so (P16).
+- [x] 23.12 Record the screenshots and results in the PR description, and any departure from this plan in `notes.md`.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -503,7 +503,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B. PR-I and PR-J can be revie
 - [x] D.10 PR-J (tasks 17 and 18): same gates, after PR-H. The 17.1 and 18.1 token swaps left the screenshot diff unchanged; the literal baseline went from 273 to 154 and the unused-code baseline was unchanged. Review clear at `b0f603da` after fifteen rounds, and at `b6812e74` (round 16) after merging #140–#144; 18.5 followed the design system's PhaseRow card removal (`de6860d`). Merged as #145 (`999ac83`) with every CI job that ran green and a demo video attached.
 - [x] D.11 PR-K (tasks 19 and 20): same gates, after PR-H, PR-I and PR-J. The 19.1 and 20.1 token swaps left their area's screenshots unchanged; the literal baseline went from 154 to 0 and the check is strict, and the unused-code baseline went from 13 to 11. Review clear at `84639d01` in round 5 after nine findings over four rounds. Merged as #146 (`cb91a49`) with every CI job that ran green and a demo video attached.
 - [x] D.12 PR-L (task 21): same gates, after PR-K. Migration `0022_lot_reexamine` adds the re-examination mark; `all-pg` (282) and `all-process` (80 of 84, none failing) pass with a decoder image rebuilt from current media sources. Review clear at `9e707e08` in round 15 after twenty-eight findings over twelve rounds. Merged as #147 (`4a6039d`) with every CI job that ran green and a demo video attached.
-- [ ] D.13 PR-M (task 22): same gates, after PR-L.
+- [x] D.13 PR-M (task 22): same gates, after PR-L. Migrations `0023_question_asked_at` and `0024_lot_exclusion` add question times and lot exclusion; `all-pg` (289) and `all-process` (80 of 84, none failing) pass. Review clear at `d56c7fbc` in round 4 after nine findings over three rounds, and at `106dd175` (round 6) after the fixture fixes; the 22.5 checkbox follow-up is `713e27b2`. Merged as #148 (`6b25022`) with every CI job that ran green and a demo video attached.
 - [ ] D.14 PR-N (task 23): same gates, after PR-K. BI-008 returns to Done once PR-L, PR-M and PR-N have merged.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

@@ -70,4 +70,58 @@ describe('parameterMatrix', () => {
     expect(group.rows[0].cells['2']).toMatchObject({ value: '1%', added: true })
     expect(group.rows[1].cells['2']).toMatchObject({ missing: true })
   })
+
+  it('marks a value whose sources disagree, and a template the category needs that no Part has', () => {
+    const conflicted = [
+      record({
+        key: 'parameter:b:1',
+        type: 'parameter',
+        target: { kind: 'parameter', part_subject_id: 'b', template_pk: '1' },
+        fields: [
+          {
+            name: 'value',
+            value: '4.7k',
+            origin: {
+              kind: 'step',
+              step: 'research',
+              proposal_id: 'p',
+              source_kind: 'label',
+              agreement: 'disagree',
+              alternatives: [{ value: '4.75k', source_kind: 'distributor_page' }],
+              chosen_because: 'Using the label.',
+            },
+          },
+        ],
+      } as never),
+      record({
+        key: 'part:a',
+        type: 'part',
+        target: { kind: 'part', part_subject_id: 'a' },
+        required_missing: [{ template_pk: '9', name: 'Power', reason: 'Not in the datasheet.' }],
+      } as never),
+    ]
+    const [group] = parameterMatrix(batch, conflicted)
+    expect(group.templates.map((template) => template.label)).toEqual([
+      'Resistance',
+      'Tolerance',
+      'Power',
+    ])
+    expect(group.templates[2]).toMatchObject({ required: true })
+    expect(group.rows[0].cells['9']).toMatchObject({
+      missing: true,
+      required: true,
+      reason: 'Not in the datasheet.',
+    })
+    // A Part without the template is missing it too, but its step did not say why.
+    expect(group.rows[1].cells['9']).toMatchObject({ missing: true, required: true })
+    expect(group.rows[1].cells['1'].conflict).toEqual({
+      used: { value: '4.7k', source_kind: 'label' },
+      alternatives: [{ value: '4.75k', source_kind: 'distributor_page' }],
+      because: 'Using the label.',
+      step: 'research',
+      template: ref('ohm', '1', 'parameter_template'),
+      categoryMapping: ref('cm', '1', 'category_parameter'),
+    })
+    expect(group.rows[0].cells['1'].conflict).toBeUndefined()
+  })
 })

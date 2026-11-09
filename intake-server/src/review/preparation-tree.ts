@@ -9,6 +9,14 @@ import type { ExecutablePlan } from '../execution/media-plan.ts'
 type Node = PreparationNodeDto
 type Label = (observationId: string) => string | undefined
 
+/** A lot of the batch the preparation leaves out, with why. */
+export type UntickedLot = {
+  lot_id: string
+  label: string
+  reason: string
+  part_subject_id: string | null
+}
+
 const clip = (text: string) => Array.from(text).slice(0, 512).join('')
 
 const joined = (parts: (string | false | null | undefined)[]) => {
@@ -31,6 +39,7 @@ export function preparationTree(
   plan: ExecutablePlan,
   preview: ManualPreviewDto,
   label: Label,
+  unticked: readonly UntickedLot[] = [],
 ): Node[] | null {
   if (!KNOWN.has(plan.version)) {
     return null
@@ -247,18 +256,41 @@ export function preparationTree(
   }
   for (const attachment of preview.part_attachments ?? []) {
     const kind = attachment.media_type === 'application/pdf' ? 'PDF' : 'Image'
+    const parent =
+      attachment.part_id === null
+        ? `part:${attachment.part_subject_id}`
+        : bindings.some((binding) => binding.subjectId === attachment.part_subject_id)
+          ? `part:${attachment.part_subject_id}`
+          : `part:pk:${attachment.part_id}`
     add({
       key: `attachment:${attachment.artifact_key}`,
       kind: 'attachment',
       label: `${kind} for ${attachment.part_label}`,
       state: attachment.prior_remote_pk ? 'exists' : 'new',
-      parent_key:
-        attachment.part_id === null
-          ? `part:${attachment.part_subject_id}`
-          : bindings.some((binding) => binding.subjectId === attachment.part_subject_id)
-            ? `part:${attachment.part_subject_id}`
-            : `part:pk:${attachment.part_id}`,
+      parent_key: parent,
       part_subject_id: attachment.part_subject_id,
+    })
+    // A plan never rewrites an existing Part's own fields; a new file is what it changes there.
+    const part = nodes.find((node) => node.key === parent)
+    if (!attachment.prior_remote_pk && part && part.state !== 'new') {
+      part.state = 'update'
+      part.changes = [
+        ...(part.changes ?? []),
+        { field: kind, before: null, after: clip(`${kind} for ${attachment.part_label}`) },
+      ]
+    }
+  }
+  for (const lot of unticked) {
+    const part = lot.part_subject_id ? `part:${lot.part_subject_id}` : null
+    add({
+      key: `unticked:${lot.lot_id}`,
+      kind: 'stock_item',
+      label: lot.label,
+      state: 'not_ticked',
+      detail: clip(lot.reason),
+      parent_key: part && seen.has(part) ? part : null,
+      lot_id: lot.lot_id,
+      part_subject_id: lot.part_subject_id,
     })
   }
   return nodes

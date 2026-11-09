@@ -10,6 +10,7 @@ import { Count, Pill } from '../ui/Pill'
 import { ProgressSegments, type ProgressStep } from '../ui/ProgressSegments'
 import { StatusTimeline, type TimelineEntry } from '../ui/StatusTimeline'
 import { NeedsYou } from '../ui/NeedsYou'
+import { PauseButton } from '../agents/PauseButton'
 import {
   Card,
   CardTitle,
@@ -35,8 +36,12 @@ type Props = {
   unusedFiles?: number
   /** When this batch's first agent session started, as a clock time. */
   started?: string
+  /** "N lots formed by HH:MM", when every current lot's time is known. */
+  lotsFormed?: string
   /** How many sessions may run at once, from the agent settings. */
   sessionLimit?: number
+  /** Whether the batch's sessions are paused, and how to pause or resume them. */
+  pause?: { paused: boolean; change: (paused: boolean) => Promise<unknown> }
   onOpenSession: (jobId: string) => void
 }
 
@@ -79,7 +84,9 @@ export function ProcessingOverview({
   queue,
   unusedFiles,
   started,
+  lotsFormed,
   sessionLimit,
+  pause,
   onOpenSession,
 }: Props) {
   const runningSessions = source.sessions.filter((session) => session.state === 'running').length
@@ -95,7 +102,11 @@ export function ProcessingOverview({
             <CardTitle>
               {working ? `${plural(working, 'agent')} working` : 'No agents working'}
             </CardTitle>
-            {started && <Muted>Started {started}</Muted>}
+            {(started || lotsFormed) && (
+              <Muted>
+                {[started && `Started ${started}`, lotsFormed].filter(Boolean).join(' · ')}
+              </Muted>
+            )}
           </TitleRow>
           <ProgressSegments size="lg" steps={source.steps.map(segment)} />
           <StepLabels aria-label="Steps">
@@ -168,7 +179,9 @@ export function ProcessingOverview({
                 {runningSessions} running
                 {sessionLimit !== undefined && ` · limit ${sessionLimit}`}
               </Muted>
+              {pause && <PauseButton paused={pause.paused} change={pause.change} />}
             </TitleRow>
+            {pause?.paused && <Muted>Paused: no session starts new work until you resume.</Muted>}
             <SessionRows sessions={source.sessions} onOpen={onOpenSession} />
             <SmallLink href="#agents">All sessions, every batch</SmallLink>
           </Card>

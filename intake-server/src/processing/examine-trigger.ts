@@ -14,6 +14,7 @@ import { processingJobs } from './schema.ts'
 import { ProcessingError } from './model.ts'
 import { createSessionAttempt } from './session-attempts.ts'
 import { isSessionProfile, type SessionProfileId } from './session-policy.ts'
+import { instructNewSession } from '../agents/instructions.ts'
 
 /** Failures that repeat until the batch's evidence changes. */
 const PERMANENT_CODES = new Set(['media_input_capacity', 'processing_input_capacity'])
@@ -196,6 +197,7 @@ export async function triggerExamine(
             state: 'queued',
           }),
         )
+        await instructNewSession(client, config, candidate.batch_id, jobId)
         created.push(jobId)
       }
       const streams = await executeDatabaseQuery(

@@ -57,6 +57,8 @@ type Props = {
   save: Save
   disabled: boolean
   reportFor: (source: string) => (dirty: boolean) => void
+  /** Some draft on the page is unsaved, so a change that replaces the record waits. */
+  dirty?: boolean
   /** Present with agent sessions: sends a message to the step's session working on this record. */
   ask?: (step: string) => ((text: string, key: string) => Promise<void>) | undefined
   /** The target's current values, for a record it already holds. */
@@ -143,7 +145,16 @@ function ExistingValues({
   )
 }
 
-export function RecordDetail({ batch, record, save, disabled, reportFor, ask, existing }: Props) {
+export function RecordDetail({
+  batch,
+  record,
+  save,
+  disabled,
+  reportFor,
+  dirty = false,
+  ask,
+  existing,
+}: Props) {
   // A value not supported yet shows at its field when the record lists that field.
   const listed = new Set(record.fields.map((field) => field.name))
   const atField = (record.unsupported ?? []).filter((item) => listed.has(item.field))
@@ -295,6 +306,8 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask, ex
           save={save}
           disabled={disabled}
           reportFor={(source) => reportFor(`${record.key}:${source}`)}
+          dirty={dirty}
+          record={record}
         />
       )}
       {(target?.kind === 'manufacturer_part' || target?.kind === 'supplier_part') && spec && (

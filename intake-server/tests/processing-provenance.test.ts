@@ -11,7 +11,7 @@ import {
   processingSubjectScope,
   sealed,
 } from '../src/processing/model.ts'
-import { validateProposalSources } from '../src/processing/provenance.ts'
+import { catalogueSources, validateProposalSources } from '../src/processing/provenance.ts'
 import { AUTOMATION_NOTE_TEXT, automationNoteId } from '../src/capture/context-input.ts'
 import { manualInputFixture } from './support/processing-input.ts'
 
@@ -274,4 +274,18 @@ test('lot media closure includes exactly the lot and its linked Part', () => {
     [capture.lots[0].id, linkedPartId].sort(),
   )
   assert.deepEqual(processingSubjectScope(capture, linkedPartId), [linkedPartId])
+})
+
+test('an alternative parameter value\'s sources are checked like the value it was set against', () => {
+  const used = { kind: 'note', note_id: randomUUID(), sha256: 'a'.repeat(64) }
+  const other = { kind: 'note', note_id: randomUUID(), sha256: 'b'.repeat(64) }
+  const proposal = {
+    catalogue: {
+      category: null,
+      parameters: [
+        { name: 'Voltage', value: '25 V', sources: [used], alternatives: [{ value: '35 V', sources: [other] }] },
+      ],
+    },
+  } as unknown as Parameters<typeof catalogueSources>[0]
+  assert.deepEqual(catalogueSources(proposal), [used, other])
 })

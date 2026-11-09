@@ -44,6 +44,7 @@ import { RecordsStage } from '../review/records/RecordsStage'
 import type { RecordsClient } from '../../records/useBatchRecords'
 import { ReviewMapStage } from '../review/ReviewMapStage'
 import { createSharperRequestStore } from '../processing/ExamineView'
+import { useInstructionDelivery } from '../../processing/instruction-delivery'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
 function manualStage(route: BatchRoute | null): ManualStage {
@@ -121,6 +122,7 @@ export function Batch({
   const shownPreparation = useRef<string | null>(null)
   // Sharper-photo requests awaiting confirmation, kept across Processing's revision remounts.
   const sharperRequests = useMemo(createSharperRequestStore, [id])
+  const instructionDelivery = useInstructionDelivery(id, agents?.deliverInstructions)
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
   }
@@ -483,9 +485,12 @@ export function Batch({
           instruct: settingsPorts.instruct
             ? async (text, revision, key) => {
                 await settingsPorts.instruct?.(text, revision, key)
+                void instructionDelivery.deliver?.()
                 await reloadSavedValues()
               }
             : undefined,
+          delivery: instructionDelivery.delivery,
+          deliver: instructionDelivery.deliver,
         }}
       />
     )

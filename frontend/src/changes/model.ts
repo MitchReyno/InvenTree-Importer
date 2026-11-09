@@ -26,13 +26,26 @@ export const STATE_LABELS: Record<Node['state'], string> = {
   update: 'Update',
   exists: 'Exists',
   choose: 'Choose',
+  not_ticked: 'Not ticked',
 }
 
-/** By type: one section per record type; updates to existing records are listed on their own. */
+/** An update's changes, one line each: "Image · none → Image for CAP 100nF". */
+export function changeLines(node: Node) {
+  return (node.changes ?? []).map(
+    (change) => `${change.field} · ${change.before ?? 'none'} → ${change.after ?? 'none'}`,
+  )
+}
+
+/**
+ * By type: one section per record type; updates to existing records are listed on their own.
+ * Lots left out of the preparation are not records it makes, so only the tree keeps them.
+ */
 export function byType(nodes: Node[]) {
   const sections = SECTIONS.map(([kind, title]) => ({
     title,
-    nodes: nodes.filter((node) => node.kind === kind && node.state !== 'update'),
+    nodes: nodes.filter(
+      (node) => node.kind === kind && node.state !== 'update' && node.state !== 'not_ticked',
+    ),
   }))
   sections.push({
     title: 'Changes to existing records',
@@ -60,7 +73,7 @@ export function categoryTree(nodes: Node[]): TreeItem[] {
   const shown = nodes
     .filter((node) => node.kind !== 'company' && node.kind !== 'location')
     .map((node) =>
-      node.kind === 'stock_item'
+      node.kind === 'stock_item' && node.state !== 'not_ticked'
         ? {
             ...node,
             label: `${node.label} · ${(node.location_key && places.get(node.location_key)) || 'No location'}`,
@@ -88,7 +101,8 @@ const NO_LOCATION: Node = {
 
 /** Location › stock item › its attachments. */
 export function locationTree(nodes: Node[]): TreeItem[] {
-  const stock = nodes.filter((node) => node.kind === 'stock_item')
+  // A lot left out goes to no location, so grouping by location leaves it to the category tree.
+  const stock = nodes.filter((node) => node.kind === 'stock_item' && node.state !== 'not_ticked')
   const roots = nodes.filter((node) => node.kind === 'location')
   const known = new Set(roots.map((node) => node.key))
   if (stock.some((node) => node.location_key === null || !known.has(node.location_key))) {

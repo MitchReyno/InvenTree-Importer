@@ -278,6 +278,67 @@ describe('ReviewMapStage', () => {
     expect(screen.getByRole('button', { name: 'Move 1N4148' })).toBeDisabled()
   })
 
+  it('marks a region as the same item as another of its lot, counts it once and clears the mark', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    const first = regioned.evidence_observations![0]
+    const twoViews = {
+      ...regioned,
+      evidence_observations: [
+        { ...first, visible_count: 200 },
+        {
+          ...first,
+          id: 'o2',
+          readings: { markings: ['Bag again'], text: null },
+          visible_count: 200,
+        },
+        { ...first, id: 'o3', readings: { markings: ['Other'], text: null }, lot_id: 'b' },
+      ],
+    } as unknown as CaptureSnapshotDto
+    const props = {
+      media: versioned(),
+      edit,
+      retiredLotIds: new Set<string>(),
+      reload: vi.fn(async () => undefined),
+      onDirtyChange: vi.fn(),
+    }
+    const view = render(<ReviewMapStage batch={twoViews} {...props} />)
+    const packetA = await screen.findByRole('listitem', { name: 'Packet A' })
+    expect(packetA).toHaveTextContent('400 counted')
+
+    const choice = screen.getByLabelText('Bag again is the same item as')
+    // Only regions of the same lot are offered.
+    expect(within(choice).queryByRole('option', { name: /Other/ })).toBeNull()
+    await user.selectOptions(choice, 'o1')
+    await user.click(screen.getByRole('button', { name: 'Mark Bag again as the same item' }))
+    expect(edit).toHaveBeenCalledWith({
+      kind: 'observation_same_item',
+      observation_id: 'o2',
+      same_as: 'o1',
+    })
+
+    const marked = {
+      ...twoViews,
+      revision: '5',
+      evidence_observations: twoViews.evidence_observations!.map((item) =>
+        item.id === 'o2' ? { ...item, same_item_as: 'o1' } : item,
+      ),
+    } as CaptureSnapshotDto
+    view.rerender(<ReviewMapStage batch={marked} {...props} />)
+    expect(screen.getByRole('listitem', { name: 'Packet A' })).toHaveTextContent(
+      '200 counted · 1 seen twice',
+    )
+    expect(screen.getByRole('list', { name: /Regions of/ })).toHaveTextContent(
+      'Bag again · same item as 1N4148',
+    )
+    await user.click(screen.getByRole('button', { name: 'Bag again is not the same item' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'observation_same_item',
+      observation_id: 'o2',
+      same_as: null,
+    })
+  })
+
   it('makes a lot from a region, then moves the region into it', async () => {
     const user = userEvent.setup()
     const edit = vi.fn(async () => true)

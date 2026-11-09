@@ -5,6 +5,7 @@ import { batchHref } from '../../navigation/batch-route'
 import {
   batchPill,
   jobPill,
+  batchStepCounts,
   processingSegments,
   segmentSteps,
   stateWords,
@@ -85,6 +86,7 @@ export function ActivityPopover({
           title={title(batch)}
           jobs={processing.filter((item) => item.batch_id === batch)}
           attention={batch === batchId ? attention : undefined}
+          counts={batchStepCounts(data, batch, batch === batchId ? attention : undefined)}
           sessions={sessionsOf(batch)}
         />
       ))}
@@ -147,15 +149,17 @@ function ProcessingJob({
   title,
   jobs,
   attention,
+  counts,
   sessions,
 }: {
   batch: string
   title: string
   jobs: WorkItem[]
   attention?: BatchAttentionDto
+  counts: ReturnType<typeof batchStepCounts>
   sessions: Session[]
 }) {
-  const steps = processingSegments(jobs, attention)
+  const steps = processingSegments(jobs, counts)
   const questions = attention?.processing.questions ?? 0
   const pill =
     questions > 0

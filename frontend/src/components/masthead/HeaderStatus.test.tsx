@@ -605,6 +605,47 @@ test('the activity label counts the agents holding a slot and names the batch wi
   ])
 })
 
+test('away from the batch the header step counts give the partial fill and "Research: 3 of 5"', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const step = { jobs: 0, ready: 0, running: 0 }
+  vi.mocked(api.work).mockResolvedValue({
+    ...processingWork(),
+    batch_steps: [
+      {
+        batch_id: batchId,
+        steps: {
+          examine: { ...step, jobs: 4, ready: 4 },
+          research: { jobs: 5, ready: 3, running: 1 },
+          images: step,
+          inventory: step,
+        },
+      },
+    ],
+  })
+  render(<HeaderStatus client={api} />)
+
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription(/Research: 3 of 5/))
+  const running = trigger.querySelector('[data-state="running"] i')
+  expect(running).toHaveStyle({ width: '60%' })
+
+  await user.click(trigger)
+  const panel = screen.getByRole('dialog', { name: 'Workflow details' })
+  const job = within(panel).getByRole('region', { name: 'Other batch · Processing' })
+  expect(job.querySelector('[data-state="running"] i')).toHaveStyle({ width: '60%' })
+})
+
+test('a batch the header read does not count shows its running step without a fraction', async () => {
+  const api = client()
+  vi.mocked(api.work).mockResolvedValue({ ...processingWork(), batch_steps: [] })
+  render(<HeaderStatus client={api} />)
+
+  const trigger = await screen.findByRole('button', { name: 'Workflow activity' })
+  await screen.findByText('2 agents working')
+  expect(trigger).not.toHaveAccessibleDescription(/ of /)
+})
+
 test('without the batch reads the label still names the work and leaves out the question count', async () => {
   const api = client()
   vi.mocked(api.work).mockResolvedValue(processingWork())
@@ -697,6 +738,33 @@ test('the connection panel leads with host, last check and Open InvenTree, and n
   expect(within(panel).getAllByText(/test InvenTree/)).toHaveLength(1)
   expect(within(panel).getByRole('link', { name: 'Open InvenTree' })).toBeVisible()
   expect(within(panel).getByText(/Application API/)).not.toBeVisible()
+})
+
+test('the connection panel names the InvenTree version when the check read one, and leaves it out otherwise', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const at = new Date().toISOString()
+  const reachable = { ...connection().target, state: 'reachable' as const, observed_at: at }
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: { ...reachable, version: '0.17.10' },
+  })
+  const view = render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).toHaveTextContent(
+    'VersionInvenTree 0.17.10',
+  )
+  view.unmount()
+
+  vi.mocked(api.connection).mockResolvedValue({
+    ...connection(),
+    target: { ...reachable, version: null },
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Connection status' }))
+  expect(screen.getByRole('dialog', { name: 'Connection details' })).not.toHaveTextContent(
+    'Version',
+  )
 })
 
 test('at phone width a failed job still draws a word, never an empty pill', async () => {

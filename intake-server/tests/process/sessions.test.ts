@@ -679,3 +679,52 @@ test('claude: effective skill injection is refused', { timeout: 60000 }, async (
     await h.dispose()
   }
 })
+
+test(
+  'a paused batch keeps its queued chat across a worker restart and runs it once resumed',
+  { timeout: 90000 },
+  async () => {
+    const { setBatchPause } = await import('../../src/agents/pause.ts')
+    const h = await sessionHarness('claude')
+    try {
+      assert.equal(
+        await runSessionTurn(h.deps('normal'), h.session.attempt, new AbortController().signal),
+        'finished',
+      )
+      const batchId = h.session.manifest.batch_id
+      await setBatchPause(h.fixture.api.pool, h.fixture.config, batchId, true)
+      await h.chat('chat-1', 'Please check the back label.')
+      await transaction(h.fixture.runner.pool, (client) =>
+        queueSessionResume(client, h.session.job),
+      )
+      const seen = (await h.events()).length
+      assert.equal(
+        await runSessionTurn(h.deps('reply'), h.session.attempt, new AbortController().signal),
+        'queued',
+      )
+      // A worker restart interrupts nothing and starts nothing while the batch is paused.
+      assert.deepEqual(await interruptRunningSessions(h.fixture.runner.pool, h.fixture.config), [])
+      assert.equal(
+        await runSessionTurn(h.deps('reply'), h.session.attempt, new AbortController().signal),
+        'queued',
+      )
+      assert.equal((await h.events()).length, seen)
+      assert.equal((await h.state()).session_state, 'queued')
+      const inbox = await h.fixture.db.pool.query(
+        'SELECT 1 FROM agent_session_inbox WHERE session_lineage_id=$1',
+        [h.session.job],
+      )
+      assert.equal(inbox.rowCount, 1)
+
+      await setBatchPause(h.fixture.api.pool, h.fixture.config, batchId, false)
+      assert.equal(
+        await runSessionTurn(h.deps('reply'), h.session.attempt, new AbortController().signal),
+        'finished',
+      )
+      const openings = (await h.events()).filter((event) => event.event === 'opening')
+      assert.match(String(openings.at(-1)?.text), /1 new inbox item/)
+    } finally {
+      await h.dispose()
+    }
+  },
+)

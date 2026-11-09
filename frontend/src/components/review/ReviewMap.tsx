@@ -24,6 +24,8 @@ type Props = {
   /** Moves a region's observation to another lot, or out of any (`observation_move`). */
   moveRegion?: (observationId: string, lotId: string | null) => Promise<unknown>
   newLotFromRegion?: (observationId: string, label: string) => Promise<void>
+  /** Marks a region as the same physical item as another of its lot, or clears the mark. */
+  markSameItem?: (observationId: string, sameAs: string | null) => Promise<unknown>
   /** Adjusts or adds a region on the selected photo (the capture edit `kind: 'observation'`). */
   editRegion?: (change: CaptureEditDto['change']) => Promise<unknown>
   onRegionDirtyChange?: (dirty: boolean) => void
@@ -57,6 +59,7 @@ export function ReviewMap({
   newLotFrom,
   moveRegion,
   newLotFromRegion,
+  markSameItem,
   editRegion,
   onRegionDirtyChange,
   selectionLocked = false,
@@ -99,6 +102,10 @@ export function ReviewMap({
 
   const map = reviewMap(batch, evidence, retiredLotIds, predecessors)
   const fileLabel = new Map(map.files.map((file) => [file.id, file.label]))
+  const regions = map.files.flatMap((file) =>
+    file.regions.map((region) => ({ ...region, file: file.label })),
+  )
+  const regionLabel = new Map(regions.map((region) => [region.id, region.label]))
   const lotLabel = new Map(map.lots.map((lot) => [lot.id, lot.label]))
   // A merge or split retires lots; only active, unadded lots stay chosen.
   const chosen = merging.filter((id) => lotLabel.has(id) && !approvedLotIds.has(id))
@@ -230,10 +237,27 @@ export function ReviewMap({
                     {file.regions.map((region) => (
                       <li key={region.id}>
                         <span>
-                          {region.label} <span aria-hidden="true">→</span>
+                          {region.label}
+                          {region.sameItemAs && (
+                            <Muted> · same item as {regionLabel.get(region.sameItemAs)}</Muted>
+                          )}{' '}
+                          <span aria-hidden="true">→</span>
                           {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
                           {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
                         </span>
+                        {markSameItem && region.lotId && (
+                          <SameItem
+                            region={region}
+                            others={regions.filter(
+                              (other) =>
+                                other.lotId === region.lotId &&
+                                other.id !== region.id &&
+                                !other.sameItemAs,
+                            )}
+                            disabled={disabled}
+                            mark={markSameItem}
+                          />
+                        )}
                         {moveRegion && (
                           <RegionMove
                             region={region}
@@ -318,6 +342,12 @@ export function ReviewMap({
                   )}
                   <strong>{lot.label}</strong>
                   {lot.observations > 0 && <Muted>· {lot.observations} obs.</Muted>}
+                  {lot.counted !== null && (
+                    <Muted>
+                      · {lot.counted} counted
+                      {lot.seenAgain > 0 && ` · ${lot.seenAgain} seen twice`}
+                    </Muted>
+                  )}
                   {lot.singleSource &&
                     (lot.observations > 0 ? (
                       <Pill status="warning">1 obs.</Pill>
@@ -453,6 +483,65 @@ function RegionMove({
           New lot from this
         </Button>
       )}
+    </Controls>
+  )
+}
+
+/** "Same item as…": one bag photographed twice counts once in its lot. */
+function SameItem({
+  region,
+  others,
+  disabled,
+  mark,
+}: {
+  region: { id: string; label: string; sameItemAs?: string }
+  others: { id: string; label: string; file: string }[]
+  disabled: boolean
+  mark: (observationId: string, sameAs: string | null) => Promise<unknown>
+}) {
+  const [chosen, setChosen] = useState('')
+  if (region.sameItemAs) {
+    return (
+      <Controls>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={disabled}
+          aria-label={`${region.label} is not the same item`}
+          onClick={() => void mark(region.id, null)}
+        >
+          Not the same item
+        </Button>
+      </Controls>
+    )
+  }
+  if (!others.length) {
+    return null
+  }
+  const target = others.some((other) => other.id === chosen) ? chosen : ''
+  return (
+    <Controls>
+      <LinkSelect
+        aria-label={`${region.label} is the same item as`}
+        value={target}
+        disabled={disabled}
+        onChange={(event) => setChosen(event.target.value)}
+      >
+        <option value="">Same item as…</option>
+        {others.map((other) => (
+          <option key={other.id} value={other.id}>
+            {other.label} · {other.file}
+          </option>
+        ))}
+      </LinkSelect>
+      <Button
+        size="sm"
+        disabled={disabled || !target}
+        aria-label={`Mark ${region.label} as the same item`}
+        onClick={() => void mark(region.id, target)}
+      >
+        Mark
+      </Button>
     </Controls>
   )
 }

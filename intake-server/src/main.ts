@@ -74,6 +74,7 @@ function bindReadOnlyTarget(
     list: (operation: ListOperation, timeoutMs: number) =>
       transport.list(binding, operation, timeoutMs),
     probe: () => transport.probe(binding),
+    serverVersion: () => transport.serverVersion(binding),
     attachments: {
       metadata: (pk: string) => transport.readPartAttachmentMetadata(binding, pk),
       file: (input: { pk: string; partPk: string; path: string }) =>
@@ -145,7 +146,13 @@ async function main() {
       registerHeader(
         server,
         config,
-        scopedConnectionStatus(db.pool, config, runtime.readOrigin, targetReads?.probe),
+        scopedConnectionStatus(
+          db.pool,
+          config,
+          runtime.readOrigin,
+          targetReads?.probe,
+          targetReads?.serverVersion,
+        ),
         (batchId) => headerWork(db.pool, headerConfig, batchId),
       )
       if (mediaStore) {

@@ -139,6 +139,12 @@ export const CaptureEdit = object({
       ),
       lot_id: Type.Optional(Type.Union([Id, Type.Null()])),
     }),
+    /** Marks an observation as the same physical item as another of its lot; null clears it. */
+    object({
+      kind: Type.Literal('observation_same_item'),
+      observation_id: Id,
+      same_as: Type.Union([Id, Type.Null()]),
+    }),
     /** Moves an observation to another lot, or out of any lot. */
     object({
       kind: Type.Literal('observation_move'),
@@ -175,6 +181,9 @@ export const CaptureListQuery = object({
   archived: Type.Optional(Type.Union([Type.Literal('include'), Type.Literal('exclude')])),
   offset: Type.Optional(Type.String({ pattern: '^(0|[1-9][0-9]{0,5})$' })),
 })
+const inboxCount = Type.Integer({ minimum: 0, maximum: 100000 })
+const inboxStep = object({ jobs: inboxCount, ready: inboxCount, running: inboxCount })
+
 export const InboxWorkflow = object({
   lots: Type.Integer({ minimum: 0 }),
   ready: Type.Integer({ minimum: 0 }),
@@ -193,6 +202,19 @@ export const InboxWorkflow = object({
     }),
   ]),
   thumbnail: Type.Union([Type.Null(), object({ preview_id: Id, label })]),
+  /** Each step's current jobs, for the batch's stage line; absent before any job exists. */
+  steps: Type.Optional(
+    object({
+      examine: inboxStep,
+      research: inboxStep,
+      images: inboxStep,
+      inventory: inboxStep,
+    }),
+  ),
+  /** The batch's evidence files by what they hold. */
+  evidence: Type.Optional(object({ photos: inboxCount, documents: inboxCount, other: inboxCount })),
+  /** Observations a lot may count twice (`possibleDuplicates`). */
+  possible_duplicates: Type.Optional(inboxCount),
 })
 export const CaptureSummary = object({
   id: Id,
@@ -250,6 +272,8 @@ export const CaptureSnapshot = object({
       reexamine: Type.Optional(Type.Literal(true)),
       /** Left out of the batch by the operator; included lots omit it. */
       excluded: Type.Optional(LotExclusion),
+      /** When the lot was formed; lots formed before it was kept omit it. */
+      formed_at: Type.Optional(IsoTime),
       /** The lead session's estimate and its basis; never a counted quantity. */
       estimated_quantity: Type.Optional(Quantity),
       quantity_basis: Type.Optional(unicodeText(1, 512)),

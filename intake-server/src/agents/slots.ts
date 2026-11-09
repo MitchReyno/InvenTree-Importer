@@ -1,11 +1,23 @@
-import { and, asc, eq, isNotNull, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  notExists,
+  notInArray,
+  or,
+  sql,
+} from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
 import { captureBatches } from '../capture/schema.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { processingAttempts, processingJobs, processingLanes } from '../processing/schema.ts'
-import { agentSessions, agentSettings, agentSlots } from './schema.ts'
+import { agentBatchPauses, agentSessions, agentSettings, agentSlots } from './schema.ts'
 import { DEFAULT_SESSION_CONCURRENCY } from './settings.ts'
 
 export const MAX_SESSION_SLOTS = 8
@@ -111,8 +123,14 @@ export async function claimSessionSlot(
       .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
       .where(
         and(
-          // Archived work does not run, so it holds no place in the queue.
+          // Archived or paused work does not run, so it holds no place in the queue.
           eq(captureBatches.archived, false),
+          notExists(
+            db
+              .select({ batchId: agentBatchPauses.batchId })
+              .from(agentBatchPauses)
+              .where(eq(agentBatchPauses.batchId, processingAttempts.batchId)),
+          ),
           // The same queue this worker schedules; occupancy above still counts every slot.
           eq(commands.actorId, config.actorId),
           eq(commands.targetId, config.targetId),
