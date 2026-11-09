@@ -59,7 +59,7 @@ const Control = styled.button`
   text-decoration: none;
   cursor: pointer;
   ${hoverTransition}
-  &:hover {
+  &:hover:not([aria-disabled='true']):not(:disabled) {
     background: ${color.surface2};
   }
   &[aria-disabled='true'],

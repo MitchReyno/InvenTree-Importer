@@ -11,12 +11,18 @@ type Common = {
   help?: ReactNode
 }
 
-type Available = Common & { disabledReason?: undefined; children: ReactNode }
+/** Spread onto a control that has no label of its own, so the row's label names it. */
+type NamedByRow = { 'aria-labelledby': string }
+
+type Available = Common & {
+  disabledReason?: undefined
+  children: ReactNode | ((control: { named: NamedByRow }) => ReactNode)
+}
 
 /** A deferred setting: the control renders disabled through `DisabledFeature`. */
 type Deferred = Common & {
   disabledReason: string
-  children: (control: DisabledControlProps) => ReactNode
+  children: (control: { named: NamedByRow; disabled: DisabledControlProps }) => ReactNode
 }
 
 export type SettingRowProps = Available | Deferred
@@ -24,21 +30,31 @@ export type SettingRowProps = Available | Deferred
 /** One setting: label and help on the left, its control on the right. Rows stack in a card. */
 export function SettingRow(props: SettingRowProps) {
   const id = useId()
+  const labelId = `${id}-label`
   const helpId = props.help ? `${id}-help` : undefined
+  const named: NamedByRow = { 'aria-labelledby': labelId }
+
+  function control() {
+    if (props.disabledReason !== undefined) {
+      const render = props.children
+
+      return (
+        <DisabledFeature explanation={props.disabledReason}>
+          {(disabled) => render({ named, disabled })}
+        </DisabledFeature>
+      )
+    }
+
+    return typeof props.children === 'function' ? props.children({ named }) : props.children
+  }
 
   return (
-    <Row role="group" aria-labelledby={`${id}-label`} aria-describedby={helpId}>
+    <Row role="group" aria-labelledby={labelId} aria-describedby={helpId}>
       <Text>
-        <Label id={`${id}-label`}>{props.label}</Label>
+        <Label id={labelId}>{props.label}</Label>
         {props.help && <Small id={helpId}>{props.help}</Small>}
       </Text>
-      <div>
-        {props.disabledReason === undefined ? (
-          props.children
-        ) : (
-          <DisabledFeature explanation={props.disabledReason}>{props.children}</DisabledFeature>
-        )}
-      </div>
+      <div>{control()}</div>
     </Row>
   )
 }

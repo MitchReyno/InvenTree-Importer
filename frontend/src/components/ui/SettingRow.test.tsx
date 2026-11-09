@@ -21,7 +21,7 @@ test('a deferred setting renders its control disabled with the reason', async ()
   const reason = 'Web research settings are not stored yet.'
   render(
     <SettingRow label="Web research" disabledReason={reason}>
-      {(disabled) => (
+      {({ disabled }) => (
         <Switch label="Allow public web pages" checked={false} onChange={onChange} {...disabled} />
       )}
     </SettingRow>,
@@ -33,4 +33,30 @@ test('a deferred setting renders its control disabled with the reason', async ()
   await userEvent.click(control)
   expect(control).not.toBeChecked()
   expect(onChange).not.toHaveBeenCalled()
+})
+
+test('the row label names the control it is given', () => {
+  render(
+    <>
+      <SettingRow label="Model">
+        {({ named }) => (
+          <select {...named}>
+            <option>Default</option>
+          </select>
+        )}
+      </SettingRow>
+      <SettingRow label="Model per step" disabledReason="Not stored yet.">
+        {({ named, disabled }) => (
+          <select {...named} {...disabled}>
+            <option>Same as the default</option>
+          </select>
+        )}
+      </SettingRow>
+    </>,
+  )
+
+  expect(screen.getByRole('combobox', { name: 'Model' })).toBeInTheDocument()
+  const deferred = screen.getByRole('combobox', { name: 'Model per step' })
+  expect(deferred).toHaveAttribute('aria-disabled', 'true')
+  expect(deferred).toHaveAccessibleDescription('Not stored yet.')
 })

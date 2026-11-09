@@ -26,7 +26,7 @@ function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'button') {
               return (
                 <label>
                   Model
-                  <select defaultValue="a" onChange={send} {...disabled}>
+                  <select defaultValue="a" onChange={send} onKeyDown={send} {...disabled}>
                     <option value="a">Default</option>
                     <option value="b">Larger</option>
                   </select>
@@ -47,7 +47,17 @@ function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'button') {
               return (
                 <label>
                   Import reference prefix
-                  <input type="text" defaultValue="" onChange={send} {...disabled} />
+                  <input
+                    type="text"
+                    defaultValue=""
+                    onChange={send}
+                    onKeyDown={(event) => {
+                      if (event.ctrlKey && event.key === 'z') {
+                        send()
+                      }
+                    }}
+                    {...disabled}
+                  />
                 </label>
               )
             case 'button':
@@ -66,7 +76,7 @@ function setup(control: 'checkbox' | 'select' | 'stepper' | 'text' | 'button') {
 
 async function pressEverything(user: ReturnType<typeof userEvent.setup>, target: HTMLElement) {
   await user.click(target)
-  target.focus()
+  expect(target).toHaveFocus()
   await user.keyboard('{Enter}')
   await user.keyboard(' ')
   await user.keyboard('{ArrowDown}')
@@ -95,7 +105,9 @@ describe('DisabledFeature', () => {
       expect(target).not.toBeChecked()
     }
     if (control === 'select') {
+      await user.keyboard('{ArrowRight}{Home}{End}')
       expect(target).toHaveValue('a')
+      expect(send).not.toHaveBeenCalled()
     }
     if (control === 'text') {
       expect(target).toHaveValue('')
@@ -116,6 +128,23 @@ describe('DisabledFeature', () => {
     await pressEverything(user, more)
     await pressEverything(user, fewer)
     expect(send).not.toHaveBeenCalled()
+  })
+
+  it('lets app shortcuts through but refuses editing chords', async () => {
+    const shortcut = vi.fn()
+    const { send, user } = setup('text')
+    document.addEventListener('keydown', shortcut)
+    const field = screen.getByRole('textbox', { name: 'Import reference prefix' })
+    await user.click(field)
+
+    await user.keyboard('{Control>}k{/Control}')
+    expect(shortcut).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'k', defaultPrevented: false }),
+    )
+    await user.keyboard('{Control>}z{/Control}{Control>}{Backspace}{/Control}')
+    expect(send).not.toHaveBeenCalled()
+    expect(field).toHaveFocus()
+    document.removeEventListener('keydown', shortcut)
   })
 
   it('keeps the visible "Coming later" eyebrow and prints the explanation inline', () => {

@@ -14,16 +14,34 @@ type NumberStepperProps = {
 }
 
 /** A small whole number with − and ＋; each button disables at its limit. */
-export function NumberStepper({ label, value, min, max, onChange, ...aria }: NumberStepperProps) {
+export function NumberStepper({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  'aria-disabled': deferred,
+  'aria-describedby': describedBy,
+}: NumberStepperProps) {
+  const atMin = value <= min
+  const atMax = value >= max
+
+  // A limit uses aria-disabled, not disabled, so the focused button keeps focus when it is reached.
+  function step(blocked: boolean, next: number) {
+    if (!blocked && !deferred) {
+      onChange(next)
+    }
+  }
+
   return (
     <Group role="group" aria-label={label}>
       <Stepper>
         <button
           type="button"
           aria-label="One fewer"
-          disabled={value <= min}
-          onClick={() => onChange(value - 1)}
-          {...aria}
+          aria-disabled={atMin || deferred ? 'true' : undefined}
+          aria-describedby={describedBy}
+          onClick={() => step(atMin, value - 1)}
         >
           −
         </button>
@@ -33,9 +51,9 @@ export function NumberStepper({ label, value, min, max, onChange, ...aria }: Num
         <button
           type="button"
           aria-label="One more"
-          disabled={value >= max}
-          onClick={() => onChange(value + 1)}
-          {...aria}
+          aria-disabled={atMax || deferred ? 'true' : undefined}
+          aria-describedby={describedBy}
+          onClick={() => step(atMax, value + 1)}
         >
           ＋
         </button>
@@ -68,10 +86,9 @@ const Stepper = styled.div`
     font-size: ${typeVar.h2.size};
     cursor: pointer;
   }
-  button:hover:not(:disabled) {
+  button:hover:not([aria-disabled='true']) {
     background: ${color.surface2};
   }
-  button:disabled,
   button[aria-disabled='true'] {
     opacity: ${opacity.disabled};
     cursor: not-allowed;

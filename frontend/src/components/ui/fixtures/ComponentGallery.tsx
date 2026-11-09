@@ -143,7 +143,9 @@ export function ComponentGallery() {
             <Button onClick={() => setDialogOpen(true)}>Merge lots…</Button>
             {dialogOpen && (
               <Dialog title="Merge 2 lots" onClose={() => setDialogOpen(false)}>
-                <p>10 kΩ resistor packets A and B become one lot of 880. Their evidence stays linked.</p>
+                <p>
+                  10 kΩ resistor packets A and B become one lot of 880. Their evidence stays linked.
+                </p>
               </Dialog>
             )}
           </Row>
@@ -341,13 +343,10 @@ export function ComponentGallery() {
                 label="Model per step"
                 disabledReason="Choosing a model for each step is not stored yet."
               >
-                {(disabled) => (
-                  <Label>
-                    Research model
-                    <select defaultValue="default" {...disabled}>
-                      <option value="default">Same as the default</option>
-                    </select>
-                  </Label>
+                {({ named, disabled }) => (
+                  <select defaultValue="default" {...named} {...disabled}>
+                    <option value="default">Same as the default</option>
+                  </select>
                 )}
               </SettingRow>
             </Card>
@@ -608,7 +607,11 @@ export function ComponentGallery() {
         <Section title="Forms and existing controls">
           <Row>
             <TextField label="Supplier order or receipt number" defaultValue="3381-22" />
-            <TextField label="Quantity" placeholder="e.g. 500" error="Enter a whole number of parts." />
+            <TextField
+              label="Quantity"
+              placeholder="e.g. 500"
+              error="Enter a whole number of parts."
+            />
             <TextField
               label="Purchase order"
               defaultValue="Created automatically"

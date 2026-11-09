@@ -23,25 +23,38 @@ type Props = {
   children: (control: DisabledControlProps) => ReactNode
 }
 
-// Keys that only move focus or the caret, or close something, still work.
-const PASSIVE_KEYS = new Set([
-  'Tab',
-  'Escape',
-  'Shift',
-  'Control',
-  'Alt',
-  'Meta',
-  'ArrowLeft',
-  'ArrowRight',
-  'Home',
-  'End',
-])
+// Keys that only move focus, close something or are a modifier on its own still work.
+const PASSIVE_KEYS = new Set(['Tab', 'Escape', 'Shift', 'Control', 'Alt', 'Meta'])
 
+// Caret keys only move the caret in a text field; on a closed select they change its value.
+const CARET_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'])
+
+// Chords that edit or activate even with Ctrl or Cmd held.
+const EDITING_CHORD_KEYS = new Set(['z', 'y', 'Enter', ' '])
+
+function isTextEntry(target: EventTarget) {
+  const textInput =
+    target instanceof HTMLInputElement && !['checkbox', 'radio'].includes(target.type)
+
+  return textInput || target instanceof HTMLTextAreaElement
+}
+
+/** Browser and app shortcuts (reload, find, Ctrl+K…) pass; anything that edits or activates doesn't. */
 function isPassiveKey(event: KeyboardEvent) {
-  const shortcut = event.ctrlKey || event.metaKey
-  const copyOrSelect = shortcut && (event.key === 'c' || event.key === 'a')
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+  const chord = event.ctrlKey || event.metaKey
 
-  return PASSIVE_KEYS.has(event.key) || copyOrSelect
+  if (key === 'Backspace' || key === 'Delete') {
+    return false
+  }
+  if (PASSIVE_KEYS.has(key) || /^F\d{1,2}$/.test(key)) {
+    return true
+  }
+  if (CARET_KEYS.has(key)) {
+    return isTextEntry(event.target)
+  }
+
+  return chord && !EDITING_CHORD_KEYS.has(key)
 }
 
 function refuse(event: { preventDefault(): void; stopPropagation(): void }) {

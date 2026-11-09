@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { Pill } from './Pill'
-import { TreeView, type TreeNode } from './TreeView'
+import { TreeView, parentIds, type TreeNode } from './TreeView'
 
 const nodes: TreeNode[] = [
   {
@@ -63,4 +64,77 @@ test('arrows move, collapse and expand; Home and End jump', async () => {
   expect(screen.getByRole('treeitem', { name: /Passives/ })).toHaveFocus()
   await user.keyboard('{Enter}')
   expect(screen.getAllByRole('treeitem')).toHaveLength(2)
+})
+
+test('keys pressed on a link inside a row reach the link', async () => {
+  const user = userEvent.setup()
+  const follow = vi.fn((event: Event) => event.preventDefault())
+  render(
+    <TreeView
+      label="What will change"
+      nodes={[
+        {
+          id: 'lot',
+          kind: 'Lot',
+          label: 'Bench bag',
+          detail: (
+            <a href="#review" onClick={(event) => follow(event.nativeEvent)}>
+              Review
+            </a>
+          ),
+          children: [{ id: 'part', kind: 'Part', label: 'RES-0144' }],
+        },
+      ]}
+    />,
+  )
+  const link = screen.getByRole('link', { name: 'Review' })
+  link.focus()
+
+  await user.keyboard('{Enter}')
+  expect(follow).toHaveBeenCalledTimes(1)
+  await user.keyboard('{ArrowDown}')
+  expect(link).toHaveFocus()
+  expect(screen.getAllByRole('treeitem')).toHaveLength(2)
+})
+
+test('a parent can drive which nodes are collapsed', async () => {
+  const user = userEvent.setup()
+
+  function Controlled() {
+    const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+
+    return (
+      <>
+        <button type="button" onClick={() => setCollapsed(new Set(parentIds(nodes)))}>
+          Collapse all
+        </button>
+        <button type="button" onClick={() => setCollapsed(new Set())}>
+          Expand all
+        </button>
+        <TreeView
+          label="What will change"
+          nodes={nodes}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+        />
+      </>
+    )
+  }
+
+  render(<Controlled />)
+  await user.click(screen.getByRole('button', { name: 'Collapse all' }))
+  expect(screen.getAllByRole('treeitem')).toHaveLength(2)
+  await user.click(screen.getByRole('button', { name: 'Expand all' }))
+  expect(screen.getAllByRole('treeitem')).toHaveLength(5)
+
+  await user.click(screen.getByRole('treeitem', { name: /RES-0144/ }))
+  expect(screen.getAllByRole('treeitem')).toHaveLength(3)
+})
+
+test('selects nothing: rows carry no aria-selected', () => {
+  render(<TreeView label="What will change" nodes={nodes} />)
+
+  for (const item of screen.getAllByRole('treeitem')) {
+    expect(item).not.toHaveAttribute('aria-selected')
+  }
 })

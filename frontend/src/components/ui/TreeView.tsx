@@ -10,7 +10,10 @@ export type TreeNode = {
   detail?: ReactNode
   /** Usually a `Pill`: New, Update, Exists or a decision to make. */
   status?: ReactNode
-  /** An unticked lot's records stay in place, faded. */
+  /**
+   * Fades the row, such as an unticked lot's records left in place. Fading is visual only: the
+   * row's `status` must say the same in words (for example a "Not ticked" pill).
+   */
   dimmed?: boolean
   children?: TreeNode[]
 }
@@ -20,9 +23,27 @@ type Row = { node: TreeNode; level: number; parent: string | null; position: num
 type TreeViewProps = {
   label: string
   nodes: TreeNode[]
+  /** The collapsed parents' ids, for a parent that drives Expand all or Collapse all. */
+  collapsed?: ReadonlySet<string>
+  onCollapsedChange?: (collapsed: ReadonlySet<string>) => void
 }
 
-function visibleRows(nodes: TreeNode[], collapsed: Set<string>) {
+/** A click on a link or button inside a row is that control's, not the row's. */
+function insideControl(target: EventTarget, row: Element) {
+  const control =
+    target instanceof Element ? target.closest('a, button, input, select, textarea') : null
+
+  return control !== null && row.contains(control)
+}
+
+/** Every node with children, so a caller can collapse them all. */
+export function parentIds(nodes: TreeNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.children?.length ? [node.id, ...parentIds(node.children)] : [],
+  )
+}
+
+function visibleRows(nodes: TreeNode[], collapsed: ReadonlySet<string>) {
   const rows: Row[] = []
 
   const walk = (list: TreeNode[], level: number, parent: string | null) => {
@@ -39,8 +60,14 @@ function visibleRows(nodes: TreeNode[], collapsed: Set<string>) {
 }
 
 /** Records in InvenTree's own hierarchy, as a WAI-ARIA tree: one tab stop, arrows move and fold. */
-export function TreeView({ label, nodes }: TreeViewProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+export function TreeView({
+  label,
+  nodes,
+  collapsed: controlled,
+  onCollapsedChange,
+}: TreeViewProps) {
+  const [own, setOwn] = useState<ReadonlySet<string>>(new Set())
+  const collapsed = controlled ?? own
   const [focused, setFocused] = useState<string | null>(null)
   const items = useRef(new Map<string, HTMLLIElement>())
   const rows = useMemo(() => visibleRows(nodes, collapsed), [nodes, collapsed])
@@ -54,18 +81,23 @@ export function TreeView({ label, nodes }: TreeViewProps) {
   }
 
   function setOpen(id: string, open: boolean) {
-    setCollapsed((previous) => {
-      const next = new Set(previous)
-      if (open) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
+    const next = new Set(collapsed)
+    if (open) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    if (controlled === undefined) {
+      setOwn(next)
+    }
+    onCollapsedChange?.(next)
   }
 
   function handleKeyDown(event: KeyboardEvent, row: Row) {
+    // Keys pressed on a link or button inside the row belong to it.
+    if (event.target !== event.currentTarget) {
+      return
+    }
     const index = rows.indexOf(row)
     const id = row.node.id
     const parent = Boolean(row.node.children?.length)
@@ -122,13 +154,15 @@ export function TreeView({ label, nodes }: TreeViewProps) {
             aria-setsize={row.size}
             aria-posinset={row.position}
             aria-expanded={parent ? open : undefined}
-            aria-selected={node.id === current}
             tabIndex={node.id === current ? 0 : -1}
             data-dimmed={node.dimmed || undefined}
             $level={row.level}
             onKeyDown={(event) => handleKeyDown(event, row)}
             onFocus={() => setFocused(node.id)}
-            onClick={() => {
+            onClick={(event) => {
+              if (insideControl(event.target, event.currentTarget)) {
+                return
+              }
               move(node.id)
               if (parent) {
                 setOpen(node.id, !open)
@@ -166,8 +200,7 @@ const Item = styled.li<{ $level: number }>`
   border-radius: ${radius.input};
   cursor: default;
   overflow-wrap: anywhere;
-  &:hover,
-  &[aria-selected='true'] {
+  &:hover {
     background: ${color.surface2};
   }
   &[data-dimmed='true'] > * {

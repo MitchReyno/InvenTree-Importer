@@ -17,17 +17,19 @@ type SettingsNavProps = {
   back: { label: string; href: string }
   sections: SettingsSection[]
   current: string
+  /** The heading's level; the page's own `h1` usually names the section beside the nav. */
+  headingLevel?: 'h1' | 'h2'
 }
 
 /** The Settings page's section list, after a link back to where the person came from. */
-export function SettingsNav({ back, sections, current }: SettingsNavProps) {
+export function SettingsNav({ back, sections, current, headingLevel = 'h2' }: SettingsNavProps) {
   return (
     <Nav aria-label="Settings">
       <Back href={back.href}>
         <BackIcon />
         Back to {back.label}
       </Back>
-      <Heading>Settings</Heading>
+      <Heading as={headingLevel}>Settings</Heading>
       {sections.map((section) => (
         <Section
           key={section.id}
@@ -72,7 +74,7 @@ const Back = styled.a`
   }
 `
 
-const Heading = styled.h1`
+const Heading = styled.h2`
   margin: 0 0 ${space[4]} ${space[5]};
   ${type.h1}
 `
