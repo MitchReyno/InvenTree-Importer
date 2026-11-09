@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, font, size, space, typeVar } from '#/theme/generated/tokens'
-import { InlineEdit } from './InlineEdit'
+import { InlineEdit } from '#/forms/InlineEdit'
 import { SourceChip } from './SourceChip'
 import { media } from './media'
 

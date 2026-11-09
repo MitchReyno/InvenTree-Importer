@@ -18,8 +18,9 @@ import {
 } from '#/theme/generated/tokens'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
 import { rankReferences, type RankTier } from '#/capture/reference-rank'
-import { Label, Small } from './primitives'
-import { media } from './media'
+import { Small } from '#/components/ui/primitives'
+import { Label } from './inputs'
+import { media } from '#/components/ui/media'
 
 export type PickerSearch = (
   query: string,

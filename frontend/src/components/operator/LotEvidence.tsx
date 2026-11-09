@@ -6,7 +6,8 @@ import type {
   OperatorLotDto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { Field, Paragraph, Small, Subheading, Pill, localTime } from '#/components/ui'
+import { Paragraph, Small, Subheading, Pill, localTime } from '#/components/ui'
+import { Field } from '#/forms'
 import { color, type } from '#/theme/generated/tokens'
 import { mediaDisplayLabels } from '#/media/identity-labels'
 import { EvidenceViewer } from './EvidenceViewer'

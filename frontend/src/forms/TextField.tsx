@@ -9,8 +9,9 @@ import {
 } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
-import { Button } from './Button'
-import { CheckboxLabel, Input, Select, Small, TextArea } from './primitives'
+import { Button } from '#/components/ui/Button'
+import { Small } from '#/components/ui/primitives'
+import { CheckboxLabel, Input, Select, TextArea } from './inputs'
 
 type FieldProps = {
   label: ReactNode

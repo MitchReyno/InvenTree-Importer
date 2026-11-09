@@ -10,15 +10,8 @@ import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
 import { referenceLabel } from '#/capture/settings-model'
 import { useIntentTicket } from '#/capture/useIntentTicket'
 import type { useCatalogue } from '#/catalogue/useCatalogue'
-import {
-  SearchableReferencePicker,
-  Field,
-  Input,
-  Label,
-  Small,
-  Subheading,
-  Button,
-} from '#/components/ui'
+import { Small, Subheading, Button } from '#/components/ui'
+import { SearchableReferencePicker, Field, Input, Label } from '#/forms'
 
 type LocationDraft = Extract<CaptureReferenceDraftDto, { kind: 'location' }>
 type Catalogue = ReturnType<typeof useCatalogue>

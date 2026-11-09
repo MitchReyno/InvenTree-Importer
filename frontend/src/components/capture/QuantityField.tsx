@@ -1,4 +1,5 @@
-import { Field, Input, Label, Select, Small } from '#/components/ui'
+import { Small } from '#/components/ui'
+import { Field, Input, Label, Select } from '#/forms'
 import type { Quantity } from '#/capture/types'
 type QuantityFieldProps = {
   value: Quantity

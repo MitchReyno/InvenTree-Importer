@@ -32,16 +32,15 @@ import {
   StickyFooter,
   TargetChip,
   Heading,
-  Label,
   Link,
   Panel,
   Paragraph,
-  Select,
   Small,
   Summary,
   RecordStatePill,
   media,
 } from '#/components/ui'
+import { Label, Select } from '#/forms'
 import { PreparationTreeView } from './PreparationTreeView'
 import { lotCrops } from '#/processing/proposed-lots'
 

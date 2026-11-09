@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { CatalogueModelDto } from '@invimport/contracts'
-import { type PickerSearch } from '#/components/ui'
+import { type PickerSearch } from '#/forms'
 import { serverQueryKey, useServerScope } from '#/queries/scope'
 import type { CatalogueClient } from './types'
 

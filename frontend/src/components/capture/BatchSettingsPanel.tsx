@@ -7,20 +7,14 @@ import {
   media,
   AutosaveStatus,
   type AutosaveState,
-  TextField,
-  SharedTagsInput,
-  Fieldset,
-  Form,
   Heading,
-  Input,
-  Label,
   Link,
   Panel,
   Small,
-  TextArea,
   Banner,
   Button,
 } from '#/components/ui'
+import { TextField, SharedTagsInput, Fieldset, Form, Input, Label, TextArea } from '#/forms'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,

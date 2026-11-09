@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { companiesFor, partName, referenceTo, specOf } from '#/records/model'
-import { Label, Select, Small } from '#/components/ui'
+import { Small } from '#/components/ui'
+import { Label, Select } from '#/forms'
 import { CompanyDecision } from './CompanyDecision'
 import { SaveRow, useRecordSave, type Save } from './draft'
 

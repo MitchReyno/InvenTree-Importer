@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
-import { VisuallyHidden, media, Select, Banner, Button, Pill } from '#/components/ui'
+import { VisuallyHidden, media, Banner, Button, Pill } from '#/components/ui'
+import { Select } from '#/forms'
 import type { CaptureEditDto, CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { RegionStage } from './RegionStage'
 import { reviewMap, type MapEdge } from '#/operator/review-map'

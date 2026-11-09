@@ -10,16 +10,8 @@ import type { CaptureWorkspaceProps, Snapshot } from '#/capture/types'
 import { referenceLabel } from '#/capture/settings-model'
 import { useIntentTicket } from '#/capture/useIntentTicket'
 import type { useCatalogue } from '#/catalogue/useCatalogue'
-import {
-  DisabledFeature,
-  SearchableReferencePicker,
-  CheckboxLabel,
-  Field,
-  Input,
-  Label,
-  Small,
-  Subheading,
-} from '#/components/ui'
+import { DisabledFeature, Small, Subheading } from '#/components/ui'
+import { SearchableReferencePicker, CheckboxLabel, Field, Input, Label } from '#/forms'
 
 type Supplier = CaptureSettingsIntentDto['supplier']
 type CompanyDraft = Extract<CaptureReferenceDraftDto, { kind: 'company' }>

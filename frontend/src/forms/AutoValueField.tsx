@@ -2,9 +2,10 @@ import { useEffect, useId, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled, { css } from 'styled-components'
 import { color, radius, shadow, size, space, typeVar, zIndex } from '#/theme/generated/tokens'
-import { Input, Small } from './primitives'
-import { media } from './media'
-import { hoverTransition } from './motion'
+import { Small } from '#/components/ui/primitives'
+import { Input } from './inputs'
+import { media } from '#/components/ui/media'
+import { hoverTransition } from '#/components/ui/motion'
 
 export type AutoValue = { mode: 'auto' } | { mode: 'none' } | { mode: 'manual'; value: string }
 

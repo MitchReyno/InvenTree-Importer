@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, font, radius, size, space } from '#/theme/generated/tokens'
-import { media } from './media'
-import { hoverTransition } from './motion'
+import { media } from '#/components/ui/media'
+import { hoverTransition } from '#/components/ui/motion'
 
 type InlineEditProps = {
   label: string

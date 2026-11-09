@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { media, Label, Select, Small, Summary, Button } from '#/components/ui'
+import { media, Small, Summary, Button } from '#/components/ui'
+import { Label, Select } from '#/forms'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {

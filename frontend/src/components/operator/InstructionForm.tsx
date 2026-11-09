@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { Banner, Form, Label, Small, TextArea, Button } from '#/components/ui'
+import { Banner, Small, Button } from '#/components/ui'
+import { Form, Label, TextArea } from '#/forms'
 import { useForm } from 'react-hook-form'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '#/operator/types'

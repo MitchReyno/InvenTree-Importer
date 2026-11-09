@@ -1,5 +1,6 @@
 import type { ManualPartAttachmentDto } from '@invimport/contracts'
-import { Field, Paragraph, Small, Summary } from '#/components/ui'
+import { Paragraph, Small, Summary } from '#/components/ui'
+import { Field } from '#/forms'
 
 export function PartAttachments({ attachments }: { attachments: ManualPartAttachmentDto[] }) {
   if (!attachments.length) {

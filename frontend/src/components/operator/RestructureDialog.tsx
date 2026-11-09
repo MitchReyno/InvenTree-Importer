@@ -1,18 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Banner,
-  media,
-  CheckboxLabel,
-  Fieldset,
-  Form,
-  Input,
-  Label,
-  Paragraph,
-  Select,
-  Small,
-  Button,
-  Dialog,
-} from '#/components/ui'
+import { Banner, media, Paragraph, Small, Button, Dialog } from '#/components/ui'
+import { CheckboxLabel, Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
 import { color, radius, space } from '#/theme/generated/tokens'

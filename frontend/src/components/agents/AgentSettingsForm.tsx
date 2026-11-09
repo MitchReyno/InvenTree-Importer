@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Banner, Paragraph, Button, TextField } from '#/components/ui'
+import { Banner, Paragraph, Button } from '#/components/ui'
+import { TextField } from '#/forms'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'

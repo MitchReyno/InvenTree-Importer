@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { OptionRow } from './OptionRow'
+import { OptionRow } from '#/forms/OptionRow'
 import { QuestionCard } from './QuestionCard'
 
 describe('QuestionCard', () => {

@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, size, space, typeVar } from '#/theme/generated/tokens'
-import { media } from './media'
-import { CheckboxLabel, Input, Small } from './primitives'
-import { VisuallyHidden } from './VisuallyHidden'
+import { media } from '#/components/ui/media'
+import { Small } from '#/components/ui/primitives'
+import { CheckboxLabel, Input } from './inputs'
+import { VisuallyHidden } from '#/components/ui/VisuallyHidden'
 
 export type SharedTags = { manual: string[]; auto: boolean }
 

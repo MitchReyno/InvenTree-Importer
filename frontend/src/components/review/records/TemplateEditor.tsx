@@ -7,7 +7,8 @@ import {
   referenceTo,
   specOf,
 } from '#/records/model'
-import { CheckboxLabel, Fieldset, Label, Select, Small } from '#/components/ui'
+import { Small } from '#/components/ui'
+import { CheckboxLabel, Fieldset, Label, Select } from '#/forms'
 import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
 
 type Props = {
