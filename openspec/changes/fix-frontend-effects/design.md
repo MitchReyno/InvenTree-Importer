@@ -30,13 +30,15 @@ Each editor calls its `onDirtyChange` in the input or command handler that chang
 A report-on-change Effect stays only where the change has no event in the component, and the reason is commented:
 
 - `TellExamine`, whose form hides when a poll changes session visibility.
-- React Hook Form's `isDirty` returning to clean when input is typed back, where the form's `watch` subscription is the external store.
+- A saved value catching up with a dirty draft, which makes it clean with no event in the component: `useDraft`, `EvidenceGroup` and `InstructionField`.
+
+The React Hook Form editors report from the form's `onChange`, comparing the values with their baseline, so typing a value back reports clean from the event.
 
 Alternative rejected: a shared hook that reports every change from an Effect. That is the pattern the guidelines name as "not this", and it reports one render late.
 
 ### Derive drafts instead of copying props into state
 
-A draft that follows a saved value is stored as `T | null`, where `null` means "following saved". The rendered value is `draft ?? saved`, and dirty is computed in render. This removes the copy Effect and its one-render flicker. It also enforces "never replace a dirty draft" by construction, because a newer saved value only shows through while the draft is `null`.
+A draft that follows a saved value is stored as a nullable draft (`{ value: T } | null`, so `T` may itself be null), where `null` means "following saved". The rendered value is the draft's value, or `saved` when there is none, and dirty is computed in render. This removes the copy Effect and its one-render flicker. It also enforces "never replace a dirty draft" by construction, because a newer saved value only shows through while the draft is `null`.
 
 Alternative rejected: keying the editor by the saved revision. That would drop a dirty draft and its focus, which the architecture forbids.
 

@@ -7,6 +7,8 @@ Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on
 - **2026-11-09T20:49+11:00, task 1 (E1):** Items 1 and 2 planned a failing-first test for a late dirty report. It cannot fail: React 19 flushes passive Effects synchronously after a discrete event, so the Effect-based report already reached the guard before the event returned. Both are fixed to follow the guideline, with characterization tests instead. `tasks.md` is unchanged, because its acceptance still holds.
 - **2026-11-09T20:49+11:00, task 1 (E1):** Item 11, `MediaCropDialog`'s dirty half, moves to task 7. It shares one Effect with the `showModal` call that task 7 fixes, and changing it twice would split one decision across two PRs. The task map in `tasks.md` is updated.
 
+- **2026-11-09T22:28+11:00, task 1 (E1):** The design allowed React Hook Form editors to keep a subscription-driven report for a typed-back `isDirty`. None does: each compares `getValues()` with its baseline in the form's `onChange`. `design.md` and `tasks.md` now say so, and list the three report Effects that remain for a saved value catching up with a draft: `useDraft`, `EvidenceGroup` and `InstructionField`.
+
 ## Unexpected challenges
 
 - **2026-11-09T20:49+11:00, task 1:** `DismissWarning` and `BulkEditPanel` re-latched the guard after a confirmed save. Their report Effect reran when `pending` flipped or the panel reloaded, and reported the still-filled form as dirty. Both now report from the form's `onChange`, comparing values with their defaults, and their tests fail on the old code. `QuickLotEdit` uses the same approach.
