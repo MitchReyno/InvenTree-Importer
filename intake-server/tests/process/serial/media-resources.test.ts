@@ -5,8 +5,8 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { MEDIA_LIMITS } from '../../src/media/decoder-protocol.ts'
-import { decodeIsolated } from '../../src/media/decoder-runner.ts'
+import { MEDIA_LIMITS } from '../../../src/media/decoder-protocol.ts'
+import { decodeIsolated } from '../../../src/media/decoder-runner.ts'
 
 const run = promisify(execFile)
 const MEMORY_LIMIT_BYTES = MEDIA_LIMITS.memoryMiB * 1024 * 1024
@@ -81,7 +81,7 @@ async function newContainerEvents(before: DockerEvent[]) {
 
 async function retainReceipt(receipt: unknown) {
   receipts.push(receipt)
-  const path = fileURLToPath(new URL('../../../.amp/in/artifacts/', import.meta.url))
+  const path = fileURLToPath(new URL('../../../../.amp/in/artifacts/', import.meta.url))
   await mkdir(path, { recursive: true })
   await writeFile(
     path + '/T05-decoder-resource-receipt.json',
