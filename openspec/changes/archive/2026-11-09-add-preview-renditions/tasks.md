@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `add-preview-renditions`, delivering [BI-013](../../../docs/PLANNED_FUNCTIONALITY.md#bi-013--preview-renditions-for-media). Read with the [proposal](proposal.md) (reuse recommendation: extend the bounded decoder with `sharp` WebP renditions), the [design](design.md) and the [capture-media delta](specs/capture-media/spec.md). Every delivering branch and commit/PR subject uses the exact name, e.g. `feat(add-preview-renditions): …`.
+Canonical change: `add-preview-renditions`, delivering [BI-013](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-013--preview-renditions-for-media). Read with the [proposal](proposal.md) (reuse recommendation: extend the bounded decoder with `sharp` WebP renditions), the [design](design.md) and the [capture-media delta](specs/capture-media/spec.md). Every delivering branch and commit/PR subject uses the exact name, e.g. `feat(add-preview-renditions): …`.
 
 ## Completion and commit ordering
 
@@ -143,5 +143,5 @@ Complete and verify a checkbox action, then check it in the same commit as its w
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Reviewed `e9adfbd`, merged as `24193c7` in [#140](https://github.com/MitchReyno/InvenTree-Importer/pull/140).
 - [x] D.2 PR-B: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Reviewed `a4cf470`, merged as `ebc93b7` in [#143](https://github.com/MitchReyno/InvenTree-Importer/pull/143).
-- [ ] D.3 PR-C: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
-- [ ] D.4 After all PRs merge with acceptance evidence, update BI-013's status in the index. Archive only when authorized, after `pnpm openspec:overlap --change add-preview-renditions`.
+- [x] D.3 PR-C: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Codex gpt-6.1-sol clear at `a507e25b8add00135343e551bfa117e408403813` (round 4); published head `76fd198f3169cb4189a7509fd672e15a0f1816eb` adds only the task checkbox; selected CI green; merged as `77040b1a2597526540a96d1a2075f0421e05d496` in [#144](https://github.com/MitchReyno/InvenTree-Importer/pull/144).
+- [x] D.4 After all PRs merge with acceptance evidence, update BI-013's status in the index. Archive only when authorized, after `pnpm openspec:overlap --change add-preview-renditions`. Overlap reported no conflicts; BI-013 is Done.
