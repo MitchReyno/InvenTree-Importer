@@ -4,14 +4,28 @@ set -eu
 directory=$1 image=$2 provider=$3
 case $provider in claude|codex) ;; *) exit 2 ;; esac
 turn=$(mktemp -d)
-name=bench-tool-${turn##*.}
+run_id=${4:?operator run identity required}
+case "$run_id" in *[!a-f0-9-]*|'') exit 2 ;; esac
+name=bench-tool-$run_id
+worker_id=''
 cleanup() {
+  # Removal of this individual Docker container ends its descendants. A missing receipt
+  # or a failed engine operation leaves the coordinator's slot held for investigation.
+  if [ -n "$worker_id" ] && docker rm -f "$worker_id" >/dev/null 2>&1 && [ -f "$turn/reap/turn" ]; then
+    if read -r digest relative < "$turn/reap/turn" &&
+       printf '%s' "$digest" | grep -Eq '^[0-9a-f]{64}$' &&
+       printf '%s' "$relative" | grep -Eq '^[0-9a-f-]{36}/[0-9a-f-]{36}-[1-9][0-9]{0,18}$' &&
+       [ "$(head -n 1 "$directory/sessions/$relative")" = "$digest" ]; then
+      printf '%s\n' "$digest" | install -m 0444 /dev/stdin "$directory/sessions/$relative.reaped.tmp"
+      mv "$directory/sessions/$relative.reaped.tmp" "$directory/sessions/$relative.reaped"
+    fi
+  fi
   docker rm -f "$name" "$name-peer" "$name-egress" >/dev/null 2>&1 || true
   rm -rf "$turn"
 }
 trap cleanup EXIT
 trap 'exit 1' TERM HUP INT
-install -d -m 0700 -o 1000 -g 1000 "$turn/rpc"
+install -d -m 0700 -o 1000 -g 1000 "$turn/rpc" "$turn/reap"
 install -d -m 0700 -o 1000 -g 1000 "$directory/tool-sessions"
 test -S "$directory/web/reader.sock"
 protected=$(cat "$directory/tool-protected-hosts")
@@ -29,9 +43,12 @@ fi
 docker run -d --name "$name-egress" --read-only --cap-drop=ALL --security-opt=no-new-privileges \
   --pids-limit=24 --memory=64m --env "$envarg" --env "INTAKE_VM_PROTECTED_HOSTS=$protected" \
   --volume "$turn/egress:/run/egress" "$image" python3 /opt/guest-tools/claude-egress.py >/dev/null
-isolated -d --name "$name" --memory=640m --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+if [ -f "$directory/browser-seccomp.json" ]; then
+  set -- --security-opt "seccomp=$directory/browser-seccomp.json" "$@"
+fi
+worker_id=$(isolated -d --name "$name" --memory=640m --tmpfs /tmp:rw,nosuid,nodev,size=64m \
   --env "$envarg" "$@" --volume "$turn/rpc:/run/turn" --volume "$directory/web:/run/web:ro" \
-  --volume "$directory/tool-sessions:/home/node/sessions" "$image" node --import tsx src/agents/shared-vm/tool-worker.ts >/dev/null
+  --volume "$directory/tool-sessions:/home/node/sessions" "$image" node --import tsx src/agents/shared-vm/tool-worker.ts)
 i=0
 while [ "$i" -lt 150 ]; do
   [ -S "$turn/rpc/worker.sock" ] && break
@@ -40,6 +57,6 @@ while [ "$i" -lt 150 ]; do
 done
 test -S "$turn/rpc/worker.sock"
 isolated --rm -i --name "$name-peer" --memory=256m --tmpfs /tmp:size=16m \
-  --env "$envarg" --env INTAKE_VM_TOOL_WORKER=1 --volume "$turn/rpc:/run/turn:ro" \
+  --env "$envarg" --env INTAKE_VM_TOOL_WORKER=1 --env INTAKE_VM_REAP_PROOF=1 --volume "$turn/reap:/run/reap" --volume "$turn/rpc:/run/turn:ro" \
   --volume "$directory/guest:/run/bench-pair:ro" --volume "$directory/sessions:/home/node/sessions" \
   "$image" node --import tsx src/agents/shared-vm/guest-main.ts

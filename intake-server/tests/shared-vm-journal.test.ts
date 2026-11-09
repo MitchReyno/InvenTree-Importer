@@ -75,3 +75,22 @@ test('disconnect during final progress leaves reconciliation required even if th
     /requires_reconciliation/,
   )
 })
+
+test('a terminal probe never creates or completes a journal, and verifies the exact command', async (t) => {
+  const { recordedOutcome } = await import('../src/agents/shared-vm/journal.ts')
+  const { readFile } = await import('node:fs/promises')
+  const root = await mkdtemp(join(tmpdir(), 'turn-probe-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const path = join(root, 'journal')
+  const command = { turn: '1', lineage: 'lineage', text: 'original' }
+  await assert.rejects(recordedOutcome(path, command), { code: 'ENOENT' })
+  await assert.rejects(readFile(path), { code: 'ENOENT' })
+  await journalTurn(path, command, async () => 'done')
+  assert.equal(await recordedOutcome(path, command), 'done')
+  const bytes = await readFile(path)
+  await assert.rejects(
+    recordedOutcome(path, { ...command, text: 'changed' }),
+    /requires_reconciliation/,
+  )
+  assert.deepEqual(await readFile(path), bytes)
+})

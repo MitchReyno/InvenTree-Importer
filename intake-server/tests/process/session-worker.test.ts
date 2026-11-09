@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -14,7 +14,12 @@ type Job = {
   state: string
   attempt_id: string
   input_sha256: string
-  proposals: { value: { relies_on?: { sources: { kind: string }[] } } }[]
+  proposals: {
+    value: {
+      sources: { kind: string; note_id?: string; text_sha256?: string }[]
+      relies_on?: { sources: { kind: string; inbox_item_id?: string }[] }
+    }
+  }[]
   questions: { id: string; state: string; revision: string; assumption?: string }[]
 }
 
@@ -126,6 +131,29 @@ test(
       proposal.value.relies_on?.sources.some((source) => source.kind === 'inbox_item'),
     )
     assert.ok(latest, 'the resumed proposal relies on the answer it read')
+    const cited = waiting.proposals[0].value.sources.find((source) => source.kind === 'note')
+    assert.ok(cited?.note_id)
+    const original = await fixture.db.pool.query<{ text: string }>(
+      'SELECT text FROM capture_note WHERE id=$1 AND batch_id=$2',
+      [cited.note_id, capture.batch.id],
+    )
+    assert.equal(original.rowCount, 1)
+    assert.equal(
+      cited.text_sha256,
+      createHash('sha256').update(original.rows[0].text).digest('hex'),
+    )
+    assert.deepEqual(latest.value.sources, waiting.proposals[0].value.sources)
+    const answerItem = await fixture.db.pool.query<{ id: string }>(
+      "SELECT id FROM agent_session_inbox WHERE session_lineage_id=$1 AND kind='answer' AND payload->>'question_id'=$2",
+      [finished.id, question.id],
+    )
+    assert.equal(answerItem.rowCount, 1)
+    assert.ok(
+      latest.value.relies_on?.sources.some(
+        (source) => source.kind === 'inbox_item' && source.inbox_item_id === answerItem.rows[0].id,
+      ),
+    )
+
     const outbox = await fixture.db.pool.query<{ kind: string }>(
       'SELECT kind FROM agent_session_outbox WHERE session_id=$1 ORDER BY seq',
       [waiting.attempt_id],

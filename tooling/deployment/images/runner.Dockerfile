@@ -20,4 +20,7 @@ USER node
 ENV INTAKE_CLAUDE_EXECUTABLE=/opt/fixture/provider INTAKE_CODEX_EXECUTABLE=/opt/fixture/provider
 ENV ANTHROPIC_API_KEY=fixture-only OPENAI_API_KEY=fixture-only
 
+FROM runner AS controlled-lifecycle
+COPY intake-server/tests/fixtures/vm-lifecycle-worker.mjs /app/intake-server/src/agents/shared-vm/tool-worker.ts
+
 FROM runner AS personal

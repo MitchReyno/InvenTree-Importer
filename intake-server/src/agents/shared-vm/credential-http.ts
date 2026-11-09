@@ -80,8 +80,8 @@ export function managementServer(
         }
       }
       res.end(JSON.stringify(store.status()))
-    } catch {
-      fail(400)
+    } catch (error) {
+      fail(error instanceof SyntaxError ? 400 : 503)
     }
   })
   server.once('close', () => store?.close())

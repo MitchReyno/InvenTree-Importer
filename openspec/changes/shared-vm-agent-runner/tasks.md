@@ -17,16 +17,16 @@ All bundles target `interactive-app`, in A through D order. Use independent exac
 
 ## 2. Execute remote turns and deliver evidence
 
-- [ ] 2.1 Add failing contract, PG and process tests for duplicate dispatch, lost ACK, stale attempt, runner restart, orphan descendants and cancellation of only one concurrent session.
-- [ ] 2.2 Implement authenticated pairing, bounded streams, durable identity and reconciliation at the session driver. Add the VM provider profile and scoped MCP/evidence bridge. Preserve old profile and approval semantics.
-- [ ] 2.3 Verify resume with a retained question and exact source citation, unreachable private destinations and permitted browsing. Run pnpm test, pnpm test:intake:pg and pnpm test:intake:process with controlled CLIs.
+- [x] 2.1 Add failing contract, PG and process tests for duplicate dispatch, lost ACK, stale attempt, runner restart, orphan descendants and cancellation of only one concurrent session.
+- [x] 2.2 Implement authenticated pairing, bounded streams, durable identity and reconciliation at the session driver. Add the VM provider profile and scoped MCP/evidence bridge. Preserve old profile and approval semantics.
+- [x] 2.3 Verify resume with a retained question and exact source citation, unreachable private destinations and permitted browsing. Run pnpm test, pnpm test:intake:pg and pnpm test:intake:process with controlled CLIs.
 
 ## 3. Connect providers from Agent Settings
 
-- [ ] 3.1 Write failing API, UI and guest tests for unauthorized, stale and offline secret writes, failed deletion, interrupted sign-in and accidental logging of a synthetic sentinel.
+- [x] 3.1 Write failing API, UI and guest tests for unauthorized, stale and offline secret writes, failed deletion, interrupted sign-in and accidental logging of a synthetic sentinel.
 - [x] 3.2 Deliver explicit Claude save, replace and remove actions and the private guest credential lifecycle. Verify no replay from autosave, no read-back, no secret-bearing backups and no alternate billing fallback.
 - [x] 3.3 Add Sign in with ChatGPT using the pinned app-server RPC. Test phone URL/code display, cancellation, denial, late completion, disconnect, reauthentication and persistence after guest container replacement.
-- [ ] 3.4 Run frontend typecheck, lint, tests and build plus affected contract, PG and process tests. Verify settings reads never launch inference.
+- [x] 3.4 Run frontend typecheck, lint, tests and build plus affected contract, PG and process tests. Verify settings reads never launch inference.
 
 ## 4. Qualify personal installations
 

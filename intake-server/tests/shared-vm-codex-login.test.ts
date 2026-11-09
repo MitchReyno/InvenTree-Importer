@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, readdir } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { CodexAccount, parseDevice } from '../src/agents/shared-vm/codex-login.ts'
@@ -120,4 +120,29 @@ test('an interrupted login stays unconfirmed after a new management process star
   assert.equal((await readdir(root)).length, 1)
   await account.action('cancel', id)
   assert.deepEqual(await readdir(root), [])
+})
+
+test('checking a configured ChatGPT account performs only the account preflight', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'codex-status-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await mkdir(join(root, 'account'))
+  const calls: string[] = []
+  const account = new CodexAccount(root, (_root, _home, exclusive) => {
+    assert.equal(exclusive, false)
+    return {
+      initialize: async () => {
+        calls.push('initialize')
+      },
+      connected: async () => {
+        calls.push('account/read')
+        return true
+      },
+      close: async () => {
+        calls.push('close')
+      },
+      request: async (method) => assert.fail('unexpected operation: ' + method),
+    }
+  })
+  assert.deepEqual(await account.action('status'), { state: 'connected' })
+  assert.deepEqual(calls, ['initialize', 'account/read', 'close'])
 })
