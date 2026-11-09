@@ -866,6 +866,27 @@ async function markSameItem(
   }
 }
 
+/**
+ * An estimate equal to the lot's count before a same-item mark came from those counts, so it
+ * follows them; any other estimate waits for the lead session to look again.
+ */
+export async function followItemCountEstimate(
+  client: PoolClient,
+  lotId: string,
+  before: number,
+  after: number,
+) {
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(captureLots)
+      .set({
+        estimatedQuantity: String(after),
+        quantityBasis: 'Counted from the lot’s observations, each item once.',
+      })
+      .where(and(eq(captureLots.id, lotId), eq(captureLots.estimatedQuantity, String(before)))),
+  )
+}
+
 /** The lot an active observation is in, if any. */
 export async function observationLot(client: PoolClient, batchId: string, observationId: string) {
   const rows = await executeDatabaseQuery(

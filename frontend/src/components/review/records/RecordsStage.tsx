@@ -317,6 +317,8 @@ export function RecordsStage({
                 open={(key) => choose('parameter', key)}
                 edit={edit}
                 ask={(record, step) => askFor(record)(step)}
+                disabled={disabled}
+                reportFor={drafts.forSource}
               />
             )}
             {selected && (

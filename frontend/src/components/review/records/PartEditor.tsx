@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from 'react'
 import type { BatchRecordDto, CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
 import { Banner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
@@ -20,10 +21,12 @@ type Props = {
 }
 
 /** One Part's own fields; each section saves on its own and says what it applies to. */
-export function PartEditor({ batch, partId, spec, save, disabled, reportFor, record }: Props) {
+export function PartEditor({ batch, partId, spec, save, disabled, reportFor: report, record }: Props) {
   const target = { kind: 'part' as const, part_subject_id: partId }
   const reuse = record?.reuse
   const reasoning = record?.category_reason
+  const { dirty, reportFor } = useOwnDrafts(report)
+  const reusing = useRecordSave(batch, save)
   return (
     <>
       {reuse && (
@@ -32,9 +35,9 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor, rec
           <Button
             size="sm"
             variant="link"
-            disabled={disabled}
+            disabled={disabled || dirty || reusing.busy}
             onClick={() =>
-              void save({
+              void reusing.send({
                 kind: 'part',
                 id: partId,
                 choice: { mode: 'set', value: reuse.reference },
@@ -43,6 +46,14 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor, rec
           >
             Use {reuse.label} instead
           </Button>
+          {/* Reusing replaces this Part's fields, so their unsaved drafts would be lost. */}
+          {dirty && <Small> Save or discard this Part’s changes first.</Small>}
+          {reusing.problem && <Small role="alert"> {reusing.problem}</Small>}
+          {reusing.retry && (
+            <Button size="sm" variant="ghost" onClick={() => void reusing.retry?.()}>
+              Load current values
+            </Button>
+          )}
         </Banner>
       )}
       <TextField
@@ -358,4 +369,37 @@ function CategoryField({
       <Small>Creating a category is not supported yet.</Small>
     </Fieldset>
   )
+}
+
+/** Passes each field's draft state on, and keeps whether any of this editor's own is unsaved. */
+function useOwnDrafts(report: (source: string) => (dirty: boolean) => void) {
+  const [dirtySources, setDirtySources] = useState<ReadonlySet<string>>(new Set())
+  const callbacks = useRef(new Map<string, (dirty: boolean) => void>())
+  const reportFor = useCallback(
+    (source: string) => {
+      let callback = callbacks.current.get(source)
+      if (!callback) {
+        const outer = report(source)
+        callback = (dirty: boolean) => {
+          outer(dirty)
+          setDirtySources((current) => {
+            if (current.has(source) === dirty) {
+              return current
+            }
+            const next = new Set(current)
+            if (dirty) {
+              next.add(source)
+            } else {
+              next.delete(source)
+            }
+            return next
+          })
+        }
+        callbacks.current.set(source, callback)
+      }
+      return callback
+    },
+    [report],
+  )
+  return { dirty: dirtySources.size > 0, reportFor }
 }

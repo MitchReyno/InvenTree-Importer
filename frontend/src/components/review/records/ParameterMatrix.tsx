@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useContext, useId } from 'react'
 import styled from 'styled-components'
 import type { BatchRecordDto, CaptureSnapshotDto, SourceKindDto } from '@invimport/contracts'
 import { parameterMatrix, type MatrixConflict } from '../../../records/parameter-matrix'
@@ -9,7 +9,7 @@ import { Pill } from '../../ui/Pill'
 import { Small } from '../../ui/primitives'
 import { VisuallyHidden } from '../../ui/VisuallyHidden'
 import { AskControl } from './AskControl'
-import type { Save } from './draft'
+import { SavingContext, useRecordSave, type Save } from './draft'
 
 type Send = (text: string, key: string) => Promise<void>
 
@@ -21,6 +21,10 @@ type Props = {
   edit?: Save
   /** The proposing step's session for a record, when one will read a message. */
   ask?: (record: BatchRecordDto, step: string) => Send | undefined
+  /** Records are stale, refreshing or archived, so nothing here may save. */
+  disabled?: boolean
+  /** Registers an unsent conflict question with the page's navigation guard. */
+  reportFor?: (source: string) => (dirty: boolean) => void
 }
 
 const SOURCE_PHRASE: Record<SourceKindDto, string> = {
@@ -42,7 +46,15 @@ function disagreement(conflict: MatrixConflict) {
 }
 
 /** Each category's new Parts against its templates; a cell opens that parameter's record. */
-export function ParameterMatrix({ batch, records, open, edit, ask }: Props) {
+export function ParameterMatrix({
+  batch,
+  records,
+  open,
+  edit,
+  ask,
+  disabled = false,
+  reportFor,
+}: Props) {
   const ids = useId()
   const groups = parameterMatrix(batch, records)
   if (!groups.length) {
@@ -140,32 +152,28 @@ export function ParameterMatrix({ batch, records, open, edit, ask }: Props) {
                     {row.label} {template.label}: {disagreement(conflict)}.
                     {conflict.because && ` ${conflict.because}`}
                   </span>
-                  {edit &&
-                    conflict.alternatives.map((other) => (
-                      <Button
-                        key={other.value}
-                        size="sm"
-                        variant="link"
-                        onClick={() =>
-                          void edit({
-                            kind: 'record',
-                            target: {
-                              kind: 'parameter',
-                              part_subject_id: row.partId,
-                              template_pk: template.pk,
-                            },
-                            operation: {
-                              op: 'set_parameter',
-                              template: conflict.template,
-                              category_mapping: conflict.categoryMapping,
-                              value: other.value,
-                            },
-                          })
-                        }
-                      >
-                        Use {other.value}
-                      </Button>
-                    ))}
+                  {edit && (
+                    <ConflictChoices
+                      batch={batch}
+                      save={edit}
+                      disabled={disabled}
+                      values={conflict.alternatives.map((other) => other.value)}
+                      change={(value) => ({
+                        kind: 'record',
+                        target: {
+                          kind: 'parameter',
+                          part_subject_id: row.partId,
+                          template_pk: template.pk,
+                        },
+                        operation: {
+                          op: 'set_parameter',
+                          template: conflict.template,
+                          category_mapping: conflict.categoryMapping,
+                          value,
+                        },
+                      })}
+                    />
+                  )}
                   {send && record && (
                     <AskControl
                       step={step}
@@ -173,6 +181,7 @@ export function ParameterMatrix({ batch, records, open, edit, ask }: Props) {
                       prefill={`The sources disagree on the ${template.label.toLowerCase()} of ${row.label}; please check which is right.`}
                       send={send}
                       storeKey={`${batch.id}:ask:${record.key}:conflict`}
+                      report={reportFor?.(`matrix:${record.key}:conflict`)}
                     />
                   )}
                 </ConflictRow>,
@@ -186,6 +195,45 @@ export function ParameterMatrix({ batch, records, open, edit, ask }: Props) {
         category has this template · ! missing: the category needs it.
       </Small>
     </Matrix>
+  )
+}
+
+/** "Use <value>" for each alternative, through the checked record save. */
+function ConflictChoices({
+  batch,
+  save,
+  disabled,
+  values,
+  change,
+}: {
+  batch: CaptureSnapshotDto
+  save: Save
+  disabled: boolean
+  values: string[]
+  change: (value: string) => Parameters<Save>[0]
+}) {
+  const { send, busy, problem, retry } = useRecordSave(batch, save)
+  const { saving } = useContext(SavingContext)
+  return (
+    <>
+      {values.map((value) => (
+        <Button
+          key={value}
+          size="sm"
+          variant="link"
+          disabled={disabled || busy || saving}
+          onClick={() => void send(change(value))}
+        >
+          Use {value}
+        </Button>
+      ))}
+      {problem && <span role="alert">{problem}</span>}
+      {retry && (
+        <Button size="sm" variant="ghost" onClick={() => void retry()}>
+          Load current values
+        </Button>
+      )}
+    </>
   )
 }
 

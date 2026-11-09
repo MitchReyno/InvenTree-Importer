@@ -97,9 +97,9 @@ export async function queueJob(
       }),
     )
   }
-  // A session for a new job, or a restarted one, starts with the saved batch instructions.
+  // A session for a new or restarted job starts with the saved batch instructions.
   if (isSessionProfile(config.profileId ?? mediaProfileId)) {
-    await instructNewSession(client, config, snapshot.id, job.id)
+    await instructNewSession(client, config, snapshot.id, job.id, priorJob ? attempt.attemptId : undefined)
   }
 
   return { jobId: job.id, attemptId: attempt.attemptId }

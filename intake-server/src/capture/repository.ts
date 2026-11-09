@@ -43,6 +43,7 @@ import { readEvidenceObservations } from './evidence-observation-read.ts'
 import {
   applyObservationEdit,
   currentLotItemCount,
+  followItemCountEstimate,
   markLotEdited,
   observationLot,
 } from './evidence-observations.ts'
@@ -765,8 +766,11 @@ async function applyLockedCaptureEdit(
         // quantity is the operator's own and stays.
         const after = await currentLotItemCount(c, id, lotId)
         const quantity = await lotQuantity(c, id, lotId)
-        if (after && after !== before && quantity?.mode === 'set' && Number(quantity.value) === before) {
-          await select(lotId, 'quantity', { mode: 'set', value: String(after) })
+        if (after && after !== before) {
+          if (quantity.mode === 'set' && Number(quantity.value) === before) {
+            await select(lotId, 'quantity', { mode: 'set', value: String(after) })
+          }
+          await followItemCountEstimate(c, lotId, before, after)
         }
       }
       break

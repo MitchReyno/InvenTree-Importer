@@ -358,7 +358,15 @@ describe('RecordsStage', () => {
     expect(detail).toHaveTextContent(
       'Chosen because 14 existing resistors live here. Alternative considered: Thick film.',
     )
-    await user.click(within(detail).getByRole('button', { name: 'Use RES 10k 5% 0603 instead' }))
+    // Reusing replaces this Part's fields, so a field's unsaved draft holds it back.
+    const reuse = within(detail).getByRole('button', { name: 'Use RES 10k 5% 0603 instead' })
+    const name = within(detail).getByLabelText('Name')
+    await user.type(name, ' x')
+    expect(reuse).toBeDisabled()
+    expect(detail).toHaveTextContent('Save or discard this Part’s changes first.')
+    await user.type(name, '{backspace}{backspace}')
+    expect(reuse).toBeEnabled()
+    await user.click(reuse)
     expect(edit).toHaveBeenCalledWith({
       kind: 'part',
       id: partA,

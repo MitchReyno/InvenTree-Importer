@@ -137,8 +137,8 @@ export async function replaceSession(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",
           [jobId, attempt.attemptId],
         )
-        // Instructions saved while the session was over have not reached its lineage yet.
-        await instructNewSession(client, config, batchId, jobId)
+        // The replacement starts a new conversation, so it needs the instructions again.
+        await instructNewSession(client, config, batchId, jobId, attempt.attemptId)
         await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
         return { batch_id: batchId, job_ids: [jobId], attempt_ids: [attempt.attemptId] }
       },

@@ -13,9 +13,25 @@ const ref = (id: string, pk: string, model: string) => ({
 })
 
 const batch = {
+  lots: [],
   observations: [
     { id: 'cap', label: 'Capacitors' },
-    { id: 'volt', label: 'Voltage' },
+    {
+      id: 'volt',
+      label: 'Voltage',
+      model: 'parameter_template',
+      pk: '5',
+      target_context_id: 't',
+      mapping: { kind: 'parameter_template', model_type: 'part.part', enabled: true },
+    },
+    {
+      id: 'cm',
+      label: 'Capacitors · Voltage',
+      model: 'category_parameter',
+      pk: '6',
+      target_context_id: 't',
+      mapping: { kind: 'category_parameter', category_id: '90', template_id: '5' },
+    },
   ],
   parts: [
     {
@@ -127,6 +143,29 @@ describe('ParameterMatrix', () => {
       },
     })
     expect(within(conflict).getByRole('button', { name: 'Ask Research' })).toBeVisible()
+  })
+
+  it('saves nothing while records cannot be edited, and guards an unsent question', async () => {
+    const user = userEvent.setup()
+    const reports = new Map<string, boolean>()
+
+    const reportFor = (source: string) => (dirty: boolean) => reports.set(source, dirty)
+
+    render(
+      <ParameterMatrix
+        batch={batch}
+        records={records}
+        open={vi.fn()}
+        edit={vi.fn(async () => true)}
+        ask={(record) => (record.key === 'parameter:c:5' ? vi.fn() : undefined)}
+        disabled
+        reportFor={reportFor}
+      />,
+    )
+    const conflict = screen.getByRole('group', { name: 'CAP-0101 Voltage: sources disagree' })
+    expect(within(conflict).getByRole('button', { name: 'Use 35 V' })).toBeDisabled()
+    await user.click(within(conflict).getByRole('button', { name: 'Ask Research' }))
+    expect(reports.get('matrix:parameter:c:5:conflict')).toBe(true)
   })
 
   it('offers no Ask where the step has no open session', () => {

@@ -1307,11 +1307,20 @@ test("a lot's quantity taken from its counts follows a same-item mark, and the l
         base_revision: second.revision,
         label: '1N4148 diodes',
         observation_ids: [first.id, second.id],
+        estimated_quantity: '400',
+        quantity_basis: 'Two bags of 200.',
       }),
     )
     assert.ok(bag.ok)
     const lot = async () => (await read()).lots.find((item) => item.id === bag.id)!
     const quantity = async () => (await lot()).quantity
+
+    // Before the estimate is accepted, an estimate taken from the counts follows them too.
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    assert.equal((await lot()).estimated_quantity, '200')
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: null })
+    assert.equal((await lot()).estimated_quantity, '400')
+
     await edit({ kind: 'lot', id: bag.id!, quantity: { mode: 'set', value: '400' } })
 
     await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })

@@ -108,6 +108,7 @@ async function appendInstructions(
   batchId: string,
   lineageId: string,
   instructions: Awaited<ReturnType<typeof currentInstructions>>,
+  attemptId?: string,
 ) {
   for (const instruction of instructions) {
     await appendSessionInbox(
@@ -118,7 +119,9 @@ async function appendInstructions(
         lineageId,
         // Relayed as a system notice, so the runner can give it to a session it starts.
         actorId: null,
-        idempotencyKey: `instruction:${instruction.id}`,
+        idempotencyKey: attemptId
+          ? `instruction:${instruction.id}:${attemptId}`
+          : `instruction:${instruction.id}`,
         kind: 'instruction',
         payload: { instruction_id: instruction.id, text: instruction.text, group_id: instruction.groupId },
       },
@@ -128,14 +131,23 @@ async function appendInstructions(
 }
 
 /**
- * Gives a session the instructions saved before it existed, in the transaction that creates its
- * job or attempt, so it reads them from its inbox at the start. Items it already has are kept.
+ * Gives a session the saved instructions in the transaction that creates its job or attempt, so it
+ * reads them from its inbox at the start. A restarted or replaced attempt starts a new conversation
+ * past the lineage's read cursor, so it gets its own copies, keyed by the attempt.
  */
 export async function instructNewSession(
   client: PoolClient,
   binding: Binding,
   batchId: string,
   lineageId: string,
+  restartedAttemptId?: string,
 ) {
-  await appendInstructions(client, binding, batchId, lineageId, await currentInstructions(client, batchId))
+  await appendInstructions(
+    client,
+    binding,
+    batchId,
+    lineageId,
+    await currentInstructions(client, batchId),
+    restartedAttemptId,
+  )
 }

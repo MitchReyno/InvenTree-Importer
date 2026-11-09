@@ -143,3 +143,46 @@ test('replacement retains a successor identity pin and refuses stale identity wo
     'cancelled',
   )
 })
+
+test('a replacement session gets the batch instructions its predecessor had already read', async () => {
+  const { deliverInstructions } = await import('../../src/agents/instructions.ts')
+  const f = await processingFixture()
+  try {
+    const capture = await f.seedCapture()
+    const prior = await lotSession(f, capture, capture.packetA)
+    const config = { ...f.config, profileId: 'synthetic-session/1' as const }
+    await f.db.pool.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+       VALUES(gen_random_uuid(),$1,NULL,(SELECT revision FROM capture_batch WHERE id=$1),$2,$3)`,
+      [capture.batch.id, 'Keep the two resistor packets apart.', f.identity.actor],
+    )
+    await deliverInstructions(f.api.pool, config, capture.batch.id)
+    // The earlier session read everything in its inbox, then could not resume.
+    await f.db.pool.query(
+      `INSERT INTO agent_session_cursor(session_lineage_id,acked_seq,acked_at)
+       SELECT $1,max(seq),now() FROM agent_session_inbox WHERE session_lineage_id=$1`,
+      [prior.job],
+    )
+    await f.db.pool.query(
+      "UPDATE agent_session SET session_state='resume_unavailable' WHERE attempt_id=$1",
+      [prior.attempt],
+    )
+    await replaceSession(f.api.pool, config, capture.batch.id, prior.job, 'replace', {
+      expected_capture_revision: capture.batch.revision,
+      expected_revision: '1',
+      attempt_id: prior.attempt,
+    })
+    const unread = await f.db.pool.query<{ text: string }>(
+      `SELECT i.payload->>'text' AS text FROM agent_session_inbox i
+         JOIN agent_session_cursor c ON c.session_lineage_id=i.session_lineage_id
+       WHERE i.session_lineage_id=$1 AND i.kind='instruction' AND i.seq>c.acked_seq`,
+      [prior.job],
+    )
+    assert.deepEqual(
+      unread.rows.map((row) => row.text),
+      ['Keep the two resistor packets apart.'],
+    )
+  } finally {
+    await f.dispose()
+  }
+})
