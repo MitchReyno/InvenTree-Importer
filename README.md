@@ -1,6 +1,6 @@
 # InvenTree Importer workspace
 
-This repository contains a Python component/inventory importer and a minimal browser intake scaffold. The backend is usable through its existing `invimport` CLI and library. The frontend currently previews selected file names/sizes only; it does not upload, process, approve or write inventory. The applications have no runtime connection yet.
+This repository contains the `invimport` Python importer and Bench Intake, the local application for capturing photos, proposing lots and reviewing inventory changes. From the repository root, [`pnpm dev`](#run-the-full-local-setup) runs that application on this machine. The importer stays the `invimport` CLI. Live model calls are a separate opt-in, through a native agent or the [VM agent runner](#vm-agent-runner).
 
 | Start here                                      | Responsibility                                                                                           |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -28,6 +28,163 @@ docs/          operator and design documents
 
 Applications have owning READMEs and architecture; backend, frontend and intake server have their own code guidelines, and intake adds [testing guidelines](intake-server/TESTING.md). Shared guidance, CI, root pnpm control and documentation remain at repository root. Node dependencies/scripts live in their packages; root owns one pnpm lockfile. Python retains its own backend uv lock and package identity. Use Python 3.12/uv and the Node/pnpm pins in `.node-version` and root `package.json`; follow each app README for installation.
 
+## Run the full local setup
+
+Run these commands from the repository root. `pnpm dev` starts Bench Intake at **<http://127.0.0.1:4330>**: the UI, API, apply worker, media decoder, Processing worker and a persistent fake inventory. PostgreSQL and the decoder run in Docker. Ctrl-C stops those processes and keeps the database and app data. Targets, tailnet access, reload and native agents are documented in [local app development](docs/development.md).
+
+### Requirements
+
+- Node from `.node-version` and pnpm from the root `packageManager` field.
+- Docker, with Compose 2.24 or later, for the shared database and the decoder image.
+- Python 3.12 and [uv](https://docs.astral.sh/uv/), for the importer CLI and the commit hooks.
+
+The VM agent runner also needs an Apple Silicon Mac, Lima 2.3 or later, and `limactl` on `PATH`. It uses a separate aarch64 Linux VM with its own Docker engine. Raspberry Pi and packaged-host installs are in the [deployment guide](tooling/deployment/README.md).
+
+### Install
+
+```sh
+pnpm install --frozen-lockfile
+uv sync --project backend --locked
+```
+
+Leave an existing root `.env` in place and merge the settings from `.env.intake.example` into it. When the checkout has no `.env`, copy the example:
+
+```sh
+cp .env.intake.example .env
+```
+
+`.env` stays gitignored. The launcher reads it once at startup. Shell values win, including empty ones. The file is parsed as data, so write absolute paths and literal values. Restart `pnpm dev` after an edit.
+
+The copied example selects the fake inventory and synthetic Processing. That start needs no vendor, inventory or model credentials.
+
+### Start the app
+
+Start Docker, then:
+
+```sh
+pnpm dev
+```
+
+Open <http://127.0.0.1:4330>. The first start builds the decoder image and creates a private namespace under `~/.local/state/bench-intake`. Synthetic Processing shows source-bound proposals and makes no model calls.
+
+`pnpm dev --tailscale` also serves the app over HTTPS on this machine's tailnet. `pnpm inventree:dev up` starts a seeded local InvenTree at <http://127.0.0.1:4320>; set `INTAKE_TARGET_PROFILE=local-inventree` in `.env` before `pnpm dev` to read from it. Both are covered in [local app development](docs/development.md).
+
+### VM agent runner
+
+Use this when a Processing session should run Claude or Codex inside the shared VM. `pnpm dev` runs the session coordinator from this checkout. The relay and the provider CLIs run in the Lima VM, from a private runner image. Subscription tokens and the operator key are entered in the app.
+
+Keep the build, VM, pairing and provision commands in one shell so the variables stay set. Each relay and each SSH forward runs in its own terminal; export the variables again there before pasting the command.
+
+Build the images in the Mac Docker context. These tags are local names for this checkout; keep the personal image private, because it contains the provider CLIs.
+
+```sh
+export INTAKE_APP_IMAGE=bench-intake-app:dev
+export INTAKE_GUEST_IMAGE=bench-intake-personal-guest:dev
+export INTAKE_RUNNER_IMAGE=bench-intake-runner:personal
+docker buildx build --load --platform linux/arm64 \
+  -f tooling/deployment/images/app.Dockerfile -t "$INTAKE_APP_IMAGE" .
+docker buildx build --load --platform linux/arm64 \
+  -t "$INTAKE_GUEST_IMAGE" tooling/deployment/guest
+docker build --platform linux/arm64 \
+  --build-arg APP_IMAGE="$INTAKE_APP_IMAGE" \
+  --build-arg PERSONAL_TOOLS_IMAGE="$INTAKE_GUEST_IMAGE" \
+  -f tooling/deployment/images/runner.Dockerfile --target personal \
+  -t "$INTAKE_RUNNER_IMAGE" .
+```
+
+Create the VM and load the runner into the guest Docker engine. `bench-agent-m1` can be any name of lowercase letters, digits and hyphens.
+
+```sh
+vm=bench-agent-m1
+limactl start --tty=false --vm-type=vz --name="$vm" tooling/deployment/lima/agent.yaml
+docker save "$INTAKE_RUNNER_IMAGE" | limactl shell --workdir=/ "$vm" sudo docker load
+```
+
+If the first SSH connection drops during provisioning, check `limactl list` and start that VM again. Confirm Docker is running inside the VM before the next step.
+
+Pair the coordinator and the guest once. Both directories must be new, and the host directory's parent must already exist. The first `pnpm dev` creates `~/.local/state/bench-intake`. The host directory is an absolute path outside this checkout. The guest directory is an absolute path inside the VM, and may contain only letters, digits, `_`, `.`, `/` and `-`.
+
+```sh
+export INTAKE_VM_PAIR="$HOME/.local/state/bench-intake/vm-pair"
+guest_directory=$(limactl shell --workdir=/ "$vm" sh -c 'printf %s "$HOME/bench-intake-guest"')
+tooling/deployment/bridge/pair.sh "$vm" "$INTAKE_VM_PAIR" "$guest_directory"
+```
+
+Provision the guest services once, for the exact browser origin. The default app origin is `http://127.0.0.1:4330`. A different `INTAKE_DEV_PORT`, or the tailnet address, is a different origin and needs its own provision. The Claude command creates the operator key file when it is missing.
+
+```sh
+umask 077
+origin=http://127.0.0.1:4330
+operator_key_file="$HOME/.local/state/bench-intake/vm-operator-key"
+tooling/deployment/bridge/personal-claude.sh \
+  "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE" "$operator_key_file" "$origin"
+tooling/deployment/bridge/personal-codex.sh \
+  "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE" "$origin" "$operator_key_file"
+```
+
+Publish the guest document-reader policy. This command exits after the reader is up.
+
+```sh
+export INTAKE_VM_PORT=14313
+bash tooling/deployment/bridge/public-web.sh "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE"
+```
+
+Start one relay per provider, each in its own terminal. A relay handles one turn at a time and keeps running. It retries until the coordinator is listening, so it can start before `pnpm dev`. Export the variables in that terminal first:
+
+```sh
+vm=bench-agent-m1
+export INTAKE_RUNNER_IMAGE=bench-intake-runner:personal
+export INTAKE_VM_PORT=14313
+guest_directory=$(limactl shell --workdir=/ "$vm" sh -c 'printf %s "$HOME/bench-intake-guest"')
+```
+
+```sh
+INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CLAUDE_SUBSCRIPTION=1 \
+  node tooling/deployment/bridge/relay.mjs \
+  "$vm" "$INTAKE_VM_PORT" "$guest_directory" "$INTAKE_RUNNER_IMAGE"
+```
+
+```sh
+INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CODEX_SUBSCRIPTION=1 \
+  node tooling/deployment/bridge/relay.mjs \
+  "$vm" "$INTAKE_VM_PORT" "$guest_directory" "$INTAKE_RUNNER_IMAGE"
+```
+
+Use another free loopback port when `14313` is already taken, and use that same port in `.env` and in both relays. `INTAKE_VM_WEB_MODE=public` on the reader command allows general public HTTPS reads. With that mode, set `INTAKE_VM_PROTECTED_HOSTS` to every public hostname of this app, the inventory server and this machine. The default reader allows RFC Editor, Python documentation and Example Domain. Details and limits are in the [deployment guide](tooling/deployment/README.md#shared-vm-sessions-with-native-tools).
+
+`shared-vm-agent/1` is the same VM with one guest turn and no tool worker. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
+
+While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use.
+
+```sh
+ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+  -L 127.0.0.1:14315:127.0.0.1:14315 "lima-$vm"
+```
+
+```sh
+ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+  -L 127.0.0.1:14317:127.0.0.1:14317 "lima-$vm"
+```
+
+Add the runner settings to `.env`. Paste the absolute host directory from `INTAKE_VM_PAIR`; a `$HOME` value in the file stays literal.
+
+```dotenv
+INTAKE_PROCESSING_PROFILE=shared-vm-agent/2
+INTAKE_VM_PAIR=<absolute host directory>
+INTAKE_VM_PORT=14313
+INTAKE_PERSONAL_MANAGEMENT=1
+```
+
+Stop a running `pnpm dev`, then start it again so it reads the file. In **Agent settings → Personal Claude subscription**, enter the operator key, choose **Check configuration**, then paste a token from `claude setup-token` and save it. The token stays out of `.env`. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token) describes that command. In **Agent settings → ChatGPT subscription**, enter the same key and choose **Sign in with ChatGPT**. Enable device-code sign-in in [ChatGPT security settings](https://chatgpt.com/#settings/Security) first. Choose **Claude** or **Codex**, **Subscription**, and a model, then start a new Processing session.
+
+The guest egress service has to be running during inference. Claude credential management can be offline after a saved token. Rebuilding the runner image is required after a change to guest or provider code, followed by `docker save` and `docker load` into the same VM. `pnpm dev` reloads the coordinator from this checkout.
+
+On a later day, start the same VM, export the same variables, then start the same tunnels and relays and run `pnpm dev`. Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
+
+```sh
+limactl start "$vm"
+```
+
 ## Root commands
 
 After installing the application toolchains/dependencies as described in their READMEs, run from repository root:
@@ -52,9 +209,9 @@ pnpm test:scanner         # scanner extra and scanner/TUI suite
 pnpm test:all              # normal/scanner, frontend and fast intake suites
 ```
 
-Root scripts also expose per-app checks. These commands delegate to existing application boundaries; they do not start a backend web service or connect the scaffold to inventory. The [backend guide](backend/README.md) documents explicit import approvals and limits.
+`pnpm dev` is the local application above. The other root scripts delegate to one application boundary. The [backend guide](backend/README.md) documents explicit import approvals and limits.
 
-Root `.env`, `.local_imports/`, caches and existing execution/scanner state are not moved or reset. Explicit relative arguments keep caller-cwd meaning. Read the [layout guide](docs/repository-layout.md) before running commands from another cwd or supplying state/config overrides. No real vendor/inventory credentials are needed for the frontend scaffold or the backend's isolated synthetic demo.
+Root `.env`, `.local_imports/`, caches and existing execution/scanner state are not moved or reset. Explicit relative arguments keep caller-cwd meaning. Read the [layout guide](docs/repository-layout.md) before running commands from another cwd or supplying state/config overrides. The default fake inventory and synthetic Processing need no vendor or inventory credentials.
 
 ## Commit hooks and CI
 
@@ -94,4 +251,4 @@ Read the shared and owning app code guidelines before writing, changing or revie
 
 Licensed under [GPLv3](LICENSE); see [third-party notices](THIRD-PARTY-NOTICES.md). DigiKey/InvenTree are their respective owners' trademarks; this independent tool is not affiliated with or endorsed by them. Vendor API obligations and credential handling are described in the [backend guide](backend/README.md#using-the-digikey-api).
 
-See [local app development](docs/development.md) for `.env` configuration, fake or read-only external InvenTree targets, full-stack startup, source-only reload, retained data and synthetic/native Processing selection. Start from `.env.intake.example` without overwriting an existing environment file.
+[Local app development](docs/development.md) covers `.env` configuration, fake, read-only and local InvenTree targets, source reload, retained data and native Processing. The [deployment guide](tooling/deployment/README.md) covers packaged installs, image rollback and VM troubleshooting. Start from `.env.intake.example` and merge it into an existing environment file.
