@@ -92,9 +92,20 @@ function ReadingEdit({
   const [text, setText] = useState(readings.text ?? '')
   const [saving, setSaving] = useState(false)
 
-  // After a confirmed save the draft is this open editor's baseline.
-  const [confirmed, setConfirmed] = useState<{ markings: string[]; text: string } | null>(null)
-  const baseline = confirmed ?? { markings: readings.markings, text: readings.text ?? '' }
+  // A confirmed save is the baseline until the readings it was saved over move on.
+  const over = JSON.stringify(readings)
+  const [confirmed, setConfirmed] = useState<{
+    markings: string[]
+    text: string
+    over: string
+  } | null>(null)
+  if (confirmed && confirmed.over !== over) {
+    setConfirmed(null)
+  }
+  const baseline =
+    confirmed && confirmed.over === over
+      ? confirmed
+      : { markings: readings.markings, text: readings.text ?? '' }
 
   const differs = (nextMarkings: string[], nextText: string) =>
     nextText !== baseline.text ||
@@ -140,7 +151,7 @@ function ReadingEdit({
           .then((result) => {
             // A confirmed save is the new saved value, so the guard is released.
             if (result !== false) {
-              setConfirmed({ markings, text })
+              setConfirmed({ markings, text, over })
               onDirty(false)
             }
           })
