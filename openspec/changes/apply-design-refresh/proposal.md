@@ -56,10 +56,11 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
   - Tests that click Retain or Discard: `MediaUpload.test.tsx`, `CaptureWorkspace.media.test.tsx`, `MediaWorkspace.query.test.tsx`, `MediaWorkspace.groups.test.tsx`.
 - **Evidence deletion.**
   - Nothing deletes evidence today.
-  - `0005_media.sql` makes every `media_*` table reject UPDATE and DELETE, so runtime history is append-only.
+  - `0005_media.sql` stops `media_*` history rows from being deleted or moved to another batch; only `media_batch.revision` advances. Runtime history is append-only.
   - `capture_note` and `media_evidence_note` are append-only too.
   - Active observations can't be deleted (`0019_evidence_observations.sql`, `evidence_observation_delete_refused`).
   - Evidence is referenced by observations, lot membership, derivations, decode commands, attachment selections, approval pins and frozen processing inputs (`intake-server/src/processing/provenance.ts`).
+  - Written batch notes are `capture_note` rows in the capture records (`components/capture/EvidenceNoteForm.tsx`), not media evidence.
 - **Settings and agent features the design adds but the app lacks:**
   - a model per step;
   - instructions copied into every new batch;
@@ -101,7 +102,8 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
   - AI sparkle placements, help buttons and short source chips across screens.
 - **Capture:**
   - Direct multi-file upload (D30).
-  - Evidence deletion with undo and refusal rules (D31). This includes its backend, because it is a requested capability, not a proposed extra.
+  - Deleting photos and documents, with Undo, a "Deleted files" list with Restore, and refusal rules (D31). This includes its backend, because it is a requested capability, not a proposed extra.
+  - "✦ New" pills become "＋ New" (D23).
 
 **Built but disabled, backend deferred to BI-015.** The design adds these controls, but each needs a new contract, storage or agent behaviour:
 
@@ -109,6 +111,8 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 - App-level batch defaults and the description rules on Settings › InvenTree.
 - Description fields for new companies, manufacturer parts, supplier parts, locations, categories and parameter templates.
 - Showing existing manufacturer and supplier part descriptions, which the server doesn't read yet.
+- The Settings › InvenTree token row (status, Check now, Replace token), the import reference prefix, and Check connection now in the server menu.
+- Deleting written batch notes, which live in the capture records rather than media evidence.
 
 Each is shown with a `DisabledFeature`-style explanation and no fabricated behaviour.
 
@@ -128,7 +132,7 @@ Each is shown with a `DisabledFeature`-style explanation and no fabricated behav
 - `#settings` keeps working and becomes Settings › Agents.
 - Old links keep the redirects from `redesign-batch-workspace`.
 
-**Authority.** Nothing here grants provider, inventory, deployment or external messaging authority. Delete changes only the batch's own capture state.
+**Authority.** Nothing here grants provider, inventory, deployment or external messaging authority. Delete changes only the batch's own media state and tells its agents.
 
 ## Reuse and dependency assessment
 
@@ -150,26 +154,26 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 
 ### Modified capabilities
 
-- `capture-grouped-evidence`: uploads start on pick and accept several files. Adds deleting and restoring evidence.
+- `capture-grouped-evidence`: uploads start on pick and accept several files. Adds deleting and restoring photos and documents.
 - `header-connection-status`: Open InvenTree moves into the connection menu.
-- `batch-navigation` (added by `redesign-batch-workspace`): one count per tab, tabs left of the summary, phone header behaviour.
+- `header-workflow-status` (modified by `redesign-batch-workspace`): the masthead's order ends with the Settings button, and the phone bar holds brand, Dev, agents status button and menu.
+- `batch-navigation` (added by `redesign-batch-workspace`): one count per tab, tabs under the title, phone header behaviour.
 - `ui-design-system` (added by `redesign-batch-workspace`): the AI mark, short source chips with a popover, help buttons in place of helper text, descriptions with their limits.
 - `review-records` (added by `redesign-batch-workspace`): descriptions on records, the Locations view.
-- `processing-workspace` (added by `redesign-batch-workspace`): the Inventory step page.
-- `changes-commit` (added by `redesign-batch-workspace`): the Tree view keeps "Lots to include".
+- `processing-workspace` (added by `redesign-batch-workspace`): Overview drops the repeated counts; the Inventory step page.
+- `changes-commit` (added by `redesign-batch-workspace`): the Tree view keeps "Lots to include"; lot rows name only an overriding location.
 
 ## Impact and dependencies
 
 - **Applications:**
   - `frontend/` across masthead, batches, capture, media, processing, review, changes, agents, settings and `ui`.
-  - `contracts/`: media removal commands, removed state in the media projection.
-  - `intake-server/`: a removal migration, commands, read model, processing input builder, and re-examine on removal.
-- **Specs:** `redesign-batch-workspace` must be archived (its delta specs synced to main) before this change syncs, because four modified capabilities exist only in that change. Run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
+  - `contracts/`: media `remove` and `restore` edits, and the removed list in the media projection.
+  - `intake-server/`: a removal migration and grants; the edit handler; the read model; the Examine trigger, agent evidence reads, processing inputs and preparation; approval pinning; stale reasons and notices on removal.
+- **Specs:** `redesign-batch-workspace` must be archived (its delta specs synced to main) before this change syncs, because five modified capabilities exist only in that change (batch-navigation, ui-design-system, review-records, processing-workspace, changes-commit) and it also modifies `header-workflow-status`. Run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
 - **Evidence:** demo recordings for the UI PRs go on the PRs, not in the repository.
 
 ## Open decisions and assumptions
 
-- **Assumption:** delete is undoable until the batch is approved. Restoring adds a new event rather than reverting rows, matching the append-only rules.
+- **Assumption:** a deleted file can be restored at any time from "Deleted files". Restoring adds a new event rather than reverting rows, matching the append-only rules. Approval refuses removed files, so restore never conflicts with an approved run.
 - **Assumption:** deleting a lot's only evidence leaves the lot with a blocking problem, not an automatic exclusion (canvas "Capture › delete evidence").
-- **Assumption:** written notes can be deleted the same way as files. An evidence note is cleared by saving an empty revision, as today.
-- **Recommendation, for the user to confirm:** deletion ships with its backend in this change. It could instead be built disabled under BI-015 if the user prefers to keep this change frontend-only.
+- **Decision for the user before apply starts:** deletion ships with its backend in this change (recommended, because it was requested directly). The alternative, following the "defer significant backend" rule, builds it disabled under BI-015.

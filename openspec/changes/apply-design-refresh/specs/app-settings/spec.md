@@ -24,7 +24,7 @@ The masthead SHALL end with an icon-only Settings button (`aria-label` "Settings
 
 ### Requirement: Agent settings section
 
-Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex, with sign-in state), authentication (subscription or API key; keys are never shown), model, and sessions at once as a stepper from 1 to 8 with the current slot use. It SHALL keep Pause all agents. Saves SHALL use the existing revision check and show one autosave status. Running turns SHALL finish with the settings they started with.
+Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex, with sign-in state), authentication (subscription or API key; keys are never shown), model, and sessions at once as a stepper from 1 to 8 with the current slot use. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL use the existing revision check and show one autosave status. Running turns SHALL finish with the settings they started with.
 
 #### Scenario: Change sessions at once
 
@@ -46,7 +46,8 @@ These controls SHALL render disabled, each with a one-line explanation that the 
 - instructions copied into every new batch;
 - web research switches;
 - app-level batch defaults;
-- the description rules (which records get agent-written descriptions, the Part description style, supplier part description source).
+- the description rules (which records get agent-written descriptions, the Part description style, supplier part description source);
+- the API token row (status, Check now, Replace token), Check connection now and the import reference prefix.
 
 #### Scenario: Disabled control is honest
 
@@ -56,7 +57,7 @@ These controls SHALL render disabled, each with a one-line explanation that the 
 
 ### Requirement: InvenTree and appearance sections
 
-Settings › InvenTree SHALL show the existing server label, connection state, last check time, an Open InvenTree link and the import reference prefix, without showing credentials. Settings › Appearance SHALL hold the System, Light and Dark theme choice that the retired masthead menu held, with the same stored preference.
+Settings › InvenTree SHALL show the existing server label, connection state, last check time and an Open InvenTree link, without showing credentials. Settings › Appearance SHALL hold the System, Light and Dark theme choice that the retired masthead menu held, with the same stored preference.
 
 #### Scenario: Theme moves without loss
 

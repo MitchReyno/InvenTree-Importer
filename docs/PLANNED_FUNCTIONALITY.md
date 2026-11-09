@@ -66,12 +66,12 @@ Adopt the Bench Intake Design System (tokens, light and dark themes, components,
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for new companies, manufacturer parts, supplier parts, locations, categories and parameter templates, reading existing manufacturer and supplier part descriptions, and fuller existing-stock data for the Inventory duplicate comparison.
+Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for new companies, manufacturer parts, supplier parts, locations, categories and parameter templates, and reading existing manufacturer and supplier part descriptions. The rest is the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
 - Size: Unknown
-- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first.
+- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first; not yet satisfied (BI-014 is Planned).
 - OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
 
 #### BI-004 — Automatic supplier logos

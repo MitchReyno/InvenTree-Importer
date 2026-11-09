@@ -2,6 +2,16 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Four batch tabs
+
+The batch header SHALL show the tabs Capture, Processing, Review and Changes on their own row under the batch title, each with at most one count from retained reads: the thing to act on in its attention tone when there is one, otherwise the total. Approve and Results SHALL no longer be tabs.
+
+#### Scenario: Header on any tab
+
+- **GIVEN** a batch with 3 open questions, 8 lots to check, 3 record decisions and 6 lots ready to add
+- **WHEN** any batch tab is open
+- **THEN** the tabs read Capture with no count, Processing "3", Review "8" and Changes "6", with warning counts visually distinct from plain counts, and no tab shows a phrase or two badges.
+
 ### Requirement: Second tab row
 
 Processing, Review and Changes SHALL each show their sub-views as a second row of tabs inside the header band, left-aligned with the batch title. Each main tab and sub-tab SHALL show one count at most: the thing to act on in its attention tone when there is one, otherwise the total or progress ("8", "7/12"). Capture and Overview SHALL show none. Step sub-tabs SHALL show their status as an icon (spinner while running, ✓ when done):
@@ -28,7 +38,7 @@ Segmented controls SHALL be used only for different views of the same list (Work
 
 ### Requirement: Calm batch header
 
-The batch tabs SHALL sit on their own row under the batch title, left-aligned with it. The summary beside the title SHALL be short ("12 lots · 6 ready to add"). Each attention count SHALL appear once: the batch header's "N need you" pill. The masthead activity chip and the Processing › Overview sub-tab SHALL NOT repeat it. Inside a batch, the masthead breadcrumb SHALL read "Batches" only, and the activity chip SHALL NOT repeat the batch title. Outside a batch it names the batch it shows.
+The batch tabs SHALL sit on their own row under the batch title, left-aligned with it. The summary beside the title SHALL be short ("12 lots · 6 ready to add"). Each attention count SHALL appear once: the batch header's "N need you" pill. The masthead activity chip and the Processing › Overview sub-tab SHALL NOT repeat it. Inside a batch, the masthead breadcrumb SHALL read "Batches" only, and the activity chip SHALL NOT repeat the batch title. Outside a batch it names the batch it shows. On app pages the breadcrumb names the page ("Batches / Agents").
 
 #### Scenario: Batch title appears once
 
