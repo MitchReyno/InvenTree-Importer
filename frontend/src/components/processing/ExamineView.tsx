@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureSnapshotDto,
@@ -92,7 +92,7 @@ function ReadingEdit({
   const [text, setText] = useState(readings.text ?? '')
   const [saving, setSaving] = useState(false)
 
-  // After a confirmed save the draft is the saved value until Processing reloads and remounts.
+  // After a confirmed save the draft is this open editor's baseline.
   const [confirmed, setConfirmed] = useState<{ markings: string[]; text: string } | null>(null)
   const baseline = confirmed ?? { markings: readings.markings, text: readings.text ?? '' }
 
@@ -103,6 +103,10 @@ function ReadingEdit({
 
   const dirty = differs(markings, text)
   useReportDirty(dirty, onDirty)
+  // Polled readings can make the draft clean or dirty with no event here.
+  useEffect(() => {
+    onDirty(dirty)
+  }, [dirty, onDirty])
 
   function changeMarkings(next: string[]) {
     setMarkings(next)

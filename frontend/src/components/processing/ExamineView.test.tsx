@@ -553,3 +553,66 @@ it('typing a reading back to its saved text, or discarding it, releases the guar
   expect(field).toHaveValue('16 MHz crystal')
   expect(dirty.at(-1)).toBe(false)
 })
+
+it('readings that catch up with an unconfirmed draft release the guard', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+
+  const view = (current: CaptureSnapshotDto) => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view(batch))
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  await user.type(within(first).getByLabelText('Marking 1 for 16 MHz crystal'), ' 2')
+  await user.click(within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }))
+  expect(dirty.at(-1)).toBe(true)
+  const saved = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      observation('o2', 'v1', '16 MHz crystal 2', null),
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  } as unknown as CaptureSnapshotDto
+  mounted.rerender(view(saved))
+  expect(dirty.at(-1)).toBe(false)
+  expect(within(first).getByLabelText('Marking 1 for LED 0603 red')).toBeEnabled()
+})
+
+it('readings that change under a clean editor report it unsaved', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+
+  const view = (current: CaptureSnapshotDto) => (
+    <ExamineView
+      batch={current}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />
+  )
+
+  const mounted = render(view(batch))
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  expect(dirty.at(-1) ?? false).toBe(false)
+  const reread = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      observation('o2', 'v1', '16 MHz crystal HC-49', null),
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  } as unknown as CaptureSnapshotDto
+  mounted.rerender(view(reread))
+  expect(dirty.at(-1)).toBe(true)
+})
