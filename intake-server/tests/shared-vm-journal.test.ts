@@ -52,3 +52,26 @@ test('a concurrent delivery and a restart after uncertain execution cannot launc
     /requires_reconciliation/,
   )
 })
+
+test('disconnect during final progress leaves reconciliation required even if the provider maps it to failure', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'turn-disconnect-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const path = join(root, 'turn')
+  const abort = new AbortController()
+  await assert.rejects(
+    journalTurn(
+      path,
+      {},
+      async () => {
+        abort.abort()
+        return 'agent_turn_failed'
+      },
+      abort.signal,
+    ),
+    { name: 'AbortError' },
+  )
+  await assert.rejects(
+    journalTurn(path, {}, async () => assert.fail('replayed')),
+    /requires_reconciliation/,
+  )
+})

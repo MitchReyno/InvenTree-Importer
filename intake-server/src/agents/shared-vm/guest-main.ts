@@ -3,7 +3,7 @@
 import { connect } from 'node:tls'
 import { Duplex } from 'node:stream'
 import { once } from 'node:events'
-import { journalTurn } from './journal.ts'
+import { journalTurn, type TurnOutcome } from './journal.ts'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { validate } from '@invimport/contracts'
@@ -48,7 +48,9 @@ async function main() {
     const cwd = join('/home/node/sessions', identity.lineage)
     await mkdir(cwd, { recursive: true, mode: 0o700 })
     const path = join(cwd, command.attemptId + '-' + command.turn)
-    const outcome = await journalTurn(path, command, async () => {
+    const abort = new AbortController()
+    socket.once('close', () => abort.abort())
+    const execute = async (): Promise<TurnOutcome> => {
       if (manifest.profile_id === 'shared-vm-agent/1') {
         if (
           typeof command.text !== 'string' ||
@@ -58,14 +60,17 @@ async function main() {
         ) {
           throw new Error('invalid_opening')
         }
-        const abort = new AbortController()
-        socket.once('close', () => abort.abort())
         let pending = Promise.resolve()
 
         const request = (body: Record<string, unknown>) => {
           const result = pending.then(async () => {
-            await frames.send(body)
-            return frames.read()
+            try {
+              await frames.send(body)
+              return await frames.read()
+            } catch (error) {
+              abort.abort()
+              throw error
+            }
           })
           pending = result.then(
             () => {},
@@ -119,7 +124,8 @@ async function main() {
         })
       }
       return 'done'
-    })
+    }
+    const outcome = await journalTurn(path, command, execute, abort.signal)
     await frames.send(outcome === 'done' ? { done: true } : { failure: outcome })
     socket.end()
   } catch (error) {

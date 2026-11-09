@@ -10,6 +10,7 @@ export async function journalTurn(
   path: string,
   command: Record<string, unknown>,
   execute: () => Promise<TurnOutcome>,
+  signal?: AbortSignal,
 ): Promise<TurnOutcome> {
   const digest = createHash('sha256').update(JSON.stringify(command)).digest('hex')
   const file = await open(path, 'wx', 0o600).catch((error) => {
@@ -42,6 +43,7 @@ export async function journalTurn(
       await directory.close()
     }
     const outcome = await execute()
+    signal?.throwIfAborted()
     await file.writeFile(outcome + '\n')
     await file.sync()
     return outcome

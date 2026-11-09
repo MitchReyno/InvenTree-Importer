@@ -40,6 +40,7 @@ export async function startSessionBridge(directory: string, port: number) {
         if ((await frames.read()).ready !== protocol) {
           throw new Error('runner_protocol_mismatch')
         }
+        socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
         idle.set(socket, frames)
       } catch {
         socket.destroy()
