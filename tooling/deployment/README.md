@@ -196,3 +196,20 @@ Keep the previous image pair and its manifest until the replacement has complete
 If the bridge disconnects after dispatch, a compatible coordinator has a 15-second window to ask another paired peer on the same route for the recorded outcome. The peer reads the journal entry for the same lineage, attempt, turn and command digest. A complete match lets the coordinator settle the original session without invoking the provider again.
 
 A missing, partial or conflicting journal leaves the session awaiting reconciliation. Preserve the guest session journal and investigate the retained attempt before retrying. Cancelling the host operation also ends the probe. This recovery window applies to a running coordinator. A coordinator process restart still follows the retained interruption workflow.
+
+### Packaged media decoding
+
+Build the decoder from the repository's media Dockerfile and the dispatcher from the same app image as the media worker. The dispatcher uses a pinned Docker CLI. Build these as private Linux ARM64 images, load them into the trusted host engine, and obtain the decoder image ID on that engine.
+
+```sh
+docker buildx build --load --platform linux/arm64 -f intake-server/media-image/Dockerfile -t "$decoder_tag" .
+docker buildx build --load --platform linux/arm64 --build-arg APP_IMAGE="$INTAKE_APP_IMAGE" \
+  -f tooling/deployment/images/dispatcher.Dockerfile -t "$INTAKE_DISPATCHER_IMAGE" .
+export INTAKE_MEDIA_DECODER_IMAGE=$(docker image inspect --format '{{.Id}}' "$decoder_tag")
+```
+
+Layer `host-media.compose.yaml` over `host.compose.yaml`. Set `INTAKE_ENGINE_SOCKET` to the trusted engine socket path and `INTAKE_ENGINE_SOCKET_GID` to its numeric group **as seen inside Linux containers**. Set `INTAKE_MEDIA_RUNTIME_ENV` to the private file containing the media worker's restricted database URL and provisioned actor, target and target-context IDs. Use the same retained blob volume as the API.
+
+Start `decoder-dispatch` and use `docker compose run --rm media` with the selected manifests to process one eligible retained command. Only the dispatcher receives the Docker socket. Its Unix endpoint accepts a bounded binary decoder request for the configured immutable image. Media workers have read-only access to that endpoint. The dispatcher has no database credentials, blob mounts or network interface beyond loopback. The decoder image executes with the existing per-command resource, mount and network limits. A dispatcher failure propagates to the media worker through the existing failed-command handling.
+
+Run `tests/decoder-dispatch.sh` from this directory inside a disposable Linux engine with the app, dispatcher and decoder image names as arguments. The smoke test renders a synthetic image through the socket and checks refusal of a different image. It requires no stored evidence or inventory connection.

@@ -251,3 +251,5 @@ The development launcher selects the single-result or session supervisor from th
 
 Session failure diagnostics are owned by the [agents runtime](src/agents/ARCHITECTURE.md#retained-failure-diagnostics). The additive diagnostic migration must precede runtime deployment; historical rows are retained without rewriting legacy sessions.
 
+
+The packaged media worker uses a private Unix socket to dispatch decode and rendition packets. The sibling dispatcher owns the fixed container launch in `media/decoder-runner.ts`. Its only accepted operation uses the installation's immutable decoder image. The Compose overlay gives engine access exclusively to this dispatcher. The API, media worker, coordinator and provider workers receive no engine socket. Local development retains the existing direct decoder launch.

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { requestDecode } from './dispatcher-client.ts'
 import { randomUUID } from 'node:crypto'
 import { parseDecoderOutput, parseRenditionOutput } from './decoder-output.ts'
 import { MEDIA_DECODER_HEADER_MAX_BYTES } from '@invimport/contracts/media'
@@ -38,7 +39,13 @@ async function runIsolated(image: string, header: object, bytes: Buffer): Promis
   if (image.length !== 71 || !/^sha256:[a-f0-9]{64}$/.test(image)) {
     throw new Error('immutable_decoder_image_required')
   }
-  const protocolBytes = JSON.stringify(header)
+  const packet = Buffer.concat([Buffer.from(JSON.stringify(header) + '\n'), bytes])
+  const socket = process.env.INTAKE_MEDIA_DISPATCH_SOCKET
+  return socket ? requestDecode(socket, image, packet) : launchDecoder(image, packet)
+}
+
+// Called only by the trusted dispatcher or the existing local worker.
+export async function launchDecoder(image: string, packet: Buffer): Promise<Buffer> {
   const name = `bench-media-${randomUUID()}`
   const child = spawn(
     'docker',
@@ -115,7 +122,7 @@ async function runIsolated(image: string, header: object, bytes: Buffer): Promis
   })
   child.stderr.resume()
   child.stdin.on('error', () => undefined)
-  child.stdin.end(Buffer.concat([Buffer.from(protocolBytes + '\n'), bytes]))
+  child.stdin.end(packet)
   const code = await new Promise<number | null>((resolve, reject) => {
     child.once('error', reject)
     child.once('close', resolve)
