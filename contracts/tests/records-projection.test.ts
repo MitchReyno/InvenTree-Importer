@@ -1219,6 +1219,27 @@ test('a parameter keeps the values it was not given and why, and a Part names th
   )
 })
 
+test('a Part names at most 32 missing templates, however many its proposals list', () => {
+  const said = structuredClone(processing) as unknown as {
+    jobs: { proposals: { value: { catalogue: Record<string, unknown> } }[] }[]
+  }
+  const catalogue = said.jobs[0].proposals[0].value.catalogue
+  catalogue.required_missing = Array.from({ length: 33 }, (_, index) => ({
+    name: `Template ${index}`,
+    template: { ...ref(903, 'parameter_template'), pk: String(1000 + index) },
+    category_mapping: { ...ref(905, 'category_parameter'), pk: String(2000 + index) },
+    reason: 'Not read.',
+  }))
+  const result = projectRecords({
+    capture,
+    processing: said as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const part = result.records.find((record) => record.key === `part:${partA}`)
+  assert.equal(part?.required_missing?.length, 32)
+})
+
 test("a proposal may keep a value's alternatives and the templates its category still needs", () => {
   const parameter = {
     name: 'Voltage',

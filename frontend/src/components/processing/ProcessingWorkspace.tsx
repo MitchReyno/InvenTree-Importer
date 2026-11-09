@@ -32,6 +32,7 @@ import { retainedJobsSource } from '../../processing/source'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { openQuestionsByLot } from '../../operator/review-model'
 import type { AgentSessionListDto, BatchAttentionDto, CaptureEditDto } from '@invimport/contracts'
+import type { InstructionDelivery } from '../../processing/instruction-delivery'
 
 const ACTIVITY_LIMIT = 6
 const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -97,6 +98,10 @@ interface Props {
     text: string | undefined
     unavailable?: boolean
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
+    /** Whether the saved instructions reached the agents, kept across Processing's remounts. */
+    delivery?: InstructionDelivery
+    /** Sends the saved instructions to the agents again. */
+    deliver?: () => Promise<void>
   }
 }
 
@@ -588,10 +593,11 @@ export function ProcessingWorkspace({
                   instruct={
                     batch.archived || !instructions?.instruct ? undefined : saveInstructions
                   }
+                  delivery={instructions?.delivery}
                   deliver={
-                    agents?.deliverInstructions && !batch.archived
-                      ? () => agents.deliverInstructions!(batch.id)
-                      : undefined
+                    batch.archived || !instructions?.deliver
+                      ? undefined
+                      : () => void instructions.deliver!()
                   }
                   locked={saving === 'answer'}
                   unavailable={instructions?.unavailable}

@@ -16281,6 +16281,7 @@ export interface components {
                 /** @constant */
                 kind: "instruction";
                 payload: {
+                    instruction_id: string;
                     text: string;
                     group_id: string | null;
                 };
@@ -17173,6 +17174,7 @@ export interface components {
                 /** @constant */
                 kind: "instruction";
                 payload: {
+                    instruction_id: string;
                     text: string;
                     group_id: string | null;
                 };
@@ -17390,6 +17392,7 @@ export interface components {
             /** @constant */
             kind: "instruction";
             payload: {
+                instruction_id: string;
                 text: string;
                 group_id: string | null;
             };

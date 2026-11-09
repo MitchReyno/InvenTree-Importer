@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { color, space, typeVar } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Small, TextArea } from '../ui/primitives'
+import { deliveryMessage, type InstructionDelivery } from '../../processing/instruction-delivery'
 
 type Props = {
   /** Undefined until the saved instructions are read; never assumed empty. */
@@ -11,8 +12,10 @@ type Props = {
   revision: string
   /** Absent where this setup cannot save instructions. */
   instruct: ((text: string, revision: string, key: string) => Promise<unknown>) | undefined
-  /** Sends the saved instructions to the batch's agents; absent where this setup has none. */
-  deliver?: () => Promise<{ sessions: number; woken: number } | unknown>
+  /** Whether the last saved instructions reached the agents; kept by the caller across reloads. */
+  delivery?: InstructionDelivery
+  /** Sends the saved instructions to the agents again; absent where this setup has none. */
+  deliver?: () => void
   onDirtyChange: (dirty: boolean) => void
   /** The saved instructions could not be read, so they are not assumed empty. */
   unavailable?: boolean
@@ -31,6 +34,7 @@ export function InstructionField({
   text,
   revision,
   instruct,
+  delivery = { status: 'idle' },
   deliver,
   onDirtyChange,
   unavailable = false,
@@ -42,32 +46,8 @@ export function InstructionField({
   const [edited, setEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [delivery, setDelivery] = useState<'idle' | 'sending' | 'failed' | string>('idle')
   const loaded = text !== undefined
-
-  // The instruction is saved before this runs, so a failed send keeps it and offers a retry.
-  async function send() {
-    if (!deliver) {
-      return
-    }
-    setDelivery('sending')
-    try {
-      const sent = (await deliver()) as { sessions?: number; woken?: number } | undefined
-      const sessions = sent?.sessions ?? 0
-      const woken = sent?.woken ?? 0
-      setDelivery(
-        sessions === 0
-          ? 'No session is working on the batch yet; new ones start with it.'
-          : `Sent to ${sessions} ${sessions === 1 ? 'session' : 'sessions'}${
-              woken
-                ? `; ${woken} finished ${woken === 1 ? 'one is' : 'ones are'} woken to apply it.`
-                : '.'
-            }`,
-      )
-    } catch {
-      setDelivery('failed')
-    }
-  }
+  const sent = deliveryMessage(delivery)
 
   const dirty = loaded && edited && draft !== text
 
@@ -95,7 +75,6 @@ export function InstructionField({
       await instruct(draft, revision, crypto.randomUUID())
       setEdited(false)
       onDirtyChange(false)
-      void send()
     } catch (caught) {
       setError(
         caught instanceof IntakeRequestError && caught.code === 'revision_conflict'
@@ -122,17 +101,17 @@ export function InstructionField({
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
-      {delivery === 'failed' && (
+      {delivery.status === 'failed' && (
         <Problem role="alert">
           Saved, but the agents could not be told yet.{' '}
-          <Button size="sm" variant="link" onClick={() => void send()}>
-            Send to the agents again
-          </Button>
+          {deliver && (
+            <Button size="sm" variant="link" onClick={deliver}>
+              Send to the agents again
+            </Button>
+          )}
         </Problem>
       )}
-      {delivery !== 'idle' && delivery !== 'failed' && delivery !== 'sending' && (
-        <Small role="status">{delivery}</Small>
-      )}
+      {sent && <Small role="status">{sent}</Small>}
       {!loaded && unavailable && (
         <Problem role="alert">
           The saved instructions are unavailable, so they cannot be changed here right now.

@@ -11,6 +11,7 @@ import type {
   RecordObservationArgsDto,
   RegroupArgsDto,
 } from '@invimport/contracts'
+import { lotItemCount } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { mediaPreviews, mediaVersions } from '../media/schema.ts'
 import {
@@ -860,7 +861,57 @@ async function markSameItem(
   }
   if (row.lotId) {
     await markLotEdited(client, row.lotId, revision)
+    // The lot's count changed, so the lead session re-estimates it counting the item once.
+    await setReexamine(client, row.lotId, true)
   }
+}
+
+/** The lot an active observation is in, if any. */
+export async function observationLot(client: PoolClient, batchId: string, observationId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ lotId: captureLotEvidenceObservations.lotId })
+      .from(captureLotEvidenceObservations)
+      .where(
+        and(
+          eq(captureLotEvidenceObservations.batchId, batchId),
+          eq(captureLotEvidenceObservations.evidenceObservationId, observationId),
+          eq(captureLotEvidenceObservations.status, 'active'),
+        ),
+      ),
+  )
+  return rows[0]?.lotId ?? null
+}
+
+/** The items a lot's active observations count now, each physical item once (`lotItemCount`). */
+export async function currentLotItemCount(client: PoolClient, batchId: string, lotId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureEvidenceObservations.id,
+        same_item_as: captureEvidenceObservations.sameItemAs,
+        visible_count: captureEvidenceObservations.visibleCount,
+      })
+      .from(captureEvidenceObservations)
+      .innerJoin(
+        captureLotEvidenceObservations,
+        and(
+          eq(captureLotEvidenceObservations.evidenceObservationId, captureEvidenceObservations.id),
+          eq(captureLotEvidenceObservations.status, 'active'),
+        ),
+      )
+      .where(
+        and(
+          eq(captureEvidenceObservations.batchId, batchId),
+          eq(captureLotEvidenceObservations.lotId, lotId),
+          eq(captureEvidenceObservations.status, 'active'),
+        ),
+      ),
+  )
+  return lotItemCount(
+    rows.map((row) => ({ ...row, status: 'active', lot_id: lotId })) as never,
+    lotId,
+  )
 }
 
 /** Operator observation edits; each marks the observation and the lots it touches as edited. */

@@ -14,6 +14,7 @@ import { createSessionAttempt } from './session-attempts.ts'
 import { decodeSessionInput } from './session-input.ts'
 import { pinnedIdentityCurrent, successorsCurrent } from './stable-identity.ts'
 import { supersedeJobAttempts } from './supersede.ts'
+import { instructNewSession } from '../agents/instructions.ts'
 
 const REPLACEABLE_STATES = new Set([
   'cancelled',
@@ -136,6 +137,8 @@ export async function replaceSession(
           "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",
           [jobId, attempt.attemptId],
         )
+        // Instructions saved while the session was over have not reached its lineage yet.
+        await instructNewSession(client, config, batchId, jobId)
         await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
         return { batch_id: batchId, job_ids: [jobId], attempt_ids: [attempt.attemptId] }
       },

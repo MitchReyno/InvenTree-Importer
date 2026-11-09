@@ -109,6 +109,7 @@ export const SessionInboxItem = Type.Union([
     ...inboxBase,
     kind: Type.Literal('instruction'),
     payload: object({
+      instruction_id: Id,
       text: Type.String({ maxLength: 8192 }),
       group_id: Type.Union([Id, Type.Null()]),
     }),

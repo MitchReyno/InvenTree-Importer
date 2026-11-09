@@ -1284,6 +1284,49 @@ test('a lot keeps when it was formed, set by the database and never changed', as
   })
 })
 
+test("a lot's quantity taken from its counts follows a same-item mark, and the lead looks again", async () => {
+  await withLead(async ({ writer, photo, write, read, edit }) => {
+    const observe = async (x: number, count: number) => {
+      const current = await read()
+      const seen = await write((client) =>
+        recordObservation(client, writer, {
+          base_revision: current.revision,
+          evidence_version_id: photo.version,
+          region: region(x),
+          readings: readings('1N4148'),
+          visible_count: count,
+        }),
+      )
+      assert.ok(seen.ok)
+      return seen
+    }
+    const first = await observe(0, 200)
+    const second = await observe(200, 200)
+    const bag = await write((client) =>
+      proposeLot(client, writer, {
+        base_revision: second.revision,
+        label: '1N4148 diodes',
+        observation_ids: [first.id, second.id],
+      }),
+    )
+    assert.ok(bag.ok)
+    const lot = async () => (await read()).lots.find((item) => item.id === bag.id)!
+    const quantity = async () => (await lot()).quantity
+    await edit({ kind: 'lot', id: bag.id!, quantity: { mode: 'set', value: '400' } })
+
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '200' })
+    assert.equal((await lot()).reexamine, true)
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: null })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '400' })
+
+    // A quantity the operator chose apart from the counts is theirs, and stays.
+    await edit({ kind: 'lot', id: bag.id!, quantity: { mode: 'set', value: '350' } })
+    await edit({ kind: 'observation_same_item', observation_id: second.id, same_as: first.id })
+    assert.deepEqual(await quantity(), { mode: 'set', value: '350' })
+  })
+})
+
 test('the operator marks one bag seen twice as the same item, so the lot counts it once', async () => {
   await withLead(async ({ writer, photo, write, read, edit }) => {
     const observe = async (x: number, count: number) => {

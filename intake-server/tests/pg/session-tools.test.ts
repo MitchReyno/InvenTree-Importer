@@ -1050,8 +1050,8 @@ test('a saved batch instruction reaches the running session and wakes the finish
     assert.deepEqual(
       items.rows.map((row) => row.payload),
       [
-        { text: 'Keep the two resistor packets apart.', group_id: null },
-        { text: 'Keep the two resistor packets apart.', group_id: null },
+        { instruction_id: instruction, text: 'Keep the two resistor packets apart.', group_id: null },
+        { instruction_id: instruction, text: 'Keep the two resistor packets apart.', group_id: null },
       ],
     )
     // Delivering again sends nothing new.

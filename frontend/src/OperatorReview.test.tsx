@@ -1558,3 +1558,66 @@ test('observations in no lot are listed beside the lot Review opens', async () =
   expect(within(list).getByText('16 MHz crystal')).toBeVisible()
   expect(within(list).getByLabelText('Move 16 MHz crystal to')).toBeInTheDocument()
 })
+
+test('a failed delivery of saved instructions keeps its retry after the save reloads Processing', async () => {
+  history.replaceState(null, '', `#${batchId}/processing/overview`)
+  const cache = createServerQueryClient()
+  const user = userEvent.setup()
+  let current = batch
+  const client = { read: vi.fn(async () => current), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+  vi.mocked(operator.instruct).mockImplementation(async () => {
+    current = { ...batch, revision: '13' }
+    return { ...operatorReview, revision: '13' }
+  })
+  const processing = {
+    read: vi.fn(async () => ({
+      batch_id: batchId,
+      capture_revision: current.revision,
+      runner_status: 'fixture_only',
+      cursor: batch.cursor,
+      jobs: [],
+    })),
+  } as unknown as ProcessingClient
+  const deliverInstructions = vi
+    .fn<(batchId: string) => Promise<{ sessions: number; woken: number }>>()
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({ sessions: 2, woken: 1 })
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <Batch
+      id={batchId}
+      route={`${batchId}/processing/overview`}
+      client={client}
+      manual={manualClient()}
+      processing={processing}
+      operator={operator}
+      agents={{
+        sessions: vi.fn(async () => ({ sessions: [], truncated: false })) as never,
+        settings: vi.fn(async () => ({ revision: '1', selection: null, session_concurrency: 1 })) as never,
+        deliverInstructions,
+      }}
+      onDirtyChange={vi.fn()}
+    />,
+    { wrapper: Wrapper },
+  )
+  const field = await screen.findByLabelText('Instructions for the whole batch')
+  await waitFor(() => expect(field).toBeEnabled())
+  await user.type(field, 'Keep packets apart.')
+  await user.click(screen.getByRole('button', { name: 'Save instructions' }))
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(2))
+  expect(await screen.findByText(/Saved, but the agents could not be told yet/)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Send to the agents again' }))
+  expect(deliverInstructions).toHaveBeenCalledTimes(2)
+  expect(
+    await screen.findByText('Sent to 2 sessions; 1 finished one is woken to apply it.'),
+  ).toBeVisible()
+})

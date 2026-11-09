@@ -12,6 +12,7 @@ import { ServerStateProvider } from '../../query/ServerStateProvider'
 import { AgentSessions } from '../../agents/AgentSessions'
 import { ProcessingWorkspace } from '../ProcessingWorkspace'
 import { Main, PageContent } from '../../AppLayout'
+import { useInstructionDelivery } from '../../../processing/instruction-delivery'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
@@ -263,6 +264,7 @@ export function ProcessingProof() {
   const view = useHash() || 'overview'
   const sessions = !view.endsWith('-fixture')
   const page = view.replace('-fixture', '')
+  const delivery = useInstructionDelivery(batch.id, async () => ({ sessions: 2, woken: 1 }))
   const client = {
     read: async () => snapshot(sessions),
     failure: async () => failure,
@@ -321,14 +323,15 @@ export function ProcessingProof() {
               attention={attention}
               instructions={{
                 text: 'Keep the two resistor packets apart.',
-                instruct: async () => {},
+                instruct: async () => void delivery.deliver?.(),
+                delivery: delivery.delivery,
+                deliver: delivery.deliver,
               }}
               agents={{
                 sessions: async () => sessionList(sessions),
                 settings: async () =>
                   ({ revision: '2', selection, session_concurrency: 3 }) as never,
                 pause: pauseClient.pause,
-                deliverInstructions: async () => ({ sessions: 2, woken: 1 }),
               }}
             />
           )}

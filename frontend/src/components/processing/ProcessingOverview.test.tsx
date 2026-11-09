@@ -301,34 +301,33 @@ describe('InstructionField', () => {
     ).toBeInTheDocument()
   })
 
-  it('sends a saved instruction to the agents, and a failed send says so with the instruction kept', async () => {
+  it('says when saved instructions could not reach the agents, and offers to send them again', async () => {
     const user = userEvent.setup()
-    const instruct = vi.fn(async () => undefined)
-    const deliver = vi
-      .fn<() => Promise<unknown>>()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce({ sessions: 2, woken: 1 })
-    render(
+    const deliver = vi.fn()
+    const view = render(
       <InstructionField
-        text=""
-        revision="4"
-        instruct={instruct}
+        text="Keep packets apart."
+        revision="5"
+        instruct={vi.fn()}
+        delivery={{ status: 'failed' }}
         deliver={deliver}
         onDirtyChange={vi.fn()}
       />,
     )
-    await user.type(
-      screen.getByLabelText('Instructions for the whole batch'),
-      'Keep packets apart.',
-    )
-    await user.click(screen.getByRole('button', { name: 'Save instructions' }))
-    expect(instruct).toHaveBeenCalled()
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Saved, but the agents could not be told yet.',
-    )
+    expect(screen.getByRole('alert')).toHaveTextContent('Saved, but the agents could not be told yet.')
     await user.click(screen.getByRole('button', { name: 'Send to the agents again' }))
-    expect(deliver).toHaveBeenCalledTimes(2)
-    expect(await screen.findByRole('status')).toHaveTextContent(
+    expect(deliver).toHaveBeenCalledOnce()
+    view.rerender(
+      <InstructionField
+        text="Keep packets apart."
+        revision="5"
+        instruct={vi.fn()}
+        delivery={{ status: 'sent', sessions: 2, woken: 1 }}
+        deliver={deliver}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
       'Sent to 2 sessions; 1 finished one is woken to apply it.',
     )
   })

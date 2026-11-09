@@ -98,6 +98,9 @@ type Step = Extract<RecordOriginDto, { kind: 'step' }>['step']
 type Origin = RecordOriginDto
 type Field = BatchRecordDto['fields'][number]
 
+/** The output contract's bound on a Part's missing templates. */
+const MAX_REQUIRED_MISSING = 32
+
 const OPERATOR: Origin = { kind: 'operator' }
 const ESTIMATE: Origin = { kind: 'estimate', step: 'examine' }
 
@@ -168,6 +171,10 @@ function originsFor(spec: InventoryPartSpecDto, all: readonly Proposed[]) {
         continue
       }
       for (const missing of catalogue?.required_missing ?? []) {
+        // The record shows as many as a Part can hold parameters; the rest stay on the proposals.
+        if (found.size === MAX_REQUIRED_MISSING) {
+          break
+        }
         if (!present.has(missing.template.pk) && !found.has(missing.template.pk)) {
           found.set(missing.template.pk, {
             template_pk: missing.template.pk,

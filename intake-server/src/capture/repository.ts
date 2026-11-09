@@ -40,7 +40,12 @@ import {
 } from './settings-intent.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
 import { readEvidenceObservations } from './evidence-observation-read.ts'
-import { applyObservationEdit, markLotEdited } from './evidence-observations.ts'
+import {
+  applyObservationEdit,
+  currentLotItemCount,
+  markLotEdited,
+  observationLot,
+} from './evidence-observations.ts'
 
 export class CaptureError extends Error {
   constructor(
@@ -749,9 +754,23 @@ async function applyLockedCaptureEdit(
     case 'observation':
     case 'observation_move':
     case 'observation_suggestion':
-    case 'observation_same_item':
       await applyObservationEdit(c, id, change, nextRevision)
       break
+    case 'observation_same_item': {
+      const lotId = await observationLot(c, id, change.observation_id)
+      const before = lotId ? await currentLotItemCount(c, id, lotId) : null
+      await applyObservationEdit(c, id, change, nextRevision)
+      if (lotId && before !== null) {
+        // A quantity equal to the counts was taken from them, so it follows them; any other
+        // quantity is the operator's own and stays.
+        const after = await currentLotItemCount(c, id, lotId)
+        const quantity = await lotQuantity(c, id, lotId)
+        if (after && after !== before && quantity?.mode === 'set' && Number(quantity.value) === before) {
+          await select(lotId, 'quantity', { mode: 'set', value: String(after) })
+        }
+      }
+      break
+    }
   }
   b.revision = nextRevision
   await executeDatabaseQuery(
@@ -761,6 +780,25 @@ async function applyLockedCaptureEdit(
       .where(eq(captureBatches.id, id)),
   )
   await retainRevision(c, b, input, false)
+}
+
+/** A lot's current quantity selection; unset when it has none. */
+async function lotQuantity(c: PoolClient, batchId: string, lotId: string): Promise<Selection> {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(c)
+      .select({ value: captureSelections.value })
+      .from(captureSelections)
+      .where(
+        and(
+          eq(captureSelections.batchId, batchId),
+          eq(captureSelections.subjectId, lotId),
+          eq(captureSelections.field, 'quantity'),
+        ),
+      )
+      .orderBy(desc(captureSelections.version))
+      .limit(1),
+  )
+  return (rows[0]?.value as Selection | undefined) ?? unset
 }
 
 type RecordChange = Extract<CaptureEditDto['change'], { kind: 'record' }>

@@ -1,4 +1,4 @@
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { and, asc, desc, eq, isNotNull, notInArray } from 'drizzle-orm'
 import type { InstructionDeliveryDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
@@ -23,7 +23,7 @@ const WOKEN = new Set(['waiting_input', 'finished', 'interrupted'])
  */
 export async function deliverInstructions(
   pool: Pool,
-  config: Pick<ProcessingConfig, 'actorId' | 'targetId' | 'targetContextId'>,
+  config: Binding,
   batchId: string,
 ): Promise<InstructionDeliveryDto> {
   return transaction(pool, async (client) => {
@@ -50,23 +50,7 @@ export async function deliverInstructions(
     if (batch.archived) {
       fail('batch_archived', 409)
     }
-    // The latest version of each instruction: the whole batch's and each evidence group's.
-    const instructions = await executeDatabaseQuery(
-      db
-        .selectDistinctOn([captureInstructions.groupId], {
-          id: captureInstructions.id,
-          groupId: captureInstructions.groupId,
-          text: captureInstructions.text,
-          actorId: captureInstructions.actorId,
-        })
-        .from(captureInstructions)
-        .where(eq(captureInstructions.batchId, batchId))
-        .orderBy(
-          asc(captureInstructions.groupId),
-          desc(captureInstructions.version),
-          desc(captureInstructions.createdAt),
-        ),
-    )
+    const instructions = await currentInstructions(client, batchId)
     // Each job's current session, unless it is over.
     const sessions = await executeDatabaseQuery(
       db
@@ -84,21 +68,7 @@ export async function deliverInstructions(
         .orderBy(asc(agentSessions.sessionLineageId)),
     )
     for (const session of sessions) {
-      for (const instruction of instructions) {
-        await appendSessionInbox(
-          client,
-          {
-            binding: config,
-            batchId,
-            lineageId: session.lineageId!,
-            actorId: instruction.actorId,
-            idempotencyKey: `instruction:${instruction.id}`,
-            kind: 'instruction',
-            payload: { text: instruction.text, group_id: instruction.groupId },
-          },
-          { publish: false },
-        )
-      }
+      await appendInstructions(client, config, batchId, session.lineageId!, instructions)
     }
     if (sessions.length && instructions.length) {
       await appendEvent(client, batch.streamId, 'session_inbox_changed', { batch_id: batchId })
@@ -109,4 +79,63 @@ export async function deliverInstructions(
         .length,
     }
   })
+}
+
+type Binding = Pick<ProcessingConfig, 'actorId' | 'targetId' | 'targetContextId'>
+
+/** The latest version of each instruction: the whole batch's and each evidence group's. */
+async function currentInstructions(client: PoolClient, batchId: string) {
+  return executeDatabaseQuery(
+    queryDatabase(client)
+      .selectDistinctOn([captureInstructions.groupId], {
+        id: captureInstructions.id,
+        groupId: captureInstructions.groupId,
+        text: captureInstructions.text,
+      })
+      .from(captureInstructions)
+      .where(eq(captureInstructions.batchId, batchId))
+      .orderBy(
+        asc(captureInstructions.groupId),
+        desc(captureInstructions.version),
+        desc(captureInstructions.createdAt),
+      ),
+  )
+}
+
+async function appendInstructions(
+  client: PoolClient,
+  binding: Binding,
+  batchId: string,
+  lineageId: string,
+  instructions: Awaited<ReturnType<typeof currentInstructions>>,
+) {
+  for (const instruction of instructions) {
+    await appendSessionInbox(
+      client,
+      {
+        binding,
+        batchId,
+        lineageId,
+        // Relayed as a system notice, so the runner can give it to a session it starts.
+        actorId: null,
+        idempotencyKey: `instruction:${instruction.id}`,
+        kind: 'instruction',
+        payload: { instruction_id: instruction.id, text: instruction.text, group_id: instruction.groupId },
+      },
+      { publish: false },
+    )
+  }
+}
+
+/**
+ * Gives a session the instructions saved before it existed, in the transaction that creates its
+ * job or attempt, so it reads them from its inbox at the start. Items it already has are kept.
+ */
+export async function instructNewSession(
+  client: PoolClient,
+  binding: Binding,
+  batchId: string,
+  lineageId: string,
+) {
+  await appendInstructions(client, binding, batchId, lineageId, await currentInstructions(client, batchId))
 }

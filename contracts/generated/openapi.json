@@ -70580,10 +70580,15 @@
                       "additionalProperties": false,
                       "type": "object",
                       "required": [
+                        "instruction_id",
                         "text",
                         "group_id"
                       ],
                       "properties": {
+                        "instruction_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
                         "text": {
                           "maxLength": 8192,
                           "type": "string"
@@ -75572,10 +75577,15 @@
                           "additionalProperties": false,
                           "type": "object",
                           "required": [
+                            "instruction_id",
                             "text",
                             "group_id"
                           ],
                           "properties": {
+                            "instruction_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
                             "text": {
                               "maxLength": 8192,
                               "type": "string"
@@ -76762,10 +76772,15 @@
                 "additionalProperties": false,
                 "type": "object",
                 "required": [
+                  "instruction_id",
                   "text",
                   "group_id"
                 ],
                 "properties": {
+                  "instruction_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
                   "text": {
                     "maxLength": 8192,
                     "type": "string"
