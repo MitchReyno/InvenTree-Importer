@@ -32,18 +32,31 @@ export function evidenceWords(said: {
 
 type Observation = NonNullable<CaptureSnapshotDto['evidence_observations']>[number]
 
-/** Who a reading comes from: the Examine step, in words when it said, or the operator. */
+const AGREEMENT_WHY: Record<SourceAgreementDto, string> = {
+  read: 'Examine read it plainly from the evidence.',
+  likely: 'Examine read it, but part of it was unclear; check it against the evidence.',
+  disagree: 'The sources Examine read give different values.',
+}
+
+/** Who a reading comes from, the Examine step or the operator, and why it is as certain as it is. */
 export function readingSource(observation: Observation) {
   if (observation.origin === 'operator' || observation.operator_edited) {
-    return { source: 'You', certainty: 'Your edit', tone: 'user' as const }
+    return {
+      source: 'You',
+      certainty: 'Your edit',
+      tone: 'user' as const,
+      why: 'You entered or corrected this reading.',
+    }
   }
   const said = evidenceWords(observation.readings)
+  // Line regions are a document's lines; pixel regions are part of a photo.
+  const document = observation.region.kind === 'lines'
   return {
     source: said.kind ? `Examine · ${said.kind}` : 'Examine',
-    // Line regions are a document's lines; pixel regions are part of a photo.
-    certainty:
-      said.certainty ??
-      (observation.region.kind === 'lines' ? 'Read from the document' : 'Read from the photo'),
+    certainty: said.certainty ?? (document ? 'Read from the document' : 'Read from the photo'),
     tone: said.tone,
+    why: observation.readings.agreement
+      ? AGREEMENT_WHY[observation.readings.agreement]
+      : `Examine read it from the ${document ? 'document' : 'photo'}.`,
   }
 }

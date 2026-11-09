@@ -21,6 +21,8 @@
   --bad-weak: #fbe4e1;
   --info: #5a4a9a;
   --info-weak: #ebe7f7;
+  --ai: #7c3aed;
+  --ai-weak: #f1e8ff;
   --overlay: rgba(18,24,20,.55);
   --bar: #20282a;
   --bar-fg: #dfe6e3;
@@ -59,6 +61,8 @@
   --bad-weak: #3a1c1a;
   --info: #b4a6ee;
   --info-weak: #272140;
+  --ai: #c4a7ff;
+  --ai-weak: #2d2148;
   --overlay: rgba(0,0,0,.65);
   --bar: #0c0f0e;
   --bar-fg: #c9d2ce;

@@ -16,4 +16,12 @@ describe('Breadcrumb', () => {
     expect(current).toHaveAttribute('aria-current', 'page')
     expect(current).toHaveAttribute('title', 'Mouser 3381-22 + bench bag')
   })
+
+  it('reads "Batches" alone inside a batch, since the batch header names the batch', () => {
+    render(<Breadcrumb items={[{ label: 'Batches', href: '#' }]} />)
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+
+    expect(within(nav).getByRole('link', { name: 'Batches' })).toHaveAttribute('href', '#')
+    expect(nav).toHaveTextContent(/^Batches$/)
+  })
 })

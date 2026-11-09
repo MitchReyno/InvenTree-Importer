@@ -4,7 +4,6 @@ import type {
   BatchRecordDto,
   CaptureSnapshotDto,
   RecordExistingValuesDto,
-  RecordOriginDto,
 } from '@invimport/contracts'
 import {
   Banner,
@@ -12,8 +11,9 @@ import {
   Link,
   Small,
   RecordStatePill,
-  SourceChip,
   DataTable,
+  DescriptionField,
+  DESCRIPTION_LIMIT,
   type DataColumn,
 } from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
@@ -27,7 +27,8 @@ import { PartDecision } from './PartDecision'
 import { PartEditor } from './PartEditor'
 import { SourcingEditor } from './SourcingEditor'
 import { TemplateEditor } from './TemplateEditor'
-import { evidenceWords } from '#/operator/value-evidence'
+import { FieldSourceChip } from './FieldSourceChip'
+import { RecordDescription } from './RecordDescription'
 import type { Save } from './draft'
 
 const FIELD_LABELS: Record<string, string> = {
@@ -67,21 +68,6 @@ type Props = {
   ask?: (step: string) => ((text: string, key: string) => Promise<void>) | undefined
   /** The target's current values, for a record it already holds. */
   existing?: UseQueryResult<RecordExistingValuesDto>
-}
-
-/** One record: its values with who set them, what an edit reaches, and its editor. */
-/** A step's value in words: what it came from and how well its sources agree, when it said. */
-function stepSource(origin: Exclude<RecordOriginDto, { kind: 'operator' }>) {
-  const step = STEP_LABELS[origin.step]
-  if (origin.kind === 'estimate') {
-    return { source: step, certainty: 'Estimated', tone: 'likely' as const }
-  }
-  const said = evidenceWords(origin)
-  return {
-    source: said.kind ? `${step} · ${said.kind}` : step,
-    certainty: said.certainty ?? 'Proposed',
-    tone: said.tone,
-  }
 }
 
 const EXISTING_COLUMNS: DataColumn[] = [
@@ -131,24 +117,28 @@ function ExistingValues({
     <DataTable
       caption="In InvenTree"
       columns={EXISTING_COLUMNS}
-      rows={entry.fields.map((field) => {
-        const label = FIELD_LABELS[field.name] ?? field.name
-        const set = record.fields.find((item) => item.name === field.name)
-        return {
-          id: field.name,
-          label,
-          name: label,
-          cells: {
-            field: { value: label },
-            existing: { value: field.value ?? '—' },
-            batch: { value: set ? (set.value ?? '—') : 'No change' },
-          },
-        }
-      })}
+      // The description is shown once, as its own field beside this table.
+      rows={entry.fields
+        .filter((field) => field.name !== 'description')
+        .map((field) => {
+          const label = FIELD_LABELS[field.name] ?? field.name
+          const set = record.fields.find((item) => item.name === field.name)
+          return {
+            id: field.name,
+            label,
+            name: label,
+            cells: {
+              field: { value: label },
+              existing: { value: field.value ?? '—' },
+              batch: { value: set ? (set.value ?? '—') : 'No change' },
+            },
+          }
+        })}
     />
   )
 }
 
+/** One record: its values with who set them, what an edit reaches, and its editor. */
 export function RecordDetail({
   batch,
   record,
@@ -159,8 +149,11 @@ export function RecordDetail({
   ask,
   existing,
 }: Props) {
-  // A value not supported yet shows at its field when the record lists that field.
-  const listed = new Set(record.fields.map((field) => field.name))
+  // A value not supported yet shows at its field when the record lists that field. A proposed
+  // description shows in Not supported yet, as a description field with its count.
+  const listed = new Set(
+    record.fields.map((field) => field.name).filter((name) => name !== 'description'),
+  )
   const atField = (record.unsupported ?? []).filter((item) => listed.has(item.field))
   const elsewhere = (record.unsupported ?? []).filter((item) => !listed.has(item.field))
   const target = record.target
@@ -207,6 +200,7 @@ export function RecordDetail({
         </Small>
       )}
       {existing && <ExistingValues record={record} query={existing} />}
+      <RecordDescription batch={batch} record={record} existing={existing} />
       {record.fields.length > 0 && (
         <DataTable
           caption={`${record.label}: saved values and who set them`}
@@ -224,11 +218,7 @@ export function RecordDetail({
                   value: '',
                   content: (
                     <Source>
-                      {field.origin.kind === 'operator' ? (
-                        <SourceChip source="You" certainty="Your edit" tone="user" />
-                      ) : (
-                        <SourceChip {...stepSource(field.origin)} />
-                      )}
+                      <FieldSourceChip label={label} field={field} />
                       {field.origin.kind === 'step' &&
                         (() => {
                           const send = ask?.(field.origin.step)
@@ -265,9 +255,17 @@ export function RecordDetail({
           <strong>Not supported yet</strong>
           {elsewhere.map((item, index) => (
             <div key={index}>
-              <span>
-                {FIELD_LABELS[item.field] ?? item.field}: {item.value}
-              </span>
+              {item.field === 'description' ? (
+                <DescriptionField
+                  label="Proposed description"
+                  value={item.value}
+                  limit={DESCRIPTION_LIMIT.default}
+                />
+              ) : (
+                <span>
+                  {FIELD_LABELS[item.field] ?? item.field}: {item.value}
+                </span>
+              )}
               <Small>{item.why}</Small>
               {item.reason && <Small>Proposed because: {item.reason}</Small>}
             </div>

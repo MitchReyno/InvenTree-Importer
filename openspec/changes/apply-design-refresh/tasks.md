@@ -74,14 +74,14 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; gallery screenshots in both themes and at 390px.
 - **Risks and decisions:** `SourceChip` call sites change shape. Keep a compatible prop signature so Task 7 can migrate the call sites.
 
-- [ ] 1.1 Confirm the design system v20 component guides and the existing `components/ui` APIs that change.
-- [ ] 1.2 RED: write tests for the new components and the short `SourceChip`, and see them fail.
-  - [ ] 1.2.1 `SourceChip`: the accessible name holds source and certainty; the glyph for likely, conflict and user; the popover opens, closes on Escape and returns focus.
-  - [ ] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state, disabled with a reason).
-  - [ ] 1.2.3 `DisabledFeature` around a checkbox, a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
-- [ ] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
-- [ ] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
-- [ ] 1.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 1.1 Confirm the design system v20 component guides and the existing `components/ui` APIs that change.
+- [x] 1.2 RED: write tests for the new components and the short `SourceChip`, and see them fail.
+  - [x] 1.2.1 `SourceChip`: the accessible name holds source and certainty; the glyph for likely, conflict and user; the popover opens, closes on Escape and returns focus.
+  - [x] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state, disabled with a reason).
+  - [x] 1.2.3 `DisabledFeature` around a checkbox, a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
+- [x] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
+- [x] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
+- [x] 1.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 2. Desktop masthead and server menu
@@ -189,11 +189,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate.
 - **Risks and decisions:** InvenTree descriptions set outside the app can exceed 250 characters. Show them with an over-limit count but don't block, because the app doesn't write them.
 
-- [ ] 6.1 Confirm which existing types the existing-values query returns and how `RecordDetail` reads them.
-- [ ] 6.2 RED: write the UI tests for the three description states and the over-limit problem.
-- [ ] 6.3 GREEN: wire `DescriptionField` into the editors and record detail, and surface the existing `description_unsupported` problem as the field's over-limit state.
-- [ ] 6.4 Refactor; verify the record edit tests are unchanged.
-- [ ] 6.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 6.1 Confirm which existing types the existing-values query returns and how `RecordDetail` reads them.
+- [x] 6.2 RED: write the UI tests for the three description states and the over-limit problem.
+- [x] 6.3 GREEN: wire `DescriptionField` into the editors and record detail, and surface the existing `description_unsupported` problem as the field's over-limit state.
+- [x] 6.4 Refactor; verify the record edit tests are unchanged.
+- [x] 6.5 Run the frontend gate, update the docs it affects, and record the results.
 
 ## 7. Screen clean-up and agent marks
 
@@ -220,11 +220,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 7.1 List every `SourceChip` call site and each removal target from the change log.
-- [ ] 7.2 RED: update the screen tests for removals, help buttons and mark placement.
-- [ ] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
-- [ ] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
-- [ ] 7.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 7.1 List every `SourceChip` call site and each removal target from the change log.
+- [x] 7.2 RED: update the screen tests for removals, help buttons and mark placement.
+- [x] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
+- [x] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
+- [x] 7.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 8. Records › Locations and Tree view
@@ -284,11 +284,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** Retry resends the identical request (same key, revision, label, bytes); a 412 then proves the file wasn't kept, and it is sent once more with a new key at the current revision. Group moves also advance the revision, so the queue re-reads it before each upload.
 
-- [ ] 10.1 Confirm the upload call, revision handling and the tests that click Retain or Discard.
-- [ ] 10.2 RED: rewrite the existing tests and add the multi-file, failure and Retry tests.
-- [ ] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
-- [ ] 10.4 Refactor; check navigation protection during the queue.
-- [ ] 10.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 10.1 Confirm the upload call, revision handling and the tests that click Retain or Discard.
+- [x] 10.2 RED: rewrite the existing tests and add the multi-file, failure and Retry tests.
+- [x] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
+- [x] 10.4 Refactor; check navigation protection during the queue.
+- [x] 10.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 11. Evidence removal backend

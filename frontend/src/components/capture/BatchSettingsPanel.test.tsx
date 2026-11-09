@@ -151,7 +151,8 @@ test('the panel has the simplified fields, no explicit save and the disabled PO 
   const supplier = within(panel).getByRole('combobox', { name: 'Supplier' })
   const po = within(panel).getByRole('checkbox', { name: 'Create a purchase order in InvenTree' })
   const tags = within(panel).getByRole('textbox', { name: 'Add a tag to every Part' })
-  expect(po).toBeDisabled()
+  expect(po).toHaveAttribute('aria-disabled', 'true')
+  expect(po).toHaveAccessibleDescription(/Purchase-order creation is not yet available/)
   expect(supplier.compareDocumentPosition(po) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(po.compareDocumentPosition(tags) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(within(panel).getByRole('combobox', { name: 'Default location' })).toBeVisible()
@@ -358,9 +359,9 @@ test('batch notes are always shown, autosave, and clearing them sends a tombston
   const { user } = setup()
   // Batch settings owns the field; Capture draws it in the evidence card.
   const notes = screen.getByRole('textbox', { name: 'Notes for the whole batch' })
-  expect(notes).toHaveAccessibleDescription(
-    'Plain language is fine. Agents read these notes while they work.',
-  )
+  // The label says what the field is; no grey helper sentence explains it.
+  expect(notes).toHaveAccessibleDescription('')
+  expect(screen.queryByText(/Plain language is fine/)).not.toBeInTheDocument()
   await user.type(notes, 'Two bags')
   await idle()
   expect(saves[0].change.notes).toEqual({ batch: 'Two bags', order: null })

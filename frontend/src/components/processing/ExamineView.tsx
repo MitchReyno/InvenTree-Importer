@@ -311,6 +311,8 @@ export function ExamineView({
   const store = requestStore ?? ownStore
   const requests = useSyncExternalStore(store.subscribe, store.get)
   const record = store.set
+  // The last evidence seen per version, so a failed media read keeps an open region editor.
+  const seenEvidence = useRef(new Map<string, NonNullable<typeof media>['evidence'][number]>())
 
   async function requestSharper(version: string, shownName: string) {
     const previous = requests[version]
@@ -339,9 +341,6 @@ export function ExamineView({
     (lot) => !lot.retired && (lot.evidence_observation_ids?.length ?? 0) > 0,
   )
   const capture = batchHref(batch.id, { tab: 'capture' })
-
-  // The last evidence seen per version, so a failed media read keeps an open region editor.
-  const seenEvidence = useRef(new Map<string, NonNullable<typeof media>['evidence'][number]>())
 
   const evidenceOf = (version: string) => {
     const live = media?.evidence.find((item) =>
@@ -498,9 +497,10 @@ export function ExamineView({
                             />
                           )}
                           <SourceChip
-                            source={chip.source}
-                            certainty={chip.certainty}
-                            tone={chip.tone}
+                            {...chip}
+                            field="Reading"
+                            value={readings(observation)}
+                            evidence={crop(observation) ?? `Document ${region(observation)}`}
                             onOpen={() => {
                               location.hash = capture
                             }}
@@ -568,9 +568,7 @@ export function ExamineView({
                     (lot.operator_edited ? (
                       <Pill tone="neutral">Edited</Pill>
                     ) : (
-                      <Pill tone="acc" glyph="✦">
-                        AI-proposed
-                      </Pill>
+                      <Pill status="new">New</Pill>
                     ))}
                   {lot.reexamine && <Pill status="warning">Re-examine</Pill>}
                   {questionedLots.has(lot.id) ? (

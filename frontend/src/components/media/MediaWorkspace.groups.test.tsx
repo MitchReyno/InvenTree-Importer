@@ -235,7 +235,6 @@ test('group membership conflict retains one uploaded original in ungrouped witho
     screen.getByLabelText('Choose photos'),
     new File(['data'], 'packet.png', { type: 'image/png' }),
   )
-  await user.click(screen.getByRole('button', { name: 'Retain packet.png' }))
   const ungrouped = await screen.findByRole('region', { name: /Ungrouped · 1/ })
   expect(within(ungrouped).getByRole('checkbox', { name: 'Select packet.png' })).toBeChecked()
   expect(client.upload).toHaveBeenCalledOnce()
@@ -247,8 +246,470 @@ test('group membership conflict retains one uploaded original in ungrouped witho
     },
     expect.any(String),
   )
-  expect(screen.queryByRole('button', { name: 'Retain packet.png' })).toBeNull()
-  expect(screen.getByText(/Original retained · 4 bytes/)).toBeVisible()
+  // The notice stays where the file was meant to go; the file itself is in Ungrouped.
+  const target = screen.getByRole('region', { name: /Packet A/ })
+  const item = await within(target).findByRole('group', { name: 'Upload of packet.png' })
+  expect(within(item).getByRole('status')).toHaveTextContent(/Added to Ungrouped/)
+  expect(within(item).queryByRole('button', { name: 'Retry packet.png' })).toBeNull()
+
+  // Once the file reaches its group by other means, the notice no longer applies.
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...retained,
+    revision: '3',
+    evidence: [{ ...retained.evidence[0], group_id: groupA }],
+  })
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+  await waitFor(() =>
+    expect(within(target).queryByRole('group', { name: 'Upload of packet.png' })).toBeNull(),
+  )
+
+  // Moved on again later, the dropped notice must not come back with a false claim.
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...retained,
+    revision: '4',
+    evidence: [{ ...retained.evidence[0], group_id: null }],
+  })
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+  await waitFor(() => expect(client.snapshot).toHaveBeenLastCalledWith(batch.id))
+  expect(screen.queryByRole('group', { name: 'Upload of packet.png' })).toBeNull()
+})
+
+test('a held selection after a refused move does not lock Retry or the selection controls', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  let current: MediaSnapshotDto = initial
+  vi.mocked(client.snapshot).mockImplementation(async () => current)
+  vi.mocked(client.upload).mockImplementation(async (_batch, _revision, label) => {
+    if (label === 'two.png') {
+      throw new TypeError('network')
+    }
+    const id = '93000000-0000-4000-8000-000000000009'
+    const version = {
+      id: 'a3000000-0000-4000-8000-00000000000a',
+      evidence_id: id,
+      kind: 'original' as const,
+      digest: 'd'.repeat(64),
+      byte_size: '1',
+      media_type: 'image/png' as const,
+      state: 'queued' as const,
+      decoder_build: null,
+      recipe: null,
+      pages: [],
+    }
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: [
+        ...current.evidence,
+        { id, label, group_id: null, linked_subject_ids: [], versions: [version] },
+      ],
+    }
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  vi.mocked(client.edit).mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['1'], 'one.png', { type: 'image/png' }),
+    new File(['2'], 'two.png', { type: 'image/png' }),
+  ])
+
+  const retry = await screen.findByRole('button', { name: 'Retry two.png' })
+  expect(retry).toBeEnabled()
+  const clear = screen.getByRole('button', { name: 'Clear evidence selection' })
+  expect(clear).toBeEnabled()
+  await user.click(clear)
+  expect(screen.queryByRole('button', { name: 'Clear evidence selection' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Retry two.png' })).toBeEnabled()
+})
+
+test('a poll that fails while a file uploads does not stop the file joining its group', async () => {
+  const user = userEvent.setup()
+  const queries = createServerQueryClient()
+  const key = serverQueryKey(fixtureScope, 'media', batch.id)
+  const client = mediaClient()
+  const id = '94000000-0000-4000-8000-000000000009'
+  const version = {
+    id: 'a4000000-0000-4000-8000-00000000000a',
+    evidence_id: id,
+    kind: 'original' as const,
+    digest: 'e'.repeat(64),
+    byte_size: '1',
+    media_type: 'image/png' as const,
+    state: 'queued' as const,
+    decoder_build: null,
+    recipe: null,
+    pages: [],
+  }
+  const retained: MediaSnapshotDto = {
+    ...initial,
+    revision: '2',
+    evidence: [
+      ...initial.evidence,
+      { id, label: 'late.png', group_id: null, linked_subject_ids: [], versions: [version] },
+    ],
+  }
+
+  let acknowledge: () => void = () => undefined
+
+  vi.mocked(client.upload).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        acknowledge = () =>
+          resolve({ status: 'retained', batch_id: batch.id, evidence_id: id, version })
+      }),
+  )
+  vi.mocked(client.edit).mockResolvedValue({
+    ...retained,
+    revision: '3',
+    evidence: retained.evidence.map((item) =>
+      item.id === id ? { ...item, group_id: groupA } : item,
+    ),
+  })
+  render(
+    <ServerStateProvider scope={fixtureScope} client={queries}>
+      <MediaWorkspace
+        batch={batch}
+        client={client}
+        disabled={false}
+        selectedSubject="defaults"
+        onDirtyChange={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['1'], 'late.png', { type: 'image/png' }),
+  )
+  await waitFor(() => expect(client.upload).toHaveBeenCalledOnce())
+
+  vi.mocked(client.snapshot).mockRejectedValue(new Error('offline'))
+  await act(async () => {
+    await queries.refetchQueries({ queryKey: key })
+  })
+  // The workspace now holds the failed read, so its commands are unavailable until a fresh one.
+  expect(await screen.findByText(/Current saved media could not be confirmed/)).toBeVisible()
+  vi.mocked(client.snapshot).mockResolvedValue(retained)
+  await act(async () => acknowledge())
+
+  await waitFor(() =>
+    expect(client.edit).toHaveBeenCalledWith(
+      batch.id,
+      {
+        expected_revision: '2',
+        change: { kind: 'move_many', evidence_ids: [id], group_id: groupA },
+      },
+      expect.any(String),
+    ),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('group', { name: 'Upload of late.png' })).toBeNull(),
+  )
+})
+
+function keptVersion(id: string, versionId: string) {
+  return {
+    id: versionId,
+    evidence_id: id,
+    kind: 'original' as const,
+    digest: 'f'.repeat(64),
+    byte_size: '1',
+    media_type: 'image/png' as const,
+    state: 'queued' as const,
+    decoder_build: null,
+    recipe: null,
+    pages: [],
+  }
+}
+
+test('reading again a file already placed in a group leaves it there without a selection', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const id = '95000000-0000-4000-8000-000000000009'
+  const version = keptVersion(id, 'a5000000-0000-4000-8000-00000000000a')
+  vi.mocked(client.upload).mockImplementation(async () => {
+    // The read that adopts the receipt fails, so the file waits for Read again.
+    vi.mocked(client.snapshot).mockRejectedValueOnce(new Error('offline'))
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['1'], 'placed.png', { type: 'image/png' }),
+  )
+  const readAgain = await screen.findByRole('button', { name: 'Read placed.png again' })
+
+  // Meanwhile the file was put in Packet B elsewhere.
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    revision: '3',
+    evidence: [
+      ...initial.evidence,
+      { id, label: 'placed.png', group_id: groupB, linked_subject_ids: [], versions: [version] },
+    ],
+  })
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+  await waitFor(() => expect(readAgain).toBeEnabled())
+  await user.click(readAgain)
+
+  await waitFor(() =>
+    expect(screen.queryByRole('group', { name: 'Upload of placed.png' })).toBeNull(),
+  )
+  expect(client.edit).not.toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: 'Clear evidence selection' })).toBeNull()
+})
+
+test('a batch frozen while a file uploads sends no move and holds no selection', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const id = '96000000-0000-4000-8000-000000000009'
+  const version = keptVersion(id, 'a6000000-0000-4000-8000-00000000000a')
+
+  let acknowledge: () => void = () => undefined
+
+  vi.mocked(client.upload).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        acknowledge = () =>
+          resolve({ status: 'retained', batch_id: batch.id, evidence_id: id, version })
+      }),
+  )
+  const props = {
+    batch,
+    client,
+    selectedSubject: 'defaults',
+    onDirtyChange: vi.fn(),
+  }
+  const view = render(<MediaWorkspace {...props} disabled={false} />)
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['1'], 'frozen.png', { type: 'image/png' }),
+  )
+  await waitFor(() => expect(client.upload).toHaveBeenCalledOnce())
+
+  view.rerender(<MediaWorkspace {...props} disabled />)
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    revision: '2',
+    evidence: [
+      ...initial.evidence,
+      { id, label: 'frozen.png', group_id: null, linked_subject_ids: [], versions: [version] },
+    ],
+  })
+  await act(async () => acknowledge())
+
+  const tile = await screen.findByRole('group', { name: 'Upload of frozen.png' })
+  await waitFor(() =>
+    expect(within(tile).getByRole('status')).toHaveTextContent(/Added to Ungrouped/),
+  )
+  expect(client.edit).not.toHaveBeenCalled()
+  expect(screen.queryByRole('button', { name: 'Clear evidence selection' })).toBeNull()
+})
+
+test('after one move is refused, later files stay in Ungrouped without replacing the selection', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  let current: MediaSnapshotDto = initial
+  vi.mocked(client.snapshot).mockImplementation(async () => current)
+  vi.mocked(client.upload).mockImplementation(async (_batch, _revision, label) => {
+    const id =
+      label === 'one.png'
+        ? '91000000-0000-4000-8000-000000000009'
+        : '92000000-0000-4000-8000-000000000009'
+    const version = {
+      id:
+        label === 'one.png'
+          ? 'a1000000-0000-4000-8000-00000000000a'
+          : 'a2000000-0000-4000-8000-00000000000a',
+      evidence_id: id,
+      kind: 'original' as const,
+      digest: 'c'.repeat(64),
+      byte_size: '1',
+      media_type: 'image/png' as const,
+      state: 'queued' as const,
+      decoder_build: null,
+      recipe: null,
+      pages: [],
+    }
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: [
+        ...current.evidence,
+        { id, label, group_id: null, linked_subject_ids: [], versions: [version] },
+      ],
+    }
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  vi.mocked(client.edit).mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['1'], 'one.png', { type: 'image/png' }),
+    new File(['2'], 'two.png', { type: 'image/png' }),
+  ])
+
+  const target = screen.getByRole('region', { name: /Packet A/ })
+  const second = await within(target).findByRole('group', { name: 'Upload of two.png' })
+  await waitFor(() =>
+    expect(within(second).getByRole('status')).toHaveTextContent(/Added to Ungrouped/),
+  )
+  expect(client.edit).toHaveBeenCalledOnce()
+  const ungrouped = screen.getByRole('region', { name: /Ungrouped/ })
+  expect(within(ungrouped).getByRole('checkbox', { name: 'Select one.png' })).toBeChecked()
+  expect(within(ungrouped).getByRole('checkbox', { name: 'Select two.png' })).not.toBeChecked()
+})
+
+test('a refused file whose group has gone shows its tile in Ungrouped', async () => {
+  const user = userEvent.setup({ applyAccept: false })
+  const client = mediaClient()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(
+    screen.getByLabelText('Choose photos'),
+    new File(['gif'], 'late.gif', { type: 'image/gif' }),
+  )
+  const target = screen.getByRole('region', { name: /Packet A/ })
+  expect(within(target).getByRole('group', { name: 'Upload of late.gif' })).toBeVisible()
+
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    revision: '2',
+    groups: [initial.groups[1]],
+    evidence: initial.evidence.map((item) => ({ ...item, group_id: null })),
+  })
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+
+  await waitFor(() => expect(screen.queryByRole('region', { name: /Packet A/ })).toBeNull())
+  const ungrouped = screen.getByRole('region', { name: /Ungrouped/ })
+  expect(within(ungrouped).getByRole('group', { name: 'Upload of late.gif' })).toBeVisible()
+})
+
+test('three photos picked into a group upload one after another and each joins the group', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  let current: MediaSnapshotDto = initial
+  vi.mocked(client.snapshot).mockImplementation(async () => current)
+  const sent: { name: string; revision: string; key: string }[] = []
+
+  let release: () => void = () => undefined
+
+  vi.mocked(client.upload).mockImplementation(async (_batch, revision, label, _bytes, key) => {
+    sent.push({ name: label, revision, key })
+    if (sent.length === 2) {
+      await new Promise<void>((resolve) => (release = resolve))
+    }
+    const id = `9000000${sent.length}-0000-4000-8000-000000000009`
+    const version = {
+      id: `a000000${sent.length}-0000-4000-8000-00000000000a`,
+      evidence_id: id,
+      kind: 'original' as const,
+      digest: 'b'.repeat(64),
+      byte_size: '4',
+      media_type: 'image/png' as const,
+      state: 'queued' as const,
+      decoder_build: null,
+      recipe: null,
+      pages: [],
+    }
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: [
+        ...current.evidence,
+        { id, label, group_id: null, linked_subject_ids: [], versions: [version] },
+      ],
+    }
+    return { status: 'retained', batch_id: batch.id, evidence_id: id, version }
+  })
+  vi.mocked(client.edit).mockImplementation(async (_batch, input) => {
+    if (input.change.kind !== 'move_many') {
+      throw new Error('unexpected_edit')
+    }
+    const { evidence_ids, group_id } = input.change
+    current = {
+      ...current,
+      revision: String(BigInt(current.revision) + 1n),
+      evidence: current.evidence.map((item) =>
+        evidence_ids.includes(item.id) ? { ...item, group_id } : item,
+      ),
+    }
+    return current
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add photos to Packet A' }))
+  await user.upload(screen.getByLabelText('Choose photos'), [
+    new File(['1'], 'one.png', { type: 'image/png' }),
+    new File(['2'], 'two.png', { type: 'image/png' }),
+    new File(['3'], 'three.png', { type: 'image/png' }),
+  ])
+
+  const group = screen.getByRole('region', { name: /Packet A/ })
+  await waitFor(() => expect(within(group).getByText(/Uploading 2 of 3/)).toBeVisible())
+  // The file uploading and the one waiting show as tiles in the group's own grid.
+  expect(within(group).getByRole('group', { name: 'Upload of two.png' })).toHaveTextContent(
+    'Uploading…',
+  )
+  expect(within(group).getByRole('group', { name: 'Upload of three.png' })).toBeVisible()
+  expect(
+    within(screen.getByRole('region', { name: /Ungrouped/ })).queryByRole('group', {
+      name: /^Upload of/,
+    }),
+  ).toBeNull()
+  await act(async () => release())
+  await waitFor(() => expect(client.upload).toHaveBeenCalledTimes(3))
+  await waitFor(() =>
+    expect(within(group).getByRole('checkbox', { name: 'Select three.png' })).toBeVisible(),
+  )
+  expect(within(group).getByRole('checkbox', { name: 'Select one.png' })).toBeVisible()
+  expect(within(group).getByRole('checkbox', { name: 'Select two.png' })).toBeVisible()
+  expect(within(group).queryByText(/Uploading/)).toBeNull()
+  // Each upload starts at the revision current after the previous file joined the group.
+  expect(sent.map((item) => item.revision)).toEqual(['1', '3', '5'])
+  expect(new Set(sent.map((item) => item.key)).size).toBe(3)
 })
 
 test('unsupported media is refused before any upload intent is sent', async () => {
@@ -266,8 +727,13 @@ test('unsupported media is refused before any upload intent is sent', async () =
   const input = screen.getByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
   await user.upload(input, new File(['bad'], 'packet.gif', { type: 'image/gif' }))
-  expect(screen.getByRole('alert')).toHaveTextContent('JPEG or PNG')
+  const ungrouped = screen.getByRole('region', { name: /Ungrouped/ })
+  const item = within(ungrouped).getByRole('group', { name: 'Upload of packet.gif' })
+  expect(within(item).getByRole('alert')).toHaveTextContent(/Not added.*JPEG or PNG/)
   expect(client.upload).not.toHaveBeenCalled()
+  await user.click(within(item).getByRole('button', { name: 'Dismiss packet.gif' }))
+  expect(within(ungrouped).queryByRole('group', { name: 'Upload of packet.gif' })).toBeNull()
+  expect(document.activeElement).not.toBe(document.body)
 })
 
 test('a saved note remains acknowledged when its follow-up read fails', async () => {
@@ -519,6 +985,29 @@ test('heads the evidence with its file and group counts beside New group', async
   expect(heading).toHaveAttribute('id', 'evidence')
   expect(await screen.findByText('2 files · 2 groups')).toBeVisible()
   expect(screen.getByRole('button', { name: 'New group' })).toBeVisible()
+})
+
+test('explains groups behind a help button, not in grey text', async () => {
+  const user = userEvent.setup()
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={mediaClient()}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const help = await screen.findByRole('button', { name: 'About groups' })
+  expect(screen.queryByText(/Group photos that belong together/)).not.toBeInTheDocument()
+
+  await user.click(help)
+  expect(await screen.findByRole('dialog', { name: 'About groups' })).toHaveTextContent(
+    'Group photos that belong together',
+  )
+  await user.keyboard('{Escape}')
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(help).toHaveFocus()
 })
 
 test('opens a file’s note from its tile', async () => {

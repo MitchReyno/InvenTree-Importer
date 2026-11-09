@@ -54,6 +54,10 @@ it('sends a free-text instruction to the Examine lead session', async () => {
     'Queued. The agent receives it during this turn.',
   )
   expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('')
+  // The Tell box is an agent touchpoint; its label carries the mark.
+  expect(screen.getByText('Instruction for Examine').closest('label')).toContainElement(
+    document.querySelector('[data-ai-mark]') as HTMLElement,
+  )
 })
 
 it('keeps the instruction when it is not accepted', async () => {

@@ -4,21 +4,29 @@ import { color, radius, space, type } from '#/theme/generated/tokens'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { CaptureActions } from '#/components/capture/CaptureActions'
 import { Masthead } from '#/components/masthead/Masthead'
+import { AiMark } from '#/components/ui/AiMark'
 import { AutosaveStatus, type AutosaveState } from '#/components/ui/AutosaveStatus'
 import { AutoValueField, type AutoValue } from '#/forms/AutoValueField'
 import { Banner } from '#/components/ui/Banner'
 import { BulkBar } from '#/components/ui/BulkBar'
 import { Button } from '#/components/ui/Button'
 import { ChangeSummary } from '#/components/ui/ChangeSummary'
+import { CompareTable } from '#/components/ui/CompareTable'
 import { DataTable } from '#/components/ui/DataTable'
+import { DESCRIPTION_LIMIT, DescriptionField } from '#/components/ui/DescriptionField'
 import { Dialog } from '#/components/ui/Dialog'
 import { DisabledFeature } from '#/components/ui/DisabledFeature'
 import { EvidenceGroup } from '#/components/ui/EvidenceGroup'
 import { EvidenceGrid, EvidenceTile } from '#/components/ui/EvidenceTile'
 import { FilterChips } from '#/components/ui/FilterChips'
+import { HelpButton } from '#/components/ui/HelpButton'
+import { ShortcutsButton } from '#/components/ui/ShortcutsButton'
+import { IconButton } from '#/components/ui/IconButton'
+import { MenuIcon, SettingsIcon } from '#/components/ui/icons'
 import { KeyValue } from '#/components/ui/KeyValue'
 import { Kbd } from '#/components/ui/Kbd'
 import { NeedsYou } from '#/components/ui/NeedsYou'
+import { NumberStepper } from '#/components/ui/NumberStepper'
 import { OptionRow } from '#/forms/OptionRow'
 import { Popover } from '#/components/ui/Popover'
 import { Count, Pill, type PillStatus, type PillTone } from '#/components/ui/Pill'
@@ -29,13 +37,17 @@ import { QuestionCard } from '#/components/ui/QuestionCard'
 import { RecordChain } from '#/components/ui/RecordChain'
 import { SegmentedControl } from '#/components/ui/SegmentedControl'
 import { SessionChat } from '#/components/ui/SessionChat'
+import { SettingRow } from '#/components/ui/SettingRow'
+import { SettingsNav } from '#/components/ui/SettingsNav'
 import { SharedTagsInput, type SharedTags } from '#/forms/SharedTagsInput'
 import { SourceChip } from '#/components/ui/SourceChip'
 import { StatusTimeline } from '#/components/ui/StatusTimeline'
 import { StickyFooter } from '#/components/ui/StickyFooter'
+import { Switch } from '#/components/ui/Switch'
 import { SubTabs, Tabs } from '#/components/ui/Tabs'
 import { TextField } from '#/forms/TextField'
 import { Toast } from '#/components/ui/Toast'
+import { TreeView } from '#/components/ui/TreeView'
 import { Panel } from '#/components/ui/primitives'
 import { Input, Label } from '#/forms/inputs'
 
@@ -54,7 +66,6 @@ const statuses: [PillStatus, string][] = [
   ['failed', 'Failed'],
   ['new', 'New'],
   ['processing', 'Processing'],
-  ['ai-proposed', 'AI-proposed'],
   ['update', 'Update'],
   ['running', 'Running'],
   ['excluded', 'Excluded'],
@@ -71,6 +82,11 @@ export function ComponentGallery() {
   const [answer, setAnswer] = useState<string | undefined>()
   const [auto, setAuto] = useState<AutoValue>({ mode: 'auto' })
   const [tags, setTags] = useState<SharedTags>({ manual: ['bench bag', 'SMD'], auto: true })
+  const [sessions, setSessions] = useState(3)
+  const [webPages, setWebPages] = useState(true)
+  const [description, setDescription] = useState(
+    'Interconnect manufacturer: USB, board-to-board and card-edge connectors',
+  )
   const tones: PillTone[] = ['ok', 'warn', 'bad', 'info', 'acc', 'neutral', 'outline']
   const saveStates: AutosaveState[] = ['saved', 'saving', 'invalid', 'conflict', 'unconfirmed']
 
@@ -113,13 +129,35 @@ export function ComponentGallery() {
             </span>
           </Row>
           <Row>
+            <IconButton label="Settings" icon={<SettingsIcon />} href="#settings" />
+            <IconButton label="Menu" icon={<MenuIcon />} />
+            <span>Evidence</span>
+            <HelpButton
+              label="About groups"
+              explanation="Group photos that belong together, such as the front and back of one packet. Groups are hints: one photo can still feed several lots."
+            />
+            <ShortcutsButton summary="J / K move · R mark reviewed · V view evidence">
+              <li>
+                <Kbd>J</Kbd>/<Kbd>K</Kbd> move
+              </li>
+              <li>
+                <Kbd>R</Kbd> mark reviewed
+              </li>
+              <li>
+                <Kbd>V</Kbd> view evidence
+              </li>
+            </ShortcutsButton>
+          </Row>
+          <Row>
             <Popover label="Needs you" align="start" trigger={<Button>2 need you</Button>}>
               <p>Is the loose bag 1N4148 diodes?</p>
             </Popover>
             <Button onClick={() => setDialogOpen(true)}>Merge lots…</Button>
             {dialogOpen && (
               <Dialog title="Merge 2 lots" onClose={() => setDialogOpen(false)}>
-                <p>10 kΩ resistor packets A and B become one lot of 880. Their evidence stays linked.</p>
+                <p>
+                  10 kΩ resistor packets A and B become one lot of 880. Their evidence stays linked.
+                </p>
               </Dialog>
             )}
           </Row>
@@ -145,15 +183,42 @@ export function ComponentGallery() {
             ))}
           </Row>
           <Row>
-            <SourceChip source="Packet label" certainty="Label and slip agree" onOpen={() => {}} />
-            <SourceChip source="Agent" certainty="Likely — check" tone="likely" onOpen={() => {}} />
             <SourceChip
-              source="Photo 3"
+              source="Packet label"
+              certainty="Label and slip agree"
+              field="Resistance"
+              value="10 kΩ"
+              why="Read “RES 10K 1%” from packet A’s label; packing slip line 1 says 10K too."
+              evidence="Packet A · front, label crop. Also on: Packing slip 3381-22, line 1"
+              onOpen={() => {}}
+              onEdit={() => {}}
+            />
+            <SourceChip source="Datasheet" certainty="Matches datasheet" onOpen={() => {}} />
+            <SourceChip
+              source="Handwriting"
+              certainty="Estimate"
+              tone="likely"
+              field="Quantity"
+              value="200"
+              why="Counted from the handwritten note on the bag."
+              onOpen={() => {}}
+            />
+            <SourceChip
+              source="Photo"
               certainty="Sources disagree"
               tone="conflict"
               onOpen={() => {}}
             />
-            <SourceChip source="You" certainty="Entered" tone="user" onOpen={() => {}} />
+            <SourceChip source="You" certainty="Your edit" tone="user" />
+          </Row>
+          <Row>
+            <AiMark size="sm" />
+            <AiMark />
+            <AiMark size="lg" />
+            <AiMark size="sm">Ask Inventory about this match</AiMark>
+            <b>
+              <AiMark>Agent sessions</AiMark>
+            </b>
           </Row>
           <Stack>
             <Banner tone="warn">2 questions need an answer before approval.</Banner>
@@ -257,6 +322,49 @@ export function ComponentGallery() {
           </Row>
         </Section>
 
+        <Section title="Settings">
+          <Grid>
+            <SettingsNav
+              back={{ label: 'Mouser 3381-22 › Processing', href: '#' }}
+              current="agents"
+              sections={[
+                { id: 'agents', label: 'Agents', href: '#agents', agent: true },
+                { id: 'inventree', label: 'InvenTree', href: '#inventree' },
+                { id: 'defaults', label: 'Batch defaults', href: '#defaults' },
+                { id: 'descriptions', label: 'Descriptions and naming', href: '#descriptions' },
+                { id: 'appearance', label: 'Appearance', href: '#appearance' },
+              ]}
+            />
+            <Card>
+              <SettingRow
+                label="Sessions at once"
+                help="How many sessions may run turns together. Sessions waiting for you hold no slot."
+              >
+                <NumberStepper
+                  label="Sessions at once"
+                  value={sessions}
+                  min={1}
+                  max={8}
+                  onChange={setSessions}
+                />
+              </SettingRow>
+              <SettingRow label="Web research">
+                <Switch label="Allow public web pages" checked={webPages} onChange={setWebPages} />
+              </SettingRow>
+              <SettingRow
+                label="Model per step"
+                disabledReason="Choosing a model for each step is not stored yet."
+              >
+                {({ named, disabled }) => (
+                  <select defaultValue="default" {...named} {...disabled}>
+                    <option value="default">Same as the default</option>
+                  </select>
+                )}
+              </SettingRow>
+            </Card>
+          </Grid>
+        </Section>
+
         <Section title="Evidence">
           <EvidenceGroup name="Packet front and back" count={3} onRename={() => {}}>
             <EvidenceGrid>
@@ -299,8 +407,83 @@ export function ComponentGallery() {
                 label: 'Supplier',
                 value: 'Mouser',
                 state: 'inherited',
-                source: <SourceChip source="Slip" certainty="Read" onOpen={() => {}} />,
+                source: (
+                  <SourceChip source="Packing slip" certainty="Read from slip" onOpen={() => {}} />
+                ),
               },
+            ]}
+          />
+          <Grid>
+            <DescriptionField
+              label="Part description"
+              value="Resistor 10 kΩ ±1% 0603 thick film"
+              limit={DESCRIPTION_LIMIT.default}
+              source={<SourceChip source="Datasheet" certainty="Matches datasheet" />}
+            />
+            <DescriptionField
+              label="Company description"
+              value={description}
+              limit={DESCRIPTION_LIMIT.company}
+              source={<SourceChip source="InvenTree" certainty="Existing" />}
+              onChange={setDescription}
+            />
+            <DescriptionField
+              label="Location type description"
+              value={'Anti-static drawers on the bench, labelled by row and column. '.repeat(5)}
+              limit={DESCRIPTION_LIMIT.default}
+            />
+            <DescriptionField
+              label="Supplier part description"
+              value={null}
+              limit={DESCRIPTION_LIMIT.default}
+              disabledReason="Supplier part descriptions are not stored yet."
+            />
+          </Grid>
+          <TreeView
+            label="What will change in InvenTree"
+            nodes={[
+              {
+                id: 'cat',
+                kind: 'Category',
+                label: 'Passives › Resistors › SMD',
+                status: <Pill status="exists">Exists</Pill>,
+                children: [
+                  {
+                    id: 'part',
+                    kind: 'Part',
+                    label: 'RES-0144',
+                    detail: 'Resistor 10 kΩ ±1% 0603 thick film',
+                    status: <Pill status="new">New</Pill>,
+                    children: [
+                      {
+                        id: 's1',
+                        kind: 'Stock item',
+                        label: '500',
+                        detail: 'pcs · D/C 2341',
+                        status: <Pill status="new">New</Pill>,
+                      },
+                      {
+                        id: 's2',
+                        kind: 'Stock item',
+                        label: '380',
+                        detail: 'pcs · D/C 2407',
+                        status: <Pill tone="outline">Not ticked</Pill>,
+                        dimmed: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ]}
+          />
+          <CompareTable
+            caption="This lot against existing stock"
+            records={['This batch', 'Stock #1712']}
+            rows={[
+              { field: 'Part', values: ['OPA-0004 LM358DR', 'OPA-0004 LM358DR'] },
+              { field: 'Date code', values: ['2338', '2338'] },
+              { field: 'Location', values: ['Bench bin B3', 'Bench bin B3'] },
+              { field: 'Quantity', values: ['5', '7'], differs: true },
             ]}
           />
           <RecordChain
@@ -436,7 +619,11 @@ export function ComponentGallery() {
         <Section title="Forms and existing controls">
           <Row>
             <TextField label="Supplier order or receipt number" defaultValue="3381-22" />
-            <TextField label="Quantity" placeholder="e.g. 500" error="Enter a whole number of parts." />
+            <TextField
+              label="Quantity"
+              placeholder="e.g. 500"
+              error="Enter a whole number of parts."
+            />
             <TextField
               label="Purchase order"
               defaultValue="Created automatically"
@@ -453,10 +640,17 @@ export function ComponentGallery() {
           </Grid>
           <SharedTagsInput value={tags} onChange={setTags} />
           <Row>
-            <DisabledFeature
-              label="Find logo automatically"
-              explanation="Coming later. Upload a logo for now."
-            />
+            <DisabledFeature explanation="Coming later. Upload a logo for now.">
+              {(disabled) => (
+                <label>
+                  <input type="checkbox" {...disabled} />
+                  Find logo automatically
+                </label>
+              )}
+            </DisabledFeature>
+            <DisabledFeature explanation="Checking the connection on demand is not available yet.">
+              {(disabled) => <Button {...disabled}>Check connection now</Button>}
+            </DisabledFeature>
           </Row>
           <Stack>
             {saveStates.map((state) => (

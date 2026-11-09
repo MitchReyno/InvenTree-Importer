@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { Profiler } from 'react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -49,7 +49,8 @@ function map(overrides: Partial<Parameters<typeof ReviewMap>[0]> = {}) {
 }
 
 describe('ReviewMap', () => {
-  it('titles the diagram with its warnings and draws one connector per link', () => {
+  it('titles the diagram with its warnings and draws one connector per link', async () => {
+    const user = userEvent.setup()
     const { container } = render(
       <ReviewMap
         batch={batch}
@@ -65,11 +66,24 @@ describe('ReviewMap', () => {
     const title = screen.getByRole('heading', { name: 'How photos became lots' }).parentElement!
     expect(title).toHaveTextContent('1 file in no lot')
     expect(title).toHaveTextContent('2 lots on a single file')
-    const drawing = container.querySelector('svg[aria-hidden="true"]')!
+    // The connector drawing, not an icon such as the legend's help button.
+    const drawing = [...container.querySelectorAll('svg[aria-hidden="true"]')].find((svg) =>
+      svg.querySelector('path[data-style]'),
+    )!
     // Front label → A directly; the slip → A and B through their Part; the bag photo → Bag.
     expect(drawing.querySelectorAll('path[data-style="solid"]')).toHaveLength(2)
     expect(drawing.querySelectorAll('path[data-style="dotted"]')).toHaveLength(2)
-    expect(screen.getByText(/Solid: the file shows the lot/)).toBeInTheDocument()
+    // The legend sits behind a help button, not in grey text under the map.
+    expect(screen.queryByText(/Solid: the file shows the lot/)).not.toBeInTheDocument()
+    const help = screen.getByRole('button', { name: 'How to read the map' })
+    expect(help).toHaveAttribute('title', expect.stringMatching(/^Solid: the file shows the lot/))
+    await user.click(help)
+    expect(await screen.findByRole('dialog', { name: 'How to read the map' })).toHaveTextContent(
+      'Dotted: a document line',
+    )
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(help).toHaveFocus()
   })
 
   it('counts lots on one observation apart from lots on one file', () => {

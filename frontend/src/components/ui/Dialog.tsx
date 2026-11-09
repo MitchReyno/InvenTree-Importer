@@ -6,7 +6,8 @@ import { Button } from './Button'
 import { motion } from './motion'
 
 type DialogProps = {
-  title: string
+  /** Names the dialog; it may hold an `AiMark`, which stays out of the accessible name. */
+  title: ReactNode
   onClose: () => void
   /** Pending or uncertain work keeps the dialog open until it is resolved. */
   closeDisabled?: boolean

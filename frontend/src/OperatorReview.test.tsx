@@ -1056,7 +1056,7 @@ test('a lot the lead session forms waits behind a dirty Review draft, then appea
 
   await user.click(screen.getByRole('button', { name: 'Discard lot edits' }))
   const row = await screen.findByRole('checkbox', { name: 'Select LED reel' })
-  expect(row.closest('li, div')?.parentElement).toHaveTextContent('AI-proposed')
+  expect(row.closest('li, div')?.parentElement).toHaveTextContent('＋New')
   // A live update must not leave Review read-only.
   await waitFor(() => expect(screen.getByRole('button', { name: 'Edit lot values' })).toBeEnabled())
 })
@@ -1153,7 +1153,7 @@ test('the Table shows one State column, the part markings and a legend for its m
   expect(screen.getByText(/overrides the batch value/)).toBeVisible()
 })
 
-test('a click on a Table row opens its lot, and the shortcut hint names its keys', async () => {
+test('a click on a Table row opens its lot', async () => {
   const user = userEvent.setup()
   renderReview()
   await user.click(await screen.findByRole('button', { name: 'Table' }))
@@ -1161,7 +1161,29 @@ test('a click on a Table row opens its lot, and the shortcut hint names its keys
   const row = within(table).getByRole('checkbox', { name: 'Select Packet A' }).closest('tr')!
   await user.click(within(row).getAllByRole('cell')[2])
   await waitFor(() => expect(location.hash).toContain(`/review/lots/${a}`))
-  expect(document.querySelectorAll('kbd')).not.toHaveLength(0)
+})
+
+test('the keyboard shortcuts sit behind a Shortcuts button that names each key', async () => {
+  const user = userEvent.setup()
+  renderReview()
+  const shortcuts = await screen.findByRole('button', { name: 'Keyboard shortcuts' })
+  expect(shortcuts).toHaveTextContent('Shortcuts')
+  expect(shortcuts).toHaveAttribute(
+    'title',
+    'J / K move · R mark reviewed · E edit quantity · V view evidence',
+  )
+  expect(screen.queryByText(/mark reviewed ·/)).not.toBeInTheDocument()
+
+  await user.click(shortcuts)
+  const list = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })
+  expect(list).toHaveTextContent('J/K move')
+  expect(list).toHaveTextContent('R mark reviewed')
+  expect(list).toHaveTextContent('E edit quantity')
+  expect(list).toHaveTextContent('V view evidence')
+  expect(list.querySelectorAll('kbd')).toHaveLength(5)
+  await user.keyboard('{Escape}')
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(shortcuts).toHaveFocus()
 })
 
 test('the lot detail ends in its action footer and holds the lot edits', async () => {
@@ -1237,7 +1259,7 @@ test('lot details name the operator as the source of their own values', async ()
   renderReview()
   const details = await screen.findByRole('region', { name: 'Decision' })
   const quantity = within(details).getByText('Quantity', { selector: 'dt' }).nextElementSibling!
-  expect(quantity).toHaveTextContent('You · Your edit')
+  expect(quantity.querySelector('[title="You · Your edit"]')).toHaveTextContent('✎You')
 })
 
 test('an AI lot credits Examine only for its estimate, not for an inherited quantity', async () => {
@@ -1263,7 +1285,7 @@ test('an AI lot credits Examine only for its estimate, not for an inherited quan
 
   expect(value('Quantity')).not.toHaveTextContent('Examine')
   expect(value('Examine estimate')).toHaveTextContent('40')
-  expect(value('Examine estimate')).toHaveTextContent('Examine · Estimated')
+  expect(value('Examine estimate').querySelector('[title="Examine · Estimated"]')).toBeVisible()
 })
 
 test('lot details show the records the lot becomes', async () => {

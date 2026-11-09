@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { space } from '#/theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { DisabledFeature, Button } from '#/components/ui'
-import { AutoValueField, NotesField } from '#/forms'
+import { AutoValueField, CheckboxLabel, NotesField } from '#/forms'
 
 type Props = {
   order: CaptureSettingsIntentDto['order']
@@ -21,10 +21,14 @@ export function PurchaseOrderPreview({ order, orderNote }: Props) {
   const [open, setOpen] = useState(false)
   return (
     <Unavailable>
-      <DisabledFeature
-        label="Create a purchase order in InvenTree"
-        explanation="Purchase-order creation is not yet available. No purchase-order request is saved or sent; the preview shows the order details kept with this batch."
-      />
+      <DisabledFeature explanation="Purchase-order creation is not yet available. No purchase-order request is saved or sent; the preview shows the order details kept with this batch.">
+        {(disabled) => (
+          <CheckboxLabel>
+            <input type="checkbox" {...disabled} />
+            Create a purchase order in InvenTree
+          </CheckboxLabel>
+        )}
+      </DisabledFeature>
       <Toggle
         type="button"
         aria-expanded={open}
