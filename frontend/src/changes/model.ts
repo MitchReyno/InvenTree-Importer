@@ -245,19 +245,86 @@ export function overridingLocation(batch: CaptureSnapshotDto, effect: StockEffec
   return atDefault ? null : effect.location_label || 'No location'
 }
 
+/** The stock items each node leads to: under it through `parent_key`, or placed at a location. */
+function stockUnder(nodes: Node[]) {
+  const children = new Map<string, Node[]>()
+  for (const node of nodes) {
+    if (node.parent_key !== null) {
+      children.set(node.parent_key, [...(children.get(node.parent_key) ?? []), node])
+    }
+  }
+  const stock = new Map<string, Node[]>()
+
+  const collect = (node: Node): Node[] => {
+    const known = stock.get(node.key)
+    if (known) {
+      return known
+    }
+    const below = (children.get(node.key) ?? []).flatMap(collect)
+    const placed =
+      node.kind === 'location'
+        ? nodes.filter((item) => item.kind === 'stock_item' && item.location_key === node.key)
+        : []
+    const found = node.kind === 'stock_item' ? [node, ...below] : [...below, ...placed]
+    stock.set(node.key, found)
+    return found
+  }
+
+  for (const node of nodes) {
+    collect(node)
+  }
+  return stock
+}
+
 /**
- * The preparation's records as the operator's ticks leave them: a lot unticked since it was
- * prepared keeps its stock item and attachments, marked Not ticked, until the new preparation is read.
+ * The preparation's records as the operator's ticks leave them, until the new preparation is
+ * read. A lot unticked since it was prepared keeps its stock item and attachments, marked Not
+ * ticked; so does a record whose stock is all unticked lots', such as a new Part (with its
+ * parameters, sourcing and images under it) or a new location. A company has no link to the
+ * stock it serves in the tree, so it stays as prepared.
  */
 export function withTicks(nodes: Node[], prepared: readonly string[], ticked: readonly string[]) {
   const unticked = new Set(prepared.filter((lot) => !ticked.includes(lot)))
   if (unticked.size === 0) {
     return nodes
   }
+  const stock = stockUnder(nodes)
+  const byKey = new Map(nodes.map((node) => [node.key, node]))
+  const left = new Map<string, boolean>()
 
-  return nodes.map((node) =>
-    node.lot_id !== null && unticked.has(node.lot_id)
-      ? { ...node, state: 'not_ticked' as const, detail: 'Left for later', changes: undefined }
-      : node,
-  )
+  const reachesOnlyUnticked = (node: Node) => {
+    // A lot the preparation already left out makes nothing, so it does not keep a record.
+    const made = (stock.get(node.key) ?? []).filter((item) => item.state !== 'not_ticked')
+
+    return (
+      made.length > 0 && made.every((item) => item.lot_id !== null && unticked.has(item.lot_id))
+    )
+  }
+
+  const isLeft = (node: Node): boolean => {
+    const known = left.get(node.key)
+    if (known !== undefined) {
+      return known
+    }
+    const parent = node.parent_key === null ? undefined : byKey.get(node.parent_key)
+    const value =
+      node.lot_id !== null
+        ? unticked.has(node.lot_id)
+        : reachesOnlyUnticked(node) || (parent !== undefined && isLeft(parent))
+    left.set(node.key, value)
+    return value
+  }
+
+  return nodes.map((node) => {
+    if (node.state === 'not_ticked' || !isLeft(node)) {
+      return node
+    }
+
+    return {
+      ...node,
+      state: 'not_ticked' as const,
+      detail: node.lot_id !== null ? 'Left for later' : 'Only unticked lots use it',
+      changes: undefined,
+    }
+  })
 }

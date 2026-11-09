@@ -139,7 +139,8 @@ export function ReadyToAdd({
   }
 
   const approvable = !busy && current && matches && !batch.archived
-  const lots = preview?.effects.length ?? 0
+  // The lots the operator ticked, which approval waits to match the shown preparation.
+  const lots = preview ? ticked.length : 0
 
   return (
     <Layout data-columns="two" data-view={treeShown ? 'tree' : 'type'}>

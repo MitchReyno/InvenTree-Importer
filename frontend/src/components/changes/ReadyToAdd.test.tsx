@@ -197,7 +197,7 @@ describe('ReadyToAdd', () => {
 
     // While the new preparation is made, the shown one is no longer the operator's choice.
     rerender(<ReadyToAdd {...props} busy />)
-    expect(screen.getByRole('button', { name: /Approve 3 lots/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Approve 2 lots/ })).toBeDisabled()
     const next = preview([lots[0], lots[2]], 51)
     rerender(
       <ReadyToAdd
@@ -466,10 +466,48 @@ describe('ReadyToAdd', () => {
     expect(screen.getByRole('region', { name: 'Stock items, 1' })).toBeVisible()
 
     await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
-    expect(footer).toHaveTextContent('2 new · 1 update')
-    expect(screen.getByText(/2 new · 1 update to InvenTree/)).toBeVisible()
+    // Packet A's stock and the new Part only it uses are left out of every count.
+    expect(footer).toHaveTextContent('0 new · 0 update')
+    expect(screen.getByText(/0 new · 0 update to InvenTree/)).toBeVisible()
     expect(screen.queryByRole('region', { name: /^Stock items/ })).not.toBeInTheDocument()
     expect(prepareLots).toHaveBeenCalled()
+  })
+
+  it('leaves out of the counts the records only an unticked lot uses', async () => {
+    const user = userEvent.setup()
+    setup({
+      tree: [
+        ...treeNodes.map((value) =>
+          value.kind === 'stock_item' ? { ...value, location_key: 'location:new:b3' } : value,
+        ),
+        node({ key: 'location:new:b3', kind: 'location', label: 'Bench bin B3' }),
+        node({
+          key: `stock:${lots[1]}`,
+          kind: 'stock_item',
+          label: 'Packet B · 10',
+          parent_key: 'part:pk:29',
+          lot_id: lots[1],
+        }),
+        node({ key: 'part:pk:29', kind: 'part', label: 'Existing resistor', state: 'exists' }),
+      ],
+    })
+    const footer = screen.getByRole('region', { name: 'Approve' })
+    await waitFor(() => expect(footer).toHaveTextContent('5 new · 1 update'))
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // The new Part, its parameter, its supplier part and the new location serve only Packet A.
+    expect(footer).toHaveTextContent('1 new · 0 update')
+    expect(
+      screen.getByRole('button', { name: 'Approve 2 lots and add to InvenTree' }),
+    ).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Tree' }))
+    const tree = screen.getByRole('tree', { name: 'By category' })
+    expect(within(tree).getByRole('treeitem', { name: /New resistor/ })).toHaveTextContent(
+      'Not ticked',
+    )
+    expect(within(tree).getByRole('treeitem', { name: /Existing resistor/ })).toHaveTextContent(
+      'Exists',
+    )
   })
 
   it('flags unticked lots shown as Not ticked while no preparation matches them', async () => {
