@@ -130,51 +130,58 @@ afterEach(() => {
   history.replaceState(null, '', location.pathname)
 })
 
-test('Processing deep link uses its own workspace and stale-input physical work remains globally occupied', async () => {
-  location.hash = `${batch.id}/processing/examine`
-  const transport = retainedApi(true)
-  const user = userEvent.setup()
-  render(<App />)
-  const tabs = await screen.findByRole('navigation', { name: 'Processing steps' })
-  const headerTrigger = screen.getByRole('button', { name: 'Workflow activity' })
-  expect(tabs).toBeVisible()
-  expect(within(tabs).getByRole('link', { name: /^Examine/ })).toHaveAttribute(
-    'aria-current',
-    'page',
-  )
-  const batchTabs = screen.getByRole('navigation', { name: 'Batch' })
-  expect(within(batchTabs).getByRole('link', { name: /^Processing/ })).toHaveAttribute(
-    'aria-current',
-    'page',
-  )
-  expect(await screen.findByText(/Processing in progress/)).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
-  // Lanes are diagnostics: each job keeps them in its Details.
-  await user.click(within(screen.getByRole('dialog')).getAllByText('Details')[0])
-  expect(screen.getByText(/Physical lane occupied/)).toBeVisible()
-  expect(screen.getByRole('link', { name: 'Open processing' })).toHaveAttribute(
-    'href',
-    `#${batch.id}/processing/overview`,
-  )
-  expect(screen.queryByRole('heading', { name: 'Exact manual review' })).not.toBeInTheDocument()
+// Renders the whole app through several navigations: about 3 s alone, so 5 s is too tight under load.
+test(
+  'Processing deep link uses its own workspace and stale-input physical work remains globally occupied',
+  { timeout: 15000 },
+  async () => {
+    location.hash = `${batch.id}/processing/examine`
+    const transport = retainedApi(true)
+    const user = userEvent.setup()
+    render(<App />)
+    const tabs = await screen.findByRole('navigation', { name: 'Processing steps' })
+    const headerTrigger = screen.getByRole('button', { name: 'Workflow activity' })
+    expect(tabs).toBeVisible()
+    expect(within(tabs).getByRole('link', { name: /^Examine/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    const batchTabs = screen.getByRole('navigation', { name: 'Batch' })
+    expect(within(batchTabs).getByRole('link', { name: /^Processing/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(await screen.findByText(/Processing in progress/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
+    // Lanes are diagnostics: each job keeps them in its Details.
+    await user.click(within(screen.getByRole('dialog')).getAllByText('Details')[0])
+    expect(screen.getByText(/Physical lane occupied/)).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Open processing' })).toHaveAttribute(
+      'href',
+      `#${batch.id}/processing/overview`,
+    )
+    expect(screen.queryByRole('heading', { name: 'Exact manual review' })).not.toBeInTheDocument()
 
-  await user.click(within(batchTabs).getByRole('link', { name: 'Capture' }))
-  await waitFor(() =>
-    expect(screen.queryByRole('navigation', { name: 'Processing steps' })).not.toBeInTheDocument(),
-  )
-  expect(location.hash).toBe(`#${batch.id}/capture`)
-  expect(screen.getByRole('button', { name: 'Workflow activity' })).toBe(headerTrigger)
-  await user.click(
-    within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
-      name: /^Processing/,
-    }),
-  )
-  await screen.findByRole('navigation', { name: 'Processing steps' })
-  expect(location.hash).toBe(`#${batch.id}/processing/overview`)
-  expect(transport.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(
-    true,
-  )
-})
+    await user.click(within(batchTabs).getByRole('link', { name: 'Capture' }))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('navigation', { name: 'Processing steps' }),
+      ).not.toBeInTheDocument(),
+    )
+    expect(location.hash).toBe(`#${batch.id}/capture`)
+    expect(screen.getByRole('button', { name: 'Workflow activity' })).toBe(headerTrigger)
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
+        name: /^Processing/,
+      }),
+    )
+    await screen.findByRole('navigation', { name: 'Processing steps' })
+    expect(location.hash).toBe(`#${batch.id}/processing/overview`)
+    expect(transport.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(
+      true,
+    )
+  },
+)
 
 test('an unavailable workflow read cannot claim idle or released capacity', async () => {
   location.hash = `${batch.id}/processing/overview`
