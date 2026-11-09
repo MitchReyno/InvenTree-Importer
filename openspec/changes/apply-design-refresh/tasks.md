@@ -63,7 +63,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - Add `ai` (#7c3aed / #c4a7ff) and `ai-weak` (#f1e8ff / #2d2148) to `frontend/src/theme/tokens.json`, regenerate with `pnpm --filter @invimport/frontend tokens`, and make `check-contrast.cjs` pass `ai` on `ai-weak` in both themes.
   - Add `components/ui/icons.tsx` with `AiSparkle`, `Help`, `Info`, `Settings`, `Menu` and `Back` as inline `currentColor` SVGs.
   - Add components: `AiMark` (sm, md, lg; it makes its parent a centred flex row), `IconButton`, `HelpButton`, `SettingsNav`, `SettingRow`, `Switch`, `NumberStepper`, `DescriptionField`, `TreeView`, `CompareTable`, `SourceChipPopover`.
-  - Generalise `DisabledFeature` to wrap any control (checkbox, select, stepper, text field, button): `aria-disabled="true"` so it stays focusable, activation and input ignored, explanation linked with `aria-describedby`. `DescriptionField` and `SettingRow` accept a disabled reason that renders through it.
+  - Generalise `DisabledFeature` to wrap any control (checkbox, select, stepper, text field, button): `aria-disabled="true"` so it stays focusable, activation and input ignored, explanation linked with `aria-describedby`. `DescriptionField` and `SettingRow` accept a disabled reason that renders through it. The two existing callers (`capture/SupplierField.tsx`, `capture/PurchaseOrderPreview.tsx`) move to the wrapping form with their checkbox inside, and `DisabledFeature.test.tsx` is rewritten from native `disabled` plus a focusable group to the `aria-disabled` behaviour. The visible "Coming later" eyebrow stays as it is until R10 is decided.
   - Change `SourceChip` to the short form (source, info icon, attention glyph, full text as its tooltip) with the popover.
   - `Pill` drops ✦ and the "AI-proposed" state.
   - `KeyValue` and `Breadcrumb` follow D29.
@@ -78,7 +78,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 1.2 RED: write tests for the new components and the short `SourceChip`, and see them fail.
   - [ ] 1.2.1 `SourceChip`: the accessible name holds source and certainty; the glyph for likely, conflict and user; the popover opens, closes on Escape and returns focus.
   - [ ] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state, disabled with a reason).
-  - [ ] 1.2.3 `DisabledFeature` around a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
+  - [ ] 1.2.3 `DisabledFeature` around a checkbox, a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
 - [ ] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
 - [ ] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
 - [ ] 1.5 Run the frontend gate, update the docs it affects, and record the results.
@@ -157,19 +157,19 @@ Tasks 1, 10 and 11 can start in parallel.
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings/<section>` to the new sections (the `settings` prefix match came in Task 2), with a test that `#settings/inventree` opens Settings › InvenTree.
   - `AiMark` on the Settings › Agents heading and its nav item.
-  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; it fires on every confirmed response and failure. Provider cards read "Not checked" before any report, then Claude "Configured"/"Not configured", Codex "Connected"/"Signing in"/"Not connected"/"Declined", or "Check failed"; they keep the last state when a panel collapses or clears. Tests cover each outcome and removing the key.
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; it fires on every confirmed response and failure. Superseded responses don't report. Provider cards read "Not checked" before any report, then Claude "Configured"/"Unconfigured", Codex "Connected"/"Signing in"/"Not connected"/"Declined", or "Check failed"; they keep the last state when a panel collapses or clears, except "Signing in", which returns to "Not checked".
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
   - The theme preference moves from the removed menu.
 - **Prerequisites:** Tasks 1 and 2.
 - **Acceptance:** `app-settings`: Settings page and navigation (both scenarios), Agent settings section (all scenarios), Deferred settings, InvenTree and appearance sections; `ui-design-system` › AI mark at agent touchpoints (Settings parts).
-- **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence. These fail first.
+- **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence, and the provider cards: each Claude and Codex state, a failure, removing the key, a superseded response not reporting, and the last state kept on collapse with "Signing in" returning to "Not checked". These fail first.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
 
 - [ ] 5.1 Confirm the current `#settings` route, `AgentSettingsForm` contract and theme storage.
-- [ ] 5.2 RED: write the Settings route, back link, deferred-control and theme tests.
+- [ ] 5.2 RED: write the Settings route, back link, deferred-control, theme and provider-card (`onChecked`) tests.
 - [ ] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
 - [ ] 5.4 Refactor; check the navigation guard with unsaved edits.
 - [ ] 5.5 Run the frontend gate, update the docs it affects, and record the results.
