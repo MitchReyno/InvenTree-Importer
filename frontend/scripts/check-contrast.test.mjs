@@ -35,6 +35,7 @@ describe('contrast check', () => {
     }
     expect(PAIRS).toContainEqual({ text: 'photo-fg', ground: 'photo-scrim', minimum: 4.5 })
     expect(PAIRS).toContainEqual({ text: 'part-outline', ground: 'masthead-ground', minimum: 3 })
+    expect(PAIRS).toContainEqual({ text: 'ai', ground: 'ai-weak', minimum: 3 })
   })
 
   it('names the pair and theme that fall below the threshold', () => {

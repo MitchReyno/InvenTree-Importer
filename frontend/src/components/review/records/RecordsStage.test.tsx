@@ -458,9 +458,11 @@ describe('RecordsStage', () => {
     stageWith(said)
     await open(user, /^Parts/, 'Carbon film resistor')
     const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
-    expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
-      'Research · Distributor page · Sources disagree',
-    )
+    expect(
+      within(within(detail).getByRole('row', { name: /Category/ })).getByTitle(
+        'Research · Distributor page · Sources disagree',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('shows a mapped record’s current values in InvenTree beside this batch', async () => {
@@ -548,10 +550,14 @@ describe('RecordsStage', () => {
       'href',
       expect.stringContaining(`/review/lots/${id(101)}`),
     )
-    expect(within(detail).getByRole('row', { name: /Category/ })).toHaveTextContent(
-      'Research · Proposed',
-    )
-    expect(within(detail).getByRole('row', { name: /Name/ })).toHaveTextContent('You · Your edit')
+    expect(
+      within(within(detail).getByRole('row', { name: /Category/ })).getByTitle(
+        'Research · Proposed',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(within(detail).getByRole('row', { name: /Name/ })).getByTitle('You · Your edit'),
+    ).toBeInTheDocument()
     expect(within(detail).queryByRole('button', { name: /^Ask/ })).not.toBeInTheDocument()
 
     const name = within(detail).getByLabelText('Name')
@@ -857,9 +863,9 @@ describe('RecordsStage', () => {
     await open(user, /^Stock items/, 'Lot 10')
     const detail = screen.getByRole('region', { name: 'Lot 10' })
 
-    expect(within(detail).getByRole('row', { name: 'Quantity as saved' })).toHaveTextContent(
-      '12Examine · Estimated',
-    )
+    const saved = within(detail).getByRole('row', { name: 'Quantity as saved' })
+    expect(saved).toHaveTextContent('12?Examine')
+    expect(within(saved).getByTitle('Examine · Estimated')).toBeInTheDocument()
     expect(detail).toHaveTextContent('Accept or replace the estimated quantity')
     expect(within(detail).getByRole('link', { name: 'Open this lot' })).toBeInTheDocument()
   })

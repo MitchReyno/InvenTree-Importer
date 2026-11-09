@@ -28,7 +28,6 @@ const STATUS = {
   failed: { tone: 'bad', glyph: '×' },
   new: { tone: 'info', glyph: '＋' },
   processing: { tone: 'info', glyph: '⟳' },
-  'ai-proposed': { tone: 'info', glyph: '✦' },
   update: { tone: 'acc', glyph: '⟳' },
   running: { tone: 'acc', glyph: '⟳' },
   selected: { tone: 'acc', glyph: '⟳' },

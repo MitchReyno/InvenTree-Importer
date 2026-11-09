@@ -74,14 +74,14 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; gallery screenshots in both themes and at 390px.
 - **Risks and decisions:** `SourceChip` call sites change shape. Keep a compatible prop signature so Task 7 can migrate the call sites.
 
-- [ ] 1.1 Confirm the design system v20 component guides and the existing `components/ui` APIs that change.
-- [ ] 1.2 RED: write tests for the new components and the short `SourceChip`, and see them fail.
-  - [ ] 1.2.1 `SourceChip`: the accessible name holds source and certainty; the glyph for likely, conflict and user; the popover opens, closes on Escape and returns focus.
-  - [ ] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state, disabled with a reason).
-  - [ ] 1.2.3 `DisabledFeature` around a checkbox, a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
-- [ ] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
-- [ ] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
-- [ ] 1.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 1.1 Confirm the design system v20 component guides and the existing `components/ui` APIs that change.
+- [x] 1.2 RED: write tests for the new components and the short `SourceChip`, and see them fail.
+  - [x] 1.2.1 `SourceChip`: the accessible name holds source and certainty; the glyph for likely, conflict and user; the popover opens, closes on Escape and returns focus.
+  - [x] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state, disabled with a reason).
+  - [x] 1.2.3 `DisabledFeature` around a checkbox, a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
+- [x] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
+- [x] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
+- [x] 1.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 2. Desktop masthead and server menu

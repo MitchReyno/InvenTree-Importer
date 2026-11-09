@@ -38,8 +38,9 @@ const PAIRS = [
   // Text on photos, and the focus ring on photo previews and their selection ticks.
   ...pairs('photo-fg', ['photo-stage', 'photo-scrim']),
   ...pairs('dev-fg', ['dev-bg']),
-  // Non-text: focus ring and the masthead part outline.
+  // Non-text: focus ring, the masthead part outline and the AI sparkle on its tile.
   ...pairs('accent', ['bg', 'surface'], NON_TEXT),
+  ...pairs('ai', ['ai-weak'], NON_TEXT),
   ...pairs('part-outline', ['masthead-ground'], NON_TEXT),
 ]
 

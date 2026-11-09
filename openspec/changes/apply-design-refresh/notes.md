@@ -2,6 +2,35 @@
 
 The design refresh is delivered in bundles PR-A to PR-G. This file records departures, decisions and open items as each task is implemented.
 
+## Task 1: design-system foundation
+
+### Changes to the plan
+
+- **2026-11-10T00:53+11:00, task 1 (PR-A):** Task 1 named the icons `AiSparkle`, `Help`, `Info`, `Settings`, `Menu` and `Back`. They are exported as `AiSparkleIcon`, `HelpIcon`, `InfoIcon`, `SettingsIcon`, `MenuIcon` and `BackIcon`, so they don't collide with components such as the Settings page (Task 5) and read as icons at call sites.
+- **2026-11-10T00:53+11:00, task 1 (PR-A):** `Pill` loses the `ai-proposed` status and its ✦ glyph, but screens that pass "AI-proposed" as text on a `tone="acc"` pill (`ProposedLotsGlance`, `LotObservations`, `ReviewQueue`) and `ExamineView`'s explicit `glyph="✦"` are untouched: they are screen changes for Task 7 (D22–D23), which places `AiMark` there instead.
+- **2026-11-10T00:53+11:00, task 1 (PR-A):** D29 needs no `KeyValue` code of its own: its value chips follow from the short `SourceChip`, and an edited value's chip now reads "✎ You". For `Breadcrumb`, an item with an address is now always a link, so the batch screens' "Batches" alone (D14) links back. Choosing that trail is `AppMasthead`'s job in Task 2, and the masthead already hides the trail below `bp-compact`, so the component adds no phone rule.
+
+### Unexpected challenges
+
+- **2026-11-10T00:53+11:00, task 1:** The design system gives `ai` on `ai-weak` as 5.2:1 in light. The contrast script measures 4.8:1 (7.2:1 dark). Both pass; the app's `tokens.json` usage text states the measured ratios, and the design system's figure should be corrected there.
+- **2026-11-10T01:03+11:00, task 1:** `pnpm screenshots:frontend` refuses to capture in this worktree because the web fonts don't load: `node_modules` is a symlink to the main checkout, outside the Vite root. Gallery screenshots for the PR need a run from a checkout with its own `node_modules`.
+
+### Decisions made during implementation
+
+- **2026-11-10T00:53+11:00, task 1:** `DisabledFeature` takes the control as a render prop (`{(disabled) => <input {...disabled} />}`) rather than cloning its child. The control often sits inside a `label`, and a stepper has two buttons, so the caller places `aria-disabled` and `aria-describedby` on the real controls. The wrapper stops clicks, presses, key presses, change, paste, cut and drop in the capture phase, and cancels every native `beforeinput` through its own capture listener, because React's `onBeforeInput` misses deletions and other editing commands, including chords the key filter lets through (macOS Ctrl+H, Ctrl+K) and the context menu's Delete, so the control's own handlers never run and nothing is sent. A press still focuses the control, so its explanation is announced. Cloning the child was rejected because it would put the attributes on the label. A wrapped text field or textarea must also be `readOnly`, because IME composition (`insertCompositionText`) and autofill can't be cancelled; `DescriptionField`'s disabled state already is.
+- **2026-11-10T00:53+11:00, task 1:** `AiMark` with a label renders its own `inline-flex` wrapper centred on that label, as change log D25 suggests for the app. A global `:has(> .bi-ai)` rule like the design system's was rejected because `GlobalStyle` keeps only reset and root concerns.
+- **2026-11-10T00:53+11:00, task 1:** `SourceChip` keeps its old props (`source`, `certainty`, `tone`, `onOpen`) and adds optional `field`, `value`, `why`, `evidence` and `onEdit` for its popover. It is now always a button, including the operator's own "You" chip, and `onOpen` moves from the chip to the popover's Open evidence action. The popover shows no `V` key hint: the shortcut belongs to Review and doesn't work from the popover. Task 7 fills in the details at each call site.
+- **2026-11-10T00:53+11:00, task 1:** `DescriptionField` marks an over-limit count as "263 / 250 · over the limit" in `bad`, not the design system's "· shorten to approve". Design D7 says an existing over-limit description doesn't block approval and a proposed one is never written, so "shorten to approve" would be untrue. It counts characters by code point, as InvenTree does.
+- **2026-11-10T00:53+11:00, task 1:** `CompareTable` also marks a differing field with "≠" and the hidden word "differs" in its field column, so the `warn-weak` tint isn't the only sign. `TreeView` follows `PreparationTreeView`'s keyboard model (one tab stop, arrows move and fold, Home and End jump) so Task 8 can move that view onto it.
+- **2026-11-10T01:20+11:00, task 1 (review rounds 1–2):** Inside `DisabledFeature`, Tab, Escape, function keys and modifier keys always pass, except F4 on a select. Caret keys pass only in a text-like field (text, search, email, URL, phone, password or a textarea), because they change a select, number, date or range control. Ctrl and Cmd chords pass, so browser and app shortcuts still work, except Z and Y. A single printable key passes on a control that takes no typing, such as a button or checkbox, so Review's one-key shortcuts keep working. Space, Enter, Backspace and Delete are always refused.
+- **2026-11-10T01:20+11:00, task 1 (review round 1):** `NumberStepper` marks a button at its limit with `aria-disabled` and ignores it, instead of `disabled`, so a keyboard user who reaches the limit keeps focus. `SettingRow`'s render prop receives `{ named, disabled }`: `named` lets the row's label name a control without its own, and a control with its own label, such as a `Switch`, leaves it out. `TreeView` takes optional `collapsed` and `onCollapsedChange` plus `parentIds()`, for Expand all and Collapse all in Task 8, and leaves keys and clicks on links or buttons inside a row to them. `SettingsNav`'s heading defaults to `h2` so the Settings page keeps one `h1`.
+
+### Open items
+
+- Task 7 migrates the `SourceChip` call sites to pass field, value, reason and evidence; until then their popovers show only the certainty and Open evidence.
+- Resolved: gallery screenshots of the components fixture in light and dark at 1440 and 390 px were captured for the PR-A description.
+- Task 7 should check focus when a `SourceChip`'s Edit value opens an inline editor: `SourceChipPopover` closes the popover before running the action, and the popover's close returns focus to the chip, which may pull focus away from the editor.
+
 ## Task 10: direct upload
 
 ### Changes to the plan

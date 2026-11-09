@@ -230,7 +230,14 @@ export function SupplierField({
               Use uploaded logo
             </CheckboxLabel>
           )}
-          <DisabledFeature label="Find automatically" explanation={LOGO_EXPLANATION} />
+          <DisabledFeature explanation={LOGO_EXPLANATION}>
+            {(disabled) => (
+              <CheckboxLabel>
+                <input type="checkbox" {...disabled} />
+                Find automatically
+              </CheckboxLabel>
+            )}
+          </DisabledFeature>
           <Small>
             Saved as a pending request. Nothing is created from this form; it is created only after
             you approve it in Review, on a target that supports new records.
