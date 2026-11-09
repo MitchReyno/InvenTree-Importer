@@ -50,6 +50,7 @@ async function main() {
     const path = join(cwd, command.attemptId + '-' + command.turn)
     const abort = new AbortController()
     socket.once('close', () => abort.abort())
+
     const execute = async (): Promise<TurnOutcome> => {
       if (manifest.profile_id === 'shared-vm-agent/1') {
         if (
@@ -125,6 +126,7 @@ async function main() {
       }
       return 'done'
     }
+
     const outcome = await journalTurn(path, command, execute, abort.signal)
     await frames.send(outcome === 'done' ? { done: true } : { failure: outcome })
     socket.end()
