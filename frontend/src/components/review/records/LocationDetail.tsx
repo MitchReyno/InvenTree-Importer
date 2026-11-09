@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import styled from 'styled-components'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type {
@@ -5,9 +6,17 @@ import type {
   CaptureSnapshotDto,
   RecordExistingValuesDto,
 } from '@invimport/contracts'
-import { DESCRIPTION_LIMIT, DescriptionField, Link, Small } from '#/components/ui'
+import { DisabledFeature, Link, Small } from '#/components/ui'
+import { Label, Select } from '#/forms'
 import { batchHref } from '#/navigation/batch-route'
-import { locationPath, locationUse, locationUseText, lotQuantity } from '#/records/locations'
+import {
+  existingRead,
+  locationPath,
+  locationPathText,
+  locationUse,
+  locationUseText,
+  stockQuantityText,
+} from '#/records/locations'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { AskControl } from './AskControl'
 
@@ -17,6 +26,8 @@ const TYPE_NOT_READ =
 type Props = {
   batch: CaptureSnapshotDto
   record: BatchRecordDto
+  /** Every record in the batch, for each lot's stock item quantity. */
+  records: readonly BatchRecordDto[]
   /** The target's current values, read while a mapped location is open. */
   existing?: UseQueryResult<RecordExistingValuesDto>
   /** Sends a message to an Inventory session working on one of the location's lots. */
@@ -25,38 +36,40 @@ type Props = {
 }
 
 /** A stock location's path, why the batch uses it, its type, and the stock going there. */
-export function LocationDetail({ batch, record, existing, ask, report }: Props) {
+export function LocationDetail({ batch, record, records, existing, ask, report }: Props) {
+  const typeId = useId()
   const use = locationUse(batch, record)
-  const reading = record.mapped !== undefined && existing?.isPending && existing.isFetching
-  const path = locationPath(batch, record, existing?.data)
+  const path = locationPath(batch, record, existingRead(existing))
 
   return (
     <>
       <Facts>
         <dt>Path</dt>
-        <dd>{path ?? (reading ? 'Reading…' : 'Not known')}</dd>
+        <dd>{locationPathText(path)}</dd>
         <dt>Used as</dt>
         <dd>{locationUseText(use)}</dd>
       </Facts>
-      <DescriptionField
-        label="Location type"
-        value={null}
-        limit={DESCRIPTION_LIMIT.default}
-        disabledReason={TYPE_NOT_READ}
-      />
+      <TypeField>
+        <Label htmlFor={typeId}>Location type</Label>
+        <DisabledFeature explanation={TYPE_NOT_READ}>
+          {(disabled) => (
+            <Select id={typeId} value="" onChange={() => undefined} {...disabled}>
+              <option value="">Not known</option>
+            </Select>
+          )}
+        </DisabledFeature>
+      </TypeField>
       <Section aria-labelledby={`${record.key}-stock`}>
         <Heading id={`${record.key}-stock`}>Stock going here</Heading>
         <Stock aria-labelledby={`${record.key}-stock`}>
           {record.lot_ids.map((lotId) => {
-            const quantity = lotQuantity(batch, lotId)
-
             return (
               <li key={lotId}>
                 <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId })}>
                   {batch.lots.find((lot) => lot.id === lotId)?.label ?? 'a retired lot'}
                 </Link>
                 <Small>
-                  {quantity === null ? 'Quantity not known' : `${quantity} pcs`}
+                  {stockQuantityText(records, lotId)}
                   {use.kind === 'override' && ' · overrides the batch default'}
                 </Small>
               </li>
@@ -91,6 +104,11 @@ const Facts = styled.dl`
   dd {
     margin: 0;
   }
+`
+
+const TypeField = styled.div`
+  display: grid;
+  gap: ${space[2]};
 `
 
 const Section = styled.section`

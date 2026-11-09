@@ -8,7 +8,7 @@ import type {
 import { useApiClients } from '#/clients/api-clients'
 import { batchHref } from '#/navigation/batch-route'
 import { STATE_LABELS } from '#/records/model'
-import { locationUse, locationUseText, lotQuantity } from '#/records/locations'
+import { locationUse, locationUseText, stockQuantityText } from '#/records/locations'
 import { useBatchRecords } from '#/records/useBatchRecords'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button, CompareTable, Link, RecordStatePill, linkTouchArea } from '#/components/ui'
@@ -27,11 +27,14 @@ type Lot = CaptureSnapshotDto['lots'][number]
 
 type OpenQuestion = { id: string; jobId: string; lot: Lot; prompt: string; reason: string }
 
-/** Open Inventory questions about one of the batch's lots, with the job whose session asked. */
+/**
+ * Open Inventory clarifications about one of the batch's lots, with the job whose session asked.
+ * A quantity question asks for a count, not about an existing record, so it has no comparison.
+ */
 function lotQuestions(batch: CaptureSnapshotDto, jobs: ProcessingJobDto[]): OpenQuestion[] {
   return jobs.flatMap((job) =>
     job.questions
-      .filter((question) => question.state === 'open')
+      .filter((question) => question.state === 'open' && question.spec.kind !== 'quantity')
       .flatMap((question) => {
         const lot = batch.lots.find((item) => item.id === question.spec.subject_id)
         if (!lot) {
@@ -128,10 +131,9 @@ export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
         const { lot } = question
         const part = recordFor(records, 'part', lot.id)
         const location = recordFor(records, 'location', lot.id)
-        const quantity = lotQuantity(batch, lot.id)
 
         return (
-          <Card key={question.id} aria-label="Compare before answering">
+          <Card key={question.id} aria-label={`Compare before answering: ${lot.label}`}>
             <CardTitle>Compare before answering</CardTitle>
             <b>{question.prompt}</b>
             <Muted>{question.reason}</Muted>
@@ -144,7 +146,7 @@ export function ProcessingInventory({ batch, jobs, onOpenSession }: Props) {
                 { field: 'Location', values: [location?.label ?? NOT_KNOWN, NOT_KNOWN] },
                 {
                   field: 'Quantity',
-                  values: [quantity === null ? NOT_KNOWN : `${quantity} pcs`, NOT_KNOWN],
+                  values: [stockQuantityText(records?.records, lot.id), NOT_KNOWN],
                 },
               ]}
             />

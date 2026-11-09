@@ -14,7 +14,14 @@ import { clearPending } from '#/processing/pending-messages'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '#/records/model'
-import { locationPath, locationUse, locationUseText, stockCountText } from '#/records/locations'
+import {
+  existingRead,
+  locationPath,
+  locationPathText,
+  locationUse,
+  locationUseText,
+  stockCountText,
+} from '#/records/locations'
 import { useBatchRecords, useExistingValues, type RecordsClient } from '#/records/useBatchRecords'
 import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import {
@@ -251,8 +258,13 @@ export function RecordsStage({
               <Small>No {TYPE_LABELS[type].toLowerCase()} match this filter.</Small>
             )}
             {shown.map((record) => {
+              // A path still being read is left out of the row until it arrives.
+              const located =
+                record.type === 'location'
+                  ? locationPath(batch, record, existingRead(existing))
+                  : null
               const path =
-                record.type === 'location' ? locationPath(batch, record, existing.data) : undefined
+                located && located.kind !== 'reading' ? locationPathText(located) : undefined
               const detail = rowDetail(batch, record)
 
               return (
@@ -382,12 +394,18 @@ export function RecordsStage({
                 key={`${selected.key}:${discards}:${discarded}`}
                 batch={batch}
                 record={selected}
+                records={records.records}
                 save={save}
                 disabled={disabled}
                 reportFor={drafts.forSource}
                 dirty={drafts.dirty}
                 ask={askFor(selected)}
-                existing={selected.mapped && client?.existing ? existing : undefined}
+                // A new location's path comes from its parent's existing values.
+                existing={
+                  (selected.mapped || selected.type === 'location') && client?.existing
+                    ? existing
+                    : undefined
+                }
               />
             ) : (
               <Empty>Choose a record to see its values and who set them.</Empty>

@@ -23,7 +23,7 @@ const batch = {
   revision: '4',
   archived: false,
   defaults: {
-    quantity: { mode: 'unknown' },
+    quantity: { mode: 'set', value: '10' },
     location: {
       mode: 'set',
       value: { observation_id: id(900), target_context_id: id(901), model: 'location', pk: '14' },
@@ -42,6 +42,9 @@ const batch = {
       id: resistors,
       label: '10 kΩ resistors',
       part_subject_id: partB,
+      // An AI lot that inherits never takes the batch default of 10, as approval reads it.
+      origin: 'agent',
+      estimated_quantity: '12',
       quantity: { mode: 'inherit' },
       location: { mode: 'inherit' },
     },
@@ -107,6 +110,26 @@ const records: BatchRecordsDto = {
       mapped: { model: 'location', pk: '14' },
     }),
     entry({
+      key: `stock_item:${tube}`,
+      type: 'stock_item',
+      label: 'LM358 op-amps (tube)',
+      state: 'new',
+      lot_ids: [tube],
+      fields: [{ name: 'quantity', value: '5', origin: { kind: 'operator' } }],
+    }),
+    entry({
+      key: `stock_item:${resistors}`,
+      type: 'stock_item',
+      label: '10 kΩ resistors',
+      state: 'choose',
+      lot_ids: [resistors],
+      fields: [{ name: 'quantity', value: '12', origin: { kind: 'estimate', step: 'examine' } }],
+      decision: {
+        code: 'quantity_required',
+        detail: 'Accept or replace the estimated quantity on this lot before approving it.',
+      },
+    }),
+    entry({
       key: 'location:31',
       type: 'location',
       label: 'Bench bin B3',
@@ -132,6 +155,17 @@ const question = {
   assumption: 'Treating it as new until you say.',
 } as const
 
+const countQuestion = {
+  ...question,
+  id: id(401),
+  spec: {
+    kind: 'quantity',
+    subject_id: resistors,
+    prompt: 'How many resistors are in the bag?',
+    reason: 'The estimate is rough.',
+  },
+} as const
+
 const jobs = [
   {
     id: job,
@@ -146,6 +180,32 @@ const jobs = [
     session_state: 'waiting_input',
     proposals: [],
     questions: [question],
+  },
+  {
+    id: id(310),
+    subject_id: resistors,
+    stage: 'inventory',
+    revision: '2',
+    state: 'waiting_for_user',
+    attempt_id: id(311),
+    input_sha256: 'a'.repeat(64),
+    attempt_number: '1',
+    qualification: 'native_unverified',
+    session_state: 'waiting_input',
+    proposals: [],
+    questions: [
+      countQuestion,
+      {
+        ...question,
+        id: id(402),
+        job_id: id(310),
+        spec: {
+          ...question.spec,
+          subject_id: resistors,
+          prompt: 'Are these the reel in drawer 2?',
+        },
+      },
+    ],
   },
 ] as unknown as ProcessingJobDto[]
 
@@ -179,7 +239,9 @@ describe('ProcessingInventory', () => {
     const { onOpenSession } = mount()
     // The batch's own values show at once; the Part and location follow the records read.
     await screen.findByRole('region', { name: 'Parts' })
-    const card = screen.getByRole('region', { name: 'Compare before answering' })
+    const card = screen.getByRole('region', {
+      name: 'Compare before answering: LM358 op-amps (tube)',
+    })
     expect(card).toHaveTextContent('Is the LM358 tube already in InvenTree?')
     const table = within(card).getByRole('table')
 
@@ -224,7 +286,23 @@ describe('ProcessingInventory', () => {
   it('says when records cannot be read, and still offers the comparison', async () => {
     mount(vi.fn(async () => Promise.reject(new Error('down'))))
     expect(await screen.findByText(/Records are unavailable/)).toBeVisible()
-    const card = screen.getByRole('region', { name: 'Compare before answering' })
-    expect(card).toHaveTextContent('5 pcs')
+    const card = screen.getByRole('region', {
+      name: 'Compare before answering: LM358 op-amps (tube)',
+    })
+    expect(card).toHaveTextContent('Not known')
+    expect(card).not.toHaveTextContent('5 pcs')
+  })
+
+  it('compares no quantity question, and keeps an AI lot’s estimate an estimate', async () => {
+    mount()
+    await screen.findByRole('region', { name: 'Parts' })
+    expect(screen.queryByText('How many resistors are in the bag?')).toBeNull()
+    const card = screen.getByRole('region', { name: 'Compare before answering: 10 kΩ resistors' })
+    const quantity = within(
+      within(card).getByRole('rowheader', { name: 'Quantity' }).closest('tr')!,
+    )
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent)
+    expect(quantity).toEqual(['About 12 pcs · Examine’s estimate, not yet accepted', 'Not known'])
   })
 })

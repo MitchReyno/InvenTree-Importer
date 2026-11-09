@@ -60,6 +60,8 @@ const EDITED_ELSEWHERE: Partial<Record<BatchRecordDto['type'], string>> = {
 type Props = {
   batch: CaptureSnapshotDto
   record: BatchRecordDto
+  /** Every record in the batch, which a location reads its lots' stock quantities from. */
+  records?: readonly BatchRecordDto[]
   save: Save
   disabled: boolean
   reportFor: (source: string) => (dirty: boolean) => void
@@ -143,6 +145,7 @@ function ExistingValues({
 export function RecordDetail({
   batch,
   record,
+  records = [],
   save,
   disabled,
   reportFor,
@@ -200,12 +203,13 @@ export function RecordDetail({
           )}
         </Small>
       )}
-      {existing && <ExistingValues record={record} query={existing} />}
+      {existing && record.mapped && <ExistingValues record={record} query={existing} />}
       <RecordDescription batch={batch} record={record} existing={existing} />
       {record.type === 'location' && (
         <LocationDetail
           batch={batch}
           record={record}
+          records={records}
           existing={existing}
           ask={ask?.('inventory')}
           report={reportFor('ask:location')}
