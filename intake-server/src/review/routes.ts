@@ -1,7 +1,9 @@
 import type { ManualAttachmentRead } from './part-attachments.ts'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
-import { Id, schemas, type ManualScopeDto, type CaptureListQueryDto } from '@invimport/contracts'
+import { schemas, type ManualScopeDto, type CaptureListQueryDto } from '@invimport/contracts'
+import { pathId, commandKey } from '../api/request.ts'
+import { bootstrap } from '../config.ts'
 import { CaptureError, fail } from '../capture/repository.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import type { ApprovalInput } from './preparations.ts'
@@ -10,22 +12,6 @@ import { manualRepository } from './repository.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { inboxProjection } from '../inbox/projection.ts'
 import { registerOperatorReview } from '../operator-review/routes.ts'
-
-function parameter(request: FastifyRequest) {
-  const id = (request.params as { id: string }).id
-  if (!new RegExp(Id.pattern!).test(id)) {
-    fail('invalid_id', 400)
-  }
-  return id
-}
-
-function key(request: FastifyRequest) {
-  const value = request.headers['idempotency-key']
-  if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value)) {
-    fail('idempotency_key_required', 400)
-  }
-  return value
-}
 
 const safeCodes = new Set([
   'payload_conflict',
@@ -49,10 +35,11 @@ export function registerManual(
   processing: ProcessingConfig = { ...config, channelSecret: '' },
 ) {
   const repository = manualRepository(pool, config, read, attachmentRead)
+  const configured = bootstrap(config).status === 'configured'
   registerOperatorReview(app, pool, config)
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {
-      if (!config.apiKey?.trim() || config.credentialRef === 'unconfigured') {
+      if (!configured) {
         fail('setup_required', 503)
       }
     })
@@ -83,35 +70,35 @@ export function registerManual(
     scope.get(
       '/api/v1/batches/:id/manual',
       { schema: { response: { 200: schemas.ManualWorkspace } } },
-      (request) => repository.workspace(parameter(request)),
+      (request) => repository.workspace(pathId(request)),
     )
     scope.post<{ Body: ManualScopeDto }>(
       '/api/v1/batches/:id/reviews',
       { schema: { body: schemas.ManualScope, response: { 200: schemas.ManualReviewResult } } },
-      (request) => repository.review(parameter(request), key(request), request.body),
+      (request) => repository.review(pathId(request), commandKey(request), request.body),
     )
     scope.post<{ Body: ManualScopeDto }>(
       '/api/v1/batches/:id/preparations',
       { schema: { body: schemas.ManualScope, response: { 200: schemas.ManualPreparationResult } } },
-      (request) => repository.prepare(parameter(request), key(request), request.body),
+      (request) => repository.prepare(pathId(request), commandKey(request), request.body),
     )
     scope.post<{ Body: ApprovalInput }>(
       '/api/v1/preparations/:id/approvals',
       { schema: { body: schemas.Approval, response: { 200: schemas.ManualAccepted } } },
       (request) => {
-        if (parameter(request) !== request.body.preparation_id) {
+        if (pathId(request) !== request.body.preparation_id) {
           fail('approval_binding_mismatch', 409)
         }
-        return repository.approve(key(request), request.body)
+        return repository.approve(commandKey(request), request.body)
       },
     )
     scope.get(
       '/api/v1/preparations/:id/tree',
       { schema: { response: { 200: schemas.PreparationTree } } },
-      (request) => repository.tree(parameter(request)),
+      (request) => repository.tree(pathId(request)),
     )
     scope.get('/api/v1/runs/:id', { schema: { response: { 200: schemas.ManualRun } } }, (request) =>
-      repository.run(parameter(request)),
+      repository.run(pathId(request)),
     )
     for (const action of ['start', 'cancel', 'recover'] as const) {
       scope.post<{
@@ -128,7 +115,7 @@ export function registerManual(
             response: { 200: schemas.ManualAccepted },
           },
         },
-        (request) => repository.command(parameter(request), key(request), request.body, action),
+        (request) => repository.command(pathId(request), commandKey(request), request.body, action),
       )
     }
   })
