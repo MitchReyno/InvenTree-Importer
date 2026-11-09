@@ -92,15 +92,24 @@ export function ReviewMapStage({
     try {
       // The batch edit reports failure as false rather than throwing.
       const saved = await edit({ kind: 'add_lot', label, note, part_subject_id: null })
+      if (saved === false) {
+        return
+      }
       // The server assigns the new lot's id, so it is found in the accepted snapshot.
-      const accepted = saved && typeof saved === 'object' ? saved : undefined
+      const accepted = typeof saved === 'object' ? saved : undefined
       const created = accepted?.lots.find(
         (lot) => !knownLotIds.includes(lot.id) && lot.label === label,
       )
-      if (accepted && created) {
-        // This closure's batch predates the new lot, so the move names the accepted revision.
-        await finish({ from, label, lotId: created.id, lotLabel: created.label }, accepted.revision)
+      if (!accepted || !created) {
+        setError(
+          from.kind === 'file'
+            ? 'The lot was made, but its file was not linked. Link it from the Map.'
+            : 'The lot was made, but its region was not moved. Move it from the Map.',
+        )
+        return
       }
+      // This closure's batch predates the new lot, so the move names the accepted revision.
+      await finish({ from, label, lotId: created.id, lotLabel: created.label }, accepted.revision)
     } catch {
       setError('The lot could not be made. Refresh and try again.')
     } finally {
@@ -144,7 +153,7 @@ export function ReviewMapStage({
         observation_id: observationId,
         lot_id: lotId,
       }
-      const saved = await (revision === undefined ? edit(change) : edit(change, revision))
+      const saved = await edit(change, revision)
       if (saved === false) {
         setError('The region could not be moved. Refresh and try again.')
         return false

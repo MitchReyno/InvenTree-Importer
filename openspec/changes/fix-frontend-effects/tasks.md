@@ -133,14 +133,14 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 - [x] 6.1 Confirm each finding against the current code.
 - [x] 6.2 RED: add the reconnection, retry-cancellation and refused-logo regressions and confirm they fail.
-- [x] 6.3 GREEN: implement the latest-ref, generation and `onRejected` changes.
+- [x] 6.3 GREEN: implement the latest-ref, cancelled-read and `onRejected` changes.
 - [x] 6.4 Run the owning checks and record the results.
 
 ## 7. Modal dialog lifecycle
 
 - PR delivery: E2.
 - Outcome: dialogs return focus to their opener after a StrictMode remount, and never call `showModal` on an open dialog.
-- Scope and approach: `ui/Dialog` cleanup and opener recording, and a shared modal hook used by `MediaCropDialog` (19), including its dirty report (11).
+- Scope and approach: `ui/Dialog` cleanup and opener recording, and a mount Effect in `MediaCropDialog` that calls `showModal` only on a closed dialog (19). Its dirty report moves to `useReportDirty` (11).
 - Prerequisites: E1.
 - Acceptance: focus returns to the opener in development StrictMode; a replaced dirty callback does not reopen the crop dialog.
 - TDD approach: the `showModal` guard test fails first in jsdom. Focus return needs a real browser, so it is verified there and recorded as manual evidence.

@@ -64,7 +64,7 @@ The audit lists four copies of a mounted-flag ref and two copies of a React Hook
 
 - **Navigation guard:** handlers report the computed next dirty state. `useDirtySources` aggregates multiple sources, and its ref pattern releases on unmount. The `ExamineView` corrections use it instead of a copy.
 - **Commands:** keys stay bound to their payload. An uncertain acknowledgement keeps the exact retry path. A follow-up command is only sent after the first is confirmed.
-- **Batch settings reconnection:** a generation counter drops a read that started before a disconnect, so reconnection always reads current state before admitting writes (audit item 15).
+- **Batch settings reconnection:** each run of the reconnection Effect sets a cancelled flag in its cleanup, so a read that started before a disconnect is dropped and the next connection issues a fresh one. Reconnection always reads current state before admitting writes, and a failed read retries on a timer that the cleanup clears (audit item 15).
 - **Reads:** failed or paused queries show unavailable even with cached data, per "Server reads and command authority".
 
 ## Verification strategy

@@ -243,6 +243,8 @@ export function ReviewWorkspace({
       return false
     }
     setNavigationBlocked(false)
+    // A quick-edit request belongs to the lot and view being left; a blocked move keeps it.
+    setQuickEditLotId(null)
     const value = { ...route, ...next }
     setRoute(value)
     const sameLot = value.lotId === route.lotId
@@ -274,9 +276,7 @@ export function ReviewWorkspace({
   }
 
   function inspect(id: string | null) {
-    // A move blocked by unsaved work keeps the requested editor, and its draft, open.
     if (navigate({ lotId: id, view: id ? 'evidence' : route.view })) {
-      setQuickEditLotId(null)
       writeHash(location.hash, id === null)
     }
   }
