@@ -177,6 +177,8 @@ export function retainedJobsSource(
   snapshot: ProcessingSnapshotDto,
   subjects: ReadonlyMap<string, string>,
   activeLotIds: ReadonlySet<string> = new Set(),
+  /** Their jobs stay listed as history but leave the step counts, so a step can reach done. */
+  retiredLotIds: ReadonlySet<string> = new Set(),
 ): ProcessingSource {
   const subject = (job: Job) =>
     job.subject_id === null ? 'Whole batch' : (subjects.get(job.subject_id) ?? 'Unknown subject')
@@ -223,7 +225,9 @@ export function retainedJobsSource(
 
   return {
     steps: WORK_STEPS.map(({ step, label }) => {
-      const jobs = jobsOn(step)
+      const jobs = jobsOn(step).filter(
+        (job) => job.subject_id === null || !retiredLotIds.has(job.subject_id),
+      )
 
       const count = (match: (job: Job) => boolean) => jobs.filter(match).length
 

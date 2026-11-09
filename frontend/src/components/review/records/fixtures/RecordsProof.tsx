@@ -367,6 +367,7 @@ const attention: BatchAttentionDto = {
   review: {
     to_check: 5,
     changed_after_review: 0,
+    needs_answer: 0,
     to_decide: 1,
     records: projectRecords({ capture: current, processing, lotGroups: null }).records.length,
   },

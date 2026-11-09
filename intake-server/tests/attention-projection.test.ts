@@ -169,6 +169,7 @@ test('counts each tab from the same reads the screens use', () => {
   assert.deepEqual(attention.review, {
     to_check: 2,
     changed_after_review: 1,
+    needs_answer: 1,
     to_decide: 2,
     records: 3,
   })
@@ -428,4 +429,98 @@ test('an excluded lot asks nothing of Review', () => {
     result.items.some((item) => item.group === 'changed_lot'),
     false,
   )
+})
+
+test('counts lots needing an answer as the Review queue does: an open question on the lot or its Part', () => {
+  const part = id(7)
+  const onPart = (n: number, state: 'open' | 'answered') => ({
+    ...question(n, state),
+    spec: { ...question(n, state).spec, subject_id: part },
+  })
+  const withPart = {
+    ...review,
+    lots: [
+      { ...operatorLot(1, 'unreviewed'), part_subject_id: null },
+      { ...operatorLot(2, 'reviewed'), part_subject_id: part },
+      { ...operatorLot(3, 'reviewed'), part_subject_id: part },
+      {
+        ...operatorLot(4, 'reviewed'),
+        part_subject_id: part,
+        excluded: { reason: 'Bent leads', at: '2026-11-08T05:00:00.000Z' },
+      },
+    ],
+  } as unknown as OperatorReviewDto
+  const asked = (questions: ReturnType<typeof question>[]) =>
+    ({ ...processing, jobs: [job(1, 'research', questions)] }) as unknown as ProcessingSnapshotDto
+
+  const open = projectAttention({
+    batchId: batch,
+    processing: asked([onPart(1, 'open'), question(2, 'answered')]),
+    review: withPart,
+    manual,
+    records,
+  })
+  validate('BatchAttention', open)
+  // Lots 2 and 3 share the Part; the excluded lot 4 waits on nothing; lot 1's question is answered.
+  assert.equal(open.review.needs_answer, 2)
+
+  const none = projectAttention({ batchId: batch, processing: undefined, review, manual, records })
+  assert.equal(none.review.needs_answer, 0)
+})
+
+test('each lot job counts toward its step, so failed or replaced work is never done', () => {
+  const states = ['ready', 'ready', 'superseded', 'failed', 'cancelled']
+  const jobs = states.map((state, index) => ({ ...job(10 + index, 'research', []), state }))
+  const attention = projectAttention({
+    batchId: batch,
+    processing: { ...processing, jobs } as unknown as ProcessingSnapshotDto,
+    review,
+    manual,
+    records,
+  })
+
+  // Each job is one lot's current attempt; nothing replaces a failed, superseded or cancelled one.
+  assert.deepEqual(attention.processing.steps.research, {
+    questions: 0,
+    failed: 1,
+    jobs: 5,
+    ready: 2,
+    running: 0,
+  })
+})
+
+test('a retired lot’s superseded job leaves its step, so the step can still reach done', () => {
+  const retired = lot(9)
+  const jobs = [
+    { ...job(10, 'research', []), state: 'ready' },
+    { ...job(11, 'research', []), subject_id: retired, state: 'superseded' },
+    { ...job(12, 'research', []), subject_id: null, state: 'ready' },
+  ]
+  const attention = projectAttention({
+    batchId: batch,
+    processing: { ...processing, jobs } as unknown as ProcessingSnapshotDto,
+    review: {
+      ...review,
+      retired_lots: [
+        {
+          lot_id: retired,
+          label: 'Old bag',
+          action: 'split',
+          retired_revision: '5',
+          successor_lot_ids: [lot(1)],
+        },
+      ],
+    } as unknown as OperatorReviewDto,
+    manual,
+    records,
+  })
+
+  validate('BatchAttention', attention)
+  assert.deepEqual(attention.processing.steps.research, {
+    questions: 0,
+    failed: 0,
+    jobs: 2,
+    ready: 2,
+    running: 0,
+  })
 })

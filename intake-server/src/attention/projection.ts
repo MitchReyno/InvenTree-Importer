@@ -8,7 +8,14 @@ import {
   type OperatorReviewDto,
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
-import { STEPS, STEP_BY_STAGE, countSteps, type Step, type StepJobs } from '#/processing/steps.ts'
+import {
+  STEPS,
+  STEP_BY_STAGE,
+  activeSubjectJobs,
+  countSteps,
+  type Step,
+  type StepJobs,
+} from '#/processing/steps.ts'
 
 export type AttentionSources = {
   batchId: string
@@ -85,6 +92,26 @@ function openLots(review: OperatorReviewDto) {
   return review.lots.filter((lot) => !lot.approved && !lot.excluded)
 }
 
+/**
+ * Lots Review's Needs answer filter shows: not excluded, with an open Processing question on the lot
+ * or on its Part, since a job can be about a Part that several lots share.
+ */
+function lotsNeedingAnswer({ processing, review }: AttentionSources) {
+  const asked = new Set(
+    (processing?.jobs ?? [])
+      .flatMap((job) => job.questions)
+      .filter((question) => question.state === 'open')
+      .map((question) => question.spec.subject_id)
+      .filter((subject): subject is string => Boolean(subject)),
+  )
+
+  return review.lots.filter((lot) => {
+    const onPart = lot.part_subject_id !== null && asked.has(lot.part_subject_id)
+
+    return !lot.excluded && (asked.has(lot.lot_id) || onPart)
+  }).length
+}
+
 /** A record waiting for a choice, as Review › Records counts it: once per record, not per lot. */
 function decisionItems({ batchId, records }: AttentionSources): AttentionItemDto[] {
   return records.records
@@ -122,8 +149,13 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
 
 type StepWork = StepJobs & { questions: number; failed: number }
 
-function stepWork(items: AttentionItemDto[], processing: ProcessingSnapshotDto | undefined) {
-  const jobs = countSteps(processing?.jobs ?? [])
+function stepWork(
+  items: AttentionItemDto[],
+  processing: ProcessingSnapshotDto | undefined,
+  review: OperatorReviewDto,
+) {
+  const retired = new Set(review.retired_lots.map((lot) => lot.lot_id))
+  const jobs = countSteps(activeSubjectJobs(processing?.jobs ?? [], retired))
 
   const step = (name: Step): StepWork => {
     const own = items.filter((item) => item.route.split('/')[2] === name)
@@ -157,11 +189,12 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
       questions: questions.length,
       failed: failedJobs.length,
       running: (sources.processing?.jobs ?? []).filter((job) => job.state === 'running').length,
-      steps: stepWork([...questions, ...failedJobs], sources.processing),
+      steps: stepWork([...questions, ...failedJobs], sources.processing, sources.review),
     },
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,
       changed_after_review: changed.length,
+      needs_answer: lotsNeedingAnswer(sources),
       to_decide: decisions.length,
       records: sources.records.records.length,
     },

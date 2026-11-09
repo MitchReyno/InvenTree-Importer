@@ -389,17 +389,11 @@ export function Batch({
   useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
   const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
   const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
-  const evidence = useMemo(
+  // While lineage is unknown, inherited files would read as unused, as the Map also holds.
+  const unusedFiles = useMemo(
     () =>
-      batch && mediaCurrent
-        ? {
-            files: mediaCurrent.evidence.length,
-            // While lineage is unknown, inherited files would read as unused, as the Map also holds.
-            unused:
-              operatorUnavailable && retired.size > 0
-                ? undefined
-                : unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors),
-          }
+      batch && mediaCurrent && !(operatorUnavailable && retired.size > 0)
+        ? unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors)
         : undefined,
     // `retired` and `predecessors` follow the operator review.
     [
@@ -448,8 +442,6 @@ export function Batch({
         sharperRequests={sharperRequests}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
-        attention={attentionCurrent}
-        unusedFiles={evidence?.unused}
         instructions={{
           // Undefined until the review projection for this revision is read.
           text: currentOperatorReview
@@ -543,9 +535,8 @@ export function Batch({
           route={batchRoute}
           attention={attentionCurrent}
           attentionUnavailable={attentionUnavailable}
-          evidence={evidence}
+          unusedFiles={unusedFiles}
           activeLotCount={batch.lots.length - retired.size}
-          retiredLotCount={retired.size}
           busy={readOrCommandBusy || readUnavailable || draftDirty}
           onArchive={() => void edit({ kind: 'batch', archived: !batch.archived })}
         />

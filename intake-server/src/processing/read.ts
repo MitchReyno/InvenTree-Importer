@@ -51,7 +51,7 @@ import {
   processingMessages,
   processingLanes,
 } from './schema.ts'
-import { countSteps } from './steps.ts'
+import { activeSubjectJobs, countSteps, retiredLotIds } from './steps.ts'
 import { pausedAmong } from '#/agents/pause.ts'
 
 const jobColumns = {
@@ -505,9 +505,6 @@ export async function inboxProcessing(
   config: ProcessingConfig,
   capture: CaptureSnapshotDto,
 ) {
-  const activeSubjects = new Set(
-    [...capture.lots.filter((lot) => !lot.retired), ...capture.parts].map((subject) => subject.id),
-  )
   const retained = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ id: processingJobs.id })
@@ -519,10 +516,7 @@ export async function inboxProcessing(
     return { open_questions: 0, active_jobs: 0 }
   }
   const snapshot = await processingSnapshot(client, config, capture)
-  const jobs = snapshot.jobs.filter(
-    // The batch-level Examine lead job counts alongside the jobs of active subjects.
-    (job) => job.subject_id === null || activeSubjects.has(job.subject_id),
-  )
+  const jobs = activeSubjectJobs(snapshot.jobs, retiredLotIds(capture))
   return {
     open_questions: jobs
       .flatMap((job) => job.questions)

@@ -362,3 +362,32 @@ describe('subjectStatuses', () => {
     ).toBe(false)
   })
 })
+
+describe('retainedJobsSource step counts', () => {
+  it('leaves a retired lot’s job out of its step, so the step can reach done, but keeps it listed', () => {
+    const retired = id(91)
+    const part = id(92)
+    const source = retainedJobsSource(
+      snapshot([
+        job(1, 'research', 'ready'),
+        job(2, 'research', 'superseded', { subject_id: retired }),
+        job(3, 'research', 'ready', { subject_id: part }),
+        job(4, 'examine', 'ready', { subject_id: null }),
+      ]),
+      subjects,
+      lots,
+      new Set([retired]),
+    )
+
+    expect(source.steps.find((step) => step.step === 'research')).toMatchObject({
+      jobs: 2,
+      ready: 2,
+    })
+    expect(source.steps.find((step) => step.step === 'examine')).toMatchObject({
+      jobs: 1,
+      ready: 1,
+    })
+    // Its history stays on the step page.
+    expect(source.jobsOn('research').map((item) => item.id)).toEqual([id(1), id(2), id(3)])
+  })
+})

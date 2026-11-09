@@ -1,25 +1,65 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import { color, typeVar } from '#/theme/generated/tokens'
-import { media, Button } from '#/components/ui'
+import { Button, IconButton, media, SettingsIcon, useMediaQuery } from '#/components/ui'
 import type { HeaderClient } from '#/header/types'
-import { useHeaderObservations } from '#/header/useHeaderObservations'
-import { safeTargetNavigation } from '#/header/observations'
+import type { useHeaderObservations } from '#/header/useHeaderObservations'
+import { safeTargetNavigation, targetStatus } from '#/header/observations'
 import { useUpdateHealth } from '#/components/operations/LiveUpdates'
 import { ActivityIndicator } from './ActivityIndicator'
+import { ConnectionDetails } from './ConnectionDetails'
 import { ConnectionStatus } from './ConnectionStatus'
+import { HeaderObservationsProvider, useSharedHeaderObservations } from './HeaderObservations'
+import { PhoneMenu } from './PhoneMenu'
 
 interface Props {
   client: HeaderClient
   batchId?: string
   bootstrapUnavailable?: boolean
+  /** `condensed` is the sticky phone row's copy: the mark and spinner, then the menu. */
+  variant?: 'bar' | 'condensed'
 }
 
-/** The masthead's status group: activity, connection and Open InvenTree, one panel open at a time. */
-export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: Props) {
-  const { now, connection, work } = useHeaderObservations(client, batchId)
+type Panel = 'connection' | 'workflow' | 'menu'
+
+/**
+ * The masthead's status group, one panel open at a time. On a desktop: activity, the connection's
+ * server menu and Settings. At phone width: the agents status button and a menu holding Agents,
+ * Settings, the server and the theme, its button carrying the connection dot. Under a
+ * `HeaderObservationsProvider` it shows the provider's reads; alone it reads for itself.
+ */
+export function HeaderStatus(props: Props) {
+  const shared = useSharedHeaderObservations()
+
+  if (shared) {
+    return <HeaderStatusView {...props} observations={shared} />
+  }
+
+  return (
+    <HeaderObservationsProvider client={props.client} batchId={props.batchId}>
+      <SharedHeaderStatus {...props} />
+    </HeaderObservationsProvider>
+  )
+}
+
+function SharedHeaderStatus(props: Props) {
+  const shared = useSharedHeaderObservations()
+
+  return shared && <HeaderStatusView {...props} observations={shared} />
+}
+
+type ViewProps = Omit<Props, 'client'> & { observations: ReturnType<typeof useHeaderObservations> }
+
+function HeaderStatusView({
+  batchId,
+  bootstrapUnavailable = false,
+  variant = 'bar',
+  observations,
+}: ViewProps) {
+  const { now, connection, work } = observations
   const health = useUpdateHealth()
-  const [open, setOpen] = useState<'connection' | 'workflow' | null>(null)
+  const phone = useMediaQuery(media.compact)
+  const [open, setOpen] = useState<Panel | null>(null)
   const connectionUnavailable =
     bootstrapUnavailable || connection.isError || connection.fetchStatus === 'paused'
   const workUnavailable = bootstrapUnavailable || work.isError || work.fetchStatus === 'paused'
@@ -41,27 +81,57 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
     <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
   )
 
+  const apiChecked = connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0
+  const activity = (
+    <ActivityIndicator
+      data={work.isFetchedAfterMount ? work.data : undefined}
+      batchId={batchId}
+      unavailable={workUnavailable}
+      now={now}
+      layout={variant === 'condensed' ? 'condensed' : phone ? 'phone' : 'bar'}
+      open={open === 'workflow'}
+      onOpenChange={(value) => setOpen(value ? 'workflow' : null)}
+    />
+  )
+
+  if (variant === 'condensed' || phone) {
+    return (
+      <StatusRow aria-label="Application status">
+        {activity}
+        <PhoneMenu
+          announce={variant === 'bar'}
+          status={targetStatus(target, connectionUnavailable, now)}
+          server={
+            <ConnectionDetails
+              target={target}
+              apiUnavailable={connectionUnavailable}
+              apiChecked={apiChecked}
+              now={now}
+              health={health}
+              inventree={inventreeLink}
+            />
+          }
+          open={open === 'menu'}
+          onOpenChange={(value) => setOpen(value ? 'menu' : null)}
+        />
+      </StatusRow>
+    )
+  }
+
   return (
     <StatusRow aria-label="Application status">
-      <ActivityIndicator
-        data={work.isFetchedAfterMount ? work.data : undefined}
-        batchId={batchId}
-        unavailable={workUnavailable}
-        now={now}
-        open={open === 'workflow'}
-        onOpenChange={(value) => setOpen(value ? 'workflow' : null)}
-      />
+      {activity}
       <ConnectionStatus
         target={target}
         unavailable={connectionUnavailable}
-        apiChecked={connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0}
+        apiChecked={apiChecked}
         now={now}
         health={health}
         inventree={inventreeLink}
         open={open === 'connection'}
         onOpenChange={(value) => setOpen(value ? 'connection' : null)}
       />
-      <BarTarget>{inventreeLink}</BarTarget>
+      <IconButton href="#settings" label="Settings" icon={<SettingsIcon />} />
     </StatusRow>
   )
 }
@@ -74,12 +144,4 @@ const StatusRow = styled.div`
 const UnavailableLink = styled.span`
   font-size: ${typeVar.small.size};
   color: ${color.muted};
-`
-
-/** At phone width the bar has no room for Open InvenTree; the connection panel always offers it. */
-const BarTarget = styled.span`
-  display: contents;
-  ${media.compact} {
-    display: none;
-  }
 `

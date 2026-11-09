@@ -30,9 +30,12 @@ import styled from 'styled-components'
 import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
+import { appPage, routeBatchId } from './navigation/app-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
+import { CompactStatusContext } from './components/masthead/CompactStatus'
+import { HeaderObservationsProvider } from './components/masthead/HeaderObservations'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
 import type { ApiClients } from './clients/api-clients'
@@ -133,8 +136,8 @@ export default function App() {
     }),
     [agents, attention, catalogue, media, operator, processing, records],
   )
-  const currentBatch =
-    route === 'agents' || route === 'settings' ? undefined : route?.split('/')[0] || undefined
+  const currentBatch = routeBatchId(route)
+  const page = appPage(route)
   let content: ReactNode
   let batchPage = false
   if (bootstrapUnavailable && !bootstrap) {
@@ -159,9 +162,9 @@ export default function App() {
         </Paragraph>
       </Panel>
     )
-  } else if (route === 'settings' && agents) {
+  } else if (page === 'settings' && agents) {
     content = <AgentSettings client={agents} onDirtyChange={onDirtyChange} />
-  } else if (route === 'agents' && agents) {
+  } else if (page === 'agents' && agents) {
     content = (
       <AgentSessions
         client={agents}
@@ -176,13 +179,13 @@ export default function App() {
         }}
       />
     )
-  } else if (route && manual) {
+  } else if (route && currentBatch && manual) {
     // A batch page draws its full-width header band, then centres its own content.
     batchPage = true
     content = (
       <Batch
-        key={route.split('/')[0]}
-        id={route.split('/')[0]}
+        key={currentBatch}
+        id={currentBatch}
         client={client}
         manual={manual}
         route={route}
@@ -205,51 +208,69 @@ export default function App() {
               showStatus={false}
               refreshBootstrap={refreshBootstrap}
             >
-              <AppMasthead
-                route={route}
-                readBatch={client?.read}
-                status={
-                  header && scope ? (
-                    <HeaderStatus
-                      client={header}
-                      batchId={currentBatch}
-                      bootstrapUnavailable={bootstrapUnavailable}
-                    />
-                  ) : (
-                    <SetupStatus>
-                      {bootstrap ? 'Local setup required' : 'Connecting to application…'}
-                    </SetupStatus>
-                  )
-                }
-              />
-              <Main>
-                {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
-                  <PageContent $width={width}>
-                    {bootstrapUnavailable && bootstrap && (
-                      <div role="alert">
-                        <Banner tone="warn">
-                          Application connection unavailable. Showing the last development context;
-                          retained views report their own freshness. Unsaved input is preserved.
-                        </Banner>
-                      </div>
+              <HeaderObservationsProvider
+                client={header && scope ? header : null}
+                batchId={currentBatch}
+              >
+                <AppMasthead
+                  route={route}
+                  status={
+                    header && scope ? (
+                      <HeaderStatus
+                        client={header}
+                        batchId={currentBatch}
+                        bootstrapUnavailable={bootstrapUnavailable}
+                      />
+                    ) : (
+                      <SetupStatus>
+                        {bootstrap ? 'Local setup required' : 'Connecting to application…'}
+                      </SetupStatus>
+                    )
+                  }
+                />
+                <CompactStatusContext.Provider
+                  value={
+                    header && scope ? (
+                      <HeaderStatus
+                        client={header}
+                        batchId={currentBatch}
+                        bootstrapUnavailable={bootstrapUnavailable}
+                        variant="condensed"
+                      />
+                    ) : null
+                  }
+                >
+                  <Main>
+                    {((bootstrapUnavailable && bootstrap) || navigationBlocked) && (
+                      <PageContent $width={width}>
+                        {bootstrapUnavailable && bootstrap && (
+                          <div role="alert">
+                            <Banner tone="warn">
+                              Application connection unavailable. Showing the last development
+                              context; retained views report their own freshness. Unsaved input is
+                              preserved.
+                            </Banner>
+                          </div>
+                        )}
+                        {navigationBlocked && (
+                          <div role="alert">
+                            <Banner tone="warn">
+                              Your unsaved input is preserved. Save this form or discard its unsaved
+                              input before navigating, then choose the destination again.
+                            </Banner>
+                          </div>
+                        )}
+                      </PageContent>
                     )}
-                    {navigationBlocked && (
-                      <div role="alert">
-                        <Banner tone="warn">
-                          Your unsaved input is preserved. Save this form or discard its unsaved
-                          input before navigating, then choose the destination again.
-                        </Banner>
-                      </div>
+                    {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+                    {manual && (
+                      <PageContent $width={width}>
+                        <Diagnostics />
+                      </PageContent>
                     )}
-                  </PageContent>
-                )}
-                {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                {manual && (
-                  <PageContent $width={width}>
-                    <Diagnostics />
-                  </PageContent>
-                )}
-              </Main>
+                  </Main>
+                </CompactStatusContext.Provider>
+              </HeaderObservationsProvider>
             </LiveUpdates>
           </ApiClientsProvider>
         </ConfirmationProvider>
