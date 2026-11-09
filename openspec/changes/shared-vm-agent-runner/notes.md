@@ -2,7 +2,7 @@
 
 Bundle A has started with a disposable ARM64 deployment database fixture.
 
-## Open items
+## Implementation history
 
 Physical M1/Pi qualification, image publication conditions, real provider entitlement and Pi concurrency remain tracked in tasks 1 and 4. The installed Codex 0.166.0 protocol schema includes chatgptDeviceCode request and response variants. Live login and persistence still require testing in the guest.
 
@@ -31,3 +31,7 @@ The earlier relay co-located the CLI with the pairing identity and journal. Tool
 The two-host release check exposed a Docker storage-backend difference. On the Pi host, image inspect returns the OCI manifest digest as the image ID. Docker Desktop on the M1 returns the image configuration digest for the same save/load transfer. The release verifier reads the selected platform's exported configuration on engines reporting the descriptor digest.
 
 Rolling the qualification API back to an image predating the current schema resulted in `database_version_quarantined`. The replacement gate uses a compatible previous image and checks the retained marker after both rollback and forward replacement. An older schema requires the corresponding database restore.
+
+The cancellation fixture reproduced a browser worker that ignored transport EOF and kept running in its guest container. The operator relay now terminates the unique supervisor for that connection. Its VM launcher removes the specific worker container, then writes a matching digest receipt into the supervisor-owned journal directory. The coordinator retains an uncertain slot when the launcher cannot confirm removal. The opt-in browser fixture uses the packaged Chromium seccomp profile and synthetic sessions.
+
+A Pi synthetic dispatch failed before posting a proposal while an image import/export was competing with the fixture. Verify the release pair before starting dispatch qualification on a resource-constrained host. Record the initial failure and the result of the serialized run in the PR.

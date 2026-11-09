@@ -30,6 +30,6 @@ All bundles target `interactive-app`, in A through D order. Use independent exac
 
 ## 4. Qualify personal installations
 
-- [ ] 4.1 Run matching image digests on the physical M1 and Pi 5. Exercise concurrent sessions, scripts, image crops, browser, idle resume, cancellation, restart and rollback. Record resource measurements and limits.
+- [x] 4.1 Run matching image digests on the physical M1 and Pi 5. Exercise concurrent sessions, scripts, image crops, browser, idle resume, cancellation, restart and rollback. Record resource measurements and limits.
 - [x] 4.2 With explicit live-test authority, complete a turn using each selected subscription, including remote-device approval for the Pi. Report fixture and live evidence separately.
-- [ ] 4.3 Update operator setup, troubleshooting, recovery and owning architecture references. Record actual blockers in notes and attach qualification evidence to the PR. Archive only after implementation acceptance.
+- [x] 4.3 Update operator setup, troubleshooting, recovery and owning architecture references. Record actual blockers in notes and attach qualification evidence to the PR. Archive only after implementation acceptance.
