@@ -28,9 +28,9 @@ Decide by asking why the code runs. Code that runs because the component is on s
 | Update several values after one action | Compute every next value in the handler that caused it; state read inside a handler is the previous render's snapshot. | A chain of Effects where each sets state that triggers the next. |
 | Tell a parent about a change | Call the parent's callback in the same handler that updates local state, or lift the state up and make the child controlled. | An Effect that watches local state and then calls the parent. |
 | Give a parent data a child loaded | Read it in the parent (or a shared query) and pass it down. | A child that loads data and pushes it up from an Effect. |
-| Follow a browser API or external store | Wrap `useSyncExternalStore` in a custom hook with a stable `subscribe`, as `components/ui/useMediaQuery.ts` does. | `useState` plus a hand-written subscription Effect. |
+| Follow a browser API or external store | Wrap `useSyncExternalStore` in a custom hook, as `components/ui/useMediaQuery.ts` does. Keep `subscribe` stable, at module scope or memoized on its inputs, so React does not resubscribe on every render. | `useState` plus a hand-written subscription Effect. |
 | Read server data | Use TanStack Query, as described in [server reads](#server-reads-and-command-authority). | A fetch in an Effect. |
-| Run app setup once | Do it in `main.tsx` or at module scope in the owning module. | A top-level `useEffect(..., [])`, which runs twice in development. |
+| Run app setup once | Call it explicitly from `main.tsx`. Keep import-time setup to entry modules, so importing a component never starts work. If setup must wait for mounting, guard a root Effect with a module-level flag. | An unguarded top-level `useEffect(..., [])`, which runs twice in development. |
 
 The navigation guard is the main case of telling a parent: report unsaved changes from the input event, as [form editing](#form-editing) requires. An Effect may still report clean when the editor unmounts. Hold the callback in a ref so that a new parent callback receives the current state rather than a premature clean report; `operator/useDirtySources.ts` shows the pattern.
 
@@ -39,7 +39,7 @@ When an Effect is the right tool:
 - Name the external system it synchronizes, in code or a short comment when that is not obvious.
 - Return a cleanup that undoes the setup: remove listeners, clear timers and close connections.
 - Make it safe to run twice. `main.tsx` renders under StrictMode, which mounts, cleans up and remounts every Effect in development.
-- List every value it reads in the dependency array. No lint rule enforces this yet, so check it in review. A value that changes on every render, such as an inline object or function, is a sign the code belongs in render or a handler instead.
+- List every reactive value it reads (props, state and values computed from them) in the dependency array. Ref contents are not reactive and stay out. No lint rule enforces this yet, so check it in review. When an object or function created during render forces the Effect to rerun on every render, move it inside the Effect if only the Effect uses it.
 - Ignore stale async results. If an Effect awaits work that is not a TanStack Query, set a cancelled flag in cleanup and drop results that arrive after it, so an older response cannot overwrite a newer one.
 - Move it into a named custom hook when the same synchronization appears in more than one component.
 
