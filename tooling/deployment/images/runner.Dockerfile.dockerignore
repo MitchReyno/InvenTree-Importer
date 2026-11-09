@@ -7,3 +7,4 @@
 !tooling/deployment/bridge/web-reader.py
 !tooling/deployment/bridge/bench-web
 !tooling/deployment/bridge/guest_destinations.py
+!intake-server/tests/fixtures/vm-lifecycle-worker.mjs
