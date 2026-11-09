@@ -845,3 +845,36 @@ it('under StrictMode a reading reports unsaved, typed back and unmounted correct
   mounted.unmount()
   expect(dirty.at(-1)).toBe(false)
 })
+
+it('opening the editor on an agent reading with stray spacing reports nothing unsaved', async () => {
+  const user = userEvent.setup()
+  const dirty: boolean[] = []
+  const untidy = {
+    ...batch,
+    evidence_observations: [
+      observation('o1', 'v1', 'LED 0603 red', 'led'),
+      {
+        ...observation('o2', 'v1', '16 MHz crystal ', null),
+        readings: { markings: ['16 MHz crystal '], text: 'Lot 4\n' },
+      },
+      observation('o3', 'v2', 'LED 0603 red', 'led'),
+    ],
+  } as unknown as CaptureSnapshotDto
+  render(
+    <ExamineView
+      batch={untidy}
+      lead={lead}
+      edit={async () => false}
+      askSharper={async () => {}}
+      onDirtyChange={(value) => dirty.push(value)}
+    />,
+  )
+  const first = screen.getByLabelText('Photo 1')
+  await user.click(within(first).getByRole('button', { name: 'Edit readings' }))
+  expect(dirty).not.toContain(true)
+  expect(
+    within(first).getByRole('button', { name: 'Save readings for 16 MHz crystal' }),
+  ).toBeDisabled()
+  expect(within(first).queryByRole('button', { name: 'Discard' })).toBeNull()
+  expect(within(first).getByRole('button', { name: 'Edit readings' })).toBeEnabled()
+})
