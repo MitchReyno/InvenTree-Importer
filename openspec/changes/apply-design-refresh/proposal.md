@@ -167,7 +167,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 - `approval-preparation`: removed evidence blocks approval.
 - `header-workflow-status` (modified by `redesign-batch-workspace`): the masthead's order ends with the Settings button, and the phone bar holds brand, Dev, agents status button and menu.
 - `batch-navigation` (added by `redesign-batch-workspace`): one count per tab, tabs under the title, phone header behaviour.
-- `ui-design-system` (added by `redesign-batch-workspace`): the AI mark, short source chips with a popover, help buttons in place of helper text, descriptions with their limits.
+- `ui-design-system` (added by `redesign-batch-workspace`): the AI mark, short source chips with a popover, help buttons in place of helper text, disabled controls that explain themselves, descriptions with their limits.
 - `review-records` (added by `redesign-batch-workspace`): descriptions on records, the Locations view.
 - `processing-workspace` (added by `redesign-batch-workspace`): Overview drops the repeated counts; the Inventory step page.
 - `changes-commit` (added by `redesign-batch-workspace`): the Tree view keeps "Lots to include"; lot rows name only an overriding location.

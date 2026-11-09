@@ -63,12 +63,13 @@ Tasks 1, 10 and 11 can start in parallel.
   - Add `ai` (#7c3aed / #c4a7ff) and `ai-weak` (#f1e8ff / #2d2148) to `frontend/src/theme/tokens.json`, regenerate with `pnpm --filter @invimport/frontend tokens`, and make `check-contrast.cjs` pass `ai` on `ai-weak` in both themes.
   - Add `components/ui/icons.tsx` with `AiSparkle`, `Help`, `Info`, `Settings`, `Menu` and `Back` as inline `currentColor` SVGs.
   - Add components: `AiMark` (sm, md, lg; it makes its parent a centred flex row), `IconButton`, `HelpButton`, `SettingsNav`, `SettingRow`, `Switch`, `NumberStepper`, `DescriptionField`, `TreeView`, `CompareTable`, `SourceChipPopover`.
+  - Generalise `DisabledFeature` to wrap any control (checkbox, select, stepper, text field, button): `aria-disabled="true"` so it stays focusable, activation and input ignored, explanation linked with `aria-describedby`. `DescriptionField` and `SettingRow` accept a disabled reason that renders through it.
   - Change `SourceChip` to the short form (source, info icon, attention glyph, full text as its tooltip) with the popover.
   - `Pill` drops ✦ and the "AI-proposed" state.
   - `KeyValue` and `Breadcrumb` follow D29.
   - Show everything in the component gallery fixture.
 - **Prerequisites:** none.
-- **Acceptance:** the `ui-design-system` added requirements (AI mark, Short source chips, Help instead of helper text, Descriptions with InvenTree's limits).
+- **Acceptance:** the `ui-design-system` added requirements (AI mark, Short source chips, Help instead of helper text, Disabled controls explain themselves, Descriptions with InvenTree's limits).
 - **TDD approach:** each component gets tests first for its roles, names, keyboard handling, focus return and states. RED: the components don't exist, and `SourceChip` renders "source · certainty".
 - **Verification:** frontend gate; gallery screenshots in both themes and at 390px.
 - **Risks and decisions:** `SourceChip` call sites change shape. Keep a compatible prop signature so Task 7 can migrate the call sites.
@@ -76,7 +77,8 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 1.1 Confirm the design system v20 component guides and the existing `components/ui` APIs that change.
 - [ ] 1.2 RED: write tests for the new components and the short `SourceChip`, and see them fail.
   - [ ] 1.2.1 `SourceChip`: the accessible name holds source and certainty; the glyph for likely, conflict and user; the popover opens, closes on Escape and returns focus.
-  - [ ] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state).
+  - [ ] 1.2.2 `HelpButton`, `IconButton`, `Switch`, `NumberStepper` (limits disable the buttons), `DescriptionField` (count, over-limit state, disabled with a reason).
+  - [ ] 1.2.3 `DisabledFeature` around a select, a stepper, a text field and a button: each takes focus, announces its explanation, ignores Enter, Space, clicks and typing, and sends no request.
 - [ ] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
 - [ ] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
 - [ ] 1.5 Run the frontend gate, update the docs it affects, and record the results.
@@ -155,7 +157,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings/<section>` to the new sections (the `settings` prefix match came in Task 2), with a test that `#settings/inventree` opens Settings › InvenTree.
   - `AiMark` on the Settings › Agents heading and its nav item.
-  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; provider cards show the status of the last check run in those panels: "Not checked" before one, the signed-in status after a success, and "Check failed" after a failure.
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; it fires on every confirmed response and failure. Provider cards read "Not checked" before any report, then Claude "Configured"/"Not configured", Codex "Connected"/"Signing in"/"Not connected"/"Declined", or "Check failed"; they keep the last state when a panel collapses or clears. Tests cover each outcome and removing the key.
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.

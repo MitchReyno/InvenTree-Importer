@@ -38,6 +38,16 @@ Headings, legends and shortcut lists SHALL NOT carry grey explanatory sentences.
 - **WHEN** the operator activates "About groups"
 - **THEN** the explanation of groups opens beside it, and Escape closes it with focus returned
 
+### Requirement: Disabled controls explain themselves
+
+`DisabledFeature` SHALL wrap any deferred control (checkbox, select, stepper, text field or button) and render it with `aria-disabled="true"` so it stays focusable. It SHALL ignore activation and input, send no request, and link a one-line explanation through `aria-describedby`.
+
+#### Scenario: A disabled select can be focused
+
+- **GIVEN** a disabled select wrapped in `DisabledFeature`
+- **WHEN** the operator tabs to it and presses Enter
+- **THEN** it takes focus, the explanation is announced, nothing opens and no request is sent
+
 ### Requirement: Descriptions with InvenTree's limits
 
 Wherever a record has an InvenTree description (Part, category, company, manufacturer part, supplier part, parameter template, stock location, location type), screens SHALL show it with its source and a character count against InvenTree's limit: 500 for companies, 250 for the rest. Stock items SHALL show no description. A description over its limit SHALL show the count in the bad tone. A proposed description over its limit SHALL NOT be written and SHALL show the existing "Not supported yet" state; an existing InvenTree description is shown but doesn't block, because the app doesn't write it. Descriptions the app can't yet store or read SHALL render as disabled fields with an explanation.
