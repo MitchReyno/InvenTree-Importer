@@ -152,12 +152,11 @@ export function ProcessingWorkspace({
     setDrawer({ route, jobId })
   }
 
-  // The restore is taken once; a later mount starts from its route alone.
+  // Every mount clears the store once its state has read it, matching route or not, so nothing
+  // left by a reload that didn't remount reopens a drawer on a later visit.
   useEffect(() => {
-    if (restored) {
-      drawerRestore?.set(null)
-    }
-  }, [drawerRestore, restored])
+    drawerRestore?.clear()
+  }, [drawerRestore])
 
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
@@ -848,6 +847,7 @@ export function ProcessingWorkspace({
                   otherAnswerDirty={(id) => otherAnswerDirty(`answer:${id}`)}
                   answer={(id, input, key) => answer(id, input, key, { fromDrawer: true })}
                   focusNext={restored?.focusNext ?? false}
+                  readFailed={offline}
                   reportFor={(id) => drafts.forSource(`answer:${id}`)}
                   fallback={questionLink}
                 />

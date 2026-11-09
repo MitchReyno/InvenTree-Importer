@@ -332,6 +332,8 @@ export function Batch({
       }
       editIntent.current = null
       acceptSavedBatch(result.data)
+      // Re-keying Processing remounts it; a drawer an answer armed comes back on that mount.
+      drawerRestore.carry()
       setReset((revision) => revision + 1)
       setCurrent(null)
       setError('')

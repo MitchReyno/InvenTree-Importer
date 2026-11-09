@@ -634,33 +634,55 @@ function subscribeHash(listener: () => void) {
  * Stands in for Batch: Processing remounts on every save, keyed as Batch keys it, and reads its
  * session link from the URL; the drawer restore store lives above that key.
  */
+/** How the harness's reload behaves; a failed reload in Batch leaves Processing mounted. */
+type ReloadControl = { remount: boolean }
+
 function RemountingWorkspace({
   client,
   dirty,
   pinnedQuestionId,
+  reload,
 }: {
   client: ProcessingClient
   dirty: (value: boolean) => void
   pinnedQuestionId?: string
+  reload: ReloadControl
 }) {
   const [reset, setReset] = useState(0)
+  const [shown, setShown] = useState(true)
   const drawerRestore = useMemo(createDrawerRestore, [])
   const hash = useSyncExternalStore(subscribeHash, () => location.hash)
   const sessionId = new URLSearchParams(hash.split('?')[1] ?? '').get('session')
 
+  // As Batch's reload: only a reload that re-keys Processing carries the drawer across.
+  async function onSaved() {
+    if (reload.remount) {
+      drawerRestore.carry()
+      setReset((count) => count + 1)
+    }
+  }
+
   return (
-    <ProcessingWorkspace
-      key={`${batch.id}:${batch.revision}:${reset}`}
-      batch={batch}
-      client={client}
-      view="inventory"
-      sessionId={sessionId}
-      questionId={pinnedQuestionId}
-      navigate={vi.fn()}
-      onDirtyChange={dirty}
-      onSaved={async () => setReset((count) => count + 1)}
-      drawerRestore={drawerRestore}
-    />
+    <>
+      {/* Leaving Processing and coming back, as another batch tab would. */}
+      <button type="button" onClick={() => setShown((value) => !value)}>
+        Toggle Processing
+      </button>
+      {shown && (
+        <ProcessingWorkspace
+          key={`${batch.id}:${batch.revision}:${reset}`}
+          batch={batch}
+          client={client}
+          view="inventory"
+          sessionId={sessionId}
+          questionId={pinnedQuestionId}
+          navigate={vi.fn()}
+          onDirtyChange={dirty}
+          onSaved={onSaved}
+          drawerRestore={drawerRestore}
+        />
+      )}
+    </>
   )
 }
 
@@ -692,12 +714,18 @@ function mountInventoryDrawer(
     queries: { ...cache.getDefaultOptions().queries, networkMode: 'online' },
   })
   const dirty = vi.fn()
+  const reload: ReloadControl = { remount: true }
   render(
     <ServerStateProvider scope={scope} client={cache}>
-      <RemountingWorkspace client={client} dirty={dirty} pinnedQuestionId={pinnedQuestionId} />
+      <RemountingWorkspace
+        client={client}
+        dirty={dirty}
+        pinnedQuestionId={pinnedQuestionId}
+        reload={reload}
+      />
     </ServerStateProvider>,
   )
-  return { client, cache, dirty, key: serverQueryKey(scope, 'processing', batchId) }
+  return { client, cache, dirty, reload, key: serverQueryKey(scope, 'processing', batchId) }
 }
 
 const answerBox = (prompt: string) =>
@@ -1004,6 +1032,67 @@ test('a drawer opened from the session row stays open after an answer, focused o
   await waitFor(() => expect(answerBox(second)).toHaveFocus())
   expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
   expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull()
+})
+
+test('a reload that doesn’t remount leaves nothing to reopen the drawer on a later visit', async () => {
+  const user = userEvent.setup()
+  const { client, reload } = mountInventoryDrawer(inventorySnapshot(), undefined, {
+    fromRow: true,
+  })
+  reload.remount = false
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull(),
+  )
+
+  // Leave Processing with the drawer open, then come back: it starts from its route alone.
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('focus the operator moves while the remount’s read fails stays where they put it', async () => {
+  const user = userEvent.setup()
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot(), undefined, {
+    fromRow: true,
+  })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  // The answer's own refresh succeeds; the remounted Processing's first read fails.
+  client.read
+    .mockResolvedValueOnce(inventorySnapshot('9', [questionId]))
+    .mockRejectedValueOnce(new Error('read_unavailable'))
+    .mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
+  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  chat.focus()
+
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await screen.findByRole('form', { name: 'Session question: Is Packet A the reel in drawer 2?' })
+  expect(chat).toHaveFocus()
 })
 
 test('saving a drawer’s last draft after its session left clears the session link', async () => {

@@ -1,8 +1,12 @@
 /**
  * What a session drawer needs to come back after Processing remounts for a saved answer: the
  * answer's reload re-keys Processing in `Batch`, which drops its state. `Batch` owns one store per
- * batch, above that key. Processing writes it once the answer is confirmed, just before the
- * reload, and the next Processing mount on the same route takes it once.
+ * batch, above that key.
+ *
+ * Its lifetime is one reload. Processing arms it once an answer is confirmed, just before the
+ * reload. Only a reload that re-keys Processing carries it, and the next Processing mount reads
+ * what was carried, on the same route only, then clears the store whatever its route. A reload
+ * that fails or is skipped never carries it, so the next mount just clears it.
  */
 export type DrawerRestore = {
   /** The Processing route the drawer was open on. */
@@ -13,13 +17,25 @@ export type DrawerRestore = {
 }
 
 export function createDrawerRestore() {
-  let pending: DrawerRestore | null = null
+  let armed: DrawerRestore | null = null
+  let carried: DrawerRestore | null = null
 
   return {
-    /** Read without consuming, so a render can initialise state purely. */
-    peek: () => pending,
+    /** What the reload carried, read without consuming so a render can initialise state purely. */
+    peek: () => carried,
+    /** Arms the drawer for the reload that follows a confirmed answer; null disarms it. */
     set(value: DrawerRestore | null) {
-      pending = value
+      armed = value
+    },
+    /** Called by the reload that re-keys Processing, so the next mount brings the drawer back. */
+    carry() {
+      carried = armed
+      armed = null
+    },
+    /** Every Processing mount clears the store once it has read it. */
+    clear() {
+      armed = null
+      carried = null
     },
   }
 }

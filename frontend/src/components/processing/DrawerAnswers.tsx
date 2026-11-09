@@ -39,6 +39,8 @@ type Props = {
   fallback: (question: ProcessingQuestionDto) => ReactNode
   /** An answer saved just before Processing remounted: focus the next question once it shows. */
   focusNext?: boolean
+  /** The latest Processing read failed or is paused. */
+  readFailed?: boolean
 }
 
 /** The pins after this read: open questions get forms, clean forms follow it or leave. */
@@ -87,6 +89,7 @@ export function DrawerAnswers(props: Props) {
     reportFor,
     fallback,
     focusNext = false,
+    readFailed = false,
   } = props
   const [pins, setPins] = useState<Readonly<Record<string, Pin>>>({})
   const container = useRef<HTMLDivElement>(null)
@@ -100,6 +103,10 @@ export function DrawerAnswers(props: Props) {
 
   // After an answer saves, its form leaves; focus moves to the next form or the drawer heading.
   useEffect(() => {
+    // A failed read gives up the move: by the time it recovers, the operator may be elsewhere.
+    if (readFailed) {
+      answered.current = false
+    }
     // Waits while an open question has no form yet, such as before a remount's fresh read.
     const waiting = questions.some((question) => current[question.id] === undefined)
     if (!answered.current || waiting) {
