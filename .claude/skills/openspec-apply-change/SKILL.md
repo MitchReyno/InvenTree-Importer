@@ -99,6 +99,8 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - **spec-driven**: proposal, specs, design, tasks
    - Other schemas: follow the contextFiles from CLI output
 
+   Before the first code edit, also read the shared `CODE_GUIDELINES.md` and the `CODE_GUIDELINES.md` of each application the tasks touch, as the project's `AGENTS.md` requires.
+
    Do not copy `context` or `operationGuidance` verbatim into implementation
    files or planning artifacts unless the user separately asks for that content.
 

@@ -1,6 +1,6 @@
 # Frontend code guidelines
 
-Follow the [shared guidelines](../CODE_GUIDELINES.md) and [frontend architecture](ARCHITECTURE.md). These rules cover React/TypeScript/Vite; conventions do not establish an implemented capability.
+Read this file and the [shared guidelines](../CODE_GUIDELINES.md) before writing, changing or reviewing frontend code, and follow the [frontend architecture](ARCHITECTURE.md). These rules cover React/TypeScript/Vite; conventions do not establish an implemented capability.
 
 ## Components and state
 
@@ -10,9 +10,39 @@ Use function components and hooks, semantic HTML, PascalCase component/type name
 
 - Keep components cohesive around visible responsibilities. Extract for clearer UI/state ownership or independent behavior, never to meet a line count or wrap every element.
 - Keep state minimal and immutable; derive display values during render. Use updater functions when changes depend on prior state and stable lifetime keys for lists. Filenames are not unique IDs.
-- Keep user-triggered effects in handlers. Render purely; do not start requests, write files or mutate external state during render.
-- Use effects only to synchronize external systems, with cleanup/cancellation. Do not maintain redundant state with effects.
+- Render purely; do not start requests, write files or mutate external state during render. [Effects](#effects) covers where that work goes instead.
 - Separate transient UI IDs from domain/source/inventory identity. A selected File list is not an approved executable import.
+
+## Effects
+
+An Effect is an escape hatch for keeping a component synchronized with something outside React: a DOM or window listener, a timer, a socket, or a non-React widget. If no external system is involved, the code does not need an Effect. An unnecessary Effect costs an extra render, shows stale values for a frame and hides why the code runs.
+
+Decide by asking why the code runs. Code that runs because the component is on screen belongs in an Effect. Code that runs because the operator did something — clicked, typed, submitted, dropped a file — belongs in that event's handler, because only the handler knows which interaction happened.
+
+| When you need to… | Do this | Not this |
+| --- | --- | --- |
+| Show a value computed from props or state | Compute it during render. Add `useMemo` only when measurement shows the calculation is expensive; this app does not use React Compiler. | A second state variable kept in sync by an Effect. |
+| Start fresh when the subject changes (another batch, lot or question) | Give the component that owns the state a `key` from that identity, as `Batch` does for `CaptureWorkspace`. | An Effect that resets each state variable after the identity prop changes. |
+| Keep a selection valid when the list changes | Store the selected ID and look up the item during render. Adjusting state during render from a stored previous value is a last resort. | An Effect that clears or replaces the selected object. |
+| Run logic for a user action | Do it in the handler. When several handlers share it, extract a plain function and call it from each. | Setting a flag in state and reacting to it in an Effect. |
+| Update several values after one action | Compute every next value in the handler that caused it; state read inside a handler is the previous render's snapshot. | A chain of Effects where each sets state that triggers the next. |
+| Have a child react to an action taken elsewhere | Await the command's result in the handler that sent it, or hold the request as state naming its target (such as which lot to open for editing) and clear it once handled. | A counter or signal prop the child watches in an Effect, which fires again whenever the child remounts. |
+| Tell a parent about a change | Call the parent's callback in the same handler that updates local state, or lift the state up and make the child controlled. | An Effect that watches local state and then calls the parent. |
+| Give a parent data a child loaded | Read it in the parent (or a shared query) and pass it down. | A child that loads data and pushes it up from an Effect. |
+| Follow a browser API or external store | Wrap `useSyncExternalStore` in a custom hook, as `components/ui/useMediaQuery.ts` does. Keep `subscribe` stable, at module scope or memoized on its inputs, so React does not resubscribe on every render. | `useState` plus a hand-written subscription Effect. |
+| Read server data | Use TanStack Query, as described in [server reads](#server-reads-and-command-authority). | A fetch in an Effect. |
+| Run app setup once | Call it explicitly from `main.tsx`. Keep import-time setup to entry modules, so importing a component never starts work. If setup must wait for mounting, guard a root Effect with a module-level flag. | An unguarded top-level `useEffect(..., [])`, which runs twice in development. |
+
+The navigation guard is the main case of telling a parent: report unsaved changes from the input event, as [form editing](#form-editing) requires. An Effect may still report clean when the editor unmounts. Hold the callback in a ref so that a new parent callback receives the current state rather than a premature clean report; `operator/useDirtySources.ts` shows the pattern.
+
+When an Effect is the right tool:
+
+- Name the external system it synchronizes, in code or a short comment when that is not obvious.
+- Return a cleanup that undoes the setup: remove listeners, clear timers and close connections.
+- Make it safe to run twice. `main.tsx` renders under StrictMode, which mounts, cleans up and remounts every Effect in development.
+- List every reactive value it reads (props, state and values computed from them) in the dependency array. Ref contents are not reactive and stay out. No lint rule enforces this yet, so check it in review. When an object or function created during render forces the Effect to rerun on every render, move it inside the Effect if only the Effect uses it.
+- Ignore stale async results. If an Effect awaits work that is not a TanStack Query, set a cancelled flag in cleanup and drop results that arrive after it, so an older response cannot overwrite a newer one.
+- Move it into a named custom hook when the same synchronization appears in more than one component.
 
 ## Server reads and command authority
 

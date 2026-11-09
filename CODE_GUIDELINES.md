@@ -1,6 +1,6 @@
 # Shared code guidelines
 
-Apply these rules to new and changed code. Read [ARCHITECTURE.md](ARCHITECTURE.md) and the owning application's guidelines: [backend](backend/CODE_GUIDELINES.md), [frontend](frontend/CODE_GUIDELINES.md) or [intake server](intake-server/CODE_GUIDELINES.md).
+Apply these rules to new and changed code. Before writing, changing or reviewing code, read this file and the owning application's guidelines: [backend](backend/CODE_GUIDELINES.md), [frontend](frontend/CODE_GUIDELINES.md) or [intake server](intake-server/CODE_GUIDELINES.md). [AGENTS.md](AGENTS.md#read-the-code-guidelines-first) states the full requirement. Read [ARCHITECTURE.md](ARCHITECTURE.md) for application ownership.
 
 Improve the code you touch proportionately. A focused task does not authorize an unrelated rewrite; application documents own language/framework details.
 

@@ -26,7 +26,7 @@ docs/          operator and design documents
 .codex/        corresponding Codex agents
 ```
 
-Applications have owning READMEs and architecture; backend/frontend have language-specific guidelines, while intake specializes the shared rules in its [testing guidelines](intake-server/TESTING.md). Shared guidance, CI, root pnpm control and documentation remain at repository root. Node dependencies/scripts live in their packages; root owns one pnpm lockfile. Python retains its own backend uv lock and package identity. Use Python 3.12/uv and the Node/pnpm pins in `.node-version` and root `package.json`; follow each app README for installation.
+Applications have owning READMEs and architecture; backend, frontend and intake server have their own code guidelines, and intake adds [testing guidelines](intake-server/TESTING.md). Shared guidance, CI, root pnpm control and documentation remain at repository root. Node dependencies/scripts live in their packages; root owns one pnpm lockfile. Python retains its own backend uv lock and package identity. Use Python 3.12/uv and the Node/pnpm pins in `.node-version` and root `package.json`; follow each app README for installation.
 
 ## Root commands
 
@@ -90,7 +90,7 @@ There is no aggregate required **CI** gate, `continue-on-error` or success-forci
 
 `interactive-app` is the user-named integration trunk for this initiative, starting from the reviewed main base. Target initiative PRs there on separate conventional feature branches. Work is planned as [OpenSpec changes](docs/openspec.md), and each PR needs a fresh independent review of its exact head and passing selected checks before it merges. No merge into main is part of this work.
 
-Read the shared and owning app guidelines/architecture before changes. Keep future product/workflow plans explicitly labeled until implemented; the file-picker scaffold is not capture/approval, and the separate intake foundation is not an inventory executor or release-qualified deployment.
+Read the shared and owning app code guidelines before writing, changing or reviewing code, as [AGENTS.md](AGENTS.md#read-the-code-guidelines-first) requires, and the owning architecture before changes. Keep future product/workflow plans explicitly labeled until implemented; the file-picker scaffold is not capture/approval, and the separate intake foundation is not an inventory executor or release-qualified deployment.
 
 Licensed under [GPLv3](LICENSE); see [third-party notices](THIRD-PARTY-NOTICES.md). DigiKey/InvenTree are their respective owners' trademarks; this independent tool is not affiliated with or endorsed by them. Vendor API obligations and credential handling are described in the [backend guide](backend/README.md#using-the-digikey-api).
 
