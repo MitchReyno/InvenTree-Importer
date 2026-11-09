@@ -91,7 +91,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 - Change: `antigravity-agent-provider`
 - Status: Cancelled — no longer planned.
 - Size: Unknown
-- Prerequisites: None — cancelled before assessment.
+- Prerequisites: Unknown — not assessed before cancellation.
 - OpenSpec: None — the change directory was removed.
 
 ## Fixes
