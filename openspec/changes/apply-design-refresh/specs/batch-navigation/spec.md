@@ -48,7 +48,7 @@ The batch tabs SHALL sit on their own row under the batch title, left-aligned wi
 
 ### Requirement: Phone header
 
-At phone width the masthead SHALL hold the brand, the development badge in development builds, an agents status button and a menu button, each with at least a 40px target. The agents status button shows the AI mark, a spinner while work runs and one segment per step, and opens the activity details. The menu holds Agents, Settings, the server details with Open InvenTree, and theme. When the page scrolls, the batch title SHALL condense to one sticky row (back, title, need-you count, compact status button, menu), with the sub-tabs kept below it.
+At phone width the masthead SHALL hold the brand, the development badge in development builds, an agents status button and a menu button carrying a connection status dot, each with at least a 40px target. The agents status button shows the AI mark, a spinner while work runs and one segment per step, and opens the activity details. The menu holds Agents, Settings, the server details with Open InvenTree, and theme. When the page scrolls, the batch title SHALL condense to one sticky row (back, title, need-you count, compact status button, menu), with the sub-tabs kept below it.
 
 #### Scenario: Status stays reachable while scrolled
 

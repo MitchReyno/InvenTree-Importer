@@ -60,7 +60,7 @@ Each photo or document SHALL offer Delete from its actions menu, and a multi-sel
 
 ### Requirement: Restore deleted evidence
 
-After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted files" list from which any deleted file can be restored. Restoring SHALL record an append-only event and bring the file back with its group, notes and links. A restored file SHALL be treated as new evidence for the Examine lead. Proposals made stale by the delete SHALL stay stale until their sessions revise them.
+After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted files" list from which any deleted file can be restored. Restoring SHALL record an append-only event and bring the file back with its group, notes and links, unless the batch is at its upload capacity, when Restore SHALL be disabled with that reason and refused by the server. The Examine lead SHALL receive the restored file as new evidence. Proposals made stale by the delete SHALL stay stale until their sessions revise them.
 
 #### Scenario: Restore from the list
 
@@ -68,13 +68,19 @@ After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted file
 - **WHEN** the operator opens "Deleted files" and chooses Restore
 - **THEN** the photo returns to its group, the Examine lead receives it as new evidence, and the two proposals stay stale until revised
 
+#### Scenario: Restore when the batch is full
+
+- **GIVEN** a deleted photo and a batch that has since reached 200 present files
+- **WHEN** the operator looks at "Deleted files"
+- **THEN** Restore is disabled with "This batch is full", and a restore request sent anyway is refused with `media_capacity`
+
 ### Requirement: Delete refused where history must stay
 
-Delete SHALL be refused when the file is attached in an approved import run, or the batch is archived. The menu item SHALL be disabled with the reason ("Attached in InvenTree by run 1. It stays as the record of what was added."). A refusal SHALL leave the evidence unchanged.
+Delete SHALL be refused when an approval used the file (as an attachment or supporting evidence), or the batch is archived. The menu item SHALL be disabled with the reason ("Used by the approval on 14 Oct. It stays as the record of what was added."). A refusal SHALL leave the evidence unchanged.
 
-#### Scenario: Evidence attached by an approved run
+#### Scenario: Evidence used by an approval
 
-- **GIVEN** a packet photo attached to a Part in approved run 1
+- **GIVEN** a packet photo attached to a Part by an approval on 14 Oct
 - **WHEN** the operator opens its actions menu
 - **THEN** Delete is disabled with that reason, and a delete request sent anyway is refused by the server with the file unchanged
 

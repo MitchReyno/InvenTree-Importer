@@ -52,10 +52,10 @@ Changes to existing components:
 **Desktop masthead.**
 
 - `HeaderStatus` holds activity, then connection, then a Settings `IconButton`.
-- `ConnectionDetails` becomes the server menu. It gains the Open InvenTree link that `HeaderStatus` rendered, the development badge line and a Server settings link. It keeps the existing bounded observation read. "Check connection now" renders disabled (BI-015).
+- `ConnectionDetails` becomes the server menu. It already renders the Open InvenTree link (the `inventree` prop); the change removes the separate `BarTarget` button from `HeaderStatus` and adds the development badge line and a Server settings link. It keeps the existing bounded observation read. "Check connection now" renders disabled (BI-015).
 - `MastheadMenu.tsx` is removed. Theme moves to Settings › Appearance and reuses the stored preference key; Agents is reached from Settings and the activity popover.
 
-**Phone masthead.** At phone width the masthead renders brand, development badge, the activity chip (mark, spinner, segments) and a menu `IconButton` opening a sheet with Agents, Settings, server details and theme. The condensed sticky row is a `BatchHeader` variant driven by an `IntersectionObserver` on the full header.
+**Phone masthead.** At phone width the masthead renders brand, development badge, the activity chip (mark, spinner, segments) and a menu `IconButton` opening a sheet with Agents, Settings, server details and theme. The menu button carries the connection state as a dot and in its accessible name, so the indicator stays on the masthead (`header-connection-status` › Independent connection observations, modified). The condensed sticky row is a `BatchHeader` variant driven by an `IntersectionObserver` on the full header.
 
 **Rejected:**
 
@@ -92,7 +92,7 @@ The need-you aggregate from `redesign-batch-workspace` (design D8) still feeds t
 **Failures:**
 
 - A 4xx (`invalid_upload`, `media_capacity`, a revision conflict after one re-read) marks that file "Not added" with the server's reason.
-- A lost response marks it "Upload not confirmed" and the queue moves on. Retry resends the identical request: same key, expected revision, label and bytes. Replays are checked before the revision (`media/repository.ts:40-44`), so a receipt means it was kept, and a 412 proves it wasn't. On a 412 the file is sent once more with a new key at the current revision.
+- A lost response marks it "Upload not confirmed" and the queue moves on. Retry resends the identical request: same key, expected revision, label and bytes. Replays are checked before the revision (`idempotentMedia` in `media/encoding.ts:28-46`), so a receipt means it was kept, and a 412 proves it wasn't. On a 412 the file is sent once more with a new key at the current revision.
 - Moving a retained file into its chosen group also advances the revision, so the queue re-reads it before each upload.
 
 The queue counts as dirty work for the existing `onDirtyChange` and navigation guard.
@@ -119,9 +119,9 @@ It is protected by the same `reject_authority_change()` trigger. An item's curre
 **Commands.** `contracts/src/media.ts` adds `remove` and `restore` to the `MediaEdit` kinds, handled in `media/edit.ts` and posted to `/media/commands`. Each carries `evidence_ids[]`, the expected revision and an idempotency key. One transaction:
 
 1. locks the media batch and checks the revision;
-2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (it was attached in an approved run); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409;
+2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (an approval used it, as an attachment or supporting evidence); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409. `restore` also runs `requireUploadCapacity` and refuses with `media_capacity` 409 when the batch is full;
 3. inserts one row per item;
-4. marks the current proposals that cite a removed version stale with the existing `evidence_removed` reason (`processing/currentness.ts`). Stale marks are final (`processing-stage-pipeline` › Evidence-based currentness), so a restore doesn't revive them; the sessions revise. It sends a batch notice to the Examine lead, and notices to the affected lots' Research and Images sessions (`lotSessions`), keyed by the removal revision so a later removal after a restore is delivered again. A restore reaches the lead as new evidence through the existing Examine trigger;
+4. marks current proposals stale with the existing `evidence_removed` reason (`processing/currentness.ts`) when they rely on the removed item through any of three joins: a media source on one of its versions, an `evidence_observation` source whose observation's `evidence_version_id` is one of its versions, or one of its evidence notes. Its notes also leave new inputs. Stale marks are final (`processing-stage-pipeline` › Evidence-based currentness), so a restore doesn't revive them; the sessions revise. It sends a batch notice to the Examine lead, and notices to the affected lots' Research and Images sessions (`lotSessions`), keyed by the removal revision so a later removal after a restore is delivered again. A restore appends its own `evidence` inbox item for the lead, keyed `restored:<evidence>:<revision>`, because `examine-trigger.ts` skips versions the lead has seen, observed or pinned;
 5. advances the revision and records a `media_removed` or `media_restored` event.
 
 A replay with the same key returns the first result. The command doesn't write `capture_lot`, so it doesn't cross into capture authority; the `reexamine` flag is not used.
@@ -130,13 +130,15 @@ A replay with the same key returns the first result. The command doesn't write `
 
 | Path | Change |
 | --- | --- |
-| `media/read.ts`, projection | Removed items leave the main lists and come back in a separate `removed` list for "Deleted files". Each item gains `attached_in_run` (the approved run number, when pinned), `lot_ids` (lots it feeds through observations or subject links) and `sole_evidence_lot_ids` (lots with no other evidence) for the dialog and refusal state |
+| `media/read.ts`, projection | Removed items leave the main lists and come back in a separate `removed` list for "Deleted files". Each item gains `pinned_by` (the approval's id and approval time, from `media_approval_pin`), `lot_ids` (lots it feeds through observations or subject links) and `sole_evidence_lot_ids` (lots with no other evidence) for the dialog and refusal state. Removed items show a thumbnail and label only |
+| Operator byte routes (`GET /media/versions/:id`, previews, `media/region-crops.ts`) | Serve only the thumbnail preview of a removed version; refuse the original, other previews and region crops |
+| Review projections (evidence pane, Map regions) | Omit observations on removed versions |
 | Other media edits (`move`, `link`, attachment selection, `derive`, evidence note) | Refused with `media_evidence_removed` 409 on a removed item |
 | `media/commands.ts` `requireUploadCapacity` | Counts only present items, so deleted files free capacity |
 | `processing/examine-trigger.ts` (candidate query and `uncoveredVersions`) | Skips removed versions |
 | Agent evidence reads (research broker and session tools) | Refuse or omit removed versions |
 | Processing input builder and preparation | Skip removed evidence; frozen inputs keep their manifest, so provenance checks still hold |
-| `media/execution-pins.ts` `lockApprovedMedia` | Refuses to pin a removed version, so a stale preparation can't be approved |
+| `media/execution-pins.ts` `lockApprovedMedia` | Refuses a removed version with the typed `approval_evidence_removed` (409), so a stale preparation can't be approved |
 | Records and review projections | A lot whose observations and subject links all point at removed evidence gets a "No evidence" blocking problem |
 
 **UI:**
@@ -159,7 +161,7 @@ A replay with the same key returns the first result. The command doesn't write `
 - **Part:** keeps `set_description`, already capped at 250 by `PartDescription`. It gains `DescriptionField` with "n / 250". Only catalogue proposals that would exceed the limit (`description_unsupported`) show an over-limit state, which blocks approval through the existing problem routing.
 - **Existing records:** descriptions for existing parts, companies, categories, parameter templates and locations are already read on request (`records/existing.ts:110-114`) and shown in `RecordDetail`'s "In InvenTree" table. `DescriptionField` renders them read-only from that query, over-limit or not, without blocking. No contract or projection change: the records projection is built from the database and must not read the target.
 - **New locations and suppliers created in Capture:** `CaptureLocationDraft` and `CaptureCompanyDraft` already carry `description` (`contracts/src/capture-intent.ts`), so Records shows it.
-- **No description yet:** manufacturer parts, supplier parts, agent-proposed companies, categories and templates have no contract field; existing manufacturer and supplier parts and location types aren't read. These render a disabled `DescriptionField` explaining "Agent-written descriptions for these come later" (BI-015).
+- **No description yet:** manufacturer parts, supplier parts, agent-proposed companies, categories and templates have no contract field; existing manufacturer and supplier parts and location types aren't read. These render a disabled `DescriptionField` with `DisabledFeature` wording that follows R10 (BI-015).
 
 ### D8. Screens
 
@@ -187,7 +189,7 @@ Applied per design change log entry. The table names the owning component, with 
 **Security:**
 
 - The removal command authorizes like other media commands for the batch.
-- Removed bytes stay private and are never served by the projection.
+- Removed files' originals and crops are refused on every route; only their thumbnail reaches the operator, for "Deleted files" and the confirmation. Nothing of them reaches agents.
 - Approved-run evidence can't be removed, so execution journals keep their attachments.
 
 ## Verification strategy
@@ -212,7 +214,7 @@ Applied per design change log entry. The table names the owning component, with 
 
 ## Migration, rollout and recovery
 
-- **Migration:** `0031` is additive (a new table, trigger and indexes), with no data rewrite. Rolling back the app leaves the table unused. Existing evidence has no removal rows and stays present.
+- **Migration:** `0031` is additive (a new table, trigger, indexes and grants), with no data rewrite. Rolling back the app leaves the table unused. Existing evidence has no removal rows and stays present. Task 11 proves this against a database migrated to 0030 with existing evidence.
 - **Spec sync:** sync this change only after `redesign-batch-workspace` is archived, and run `pnpm openspec:overlap --change apply-design-refresh` first.
 - **Feature exposure:** no feature flags. Deferred controls ship disabled.
 

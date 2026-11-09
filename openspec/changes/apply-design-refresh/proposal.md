@@ -38,7 +38,7 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 
 ## Current behavior and evidence
 
-- **Masthead.** `frontend/src/components/masthead/HeaderStatus.tsx` places Open InvenTree to the right of the connection control, as required by `header-connection-status` › Safe target details and navigation.
+- **Masthead.** `frontend/src/components/masthead/HeaderStatus.tsx` renders a separate Open InvenTree button (`BarTarget`) to the right of the connection control, as required by `header-connection-status` › Safe target details and navigation. `ConnectionDetails` already repeats the link inside the panel.
   - `MastheadMenu.tsx` holds the theme radio group, Agents and Agent settings (`#settings`).
   - Inside a batch, the breadcrumb shows "Batches / batch title".
 - **Batch header.** `components/batches/BatchHeader.tsx` puts the tabs on the right and a summary line under the title. Its tab and sub-tab badges follow `batch-navigation` › Second tab row ("its own count and attention badge").
@@ -117,6 +117,10 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 
 Each is shown with a `DisabledFeature`-style explanation and no fabricated behaviour.
 
+**Deliberate exclusions:**
+
+- Autosave on Settings › Agents. The design shows "✓ Saved", but `AgentSettingsForm` saves explicitly under one revision for provider, authentication and model together. Autosave would need per-field saves and conflict handling for a form edited rarely, so Settings keeps the explicit Save.
+
 **Non-goals:**
 
 - Undecided proposals: P2 (Batches · Agents masthead links), P5 (phone bottom tab bar), R10 ("Coming later" in one place).
@@ -142,7 +146,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 | Option | Goal fit and strengths | Limitations and cost | Evidence (checked 2026-11-09) | Unknowns |
 | --- | --- | --- | --- | --- |
 | Extend the existing `components/ui` library and intake-server command pattern | Matches the design system names already used. No new dependency. Removal follows the existing append-only selection tables. | Custom code for the tree, popover-based chip and upload queue | `frontend/src/components/ui/*`, `0005_media.sql`, `0022`, `0024` | None material |
-| Add a headless UI library (e.g. Radix Popover, Menu) | Accessible menus and popovers off the shelf | A second popover and focus system beside `Popover.tsx`, plus restyling to tokens; no gain over the existing tested primitives | `frontend/package.json` has no headless UI library; `Popover.test.tsx` covers focus return | — |
+| Add more headless UI primitives (e.g. Radix Menu) | Accessible menus off the shelf | `Popover.tsx` is already built on `@radix-ui/react-popover` 1.3.1; a menu library adds a second focus model for two small menus that `Popover` and `useRovingFocus` already cover | `frontend/package.json`, `ui/Popover.tsx`, `Popover.test.tsx` | — |
 | Add an upload library (e.g. Uppy) | Parallel or resumable uploads | Uploads must be serial because of the media revision, and they're idempotent per request key. A library would fight that contract. | `media/routes.ts:107-136`, `MediaUpload.tsx` | — |
 
 **Recommended direction.** Extend the existing stack. The remaining custom work is small and already patterned: a sequential upload queue, the removal command and its read-model filter, and token-styled components.
@@ -156,7 +160,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 ### Modified capabilities
 
 - `capture-grouped-evidence`: uploads start on pick and accept several files. Adds deleting and restoring photos and documents.
-- `header-connection-status`: Open InvenTree moves into the connection menu.
+- `header-connection-status`: Open InvenTree moves into the connection menu; at phone width the indicator is a dot on the menu button, with the control inside the menu.
 - `capture-media`: removed evidence keeps its bytes, isn't served or counted against capacity, and refuses edits.
 - `processing-stage-pipeline`: stale reasons and notices on removal; restore as new evidence.
 - `approval-preparation`: removed evidence blocks approval.
@@ -171,7 +175,7 @@ The frontend already has React, styled-components and the BI-008 `components/ui`
 
 - **Applications:**
   - `frontend/` across masthead, batches, capture, media, processing, review, changes, agents, settings and `ui`.
-  - `contracts/`: media `remove` and `restore` edits; the media projection's removed list and its `attached_in_run`, `lot_ids` and `sole_evidence_lot_ids` fields; the `media_evidence_removed` refusal.
+  - `contracts/`: media `remove` and `restore` edits; the media projection's removed list and its `pinned_by`, `lot_ids` and `sole_evidence_lot_ids` fields; the `media_evidence_removed` and `approval_evidence_removed` refusals.
   - `intake-server/`: a removal migration and grants; the edit handler; the read model; the Examine trigger, agent evidence reads, processing inputs and preparation; approval pinning; stale reasons and notices on removal.
 - **Specs:** `redesign-batch-workspace` must be archived (its delta specs synced to main) before this change syncs, because five modified capabilities exist only in that change (batch-navigation, ui-design-system, review-records, processing-workspace, changes-commit) and it also modifies `header-workflow-status`. Run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
 - **Evidence:** demo recordings for the UI PRs go on the PRs, not in the repository.

@@ -40,7 +40,7 @@ Settings › Agents SHALL edit the stored agent settings: provider (Claude or Co
 
 ### Requirement: Deferred settings are disabled and explained
 
-These controls SHALL render disabled, each with a one-line explanation that the feature is coming later and what happens instead, and SHALL save nothing:
+These controls SHALL render disabled, each with a one-line `DisabledFeature` explanation of what happens instead (its wording follows the open "Coming later" decision, R10), and SHALL save nothing:
 
 - model per step;
 - instructions copied into every new batch;

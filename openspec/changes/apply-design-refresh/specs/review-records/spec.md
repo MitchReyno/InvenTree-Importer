@@ -9,7 +9,7 @@ Review › Records SHALL show each record's description as described in the desi
 - **Part:** editable, with its count.
 - **Existing category, company, parameter template and location:** read-only, from InvenTree where the existing-values read provides them.
 - **New location or supplier created in Capture:** the description entered with it.
-- **Manufacturer part, supplier part, agent-proposed company, category or parameter template, location type, and any existing value the read doesn't provide:** disabled fields explaining that agent-written descriptions for these come later.
+- **Manufacturer part, supplier part, agent-proposed company, category or parameter template, location type, and any existing value the read doesn't provide:** disabled `DisabledFeature`-style fields saying the app can't store these yet (wording follows R10).
 
 #### Scenario: Existing company description
 

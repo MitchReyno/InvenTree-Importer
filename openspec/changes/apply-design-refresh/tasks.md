@@ -22,7 +22,7 @@
 | 1. Design-system foundation | Frontend components | None | `ui-design-system` (all added requirements) |
 | 2. Desktop masthead and server menu | Frontend | 1 | `header-connection-status` › Safe target details; `header-workflow-status` › Accessible workflow disclosure and layout; `batch-navigation` › Calm batch header |
 | 3. Batch header layout and counts | Frontend | 1 | `batch-navigation` › Four batch tabs, Second tab row, Calm batch header; `processing-workspace` › Processing overview |
-| 4. Phone header | Frontend | 1, 2, 3 | `batch-navigation` › Phone header; `header-workflow-status` (phone bar) |
+| 4. Phone header | Frontend | 1, 2, 3 | `batch-navigation` › Phone header; `header-workflow-status` (phone bar); `header-connection-status` › Independent connection observations, Accessible connection disclosure |
 | 5. Settings page | Frontend | 1, 2 | `app-settings` (all) |
 | 6. Descriptions | Frontend | 1 | `ui-design-system` › Descriptions; `review-records` › Descriptions on records |
 | 7. Screen clean-up and agent marks | Frontend | 1 | `ui-design-system` › AI mark, Short source chips, Help instead of helper text |
@@ -79,6 +79,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
 - [ ] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
 - [ ] 1.5 Run the frontend gate, update the docs it affects, and record the results.
+- [ ] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 2. Desktop masthead and server menu
 
@@ -128,11 +129,11 @@ Tasks 1, 10 and 11 can start in parallel.
   - On scroll, the batch title condenses to one sticky row with status and needs-you count.
 - **Scope and approach (design D2):**
   - A phone variant in `AppMasthead.tsx` and `BatchHeader.tsx`.
-  - A menu sheet holding Agents, Settings, server details and theme.
+  - A menu sheet holding Agents, Settings, server details and theme; the menu button carries the connection-state dot and names the state.
   - An `IntersectionObserver`-driven condensed row.
   - The bottom tab bar (P5) is excluded.
 - **Prerequisites:** Tasks 1, 2 and 3.
-- **Acceptance:** `batch-navigation` › Phone header.
+- **Acceptance:** `batch-navigation` › Phone header; `header-connection-status` › Independent connection observations (Phone indicator) and Accessible connection disclosure.
 - **TDD approach:** viewport tests at 390px for the layout, sheet focus and Escape, and the condensed row appearing when the header leaves view (mocked observer). They fail first.
 - **Verification:** frontend gate; a film at 390px.
 - **Risks and decisions:** `IntersectionObserver` is mocked in jsdom, so real scroll behaviour is checked in the film.
@@ -142,6 +143,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
 - [ ] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
 - [ ] 4.5 Run the frontend gate, update the docs it affects, and record the results.
+- [ ] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 5. Settings page
 
@@ -165,6 +167,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
 - [ ] 5.4 Refactor; check the navigation guard with unsaved edits.
 - [ ] 5.5 Run the frontend gate, update the docs it affects, and record the results.
+- [ ] 5.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 6. Descriptions
 
@@ -217,6 +220,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
 - [ ] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
 - [ ] 7.5 Run the frontend gate, update the docs it affects, and record the results.
+- [ ] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 8. Records › Locations and Tree view
 
@@ -256,6 +260,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 9.3 GREEN: build the page and drawer wiring; link the sub-tab.
 - [ ] 9.4 Refactor shared step-page parts.
 - [ ] 9.5 Run the frontend gate, update the docs it affects, and record the results.
+- [ ] 9.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 10. Direct upload
 
@@ -279,6 +284,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [ ] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
 - [ ] 10.4 Refactor; check navigation protection during the queue.
 - [ ] 10.5 Run the frontend gate, update the docs it affects, and record the results.
+- [ ] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 11. Evidence removal backend
 
@@ -287,11 +293,12 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D6):**
   - Migration `0031_media_evidence_removal.sql` with its immutability trigger, and grants in `media/grants.ts`.
   - `contracts/src/media.ts` `remove` and `restore` `MediaEdit` kinds, handled in `media/edit.ts`.
-  - The media read model returns removed items in a separate list, and each item gains `attached_in_run`, `lot_ids` and `sole_evidence_lot_ids`.
+  - The media read model returns removed items in a separate list, and each item gains `pinned_by`, `lot_ids` and `sole_evidence_lot_ids`.
   - Other edits on a removed item are refused with `media_evidence_removed`; `requireUploadCapacity` counts only present items.
-  - `evidence_removed` stale reasons; a batch notice to the Examine lead; notices to the lots' Research and Images sessions keyed by removal revision. A restore reaches the lead as new evidence.
+  - `evidence_removed` stale reasons through all three joins (media sources, observation sources via `evidence_version_id`, evidence notes); the removed item's notes leave new inputs. A batch notice to the Examine lead, and notices to the lots' Research and Images sessions keyed by removal revision. A restore appends its own lead `evidence` item keyed `restored:<evidence>:<revision>` and re-checks capacity.
   - Filtering in `processing/examine-trigger.ts`, the agent evidence reads, the processing input builder and preparation.
-  - `media/execution-pins.ts` refuses removed versions.
+  - `media/execution-pins.ts` refuses removed versions with `approval_evidence_removed` (409).
+  - Operator byte routes serve only a removed version's thumbnail; Review projections omit its observations.
   - A "No evidence" blocking problem for lots whose observations and subject links all point at removed evidence.
 - **Prerequisites:** none.
 - **Acceptance:** `capture-grouped-evidence` › Delete evidence, Restore deleted evidence, Delete refused where history must stay; `capture-media` › Media removed evidence; `processing-stage-pipeline` › Evidence removal and restore notices; `approval-preparation` › Removed evidence blocks approval.
@@ -304,14 +311,18 @@ Tasks 1, 10 and 11 can start in parallel.
     - UPDATE and DELETE on the new table rejected;
     - stale reasons and notices written, and remove → restore → remove delivers a second notice while the proposal stays stale;
     - edits on a removed item refused; capacity freed;
-    - projection fields `attached_in_run`, `lot_ids`, `sole_evidence_lot_ids`;
+    - projection fields `pinned_by`, `lot_ids`, `sole_evidence_lot_ids`;
+    - restore appends a lead notice and refuses at capacity with `media_capacity`;
+    - each of the three stale joins marks a proposal stale;
+    - operator routes refuse a removed original and region crop but serve its thumbnail;
+    - approval refused with `approval_evidence_removed`;
     - approval of a preparation citing a removed version refused;
     - new processing inputs exclude removed evidence while frozen inputs keep their manifest.
   - Process tests (`pnpm test:intake:process`): the Examine trigger and agent evidence reads skip removed versions.
 - **Verification:** full gate, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm contracts:generate`.
 - **Risks and decisions:** a file selected as an unapproved attachment can be removed; approval then refuses the stale preparation.
 
-- [ ] 11.1 Confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
+- [ ] 11.1 Gate: confirm the user's decision that deletion ships with its backend; if they choose otherwise, move Tasks 11–12 to BI-015 and build the delete UI disabled instead. Then confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
 - [ ] 11.2 RED: write the Postgres and process tests above and confirm they fail.
 - [ ] 11.3 GREEN: implement the removal backend.
   - [ ] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
@@ -320,6 +331,7 @@ Tasks 1, 10 and 11 can start in parallel.
   - [ ] 11.3.4 "No evidence" problem in the records and review projections.
 - [ ] 11.4 Refactor; update the `intake-server/src/media` architecture notes.
 - [ ] 11.5 Run the full gate and both intake tiers, and record the results.
+- [ ] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, existing evidence stays present with no removal rows, and an app build without the change still runs with the table unused. Record the evidence.
 
 ## 12. Evidence removal UI
 
@@ -328,13 +340,13 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D6):** `ui/EvidenceTile.tsx`, `capture/EvidencePanel.tsx`, the bulk bar, `Dialog` and `Toast`, using the projection's lot links and pinned state.
 - **Prerequisites:** Tasks 1, 10 and 11.
 - **Acceptance:** same as Task 11 (UI parts).
-- **TDD approach:** UI tests for menu keyboard use, dialog content with lots and a no-evidence warning, Undo and Restore sending `restore`, the disabled refusal, the disabled note delete, and the bulk delete. They fail first.
+- **TDD approach:** UI tests for menu keyboard use, dialog content with lots and a no-evidence warning, Undo and Restore sending `restore`, the disabled refusal, Restore disabled at capacity, the disabled note delete, and the bulk delete. They fail first.
 - **Verification:** full gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 12.1 Confirm Task 11's projection fields (`attached_in_run`, `lot_ids`, `sole_evidence_lot_ids`, `removed`) cover the dialog, refusal and Deleted files list.
+- [ ] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `removed`) cover the dialog, refusal and Deleted files list.
 - [ ] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
-- [ ] 12.3 GREEN: build the menu, dialog, toast, "Deleted files" list, bulk action and disabled states.
+- [ ] 12.3 GREEN: build the menu, dialog, toast, "Deleted files" list (thumbnail and label), bulk action and disabled states, including Restore disabled with "This batch is full".
 - [ ] 12.4 Refactor; check focus return after the dialog and toast.
 - [ ] 12.5 Run the full gate, update the docs it affects, and record the results.
 
@@ -351,6 +363,7 @@ Tasks 1, 10 and 11 can start in parallel.
 
 - [ ] 13.1 Bring `notes.md` up to date with the final open items.
 - [ ] 13.2 Update BI-014 and BI-015 in the index to match what PR-G delivers.
+- [ ] 13.3 Run local review rounds on PR-G's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## Delivery evidence and lifecycle follow-up
 
