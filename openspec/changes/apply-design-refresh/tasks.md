@@ -91,7 +91,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Scope and approach (design D2):**
   - `masthead/HeaderStatus.tsx`, `ConnectionStatus.tsx` and `ConnectionDetails.tsx`: Open InvenTree, the development badge line and a Server settings link move into the menu. Check connection now renders disabled (BI-015).
   - `ActivityIndicator.tsx`: `AiMark` first, no needs-you badge, batch name only outside a batch.
-  - Change the route match and `currentBatch` derivation (`App.tsx:123`) to a `settings` prefix here, so the menu's Server settings link (`#settings/inventree`) works before PR-C; until Settings exists, `#settings` routes keep opening today's agent settings page.
+  - Change the route match and `currentBatch` derivation (`App.tsx`) to a `settings` prefix here, so the menu's Server settings link (`#settings/inventree`) works before PR-C; until Settings exists, `#settings` routes keep opening today's agent settings page.
   - Remove `MastheadMenu.tsx` in PR-B. The theme choice moves into the server menu as an interim item, which Task 5 (PR-C) moves to Settings › Appearance.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `header-connection-status` › Safe target details and navigation; `header-workflow-status` › Accessible workflow disclosure and layout (desktop); `batch-navigation` › Calm batch header (masthead parts).
@@ -157,19 +157,19 @@ Tasks 1, 10 and 11 can start in parallel.
   - A new `components/settings/Settings.tsx` and section components.
   - `App.tsx` routes `#settings/<section>` to the new sections (the `settings` prefix match came in Task 2), with a test that `#settings/inventree` opens Settings › InvenTree.
   - `AiMark` on the Settings › Agents heading and its nav item.
-  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section, gaining only an `onChecked(outcome)` callback, with tests; it fires on every confirmed response and failure, and with `cleared` when the panel collapses or its key is edited. Superseded responses don't report. Provider cards read "Not checked" before any report, then Claude "Configured"/"Unconfigured", Codex "Connected"/"Signing in"/"Not connected"/"Declined", or "Check failed"; they keep the last state when a panel collapses or clears, except "Signing in", which returns to "Not checked".
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section. Their state, handlers and the Codex sign-in poll query lift unchanged into `usePersonalClaudeCredential` and `useChatGPTSignIn`, which Settings calls once and passes to both the panel and its provider card (design D4), so the card mirrors the panel's status with no Effect. The panels' existing tests keep passing through a small wrapper that calls the hook.
   - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
   - The theme preference moves from the removed menu.
 - **Prerequisites:** Tasks 1 and 2.
 - **Acceptance:** `app-settings`: Settings page and navigation (both scenarios), Agent settings section (all scenarios), Deferred settings, InvenTree and appearance sections; `ui-design-system` › AI mark at agent touchpoints (Settings parts).
-- **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence, and the provider cards: each Claude and Codex state, a failure, removing the key, a superseded Codex response not reporting (key edited mid-request), and the last state kept on collapse, with "Signing in" returning to "Not checked" on collapse and on a key edit. These fail first.
+- **TDD approach:** route, back link (with and without history), deferred controls not operable and sending nothing (fetch spy), conflict keeps the edit, theme persistence, and the provider cards mirroring their panels: each Claude and Codex state, a failure, removing the key, a completed sign-in poll, "Not checked" after a collapse and after a key edit, and a late poll result for an edited key not changing the card. These fail first.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
 
 - [ ] 5.1 Confirm the current `#settings` route, `AgentSettingsForm` contract and theme storage.
-- [ ] 5.2 RED: write the Settings route, back link, deferred-control, theme and provider-card (`onChecked`) tests.
+- [ ] 5.2 RED: write the Settings route, back link, deferred-control, theme and provider-card tests.
 - [ ] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
 - [ ] 5.4 Refactor; check the navigation guard with unsaved edits.
 - [ ] 5.5 Run the frontend gate, update the docs it affects, and record the results.
