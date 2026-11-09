@@ -44,13 +44,19 @@ Grouped actions SHALL preserve existing archived/frozen restrictions and app dir
 
 ### Requirement: Delete evidence
 
-Each photo or document SHALL offer Delete from its actions menu, and a multi-selection SHALL offer "Delete N files". Delete SHALL ask first, naming the lots that use the file and any lot left with no other evidence. A confirmed delete SHALL record an append-only removal under the media revision and an idempotency key, and the file and its notes SHALL leave Capture, Review and the viewer. Original bytes and history SHALL be kept.
+Each photo or document SHALL offer Delete from its actions menu, and a multi-selection SHALL offer "Delete N files". Delete SHALL ask first, naming the lots that use the file, any lot left with no other evidence, and any attachment selection the delete will clear. A confirmed delete SHALL record an append-only removal under the media revision and an idempotency key, and the file and its notes SHALL leave Capture, Review and the viewer. The same command SHALL clear any attachment selection on the file. Original bytes and history SHALL be kept.
 
 #### Scenario: Delete a photo used by three lots
 
 - **GIVEN** a photo whose observations feed three lots, one of which has no other evidence
 - **WHEN** the operator deletes it and confirms
-- **THEN** the photo disappears from Capture, proposals citing it become stale, the Examine lead and the three lots' Research and Images sessions are told, and the lot without other evidence shows "No evidence" as a blocking problem rather than being excluded
+- **THEN** the photo disappears from Capture, proposals citing it become stale, the Examine lead and the three lots' Research and Images sessions are told, and the lot without other evidence shows the existing "no supporting evidence" warning rather than being excluded
+
+#### Scenario: Delete a selected attachment
+
+- **GIVEN** a photo selected as a Part's attachment
+- **WHEN** the operator deletes it and confirms
+- **THEN** the confirmation named the selection, the selection is cleared in the same command, and the Part shows no attachment until another is chosen
 
 #### Scenario: Stale or repeated delete
 
@@ -60,13 +66,19 @@ Each photo or document SHALL offer Delete from its actions menu, and a multi-sel
 
 ### Requirement: Restore deleted evidence
 
-After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted files" list from which any deleted file can be restored. Restoring SHALL record an append-only event and bring the file back with its group, notes and links, unless the batch is at its upload capacity, when Restore SHALL be disabled with that reason and refused by the server. The Examine lead SHALL receive the restored file as new evidence. Proposals made stale by the delete SHALL stay stale until their sessions revise them.
+After a delete, a toast SHALL offer Undo, and Capture SHALL keep a "Deleted files" list from which any deleted file can be restored. Restoring SHALL record an append-only event and bring the file back with its notes and links, into its group if that group is still active and otherwise into "Not in a group". Restore SHALL be disabled with the reason and refused by the server when the batch is at its upload capacity or archived. A cleared attachment selection SHALL stay cleared. The Examine lead SHALL receive the restored file as new evidence. Proposals made stale by the delete SHALL stay stale until their sessions revise them.
 
 #### Scenario: Restore from the list
 
 - **GIVEN** a photo deleted yesterday, whose deletion made two proposals stale
 - **WHEN** the operator opens "Deleted files" and chooses Restore
 - **THEN** the photo returns to its group, the Examine lead receives it as new evidence, and the two proposals stay stale until revised
+
+#### Scenario: Restore after the group was ungrouped
+
+- **GIVEN** a deleted photo whose group has since been ungrouped
+- **WHEN** the operator restores it
+- **THEN** it returns to "Not in a group"
 
 #### Scenario: Restore when the batch is full
 

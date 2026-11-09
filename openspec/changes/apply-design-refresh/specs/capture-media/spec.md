@@ -4,7 +4,7 @@
 
 ### Requirement: Media removed evidence
 
-A removed evidence item SHALL keep its retained bytes and history. Only its thumbnail preview SHALL be served, to the operator, for "Deleted files" and the delete confirmation; its original, other previews and region crops SHALL be refused, and nothing of it SHALL reach agents or new processing inputs. Review projections SHALL omit observations on its versions. Edits that act on it (move, link, attachment selection, derive, evidence note) SHALL be refused with `media_evidence_removed` (409) until it is restored. Removed items SHALL NOT count towards the batch's 200-item upload capacity.
+A removed evidence item SHALL keep its retained bytes and history. Only its thumbnail preview SHALL be served, to the operator, for "Deleted files" and the delete confirmation; its original, other previews and region crops SHALL be refused, and nothing of it SHALL reach agents or new processing inputs. Review projections SHALL omit observations on its versions. Edits that act on it (move, move of several files, link, attachment selection, derive, evidence note) SHALL be refused with `media_evidence_removed` (409) until it is restored. Ungrouping a group SHALL move its removed members to ungrouped too. A removed item SHALL NOT count as supporting evidence for a lot. Removed items SHALL NOT count towards the batch's 200-item upload capacity.
 
 #### Scenario: Edit a removed file
 

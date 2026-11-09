@@ -2,7 +2,7 @@
 
 Backend for the design-refresh controls that `apply-design-refresh` ships disabled:
 
-- agent model per step, instructions copied into every new batch, web research switches and provider sign-in state;
+- agent model per step, instructions copied into every new batch, and web research switches;
 - app-level batch defaults and the rules agents follow when writing descriptions;
 - description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates;
 - reading existing manufacturer part, supplier part and location type descriptions;

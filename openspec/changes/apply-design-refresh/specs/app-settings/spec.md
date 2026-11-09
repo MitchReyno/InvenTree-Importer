@@ -24,7 +24,7 @@ The masthead SHALL end with an icon-only Settings button (`aria-label` "Settings
 
 ### Requirement: Agent settings section
 
-Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards, authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
+Settings › Agents SHALL edit the stored agent settings: provider (Claude or Codex) as option cards showing each provider's sign-in status from the existing personal Claude credential and ChatGPT sign-in endpoints, authentication (subscription or API key; keys are never shown) as a segmented control, model, and sessions at once as a stepper from 1 to 8 with the current slot use. It SHALL keep the existing personal Claude credential (save, replace, remove) and ChatGPT sign-in controls. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read. Saves SHALL stay explicit (one Save action) and use the existing revision check. Running turns SHALL finish with the settings they started with.
 
 #### Scenario: Change sessions at once
 
@@ -47,8 +47,7 @@ These controls SHALL render disabled, each with a one-line `DisabledFeature` exp
 - web research switches;
 - app-level batch defaults;
 - the description rules (which records get agent-written descriptions, the Part description style, supplier part description source);
-- the API token row (status, Check now, Replace token), Check connection now and the import reference prefix;
-- provider sign-in state, which no contract carries yet.
+- the InvenTree API token row (status, Check now, Replace token), Check connection now and the import reference prefix.
 
 #### Scenario: Disabled control is honest
 

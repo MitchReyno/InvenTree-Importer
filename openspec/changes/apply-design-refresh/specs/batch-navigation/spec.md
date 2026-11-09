@@ -38,7 +38,7 @@ Segmented controls SHALL be used only for different views of the same list (Work
 
 ### Requirement: Calm batch header
 
-The batch tabs SHALL sit on their own row under the batch title, left-aligned with it. The summary beside the title SHALL be short ("12 lots · 6 ready to add"). Each attention count SHALL appear once: the batch header's "N need you" pill. The masthead activity chip and the Processing › Overview sub-tab SHALL NOT repeat it. Inside a batch, the masthead breadcrumb SHALL read "Batches" only, and the activity chip SHALL NOT repeat the batch title. Outside a batch it names the batch it shows. On app pages the breadcrumb names the page ("Batches / Agents"). The activity details SHALL link to the Agents page.
+The batch tabs SHALL sit on their own row under the batch title, left-aligned with it. The summary beside the title SHALL be short ("12 lots · 6 ready to add"). The need-you total SHALL appear once, on the batch header's "N need you" pill; the owning tab badges remain, and the masthead activity chip and the Processing › Overview sub-tab SHALL NOT repeat counts. Inside a batch, the masthead breadcrumb SHALL read "Batches" only, and the activity chip SHALL NOT repeat the batch title. Outside a batch it names the batch it shows. On app pages the breadcrumb names the page ("Batches / Agents"). The activity details SHALL link to the Agents page.
 
 #### Scenario: Batch title appears once
 

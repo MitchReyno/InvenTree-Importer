@@ -16,7 +16,7 @@ Most of this change is frontend work on the component library and screens that `
 
 ## Goals and constraints
 
-- **Requirements:** meet the delta specs for `app-settings`, `batch-navigation`, `ui-design-system`, `review-records`, `processing-workspace`, `changes-commit`, `capture-grouped-evidence` and `header-connection-status`.
+- **Requirements:** meet the delta specs for `app-settings`, `batch-navigation`, `ui-design-system`, `review-records`, `processing-workspace`, `changes-commit`, `capture-grouped-evidence`, `capture-media`, `processing-stage-pipeline`, `approval-preparation`, `header-connection-status` and `header-workflow-status`.
 - **Design-system names:** keep component names identical to the design system (`ui-design-system` › Components carry the design system's names).
 - **Disabled, not faked:** build every deferred control fully in the frontend, but disabled with `DisabledFeature` wording, and send no request (`app-settings` › Deferred settings).
 - **Append-only:** keep history append-only. Nothing deletes or rewrites a `media_*`, `capture_note` or observation row.
@@ -70,9 +70,9 @@ The need-you aggregate from `redesign-batch-workspace` (design D8) still feeds t
 
 ### D4. Settings shell on the existing `#settings` route
 
-`App.tsx` routes `#settings` and `#settings/<section>` to a new `components/settings/Settings.tsx`. The sections are `agents` (default), `inventree`, `defaults`, `descriptions` and `appearance`.
+`App.tsx` routes `#settings` and `#settings/<section>` to a new `components/settings/Settings.tsx`. Its route match and the `currentBatch` derivation (`App.tsx:123`) change from an exact `settings` match to a `settings` prefix, so `#settings/inventree` isn't read as a batch. The sections are `agents` (default), `inventree`, `defaults`, `descriptions` and `appearance`.
 
-- **Agents section:** restyles `AgentSettingsForm` onto `SettingRow`s: option cards for provider, a segmented control for authentication, a model select and a `NumberStepper` for sessions at once. The contract, revision and conflict handling stay the same, and saving stays explicit with one Save action. Provider sign-in state isn't shown, because no contract carries it (BI-015). The disabled "More control" card sits below. Pause all reuses the pause command behind `AgentSessions.tsx`, and the slot meter reads the existing agent sessions query.
+- **Agents section:** restyles `AgentSettingsForm` onto `SettingRow`s: option cards for provider, a segmented control for authentication, a model select and a `NumberStepper` for sessions at once. The contract, revision and conflict handling stay the same, and saving stays explicit with one Save action. The existing `PersonalClaudeCredential` and `ChatGPTSignIn` panels from `AgentSettings.tsx` move into the section unchanged, and each provider card shows its sign-in status from their existing endpoints (`/personal-runner/claude`, `/personal-runner/codex`). The disabled "More control" card sits below. Pause all reuses the pause command behind `AgentSessions.tsx`, and the slot meter reads the existing agent sessions query.
 - **InvenTree section:** reads the existing connection observation. The token row, Check now, Replace token and import reference prefix render disabled (BI-015).
 - **Back link:** uses a `returnTo` held in navigation state when Settings is opened. It falls back to Batches for a direct load.
 - **Unsaved edits:** leaving Settings uses the existing navigation guard.
@@ -83,7 +83,7 @@ The need-you aggregate from `redesign-batch-workspace` (design D8) still feeds t
 
 ### D5. Direct upload as a sequential client queue
 
-`MediaUpload` adds `multiple` to its inputs. `selected()` validates each file (same type and size rule) and enqueues the valid ones with their own `Idempotency-Key`. The queue then runs one file at a time:
+`MediaUpload` adds `multiple` to its inputs. `selected()` validates each file (same type and size rule) and enqueues the valid ones with their own `Idempotency-Key`. Each queued file shows an indeterminate "Uploading…" state: the existing `fetch` upload reports no byte progress, and the plan doesn't add an XHR path just for a bar. The queue then runs one file at a time:
 
 1. Read the current media revision.
 2. Call the existing `upload`.
@@ -119,8 +119,8 @@ It is protected by the same `reject_authority_change()` trigger. An item's curre
 **Commands.** `contracts/src/media.ts` adds `remove` and `restore` to the `MediaEdit` kinds, handled in `media/edit.ts` and posted to `/media/commands`. Each carries `evidence_ids[]`, the expected revision and an idempotency key. One transaction:
 
 1. locks the media batch and checks the revision;
-2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (an approval used it, as an attachment or supporting evidence); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409. `restore` also runs `requireUploadCapacity` and refuses with `media_capacity` 409 when the batch is full;
-3. inserts one row per item;
+2. refuses with `media_removal_refused` if a `media_approval_pin` pins an item (an approval used it, as an attachment or supporting evidence); an archived batch is refused by `lockMediaBatch` with the existing `batch_archived` 409. `restore` also runs `requireUploadCapacity` and refuses with `media_capacity` 409 when the batch is full, and `lockMediaBatch` refuses it in an archived batch;
+3. inserts one row per item, and appends an `unset` attachment selection for any removed version that was selected, so a new preparation can't silently drop it;
 4. marks current proposals stale with the existing `evidence_removed` reason (`processing/currentness.ts`) when they rely on the removed item through any of three joins: a media source on one of its versions, an `evidence_observation` source whose observation's `evidence_version_id` is one of its versions, or one of its evidence notes. Its notes also leave new inputs. Stale marks are final (`processing-stage-pipeline` › Evidence-based currentness), so a restore doesn't revive them; the sessions revise. It sends a batch notice to the Examine lead, and notices to the affected lots' Research and Images sessions (`lotSessions`), keyed by the removal revision so a later removal after a restore is delivered again. A restore appends its own `evidence` inbox item for the lead, keyed `restored:<evidence>:<revision>`, because `examine-trigger.ts` skips versions the lead has seen, observed or pinned;
 5. advances the revision and records a `media_removed` or `media_restored` event.
 
@@ -130,22 +130,23 @@ A replay with the same key returns the first result. The command doesn't write `
 
 | Path | Change |
 | --- | --- |
-| `media/read.ts`, projection | Removed items leave the main lists and come back in a separate `removed` list for "Deleted files". Each item gains `pinned_by` (the approval's id and approval time, from `media_approval_pin`), `lot_ids` (lots it feeds through observations or subject links) and `sole_evidence_lot_ids` (lots with no other evidence) for the dialog and refusal state. Removed items show a thumbnail and label only |
+| `media/read.ts`, projection | Removed items leave the main lists and come back in a separate `removed` list for "Deleted files". Each item gains `pinned_by` (the approval's id from `media_approval_pin`, with its time from `executor_approval`), `lot_ids` (lots it feeds through observations or subject links), `sole_evidence_lot_ids` (lots whose `hasSupportingEvidence` would become false) and `selected_attachment_of` (records whose attachment selection the delete clears) for the dialog and refusal state. Removed items show a thumbnail and label only |
 | Operator byte routes (`GET /media/versions/:id`, previews, `media/region-crops.ts`) | Serve only the thumbnail preview of a removed version; refuse the original, other previews and region crops |
 | Review projections (evidence pane, Map regions) | Omit observations on removed versions |
-| Other media edits (`move`, `link`, attachment selection, `derive`, evidence note) | Refused with `media_evidence_removed` 409 on a removed item |
+| Other media edits (`move`, `move_many`, `link`, attachment selection, `derive`, evidence note) | Refused with `media_evidence_removed` 409 on a removed item |
+| `ungroup` | Also moves removed members to ungrouped, so a restore never returns a file to a retired group; restore uses the file's group only if it is still active |
+| `review/model.ts` `hasSupportingEvidence` | Ignores removed items, so a lot left without present evidence raises the existing dismissible `no_supporting_evidence` warning |
 | `media/commands.ts` `requireUploadCapacity` | Counts only present items, so deleted files free capacity |
 | `processing/examine-trigger.ts` (candidate query and `uncoveredVersions`) | Skips removed versions |
 | Agent evidence reads (research broker and session tools) | Refuse or omit removed versions |
 | Processing input builder and preparation | Skip removed evidence; frozen inputs keep their manifest, so provenance checks still hold |
 | `media/execution-pins.ts` `lockApprovedMedia` | Refuses a removed version with the typed `approval_evidence_removed` (409), so a stale preparation can't be approved |
-| Records and review projections | A lot whose observations and subject links all point at removed evidence gets a "No evidence" blocking problem |
 
 **UI:**
 
 - Each tile gets an actions menu: Open, Move to group…, Delete….
 - The bulk bar gains "Delete N files…".
-- A confirmation `Dialog` lists the affected lots from the projection.
+- A confirmation `Dialog` lists the affected lots, any lot left without evidence, and any attachment selection it clears.
 - A `Toast` offers Undo (`restore`). A "Deleted files" disclosure at the end of Capture lists removed files with Restore.
 - Delete is disabled, with the refusal reason, when the projection marks the item as pinned.
 
@@ -181,7 +182,7 @@ Applied per design change log entry. The table names the owning component, with 
 | Area | State and authority | Failure and recovery |
 | --- | --- | --- |
 | Upload queue | Browser memory only until each receipt; server authority unchanged | Per-file "Not added" or Retry with the same key; the navigation guard protects the queue |
-| Removal | Append-only `media_evidence_removal` rows under the media revision and actor; batch-scoped authorization as other media commands | Stale revision 412, pinned 409 `media_removal_refused`, replay returns the first result; restore is a later `removed=false` row, available any time because removed files can't be approved |
+| Removal | Append-only `media_evidence_removal` rows under the media revision and actor; batch-scoped authorization as other media commands | Stale revision 412, pinned 409 `media_removal_refused`, replay returns the first result; restore is a later `removed=false` row, available unless the batch is full or archived; removed files can't be approved |
 | Agent notice | Existing `evidence_removed` stale reason and revision notices, written in the same transaction | Sessions pick them up through the existing notice path; a lost wake is retried by the existing delivery loop |
 | Settings | Existing agent settings contract and revision; theme preference unchanged | Conflict shows Reload and keeps the edit; deferred controls send nothing |
 | Server menu | Existing bounded connection observation and sanitized URL | Unavailable states as today |

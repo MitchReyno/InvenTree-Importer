@@ -64,16 +64,6 @@ Adopt the Bench Intake Design System (tokens, light and dark themes, components,
 
 ### Unassessed
 
-#### BI-015 — Design refresh backend follow-ups
-
-Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates, and reading existing manufacturer part, supplier part and location type descriptions. The rest is provider sign-in state, the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
-
-- Change: `complete-design-refresh-backend`
-- Status: Proposed
-- Size: Unknown
-- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first; not yet satisfied (BI-014 is Planned).
-- OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
-
 #### BI-004 — Automatic supplier logos
 
 Find a suitable supplier logo automatically when creating a supplier. This is a minimal future-work placeholder; the Batch settings overhaul shows a disabled Find automatically checkbox with a coming-soon explanation, and no proposal is planned yet.
@@ -83,6 +73,7 @@ Find a suitable supplier logo automatically when creating a supplier. This is a 
 - Size: Unknown
 - Prerequisites: Unknown — discovery sources, image handling and execution support need assessment; BI-003 supplies the planned entry point as a disabled Find automatically control; automatic discovery is not implemented.
 - OpenSpec: [automatic-supplier-logos](../openspec/changes/automatic-supplier-logos/)
+
 
 #### BI-005 — Purchase-order support
 
@@ -103,6 +94,16 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 - Size: Unknown
 - Prerequisites: A tool-lockdown spike (not started) and BI-006's session protocol and tool server (Done).
 - OpenSpec: None — no change is registered.
+
+#### BI-015 — Design refresh backend follow-ups
+
+Build the backend for the design-refresh controls that BI-014 ships disabled. That covers agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults and the rules agents follow when writing descriptions. It also covers description fields for manufacturer parts, supplier parts and agent-proposed companies, categories and parameter templates, and reading existing manufacturer part, supplier part and location type descriptions. The rest is the InvenTree token row, connection check and import reference prefix in Settings, deleting written batch notes, and fuller existing-stock data for the Inventory duplicate comparison.
+
+- Change: `complete-design-refresh-backend`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first; not yet satisfied (BI-014 is Planned).
+- OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
 
 ## Fixes
 

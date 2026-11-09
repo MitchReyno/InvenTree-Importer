@@ -51,7 +51,7 @@ Tasks 1, 10 and 11 can start in parallel.
 
 - Frontend gate: `pnpm lint && pnpm build && pnpm test` from the repository root.
 - Full gate: the frontend gate, plus `pnpm contracts:check && pnpm typecheck:intake && pnpm test:intake`.
-- Every task also updates the architecture docs it affects (`frontend/ARCHITECTURE.md`, `intake-server/src/media` docs) and `notes.md` in its own PR.
+- Every task also updates the architecture docs it affects (`frontend/ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`) and `notes.md` in its own PR.
 - Then local review rounds until clean, green selected CI, and merge pinned to the reviewed head.
 
 ## 1. Design-system foundation
@@ -151,8 +151,9 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Outcome:** Settings opens from the gear, with a back link, sections, working agent settings, disabled deferred controls, InvenTree details and Appearance.
 - **Scope and approach (design D4):**
   - A new `components/settings/Settings.tsx` and section components.
-  - `App.tsx` routes `#settings` and `#settings/<section>`.
-  - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Provider sign-in state isn't shown (BI-015). Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
+  - `App.tsx` routes `#settings` and `#settings/<section>`; the route match and `currentBatch` derivation at `App.tsx:123` change from an exact match to a `settings` prefix, with a test that `#settings/inventree` isn't read as a batch.
+  - The `PersonalClaudeCredential` and `ChatGPTSignIn` panels move into the Agents section unchanged, with tests; provider cards show their sign-in status from those endpoints.
+  - `AgentSettingsForm` is restyled onto `SettingRow`s (provider option cards, authentication segmented control, model select, sessions `NumberStepper`). It keeps its contract, revision check, conflict handling and explicit Save, with tests for each. Pause all reuses the pause command from `AgentSessions.tsx`; the slot meter reads the agent sessions query.
   - The InvenTree section's token row, Check now, Replace token and import reference prefix render disabled.
   - The Agents page link points here.
   - The theme preference moves from the removed menu.
@@ -205,7 +206,8 @@ Tasks 1, 10 and 11 can start in parallel.
   - add the Review "Shortcuts" button;
   - drop the duplicate "Test InvenTree" on Added;
   - change "✦ New" pills to "＋ New";
-  - migrate every `SourceChip` call site;
+  - migrate every `SourceChip` call site, and move `operator/ProvenancePill.tsx` (used by `DecisionPanel`) onto the short chip;
+  - give "Ask an agent about this Part" its step select (`AskControl`);
   - place `AiMark` where the change log lists it.
 - **Prerequisites:** Task 1.
 - **Acceptance:** `ui-design-system` › AI mark at agent touchpoints, Short source chips with details on demand, Help instead of helper text.
@@ -267,7 +269,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - **PR delivery:** PR-F.
 - **Outcome:** picking files uploads them straight away, several at once, one after another, with per-file states and Retry.
 - **Scope and approach (design D5):**
-  - `media/MediaUpload.tsx`: `multiple` inputs, a sequential queue, per-file states.
+  - `media/MediaUpload.tsx`: `multiple` inputs, a sequential queue, per-file states (an indeterminate "Uploading…", since the upload request reports no byte progress).
   - `media/MediaWorkspace.tsx`: `finish` runs per file; group header progress.
   - The dirty guard covers the queue.
 - **Prerequisites:** none.
@@ -294,14 +296,15 @@ Tasks 1, 10 and 11 can start in parallel.
   - Migration `0031_media_evidence_removal.sql` with its immutability trigger, and grants in `media/grants.ts`.
   - `contracts/src/media.ts` `remove` and `restore` `MediaEdit` kinds, handled in `media/edit.ts`.
   - The media read model returns removed items in a separate list, and each item gains `pinned_by`, `lot_ids` and `sole_evidence_lot_ids`.
-  - Other edits on a removed item are refused with `media_evidence_removed`; `requireUploadCapacity` counts only present items.
+  - Other edits on a removed item (`move`, `move_many`, `link`, attachment selection, `derive`, evidence note) are refused with `media_evidence_removed`; `ungroup` also moves removed members; `requireUploadCapacity` counts only present items.
+  - The delete command appends an `unset` attachment selection for any selected removed version; the projection adds `selected_attachment_of`, and `pinned_by` joins `executor_approval` for its time.
+  - `review/model.ts` `hasSupportingEvidence` ignores removed items, so the existing `no_supporting_evidence` warning applies.
   - `evidence_removed` stale reasons through all three joins (media sources, observation sources via `evidence_version_id`, evidence notes); the removed item's notes leave new inputs. A batch notice to the Examine lead, and notices to the lots' Research and Images sessions keyed by removal revision. A restore appends its own lead `evidence` item keyed `restored:<evidence>:<revision>` and re-checks capacity.
   - Filtering in `processing/examine-trigger.ts`, the agent evidence reads, the processing input builder and preparation.
   - `media/execution-pins.ts` refuses removed versions with `approval_evidence_removed` (409).
   - Operator byte routes serve only a removed version's thumbnail; Review projections omit its observations.
-  - A "No evidence" blocking problem for lots whose observations and subject links all point at removed evidence.
 - **Prerequisites:** none.
-- **Acceptance:** `capture-grouped-evidence` › Delete evidence, Restore deleted evidence, Delete refused where history must stay; `capture-media` › Media removed evidence; `processing-stage-pipeline` › Evidence removal and restore notices; `approval-preparation` › Removed evidence blocks approval.
+- **Acceptance:** `capture-grouped-evidence` › Delete evidence, Restore deleted evidence, Delete refused where history must stay; `capture-media` › Media removed evidence; `processing-stage-pipeline` › Evidence removal and restore notices; `approval-preparation` › Removed evidence blocks approval, Removed evidence doesn't support a lot.
 - **TDD approach:**
   - Postgres tests first (`pnpm test:intake:pg`):
     - remove, then restore;
@@ -312,7 +315,9 @@ Tasks 1, 10 and 11 can start in parallel.
     - stale reasons and notices written, and remove → restore → remove delivers a second notice while the proposal stays stale;
     - edits on a removed item refused; capacity freed;
     - projection fields `pinned_by`, `lot_ids`, `sole_evidence_lot_ids`;
-    - restore appends a lead notice and refuses at capacity with `media_capacity`;
+    - restore appends a lead notice, refuses at capacity with `media_capacity` and in an archived batch, and returns to ungrouped when its group was retired;
+    - deleting a selected attachment clears the selection; `move_many` refuses removed IDs; `ungroup` moves removed members;
+    - a lot whose only evidence is removed raises `no_supporting_evidence`;
     - each of the three stale joins marks a proposal stale;
     - operator routes refuse a removed original and region crop but serve its thumbnail;
     - approval refused with `approval_evidence_removed`;
@@ -328,8 +333,8 @@ Tasks 1, 10 and 11 can start in parallel.
   - [ ] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
   - [ ] 11.3.2 Stale reasons and notices on remove and restore.
   - [ ] 11.3.3 Filtering in the read model, Examine trigger, agent reads, processing inputs and preparation; approval refusal.
-  - [ ] 11.3.4 "No evidence" problem in the records and review projections.
-- [ ] 11.4 Refactor; update the `intake-server/src/media` architecture notes.
+  - [ ] 11.3.4 `hasSupportingEvidence` ignores removed items; the delete clears attachment selections; `ungroup` and restore handle retired groups.
+- [ ] 11.4 Refactor; update the `intake-server/ARCHITECTURE.md` media section.
 - [ ] 11.5 Run the full gate and both intake tiers, and record the results.
 - [ ] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, existing evidence stays present with no removal rows, and an app build without the change still runs with the table unused. Record the evidence.
 
@@ -346,7 +351,7 @@ Tasks 1, 10 and 11 can start in parallel.
 
 - [ ] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `removed`) cover the dialog, refusal and Deleted files list.
 - [ ] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
-- [ ] 12.3 GREEN: build the menu, dialog, toast, "Deleted files" list (thumbnail and label), bulk action and disabled states, including Restore disabled with "This batch is full".
+- [ ] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states, including Restore disabled with "This batch is full".
 - [ ] 12.4 Refactor; check focus return after the dialog and toast.
 - [ ] 12.5 Run the full gate, update the docs it affects, and record the results.
 
