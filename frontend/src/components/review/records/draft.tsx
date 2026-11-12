@@ -1,11 +1,11 @@
-import { useContext, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, RecordChangeDto } from '@invimport/contracts'
 import { refusal } from '#/records/model'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from '#/components/ui'
 import { useReportDirty } from '#/navigation/useReportDirty'
-import { ReloadContext, SavingContext } from '#/context'
+import { useRecordReload, useRecordSaving } from '#/context'
 
 export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
 
@@ -52,8 +52,8 @@ export function useRecordSave(batch: CaptureSnapshotDto, save: Save, onSaved?: (
   const [problem, setProblem] = useState('')
   const [unsaved, setUnsaved] = useState(false)
   const [busy, setBusy] = useState(false)
-  const reload = useContext(ReloadContext)
-  const { setSaving } = useContext(SavingContext)
+  const reload = useRecordReload()
+  const { setSaving } = useRecordSaving()
 
   async function send(change: RecordChangeDto | CaptureEditDto['change']) {
     if (change.kind === 'record') {
@@ -110,7 +110,7 @@ export function SaveRow({
   onSave: () => void
   children?: ReactNode
 }) {
-  const { saving } = useContext(SavingContext)
+  const { saving } = useRecordSaving()
   return (
     <Row>
       <Button size="sm" disabled={disabled || busy || saving} busy={busy} onClick={onSave}>

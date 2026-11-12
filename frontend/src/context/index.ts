@@ -14,5 +14,5 @@ export {
   useRetainedPollInterval,
   useUpdateHealth,
 } from './LiveUpdatesContext'
-export { ReloadContext, SavingContext } from './RecordSaveContext'
+export { ReloadContext, SavingContext, useRecordReload, useRecordSaving } from './RecordSaveContext'
 export { ServerScopeContext, useServerScope } from './ServerScopeContext'

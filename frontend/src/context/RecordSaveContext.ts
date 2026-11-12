@@ -1,4 +1,4 @@
-import { createContext } from 'react'
+import { createContext, useContext } from 'react'
 
 /** Loads the current batch without touching record drafts, so a refused save can be retried. */
 export const ReloadContext = createContext<(() => Promise<boolean>) | undefined>(undefined)
@@ -11,3 +11,11 @@ export const SavingContext = createContext<{
   saving: false,
   setSaving: () => {},
 })
+
+export function useRecordReload() {
+  return useContext(ReloadContext)
+}
+
+export function useRecordSaving() {
+  return useContext(SavingContext)
+}

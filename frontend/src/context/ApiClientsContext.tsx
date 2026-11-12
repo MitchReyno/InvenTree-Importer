@@ -6,16 +6,6 @@ import type { OperatorReviewClient } from '#/operator/types'
 import type { AgentsRead, ProcessingClient } from '#/processing/types'
 import type { RecordsClient } from '#/records/useBatchRecords'
 
-export function ApiClientsProvider({
-  value,
-  children,
-}: {
-  value: ApiClients
-  children: ReactNode
-}) {
-  return <ApiClientsContext.Provider value={value}>{children}</ApiClientsContext.Provider>
-}
-
 /** Optional feature clients; an absent one means that feature is unavailable. */
 export interface ApiClients {
   agents?: AgentsRead
@@ -28,6 +18,16 @@ export interface ApiClients {
 }
 
 const ApiClientsContext = createContext<ApiClients>({})
+
+export function ApiClientsProvider({
+  value,
+  children,
+}: {
+  value: ApiClients
+  children: ReactNode
+}) {
+  return <ApiClientsContext.Provider value={value}>{children}</ApiClientsContext.Provider>
+}
 
 export function useApiClients() {
   return useContext(ApiClientsContext)
