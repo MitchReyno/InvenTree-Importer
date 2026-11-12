@@ -215,3 +215,25 @@ test('a pointer held beside the end tilts it only gently', () => {
   expect(hoverSwing(60, 3).last).toBeLessThan(0.95)
   expect(hoverSwing(120, 3).last).toBeLessThan(0.95)
 })
+
+test('a faint nudge never brakes a rope that is already moving fast', () => {
+  function tipSpeed(withPointer: boolean): number {
+    const rope = createRope(12, 0.2)
+    const anchor = { x: 0, y: 0, z: 0 }
+    // At the edge of the pointer's reach, where its influence is almost nothing.
+    const pointer = { x: -19.5, y: -1, velocityX: 0, velocityY: 0 }
+    stepRope(rope, anchor, 0)
+
+    for (let frame = 0; frame < 20; frame++) {
+      anchor.x += 20 * FRAME
+      stepRope(rope, anchor, FRAME, withPointer ? nudgeWith(pointer) : null)
+    }
+
+    const end = rope.points[rope.points.length - 1]
+
+    return (end.position.x - end.previous.x) / FRAME
+  }
+
+  expect(tipSpeed(false)).toBeGreaterThan(10)
+  expect(tipSpeed(true)).toBeCloseTo(tipSpeed(false), 0)
+})

@@ -46,7 +46,10 @@ const POINTER_DRAG = 0.7
 /** Acceleration pushing points away from the pointer, in scene units per second squared at full influence. */
 const POINTER_PUSH = 8
 
-/** Fastest the pointer can make a point move across the screen, in scene units per second. */
+/**
+ * Fastest the pointer can speed a point up to across the screen, in scene units per second.
+ * A point already moving faster keeps its speed; the pointer never brakes motion it did not cause.
+ */
 const MAX_NUDGE_SPEED = 8
 
 export function createRope(count: number, segmentLength: number): Rope {
@@ -199,10 +202,11 @@ function nudgeRope(rope: Rope, nudge: RopeNudge): void {
     newAcross += (offsetX / (distancePx + 1)) * push
     newUp += (offsetY / (distancePx + 1)) * push
     const speed = Math.hypot(newAcross, newUp)
+    const limit = Math.max(MAX_NUDGE_SPEED, Math.hypot(acrossSpeed, upSpeed))
 
-    if (speed > MAX_NUDGE_SPEED) {
-      newAcross *= MAX_NUDGE_SPEED / speed
-      newUp *= MAX_NUDGE_SPEED / speed
+    if (speed > limit) {
+      newAcross *= limit / speed
+      newUp *= limit / speed
     }
 
     const changeAcross = (newAcross - acrossSpeed) * frameSeconds
