@@ -6,7 +6,7 @@ Read this file and the [shared guidelines](../CODE_GUIDELINES.md) before writing
 
 Use function components and hooks, semantic HTML, PascalCase component/type names and camelCase functions/values. Name handlers for their interaction.
 
-**Mitch's required direction:** each React component belongs in its own TSX file under `frontend/src/components/`, grouped by responsibility (for example `batches`, `capture`, `ui`). React contexts are the exception: each context, its provider and its hook live together in `frontend/src/context/` and are imported through `#/context`. Keep component and style ownership apparent when moving or splitting existing UI.
+**Mitch's required direction:** each React component belongs in its own TSX file under `frontend/src/components/`, grouped by responsibility (for example `batches`, `capture`, `ui`). React contexts are the exception: each context object and its hook live in `frontend/src/context/`, with a stateless provider beside them, and are imported through `#/context`. A component that owns the provided state renders the context's `.Provider` itself. Keep component and style ownership apparent when moving or splitting existing UI.
 
 - Keep components cohesive around visible responsibilities. Extract for clearer UI/state ownership or independent behavior, never to meet a line count or wrap every element.
 - Keep state minimal and immutable; derive display values during render. Use updater functions when changes depend on prior state and stable lifetime keys for lists. Filenames are not unique IDs.

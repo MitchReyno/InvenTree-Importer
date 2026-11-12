@@ -19,7 +19,7 @@ import type { ManualClient } from './manual/types'
 import { ManualWorkspace } from './components/review/ManualWorkspace'
 import { Added } from './components/changes/Added'
 import { batchCommands } from './test/batch-commands'
-import { BatchCommandsProvider } from '#/context'
+import { BatchCommandsProvider } from './context'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
