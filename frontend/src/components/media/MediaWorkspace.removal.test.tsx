@@ -97,16 +97,44 @@ function mediaClient(snapshot = present): MediaClient {
   }
 }
 
-function renderWorkspace(client: MediaClient, workspaceBatch = batch, disabled = false) {
-  render(
+function workspace(client: MediaClient, workspaceBatch: CaptureSnapshotDto, disabled: boolean) {
+  return (
     <MediaWorkspace
       batch={workspaceBatch}
       client={client}
       disabled={disabled}
       selectedSubject="defaults"
       onDirtyChange={vi.fn()}
-    />,
+    />
   )
+}
+
+function renderWorkspace(client: MediaClient, workspaceBatch = batch, disabled = false) {
+  const view = render(workspace(client, workspaceBatch, disabled))
+  return {
+    archive: () => view.rerender(workspace(client, { ...workspaceBatch, archived: true }, true)),
+  }
+}
+
+/** A ready original with one decoded page, so the file has a thumbnail. */
+function withPage(item: MediaSnapshotDto['evidence'][number], previewId: string) {
+  return {
+    ...item,
+    versions: [
+      {
+        id: `${previewId.slice(0, -1)}1`,
+        evidence_id: item.id,
+        kind: 'original' as const,
+        digest: `sha256:${'0'.repeat(64)}`,
+        byte_size: '100',
+        media_type: 'image/jpeg' as const,
+        state: 'ready' as const,
+        decoder_build: 'test',
+        recipe: null,
+        pages: [{ page: 1, width: 400, height: 300, preview_id: previewId }],
+      },
+    ],
+  }
 }
 
 async function chooseDelete(user: ReturnType<typeof userEvent.setup>, name: string) {
@@ -124,7 +152,9 @@ test('the delete dialog names the lots, the lot left without evidence and the cl
   expect(within(dialog).getByRole('list', { name: 'Lots that use it' })).toHaveTextContent(
     /Packet A.*Loose reel/,
   )
-  expect(within(dialog).getByText(/Loose reel will have no other evidence/)).toBeVisible()
+  expect(within(dialog).getByText(/Loose reel will have no supporting evidence/)).toHaveTextContent(
+    /no note or linked media supports it/,
+  )
   expect(
     within(dialog).getByRole('list', { name: 'Attachment choices it clears' }),
   ).toHaveTextContent('1N4148 · Part attachment')
@@ -251,7 +281,7 @@ test('Delete N files reads the combined impact and removes the selection in one 
 
   const dialog = await screen.findByRole('dialog', { name: 'Delete 2 files?' })
   expect(
-    await within(dialog).findByText(/Packet A and Loose reel will have no other evidence/),
+    await within(dialog).findByText(/Packet A and Loose reel will have no supporting evidence/),
   ).toBeVisible()
   expect(client.removalImpact).toHaveBeenCalledWith(batch.id, [front, back])
   expect(within(dialog).queryByRole('list', { name: 'Attachment choices it clears' })).toBeNull()
@@ -302,4 +332,114 @@ test('Delete N files is disabled with the reason when an approval used a selecte
   expect(bulk).toHaveAccessibleDescription(
     'Back marking was used by an approval. It stays as the record of what was added.',
   )
+})
+
+test('the delete dialog shows the file it deletes and says its note goes with it', async () => {
+  const user = userEvent.setup()
+  const pictured = {
+    ...present,
+    evidence: present.evidence.map((item) =>
+      item.id === front ? withPage(item, thumbnail) : item,
+    ),
+  }
+  renderWorkspace(mediaClient(pictured))
+  await chooseDelete(user, 'Front label')
+
+  const dialog = await screen.findByRole('dialog', { name: 'Delete Front label?' })
+  const figure = within(dialog).getByRole('figure', { name: 'Front label' })
+  expect(figure.querySelector('img')?.getAttribute('src')).toContain(
+    `/media/previews/${thumbnail}?size=thumb`,
+  )
+  expect(dialog).toHaveTextContent(
+    'It leaves the batch and what agents read, and its note goes with it.',
+  )
+})
+
+test('deleting several files shows the first few of them', async () => {
+  const user = userEvent.setup()
+  const second = 'd0000000-0000-4000-8000-00000000000d'
+  const pictured = {
+    ...present,
+    evidence: [withPage(present.evidence[0], thumbnail), withPage(present.evidence[1], second)],
+  }
+  renderWorkspace(mediaClient(pictured))
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Back marking' }))
+  await user.click(screen.getByRole('button', { name: 'Delete 2 files…' }))
+
+  const dialog = await screen.findByRole('dialog', { name: 'Delete 2 files?' })
+  const files = within(dialog).getByRole('list', { name: 'Files to delete' })
+  expect(
+    within(files)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent),
+  ).toEqual(['Front label', 'Back marking'])
+  expect(files.querySelectorAll('img')).toHaveLength(2)
+})
+
+test('Undo leaves the toast and Restore is disabled once the batch is archived', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce(afterRemoval)
+  const view = renderWorkspace(client)
+  await chooseDelete(user, 'Front label')
+  vi.mocked(client.snapshot).mockResolvedValue(afterRemoval)
+  await user.click(await screen.findByRole('button', { name: 'Delete file' }))
+  expect(await screen.findByRole('button', { name: 'Undo' })).toBeVisible()
+
+  view.archive()
+  expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  await user.click(screen.getByText('Deleted files · 1'))
+  expect(screen.getByRole('button', { name: 'Restore Front label' })).toBeDisabled()
+  expect(client.edit).toHaveBeenCalledOnce()
+})
+
+test('Move to group… selects the file and focuses the existing move control', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  renderWorkspace(client)
+  await user.click(await screen.findByRole('button', { name: 'Actions for Front label' }))
+  await user.keyboard('{ArrowDown}{Enter}')
+
+  const destination = screen.getByLabelText('Move selected evidence to')
+  await waitFor(() => expect(destination).toHaveFocus())
+  expect(destination).toHaveValue('')
+  expect(screen.getByRole('checkbox', { name: 'Select Front label' })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Select Back marking' })).not.toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
+  expect(vi.mocked(client.edit).mock.calls[0][1]).toEqual({
+    expected_revision: '4',
+    change: { kind: 'move_many', evidence_ids: [front], group_id: null },
+  })
+})
+
+test('Move to group… is disabled with its reason when there is nowhere to move the file', async () => {
+  const user = userEvent.setup()
+  renderWorkspace(
+    mediaClient({
+      ...present,
+      groups: [],
+      evidence: present.evidence.map((item) => ({ ...item, group_id: null })),
+    }),
+  )
+  await user.click(await screen.findByRole('button', { name: 'Actions for Front label' }))
+  const move = await screen.findByRole('menuitem', { name: 'Move to group…' })
+
+  expect(move).toHaveAttribute('aria-disabled', 'true')
+  expect(move).toHaveAccessibleDescription(
+    'There’s no other group to move it to. Add a group first.',
+  )
+  await user.click(move)
+  expect(screen.queryByLabelText('Move selected evidence to')).toBeNull()
+})
+
+test('Move to group… is disabled with its reason in an archived batch', async () => {
+  const user = userEvent.setup()
+  renderWorkspace(mediaClient(), { ...batch, archived: true }, true)
+  await user.click(await screen.findByRole('button', { name: 'Actions for Front label' }))
+
+  expect(
+    await screen.findByRole('menuitem', { name: 'Move to group…' }),
+  ).toHaveAccessibleDescription('Resume the batch to move files.')
 })

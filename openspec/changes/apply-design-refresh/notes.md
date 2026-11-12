@@ -212,9 +212,10 @@ None for task 10.
 
 ### Changes to the plan
 
-- **2026-11-12T20:20+11:00, task 12 (PR-G):** The tile menu has Open and Delete…, not "Move to group…" (design D6). Moving stays with dragging and the selection's Move control; a menu item that only selected the file and sent focus to that control added little.
-- **2026-11-12T20:20+11:00, task 12 (PR-G):** The design canvas working copy named in the brief wasn't on disk, so the UI follows the change log's D31 entry, design D6 and the delta specs. It needs a check against the canvas's "Capture › delete evidence" artboard before the PR merges.
-- **2026-11-12T20:20+11:00, task 12 (PR-G):** The confirmation doesn't show the file's image; it names the file in its title. D31's dialog "shows the file".
+- **2026-11-12T20:31+11:00, task 12 (PR-G):** The design canvas working copy is gone, so the build follows the change log's D31 text, design D6 and the delta specs, not the "Capture › delete evidence" artboard.
+- **2026-11-12T20:31+11:00, task 12 (PR-G, coordinator review):** The tile menu has Open, Move to group… and Delete…, as D6 and D31 list. Move to group… doesn't add a second move path: it selects only that file, preselects its first other destination and focuses the selection's existing "Move selected evidence to" picker, whose Move button sends the usual `move_many`. It is disabled with a reason in an archived batch, while other evidence changes are unsaved, or when there is no other group to move the file to.
+- **2026-11-12T20:31+11:00, task 12 (PR-G, coordinator review):** The confirmation shows the file: one file's thumbnail (`?size=thumb` of its shown page) with its name, or for several the first four with their names and "and N more". A lot left with nothing is described in Review's terms: Review will warn that no note or linked media supports it, a warning that can be dismissed, and the lot isn't left out.
+- **2026-11-12T20:31+11:00, task 12 (PR-G, coordinator review):** D31's "Undo until the batch is approved" needed no change. The server refuses `restore` only in an archived batch; an approval can't pin a deleted file (approval refuses removed evidence), so approving other lots doesn't end restore. The toast hides Undo while media commands are frozen, which includes an archived batch, and Deleted files' Restore is disabled with "Resume the batch to restore files." there. A test archiving the batch while the toast shows passed on its first run, because that behaviour was already in place.
 
 ### Decisions made during implementation
 

@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaRemovedEvidenceDto } from '@invimport/contracts'
 import { Button, Small, Summary } from '#/components/ui'
-import { removedThumbnail } from '#/media/images'
+import { thumbnailUrl } from '#/media/images'
 
 type Props = {
   batchId: string
@@ -31,7 +31,7 @@ export function DeletedFiles({ batchId, removed, restoreRefusal, onRestore, summ
             <Thumbnail>
               {item.preview_id && (
                 <img
-                  src={removedThumbnail(batchId, item.preview_id)}
+                  src={thumbnailUrl(batchId, item.preview_id)}
                   alt=""
                   width={THUMBNAIL_PX}
                   height={THUMBNAIL_PX}

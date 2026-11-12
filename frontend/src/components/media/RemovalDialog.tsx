@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
-import { space } from '#/theme/generated/tokens'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaEvidenceDto } from '@invimport/contracts'
 import { Banner, Button, Dialog, Paragraph, Small } from '#/components/ui'
 import { useServerScope } from '#/context'
 import { serverQueryKey } from '#/queries/scope'
 import type { MediaClient } from '#/media/types'
+import { shownVersion, thumbnailUrl } from '#/media/images'
 import {
   attachmentLabel,
   itemImpact,
@@ -27,6 +28,66 @@ type Props = {
   onConfirm: () => void
   onClose: () => void
   returnFocus: () => HTMLElement | null
+}
+
+/** How many of several files the dialog pictures before saying how many more there are. */
+const FILES_PICTURED = 4
+
+const THUMBNAIL_PX = 64
+
+function FileThumbnail({ batchId, item }: { batchId: string; item: MediaEvidenceDto }) {
+  const version = shownVersion(item)
+  const page = version?.state === 'ready' ? version.pages[0] : undefined
+
+  return (
+    <Thumbnail>
+      {page && (
+        <img
+          src={thumbnailUrl(batchId, page.preview_id)}
+          alt=""
+          width={THUMBNAIL_PX}
+          height={THUMBNAIL_PX}
+        />
+      )}
+    </Thumbnail>
+  )
+}
+
+/** The file being deleted, or the first few of several with a count of the rest. */
+function FilesToDelete({
+  batchId,
+  items,
+  name,
+}: {
+  batchId: string
+  items: MediaEvidenceDto[]
+  name: (item: MediaEvidenceDto) => string
+}) {
+  if (items.length === 1) {
+    const [item] = items
+    return (
+      <File aria-label={name(item)}>
+        <FileThumbnail batchId={batchId} item={item} />
+        <FileName as="figcaption">{name(item)}</FileName>
+      </File>
+    )
+  }
+  const shown = items.slice(0, FILES_PICTURED)
+  const more = items.length - shown.length
+
+  return (
+    <div>
+      <Strip aria-label="Files to delete">
+        {shown.map((item) => (
+          <StripItem key={item.id}>
+            <FileThumbnail batchId={batchId} item={item} />
+            <FileName>{name(item)}</FileName>
+          </StripItem>
+        ))}
+      </Strip>
+      {more > 0 && <Small>and {more} more</Small>}
+    </div>
+  )
 }
 
 /**
@@ -79,6 +140,7 @@ export function RemovalDialog({
   return (
     <Dialog title={title} onClose={onClose} closeDisabled={busy} returnFocus={returnFocus}>
       <Body>
+        <FilesToDelete batchId={batch.id} items={items} name={name} />
         <Paragraph>
           {single
             ? 'It leaves the batch and what agents read, and its note goes with it.'
@@ -116,8 +178,9 @@ export function RemovalDialog({
             )}
             {bareLots.length > 0 && (
               <Banner tone="warn">
-                {joinNames(bareLots)} will have no other evidence. Review will warn about{' '}
-                {bareLots.length === 1 ? 'it' : 'them'}; nothing is left out.
+                {joinNames(bareLots)} will have no supporting evidence. Review will warn that no
+                note or linked media supports {bareLots.length === 1 ? 'it' : 'them'}, a warning you
+                can dismiss; {bareLots.length === 1 ? 'the lot isn’t' : 'the lots aren’t'} left out.
               </Banner>
             )}
             {cleared.length > 0 && (
@@ -150,6 +213,55 @@ export function RemovalDialog({
 const Body = styled.div`
   display: grid;
   gap: ${space[6]};
+`
+
+const File = styled.figure`
+  display: flex;
+  align-items: center;
+  gap: ${space[4]};
+  margin: 0;
+  min-width: 0;
+`
+
+const Strip = styled.ul`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[4]};
+  margin: 0;
+  padding: 0;
+  list-style: none;
+`
+
+const StripItem = styled.li`
+  display: grid;
+  justify-items: start;
+  gap: ${space[2]};
+  max-width: ${THUMBNAIL_PX * 2}px;
+  min-width: 0;
+`
+
+const Thumbnail = styled.span`
+  display: grid;
+  place-items: center;
+  width: ${THUMBNAIL_PX}px;
+  height: ${THUMBNAIL_PX}px;
+  overflow: hidden;
+  border-radius: ${radius.sm};
+  background: ${color.photoStage};
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`
+
+const FileName = styled.span`
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: ${typeVar.small.size};
 `
 
 const List = styled.ul`

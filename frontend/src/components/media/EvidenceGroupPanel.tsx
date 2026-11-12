@@ -65,6 +65,10 @@ type Props = {
   /** Why a file can't be deleted now, or null when its Delete can be chosen. */
   deleteRefusal?: (item: MediaSnapshotDto['evidence'][number]) => string | null
   onDelete?: (item: MediaSnapshotDto['evidence'][number]) => void
+  /** Why a file can't be moved now, or null when its Move to group can be chosen. */
+  moveRefusal?: (item: MediaSnapshotDto['evidence'][number]) => string | null
+  /** Selects the file and hands focus to the selection's move control. */
+  onMoveToGroup?: (item: MediaSnapshotDto['evidence'][number]) => void
   /** Receives each file's actions button, so focus can return to a restored file. */
   actionsRef?: (evidenceId: string, element: HTMLButtonElement | null) => void
 }
@@ -95,6 +99,8 @@ export function EvidenceGroupPanel({
   regionId,
   deleteRefusal,
   onDelete,
+  moveRefusal,
+  onMoveToGroup,
   actionsRef,
 }: Props) {
   const { operator } = useApiClients()
@@ -279,6 +285,14 @@ export function EvidenceGroupPanel({
                         triggerRef={(element) => actionsRef?.(item.id, element)}
                         items={[
                           { label: 'Open', onSelect: () => setOpenId(item.id) },
+                          {
+                            label: 'Move to group…',
+                            onSelect: () => onMoveToGroup?.(item),
+                            disabledReason:
+                              (onMoveToGroup
+                                ? moveRefusal?.(item)
+                                : 'Moving isn’t available here.') ?? undefined,
+                          },
                           {
                             label: 'Delete…',
                             onSelect: () => onDelete(item),

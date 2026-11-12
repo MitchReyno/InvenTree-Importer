@@ -70,6 +70,9 @@ const ARCHIVED_DELETE = 'Resume the batch to delete files.'
 const ARCHIVED_RESTORE = 'Resume the batch to restore files.'
 const WAIT_DELETE = 'Delete waits until other evidence changes are saved or discarded.'
 const WAIT_RESTORE = 'Restore waits until other evidence changes are saved or discarded.'
+const ARCHIVED_MOVE = 'Resume the batch to move files.'
+const WAIT_MOVE = 'Move waits until other evidence changes are saved or discarded.'
+const NOWHERE_TO_MOVE = 'There’s no other group to move it to. Add a group first.'
 
 export function MediaWorkspace({
   batch,
@@ -125,6 +128,8 @@ export function MediaWorkspace({
   // A restored file's actions button takes focus when it mounts; Undo and Restore set this.
   const focusOnMount = useRef<string | null>(null)
   const deletedSummary = useRef<HTMLElement>(null)
+  // Set by a tile's Move to group…, so the move control takes focus when it appears.
+  const focusMoveControl = useRef(false)
   // Where focus goes when the delete dialog closes: its opener, unless the delete was confirmed.
   const removalOpener = useRef<HTMLElement | null>(null)
   const removalConfirmed = useRef(false)
@@ -188,6 +193,39 @@ export function MediaWorkspace({
       return ARCHIVED_DELETE
     }
     return removalBlocked ? WAIT_DELETE : null
+  }
+
+  // The groups a file could go to: every other group, and Ungrouped when it is in one.
+  function moveDestinations(item: MediaEvidenceDto) {
+    const groups = (snapshot?.groups ?? [])
+      .filter((group) => group.id !== item.group_id)
+      .map((group) => group.id)
+    return item.group_id === null ? groups : [null, ...groups]
+  }
+
+  function moveRefusal(item: MediaEvidenceDto) {
+    if (batch.archived) {
+      return ARCHIVED_MOVE
+    }
+    if (blocked('selection')) {
+      return WAIT_MOVE
+    }
+    return moveDestinations(item).length ? null : NOWHERE_TO_MOVE
+  }
+
+  /** Selects only this file and opens the selection's move control on its first destination. */
+  function moveToGroup(item: MediaEvidenceDto) {
+    const [destination] = moveDestinations(item)
+    focusMoveControl.current = true
+    setDestinationGroup(destination ?? '')
+    state.select([item.id])
+  }
+
+  function focusMoveDestination(element: HTMLSelectElement | null) {
+    if (element && focusMoveControl.current) {
+      focusMoveControl.current = false
+      element.focus()
+    }
   }
 
   function restoreRefusal() {
@@ -420,6 +458,7 @@ export function MediaWorkspace({
               <Label>
                 Move selected evidence to
                 <Select
+                  ref={focusMoveDestination}
                   value={destinationGroup}
                   disabled={blocked('selection')}
                   onChange={(event) => setDestinationGroup(event.target.value)}
@@ -503,6 +542,8 @@ export function MediaWorkspace({
                     regionId={groupRegionId(groupId)}
                     deleteRefusal={deleteRefusal}
                     onDelete={(item) => requestRemoval([item])}
+                    moveRefusal={moveRefusal}
+                    onMoveToGroup={moveToGroup}
                     actionsRef={focusRestored}
                   />
                 )

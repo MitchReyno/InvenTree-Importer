@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { previewImage } from '#/media/images'
+import { previewImage, shownVersion } from '#/media/images'
 import { EvidenceTile, type PreviewState } from '#/components/ui'
 
 type EvidenceFileTileProps = {
@@ -17,16 +17,6 @@ type EvidenceFileTileProps = {
   handle?: ReactNode
   onNote?: () => void
   actions?: ReactNode
-}
-
-/** A ready crop shows in place of its original; otherwise the newest version decides. */
-function shownVersion(evidence: MediaEvidenceDto): MediaVersionDto | undefined {
-  const ready = evidence.versions.filter((version) => version.state === 'ready')
-  return (
-    ready.findLast((version) => version.kind === 'derived') ??
-    ready.find((version) => version.kind === 'original') ??
-    evidence.versions.at(-1)
-  )
 }
 
 function previewState(version: MediaVersionDto | undefined): PreviewState {
