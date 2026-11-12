@@ -52,6 +52,7 @@ it('discards an unconfirmed offline save and reconnects without replaying the se
   })
   fireEvent.click(screen.getByText('Save token'))
   expect((await screen.findByRole('alert')).textContent).not.toContain(sentinel)
+  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeEnabled()
   expect(screen.queryByLabelText('CLAUDE_CODE_OAUTH_TOKEN')).toBeNull()
   fireEvent.click(screen.getByText('Check configuration'))
   const field = (await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN')) as HTMLInputElement

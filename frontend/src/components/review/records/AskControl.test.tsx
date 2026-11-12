@@ -50,6 +50,8 @@ test('a send that is not confirmed keeps the message and the guard', async () =>
   await user.click(screen.getByRole('button', { name: 'Ask Research' }))
   await user.click(screen.getByRole('button', { name: 'Send to Research' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Not confirmed')
+  expect(screen.getByLabelText('Message to Research')).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Send to Research' })).toBeEnabled()
   expect(screen.getByLabelText('Message to Research')).toBeVisible()
   expect(report).toHaveBeenLastCalledWith(true)
 })
