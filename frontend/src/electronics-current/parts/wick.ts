@@ -88,8 +88,15 @@ function addLabel(kit: OutlineKit, group: Group, colour: number): void {
   group.add(label, blank)
 }
 
+interface Ribbon {
+  fill: Mesh
+  edge: LineLoop
+  surface: BufferAttribute
+  outline: BufferAttribute
+}
+
 /** A flat strip along the rope, two vertices per point, plus its outline loop. */
-function createRibbon(kit: OutlineKit): { fill: Mesh; edge: LineLoop } {
+function createRibbon(kit: OutlineKit): Ribbon {
   const surface = new BufferGeometry()
   const index: number[] = []
 
@@ -98,27 +105,30 @@ function createRibbon(kit: OutlineKit): { fill: Mesh; edge: LineLoop } {
     index.push(left, left + 1, left + 2, left + 1, left + 3, left + 2)
   }
 
-  surface.setAttribute('position', new BufferAttribute(new Float32Array(ROPE_POINTS * 6), 3))
+  const surfacePositions = new BufferAttribute(new Float32Array(ROPE_POINTS * 6), 3)
+  const outlinePositions = new BufferAttribute(new Float32Array(ROPE_POINTS * 6), 3)
+  surface.setAttribute('position', surfacePositions)
   surface.setIndex(index)
   const outline = new BufferGeometry()
-  outline.setAttribute('position', new BufferAttribute(new Float32Array(ROPE_POINTS * 6), 3))
+  outline.setAttribute('position', outlinePositions)
   const fill = new Mesh(surface, kit.ribbon.fill)
   const edge = new LineLoop(outline, kit.ribbon.edge)
   // World-space geometry moves every frame, so its bounds are never current.
   fill.frustumCulled = false
   edge.frustumCulled = false
 
-  return { fill, edge }
+  return { fill, edge, surface: surfacePositions, outline: outlinePositions }
 }
 
-const tangent = new Vector3()
-
-const across = new Vector3()
-
-const fallback = new Vector3()
+interface WidthScratch {
+  tangent: Vector3
+  across: Vector3
+  fallback: Vector3
+}
 
 /** Width direction at a rope point: the spool axis, made perpendicular to the strip. */
-function widthAt(rope: Rope, index: number, axis: Vector3): Vector3 {
+function widthAt(rope: Rope, index: number, axis: Vector3, scratch: WidthScratch): Vector3 {
+  const { tangent, across, fallback } = scratch
   const before = rope.points[Math.max(0, index - 1)].position
   const after = rope.points[Math.min(ROPE_POINTS - 1, index + 1)].position
   tangent.set(after.x - before.x, after.y - before.y, after.z - before.z).normalize()
@@ -139,15 +149,14 @@ function widthAt(rope: Rope, index: number, axis: Vector3): Vector3 {
 
 function createHanging(kit: OutlineKit, group: Group): HangingPart {
   const rope = createRope(ROPE_POINTS, SEGMENT_LENGTH)
-  const { fill, edge } = createRibbon(kit)
-  const surface = fill.geometry.getAttribute('position') as BufferAttribute
-  const outline = edge.geometry.getAttribute('position') as BufferAttribute
+  const { fill, edge, surface, outline } = createRibbon(kit)
   const anchor = new Vector3()
   const axis = new Vector3()
+  const scratch = { tangent: new Vector3(), across: new Vector3(), fallback: new Vector3() }
 
   function writeRibbon(halfWidth: number): void {
     rope.points.forEach(({ position }, index) => {
-      const width = widthAt(rope, index, axis).multiplyScalar(halfWidth)
+      const width = widthAt(rope, index, axis, scratch).multiplyScalar(halfWidth)
       const leftX = position.x - width.x
       const leftY = position.y - width.y
       const leftZ = position.z - width.z

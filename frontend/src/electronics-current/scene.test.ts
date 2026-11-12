@@ -299,7 +299,9 @@ test('loose ends join the scene with their dispensers, follow them and leave wit
   const scene = currentRenderer().lastScene
   const layer = scene?.getObjectByName(HANGING_LAYER_NAME)
   const initial = new Set(layer?.children.map((child) => child.uuid))
-  const disposeGeometry = vi.spyOn(BufferGeometry.prototype, 'dispose')
+  const ribbonDisposals = (layer?.children ?? []).map((child) =>
+    vi.spyOn((child as Mesh).geometry, 'dispose'),
+  )
 
   expect(layer?.children).toHaveLength(60)
 
@@ -330,9 +332,45 @@ test('loose ends join the scene with their dispensers, follow them and leave wit
     expect(nearest).toBeLessThan(1e-4)
   })
 
-  disposeGeometry.mockClear()
+  ribbonDisposals.push(
+    ...(layer?.children ?? []).map((child) => vi.spyOn((child as Mesh).geometry, 'dispose')),
+  )
   controller.dispose()
 
+  // Every loose end, recycled or still in place at the end, released its own geometry.
   expect(layer?.children).toHaveLength(0)
-  expect(disposeGeometry.mock.calls.length).toBeGreaterThanOrEqual(60)
+  expect(ribbonDisposals.length).toBeGreaterThan(60)
+  ribbonDisposals.forEach((dispose) => expect(dispose).toHaveBeenCalledTimes(1))
+})
+
+test('the reduced-motion still frame hangs each loose end straight down from its rim', () => {
+  catalogue.forcedType = 'solderWick'
+  const controller = start(true)
+  const scene = currentRenderer().lastScene
+  const ribbons = (scene?.getObjectByName(HANGING_LAYER_NAME)?.children ?? [])
+    .filter((child) => (child as Mesh).isMesh)
+    .map((child) => (child as Mesh).geometry.getAttribute('position'))
+
+  function midpoint(positions: (typeof ribbons)[number], index: number): Vector3 {
+    const left = new Vector3().fromBufferAttribute(positions, index * 2)
+
+    return left.add(new Vector3().fromBufferAttribute(positions, index * 2 + 1)).multiplyScalar(0.5)
+  }
+
+  expect(ribbons).toHaveLength(30)
+  partObjects(scene).forEach((object) => {
+    object.updateWorldMatrix(true, true)
+    const rim = object.children[0].localToWorld(WICK_ANCHOR.clone())
+    const ribbon = ribbons.find((positions) => midpoint(positions, 0).distanceTo(rim) < 1e-4)
+
+    if (!ribbon) {
+      throw new Error('every dispenser should have a loose end on its rim')
+    }
+
+    const end = midpoint(ribbon, 11)
+    expect(end.x).toBeCloseTo(rim.x, 4)
+    expect(end.z).toBeCloseTo(rim.z, 4)
+    expect(end.y).toBeLessThan(rim.y)
+  })
+  controller.dispose()
 })

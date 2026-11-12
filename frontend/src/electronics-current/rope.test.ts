@@ -114,3 +114,69 @@ test('a fast flick swings the rope without stretching it', () => {
   expect(tip(rope).x).toBeLessThan(-0.05)
   expect(allFinite(rope)).toBe(true)
 })
+
+/** Kicks the rope sideways, then reports the largest swing left after `seconds`. */
+function swingLeft(frames: readonly number[], seconds: number): number {
+  const rope = createRope(12, 0.2)
+  const anchor = { x: 0, y: 0, z: 0 }
+  stepRope(rope, anchor, 0)
+  let time = 0
+  let largest = 0
+
+  for (let step = 0; time < seconds; step++) {
+    const frame = frames[step % frames.length]
+    anchor.x = time < 0.25 ? time * 4 : 1
+    stepRope(rope, anchor, frame)
+    time += frame
+
+    if (time > seconds - 1) {
+      largest = Math.max(largest, Math.abs(tip(rope).x - anchor.x))
+    }
+  }
+
+  return largest
+}
+
+test('a swing dies away at the same pace at 60 and 120 frames per second', () => {
+  const at60 = swingLeft([1 / 60], 3)
+  const at120 = swingLeft([1 / 120], 3)
+
+  expect(at60).toBeGreaterThan(0.05)
+  expect(at120 / at60).toBeGreaterThan(0.75)
+  expect(at120 / at60).toBeLessThan(1.33)
+})
+
+test('a short frame after a long one carries the swing at the same speed', () => {
+  const rope = createRope(12, 0.2)
+  const anchor = { x: 0, y: 0, z: 0 }
+  stepRope(rope, anchor, 0)
+  anchor.x = 0.8
+  run(rope, anchor, 8)
+  const whole = structuredClone(rope)
+  const halves = structuredClone(rope)
+  const start = tip(rope).x
+
+  stepRope(whole, anchor, FRAME)
+  stepRope(halves, anchor, FRAME / 2)
+  stepRope(halves, anchor, FRAME / 2)
+
+  const moved = tip(whole).x - start
+  expect(Math.abs(moved)).toBeGreaterThan(0.01)
+  expect(Math.abs(tip(halves).x - tip(whole).x)).toBeLessThan(Math.abs(moved) * 0.2)
+})
+
+test('a zero-length step leaves a swinging rope where it is', () => {
+  const rope = createRope(12, 0.2)
+  const anchor = { x: 0, y: 0, z: 0 }
+  stepRope(rope, anchor, 0)
+  anchor.x = 0.5
+  run(rope, anchor, 10)
+  const before = rope.points.map(({ position }) => ({ ...position }))
+
+  stepRope(rope, anchor, 0)
+
+  rope.points.forEach(({ position }, index) => {
+    expect(position.x).toBeCloseTo(before[index].x, 6)
+    expect(position.y).toBeCloseTo(before[index].y, 6)
+  })
+})
