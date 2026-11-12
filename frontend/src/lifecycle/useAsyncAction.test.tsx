@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
-import { useAsyncAction } from './useAsyncAction'
+import { useAsyncAction, type AsyncActionOutcome } from './useAsyncAction'
 
 function deferred() {
   let resolve!: () => void
@@ -17,7 +17,7 @@ test('is busy while the action runs and idle once it succeeds', async () => {
   const { result } = renderHook(() => useAsyncAction())
   expect(result.current.busy).toBe(false)
 
-  let outcome!: Promise<string>
+  let outcome!: Promise<AsyncActionOutcome>
   act(() => {
     outcome = result.current.run(() => pending.promise, 'Not saved.')
   })
@@ -34,7 +34,7 @@ test('is busy while the action runs and idle once it succeeds', async () => {
 
 test('shows the failure text when the action throws', async () => {
   const { result } = renderHook(() => useAsyncAction())
-  let outcome = ''
+  let outcome: AsyncActionOutcome | undefined
   await act(async () => {
     outcome = await result.current.run(() => Promise.reject(new Error('offline')), 'Not saved.')
   })
@@ -50,7 +50,7 @@ test('a new run clears the previous failure, and a success leaves it clear', asy
     await result.current.run(() => Promise.reject(new Error('offline')), 'Not saved.')
   })
 
-  let outcome!: Promise<string>
+  let outcome!: Promise<AsyncActionOutcome>
   act(() => {
     outcome = result.current.run(() => pending.promise, 'Not saved.')
   })
@@ -77,8 +77,8 @@ test('a second run while one is busy is skipped without calling its action', asy
   const second = vi.fn(async () => undefined)
   const { result } = renderHook(() => useAsyncAction())
 
-  let first!: Promise<string>
-  let skipped!: Promise<string>
+  let first!: Promise<AsyncActionOutcome>
+  let skipped!: Promise<AsyncActionOutcome>
   act(() => {
     first = result.current.run(() => pending.promise, 'First failed.')
     // Same render as the first call, as a double click before React re-renders would be.
