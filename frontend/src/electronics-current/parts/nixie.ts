@@ -14,7 +14,7 @@ import {
   type Curve,
 } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { CLEAR_GLASS_OPACITY, fills } from '#/electronics-current/finishes'
+import { CLEAR_GLASS_OPACITY, fills, INNER_GLOW_RENDER_ORDER } from '#/electronics-current/finishes'
 import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
 import { at, box, pinRing } from '#/electronics-current/shapes'
 
@@ -249,7 +249,7 @@ const nixieTube: PartBuilder = ({ kit }) => {
   const glow = new Sprite(materials.glow)
   glow.position.set(0, NUMERAL_CENTRE_Y, 0.4)
   glow.scale.set(3.4, 4.0, 1)
-  glow.renderOrder = 3
+  glow.renderOrder = INNER_GLOW_RENDER_ORDER
   group.add(glow)
   group.add(at(kit.body(box(1.3, 2.2, 0.04), fills.steel), 0, NUMERAL_CENTRE_Y, -0.38))
   group.add(kit.glass(new LatheGeometry(envelope, 28), fills.tubeGlass, CLEAR_GLASS_OPACITY))

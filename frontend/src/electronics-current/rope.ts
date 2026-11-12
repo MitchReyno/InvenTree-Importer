@@ -48,7 +48,8 @@ const POINTER_PUSH = 8
 
 /**
  * Fastest the pointer can speed a point up to across the screen, in scene units per second.
- * A point already moving faster keeps its speed; the pointer never brakes motion it did not cause.
+ * The cap never slows a point already moving faster; the drag still eases brushed points
+ * towards the pointer's own motion.
  */
 const MAX_NUDGE_SPEED = 8
 

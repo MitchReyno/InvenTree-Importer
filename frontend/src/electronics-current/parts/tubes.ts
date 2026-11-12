@@ -1,5 +1,5 @@
 import { Group, LatheGeometry, QuadraticBezierCurve, SplineCurve, Sprite, Vector2 } from 'three'
-import { CLEAR_GLASS_OPACITY, fills } from '#/electronics-current/finishes'
+import { CLEAR_GLASS_OPACITY, fills, INNER_GLOW_RENDER_ORDER } from '#/electronics-current/finishes'
 import type { OutlineKit } from '#/electronics-current/outline-kit'
 import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
 import { at, box, cylinder, pinRing } from '#/electronics-current/shapes'
@@ -12,7 +12,7 @@ function addHeaterGlow(kit: OutlineKit, group: Group, y: number, width: number, 
   const glow = new Sprite(kit.tubeGlow)
   glow.position.set(0, y, 0)
   glow.scale.set(width, height, 1)
-  glow.renderOrder = 3
+  glow.renderOrder = INNER_GLOW_RENDER_ORDER
   group.add(glow)
 }
 

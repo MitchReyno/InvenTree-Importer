@@ -2,7 +2,9 @@ import { Mesh, Sprite } from 'three'
 import { afterEach, expect, test } from 'vitest'
 import { PART_WEIGHTS, partBuilders, pickPartType } from './catalogue'
 import { createOutlineKit, type OutlineKit } from './outline-kit'
+import { CLEAR_GLASS_OPACITY, fills } from './finishes'
 import type { PartType } from './part-model'
+import { box } from './shapes'
 
 const kits: OutlineKit[] = []
 
@@ -83,4 +85,32 @@ test('LEDs carry a glow and displays drift towards the viewer', () => {
   expect(display.facesViewer).toBe(true)
   expect(display.display?.digits).toHaveLength(2)
   led.led?.dispose()
+})
+
+test('glows inside glass tubes draw before the glass, so it never cuts them away', () => {
+  const kit = createOutlineKit()
+
+  for (const type of ['octalTube', 'rectifier5u4', 'nixieTube'] as const) {
+    const part = partBuilders[type]({ kit, random: () => 0.3 })
+    const glows: Sprite[] = []
+    const glass: Mesh[] = []
+    part.group.traverse((child) => {
+      if (child instanceof Sprite) {
+        glows.push(child)
+      } else if (
+        child instanceof Mesh &&
+        child.material === kit.glass(box(1, 1, 1), fills.tubeGlass, CLEAR_GLASS_OPACITY).material
+      ) {
+        glass.push(child)
+      }
+    })
+
+    expect(glows.length, type).toBeGreaterThan(0)
+    expect(glass.length, type).toBeGreaterThan(0)
+    glows.forEach((glow) =>
+      glass.forEach((pane) => expect(glow.renderOrder, type).toBeLessThan(pane.renderOrder)),
+    )
+  }
+
+  kit.dispose()
 })
