@@ -152,7 +152,7 @@ INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CODEX_SUBSCRIPTION=1 \
 
 Use another free loopback port when `14313` is already taken, and use that same port in `.env` and in both relays. `INTAKE_VM_WEB_MODE=public` on the reader command allows general public HTTPS reads. With that mode, set `INTAKE_VM_PROTECTED_HOSTS` to every public hostname of this app, the inventory server and this machine. The default reader allows RFC Editor, Python documentation and Example Domain. Details and limits are in the [deployment guide](tooling/deployment/README.md#shared-vm-sessions-with-native-tools).
 
-`shared-vm-agent/1` is the same VM with one guest turn and no tool worker. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
+`shared-vm-agent/1` is the same VM with one guest turn and no tool worker; select it with `INTAKE_VM_AGENT_TOOLS=false`. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
 
 While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use.
 

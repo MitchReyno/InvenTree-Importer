@@ -270,3 +270,33 @@ test('a retired setting is refused before any state is touched', async () => {
     /retired_development_setting/,
   )
 })
+
+test('a read-only mock and an overriding mock use the plain mock namespace', async () => {
+  const stateDir = await tempDirectory()
+  await chmod(stateDir, 0o700)
+  const serverId = '0123456789abcdef'.repeat(2)
+  await writeFile(join(stateDir, 'inventree-db.json'), serverState(serverId), { mode: 0o600 })
+  const plain = await appStateRoot({ INTAKE_DEV_STATE: stateDir })
+  const readOnly = await appStateRoot({
+    INTAKE_DEV_STATE: stateDir,
+    INTAKE_INVENTREE_READ_ONLY: 'true',
+  })
+  const overriding = await appStateRoot({
+    INTAKE_DEV_STATE: stateDir,
+    INTAKE_USE_MOCK_INVENTREE: 'true',
+    INTAKE_USE_LOCAL_INVENTREE: 'true',
+  })
+  assert.equal(readOnly, plain)
+  assert.equal(overriding, plain)
+  await rm(stateDir, { recursive: true })
+})
+
+test('an external URL without a token is refused, as pnpm dev refuses it', async () => {
+  await assert.rejects(
+    appStateRoot({
+      INTAKE_APP_STATE: '/nonexistent',
+      INTAKE_INVENTREE_URL: 'https://inventory.example.invalid',
+    }),
+    /development_read_key_required/,
+  )
+})

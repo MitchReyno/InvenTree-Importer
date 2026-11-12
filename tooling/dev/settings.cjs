@@ -158,10 +158,8 @@ function resolveProcessing(settings) {
   if (agentsInVm && !sessions) {
     throw new DevelopmentSettingsError('unsupported_agent_settings')
   }
-  if (
-    agentsInVm &&
-    (!present(settings, 'INTAKE_VM_PAIR') || !present(settings, 'INTAKE_VM_PORT'))
-  ) {
+  const vmPaired = present(settings, 'INTAKE_VM_PAIR') && present(settings, 'INTAKE_VM_PORT')
+  if (agentsInVm && !vmPaired) {
     throw new DevelopmentSettingsError('vm_pairing_required')
   }
   if (mockAgents) {

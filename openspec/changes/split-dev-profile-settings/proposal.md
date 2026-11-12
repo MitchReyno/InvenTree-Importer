@@ -44,7 +44,7 @@ In scope:
 - Refusal, with the replacement names, of the old user-facing names in `pnpm dev` settings: `INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY`, `INTAKE_PERSONAL_MANAGEMENT`.
 - A read-only mock (fake inventory without executor deployment or apply worker).
 - `pnpm dev` support for `synthetic-session/1`, on the host and through the VM bridge.
-- `INTAKE_CREDENTIAL_REF` becomes optional for an external server, derived from the URL host when unset.
+- `INTAKE_CREDENTIAL_REF` becomes optional for an external server, derived from the URL's host name when unset.
 - Docs, env template, settings-form hint and the affected specs.
 
 Non-goals:
@@ -82,4 +82,4 @@ No external dependency is relevant: this is a mapping from a handful of env stri
 None open. Assumptions recorded:
 
 - Booleans accept `true`/`false`/`1`/`0`, case-insensitive; an empty value means unset. Anything else is refused naming the variable.
-- The derived credential reference is `inventree_` plus the URL host with characters outside `[A-Za-z0-9_-]` replaced by `_`, so existing namespaces stay reachable by setting `INTAKE_CREDENTIAL_REF` explicitly.
+- The derived credential reference is `inventree_` plus the URL's host name, without the port, with characters outside `[A-Za-z0-9_-]` replaced by `_`, so existing namespaces stay reachable by setting `INTAKE_CREDENTIAL_REF` explicitly.
