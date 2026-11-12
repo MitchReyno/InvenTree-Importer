@@ -27,7 +27,7 @@ export interface ApiClients {
   records?: RecordsClient
 }
 
-export const ApiClientsContext = createContext<ApiClients>({})
+const ApiClientsContext = createContext<ApiClients>({})
 
 export function useApiClients() {
   return useContext(ApiClientsContext)

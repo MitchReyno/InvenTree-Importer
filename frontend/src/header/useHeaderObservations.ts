@@ -4,7 +4,9 @@ import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
 import { assertHeaderScope, HEADER_POLL_MS } from './observations'
 import type { HeaderClient } from './types'
-import { useServerScope, useRetainedPollInterval } from '#/context'
+// Leaf modules, not the barrel: the barrel's HeaderObservationsContext imports this hook.
+import { useRetainedPollInterval } from '#/context/LiveUpdatesContext'
+import { useServerScope } from '#/context/ServerScopeContext'
 
 export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const scope = useServerScope()

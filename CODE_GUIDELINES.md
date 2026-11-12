@@ -43,7 +43,7 @@ Import a file in the same folder, or below it, with `./`. Import anything else i
 
 The intake server defines `#/` as a `package.json` subpath import, which Node resolves natively, so plain-Node tools and type-stripped utilities load the same specifiers as `tsx`. The frontend defines it in `tsconfig.json` `paths` and the Vite alias, and keeps its extensionless specifiers. `#` rather than `@` keeps these paths distinct from scoped packages.
 
-The frontend has two barrels for its design system: `#/components/ui` for display components and `#/forms` for form inputs and fields. Other code imports from the barrels; files inside `components/ui/` and `forms/` import modules directly, so neither folder can form a cycle through a barrel. Do not add barrels for folders with domain logic or server modules; import the owning module.
+The frontend has three barrels: `#/components/ui` for display components, `#/forms` for form inputs and fields, and `#/context` for React contexts with their providers and hooks. Other code imports from the barrels; files inside `components/ui/`, `forms/` and `context/` import modules directly, and so does a module that a context file imports, so no folder can form a cycle through a barrel. Do not add barrels for folders with domain logic or server modules; import the owning module.
 
 ### Separate declarations and responsibilities
 

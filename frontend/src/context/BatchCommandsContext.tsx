@@ -9,7 +9,7 @@ export interface BatchCommands {
   reload: () => Promise<void>
 }
 
-export const BatchCommandsContext = createContext<BatchCommands | null>(null)
+const BatchCommandsContext = createContext<BatchCommands | null>(null)
 
 export function BatchCommandsProvider({
   value,

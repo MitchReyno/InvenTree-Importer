@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { ServerScope } from '../queries/scope'
+import type { ServerScope } from '#/queries/scope'
 
 export const ServerScopeContext = createContext<ServerScope | undefined>(undefined)
 
