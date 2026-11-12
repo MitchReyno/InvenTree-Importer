@@ -26,6 +26,8 @@ Styling follows the [Bench Intake Design System](https://claude.ai/artifact/TbKY
 
 `src/App.test.tsx` covers exact string emission, human attribution, archive/resume and concurrent-edit conflict through a jsdom/component boundary. Component tests alone are not browser or production-access qualification. `ManualWorkflow.test.tsx` adds exact selected/digest emission, explicit stale-display reload and unknown-result controls.
 
+The pause and resume buttons (`components/agents/PauseButton.tsx`), Tell Examine, Ask and the personal Claude credential request use `lifecycle/useAsyncAction.ts` for their busy flag and failure text. It keeps no payload or key and shows one failure text whatever the cause, and a second run while one is pending is skipped. Tell Examine and Ask bind their retry key to the kept text in `processing/pending-messages.ts`; other payload-bound retries keep their own payload and key, for example through `operator/useRetainedCommand.ts` (see Operator review workspace).
+
 ## Design alignment and evidence inspection
 
 The shared masthead, `Dev mode` badge, status disclosures and batch header use compact spacing so working evidence appears earlier on desktop and phones. On narrow screens the labelled lot-filter strip scrolls within its own row, selection actions share two columns with wrapping labels, and desktop-only shortcut hints are omitted; safety/read-state notices remain visible.
