@@ -25,7 +25,7 @@ const SETTINGS = new Set([
   'INTAKE_VM_AGENT_TOOLS',
   'INTAKE_VM_PAIR',
   'INTAKE_VM_PORT',
-  // Retired for `pnpm dev`, which refuses them; `dev:intake` still reads the server names.
+  // Readable only so `pnpm dev` can refuse them; `dev:intake` reads the first four as its server names.
   'INTAKE_PROCESSING_PROFILE',
   'INTAKE_TARGET_PROFILE',
   'INTAKE_READ_ORIGIN',

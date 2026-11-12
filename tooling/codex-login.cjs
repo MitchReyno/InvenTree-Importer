@@ -8,6 +8,7 @@ const {
   resolveDevelopmentSettings,
   targetEnvironment,
   settingsRefusalLines,
+  withTargetSettingNames,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
 
@@ -41,9 +42,9 @@ async function appStateRoot(settings) {
   const { targetSettings } = resolveDevelopmentSettings(settings)
   const values = targetEnvironment(settings, targetSettings)
   const { targetModule, identity, localInventree } = await loadStateModules()
-  const target = targetModule.developmentTarget(values)
+  const target = withTargetSettingNames(() => targetModule.developmentTarget(values))
   // The same credential check as `pnpm dev`, so a login never goes to a namespace dev refuses.
-  targetModule.developmentCredential(values, target)
+  withTargetSettingNames(() => targetModule.developmentCredential(values, target))
   if (values.INTAKE_APP_STATE !== undefined) {
     return targetModule.developmentStateRoot(values, target, { serverId: '' })
   }

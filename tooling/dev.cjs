@@ -12,6 +12,7 @@ const {
   resolveDevelopmentSettings,
   targetEnvironment,
   settingsRefusalLines,
+  withTargetSettingNames,
   agentWorkerSettingNames,
   personalManagementFlag,
   startupSummary,
@@ -147,8 +148,8 @@ async function main() {
   const { developmentTarget, developmentCredential, developmentStateRoot } = await import(
     pathToFileURL(join(intake, 'src/dev/target.ts')).href
   )
-  const target = developmentTarget(targetValues)
-  const targetKey = developmentCredential(targetValues, target)
+  const target = withTargetSettingNames(() => developmentTarget(targetValues))
+  const targetKey = withTargetSettingNames(() => developmentCredential(targetValues, target))
   // Printed before setup, so an overridden setting is visible even if startup later fails.
   process.stdout.write(startupSummary(target.kind, resolved))
   const port = Number(settings.INTAKE_DEV_PORT ?? 4330)
@@ -524,7 +525,7 @@ async function main() {
       initialSources,
     )
     process.stdout.write(
-      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace. Processing: ${profile}.\n`,
+      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace.\n`,
     )
     await stopped
   } finally {

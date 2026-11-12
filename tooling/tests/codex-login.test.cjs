@@ -297,6 +297,8 @@ test('an external URL without a token is refused, as pnpm dev refuses it', async
       INTAKE_APP_STATE: '/nonexistent',
       INTAKE_INVENTREE_URL: 'https://inventory.example.invalid',
     }),
-    /development_read_key_required/,
+    (error) =>
+      error.message === 'development_read_key_required' &&
+      error.names.some((entry) => entry.name === 'INTAKE_INVENTREE_TOKEN'),
   )
 })

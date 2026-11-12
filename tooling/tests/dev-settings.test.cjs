@@ -365,3 +365,35 @@ test('the target policy accepts every derived credential reference', async () =>
     assert.equal(target.credentialRef, targetSettings.INTAKE_CREDENTIAL_REF)
   }
 })
+
+const { withTargetSettingNames } = require('../dev/settings.cjs')
+
+test('external-target refusals from the target policy name the settings to fix', () => {
+  for (const [code, names] of [
+    ['development_read_key_required', ['INTAKE_INVENTREE_TOKEN']],
+    ['development_read_target_required', ['INTAKE_INVENTREE_URL', 'INTAKE_CREDENTIAL_REF']],
+    ['invalid_development_target_origin', ['INTAKE_INVENTREE_URL']],
+  ]) {
+    assert.throws(
+      () =>
+        withTargetSettingNames(() => {
+          throw new Error(code)
+        }),
+      (error) =>
+        error instanceof DevelopmentSettingsError &&
+        error.message === code &&
+        JSON.stringify(error.names.map((entry) => entry.name)) === JSON.stringify(names),
+    )
+  }
+  assert.throws(
+    () =>
+      withTargetSettingNames(() => {
+        throw new Error('something_else')
+      }),
+    (error) => !(error instanceof DevelopmentSettingsError) && error.message === 'something_else',
+  )
+  assert.equal(
+    withTargetSettingNames(() => 'value'),
+    'value',
+  )
+})

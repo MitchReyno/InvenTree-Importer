@@ -246,6 +246,29 @@ function personalManagementFlag(resolved) {
   return resolved.agentsInVm ? '1' : undefined
 }
 
+/** The user-facing settings behind each external-target refusal from the target policy. */
+const TARGET_REFUSAL_SETTINGS = {
+  development_read_key_required: ['INTAKE_INVENTREE_TOKEN'],
+  development_read_target_required: ['INTAKE_INVENTREE_URL', 'INTAKE_CREDENTIAL_REF'],
+  invalid_development_target_origin: ['INTAKE_INVENTREE_URL'],
+}
+
+/** Runs a target-policy step, naming the settings to fix when it refuses an external target. */
+function withTargetSettingNames(step) {
+  try {
+    return step()
+  } catch (error) {
+    const names = TARGET_REFUSAL_SETTINGS[error?.message]
+    if (!names) {
+      throw error
+    }
+    throw new DevelopmentSettingsError(
+      error.message,
+      names.map((name) => ({ name })),
+    )
+  }
+}
+
 /** The refusal code, then one line per named variable; values are never included. */
 function settingsRefusalLines(error) {
   const details = error.names.map(({ name, replacement }) =>
@@ -258,6 +281,7 @@ module.exports = {
   resolveDevelopmentSettings,
   targetEnvironment,
   settingsRefusalLines,
+  withTargetSettingNames,
   agentWorkerSettingNames,
   personalManagementFlag,
   startupSummary,
