@@ -90,6 +90,11 @@ export const SEVEN_SEGMENT_FONT: Record<string, string> = {
   '9': 'a b c d f g',
 }
 
+// Each digit lights its own stacked numeral.
+export const NIXIE_FONT: Record<string, string> = Object.fromEntries(
+  Array.from({ length: 10 }, (_, digit) => [String(digit), `n${digit}`]),
+)
+
 function positiveModulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor
 }
@@ -113,7 +118,15 @@ export function charactersAt(mode: DisplayMode, step: number): string[] {
 }
 
 export function fontFor(mode: DisplayMode): Record<string, string> {
-  return mode === 'seven' ? SEVEN_SEGMENT_FONT : FOURTEEN_SEGMENT_FONT
+  if (mode === 'seven') {
+    return SEVEN_SEGMENT_FONT
+  }
+
+  if (mode === 'nixie') {
+    return NIXIE_FONT
+  }
+
+  return FOURTEEN_SEGMENT_FONT
 }
 
 /** Light the segments for the current step; only touches materials when it changes. */
@@ -131,8 +144,16 @@ export function updateDisplay(display: DisplayState, time: number, seed: number)
   display.digits.forEach((segments, digitIndex) => {
     const lit = new Set((font[characters[digitIndex]] ?? '').split(' '))
 
+    const emphasis = display.emphasis?.[digitIndex]
+
     segments.forEach((segment, name) => {
-      segment.material = lit.has(name) ? display.materials.lit : display.materials.unlit
+      const isLit = lit.has(name)
+      const heavier = emphasis?.get(name)
+      segment.material = isLit ? display.materials.lit : display.materials.unlit
+
+      if (heavier) {
+        heavier.visible = isLit
+      }
     })
   })
 }

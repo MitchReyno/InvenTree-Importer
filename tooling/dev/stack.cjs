@@ -17,14 +17,21 @@ async function prepareDevelopment(settings, target, deps) {
   return { serverId, scope, key: local?.readToken, root: deps.stateRoot(settings, target, scope) }
 }
 
-/** The read target the API child is given; only fake (v1) state carries its own runner profile. */
-function apiTargetEnv(target, state, key) {
+/**
+ * The read target the API child is given; only fake (v1) state carries its own runner profile.
+ * Without a deployment ID the API cannot authorize an effect, which keeps a read-only mock read-only.
+ */
+function apiTargetEnv(target, state, key, { readOnly } = {}) {
+  // Required: a dropped flag must fail rather than quietly grant the mock its deployment.
+  if (typeof readOnly !== 'boolean') {
+    throw new Error('read_only_decision_required')
+  }
   if (state.version === 1) {
     return {
       INTAKE_CREDENTIAL_REF: 'owned_development',
       INTAKE_DEV_API_KEY: state.runnerConfig.profile.credential,
       INTAKE_READ_ORIGIN: state.runnerConfig.profile.origin,
-      INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId,
+      ...(readOnly ? {} : { INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId }),
     }
   }
   return {
@@ -32,6 +39,14 @@ function apiTargetEnv(target, state, key) {
     INTAKE_DEV_API_KEY: key,
     INTAKE_READ_ORIGIN: target.origin,
   }
+}
+
+/** Only a writable mock runs the owned apply runner; local and external targets never do. */
+function startsApplyRunner(state, readOnly) {
+  if (typeof readOnly !== 'boolean') {
+    throw new Error('read_only_decision_required')
+  }
+  return state.version === 1 && !readOnly
 }
 
 /** Children share the supervisor's resolved state directory and never re-read an env file. */
@@ -74,6 +89,7 @@ async function startSupervision(settings, target, deps) {
 module.exports = {
   prepareDevelopment,
   apiTargetEnv,
+  startsApplyRunner,
   serviceEnvironment,
   confirmLocalInventree,
   startSupervision,

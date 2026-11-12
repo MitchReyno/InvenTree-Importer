@@ -80,12 +80,13 @@ export async function launchDecoder(image: string, packet: Buffer): Promise<Buff
   let length = 0
   const chunks: Buffer[] = []
   let exceeded = false
-  let cleanup: Promise<void> | null = null
+  let cleanup: Promise<void> | undefined
   let discarded = false
 
-  const discard = () => {
-    if (discarded) {
-      return
+  // Kills the decoder once and returns the removal of its container, which never rejects.
+  const discard = (): Promise<void> => {
+    if (cleanup) {
+      return cleanup
     }
     discarded = true
     child.kill('SIGKILL')
@@ -108,14 +109,15 @@ export async function launchDecoder(image: string, packet: Buffer): Promise<Buff
         resolveCleanup()
       })
     })
+    return cleanup
   }
 
-  const timer = setTimeout(discard, MEDIA_LIMITS.wallMilliseconds)
+  const timer = setTimeout(() => void discard(), MEDIA_LIMITS.wallMilliseconds)
   child.stdout.on('data', (chunk: Buffer) => {
     length += chunk.length
     if (length > MEDIA_LIMITS.totalOutputBytes + MEDIA_DECODER_HEADER_MAX_BYTES) {
       exceeded = true
-      discard()
+      void discard()
     } else {
       chunks.push(chunk)
     }
@@ -128,10 +130,7 @@ export async function launchDecoder(image: string, packet: Buffer): Promise<Buff
     child.once('close', resolve)
   }).finally(() => clearTimeout(timer))
   if (code !== 0 || exceeded || discarded) {
-    discard()
-    if (cleanup) {
-      await cleanup
-    }
+    await discard()
     throw new Error('decoder_interrupted')
   }
   return Buffer.concat(chunks)

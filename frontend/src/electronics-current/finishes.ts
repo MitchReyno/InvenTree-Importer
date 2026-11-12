@@ -88,6 +88,10 @@ export const fills = {
   label: 0xf8f9fa,
   cement: 0xf6f4ee,
   ceramicPackage: 0xd5d9df,
+  tubeGlass: 0xeef3f7,
+  mica: 0xf8f8f6,
+  unlitCathode: 0x9aa4b2,
+  wickOrange: 0xf6dcbf,
 } as const
 
 // Resistor colour code, black (0) to white (9), as light tints.
@@ -105,3 +109,11 @@ export const LED_COLOURS = [0xe0503c, 0xf0a030, 0x3fbf7f, 0x3b82f6] as const
 export const DISPLAY_COLOURS = [0xe8705f, 0xeba640, 0x4fbf86] as const
 
 export const UNLIT_SEGMENT = 0xbac2ce
+
+// Clear glass for tube envelopes and the wick case, lighter than diode glass so insides show.
+export const CLEAR_GLASS_OPACITY = 0.4
+
+// Warm heater glow inside vacuum tubes, and the neon orange of a lit Nixie numeral.
+export const HEATER_GLOW = 0xff8a3d
+
+export const NIXIE_GLOW = 0xff7a2a

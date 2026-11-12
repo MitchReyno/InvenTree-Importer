@@ -1,5 +1,5 @@
 import { evidenceRequest } from './evidence-request.ts'
-import { createServer } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { once } from 'node:events'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
@@ -10,6 +10,7 @@ import type { SessionTurn } from '#/agents/session/session-adapters.ts'
 import { readClaudeToken } from './claude-credential.ts'
 import { stageEvidence } from './stage-evidence.ts'
 import { readBounded } from './frames.ts'
+import { settled } from '#/events/settled.ts'
 
 /** Only the current provider's loopback MCP endpoint is exposed inside the guest. */
 export async function nativeTurn(
@@ -48,34 +49,40 @@ export async function nativeTurn(
   }
   const capability = randomBytes(32).toString('hex')
   let evidenceDir: Promise<string> | undefined
-  const proxy = createServer(async (req, res) => {
-    try {
-      if (
-        req.url !== '/mcp' ||
-        req.method !== 'POST' ||
-        req.headers.authorization !== 'Bearer ' + capability
-      ) {
-        res.writeHead(403).end()
-        return
-      }
-      const body = await readBounded(req)
-      const reply = await request({ mcp: body })
-      if (typeof reply.body !== 'string' || typeof reply.status !== 'number') {
-        throw new Error('invalid_reply')
-      }
-      const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
-      const responseBody = evidence
-        ? await stageEvidence(
-            evidence.id,
-            reply.body,
-            () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-')),
-          )
-        : reply.body
-      res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
-    } catch {
-      res.writeHead(502).end()
-    }
-  })
+  const proxy = createServer(
+    settled(
+      async (req: IncomingMessage, res: ServerResponse) => {
+        try {
+          if (
+            req.url !== '/mcp' ||
+            req.method !== 'POST' ||
+            req.headers.authorization !== 'Bearer ' + capability
+          ) {
+            res.writeHead(403).end()
+            return
+          }
+          const body = await readBounded(req)
+          const reply = await request({ mcp: body })
+          if (typeof reply.body !== 'string' || typeof reply.status !== 'number') {
+            throw new Error('invalid_reply')
+          }
+          const evidence = guestTools && reply.status === 200 && evidenceRequest(body)
+          const responseBody = evidence
+            ? await stageEvidence(
+                evidence.id,
+                reply.body,
+                () => (evidenceDir ??= mkdtemp('/tmp/bench-evidence-')),
+              )
+            : reply.body
+          res.writeHead(reply.status, { 'content-type': 'application/json' }).end(responseBody)
+        } catch {
+          res.writeHead(502).end()
+        }
+      },
+      // A failure the handler did not catch ends this request, not the proxy.
+      (_error, _req, res) => res.destroy(),
+    ),
+  )
   proxy.listen(0, '127.0.0.1')
   await once(proxy, 'listening')
   try {

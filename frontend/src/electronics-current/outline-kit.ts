@@ -3,6 +3,7 @@ import {
   BufferAttribute,
   Color,
   DataTexture,
+  DoubleSide,
   LinearFilter,
   EdgesGeometry,
   LineBasicMaterial,
@@ -18,10 +19,24 @@ import {
   DISPLAY_COLOURS,
   FINISHES,
   fillFor,
+  fills,
+  HEATER_GLOW,
+  NIXIE_GLOW,
   UNLIT_SEGMENT,
   type Finish,
   type ThemeId,
 } from './finishes'
+
+// Draw order for parts seen through glass. Unlit parts draw first (0); a lit Nixie numeral
+// next, so unlit cathodes never hide it; glows inside glass after that; then the glass and
+// its silhouette, which write depth.
+export const LIT_NUMERAL_RENDER_ORDER = 0.5
+
+export const INNER_GLOW_RENDER_ORDER = 0.75
+
+export const GLASS_RENDER_ORDER = 1
+
+export const GLASS_SILHOUETTE_RENDER_ORDER = 2
 
 // Silhouette shell thickness in part units: about 1 px for a full-size part. It
 // scales with each part's size, so smaller parts get slightly finer outlines.
@@ -47,6 +62,12 @@ export interface DisplayMaterials {
   glow: SpriteMaterial
 }
 
+/** The solder wick's loose end: a flat copper strip and its outline. */
+export interface RibbonMaterials {
+  fill: MeshBasicMaterial
+  edge: LineBasicMaterial
+}
+
 export interface OutlineKit {
   /** Filled part surface with a dark silhouette and faint crease lines. */
   body: (geometry: BufferGeometry, fill: number) => Mesh
@@ -55,12 +76,17 @@ export interface OutlineKit {
   /** Thin wire or pin drawn as a solid stroke. */
   lead: (geometry: BufferGeometry) => Mesh
   /** Translucent glass whose silhouette draws after it, so its far side never shows. */
-  glass: (geometry: BufferGeometry, fill: number) => Mesh
+  glass: (geometry: BufferGeometry, fill: number, opacity?: number) => Mesh
   createLed: (colour: number) => LedMaterials
   ledBody: (geometry: BufferGeometry, led: LedMaterials) => Mesh
   /** Display segment: plain fill, switched between lit and unlit by the display. */
   segment: (geometry: BufferGeometry, materials: DisplayMaterials) => Mesh
   displays: DisplayMaterials[]
+  /** Nixie cathodes: unlit ones are faint and never hide the lit numeral. */
+  nixie: DisplayMaterials
+  /** Shared warm glow for vacuum tube heaters. */
+  tubeGlow: SpriteMaterial
+  ribbon: RibbonMaterials
   glowTexture: DataTexture
   /** The current theme's part base; LED pulses start from it. */
   baseFill: Color
@@ -185,7 +211,7 @@ export function createOutlineKit(initialTheme: ThemeId = 'light'): OutlineKit {
 
   const owned: Material[] = []
   const fillsByColour = new Map<number, MeshBasicMaterial>()
-  const glassByColour = new Map<number, MeshBasicMaterial>()
+  const glassByFinish = new Map<string, MeshBasicMaterial>()
   const hull = tinted(createHullMaterial(FINISHES.light.outline), outline)
   const glassHull = tinted(createHullMaterial(FINISHES.light.outline), outline)
   const crease = tinted(new LineBasicMaterial(), creaseTint)
@@ -233,29 +259,27 @@ export function createOutlineKit(initialTheme: ThemeId = 'light'): OutlineKit {
     return new Mesh(geometry, solid)
   }
 
-  // Shared per colour like fills, so recycled glass parts never accumulate materials.
-  function glassMaterial(colour: number): MeshBasicMaterial {
-    const cached = glassByColour.get(colour)
+  // Shared per colour and opacity like fills, so recycled glass parts never accumulate materials.
+  function glassMaterial(colour: number, opacity: number): MeshBasicMaterial {
+    const key = `${colour}:${opacity}`
+    const cached = glassByFinish.get(key)
 
     if (cached) {
       return cached
     }
 
-    const material = tinted(
-      new MeshBasicMaterial({ transparent: true, opacity: 0.55 }),
-      partFill(colour),
-    )
-    glassByColour.set(colour, material)
+    const material = tinted(new MeshBasicMaterial({ transparent: true, opacity }), partFill(colour))
+    glassByFinish.set(key, material)
     owned.push(material)
 
     return material
   }
 
-  function glass(geometry: BufferGeometry, colour: number): Mesh {
-    const mesh = new Mesh(geometry, glassMaterial(colour))
+  function glass(geometry: BufferGeometry, colour: number, opacity = 0.55): Mesh {
+    const mesh = new Mesh(geometry, glassMaterial(colour, opacity))
     const silhouette = new Mesh(createHullGeometry(geometry), glassHull)
-    mesh.renderOrder = 1
-    silhouette.renderOrder = 2
+    mesh.renderOrder = GLASS_RENDER_ORDER
+    silhouette.renderOrder = GLASS_SILHOUETTE_RENDER_ORDER
     mesh.add(silhouette)
 
     return mesh
@@ -322,6 +346,42 @@ export function createOutlineKit(initialTheme: ThemeId = 'light'): OutlineKit {
     return { lit, unlit, glow }
   })
 
+  // Unlit cathodes write no depth, so the lit numeral behind them is never cut away.
+  const nixie = {
+    lit: new MeshBasicMaterial({ color: NIXIE_GLOW, transparent: true, opacity: 1 }),
+    unlit: tinted(
+      new MeshBasicMaterial({ transparent: true, opacity: 0.6, depthWrite: false }),
+      partFill(fills.unlitCathode),
+    ),
+    glow: new SpriteMaterial({
+      map: glowTexture,
+      color: NIXIE_GLOW,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0.28,
+    }),
+  }
+  const tubeGlow = new SpriteMaterial({
+    map: glowTexture,
+    color: HEATER_GLOW,
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.32,
+  })
+  const ribbon = {
+    fill: tinted(
+      new MeshBasicMaterial({
+        side: DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      }),
+      partFill(fills.copper),
+    ),
+    edge: tinted(new LineBasicMaterial(), outline),
+  }
+  owned.push(nixie.lit, nixie.unlit, nixie.glow, tubeGlow, ribbon.fill, ribbon.edge)
+
   return {
     body,
     detail,
@@ -331,6 +391,9 @@ export function createOutlineKit(initialTheme: ThemeId = 'light'): OutlineKit {
     ledBody,
     segment,
     displays,
+    nixie,
+    tubeGlow,
+    ribbon,
     glowTexture,
     baseFill,
     setTheme: (next) => {

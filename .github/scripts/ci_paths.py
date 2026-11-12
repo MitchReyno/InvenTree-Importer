@@ -71,8 +71,16 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             contract_input
             or (not markdown and path.startswith(("intake-server/", "media-decoder/")))
             or path in WORKSPACE_INPUTS
-            or path == "tooling/dev.cjs"
-            or path.startswith(("tooling/dev/", "tooling/tests/dev.", "tooling/tests/inventree-dev"))
+            or path in ("tooling/dev.cjs", "tooling/codex-login.cjs")
+            or path.startswith(
+                (
+                    "tooling/dev/",
+                    "tooling/tests/dev.",
+                    "tooling/tests/dev-",
+                    "tooling/tests/codex-login",
+                    "tooling/tests/inventree-dev",
+                )
+            )
             # The OpenSpec sync overlap check runs with the other Node tooling tests.
             or path.startswith(("tooling/openspec/", "tooling/tests/openspec-"))
             or (not markdown and path.startswith("tooling/inventree-dev/"))
