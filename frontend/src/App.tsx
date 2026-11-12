@@ -50,9 +50,12 @@ export default function App() {
     staleTime: Infinity,
     refetchOnMount: false,
   })
+  const refetchBootstrap = bootstrapQuery.refetch
+
   const refreshBootstrap = useCallback(() => {
-    void bootstrapQuery.refetch()
-  }, [bootstrapQuery.refetch])
+    void refetchBootstrap()
+  }, [refetchBootstrap])
+
   const bootstrapUnavailable = bootstrapQuery.isError || bootstrapQuery.fetchStatus === 'paused'
   const bootstrap = bootstrapQuery.data
   const actorId = bootstrap?.actor_id

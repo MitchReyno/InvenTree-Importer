@@ -371,14 +371,17 @@ export function Batch({
   const operatorUnavailable =
     operator !== undefined &&
     (!currentOperatorReview || operatorQuery.isError || operatorQuery.fetchStatus === 'paused')
-  const retired = retiredLotIds(operatorReview, batch ?? undefined)
+  // Retirement comes from both the operator projection and capture history.
+  const retired = useMemo(
+    () => retiredLotIds(operatorReview, batch ?? undefined),
+    [operatorReview, batch],
+  )
   const activeBatch = useMemo(
     () =>
       batch && retired.size
         ? { ...batch, lots: batch.lots.filter((lot) => !retired.has(lot.id)) }
         : batch,
-    // Retirement comes from both the operator projection and capture history.
-    [batch, operatorReview],
+    [batch, retired],
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
@@ -391,22 +394,15 @@ export function Batch({
   const mediaKey = serverQueryKey(scope, 'media', id)
   useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
   const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
-  const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
+  const lineageReview = currentOperatorReview ?? acceptedOperatorReview
+  const predecessors = useMemo(() => predecessorLotIds(lineageReview), [lineageReview])
   // While lineage is unknown, inherited files would read as unused, as the Map also holds.
   const unusedFiles = useMemo(
     () =>
       batch && mediaCurrent && !(operatorUnavailable && retired.size > 0)
         ? unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors)
         : undefined,
-    // `retired` and `predecessors` follow the operator review.
-    [
-      batch,
-      mediaCurrent,
-      currentOperatorReview,
-      acceptedOperatorReview,
-      operatorReview,
-      operatorUnavailable,
-    ],
+    [batch, mediaCurrent, retired, predecessors, operatorUnavailable],
   )
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)

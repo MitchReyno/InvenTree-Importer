@@ -39,17 +39,19 @@ export function useEvidenceWorkspace(
     client.edit(batchId, input, requestKey),
   )
   const unavailable = query.isError || query.fetchStatus === 'paused' || !query.isFetchedAfterMount
+  // The sources live in a ref, so whether any draft is dirty is what reruns the adoption below.
+  const { dirty: anyDraft, hasOtherSources } = drafts
 
   useEffect(() => {
     const behindReceipt =
       accepted.current &&
       query.data &&
       BigInt(query.data.revision) < BigInt(accepted.current.revision)
-    if (!unavailable && query.data && !behindReceipt && !drafts.hasOtherSources('crop')) {
+    if (!unavailable && query.data && !behindReceipt && !hasOtherSources('crop')) {
       accepted.current = query.data
       setSnapshot(query.data)
     }
-  }, [query.data, unavailable, drafts.dirty, drafts.hasOtherSources])
+  }, [query.data, unavailable, anyDraft, hasOtherSources])
 
   function accept(value: MediaSnapshotDto) {
     accepted.current = value
@@ -180,13 +182,15 @@ export function useEvidenceWorkspace(
     }
   }
 
+  const refetch = query.refetch
+
   const refresh = useCallback(async () => {
-    const value = await query.refetch({ throwOnError: true })
+    const value = await refetch({ throwOnError: true })
     if (!value.data) {
       throw new Error('media_snapshot_missing')
     }
     return value.data
-  }, [query.refetch])
+  }, [refetch])
 
   return {
     snapshot,
