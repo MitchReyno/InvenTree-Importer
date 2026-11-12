@@ -524,7 +524,7 @@ async function main() {
       initialSources,
     )
     process.stdout.write(
-      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace. Processing: ${resolved.profile}.\n`,
+      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace. Processing: ${profile}.\n`,
     )
     await stopped
   } finally {

@@ -89,7 +89,7 @@ test('the API child gets the local origin, reference and state key without readi
       throw new Error('runnerConfig is v1 only')
     },
   }
-  assert.deepEqual(apiTargetEnv(target, state, 'inv-read-20261106'), {
+  assert.deepEqual(apiTargetEnv(target, state, 'inv-read-20261106', { readOnly: true }), {
     INTAKE_CREDENTIAL_REF: 'local_inventree_dev',
     INTAKE_DEV_API_KEY: 'inv-read-20261106',
     INTAKE_READ_ORIGIN: 'http://127.0.0.1:4320',
@@ -101,7 +101,7 @@ test('the API child gets the local origin, reference and state key without readi
       deploymentId: 'dep',
     },
   }
-  assert.deepEqual(apiTargetEnv({ kind: 'fake' }, fake, undefined), {
+  assert.deepEqual(apiTargetEnv({ kind: 'fake' }, fake, undefined, { readOnly: false }), {
     INTAKE_CREDENTIAL_REF: 'owned_development',
     INTAKE_DEV_API_KEY: 'owned-fake-token',
     INTAKE_READ_ORIGIN: 'http://127.0.0.1:4351',
@@ -229,6 +229,17 @@ test('fake supervision starts the shared server with the shared child env before
 })
 
 const { startsApplyRunner } = require('../dev/stack.cjs')
+
+test('the API target environment needs an explicit read-only decision', () => {
+  const fake = {
+    version: 1,
+    runnerConfig: { profile: { credential: 'c', origin: 'o' }, deploymentId: 'd' },
+  }
+  assert.throws(
+    () => apiTargetEnv({ kind: 'fake' }, fake, undefined, {}),
+    /read_only_decision_required/,
+  )
+})
 
 test('only a writable mock starts the apply runner', () => {
   assert.equal(startsApplyRunner({ version: 1 }, false), true)

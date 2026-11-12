@@ -11,7 +11,7 @@ class DevelopmentSettingsError extends Error {
   }
 }
 
-/** Replaced user-facing names; the values are never read, only reported by name. */
+/** Replaced user-facing names; only their names are ever reported, never their values. */
 const RETIRED_SETTINGS = [
   [
     'INTAKE_TARGET_PROFILE',
@@ -104,8 +104,9 @@ function resolveInventory(settings) {
   const mock = switchValue(settings, 'INTAKE_USE_MOCK_INVENTREE')
   const local = switchValue(settings, 'INTAKE_USE_LOCAL_INVENTREE') === true
   const external = present(settings, 'INTAKE_INVENTREE_URL')
-  const externalOnly =
-    present(settings, 'INTAKE_INVENTREE_TOKEN') || present(settings, 'INTAKE_CREDENTIAL_REF')
+  const externalCredentials = ['INTAKE_INVENTREE_TOKEN', 'INTAKE_CREDENTIAL_REF'].filter((name) =>
+    present(settings, name),
+  )
 
   if (mock === true) {
     return {
@@ -113,17 +114,24 @@ function resolveInventory(settings) {
       ignored: overriddenByMock(settings),
     }
   }
-  if (local && (external || externalOnly)) {
-    throw new DevelopmentSettingsError('conflicting_development_target_settings')
+  if (local && (external || externalCredentials.length > 0)) {
+    const names = external ? ['INTAKE_INVENTREE_URL', ...externalCredentials] : externalCredentials
+    throw new DevelopmentSettingsError(
+      'conflicting_development_target_settings',
+      names.map((name) => ({ name })),
+    )
+  }
+  if (!external && externalCredentials.length > 0) {
+    throw new DevelopmentSettingsError(
+      'conflicting_development_target_settings',
+      externalCredentials.map((name) => ({ name })),
+    )
   }
   if (local) {
     return { targetSettings: { INTAKE_TARGET_PROFILE: 'local-inventree' }, ignored: [] }
   }
   if (external) {
     return { targetSettings: externalTarget(settings), ignored: [] }
-  }
-  if (externalOnly) {
-    throw new DevelopmentSettingsError('conflicting_development_target_settings')
   }
   if (mock === false) {
     throw new DevelopmentSettingsError('inventree_server_required')

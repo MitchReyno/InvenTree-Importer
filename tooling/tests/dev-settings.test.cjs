@@ -213,6 +213,29 @@ test('retired names are refused with their replacements and no values', () => {
   }
 })
 
+test('a conflict names the variables involved without their values', () => {
+  try {
+    resolveDevelopmentSettings({ INTAKE_CREDENTIAL_REF: 'secret-looking-ref' })
+    assert.fail('expected a refusal')
+  } catch (error) {
+    assert.equal(error.message, 'conflicting_development_target_settings')
+    assert.deepEqual(
+      error.names.map((entry) => entry.name),
+      ['INTAKE_CREDENTIAL_REF'],
+    )
+    assert.doesNotMatch(JSON.stringify(error.names), /secret-looking-ref/)
+  }
+  try {
+    resolveDevelopmentSettings({ INTAKE_USE_LOCAL_INVENTREE: 'true', ...EXTERNAL })
+    assert.fail('expected a refusal')
+  } catch (error) {
+    assert.deepEqual(
+      error.names.map((entry) => entry.name),
+      ['INTAKE_INVENTREE_URL', 'INTAKE_INVENTREE_TOKEN'],
+    )
+  }
+})
+
 test('an empty retired name is treated as unset', () => {
   assert.equal(
     resolveDevelopmentSettings({ INTAKE_DEV_API_KEY: '' }).profile,
