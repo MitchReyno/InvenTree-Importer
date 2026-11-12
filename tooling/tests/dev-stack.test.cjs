@@ -107,6 +107,11 @@ test('the API child gets the local origin, reference and state key without readi
     INTAKE_READ_ORIGIN: 'http://127.0.0.1:4351',
     INTAKE_DEPLOYMENT_ID: 'dep',
   })
+  assert.deepEqual(apiTargetEnv({ kind: 'fake' }, fake, undefined, { readOnly: true }), {
+    INTAKE_CREDENTIAL_REF: 'owned_development',
+    INTAKE_DEV_API_KEY: 'owned-fake-token',
+    INTAKE_READ_ORIGIN: 'http://127.0.0.1:4351',
+  })
 })
 
 const { serviceEnvironment, confirmLocalInventree } = require('../dev/stack.cjs')

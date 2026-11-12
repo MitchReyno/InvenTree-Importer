@@ -7,7 +7,13 @@ const { createServer: netServer } = require('node:net')
 const { spawn } = require('node:child_process')
 const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
-const { developmentProfile, processingWorker } = require('./dev/profile.cjs')
+const { processingWorker } = require('./dev/profile.cjs')
+const {
+  resolveDevelopmentSettings,
+  targetEnvironment,
+  settingsRefusalLines,
+  DevelopmentSettingsError,
+} = require('./dev/settings.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
@@ -119,6 +125,42 @@ async function privateState(root) {
   return claimSupervisorLock(root)
 }
 
+/** Settings the agent worker receives: the VM pairing, provider access, or nothing for scripted agents. */
+function agentWorkerSettings(resolved) {
+  if (resolved.agentsInVm) {
+    return ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
+  }
+  if (resolved.mockAgents) {
+    return []
+  }
+  return [
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'INTAKE_CODEX_EXECUTABLE',
+    'INTAKE_CLAUDE_EXECUTABLE',
+  ]
+}
+
+const INVENTORY_NAMES = {
+  fake: 'mock',
+  'local-inventree': 'local InvenTree',
+  'read-only': 'external InvenTree',
+}
+
+/** What the app runs, in the terms of the switches that chose it. */
+function startupSummary(target, resolved) {
+  const access = resolved.readOnly ? 'read-only' : 'writable'
+  const where = resolved.agentsInVm ? ' in the VM' : ''
+  const lines = [
+    `Inventory: ${INVENTORY_NAMES[target.kind]} (${access}).`,
+    `Processing: ${resolved.profile}${where}.`,
+  ]
+  if (resolved.ignored.length > 0) {
+    lines.push(`Ignored because the mock inventory is selected: ${resolved.ignored.join(', ')}.`)
+  }
+  return `${lines.join('\n')}\n`
+}
+
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
@@ -131,12 +173,15 @@ async function main() {
     throw new Error('pinned_node_24_required')
   }
   const settings = await developmentEnvironment(repository)
+  // Every switch is resolved and refused here, before any service or state is touched.
+  const resolved = resolveDevelopmentSettings(settings)
+  const targetValues = targetEnvironment(settings, resolved.targetSettings)
   // Pure config only; application processes keep their existing pinned tsx entrypoints.
   const { developmentTarget, developmentCredential, developmentStateRoot } = await import(
     pathToFileURL(join(intake, 'src/dev/target.ts')).href
   )
-  const target = developmentTarget(settings)
-  const targetKey = developmentCredential(settings, target)
+  const target = developmentTarget(targetValues)
+  const targetKey = developmentCredential(targetValues, target)
   const port = Number(settings.INTAKE_DEV_PORT ?? 4330)
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 4310 || port === 4350) {
     throw new Error('invalid_development_port')
@@ -184,7 +229,7 @@ async function main() {
   // SIGHUP is what a closed terminal delivers. The parent watch covers a launcher that exits first.
   const session = bindSessionEnd(shutdown)
   try {
-    const started = await startSupervision(settings, target, {
+    const started = await startSupervision(targetValues, target, {
       baseEnv,
       stateDirectory,
       startServices: (childEnv) =>
@@ -271,7 +316,7 @@ async function main() {
       INTAKE_PROCESSING_CHANNEL_SECRET: state.channelSecret,
       INTAKE_BLOB_ROOT: state.blobRoot,
     }
-    const profile = developmentProfile(settings)
+    const profile = resolved.profile
     const worker = processingWorker(profile)
     let writerUrl
     if (worker?.entry.endsWith('session-worker-main.ts')) {
@@ -327,14 +372,14 @@ async function main() {
           INTAKE_ORIGIN: publicOrigin,
           INTAKE_DEV_LISTEN_PORT: String(apiPort),
           INTAKE_DATABASE_URL: state.apiUrl,
-          ...apiTargetEnv(target, state, readKey),
+          ...apiTargetEnv(target, state, readKey, { readOnly: resolved.readOnly }),
           INTAKE_PROCESSING_PROFILE: profile,
           // Lets the connection status name the owned test target.
           INTAKE_TARGET_PROFILE: target.kind,
         },
         (text) => text.includes('"web_ready"'),
       ).ready()
-      if (state.version === 1) {
+      if (state.version === 1 && !resolved.readOnly) {
         await child(
           'apply',
           'src/review/runner-main.ts',
@@ -347,15 +392,7 @@ async function main() {
       ).ready()
       if (worker) {
         const providerEnv = Object.fromEntries(
-          (profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/2'
-            ? ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
-            : [
-                'OPENAI_API_KEY',
-                'ANTHROPIC_API_KEY',
-                'INTAKE_CODEX_EXECUTABLE',
-                'INTAKE_CLAUDE_EXECUTABLE',
-              ]
-          )
+          agentWorkerSettings(resolved)
             .filter((key) => settings[key])
             .map((key) => [key, settings[key]]),
         )
@@ -392,10 +429,8 @@ async function main() {
         cwd: repository,
         env: {
           ...env,
-          INTAKE_PERSONAL_MANAGEMENT:
-            profile === 'shared-vm-agent/1' || profile === 'shared-vm-agent/2'
-              ? settings.INTAKE_PERSONAL_MANAGEMENT
-              : undefined,
+          // The VM's personal credential management is served through the dev UI proxy.
+          INTAKE_PERSONAL_MANAGEMENT: resolved.agentsInVm ? '1' : undefined,
           INTAKE_DEV_PUBLIC_PORT: String(port),
           INTAKE_DEV_API_PORT: String(apiPort),
         },
@@ -521,7 +556,7 @@ async function main() {
       initialSources,
     )
     process.stdout.write(
-      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace. Processing: ${profile}. Target: ${target.kind}.\n`,
+      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace.\n${startupSummary(target, resolved)}`,
     )
     await stopped
   } finally {
@@ -541,6 +576,11 @@ async function main() {
   }
 }
 main().catch((error) => {
+  if (error instanceof DevelopmentSettingsError) {
+    process.stderr.write(`${settingsRefusalLines(error).join('\n')}\n`)
+    process.exitCode = 1
+    return
+  }
   const code = /^[a-z_]+$/.test(error.message ?? '') ? error.message : 'development_startup_failed'
   process.stderr.write(`${code}\n`)
   process.exitCode = 1

@@ -30,6 +30,31 @@ test('dotenv grammar supports quotes/comments while shell settings including emp
   assert.equal(process.env.INTAKE_CREDENTIAL_REF, originalReference)
 })
 
+test('the switches load from the file, and retired names still load so the launcher can refuse them', async () => {
+  const root = await directory()
+  const switches = {
+    INTAKE_USE_MOCK_INVENTREE: 'false',
+    INTAKE_USE_LOCAL_INVENTREE: 'true',
+    INTAKE_INVENTREE_URL: 'http://127.0.0.1:12345',
+    INTAKE_INVENTREE_TOKEN: 'synthetic-token',
+    INTAKE_INVENTREE_READ_ONLY: 'true',
+    INTAKE_USE_MOCK_AI_AGENTS: 'false',
+    INTAKE_USE_AGENT_SESSIONS: 'true',
+    INTAKE_RUN_AGENTS_IN_VM: 'false',
+    INTAKE_VM_AGENT_TOOLS: 'true',
+    INTAKE_TARGET_PROFILE: 'local-inventree',
+    INTAKE_PROCESSING_PROFILE: 'native-agent/2',
+    INTAKE_PERSONAL_MANAGEMENT: '1',
+  }
+  await writeFile(
+    join(root, '.env'),
+    Object.entries(switches)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+  )
+  assert.deepEqual(await developmentEnvironment(root, {}), switches)
+})
+
 test('only documented server settings are accepted from files; process flags and Vite secrets are excluded', async () => {
   const root = await directory()
   await writeFile(

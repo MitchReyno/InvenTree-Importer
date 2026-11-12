@@ -17,14 +17,17 @@ async function prepareDevelopment(settings, target, deps) {
   return { serverId, scope, key: local?.readToken, root: deps.stateRoot(settings, target, scope) }
 }
 
-/** The read target the API child is given; only fake (v1) state carries its own runner profile. */
-function apiTargetEnv(target, state, key) {
+/**
+ * The read target the API child is given; only fake (v1) state carries its own runner profile.
+ * Without a deployment ID the API cannot authorize an effect, which keeps a read-only mock read-only.
+ */
+function apiTargetEnv(target, state, key, { readOnly = false } = {}) {
   if (state.version === 1) {
     return {
       INTAKE_CREDENTIAL_REF: 'owned_development',
       INTAKE_DEV_API_KEY: state.runnerConfig.profile.credential,
       INTAKE_READ_ORIGIN: state.runnerConfig.profile.origin,
-      INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId,
+      ...(readOnly ? {} : { INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId }),
     }
   }
   return {

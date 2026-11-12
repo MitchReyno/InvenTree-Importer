@@ -39,14 +39,14 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 - Verification: `pnpm test:dev`.
 - Risks and decisions: None.
 
-- [ ] 1.1 Baseline `pnpm test:dev` on the branch base.
-- [ ] 1.2 RED: add the resolver tests and the updated profile-worker test; confirm they fail for the missing module and the missing worker.
-  - [ ] 1.2.1 Profile table, defaults and the VM-without-sessions refusal.
-  - [ ] 1.2.2 Inventory precedence, `ignored`, read-only defaults and `inventree_writes_not_supported`, `inventree_server_required`, local plus URL conflict.
-  - [ ] 1.2.3 Boolean parsing, empty-as-unset, `invalid_development_setting`, retired names with replacements and no values.
-  - [ ] 1.2.4 Derived and explicit credential reference; VM pairing required.
-- [ ] 1.3 GREEN: implement the resolver and the worker mapping; tests pass.
-- [ ] 1.4 Refactor and run `pnpm format` and the readability checks on the touched files.
+- [x] 1.1 Baseline `pnpm test:dev` on the branch base.
+- [x] 1.2 RED: add the resolver tests and the updated profile-worker test; confirm they fail for the missing module and the missing worker.
+  - [x] 1.2.1 Profile table, defaults and the VM-without-sessions refusal.
+  - [x] 1.2.2 Inventory precedence, `ignored`, read-only defaults and `inventree_writes_not_supported`, `inventree_server_required`, local plus URL conflict.
+  - [x] 1.2.3 Boolean parsing, empty-as-unset, `invalid_development_setting`, retired names with replacements and no values.
+  - [x] 1.2.4 Derived and explicit credential reference; VM pairing required.
+- [x] 1.3 GREEN: implement the resolver and the worker mapping; tests pass.
+- [x] 1.4 Refactor and run `pnpm format` and the readability checks on the touched files.
 
 ## 2. Launcher and login wiring
 
@@ -59,10 +59,10 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 - Verification: `pnpm test:dev`; manual `pnpm dev` runs recorded in the PR.
 - Risks and decisions: None.
 
-- [ ] 2.1 RED: add the stack, environment and login regressions; confirm the expected failures.
-- [ ] 2.2 GREEN: wire the resolver into `dev.cjs` and `codex-login.cjs`, add the read-only path, VM forwarding and proxy, startup line and refusal output.
-- [ ] 2.3 Refactor; `pnpm test:dev` and formatting/readability pass.
-- [ ] 2.4 Manual: default start runs scripted sessions; read-only mock starts without the apply runner; local InvenTree start selects the existing local namespace.
+- [x] 2.1 RED: add the stack, environment and login regressions; confirm the expected failures.
+- [x] 2.2 GREEN: wire the resolver into `dev.cjs` and `codex-login.cjs`, add the read-only path, VM forwarding and proxy, startup line and refusal output.
+- [x] 2.3 Refactor; `pnpm test:dev` and formatting/readability pass.
+- [x] 2.4 Manual: default start runs scripted sessions; read-only mock starts without the apply runner; the local switch resolves to the existing local namespace (state-root resolution only, see notes).
 
 ## 3. Process-tier coverage
 

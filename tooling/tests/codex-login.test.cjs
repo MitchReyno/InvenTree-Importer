@@ -66,7 +66,7 @@ test('explicit app state is the login directory and ignores a host CODEX_HOME', 
   const { calls, spawnImpl } = recordedSpawn()
   const lines = []
   const code = await runCodexLogin({
-    settings: { INTAKE_APP_STATE: root, INTAKE_TARGET_PROFILE: 'fake' },
+    settings: { INTAKE_APP_STATE: root },
     spawnImpl,
     baseEnv: { PATH: '/usr/bin', CODEX_HOME: '/host/codex', OPENAI_API_KEY: 'not-copied-as-login' },
     log: (line) => lines.push(line),
@@ -183,7 +183,7 @@ test('an explicit app state does not need database or local InvenTree files', as
   const root = await tempDirectory()
   const resolved = await appStateRoot({
     INTAKE_APP_STATE: root,
-    INTAKE_TARGET_PROFILE: 'local-inventree',
+    INTAKE_USE_LOCAL_INVENTREE: 'true',
   })
   assert.equal(resolved, root)
   await rm(root, { recursive: true })
@@ -194,9 +194,14 @@ test('the default fake namespace matches the dev server directory for that datab
   await chmod(stateDir, 0o700)
   const serverId = '0123456789abcdef'.repeat(2)
   await writeFile(join(stateDir, 'inventree-db.json'), serverState(serverId), { mode: 0o600 })
-  const settings = { INTAKE_DEV_STATE: stateDir, INTAKE_TARGET_PROFILE: 'fake' }
+  const settings = {
+    INTAKE_DEV_STATE: stateDir,
+    INTAKE_USE_MOCK_INVENTREE: 'true',
+    INTAKE_CREDENTIAL_REF: 'ignored_by_the_mock',
+  }
   const root = await appStateRoot(settings)
-  const expected = await developmentStateRoot(settings, await developmentTarget(settings), {
+  const fake = await developmentTarget({ INTAKE_TARGET_PROFILE: 'fake' })
+  const expected = await developmentStateRoot(settings, fake, {
     serverId,
   })
   assert.equal(root, expected)
@@ -216,9 +221,10 @@ test('a local InvenTree namespace includes the instance id and does not print it
     JSON.stringify({ instance_id: instanceId, tokens: { reader: token } }),
     { mode: 0o600 },
   )
-  const settings = { INTAKE_DEV_STATE: stateDir, INTAKE_TARGET_PROFILE: 'local-inventree' }
+  const settings = { INTAKE_DEV_STATE: stateDir, INTAKE_USE_LOCAL_INVENTREE: 'true' }
   const root = await appStateRoot(settings)
-  const expected = await developmentStateRoot(settings, await developmentTarget(settings), {
+  const local = await developmentTarget({ INTAKE_TARGET_PROFILE: 'local-inventree' })
+  const expected = await developmentStateRoot(settings, local, {
     serverId,
     instanceId,
   })
@@ -250,4 +256,11 @@ test('a symlinked parent is refused without creating or chmodding its target', a
     await rm(root, { recursive: true })
     await rm(target, { recursive: true })
   }
+})
+
+test('a retired setting is refused before any state is touched', async () => {
+  await assert.rejects(
+    appStateRoot({ INTAKE_APP_STATE: '/nonexistent', INTAKE_TARGET_PROFILE: 'local-inventree' }),
+    /retired_development_setting/,
+  )
 })
