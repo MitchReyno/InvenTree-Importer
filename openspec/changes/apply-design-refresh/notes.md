@@ -235,6 +235,7 @@ None for task 10.
 
 - **2026-11-12T20:30+11:00, task 12:** 12.5 rests on the gate at `61bdad37`, after the merge of `interactive-app` at `81571854`. `pnpm lint`, `pnpm build`, `pnpm test` (frontend 1318 of 1318), `pnpm contracts:check` and `pnpm typecheck:intake` passed. The serial PostgreSQL run of `media-removal.test.ts` and `media-removal-upgrade.test.ts` passed 6 of 6. That includes round 3's new case, where `/media/removal-impact` with no `evidence_ids` returns 400 `invalid_id`; the route already refused it, so the case passed on its first run. Task 12 changes no other server code, so the full tiers weren't rerun.
 - **2026-11-12T20:39+11:00, task 12 (coordinator review):** After the Move to group, dialog and Undo changes, the gate passed again at `57162056`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1324 of 1324), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6).
+- **2026-11-12T20:58+11:00, task 12 (review round 1):** After the round 1 fixes the gate passed at `a74b40cc`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1338 of 1338), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6).
 
 ## Task 5: Settings page
 
