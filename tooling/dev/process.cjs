@@ -30,6 +30,7 @@ function launch(name, command, args, { group = false, ...options }, ready) {
   return {
     name,
     child,
+    group,
     exited,
     /** A group is signalled until its output closes, even after the leader has exited. */
     terminate(signal = 'SIGTERM') {
