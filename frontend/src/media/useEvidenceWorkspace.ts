@@ -183,6 +183,7 @@ export function useEvidenceWorkspace(
   }
 
   const refetch = query.refetch
+
   const refresh = useCallback(async () => {
     const value = await refetch({ throwOnError: true })
     if (!value.data) {
