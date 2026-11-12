@@ -15,6 +15,8 @@ export interface AsyncAction {
 /**
  * The busy flag and failure text around one plain async action, such as a button that sends a
  * request. It keeps no payload or key, so a payload-bound retry belongs to `useRetainedCommand`.
+ * Every throw shows the same failure text, so an action that must tell a conflict, refusal or
+ * uncertain outcome apart needs its own handling.
  */
 export function useAsyncAction(): AsyncAction {
   // A ref, not `busy`, so a second call before the next render still sees the first.
@@ -27,9 +29,11 @@ export function useAsyncAction(): AsyncAction {
       if (running.current) {
         return 'skipped'
       }
+
       running.current = true
       setBusy(true)
       setError('')
+
       try {
         await action()
         return 'succeeded'

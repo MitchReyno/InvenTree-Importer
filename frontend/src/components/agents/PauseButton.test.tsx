@@ -22,14 +22,15 @@ test('is disabled while the change is unanswered and enabled once it settles', a
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
-test('a resume that fails says the agents are still paused', async () => {
+test.each([
+  { paused: true, label: 'Resume', text: 'Resuming failed; the agents are still paused.' },
+  { paused: false, label: 'Pause all', text: 'Pausing failed; the agents are still running.' },
+])('a failed change says the agents are as they were ($label)', async ({ paused, label, text }) => {
   const user = userEvent.setup()
   const change = vi.fn(async () => Promise.reject(new Error('offline')))
-  render(<PauseButton paused change={change} />)
-  await user.click(screen.getByRole('button', { name: 'Resume' }))
-  expect(change).toHaveBeenCalledWith(false)
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Resuming failed; the agents are still paused.',
-  )
-  expect(screen.getByRole('button', { name: 'Resume' })).toBeEnabled()
+  render(<PauseButton paused={paused} change={change} />)
+  await user.click(screen.getByRole('button', { name: label }))
+  expect(change).toHaveBeenCalledWith(!paused)
+  expect(await screen.findByRole('alert')).toHaveTextContent(text)
+  expect(screen.getByRole('button', { name: label })).toBeEnabled()
 })
