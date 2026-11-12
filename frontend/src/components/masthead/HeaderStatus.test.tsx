@@ -490,7 +490,7 @@ test('a session shows its latest status line, and a waiting session holds no slo
   }
 })
 
-test('the server menu holds the dev badge, a disabled connection check, server settings and the theme', async () => {
+test('the server menu holds the dev badge, a disabled connection check and server settings, and no theme', async () => {
   const user = userEvent.setup()
   render(<HeaderStatus client={client()} batchId={batchId} />)
   await screen.findByText('InvenTree unreachable')
@@ -505,10 +505,8 @@ test('the server menu holds the dev badge, a disabled connection check, server s
     'href',
     '#settings/inventree',
   )
-  const theme = within(panel).getByRole('radiogroup', { name: 'Theme' })
-  await user.click(within(theme).getByRole('radio', { name: 'Dark' }))
-  expect(document.documentElement.dataset.theme).toBe('dark')
-  await user.click(within(theme).getByRole('radio', { name: 'System' }))
+  // The theme lives in Settings › Appearance.
+  expect(within(panel).queryByRole('radiogroup', { name: 'Theme' })).toBeNull()
 
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('dialog', { name: 'Connection details' })).not.toBeInTheDocument()

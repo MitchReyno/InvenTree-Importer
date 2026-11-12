@@ -10,7 +10,7 @@ type AppMastheadProps = {
 
 const BATCHES: BreadcrumbItem = { label: 'Batches', href: '#' }
 
-const PAGE_LABEL = { settings: 'Agent settings', agents: 'Agents' } as const
+const PAGE_LABEL = { settings: 'Settings', agents: 'Agents' } as const
 
 /** Inside a batch the trail is "Batches" alone: the batch header names the batch. */
 function routeBreadcrumb(route: string | undefined): BreadcrumbItem[] {

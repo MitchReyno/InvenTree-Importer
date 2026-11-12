@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import { color, space } from '#/theme/generated/tokens'
+import { color } from '#/theme/generated/tokens'
 import { targetStatus } from '#/header/observations'
 import { media, visuallyHidden } from '#/components/ui'
 import { ConnectionDetails } from './ConnectionDetails'
 import { ConnectionDot } from './ConnectionDot'
 import { HeaderDisclosure } from './HeaderDisclosure'
-import { ThemeChoice } from './ThemeChoice'
 import { type UpdateHealth } from '#/context'
 
 interface Props {
@@ -66,10 +65,6 @@ export function ConnectionStatus({
         health={health}
         inventree={inventree}
       />
-      {/* Until Settings › Appearance exists, the theme choice lives here. */}
-      <ThemeSection>
-        <ThemeChoice />
-      </ThemeSection>
     </HeaderDisclosure>
   )
 }
@@ -101,9 +96,4 @@ const ShortText = styled.span`
 
 const Caret = styled.span`
   color: ${color.muted};
-`
-
-const ThemeSection = styled.div`
-  padding: ${space[4]} ${space[5]} ${space[5]};
-  border-top: 1px solid ${color.line};
 `

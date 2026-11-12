@@ -1,4 +1,4 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { AgentSettingsForm } from './AgentSettingsForm'
@@ -9,6 +9,8 @@ const initial = {
   selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
   session_concurrency: 3,
 } as const
+
+const status = { providerStatus: { claude: 'Not checked', codex: 'Not checked' } } as const
 
 function client() {
   return {
@@ -25,11 +27,11 @@ function client() {
 test('saving the global default pins the loaded revision and clears the dirty guard only on confirmation', async () => {
   const api = client()
   const dirty = vi.fn()
-  render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} />)
-  fireEvent.change(screen.getByLabelText('Default model'), { target: { value: 'opus' } })
+  render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} {...status} />)
+  fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), { target: { value: 'opus' } })
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(api.saveSettings).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('button', { name: 'Save default' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
     expect(api.saveSettings).toHaveBeenCalledWith({
       expected_revision: '7',
@@ -43,9 +45,11 @@ test('saving the global default pins the loaded revision and clears the dirty gu
 
 test('the running-session limit is saved with the loaded revision', async () => {
   const api = client()
-  render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={vi.fn()} />)
-  fireEvent.change(screen.getByLabelText('Sessions running at once'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save default' }))
+  render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={vi.fn()} {...status} />)
+  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+  fireEvent.click(within(sessions).getByRole('button', { name: 'One more' }))
+  fireEvent.click(within(sessions).getByRole('button', { name: 'One more' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
     expect(api.saveSettings).toHaveBeenCalledWith({
       expected_revision: '7',
@@ -60,36 +64,41 @@ test('a failed save preserves the draft, route and expected revision rather than
   api.saveSettings.mockRejectedValue(new Error('revision_conflict'))
   const dirty = vi.fn()
   const { rerender } = render(
-    <AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} />,
+    <AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} {...status} />,
   )
-  fireEvent.change(screen.getByLabelText('Default model'), { target: { value: 'custom-model' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save default' }))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), {
+    target: { value: 'custom-model' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await screen.findByText(/Save was not confirmed/)
   rerender(
     <AgentSettingsForm
       initial={{ ...initial, revision: '9' }}
       client={api}
       onDirtyChange={dirty}
+      {...status}
     />,
   )
-  expect(screen.getByLabelText('Default model')).toHaveValue('custom-model')
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('custom-model')
   expect(dirty).toHaveBeenLastCalledWith(true)
   fireEvent.click(screen.getByRole('button', { name: 'Discard and reload' }))
-  await waitFor(() => expect(screen.getByLabelText('Default model')).toHaveValue('sonnet'))
+  await waitFor(() => expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('sonnet'))
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
 test('switching providers requires choosing a new model and shows host authentication instructions without secret fields', () => {
-  render(<AgentSettingsForm initial={initial} client={client()} onDirtyChange={vi.fn()} />)
-  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'codex' } })
-  expect(screen.getByLabelText('Default model')).toHaveValue('')
+  render(
+    <AgentSettingsForm initial={initial} client={client()} onDirtyChange={vi.fn()} {...status} />,
+  )
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('')
   expect(screen.getByText(/codex login/)).toBeVisible()
-  fireEvent.change(screen.getByLabelText('Authentication'), { target: { value: 'api_key' } })
+  fireEvent.click(screen.getByRole('button', { name: 'API key' }))
   expect(screen.getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
 })
 
-for (const action of ['Save default', 'Discard and reload']) {
+for (const action of ['Save', 'Discard and reload']) {
   test(`a pristine ${action} protects navigation and cannot clear a new owner's dirty guard after unmount`, async () => {
     const api = client()
     let resolve: ((value: typeof initial) => void) | undefined
@@ -99,7 +108,9 @@ for (const action of ['Save default', 'Discard and reload']) {
     api.saveSettings.mockImplementation(async () => deferred)
     api.settings.mockImplementation(async () => deferred)
     const dirty = vi.fn()
-    const form = render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} />)
+    const form = render(
+      <AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} {...status} />,
+    )
     fireEvent.click(screen.getByRole('button', { name: action }))
     await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true))
     form.unmount()

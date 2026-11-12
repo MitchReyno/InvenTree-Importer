@@ -168,11 +168,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** frontend gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 5.1 Confirm the current `#settings` route, `AgentSettingsForm` contract and theme storage.
-- [ ] 5.2 RED: write the Settings route, back link, deferred-control, theme and provider-card tests.
-- [ ] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
-- [ ] 5.4 Refactor; check the navigation guard with unsaved edits.
-- [ ] 5.5 Run the frontend gate, update the docs it affects, and record the results.
+- [x] 5.1 Confirm the current `#settings` route, `AgentSettingsForm` contract and theme storage.
+- [x] 5.2 RED: write the Settings route, back link, deferred-control, theme and provider-card tests.
+- [x] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
+- [x] 5.4 Refactor; check the navigation guard with unsaved edits.
+- [x] 5.5 Run the frontend gate, update the docs it affects, and record the results.
 - [ ] 5.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 6. Descriptions

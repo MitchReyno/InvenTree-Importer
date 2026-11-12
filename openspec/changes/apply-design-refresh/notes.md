@@ -224,6 +224,46 @@ None for task 10.
 - **2026-11-12T20:20+11:00, task 12:** Focus: Cancel or a refused delete returns focus to the opener (the tile's menu button or "Delete N files…"). After a confirmed delete it goes to the group the first file was in, because the opener leaves in the same commit as the dialog, so the workspace takes focus off the opener when the dialog opens and `returnFocus` decides. Undo and Restore focus the restored file's menu button as it mounts; a refused Undo focuses the Deleted files summary.
 - **2026-11-12T20:20+11:00, task 12:** A written batch note's menu shows Delete disabled: "Deleting written notes comes later. A file’s note can be cleared by saving it empty."
 
+## Task 5: Settings page
+
+### Changes to the plan
+
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The three exact `settings` matches design D4 names were already prefix matches through `navigation/app-route.ts` (Task 2): `App.tsx`'s route match and `currentBatch` use `appPage` and `routeBatchId`, and `AppMasthead` no longer reads the batch at all. Task 5 only renames the breadcrumb page to "Settings" and adds `settingsSection` for the section.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** Model stays a text field with the presets as suggestions (`datalist`), not the canvas's select. The contract takes any exact model ID, and a select would drop custom IDs that work today.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The design's "✓ Saved" autosave is not built (proposal exclusion); the form keeps Save and Discard and reload. A `revision_conflict` now says the settings changed in another tab, keeps the edit and offers Reload, as `app-settings` › Stale settings revision asks; other failures keep the existing "not confirmed" message.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The import reference prefix shows an empty read-only field, not the canvas's "BI-". The app has no stored prefix, so showing one would be invented.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** The theme leaves the desktop server menu but stays in the phone menu, which `batch-navigation` › Phone header still lists. `ThemeChoice` moved to `components/settings/` and both use it.
+- **2026-11-10T08:00+11:00, task 5 (PR-C):** "Pause all agents" moved from `AgentSessions.tsx` into `agents/PauseAllAgents.tsx`, and slot use into `agents/slot-use.ts`, so the Agents page and Settings › Agents share them. `AgentSettings.tsx` is gone; `components/settings/AgentsSection.tsx` replaces it.
+
+### Decisions made during implementation
+
+- **2026-11-10T08:00+11:00, task 5:** The back link's return route is followed by `useNavigationGuard` (`settingsReturn`), which accepts every route change: entering Settings remembers the previous route, moving between sections keeps it, and it is stored in the history entry's state, so reload and Back restore it. A batch route is named "<batch> › <tab>" from the batch's cached capture read ("the batch" if it was evicted); the link returns to the exact route, query included.
+- **2026-11-10T08:00+11:00, task 5:** Only the open section is mounted, so the credential hooks and the Codex poll unmount when another section opens, and coming back starts with a closed panel and "Not checked".
+- **2026-11-10T08:00+11:00, task 5:** The sessions stepper is labelled by its row and by itself ("Sessions at once"), so the row and the stepper are two groups with the same name. `NumberStepper` takes only a label; a labelled-by option would be a ui change for one caller.
+- **2026-11-10T08:00+11:00, task 5:** The slot meter compares slots in use with the saved limit, not an unsaved stepper value, because the server applies only the saved one.
+- **2026-11-10T08:00+11:00, task 5:** `tests/fixtures/settings.html` (`SettingsProof`) renders Settings, opened from a batch's Processing, from in-memory clients for screenshots and the film; the hash picks the section.
+
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** A confirmed save writes the saved settings into the `agent-settings` query, so the slot meter's limit follows it. The form keeps its own state from its first `initial`, so the write doesn't reset a draft.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** While Save or Discard and reload is pending, the sign-in method and the sessions stepper show `aria-disabled`. `SegmentedControl` gained a `disabled` option that marks every segment and ignores choices while focus can still reach them.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** The model field is described by its presets help and, when invalid, its error. Each provider card's status is its radio's description rather than part of its name.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** A refused navigation re-pushes the protected page with its own Settings return route (`withSettingsReturn`), since `history.state` at that point belongs to the destination. Other keys of that state are kept as before.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** The Codex runner's serial queue is now module-scoped (one queue, since `/personal-runner/codex` is one same-origin endpoint; round 2 dropped the server-scope key), so a panel remounted after a section switch waits for a call the earlier mount left running. The Claude credential panel needs no queue: it sends one request at a time behind `busy`, its save and remove carry the last acknowledged revision, which a remounted panel only gets from a fresh status check, and a stale revision is refused by the guest.
+- **2026-11-10T08:40+11:00, task 5 (review round 1):** After a reload the batch read is no longer cached, so the back link names the tab only ("Back to the batch › Review"); it still returns to the exact route.
+
+- **2026-11-10T09:10+11:00, task 5 (review round 2):** A confirmed reload (Discard and reload, or the conflict's Reload) also reports the settings it read (`onLoaded`, formerly `onSaved`), so the slot meter follows it.
+- **2026-11-10T09:10+11:00, task 5 (review round 2):** Each Codex runner call fails after 90 seconds (round 3: the guest's 20-second limit for each of up to four RPCs in a disconnect, plus a margin), reading the answer included, with the panel's usual failure message, so a hung call can't hold the shared queue. It uses an `AbortController` and `setTimeout` rather than `AbortSignal.timeout`, because the latter doesn't follow Vitest's fake clock and the test couldn't drive it. Tests reset the queue after each test (`resetRunnerQueue`).
+
+- **2026-11-10T09:45+11:00, task 5 (review round 3):** Before writing confirmed settings into the `agent-settings` query, the section cancels any read of it still running, so an older answer can't replace them.
+
+- **2026-11-12T13:50+11:00, task 5 (merge of `interactive-app` 608251fd):** `usePersonalClaudeCredential` now uses the shared `useAsyncAction` (#198) for its busy flag and failure text, as the trunk's panel did; the card still reads "Check failed" from that text. `useChatGPTSignIn` keeps its own busy flag and message, as the trunk left `ChatGPTSignIn`: its guard also waits for a poll still running, and it keeps the last message shown until a call settles. Likewise, `AgentSettingsForm` keeps its own, since it tells a revision conflict apart. Settings imports its contexts from `#/context` (#196). The hooks lint (#197) found nothing in this branch's code.
+
+- **2026-11-12T19:44+11:00, task 5 (demo film):** The hover rule that skips disabled segments outranked the pressed rule, so hovering the selected segment showed the hover ground under its light text. `SegmentedControl` now leaves the pressed segment's fill alone on hover, as `FilterChips` does; a test checks that no hover rule in the injected styles matches the pressed segment.
+- **2026-11-12T19:54+11:00, task 5 (merge of `interactive-app` a95b2818):** The form's start hint names the split dev settings (`INTAKE_USE_MOCK_AI_AGENTS`, `INTAKE_USE_AGENT_SESSIONS`, #202). The docs keep the trunk's settings text with the "Settings › Agents" location. The section test types its fetch mock as `fetch`, so the type-aware promise rules (#203) see that its implementations return promises.
+
+### Open items
+
+None for task 5.
+
 ## Task 8: Records › Locations and Tree view
 
 ### Changes to the plan
