@@ -12,7 +12,8 @@ import type { Client } from '#/capture/client'
 import styled from 'styled-components'
 import { color, pageWidth, size, space, type, typeVar } from '#/theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
+import { useServerScope } from '#/context'
 
 interface BatchesClient extends Omit<Client, 'list'> {
   list: (query?: CaptureListQueryDto) => Promise<{ batches: InboxBatch[]; truncated: boolean }>

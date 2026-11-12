@@ -1,8 +1,9 @@
 import { useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { Button } from '#/components/ui'
 import { TextField } from '#/forms'
+import { useServerScope } from '#/context'
 
 type Account = {
   state: 'pending' | 'connected' | 'disconnected' | 'denied'

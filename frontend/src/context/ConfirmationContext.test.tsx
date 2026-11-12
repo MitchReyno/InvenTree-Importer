@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { expect, it } from 'vitest'
-import { ConfirmationProvider, useConfirmation } from './Confirmation'
+import { ConfirmationProvider, useConfirmation } from './ConfirmationContext'
 
 function Command({ onDone }: { onDone: () => void }) {
   const confirm = useConfirmation()

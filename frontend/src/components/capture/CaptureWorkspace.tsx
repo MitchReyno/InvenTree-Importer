@@ -9,8 +9,7 @@ import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '#/processing/proposed-lots'
 import { batchHref } from '#/navigation/batch-route'
 import { useSessionStatuses } from '#/processing/session-status'
-import { useApiClients } from '#/clients/api-clients'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useApiClients, useBatchCommands } from '#/context'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -64,18 +63,23 @@ export function CaptureWorkspace({
       },
     )
   }, [])
-  const report = useCallback((source: DirtySource, value: boolean) => {
-    const { onDirtyChange, settings } = latest.current
-    const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
-    dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
-    const any = Object.values(dirtyFlags.current).some(Boolean)
-    setSources(dirtyFlags.current)
-    onDirtyChange?.(any)
-    // Evidence commands advance the batch revision; settings stay paused until it is adopted.
-    if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
-      refreshSettings()
-    }
-  }, [])
+
+  const report = useCallback(
+    (source: DirtySource, value: boolean) => {
+      const { onDirtyChange, settings } = latest.current
+      const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
+      dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
+      const any = Object.values(dirtyFlags.current).some(Boolean)
+      setSources(dirtyFlags.current)
+      onDirtyChange?.(any)
+      // Evidence commands advance the batch revision; settings stay paused until it is adopted.
+      if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
+        refreshSettings()
+      }
+    },
+    [refreshSettings],
+  )
+
   const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
   const reportMedia = useCallback((value: boolean) => report('media', value), [report])
   const reportNote = useCallback((value: boolean) => report('note', value), [report])

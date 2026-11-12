@@ -10,8 +10,7 @@ import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '#/media/types'
 import type { SettingsPorts } from '#/capture/types'
 import { CaptureWorkspace } from './CaptureWorkspace'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { ApiClientsProvider, BatchCommandsProvider } from '#/context'
 import { batchCommands } from '#/test/batch-commands'
 
 const batch: CaptureSnapshotDto = {

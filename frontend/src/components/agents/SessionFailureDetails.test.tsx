@@ -92,7 +92,7 @@ test('opening Processing details preserves the chat draft and never retries or s
 })
 
 test('a changed server scope never reuses another account diagnostic', async () => {
-  const { ServerScopeContext } = await import('#/queries/scope')
+  const { ServerScopeContext } = await import('#/context')
   const { fixtureScope } = await import('#/test/render')
 
   let finish: (value: SessionFailureDto) => void = () => {}

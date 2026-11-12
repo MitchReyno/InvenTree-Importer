@@ -2,7 +2,8 @@ import { useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { CatalogueModelDto } from '@invimport/contracts'
 import { type PickerSearch } from '#/forms'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
+import { useServerScope } from '#/context'
 import type { CatalogueClient } from './types'
 
 const CANDIDATE_STALE_MS = 5 * 60_000

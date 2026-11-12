@@ -1,4 +1,4 @@
-import { useContext, useId } from 'react'
+import { useId } from 'react'
 import styled from 'styled-components'
 import type { BatchRecordDto, CaptureSnapshotDto, SourceKindDto } from '@invimport/contracts'
 import { parameterMatrix, type MatrixConflict } from '#/records/parameter-matrix'
@@ -6,7 +6,8 @@ import { STEP_LABELS } from '#/records/model'
 import { color, font, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import { Button, Pill, Small, VisuallyHidden } from '#/components/ui'
 import { AskControl } from './AskControl'
-import { SavingContext, useRecordSave, type Save } from './draft'
+import { useRecordSave, type Save } from './draft'
+import { useRecordSaving } from '#/context'
 
 type Send = (text: string, key: string) => Promise<void>
 
@@ -210,7 +211,7 @@ function ConflictChoices({
   change: (value: string) => Parameters<Save>[0]
 }) {
   const { send, busy, problem, retry } = useRecordSave(batch, save)
-  const { saving } = useContext(SavingContext)
+  const { saving } = useRecordSaving()
   return (
     <>
       {values.map((value) => (
