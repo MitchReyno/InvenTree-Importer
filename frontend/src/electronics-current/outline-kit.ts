@@ -27,6 +27,17 @@ import {
   type ThemeId,
 } from './finishes'
 
+// Draw order for parts seen through glass. Unlit parts draw first (0); a lit Nixie numeral
+// next, so unlit cathodes never hide it; glows inside glass after that; then the glass and
+// its silhouette, which write depth.
+export const LIT_NUMERAL_RENDER_ORDER = 0.5
+
+export const INNER_GLOW_RENDER_ORDER = 0.75
+
+export const GLASS_RENDER_ORDER = 1
+
+export const GLASS_SILHOUETTE_RENDER_ORDER = 2
+
 // Silhouette shell thickness in part units: about 1 px for a full-size part. It
 // scales with each part's size, so smaller parts get slightly finer outlines.
 const HULL_THICKNESS = 0.16
@@ -267,8 +278,8 @@ export function createOutlineKit(initialTheme: ThemeId = 'light'): OutlineKit {
   function glass(geometry: BufferGeometry, colour: number, opacity = 0.55): Mesh {
     const mesh = new Mesh(geometry, glassMaterial(colour, opacity))
     const silhouette = new Mesh(createHullGeometry(geometry), glassHull)
-    mesh.renderOrder = 1
-    silhouette.renderOrder = 2
+    mesh.renderOrder = GLASS_RENDER_ORDER
+    silhouette.renderOrder = GLASS_SILHOUETTE_RENDER_ORDER
     mesh.add(silhouette)
 
     return mesh

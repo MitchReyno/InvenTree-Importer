@@ -178,7 +178,9 @@ function createHanging(kit: OutlineKit, group: Group): HangingPart {
     axis.set(0, 0, 1).transformDirection(group.matrixWorld)
     rope.segmentLength = SEGMENT_LENGTH * scale
     const nudge =
-      frame.pointer && frame.frameSeconds > 0 ? { ...frame, pointer: frame.pointer } : null
+      frame.pointer && frame.frameSeconds > 0
+        ? { pointer: frame.pointer, right: frame.right, up: frame.up, unitsPerPx: frame.unitsPerPx }
+        : null
     stepRope(rope, anchor, frame.frameSeconds, nudge)
 
     writeRibbon(RIBBON_HALF_WIDTH * scale)

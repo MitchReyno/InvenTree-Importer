@@ -1,6 +1,6 @@
 import { Group, LatheGeometry, QuadraticBezierCurve, SplineCurve, Sprite, Vector2 } from 'three'
-import { CLEAR_GLASS_OPACITY, fills, INNER_GLOW_RENDER_ORDER } from '#/electronics-current/finishes'
-import type { OutlineKit } from '#/electronics-current/outline-kit'
+import { CLEAR_GLASS_OPACITY, fills } from '#/electronics-current/finishes'
+import { INNER_GLOW_RENDER_ORDER, type OutlineKit } from '#/electronics-current/outline-kit'
 import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
 import { at, box, cylinder, pinRing } from '#/electronics-current/shapes'
 

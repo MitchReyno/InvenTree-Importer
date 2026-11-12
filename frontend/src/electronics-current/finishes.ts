@@ -113,9 +113,6 @@ export const UNLIT_SEGMENT = 0xbac2ce
 // Clear glass for tube envelopes and the wick case, lighter than diode glass so insides show.
 export const CLEAR_GLASS_OPACITY = 0.4
 
-// Glows inside glass draw before it (1) and after lit Nixie numerals (0.5), so the glass never cuts them away.
-export const INNER_GLOW_RENDER_ORDER = 0.75
-
 // Warm heater glow inside vacuum tubes, and the neon orange of a lit Nixie numeral.
 export const HEATER_GLOW = 0xff8a3d
 

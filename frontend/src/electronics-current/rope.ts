@@ -22,7 +22,6 @@ export interface RopeNudge {
   right: Vec3
   up: Vec3
   unitsPerPx: number
-  frameSeconds: number
 }
 
 /** Downward acceleration in scene units per second squared; strong enough to read at masthead scale. */
@@ -132,7 +131,7 @@ export function stepRope(
   pinned.previous = { ...anchor }
 
   if (nudge && frameSeconds > 0) {
-    nudgeRope(rope, nudge)
+    nudgeRope(rope, nudge, frameSeconds)
   }
 
   for (let pass = 0; pass < CONSTRAINT_PASSES; pass++) {
@@ -175,8 +174,8 @@ function along(point: Vec3, axis: Vec3): number {
  * Changes the velocity of the free points the pointer passes over, on the screen plane, the way
  * the flow stirs parts. Runs after integration, so it rewrites `previous`.
  */
-function nudgeRope(rope: Rope, nudge: RopeNudge): void {
-  const { pointer, right, up, unitsPerPx, frameSeconds } = nudge
+function nudgeRope(rope: Rope, nudge: RopeNudge, frameSeconds: number): void {
+  const { pointer, right, up, unitsPerPx } = nudge
 
   for (const point of rope.points.slice(1)) {
     const { position, previous } = point

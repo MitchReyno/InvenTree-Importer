@@ -30,8 +30,8 @@ function segmentLengths(rope: Rope): number[] {
   })
 }
 
-function nudgeWith(pointer: RopeNudge['pointer'], frameSeconds = FRAME): RopeNudge {
-  return { pointer, right: RIGHT, up: UP, unitsPerPx: 0.17, frameSeconds }
+function nudgeWith(pointer: RopeNudge['pointer']): RopeNudge {
+  return { pointer, right: RIGHT, up: UP, unitsPerPx: 0.17 }
 }
 
 function allFinite(rope: Rope): boolean {
@@ -194,7 +194,7 @@ function hoverSwing(framesPerSecond: number, seconds: number): { largest: number
   stepRope(rope, anchor, 0)
 
   for (let step = 0; step < seconds * framesPerSecond; step++) {
-    stepRope(rope, anchor, frame, nudgeWith(pointer, frame))
+    stepRope(rope, anchor, frame, nudgeWith(pointer))
     largest = Math.max(largest, Math.abs(tip(rope).x))
   }
 

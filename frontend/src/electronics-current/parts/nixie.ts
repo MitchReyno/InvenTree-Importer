@@ -14,7 +14,11 @@ import {
   type Curve,
 } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { CLEAR_GLASS_OPACITY, fills, INNER_GLOW_RENDER_ORDER } from '#/electronics-current/finishes'
+import { CLEAR_GLASS_OPACITY, fills } from '#/electronics-current/finishes'
+import {
+  INNER_GLOW_RENDER_ORDER,
+  LIT_NUMERAL_RENDER_ORDER,
+} from '#/electronics-current/outline-kit'
 import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
 import { at, box, pinRing } from '#/electronics-current/shapes'
 
@@ -43,9 +47,6 @@ const STACK_ORDER = [1, 6, 2, 7, 5, 0, 4, 9, 8, 3] as const
 const STACK_BACK_Z = -0.22
 
 const STACK_SPACING = 0.05
-
-// Lit numerals draw after the unlit cathodes (0) and before the glass (1).
-const LIT_RENDER_ORDER = 0.5
 
 function ellipse(radiusX: number, radiusY: number, count: number, centreY = 0): Point[] {
   return Array.from({ length: count }, (_, index) => {
@@ -240,7 +241,7 @@ const nixieTube: PartBuilder = ({ kit }) => {
     const thin = kit.segment(numeralGeometry(NUMERALS[digit], THIN_WIRE_RADIUS), materials)
     const heavy = new Mesh(numeralGeometry(NUMERALS[digit], LIT_WIRE_RADIUS), materials.lit)
     heavy.visible = false
-    heavy.renderOrder = LIT_RENDER_ORDER
+    heavy.renderOrder = LIT_NUMERAL_RENDER_ORDER
     group.add(at(thin, 0, NUMERAL_CENTRE_Y, z), at(heavy, 0, NUMERAL_CENTRE_Y, z))
     numerals.set(name, thin)
     emphasis.set(name, heavy)

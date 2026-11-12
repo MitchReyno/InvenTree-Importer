@@ -1,7 +1,14 @@
 import { Mesh, Sprite } from 'three'
 import { afterEach, expect, test } from 'vitest'
 import { PART_WEIGHTS, partBuilders, pickPartType } from './catalogue'
-import { createOutlineKit, type OutlineKit } from './outline-kit'
+import {
+  createOutlineKit,
+  GLASS_RENDER_ORDER,
+  GLASS_SILHOUETTE_RENDER_ORDER,
+  INNER_GLOW_RENDER_ORDER,
+  LIT_NUMERAL_RENDER_ORDER,
+  type OutlineKit,
+} from './outline-kit'
 import { CLEAR_GLASS_OPACITY, fills } from './finishes'
 import type { PartType } from './part-model'
 import { box } from './shapes'
@@ -113,4 +120,17 @@ test('glows inside glass tubes draw before the glass, so it never cuts them away
   }
 
   kit.dispose()
+})
+
+test('a lit Nixie numeral draws before the glow and the glass around it', () => {
+  const kit = createOutlineKit()
+  kits.push(kit)
+
+  expect(LIT_NUMERAL_RENDER_ORDER).toBeLessThan(INNER_GLOW_RENDER_ORDER)
+  expect(INNER_GLOW_RENDER_ORDER).toBeLessThan(GLASS_RENDER_ORDER)
+  expect(GLASS_RENDER_ORDER).toBeLessThan(GLASS_SILHOUETTE_RENDER_ORDER)
+  const nixie = partBuilders.nixieTube({ kit, random: () => 0.3 })
+  const lit = nixie.display?.emphasis?.[0].get('n0')
+
+  expect(lit?.renderOrder).toBe(LIT_NUMERAL_RENDER_ORDER)
 })
