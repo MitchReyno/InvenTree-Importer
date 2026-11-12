@@ -148,7 +148,7 @@ function waitForExit(child) {
   })
 }
 
-/** The login needs no inventory token; keep it out of the Codex process. */
+/** The login needs no inventory token; keep it out of the Codex process, even a retired name's. */
 function loginEnvironment(baseEnv) {
   const { INTAKE_INVENTREE_TOKEN, INTAKE_DEV_API_KEY, ...rest } = baseEnv
   return rest
