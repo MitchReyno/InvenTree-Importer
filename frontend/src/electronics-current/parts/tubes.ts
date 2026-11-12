@@ -1,11 +1,8 @@
 import { Group, LatheGeometry, QuadraticBezierCurve, SplineCurve, Sprite, Vector2 } from 'three'
-import { fills } from '#/electronics-current/finishes'
+import { CLEAR_GLASS_OPACITY, fills } from '#/electronics-current/finishes'
 import type { OutlineKit } from '#/electronics-current/outline-kit'
 import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
 import { at, box, cylinder, pinRing } from '#/electronics-current/shapes'
-
-// Tube glass is clearer than diode glass so the plates and micas read through it.
-const TUBE_GLASS_OPACITY = 0.4
 
 function points(pairs: readonly (readonly [number, number])[]): Vector2[] {
   return pairs.map(([x, y]) => new Vector2(x, y))
@@ -48,7 +45,7 @@ const octalTube: PartBuilder = ({ kit }) => {
   group.add(at(kit.detail(cylinder(1.1, 0.04, 24), fills.mica), 0, 2.25, 0))
   group.add(at(kit.detail(cylinder(1.1, 0.04, 24), fills.mica), 0, 4.55, 0))
   group.add(at(kit.detail(cylinder(0.7, 0.06, 20), fills.aluminium), 0, 5.05, 0))
-  group.add(kit.glass(glass, fills.tubeGlass, TUBE_GLASS_OPACITY))
+  group.add(kit.glass(glass, fills.tubeGlass, CLEAR_GLASS_OPACITY))
   addHeaterGlow(kit, group, 3.3, 4.4, 4.8)
   pinRing(kit, group, 8, 0.72, 0.09, 1.2)
 
@@ -118,7 +115,7 @@ const rectifier5u4: PartBuilder = ({ kit }) => {
   group.add(at(kit.body(cylinder(1.0, baseHeight, 32), fills.darkPlastic), 0, baseHeight / 2, 0))
   group.add(
     at(
-      kit.glass(cylinder(0.45, 0.7, 16), fills.tubeGlass, TUBE_GLASS_OPACITY),
+      kit.glass(cylinder(0.45, 0.7, 16), fills.tubeGlass, CLEAR_GLASS_OPACITY),
       0,
       baseHeight + 0.35,
       0,
@@ -139,7 +136,7 @@ const rectifier5u4: PartBuilder = ({ kit }) => {
   }
 
   group.add(at(kit.detail(cylinder(0.85, 0.04, 24), fills.mica), 0, baseHeight + 4.98, 0))
-  group.add(kit.glass(glass, fills.tubeGlass, TUBE_GLASS_OPACITY))
+  group.add(kit.glass(glass, fills.tubeGlass, CLEAR_GLASS_OPACITY))
   addHeaterGlow(kit, group, baseHeight + 2.9, 4.4, 6.0)
   group.add(at(kit.body(cylinder(0.22, 0.7, 16), fills.darkPlastic), 0, -0.35, 0))
   pinRing(kit, group, 8, 0.62, 0.09, 1.0)

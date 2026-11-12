@@ -309,6 +309,8 @@ export function createElectronicsCurrent(
     const replacement = buildPart()
     parts[index] = replacement
     spawn(replacement, entryX(replacement))
+    // Pose it now, so its first render (and any loose end's rim) uses its real orientation.
+    orient(replacement, 0)
   }
 
   function layOutInitialParts(): void {

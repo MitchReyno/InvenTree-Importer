@@ -28,8 +28,8 @@ export interface RopeNudge {
 /** Downward acceleration in scene units per second squared; strong enough to read at masthead scale. */
 const GRAVITY = 30
 
-/** Velocity lost per second, so swings die away within a few seconds at any frame rate. */
-const DAMPING_PER_SECOND = 0.9
+/** Exponential decay rate of rope velocity per second (about 41% kept each second). */
+const DAMPING_RATE_PER_SECOND = 0.9
 
 // Enough passes that gravity cannot visibly stretch a dozen-point rope.
 const CONSTRAINT_PASSES = 30
@@ -66,7 +66,7 @@ function hangStraight(rope: Rope, anchor: Vec3): void {
 /** Time-corrected Verlet: last step's movement rescaled to this step's length, then damped. */
 function integrate(point: RopePoint, frameSeconds: number, lastStepSeconds: number): void {
   const { position, previous } = point
-  const carry = (frameSeconds / lastStepSeconds) * Math.exp(-DAMPING_PER_SECOND * frameSeconds)
+  const carry = (frameSeconds / lastStepSeconds) * Math.exp(-DAMPING_RATE_PER_SECOND * frameSeconds)
   const velocity = {
     x: (position.x - previous.x) * carry,
     y: (position.y - previous.y) * carry,

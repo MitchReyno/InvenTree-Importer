@@ -72,8 +72,11 @@ function seededRandom(seed: number): () => number {
   }
 }
 
+// Frame timestamps keep advancing across calls, so stepping one frame at a time is still 16.7 ms.
+let clock = 0
+
 function runFrames(count: number): void {
-  let now = performance.now()
+  clock = Math.max(clock, performance.now())
 
   for (let index = 0; index < count; index++) {
     const next = frames.shift()
@@ -82,8 +85,8 @@ function runFrames(count: number): void {
       return
     }
 
-    now += 16.7
-    next(now)
+    clock += 16.7
+    next(clock)
   }
 }
 
@@ -372,5 +375,37 @@ test('the reduced-motion still frame hangs each loose end straight down from its
     expect(end.z).toBeCloseTo(rim.z, 4)
     expect(end.y).toBeLessThan(rim.y)
   })
+  controller.dispose()
+})
+
+test('a recycled dispenser enters already posed, so its loose end does not whip', () => {
+  catalogue.forcedType = 'solderWick'
+  const controller = start(false)
+  const scene = currentRenderer().lastScene
+  const layer = scene?.getObjectByName(HANGING_LAYER_NAME)
+  const seen = new Set(layer?.children.map((child) => child.uuid))
+  let checked = 0
+
+  for (let frame = 0; frame < 1800 && checked < 5; frame++) {
+    const fresh = (layer?.children ?? []).filter(
+      (child) => (child as Mesh).isMesh && !seen.has(child.uuid),
+    )
+    layer?.children.forEach((child) => seen.add(child.uuid))
+    runFrames(1)
+
+    fresh.forEach((child) => {
+      const positions = (child as Mesh).geometry.getAttribute('position')
+      const start = new Vector3().fromBufferAttribute(positions, 0)
+      start.add(new Vector3().fromBufferAttribute(positions, 1)).multiplyScalar(0.5)
+      const end = new Vector3().fromBufferAttribute(positions, 22)
+      end.add(new Vector3().fromBufferAttribute(positions, 23)).multiplyScalar(0.5)
+
+      // One frame after entering, the end still hangs almost straight below the rim.
+      expect(Math.hypot(end.x - start.x, end.z - start.z)).toBeLessThan(0.3)
+      checked += 1
+    })
+  }
+
+  expect(checked).toBeGreaterThan(0)
   controller.dispose()
 })

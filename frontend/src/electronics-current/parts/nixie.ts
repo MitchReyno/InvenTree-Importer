@@ -14,7 +14,7 @@ import {
   type Curve,
 } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { fills } from '#/electronics-current/finishes'
+import { CLEAR_GLASS_OPACITY, fills } from '#/electronics-current/finishes'
 import { createPart, type PartBuilder, type PartType } from '#/electronics-current/part-model'
 import { at, box, pinRing } from '#/electronics-current/shapes'
 
@@ -46,8 +46,6 @@ const STACK_SPACING = 0.05
 
 // Lit numerals draw after the unlit cathodes (0) and before the glass (1).
 const LIT_RENDER_ORDER = 0.5
-
-const TUBE_GLASS_OPACITY = 0.4
 
 function ellipse(radiusX: number, radiusY: number, count: number, centreY = 0): Point[] {
   return Array.from({ length: count }, (_, index) => {
@@ -254,7 +252,7 @@ const nixieTube: PartBuilder = ({ kit }) => {
   glow.renderOrder = 3
   group.add(glow)
   group.add(at(kit.body(box(1.3, 2.2, 0.04), fills.steel), 0, NUMERAL_CENTRE_Y, -0.38))
-  group.add(kit.glass(new LatheGeometry(envelope, 28), fills.tubeGlass, TUBE_GLASS_OPACITY))
+  group.add(kit.glass(new LatheGeometry(envelope, 28), fills.tubeGlass, CLEAR_GLASS_OPACITY))
   pinRing(kit, group, 12, 0.55, 0.035, 1.4)
 
   return createPart(group, {

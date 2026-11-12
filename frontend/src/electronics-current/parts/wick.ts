@@ -10,7 +10,7 @@ import {
   Vector2,
   Vector3,
 } from 'three'
-import { fills, PLASTIC_FILLS } from '#/electronics-current/finishes'
+import { CLEAR_GLASS_OPACITY, fills, PLASTIC_FILLS } from '#/electronics-current/finishes'
 import type { OutlineKit } from '#/electronics-current/outline-kit'
 import {
   createPart,
@@ -30,8 +30,6 @@ const ROPE_POINTS = 12
 const SEGMENT_LENGTH = 0.17
 
 const RIBBON_HALF_WIDTH = 0.15
-
-const TUBE_GLASS_OPACITY = 0.4
 
 const LABEL_COLOURS = [PLASTIC_FILLS[0], PLASTIC_FILLS[2], fills.wickOrange] as const
 
@@ -205,7 +203,7 @@ const solderWick: PartBuilder = ({ kit, random }) => {
   group.add(kit.body(faceOn(COIL_PROFILE, 36), fills.copper))
   group.add(kit.detail(hub, fills.hole))
   addLabel(kit, group, pick(LABEL_COLOURS, random))
-  group.add(kit.glass(faceOn(CASE_PROFILE, 40), fills.tubeGlass, TUBE_GLASS_OPACITY))
+  group.add(kit.glass(faceOn(CASE_PROFILE, 40), fills.tubeGlass, CLEAR_GLASS_OPACITY))
 
   return createPart(group, { hanging: createHanging(kit, group) })
 }

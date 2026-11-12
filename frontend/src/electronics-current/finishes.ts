@@ -110,6 +110,9 @@ export const DISPLAY_COLOURS = [0xe8705f, 0xeba640, 0x4fbf86] as const
 
 export const UNLIT_SEGMENT = 0xbac2ce
 
+// Clear glass for tube envelopes and the wick case, lighter than diode glass so insides show.
+export const CLEAR_GLASS_OPACITY = 0.4
+
 // Warm heater glow inside vacuum tubes, and the neon orange of a lit Nixie numeral.
 export const HEATER_GLOW = 0xff8a3d
 
