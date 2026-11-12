@@ -94,6 +94,19 @@ export function DrawerAnswers(props: Props) {
   const [pins, setPins] = useState<Readonly<Record<string, Pin>>>({})
   const container = useRef<HTMLDivElement>(null)
   const answered = useRef(focusNext)
+  // Where focus was when the move was promised; the move is skipped if the operator moves it.
+  const promisedFrom = useRef<Element | null>(null)
+
+  // On a remount, the drawer's own opening (showModal, in its parent's Effect) settles focus
+  // first, so the starting point is read once both have run.
+  useEffect(() => {
+    if (!focusNext) {
+      return
+    }
+    queueMicrotask(() => {
+      promisedFrom.current = document.activeElement
+    })
+  }, [focusNext])
   const current = nextPins(pins, props)
   if (current !== pins) {
     setPins(current)
@@ -113,20 +126,23 @@ export function DrawerAnswers(props: Props) {
       return
     }
     answered.current = false
+    const dialog = container.current?.closest('dialog')
+    const headingId = dialog?.getAttribute('aria-labelledby')
+    const heading = headingId ? document.getElementById(headingId) : null
+    if (operatorMovedFocus(promisedFrom.current, dialog ?? null, heading)) {
+      return
+    }
     const next = container.current?.querySelector<HTMLElement>('form textarea, form input')
     if (next) {
       next.focus()
       return
     }
-    const dialog = container.current?.closest('dialog')
-    const headingId = dialog?.getAttribute('aria-labelledby')
-    if (headingId) {
-      document.getElementById(headingId)?.focus()
-    }
+    heading?.focus()
   })
 
   async function answerAndMoveOn(questionId: string, input: ProcessingAnswerDto, key: string) {
     await answer(questionId, input, key)
+    promisedFrom.current = document.activeElement
     answered.current = true
   }
 
@@ -191,6 +207,19 @@ export function DrawerAnswers(props: Props) {
       })}
     </Answers>
   )
+}
+
+/**
+ * Focus is somewhere the operator put it since the move was promised: not where it was, and not
+ * on the page, the drawer or its title, where a removed form or the drawer opening leaves it.
+ */
+function operatorMovedFocus(from: Element | null, dialog: Element | null, heading: Element | null) {
+  const now = document.activeElement
+  if (now === null || now === from) {
+    return false
+  }
+
+  return now !== document.body && now !== dialog && now !== heading
 }
 
 const Answers = styled.div`

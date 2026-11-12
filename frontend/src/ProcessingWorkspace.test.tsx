@@ -9,8 +9,8 @@ import { createServerQueryClient } from './queries/client'
 import { serverQueryKey, type ServerScope } from './queries/scope'
 import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
-import { useMemo, useState, useSyncExternalStore } from 'react'
-import { createDrawerRestore } from './processing/drawer-restore'
+import { useState, useSyncExternalStore } from 'react'
+import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -642,15 +642,16 @@ function RemountingWorkspace({
   dirty,
   pinnedQuestionId,
   reload,
+  drawerRestore,
 }: {
   client: ProcessingClient
   dirty: (value: boolean) => void
   pinnedQuestionId?: string
   reload: ReloadControl
+  drawerRestore: DrawerRestoreStore
 }) {
   const [reset, setReset] = useState(0)
   const [shown, setShown] = useState(true)
-  const drawerRestore = useMemo(createDrawerRestore, [])
   const hash = useSyncExternalStore(subscribeHash, () => location.hash)
   const sessionId = new URLSearchParams(hash.split('?')[1] ?? '').get('session')
 
@@ -715,6 +716,8 @@ function mountInventoryDrawer(
   })
   const dirty = vi.fn()
   const reload: ReloadControl = { remount: true }
+  // Batch's store, above Processing's key; a test can reload from another tab through it.
+  const drawerRestore = createDrawerRestore()
   render(
     <ServerStateProvider scope={scope} client={cache}>
       <RemountingWorkspace
@@ -722,10 +725,18 @@ function mountInventoryDrawer(
         dirty={dirty}
         pinnedQuestionId={pinnedQuestionId}
         reload={reload}
+        drawerRestore={drawerRestore}
       />
     </ServerStateProvider>,
   )
-  return { client, cache, dirty, reload, key: serverQueryKey(scope, 'processing', batchId) }
+  return {
+    client,
+    cache,
+    dirty,
+    reload,
+    drawerRestore,
+    key: serverQueryKey(scope, 'processing', batchId),
+  }
 }
 
 const answerBox = (prompt: string) =>
@@ -1061,6 +1072,67 @@ test('a reload that doesn’t remount leaves nothing to reopen the drawer on a l
   await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
   await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('an answer’s failed reload leaves nothing for another tab’s reload to carry', async () => {
+  const user = userEvent.setup()
+  const { client, reload, drawerRestore } = mountInventoryDrawer(inventorySnapshot(), undefined, {
+    fromRow: true,
+  })
+  reload.remount = false
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull(),
+  )
+
+  // Off to Records, whose save reloads the batch and re-keys every stage, then back.
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  act(() => drawerRestore.carry())
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('focus the operator moves while the remount’s read is still pending stays where they put it', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  // The answer's own refresh succeeds; the remounted Processing's first read is slow.
+  const slow = deferredRead()
+  client.read
+    .mockResolvedValueOnce(inventorySnapshot('9', [questionId]))
+    .mockReturnValueOnce(slow.promise)
+    .mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  chat.focus()
+
+  await act(async () => {
+    slow.resolve(inventorySnapshot('9', [questionId]))
+    await slow.promise
+  })
+  await screen.findByRole('form', { name: 'Session question: Is Packet A the reel in drawer 2?' })
+  expect(chat).toHaveFocus()
 })
 
 test('focus the operator moves while the remount’s read fails stays where they put it', async () => {

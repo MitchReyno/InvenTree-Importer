@@ -4,9 +4,10 @@
  * batch, above that key.
  *
  * Its lifetime is one reload. Processing arms it once an answer is confirmed, just before the
- * reload. Only a reload that re-keys Processing carries it, and the next Processing mount reads
- * what was carried, on the same route only, then clears the store whatever its route. A reload
- * that fails or is skipped never carries it, so the next mount just clears it.
+ * reload. A reload that re-keys Processing carries it before the old Processing unmounts, and the
+ * next Processing mount reads what was carried, on the same route only, then clears the store
+ * whatever its route. Processing disarms it when it unmounts, so after a reload that fails or is
+ * skipped, nothing is left for a later reload from another tab to carry.
  */
 export type DrawerRestore = {
   /** The Processing route the drawer was open on. */
@@ -30,6 +31,10 @@ export function createDrawerRestore() {
     /** Called by the reload that re-keys Processing, so the next mount brings the drawer back. */
     carry() {
       carried = armed
+      armed = null
+    },
+    /** Drops an armed drawer that no reload carried; what was carried stays for the next mount. */
+    disarm() {
       armed = null
     },
     /** Every Processing mount clears the store once it has read it. */

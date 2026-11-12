@@ -152,10 +152,11 @@ export function ProcessingWorkspace({
     setDrawer({ route, jobId })
   }
 
-  // Every mount clears the store once its state has read it, matching route or not, so nothing
-  // left by a reload that didn't remount reopens a drawer on a later visit.
+  // Every mount clears the store once its state has read it, matching route or not. Unmounting
+  // disarms an answer no reload carried, so a later reload from another tab can't carry it.
   useEffect(() => {
     drawerRestore?.clear()
+    return () => drawerRestore?.disarm()
   }, [drawerRestore])
 
   // The answer form and the instruction field each keep the navigation guard on their own.
