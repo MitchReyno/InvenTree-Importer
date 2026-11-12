@@ -448,7 +448,14 @@ test('a Codex runner call outlasting the guest limits fails and frees the queue'
   fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
 
-  await act(() => vi.advanceTimersByTimeAsync(90_000))
+  // Still waiting well past one guest RPC limit, then failing once the full bound has passed.
+  await act(() => vi.advanceTimersByTimeAsync(85_000))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('radio', { name: 'Codex' })).not.toHaveAccessibleDescription(
+    'Check failed',
+  )
+
+  await act(() => vi.advanceTimersByTimeAsync(5_000))
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm sign-in status')
   expectCard('Codex', 'Check failed')
   fireEvent.click(screen.getByRole('button', { name: 'Check ChatGPT connection' }))

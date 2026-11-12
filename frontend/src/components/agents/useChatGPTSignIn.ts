@@ -31,8 +31,8 @@ export function resetRunnerQueue() {
   runnerQueue = Promise.resolve()
 }
 
-// The guest gives each Codex RPC 20 s, and a disconnect makes up to four in turn (initialize,
-// logout, then two account reads), so a call fails only after those and a margin.
+// The guest gives each Codex RPC 20 s, and an action makes up to four in turn (a disconnect, or a
+// start with an existing account), so a call fails only after those and a margin.
 const GUEST_RPC_LIMIT_MS = 20_000
 const MOST_GUEST_RPCS = 4
 const RUNNER_TIMEOUT_MS = GUEST_RPC_LIMIT_MS * MOST_GUEST_RPCS + 10_000
