@@ -1,9 +1,8 @@
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { expect, test } from 'vitest'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
-import { useBatchCommands } from './batch-commands'
+import { BatchCommandsProvider, useBatchCommands } from './BatchCommandsContext'
 
 test('outside a batch the commands are refused loudly', () => {
   expect(() => renderHook(() => useBatchCommands())).toThrow(

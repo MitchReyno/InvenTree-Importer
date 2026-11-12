@@ -1,6 +1,7 @@
 import type { BatchAttentionDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
+import { useServerScope } from '#/context'
 
 type CachedBatch = { title: string; revision: string }
 

@@ -221,7 +221,9 @@ Formatters can rewrite working files and cause the hook to fail with “files we
 
 ### Formatting in CLI and VS Code
 
-Open the **repository root** in VS Code, install the recommended **Prettier – Code formatter** (`esbenp.prettier-vscode`) and **Ruff** (`charliermarsh.ruff`) extensions, trust the workspace, and install dependencies with the commands above. Workspace settings select the locally pinned tools and enable format-on-save for JavaScript/JSX (including CJS/MJS), TypeScript/TSX (including CTS/MTS), JSON/JSONC, CSS and Python. Recommendations do not auto-install extensions; missing extensions/dependencies, an untrusted workspace or overriding editor settings can prevent formatting. Ruff paths cover the normal uv environment on Unix and Windows; custom `UV_PROJECT_ENVIRONMENT` users must point their editor's Ruff path at that environment. No global user settings are changed.
+Open the **repository root** in VS Code, install the recommended **Prettier – Code formatter** (`esbenp.prettier-vscode`), **ESLint** (`dbaeumer.vscode-eslint`) and **Ruff** (`charliermarsh.ruff`) extensions (Cursor uses the same ones), trust the workspace, and install dependencies with the commands above. Workspace settings select the locally pinned tools and enable format-on-save for JavaScript/JSX (including CJS/MJS), TypeScript/TSX (including CTS/MTS), JSON/JSONC, CSS and Python. Recommendations do not auto-install extensions; missing extensions/dependencies, an untrusted workspace or overriding editor settings can prevent formatting. Ruff paths cover the normal uv environment on Unix and Windows; custom `UV_PROJECT_ENVIRONMENT` users must point their editor's Ruff path at that environment. No global user settings are changed.
+
+The ESLint extension uses the repository's own ESLint and the `eslint.config.*` nearest each file, so it shows the ESLint problems that `pnpm lint:frontend` and `pnpm lint:readability` report. It does not run the frontend's token, contrast and literal-colour checks, which `pnpm lint:frontend` also runs.
 
 ```sh
 pnpm format                          # write eligible web/code files, not Python/Markdown

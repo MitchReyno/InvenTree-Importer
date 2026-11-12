@@ -8,9 +8,8 @@ import { stubPhoneViewport } from '#/test/viewport'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { HeaderStatus } from './HeaderStatus'
-import { HeaderObservationsProvider } from './HeaderObservations'
-import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import type { HeaderClient } from '#/header/types'
+import { HeaderObservationsProvider, UpdateHealthContext } from '#/context'
 
 const scope = {
   actor_id: fixtureScope.actorId,

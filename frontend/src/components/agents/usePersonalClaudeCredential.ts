@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react'
+import { useAsyncAction } from '#/lifecycle/useAsyncAction'
 import type { ProviderStatus } from './provider-status'
 
 type CredentialStatus = { configured: boolean; revision: string }
+
+type CredentialAction = 'status' | 'save' | 'remove'
+
+const UNCONFIRMED =
+  'Request unconfirmed. Check your management key and reconnect to the personal runner.'
 
 /**
  * The personal Claude credential panel's state and requests. The Agents settings section holds it,
@@ -11,57 +17,55 @@ export function usePersonalClaudeCredential() {
   const key = useRef<HTMLInputElement>(null)
   const token = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<CredentialStatus>()
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
+  const { busy, error: message, run, clearError } = useAsyncAction()
 
-  async function submit(action: 'status' | 'save' | 'remove') {
-    setBusy(true)
-    setMessage('')
-    try {
-      if (!window.isSecureContext) {
-        throw new Error()
-      }
-      const response = await fetch('/personal-runner/claude', {
-        method: 'POST',
-        cache: 'no-store',
-        credentials: 'omit',
-        redirect: 'error',
-        headers: {
-          'content-type': 'application/json',
-          authorization: 'Bearer ' + key.current?.value,
-        },
-        body: JSON.stringify({
-          action,
-          revision: status?.revision,
-          token: action === 'save' ? token.current?.value : undefined,
-        }),
-      })
-      if (!response.ok) {
-        throw new Error()
-      }
-      const next = await response.json()
-      if (typeof next.configured !== 'boolean' || typeof next.revision !== 'string') {
-        throw new Error()
-      }
-      setStatus({ configured: next.configured, revision: next.revision })
-      if (token.current) {
-        token.current.value = ''
-      }
-    } catch {
+  async function request(action: CredentialAction) {
+    if (!window.isSecureContext) {
+      throw new Error()
+    }
+
+    const response = await fetch('/personal-runner/claude', {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'error',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + key.current?.value,
+      },
+      body: JSON.stringify({
+        action,
+        revision: status?.revision,
+        token: action === 'save' ? token.current?.value : undefined,
+      }),
+    })
+    if (!response.ok) {
+      throw new Error()
+    }
+
+    const next = await response.json()
+    if (typeof next.configured !== 'boolean' || typeof next.revision !== 'string') {
+      throw new Error()
+    }
+
+    setStatus({ configured: next.configured, revision: next.revision })
+    if (token.current) {
+      token.current.value = ''
+    }
+  }
+
+  async function submit(action: CredentialAction) {
+    const outcome = await run(() => request(action), UNCONFIRMED)
+    if (outcome === 'failed') {
       setStatus(undefined)
-      setMessage(
-        'Request unconfirmed. Check your management key and reconnect to the personal runner.',
-      )
-    } finally {
-      setBusy(false)
     }
   }
 
   function toggle() {
     setOpen(!open)
     setStatus(undefined)
-    setMessage('')
+    clearError()
   }
 
   /** A new key clears the result but leaves an error shown. */

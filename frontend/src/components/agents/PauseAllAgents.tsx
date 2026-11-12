@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import type { AgentSessionListDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
+import { useServerScope } from '#/context'
 import { Button } from '#/components/ui'
 import { PauseButton } from './PauseButton'
 

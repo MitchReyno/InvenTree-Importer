@@ -3,11 +3,11 @@ import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
 import { color } from '#/theme/generated/tokens'
 import { targetStatus } from '#/header/observations'
-import type { UpdateHealth } from '#/components/operations/LiveUpdates'
 import { media, visuallyHidden } from '#/components/ui'
 import { ConnectionDetails } from './ConnectionDetails'
 import { ConnectionDot } from './ConnectionDot'
 import { HeaderDisclosure } from './HeaderDisclosure'
+import { type UpdateHealth } from '#/context'
 
 interface Props {
   target?: ConnectionStatusDto['target']

@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
+import { useServerScope } from '#/context'
 import type { ProviderStatus } from './provider-status'
 
 type Account = {

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { PersonalClaudeCredential } from './PersonalClaudeCredential'
 import { usePersonalClaudeCredential } from './usePersonalClaudeCredential'
 
@@ -58,6 +58,7 @@ it('discards an unconfirmed offline save and reconnects without replaying the se
   })
   fireEvent.click(screen.getByText('Save token'))
   expect((await screen.findByRole('alert')).textContent).not.toContain(sentinel)
+  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeEnabled()
   expect(screen.queryByLabelText('CLAUDE_CODE_OAUTH_TOKEN')).toBeNull()
   fireEvent.click(screen.getByText('Check configuration'))
   const field = (await screen.findByLabelText('CLAUDE_CODE_OAUTH_TOKEN')) as HTMLInputElement
@@ -68,4 +69,24 @@ it('discards an unconfirmed offline save and reconnects without replaying the se
     'status',
   ])
   expect(send.mock.calls[2][1].body).not.toContain(sentinel)
+})
+
+it('locks the panel while a request is unanswered', async () => {
+  let answer!: (response: Response) => void
+  const send = vi.fn(
+    () =>
+      new Promise<Response>((resolve) => {
+        answer = resolve
+      }),
+  )
+  vi.stubGlobal('isSecureContext', true)
+  vi.stubGlobal('fetch', send)
+  render(<Credential />)
+  fireEvent.click(screen.getByText('Personal Claude subscription'))
+  fireEvent.click(screen.getByText('Check configuration'))
+  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Personal Claude subscription' })).toBeDisabled()
+  await act(async () => answer(Response.json({ configured: false, revision: 'one' })))
+  expect(await screen.findByText('Unconfigured')).toBeVisible()
+  expect(screen.getByRole('group', { name: 'Shared VM credential' })).toBeEnabled()
 })

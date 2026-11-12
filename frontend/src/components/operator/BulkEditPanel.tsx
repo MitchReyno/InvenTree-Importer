@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Banner, Panel, Paragraph, Small, Button, useConfirmation } from '#/components/ui'
+import { Banner, Panel, Paragraph, Small, Button } from '#/components/ui'
+import { useConfirmation } from '#/context'
 import { Fieldset, Form, Input, Label, Select } from '#/forms'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'

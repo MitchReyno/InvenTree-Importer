@@ -22,7 +22,7 @@ import {
 import { MAX_SELECTED_LOTS } from '#/manual/types'
 import { batchHref } from '#/navigation/batch-route'
 import { reviewHash } from '#/operator/review-model'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { color, radius, size, space } from '#/theme/generated/tokens'
 import {
   Banner,
@@ -43,6 +43,7 @@ import {
 import { Label, Select } from '#/forms'
 import { PreparationTreeView } from './PreparationTreeView'
 import { lotCrops } from '#/processing/proposed-lots'
+import { useServerScope } from '#/context'
 
 interface Props {
   batch: CaptureSnapshotDto
