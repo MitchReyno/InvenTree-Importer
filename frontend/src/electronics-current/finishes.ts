@@ -90,7 +90,7 @@ export const fills = {
   ceramicPackage: 0xd5d9df,
   tubeGlass: 0xeef3f7,
   mica: 0xf8f8f6,
-  unlitCathode: 0xdfe3e8,
+  unlitCathode: 0x9aa4b2,
   wickOrange: 0xf6dcbf,
 } as const
 
