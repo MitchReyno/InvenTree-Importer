@@ -41,6 +41,9 @@ const POINTER_DRAG = 0.7
 /** How fast the pointer pushes the rope aside, in scene units per second at full influence. */
 const POINTER_PUSH_SPEED = 3
 
+/** Largest pointer shift per point per step, as a share of a segment, so a flick cannot whip the end. */
+const MAX_NUDGE_SEGMENTS = 0.5
+
 export function createRope(count: number, segmentLength: number): Rope {
   const points = Array.from({ length: count }, () => ({
     position: { x: 0, y: 0, z: 0 },
@@ -93,8 +96,17 @@ function constrain(first: Vec3, second: Vec3, rest: number, firstPinned: boolean
   second.z -= dz * correction * secondShare
 }
 
-/** Advances the rope one frame with its first point at `anchor`; 0 seconds only re-constrains. */
-export function stepRope(rope: Rope, anchor: Vec3, frameSeconds: number): void {
+/**
+ * Advances the rope one frame with its first point at `anchor`. A new rope first hangs
+ * straight down; 0 seconds adds no gravity but keeps any swing. A pointer nudge is applied
+ * before the constraints, so the rope keeps its length.
+ */
+export function stepRope(
+  rope: Rope,
+  anchor: Vec3,
+  frameSeconds: number,
+  nudge: RopeNudge | null = null,
+): void {
   if (!rope.settled) {
     hangStraight(rope, anchor)
   }
@@ -104,12 +116,39 @@ export function stepRope(rope: Rope, anchor: Vec3, frameSeconds: number): void {
   pinned.position = { ...anchor }
   pinned.previous = { ...anchor }
 
+  if (nudge) {
+    nudgeRope(rope, nudge)
+  }
+
   for (let pass = 0; pass < CONSTRAINT_PASSES; pass++) {
     for (let index = 0; index < rope.points.length - 1; index++) {
       const first = rope.points[index].position
       const second = rope.points[index + 1].position
       constrain(first, second, rope.segmentLength, index === 0)
     }
+  }
+
+  holdLength(rope)
+}
+
+/** Places each point exactly one segment from the one before it, so the rope never stretches. */
+function holdLength(rope: Rope): void {
+  for (let index = 1; index < rope.points.length; index++) {
+    const before = rope.points[index - 1].position
+    const point = rope.points[index].position
+    const dx = point.x - before.x
+    const dy = point.y - before.y
+    const dz = point.z - before.z
+    const length = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+    if (length < MIN_SEPARATION) {
+      continue
+    }
+
+    const scale = rope.segmentLength / length
+    point.x = before.x + dx * scale
+    point.y = before.y + dy * scale
+    point.z = before.z + dz * scale
   }
 }
 
@@ -118,8 +157,9 @@ function along(point: Vec3, axis: Vec3): number {
 }
 
 /** Drags and pushes the free points the pointer passes over, on the screen plane. */
-export function nudgeRope(rope: Rope, nudge: RopeNudge): void {
+function nudgeRope(rope: Rope, nudge: RopeNudge): void {
   const { pointer, right, up, unitsPerPx, frameSeconds } = nudge
+  const maxShift = rope.segmentLength * MAX_NUDGE_SEGMENTS
 
   for (const point of rope.points.slice(1)) {
     const offsetX = (along(point.position, right) - pointer.x) / unitsPerPx
@@ -133,10 +173,13 @@ export function nudgeRope(rope: Rope, nudge: RopeNudge): void {
 
     const awayX = offsetX / (distancePx + 1)
     const awayY = offsetY / (distancePx + 1)
-    const shiftRight =
+    const rawRight =
       (pointer.velocityX * POINTER_DRAG + awayX * POINTER_PUSH_SPEED) * frameSeconds * influence
-    const shiftUp =
+    const rawUp =
       (pointer.velocityY * POINTER_DRAG + awayY * POINTER_PUSH_SPEED) * frameSeconds * influence
+    const limit = Math.min(1, maxShift / (Math.hypot(rawRight, rawUp) || 1))
+    const shiftRight = rawRight * limit
+    const shiftUp = rawUp * limit
     point.position.x += right.x * shiftRight + up.x * shiftUp
     point.position.y += right.y * shiftRight + up.y * shiftUp
     point.position.z += right.z * shiftRight + up.z * shiftUp

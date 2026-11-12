@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import type { Vec3 } from './flow'
-import { createRope, nudgeRope, stepRope, type Rope } from './rope'
+import { createRope, stepRope, type Rope, type RopeNudge } from './rope'
 
 const FRAME = 1 / 60
 
@@ -28,6 +28,10 @@ function segmentLengths(rope: Rope): number[] {
       point.position.z - before.z,
     )
   })
+}
+
+function nudgeWith(pointer: RopeNudge['pointer']): RopeNudge {
+  return { pointer, right: RIGHT, up: UP, unitsPerPx: 0.17, frameSeconds: FRAME }
 }
 
 function allFinite(rope: Rope): boolean {
@@ -77,8 +81,8 @@ test('the pointer pushes nearby points and leaves distant ones alone', () => {
   const near = { x: 0.3, y: -1.2, velocityX: -40, velocityY: 0 }
   const far = { x: 50, y: 50, velocityX: -40, velocityY: 0 }
 
-  nudgeRope(nudged, { pointer: near, right: RIGHT, up: UP, unitsPerPx: 0.17, frameSeconds: FRAME })
-  nudgeRope(still, { pointer: far, right: RIGHT, up: UP, unitsPerPx: 0.17, frameSeconds: FRAME })
+  stepRope(nudged, anchor, FRAME, nudgeWith(near))
+  stepRope(still, anchor, FRAME, nudgeWith(far))
 
   expect(tip(nudged).x).toBeLessThan(0)
   expect(tip(still).x).toBe(0)
@@ -94,4 +98,19 @@ test('coincident points and zero frame time never produce NaN', () => {
 
   expect(allFinite(rope)).toBe(true)
   segmentLengths(rope).forEach((length) => expect(length).toBeCloseTo(0.2, 1))
+})
+
+test('a fast flick swings the rope without stretching it', () => {
+  const rope = createRope(12, 0.2)
+  const anchor = { x: 0, y: 0, z: 0 }
+  stepRope(rope, anchor, 0)
+  const flick = { x: 0.1, y: -1, velocityX: -400, velocityY: 150 }
+
+  for (let frame = 0; frame < 5; frame++) {
+    stepRope(rope, anchor, FRAME, nudgeWith(flick))
+    segmentLengths(rope).forEach((length) => expect(length).toBeCloseTo(0.2, 6))
+  }
+
+  expect(tip(rope).x).toBeLessThan(-0.05)
+  expect(allFinite(rope)).toBe(true)
 })

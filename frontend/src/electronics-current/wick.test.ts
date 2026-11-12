@@ -1,6 +1,6 @@
 import { Group, Mesh, Vector3 } from 'three'
-import { expect, test, vi } from 'vitest'
-import { createOutlineKit } from './outline-kit'
+import { afterEach, expect, test, vi } from 'vitest'
+import { createOutlineKit, type OutlineKit } from './outline-kit'
 import type { HangingFrame, HangingPart } from './part-model'
 import { WICK_ANCHOR, wickBuilders } from './parts/wick'
 
@@ -12,8 +12,15 @@ const STILL: HangingFrame = {
   unitsPerPx: 0.17,
 }
 
+const kits: OutlineKit[] = []
+
+afterEach(() => {
+  kits.splice(0).forEach((kit) => kit.dispose())
+})
+
 function buildWick(): { holder: Group; hanging: HangingPart } {
   const kit = createOutlineKit()
+  kits.push(kit)
   const part = wickBuilders.solderWick({ kit, random: () => 0.2 })
   const holder = new Group()
   holder.add(part.group)

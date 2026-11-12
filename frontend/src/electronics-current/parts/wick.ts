@@ -19,7 +19,7 @@ import {
   type PartBuilder,
   type PartType,
 } from '#/electronics-current/part-model'
-import { createRope, nudgeRope, stepRope, type Rope } from '#/electronics-current/rope'
+import { createRope, stepRope, type Rope } from '#/electronics-current/rope'
 import { pick } from '#/electronics-current/shapes'
 
 /** Where the loose end leaves the case, on the rim below the hub. */
@@ -170,11 +170,9 @@ function createHanging(kit: OutlineKit, group: Group): HangingPart {
     group.localToWorld(anchor.copy(WICK_ANCHOR))
     axis.set(0, 0, 1).transformDirection(group.matrixWorld)
     rope.segmentLength = SEGMENT_LENGTH * scale
-    stepRope(rope, anchor, frame.frameSeconds)
-
-    if (frame.pointer && frame.frameSeconds > 0) {
-      nudgeRope(rope, { ...frame, pointer: frame.pointer })
-    }
+    const nudge =
+      frame.pointer && frame.frameSeconds > 0 ? { ...frame, pointer: frame.pointer } : null
+    stepRope(rope, anchor, frame.frameSeconds, nudge)
 
     writeRibbon(RIBBON_HALF_WIDTH * scale)
   }

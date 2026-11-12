@@ -487,7 +487,7 @@ export function createElectronicsCurrent(
     }
   }
 
-  /** Loose ends follow their parts' new poses; 0 seconds settles them hanging straight. */
+  /** Loose ends follow their parts' new poses; a new one starts hanging straight down. */
   function updateHanging(): void {
     const frame = {
       frameSeconds: lastStepSeconds,

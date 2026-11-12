@@ -85,7 +85,7 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
   - new `rope.ts` and `parts/wick.ts`;
   - `part-model.ts` (`HangingPart`);
   - `scene.ts` (add, update and remove);
-  - tests: `rope.test.ts`, `wick.test.ts`, `scene-hanging.test.ts`.
+  - tests: `rope.test.ts`, `wick.test.ts`, `scene.test.ts`.
 - **Verification:** `pnpm test:frontend`.
 
 - [x] 4.1 RED: tests that the rope hangs at its set length, follows the anchor, is nudged by the pointer and stays finite.

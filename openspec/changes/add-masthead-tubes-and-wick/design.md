@@ -48,14 +48,14 @@ A new display mode, `nixie`, counts 0–9 like `seven` with its own font. Reject
 The scene handles its lifecycle:
 
 - **Build:** the scene adds `objects` when it builds the part.
-- **Render:** it calls `update` in `render()` after `placeAll()`, so the pin point uses the part's current pose. A still frame or reduced motion passes 0 seconds, which settles the end hanging straight down.
+- **Render:** it calls `update` in `render()` after `placeAll()`, so the pin point uses the part's current pose. A new rope hangs straight down on its first update, and reduced motion only passes 0 seconds, which adds no motion, so the still frame shows the end hanging straight.
 - **Removal and dispose:** it removes and disposes of the objects in `removePart`, so recycling and `dispose()` release them.
 
 The rope maths is a pure module (`rope.ts`):
 
 - Verlet integration under gravity, with the first point pinned to the anchor;
-- distance constraints over several iterations;
-- a pointer nudge in the camera plane using the existing `stirFalloff`.
+- a pointer nudge in the camera plane using the existing `stirFalloff`, capped per point and applied before the constraints so the rope keeps its length;
+- distance constraints over several iterations.
 
 The wick builder turns the rope points into a flat ribbon strip and its outline, with the width along the dispenser's axis.
 
@@ -76,11 +76,11 @@ Rejected alternatives:
 
 | Area | Check |
 | --- | --- |
-| Rope maths (`rope.test.ts`) | Settles hanging below the anchor at its set length; follows a moved anchor; a pointer nudge moves nearby points; positions stay finite over long runs, including zero frame time. |
+| Rope maths (`rope.test.ts`) | Settles hanging below the anchor at its set length; follows a moved anchor; a pointer nudge moves nearby points and a fast flick keeps the rope's length; positions stay finite over long runs, including zero frame time. |
 | Wick builder (`wick.test.ts`) | The hanging ribbon stays attached to the dispenser's rim through rotation; disposal releases its geometry. |
 | Displays (`displays.test.ts`) | Nixie glyph coverage; exactly one numeral lit and emphasised per step. |
 | Kit (`outline-kit.test.ts`) | Glass opacity variants are cached separately and shared; Nixie unlit cathodes do not write depth. |
-| Scene (`scene-hanging.test.ts`) | With the catalogue forced to the wick, hanging objects join the scene with their parts and leave it on recycle and dispose. |
+| Scene (`scene.test.ts`) | With the catalogue forced to the wick, hanging objects join the scene with their parts, start at their dispensers' rims after each render and leave it on recycle and dispose. |
 | Catalogue (`catalogue.test.ts`) | Every builder, including the new ones, produces geometry. |
 | Browser | A real WebGL render in both themes, recorded as PR evidence. |
 

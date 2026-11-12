@@ -1,7 +1,8 @@
-import { BufferGeometry, type Fog, type Mesh, type Scene } from 'three'
+import { BufferGeometry, Vector3, type Fog, type Mesh, type Scene } from 'three'
 import { FINISHES } from './finishes'
 import type { PartType } from './part-model'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { WICK_ANCHOR } from './parts/wick'
 import { createElectronicsCurrent, HANGING_LAYER_NAME } from './scene'
 
 interface FakeRenderer {
@@ -311,6 +312,23 @@ test('loose ends join the scene with their dispensers, follow them and leave wit
   expect(layer?.children).toHaveLength(60)
   expect(survivors.length).toBeLessThan(60)
   expect(positions?.every(Number.isFinite)).toBe(true)
+
+  // Each ribbon starts on its dispenser's rim as rendered, so loose ends never trail a frame.
+  const ribbonStarts = (layer?.children ?? [])
+    .filter((child) => (child as Mesh).isMesh)
+    .map((child) => {
+      const edge = (child as Mesh).geometry.getAttribute('position')
+      const left = new Vector3().fromBufferAttribute(edge, 0)
+
+      return left.add(new Vector3().fromBufferAttribute(edge, 1)).multiplyScalar(0.5)
+    })
+  partObjects(scene).forEach((object) => {
+    object.updateWorldMatrix(true, true)
+    const rim = object.children[0].localToWorld(WICK_ANCHOR.clone())
+    const nearest = Math.min(...ribbonStarts.map((start) => start.distanceTo(rim)))
+
+    expect(nearest).toBeLessThan(1e-4)
+  })
 
   disposeGeometry.mockClear()
   controller.dispose()

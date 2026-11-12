@@ -64,7 +64,7 @@ export interface DisplayState {
 
 /** What a hanging piece updates against each frame. */
 export interface HangingFrame {
-  /** Scaled frame time; 0 settles the piece hanging straight down. */
+  /** Frame time in seconds; 0 adds no motion, and a new piece starts hanging straight down. */
   frameSeconds: number
   /** Camera axes, so pointer distances are measured in the screen plane. */
   right: Vector3
