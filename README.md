@@ -55,7 +55,7 @@ cp .env.intake.example .env
 
 `.env` stays gitignored. The launcher reads it once at startup. Shell values win, including empty ones. The file is parsed as data, so write absolute paths and literal values. Restart `pnpm dev` after an edit.
 
-The copied example selects the fake inventory and synthetic Processing. That start needs no vendor, inventory or model credentials.
+The copied example selects the mock inventory and scripted agents. That start needs no vendor, inventory or model credentials.
 
 ### Start the app
 
@@ -65,9 +65,9 @@ Start Docker, then:
 pnpm dev
 ```
 
-Open <http://127.0.0.1:4330>. The first start builds the decoder image and creates a private namespace under `~/.local/state/bench-intake`. Synthetic Processing shows source-bound proposals and makes no model calls.
+Open <http://127.0.0.1:4330>. The first start builds the decoder image and creates a private namespace under `~/.local/state/bench-intake`. By default, scripted agents show source-bound proposals and make no model calls, against a built-in mock inventory. Switches in `.env` choose the inventory, read-only access and real agents; see [choosing what the app runs](docs/development.md#choosing-what-the-app-runs).
 
-`pnpm dev --tailscale` also serves the app over HTTPS on this machine's tailnet. `pnpm inventree:dev up` starts a seeded local InvenTree at <http://127.0.0.1:4320>; set `INTAKE_TARGET_PROFILE=local-inventree` in `.env` before `pnpm dev` to read from it. Both are covered in [local app development](docs/development.md).
+`pnpm dev --tailscale` also serves the app over HTTPS on this machine's tailnet. `pnpm inventree:dev up` starts a seeded local InvenTree at <http://127.0.0.1:4320>; set `INTAKE_USE_LOCAL_INVENTREE=true` in `.env` before `pnpm dev` to read from it. Both are covered in [local app development](docs/development.md).
 
 ### VM agent runner
 
@@ -152,7 +152,7 @@ INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CODEX_SUBSCRIPTION=1 \
 
 Use another free loopback port when `14313` is already taken, and use that same port in `.env` and in both relays. `INTAKE_VM_WEB_MODE=public` on the reader command allows general public HTTPS reads. With that mode, set `INTAKE_VM_PROTECTED_HOSTS` to every public hostname of this app, the inventory server and this machine. The default reader allows RFC Editor, Python documentation and Example Domain. Details and limits are in the [deployment guide](tooling/deployment/README.md#shared-vm-sessions-with-native-tools).
 
-`shared-vm-agent/1` is the same VM with one guest turn and no tool worker. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
+`shared-vm-agent/1` is the same VM with one guest turn and no tool worker; select it with `INTAKE_VM_AGENT_TOOLS=false`. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
 
 While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use.
 
@@ -169,10 +169,10 @@ ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config
 Add the runner settings to `.env`. Paste the absolute host directory from `INTAKE_VM_PAIR`; a `$HOME` value in the file stays literal.
 
 ```dotenv
-INTAKE_PROCESSING_PROFILE=shared-vm-agent/2
+INTAKE_USE_MOCK_AI_AGENTS=false
+INTAKE_RUN_AGENTS_IN_VM=true
 INTAKE_VM_PAIR=<absolute host directory>
 INTAKE_VM_PORT=14313
-INTAKE_PERSONAL_MANAGEMENT=1
 ```
 
 Stop a running `pnpm dev`, then start it again so it reads the file. In **Agent settings → Personal Claude subscription**, enter the operator key, choose **Check configuration**, then paste a token from `claude setup-token` and save it. The token stays out of `.env`. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token) describes that command. In **Agent settings → ChatGPT subscription**, enter the same key and choose **Sign in with ChatGPT**. Enable device-code sign-in in [ChatGPT security settings](https://chatgpt.com/#settings/Security) first. Choose **Claude** or **Codex**, **Subscription**, and a model, then start a new Processing session.
@@ -211,7 +211,7 @@ pnpm test:all              # normal/scanner, frontend and fast intake suites
 
 `pnpm dev` is the local application above. The other root scripts delegate to one application boundary. The [backend guide](backend/README.md) documents explicit import approvals and limits.
 
-Root `.env`, `.local_imports/`, caches and existing execution/scanner state are not moved or reset. Explicit relative arguments keep caller-cwd meaning. Read the [layout guide](docs/repository-layout.md) before running commands from another cwd or supplying state/config overrides. The default fake inventory and synthetic Processing need no vendor or inventory credentials.
+Root `.env`, `.local_imports/`, caches and existing execution/scanner state are not moved or reset. Explicit relative arguments keep caller-cwd meaning. Read the [layout guide](docs/repository-layout.md) before running commands from another cwd or supplying state/config overrides. The default mock inventory and scripted agents need no vendor or inventory credentials.
 
 ## Commit hooks and CI
 

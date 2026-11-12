@@ -425,7 +425,9 @@ test('stale running input exposes its exact cancel action, while explicit false 
   // A legacy state fallback would allow queued cancellation; explicit server false must win.
   noAction.jobs[0].state = 'queued'
   noAction.jobs[0].can_cancel = false
-  act(() => mounted.cache.setQueryData(serverQueryKey(scope, 'processing', batchId), noAction))
+  await act(() =>
+    mounted.cache.setQueryData(serverQueryKey(scope, 'processing', batchId), noAction),
+  )
   await waitFor(() =>
     expect(screen.queryByRole('button', { name: 'Cancel this attempt' })).not.toBeInTheDocument(),
   )

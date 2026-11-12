@@ -71,7 +71,7 @@ function stageRoute(stage: ManualStage, resourceId?: string): BatchRoute {
       return resourceId
         ? { tab: 'changes', view: 'added', runId: resourceId }
         : { tab: 'changes', view: 'added' }
-    default:
+    case 'capture':
       return { tab: 'capture' }
   }
 }

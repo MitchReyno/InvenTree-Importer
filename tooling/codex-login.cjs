@@ -4,6 +4,13 @@ const { lstat, mkdir, chmod, realpath } = require('node:fs/promises')
 const { join, resolve, sep, dirname } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { developmentEnvironment } = require('./dev/environment.cjs')
+const {
+  resolveDevelopmentSettings,
+  targetEnvironment,
+  settingsRefusalLines,
+  withTargetSettingNames,
+  DevelopmentSettingsError,
+} = require('./dev/settings.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -32,17 +39,21 @@ async function loadStateModules() {
 
 /** The app directory `pnpm dev` retains, including an explicit INTAKE_APP_STATE. */
 async function appStateRoot(settings) {
+  const { targetSettings } = resolveDevelopmentSettings(settings)
+  const values = targetEnvironment(settings, targetSettings)
   const { targetModule, identity, localInventree } = await loadStateModules()
-  const target = targetModule.developmentTarget(settings)
-  if (settings.INTAKE_APP_STATE !== undefined) {
-    return targetModule.developmentStateRoot(settings, target, { serverId: '' })
+  const target = withTargetSettingNames(() => targetModule.developmentTarget(values), settings)
+  // The same credential check as `pnpm dev`, so a login never goes to a namespace dev refuses.
+  withTargetSettingNames(() => targetModule.developmentCredential(values, target), settings)
+  if (values.INTAKE_APP_STATE !== undefined) {
+    return targetModule.developmentStateRoot(values, target, { serverId: '' })
   }
-  const serverId = await identity.serverIdentity(settings)
+  const serverId = await identity.serverIdentity(values)
   const scope = { serverId }
   if (target.kind === 'local-inventree') {
-    scope.instanceId = (await localInventree.readLocalInventree(settings)).instanceId
+    scope.instanceId = (await localInventree.readLocalInventree(values)).instanceId
   }
-  return targetModule.developmentStateRoot(settings, target, scope)
+  return targetModule.developmentStateRoot(values, target, scope)
 }
 
 function assertOutsideRepository(root) {
@@ -138,6 +149,12 @@ function waitForExit(child) {
   })
 }
 
+/** The login needs no inventory token; keep it out of the Codex process, even a retired name's. */
+function loginEnvironment(baseEnv) {
+  const { INTAKE_INVENTREE_TOKEN, INTAKE_DEV_API_KEY, ...rest } = baseEnv
+  return rest
+}
+
 /**
  * Resolves this checkout's dev app state, then runs interactive `codex login`
  * with CODEX_HOME set to its private subscription directory.
@@ -155,7 +172,7 @@ async function runCodexLogin({
   const child = spawnImpl(executable, ['login'], {
     stdio: 'inherit',
     shell: false,
-    env: { ...baseEnv, CODEX_HOME: home },
+    env: { ...loginEnvironment(baseEnv), CODEX_HOME: home },
   })
   const { code, signal } = await waitForExit(child)
   if (signal || code === null) {
@@ -176,6 +193,11 @@ async function main() {
 
 if (require.main === module) {
   main().catch((error) => {
+    if (error instanceof DevelopmentSettingsError) {
+      process.stderr.write(`${settingsRefusalLines(error).join('\n')}\n`)
+      process.exitCode = 1
+      return
+    }
     const code = /^[a-z0-9_]+$/.test(error?.message ?? '') ? error.message : 'codex_login_failed'
     process.stderr.write(`${code}\n`)
     process.exitCode = 1

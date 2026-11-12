@@ -83,3 +83,19 @@ export function radialLeads(
   group.add(at(kit.lead(cylinder(0.07, lengths[0], 8)), -spacing, top - lengths[0] / 2, 0))
   group.add(at(kit.lead(cylinder(0.07, lengths[1], 8)), spacing, top - lengths[1] / 2, 0))
 }
+
+/** A ring of `count` pins under a base, each `length` long and hanging from y = 0. */
+export function pinRing(
+  kit: OutlineKit,
+  group: Group,
+  count: number,
+  ringRadius: number,
+  pinRadius: number,
+  length: number,
+): void {
+  for (let index = 0; index < count; index++) {
+    const angle = (index / count) * Math.PI * 2
+    const pin = kit.lead(cylinder(pinRadius, length, 8))
+    group.add(at(pin, Math.cos(angle) * ringRadius, -length / 2, Math.sin(angle) * ringRadius))
+  }
+}

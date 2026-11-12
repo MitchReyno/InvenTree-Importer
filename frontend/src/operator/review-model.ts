@@ -322,7 +322,7 @@ export function lotLocationFact(
         provenance: 'inherited',
       }
     }
-    default:
+    case 'lot':
       return { value, provenance: lotProvenance(lot.location, batch.defaults.location) }
   }
 }

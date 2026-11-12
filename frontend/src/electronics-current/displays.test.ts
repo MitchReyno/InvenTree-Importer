@@ -4,6 +4,7 @@ import type { DisplayState } from './part-model'
 import {
   DISPLAY_MESSAGE,
   FOURTEEN_SEGMENT_FONT,
+  NIXIE_FONT,
   SEVEN_SEGMENT_FONT,
   charactersAt,
   updateDisplay,
@@ -55,4 +56,42 @@ test('updating a display lights exactly the glyph segments and skips unchanged s
   updateDisplay(display, 0.1, 0)
   expect(display.step).toBe(firstStep)
   expect([...segments.values()].every((mesh) => mesh.material === unlit)).toBe(true)
+})
+
+test('every Nixie count has a numeral', () => {
+  for (let step = 0; step < 40; step++) {
+    charactersAt('nixie', step).forEach((digit) => expect(NIXIE_FONT[digit]).toBe(`n${digit}`))
+  }
+})
+
+test('a Nixie lights and thickens exactly the current numeral', () => {
+  const lit = new MeshBasicMaterial()
+  const unlit = new MeshBasicMaterial()
+  const names = Array.from({ length: 10 }, (_, digit) => `n${digit}`)
+  const numerals = new Map(names.map((name) => [name, new Mesh(undefined, unlit)]))
+  const thick = new Map(
+    names.map((name) => {
+      const mesh = new Mesh()
+      mesh.visible = false
+
+      return [name, mesh]
+    }),
+  )
+  const display: DisplayState = {
+    digits: [numerals],
+    emphasis: [thick],
+    materials: { lit, unlit, glow: new SpriteMaterial() },
+    mode: 'nixie',
+    step: null,
+  }
+
+  for (const time of [0, 0.9, 1.8, 2.7]) {
+    updateDisplay(display, time, 0)
+    const shown = `n${charactersAt('nixie', display.step ?? 0)[0]}`
+    const litNames = names.filter((name) => numerals.get(name)?.material === lit)
+    const thickNames = names.filter((name) => thick.get(name)?.visible)
+
+    expect(litNames).toEqual([shown])
+    expect(thickNames).toEqual([shown])
+  }
 })

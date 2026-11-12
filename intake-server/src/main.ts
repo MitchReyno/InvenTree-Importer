@@ -132,7 +132,7 @@ async function main() {
             targetContextId: config.targetContextId,
           })
         : undefined
-      await registerCapture(server, db.pool, config, read, catalogue)
+      registerCapture(server, db.pool, config, read, catalogue)
       const processing = processingConfig(config, process.env)
       const runtime = {
         deploymentId: process.env.INTAKE_DEPLOYMENT_ID,

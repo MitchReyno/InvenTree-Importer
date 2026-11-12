@@ -2,8 +2,11 @@ import type { PartBuilder, PartType } from './part-model'
 import { displayBuilders } from './parts/displays'
 import { electromechanicalBuilders } from './parts/electromechanical'
 import { integratedBuilders } from './parts/integrated'
+import { nixieBuilders } from './parts/nixie'
 import { passiveBuilders } from './parts/passives'
 import { semiconductorBuilders } from './parts/semiconductors'
+import { tubeBuilders } from './parts/tubes'
+import { wickBuilders } from './parts/wick'
 
 /** Every part type has exactly one builder; the compiler enforces completeness. */
 export const partBuilders: Record<PartType, PartBuilder> = {
@@ -12,6 +15,9 @@ export const partBuilders: Record<PartType, PartBuilder> = {
   ...integratedBuilders,
   ...electromechanicalBuilders,
   ...displayBuilders,
+  ...tubeBuilders,
+  ...nixieBuilders,
+  ...wickBuilders,
 }
 
 /**
@@ -19,31 +25,31 @@ export const partBuilders: Record<PartType, PartBuilder> = {
  * part on a real bench; single-weight types are deliberate occasional finds.
  */
 export const PART_WEIGHTS: Record<PartType, number> = {
-  resistor: 9,
-  resistorSmall: 2,
+  resistor: 11,
+  resistorSmall: 3,
   resistorVertical: 2,
   resistorPower: 1,
-  ceramicDisc: 2,
+  ceramicDisc: 3,
   blueCeramic: 2,
-  monolithic: 2,
-  electrolytic: 2,
+  monolithic: 3,
+  electrolytic: 3,
   electrolyticLarge: 1,
   electrolyticAxial: 1,
   electrolyticSmd: 1,
   filmCapacitor: 2,
   tantalum: 2,
-  led: 2,
+  led: 3,
   led3mm: 1,
   ledRectangular: 1,
-  diode: 2,
+  diode: 3,
   glassDiode: 2,
   powerDiode: 1,
   bridgeRectifier: 1,
-  to92: 2,
+  to92: 3,
   to126: 1,
   to18: 1,
   regulator: 2,
-  dip: 2,
+  dip: 3,
   eprom: 2,
   soic: 2,
   sot23: 1,
@@ -62,6 +68,10 @@ export const PART_WEIGHTS: Record<PartType, number> = {
   relay: 1,
   display14: 2,
   display7: 2,
+  octalTube: 1,
+  rectifier5u4: 1,
+  nixieTube: 2,
+  solderWick: 1,
 }
 
 const weightedTypes = Object.entries(PART_WEIGHTS) as [PartType, number][]
