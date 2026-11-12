@@ -4,7 +4,8 @@ Splits the `pnpm dev` profile variables into independent switches. Delivered in 
 
 ## Changes to the plan
 
-None.
+- **2026-11-12T13:45+11:00, task 2 (review):** The launcher's child decisions (agent-worker settings, apply-runner gate, credential proxy flag, startup summary) moved out of `tooling/dev.cjs` into `settings.cjs` and `stack.cjs` so they are unit-tested, and the summary now prints before setup rather than only on success. Design updated.
+- **2026-11-12T13:45+11:00, task 3 (review):** The external-target process test now runs the default scripted sessions, so the new default has process-tier coverage; the dev-stack test keeps the per-stage pipeline. The proposal's impact list no longer claims a `target.ts` change, which was never needed.
 
 ## Unexpected challenges
 

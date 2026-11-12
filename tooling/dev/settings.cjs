@@ -26,7 +26,7 @@ const RETIRED_SETTINGS = [
   ['INTAKE_PERSONAL_MANAGEMENT', 'INTAKE_RUN_AGENTS_IN_VM'],
 ]
 
-/** The credential-reference pattern `developmentTarget` and the API enforce. */
+/** The credential-reference length limit `developmentTarget` and the API enforce. */
 const MAX_CREDENTIAL_REF_LENGTH = 128
 
 function present(settings, name) {
@@ -199,6 +199,47 @@ function targetEnvironment(settings, targetSettings) {
   return { ...others, ...targetSettings }
 }
 
+/** Settings the agent worker receives: the VM pairing, provider access, or nothing for scripted agents. */
+function agentWorkerSettingNames(resolved) {
+  if (resolved.agentsInVm) {
+    return ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
+  }
+  if (resolved.mockAgents) {
+    return []
+  }
+  return [
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'INTAKE_CODEX_EXECUTABLE',
+    'INTAKE_CLAUDE_EXECUTABLE',
+  ]
+}
+
+const INVENTORY_NAMES = {
+  fake: 'mock',
+  'local-inventree': 'local InvenTree',
+  'read-only': 'external InvenTree',
+}
+
+/** What the app runs, in the terms of the switches that chose it. */
+function startupSummary(targetKind, resolved) {
+  const access = resolved.readOnly ? 'read-only' : 'writable'
+  const where = resolved.agentsInVm ? ' in the VM' : ''
+  const lines = [
+    `Inventory: ${INVENTORY_NAMES[targetKind]} (${access}).`,
+    `Processing: ${resolved.profile}${where}.`,
+  ]
+  if (resolved.ignored.length > 0) {
+    lines.push(`Ignored because the mock inventory is selected: ${resolved.ignored.join(', ')}.`)
+  }
+  return `${lines.join('\n')}\n`
+}
+
+/** The dev UI proxies the VM's personal credential management only when agents run in the VM. */
+function personalManagementFlag(resolved) {
+  return resolved.agentsInVm ? '1' : undefined
+}
+
 /** The refusal code, then one line per named variable; values are never included. */
 function settingsRefusalLines(error) {
   const details = error.names.map(({ name, replacement }) =>
@@ -211,5 +252,8 @@ module.exports = {
   resolveDevelopmentSettings,
   targetEnvironment,
   settingsRefusalLines,
+  agentWorkerSettingNames,
+  personalManagementFlag,
+  startupSummary,
   DevelopmentSettingsError,
 }

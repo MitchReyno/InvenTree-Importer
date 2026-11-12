@@ -37,6 +37,11 @@ function apiTargetEnv(target, state, key, { readOnly = false } = {}) {
   }
 }
 
+/** Only a writable mock runs the owned apply runner; local and external targets never do. */
+function startsApplyRunner(state, readOnly) {
+  return state.version === 1 && !readOnly
+}
+
 /** Children share the supervisor's resolved state directory and never re-read an env file. */
 function serviceEnvironment(baseEnv, settings, stateDirectory) {
   return { ...baseEnv, INTAKE_DEV_STATE: stateDirectory(settings), INTAKE_ENV_FILE: '' }
@@ -77,6 +82,7 @@ async function startSupervision(settings, target, deps) {
 module.exports = {
   prepareDevelopment,
   apiTargetEnv,
+  startsApplyRunner,
   serviceEnvironment,
   confirmLocalInventree,
   startSupervision,

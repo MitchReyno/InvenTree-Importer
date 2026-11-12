@@ -258,3 +258,87 @@ test('a refusal prints its code, then each named variable and its replacement', 
     ['invalid_development_setting', '  INTAKE_X'],
   )
 })
+
+const { pathToFileURL } = require('node:url')
+const { join } = require('node:path')
+const {
+  agentWorkerSettingNames,
+  personalManagementFlag,
+  startupSummary,
+} = require('../dev/settings.cjs')
+
+test('scripted agents get no provider access; real agents get it; VM agents get only the pairing', () => {
+  assert.deepEqual(agentWorkerSettingNames(resolveDevelopmentSettings({})), [])
+  assert.deepEqual(
+    agentWorkerSettingNames(resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM })),
+    ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT'],
+  )
+  assert.deepEqual(
+    agentWorkerSettingNames(
+      resolveDevelopmentSettings({
+        INTAKE_USE_MOCK_AI_AGENTS: 'false',
+        INTAKE_RUN_AGENTS_IN_VM: 'true',
+        ...VM,
+      }),
+    ),
+    ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT'],
+  )
+  assert.deepEqual(
+    agentWorkerSettingNames(resolveDevelopmentSettings({ INTAKE_USE_MOCK_AI_AGENTS: 'false' })),
+    ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'INTAKE_CODEX_EXECUTABLE', 'INTAKE_CLAUDE_EXECUTABLE'],
+  )
+})
+
+test('the credential-management proxy is on only with VM agents', () => {
+  assert.equal(personalManagementFlag(resolveDevelopmentSettings({})), undefined)
+  assert.equal(
+    personalManagementFlag(resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM })),
+    '1',
+  )
+})
+
+test('the startup summary names the inventory, access, profile and ignored settings', () => {
+  assert.equal(
+    startupSummary('fake', resolveDevelopmentSettings({})),
+    'Inventory: mock (writable).\nProcessing: synthetic-session/1.\n',
+  )
+  const overridden = resolveDevelopmentSettings({
+    INTAKE_USE_MOCK_INVENTREE: 'true',
+    INTAKE_INVENTREE_READ_ONLY: 'true',
+    INTAKE_RUN_AGENTS_IN_VM: 'true',
+    INTAKE_USE_LOCAL_INVENTREE: 'true',
+    ...VM,
+  })
+  assert.equal(
+    startupSummary('fake', overridden),
+    'Inventory: mock (read-only).\nProcessing: synthetic-session/1 in the VM.\n' +
+      'Ignored because the mock inventory is selected: INTAKE_USE_LOCAL_INVENTREE.\n',
+  )
+  assert.match(
+    startupSummary(
+      'local-inventree',
+      resolveDevelopmentSettings({ INTAKE_USE_LOCAL_INVENTREE: 'true' }),
+    ),
+    /^Inventory: local InvenTree \(read-only\)\./,
+  )
+})
+
+test('the target policy accepts every derived credential reference', async () => {
+  const { developmentTarget } = await import(
+    pathToFileURL(join(__dirname, '../../intake-server/src/dev/target.ts')).href
+  )
+  for (const address of [
+    'https://inventory.example.invalid',
+    'http://[::1]:8080',
+    'https://bücher.example',
+    `http://${'a'.repeat(150)}.example`,
+  ]) {
+    const { targetSettings } = resolveDevelopmentSettings({
+      INTAKE_INVENTREE_URL: address,
+      INTAKE_INVENTREE_TOKEN: 'synthetic-read-token',
+    })
+    const target = developmentTarget(targetSettings)
+    assert.equal(target.kind, 'read-only', address)
+    assert.equal(target.credentialRef, targetSettings.INTAKE_CREDENTIAL_REF)
+  }
+})

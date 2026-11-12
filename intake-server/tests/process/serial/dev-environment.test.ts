@@ -87,7 +87,6 @@ test(
           `INTAKE_APP_STATE="${root}"`,
           `INTAKE_DEV_PORT=${port}`,
           ...targetLines,
-          'INTAKE_USE_AGENT_SESSIONS=false',
           'OPENAI_API_KEY=synthetic-provider-must-not-run',
           `INTAKE_MEDIA_DECODER_IMAGE=${process.env.INTAKE_MEDIA_DECODER_IMAGE}`,
         ].join('\n'),
@@ -169,12 +168,14 @@ test(
         assert.equal((await blocked.text()).includes(key), false)
       }
       const running = JSON.parse(await readFile(join(root, 'running.json'), 'utf8'))
+      // The default scripted sessions run in the session worker.
       assert.deepEqual(running.children.map((item: { name: string }) => item.name).sort(), [
+        'agents',
         'api',
         'media',
-        'processing',
         'ui',
       ])
+      assert.match(output, /Processing: synthetic-session\/1\./)
       const stateBytes = await readFile(join(root, 'app.json'), 'utf8')
       const state = JSON.parse(stateBytes)
       assert.equal(state.version, 2)

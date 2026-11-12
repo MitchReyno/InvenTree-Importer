@@ -82,7 +82,7 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 
 - PR delivery: the single PR.
 - Outcome: every user-facing mention of the old dev variables shows the new switches.
-- Scope and approach: `.env.intake.example`, `docs/development.md`, `README.md`, `intake-server/ARCHITECTURE.md`, `intake-server/src/agents/ARCHITECTURE.md`, `intake-server/scripts/native-session-qualification/README.md`, `tooling/deployment/README.md` (dev-only paragraphs), `frontend/src/components/agents/AgentSettingsForm.tsx` hint, `docs/PLANNED_FUNCTIONALITY.md` BI-009 wording.
+- Scope and approach: `.env.intake.example`, `docs/development.md`, `README.md`, `intake-server/ARCHITECTURE.md`, `intake-server/README.md` (anchor), `intake-server/scripts/native-session-qualification/README.md`, `tooling/deployment/README.md` (dev-only paragraphs), `frontend/src/components/agents/AgentSettingsForm.tsx` hint, `docs/PLANNED_FUNCTIONALITY.md` BI-009 wording.
 - Prerequisites: Task 1 names.
 - Acceptance: proposal outcome.
 - TDD approach: documentation; verify with a repository search for the retired names outside archives, deployment-only sections and server-internal code, plus link checks.
@@ -90,7 +90,7 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 - Risks and decisions: None.
 
 - [x] 4.1 Update the env template, development guide and README.
-- [x] 4.2 Update architecture notes, the qualification README, dev paragraphs of the deployment README and the BI-009 wording.
+- [x] 4.2 Update the intake-server architecture note and README anchor, the qualification README, dev paragraphs of the deployment README and the BI-009 wording.
 - [x] 4.3 Update the Agent settings hint and run the frontend checks.
 - [x] 4.4 Search for remaining retired names and confirm each hit is internal, deployment or archived.
 

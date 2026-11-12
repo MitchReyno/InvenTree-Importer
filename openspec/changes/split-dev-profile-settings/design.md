@@ -24,10 +24,13 @@ A new `tooling/dev/settings.cjs` exports `resolveDevelopmentSettings(settings)`.
   targetSettings,  // internal names for developmentTarget(): INTAKE_TARGET_PROFILE, INTAKE_READ_ORIGIN, INTAKE_CREDENTIAL_REF, INTAKE_DEV_API_KEY
   readOnly,        // boolean
   profile,         // existing processing profile ID
+  mockAgents,      // boolean; scripted agents receive no provider keys
   agentsInVm,      // boolean; also enables the credential-management proxy
   ignored,         // names overridden by a mock switch, for the startup line
 }
 ```
+
+The same module owns the decisions the launcher makes from that result: which settings the agent worker receives (`agentWorkerSettingNames`), whether the credential-management proxy is on (`personalManagementFlag`) and the startup summary, which is printed before setup so an overridden setting is visible even when startup later fails. `startsApplyRunner` in `tooling/dev/stack.cjs` decides whether the apply runner starts. All are pure and unit-tested.
 
 `tooling/dev.cjs` and `tooling/codex-login.cjs` call it first and pass `targetSettings` (merged over the other settings, for admin URL and state paths) to the unchanged `developmentTarget`. `developmentProfile` is replaced by the resolver's profile selection; `processingWorker` stays in `profile.cjs` and gains `synthetic-session/1`.
 

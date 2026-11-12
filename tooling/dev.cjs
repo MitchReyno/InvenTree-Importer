@@ -12,11 +12,14 @@ const {
   resolveDevelopmentSettings,
   targetEnvironment,
   settingsRefusalLines,
+  agentWorkerSettingNames,
+  personalManagementFlag,
+  startupSummary,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
+const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
@@ -125,42 +128,6 @@ async function privateState(root) {
   return claimSupervisorLock(root)
 }
 
-/** Settings the agent worker receives: the VM pairing, provider access, or nothing for scripted agents. */
-function agentWorkerSettings(resolved) {
-  if (resolved.agentsInVm) {
-    return ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
-  }
-  if (resolved.mockAgents) {
-    return []
-  }
-  return [
-    'OPENAI_API_KEY',
-    'ANTHROPIC_API_KEY',
-    'INTAKE_CODEX_EXECUTABLE',
-    'INTAKE_CLAUDE_EXECUTABLE',
-  ]
-}
-
-const INVENTORY_NAMES = {
-  fake: 'mock',
-  'local-inventree': 'local InvenTree',
-  'read-only': 'external InvenTree',
-}
-
-/** What the app runs, in the terms of the switches that chose it. */
-function startupSummary(target, resolved) {
-  const access = resolved.readOnly ? 'read-only' : 'writable'
-  const where = resolved.agentsInVm ? ' in the VM' : ''
-  const lines = [
-    `Inventory: ${INVENTORY_NAMES[target.kind]} (${access}).`,
-    `Processing: ${resolved.profile}${where}.`,
-  ]
-  if (resolved.ignored.length > 0) {
-    lines.push(`Ignored because the mock inventory is selected: ${resolved.ignored.join(', ')}.`)
-  }
-  return `${lines.join('\n')}\n`
-}
-
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
@@ -182,6 +149,8 @@ async function main() {
   )
   const target = developmentTarget(targetValues)
   const targetKey = developmentCredential(targetValues, target)
+  // Printed before setup, so an overridden setting is visible even if startup later fails.
+  process.stdout.write(startupSummary(target.kind, resolved))
   const port = Number(settings.INTAKE_DEV_PORT ?? 4330)
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 4310 || port === 4350) {
     throw new Error('invalid_development_port')
@@ -379,7 +348,7 @@ async function main() {
         },
         (text) => text.includes('"web_ready"'),
       ).ready()
-      if (state.version === 1 && !resolved.readOnly) {
+      if (startsApplyRunner(state, resolved.readOnly)) {
         await child(
           'apply',
           'src/review/runner-main.ts',
@@ -392,7 +361,7 @@ async function main() {
       ).ready()
       if (worker) {
         const providerEnv = Object.fromEntries(
-          agentWorkerSettings(resolved)
+          agentWorkerSettingNames(resolved)
             .filter((key) => settings[key])
             .map((key) => [key, settings[key]]),
         )
@@ -429,8 +398,7 @@ async function main() {
         cwd: repository,
         env: {
           ...env,
-          // The VM's personal credential management is served through the dev UI proxy.
-          INTAKE_PERSONAL_MANAGEMENT: resolved.agentsInVm ? '1' : undefined,
+          INTAKE_PERSONAL_MANAGEMENT: personalManagementFlag(resolved),
           INTAKE_DEV_PUBLIC_PORT: String(port),
           INTAKE_DEV_API_PORT: String(apiPort),
         },
@@ -556,7 +524,7 @@ async function main() {
       initialSources,
     )
     process.stdout.write(
-      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace.\n${startupSummary(target, resolved)}`,
+      `Development app ready: ${publicOrigin}\n${tailnet ? `Tailnet: ${tailnet.origin} (${tailnet.login} only)\n` : ''}Data retained in the configured private development namespace. Processing: ${resolved.profile}.\n`,
     )
     await stopped
   } finally {

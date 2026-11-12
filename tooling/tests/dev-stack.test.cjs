@@ -227,3 +227,12 @@ test('fake supervision starts the shared server with the shared child env before
   ])
   assert.equal(started.prepared.root, '/state/fake')
 })
+
+const { startsApplyRunner } = require('../dev/stack.cjs')
+
+test('only a writable mock starts the apply runner', () => {
+  assert.equal(startsApplyRunner({ version: 1 }, false), true)
+  assert.equal(startsApplyRunner({ version: 1 }, true), false)
+  assert.equal(startsApplyRunner({ version: 2 }, false), false)
+  assert.equal(startsApplyRunner({ version: 3 }, true), false)
+})
