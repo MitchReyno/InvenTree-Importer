@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -33,12 +32,16 @@ import {
 import { useBatchAttention } from '#/attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
 import { PageContent } from '#/components/AppLayout'
-import { useApiClients, useServerScope } from '#/context'
+import {
+  useApiClients,
+  useServerScope,
+  useRetainedPollInterval,
+  BatchCommandsProvider,
+} from '#/context'
 import { RecordsStage } from '#/components/review/records/RecordsStage'
 import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
-import { BatchCommandsProvider } from './BatchCommandsProvider'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */

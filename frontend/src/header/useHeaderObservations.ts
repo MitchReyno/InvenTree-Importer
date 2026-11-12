@@ -2,10 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
 import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { assertHeaderScope, HEADER_POLL_MS } from './observations'
 import type { HeaderClient } from './types'
-import { useServerScope } from '#/context'
+import { useServerScope, useRetainedPollInterval } from '#/context'
 
 export function useHeaderObservations(client: HeaderClient, batchId?: string) {
   const scope = useServerScope()

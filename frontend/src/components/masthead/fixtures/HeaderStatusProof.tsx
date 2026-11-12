@@ -4,11 +4,11 @@ import type { BatchAttentionDto, ConnectionStatusDto, HeaderWorkDto } from '@inv
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
-import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { HeaderStatus } from '#/components/masthead/HeaderStatus'
 import { Masthead } from '#/components/masthead/Masthead'
 import type { HeaderClient } from '#/header/types'
+import { UpdateHealthContext } from '#/context'
 
 const scope = {
   origin: 'http://localhost:3000',

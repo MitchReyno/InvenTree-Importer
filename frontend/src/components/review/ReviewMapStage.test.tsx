@@ -6,8 +6,7 @@ import { render } from '#/test/render'
 import type { MediaClient } from '#/media/types'
 import type { ProcessingClient } from '#/processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
-import { ApiClientsProvider } from '#/context'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
+import { ApiClientsProvider, BatchCommandsProvider } from '#/context'
 import { batchCommands } from '#/test/batch-commands'
 
 const lot = (id: string, label: string) => ({ id, label, part_subject_id: null })

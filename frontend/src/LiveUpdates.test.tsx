@@ -7,7 +7,8 @@ import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
 import { serverQueryKey } from './queries/scope'
 import { fixtureScope } from './test/render'
-import { LiveUpdates, useRetainedPollInterval } from './components/operations/LiveUpdates'
+import { LiveUpdates } from './components/operations/LiveUpdates'
+import { useRetainedPollInterval } from '#/context'
 
 class Socket {
   static instances: Socket[] = []

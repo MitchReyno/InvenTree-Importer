@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { size, space } from '#/theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey } from '#/queries/scope'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   ProcessingAnswerDto,
@@ -39,7 +38,7 @@ import { useDirtySources } from '#/operator/useDirtySources'
 import { openQuestionsByLot } from '#/operator/review-model'
 import type { AgentSessionListDto } from '@invimport/contracts'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
-import { useApiClients, useServerScope } from '#/context'
+import { useApiClients, useServerScope, useRetainedPollInterval } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 
 const ACTIVITY_LIMIT = 6

@@ -8,8 +8,7 @@ import type { OperatorReviewDto } from '@invimport/contracts'
 import { CaptureActions } from './CaptureActions'
 import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
-import { useApiClients } from '#/context'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useApiClients, useBatchCommands } from '#/context'
 
 type Props = {
   batch: Snapshot

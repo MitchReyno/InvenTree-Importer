@@ -16,7 +16,6 @@ import {
   DataTable,
   TableWrap,
 } from '#/components/ui'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
 import {
@@ -24,7 +23,7 @@ import {
   SessionFailureDetails,
   type FailureLoader,
 } from './SessionFailureDetails'
-import { useServerScope } from '#/context'
+import { useServerScope, useRetainedPollInterval } from '#/context'
 
 type Session = AgentSessionListDto['sessions'][number]
 type Filter = 'all' | 'running' | 'waiting' | 'queued' | 'finished'

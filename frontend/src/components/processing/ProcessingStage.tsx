@@ -4,7 +4,7 @@ import type { ProcessingClient } from '#/processing/types'
 import { ProcessingWorkspace } from './ProcessingWorkspace'
 import type { SharperRequestStore } from './ExamineView'
 import type { InstructionDelivery } from '#/processing/instruction-delivery'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useBatchCommands } from '#/context'
 
 interface Props {
   batch: CaptureSnapshotDto

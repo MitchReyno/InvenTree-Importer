@@ -8,8 +8,7 @@ import { RestructureDialog } from '#/components/operator/RestructureDialog'
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '#/operator/useDirtySources'
-import { useBatchCommands } from '#/capture/batch-commands'
-import { useApiClients, useServerScope } from '#/context'
+import { useApiClients, useServerScope, useBatchCommands } from '#/context'
 
 type Props = {
   batch: CaptureSnapshotDto

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   LIVE_PROTOCOL,
@@ -9,34 +9,17 @@ import {
 import { strictJson } from '@invimport/contracts/json'
 import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
-import { ServerScopeContext } from '#/context'
+import {
+  RetainedPollIntervalContext,
+  ServerScopeContext,
+  UpdateHealthContext,
+  type LiveConnection,
+} from '#/context'
 import { Small } from '#/components/ui'
 import { useOnForeground } from '#/browser/useOnForeground'
 
-const PollInterval = createContext<number | false>(RETAINED_POLL_INTERVAL_MS)
-
-export function useRetainedPollInterval() {
-  return useContext(PollInterval)
-}
-
 export const LIVE_UPDATE_FRESH_MS = 30_000
 
-export interface UpdateHealth {
-  state: Connection
-  observedAt: number | null
-  truncated: boolean
-}
-export const UpdateHealthContext = createContext<UpdateHealth>({
-  state: 'connecting',
-  observedAt: null,
-  truncated: false,
-})
-
-export function useUpdateHealth() {
-  return useContext(UpdateHealthContext)
-}
-
-type Connection = 'connecting' | 'live' | 'polling' | 'update_required'
 interface Props {
   csrfToken: string | null
   batchId: string | null
@@ -55,7 +38,7 @@ export function LiveUpdates({
 }: Props) {
   const scope = useContext(ServerScopeContext)
   const queryClient = useQueryClient()
-  const [health, setHealth] = useState<{ state: Connection; observedAt: number | null }>({
+  const [health, setHealth] = useState<{ state: LiveConnection; observedAt: number | null }>({
     state: 'connecting',
     observedAt: null,
   })
@@ -237,7 +220,7 @@ export function LiveUpdates({
   }
   const interval = connection === 'live' ? (truncated ? 15000 : false) : RETAINED_POLL_INTERVAL_MS
   return (
-    <PollInterval.Provider value={interval}>
+    <RetainedPollIntervalContext.Provider value={interval}>
       <UpdateHealthContext.Provider value={{ ...health, truncated }}>
         {showStatus && csrfToken && (
           <Small role="status" aria-live="polite">
@@ -246,6 +229,6 @@ export function LiveUpdates({
         )}
         {children}
       </UpdateHealthContext.Provider>
-    </PollInterval.Provider>
+    </RetainedPollIntervalContext.Provider>
   )
 }

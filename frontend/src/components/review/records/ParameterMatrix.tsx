@@ -6,7 +6,8 @@ import { STEP_LABELS } from '#/records/model'
 import { color, font, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import { Button, Pill, Small, VisuallyHidden } from '#/components/ui'
 import { AskControl } from './AskControl'
-import { SavingContext, useRecordSave, type Save } from './draft'
+import { useRecordSave, type Save } from './draft'
+import { SavingContext } from '#/context'
 
 type Send = (text: string, key: string) => Promise<void>
 

@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useContext, useEffect, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto, RecordChangeDto } from '@invimport/contracts'
 import { refusal } from '#/records/model'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from '#/components/ui'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import { ReloadContext, SavingContext } from '#/context'
 
 export type Save = (change: CaptureEditDto['change']) => Promise<boolean>
 
@@ -41,18 +42,6 @@ export function useDraft<T>(saved: T, report: (dirty: boolean) => void) {
 
   return [value, setValue, dirty, reset] as const
 }
-
-/** Loads the current batch without touching record drafts, so a refused save can be retried. */
-export const ReloadContext = createContext<(() => Promise<boolean>) | undefined>(undefined)
-
-/** One record save at a time: the batch sends one edit, so every Save waits for it. */
-export const SavingContext = createContext<{
-  saving: boolean
-  setSaving: (value: boolean) => void
-}>({
-  saving: false,
-  setSaving: () => {},
-})
 
 /**
  * Checks a record edit against the loaded batch, then sends it. A refused or failed save keeps the

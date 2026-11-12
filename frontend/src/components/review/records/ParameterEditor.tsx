@@ -3,7 +3,8 @@ import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contra
 import { mappingsFor, partTemplates, referenceTo } from '#/records/model'
 import { Button } from '#/components/ui'
 import { Input, Label, Select } from '#/forms'
-import { SaveRow, SavingContext, useDraft, useRecordSave, type Save } from './draft'
+import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
+import { SavingContext } from '#/context'
 
 type Parameter = InventoryPartSpecDto['parameters'][number]
 

@@ -33,10 +33,14 @@ import { appPage, routeBatchId } from './navigation/app-route'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
-import { CompactStatusContext } from './components/masthead/CompactStatus'
-import { HeaderObservationsProvider } from './components/masthead/HeaderObservations'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
-import { ApiClientsProvider, ConfirmationProvider, type ApiClients } from './context'
+import {
+  ApiClientsProvider,
+  ConfirmationProvider,
+  type ApiClients,
+  CompactStatusContext,
+  HeaderObservationsProvider,
+} from './context'
 
 export default function App() {
   const { route, navigationBlocked, onDirtyChange } = useNavigationGuard()

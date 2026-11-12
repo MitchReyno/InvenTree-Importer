@@ -1,10 +1,14 @@
 import { render as renderUi, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
-import { ApiClientsProvider, ConfirmationProvider, type ApiClients } from '#/context'
+import {
+  ApiClientsProvider,
+  BatchCommandsProvider,
+  ConfirmationProvider,
+  type ApiClients,
+  type BatchCommands,
+} from '#/context'
 import type { ServerScope } from '#/queries/scope'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
-import type { BatchCommands } from '#/capture/batch-commands'
 import { batchCommands } from './batch-commands'
 
 export const fixtureScope: ServerScope = {

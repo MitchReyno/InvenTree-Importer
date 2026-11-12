@@ -5,11 +5,10 @@ import type { MediaClient } from '#/media/types'
 import { mediaResource } from '#/media/types'
 import { mediaDisplayLabels } from '#/media/identity-labels'
 import { serverQueryKey } from '#/queries/scope'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
 import { Heading, Link, Panel, Paragraph, Small, Banner } from '#/components/ui'
 import { batchHref } from '#/navigation/batch-route'
-import { useServerScope } from '#/context'
+import { useServerScope, useRetainedPollInterval } from '#/context'
 
 export function ProcessingImages({ batchId, client }: { batchId: string; client?: MediaClient }) {
   const scope = useServerScope()
