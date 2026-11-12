@@ -97,15 +97,12 @@ export function DrawerAnswers(props: Props) {
   // Where focus was when the move was promised; the move is skipped if the operator moves it.
   const promisedFrom = useRef<Element | null>(null)
 
-  // On a remount, the drawer's own opening (showModal, in its parent's Effect) settles focus
-  // first, so the starting point is read once both have run.
+  // On a remount, the drawer opens in Dialog's layout Effect, which runs before this one, so
+  // focus has settled where its opening put it.
   useEffect(() => {
-    if (!focusNext) {
-      return
-    }
-    queueMicrotask(() => {
+    if (focusNext) {
       promisedFrom.current = document.activeElement
-    })
+    }
   }, [focusNext])
   const current = nextPins(pins, props)
   if (current !== pins) {

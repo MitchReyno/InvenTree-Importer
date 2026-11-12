@@ -1045,7 +1045,7 @@ test('a drawer opened from the session row stays open after an answer, focused o
   expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull()
 })
 
-test('a reload that doesn’t remount leaves nothing to reopen the drawer on a later visit', async () => {
+test('a skipped reload leaves nothing to reopen the drawer on a later visit', async () => {
   const user = userEvent.setup()
   const { client, reload } = mountInventoryDrawer(inventorySnapshot(), undefined, {
     fromRow: true,
@@ -1165,6 +1165,57 @@ test('focus the operator moves while the remount’s read fails stays where they
   })
   await screen.findByRole('form', { name: 'Session question: Is Packet A the reel in drawer 2?' })
   expect(chat).toHaveFocus()
+})
+
+/** Answers the first question from a drawer opened on the session row, remounting Processing. */
+async function answerFirstFromRow(user: ReturnType<typeof userEvent.setup>) {
+  const mounted = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  mounted.client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  return mounted
+}
+
+test('closing a drawer restored after a remount returns focus to its session row', async () => {
+  const user = userEvent.setup()
+  await answerFirstFromRow(user)
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
+
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Open session: Inventory · Packet A' })).toHaveFocus()
+})
+
+test('a drawer that focuses its own Close on opening still moves to the next question', async () => {
+  const user = userEvent.setup()
+  // As browsers do: showModal opens the dialog and focuses its first focusable control. jsdom
+  // has no showModal, so Dialog would otherwise just set `open`.
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = true
+      this.querySelector<HTMLElement>('button')?.focus()
+    },
+  })
+  try {
+    await answerFirstFromRow(user)
+    await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
+  } finally {
+    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
+  }
 })
 
 test('saving a drawer’s last draft after its session left clears the session link', async () => {

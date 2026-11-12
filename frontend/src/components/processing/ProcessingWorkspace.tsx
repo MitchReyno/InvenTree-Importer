@@ -346,9 +346,11 @@ export function ProcessingWorkspace({
       // Each answer form reports itself clean once its own save is confirmed.
       await perform(() => client.answer(batch.id, id, input, key))
       // The reload remounts Processing; an open drawer comes back, focused as it would have been.
-      drawerRestore?.set(
-        sessionJobId === null ? null : { route, jobId: sessionJobId, focusNext: fromDrawer },
-      )
+      if (sessionJobId === null) {
+        drawerRestore?.disarm()
+      } else {
+        drawerRestore?.set({ route, jobId: sessionJobId, focusNext: fromDrawer })
+      }
       try {
         await onSaved()
       } catch {
@@ -506,7 +508,7 @@ export function ProcessingWorkspace({
   }
 
   function closeDrawer() {
-    drawerRestore?.set(null)
+    drawerRestore?.disarm()
     setCloseBlocked(false)
     setSessionJobId(null)
     // A session link's query would reopen the drawer when the batch next reloads.
@@ -801,6 +803,10 @@ export function ProcessingWorkspace({
           {sessionJob && client.session && client.chat && (
             <Dialog
               placement="side"
+              // A drawer restored after a remount had no opener; its session row takes focus back.
+              returnFocus={() =>
+                document.querySelector<HTMLElement>(`[data-session-job="${sessionJob.id}"]`)
+              }
               title={
                 <AiMark>
                   {STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} ·{' '}

@@ -24,8 +24,8 @@ export function createDrawerRestore() {
   return {
     /** What the reload carried, read without consuming so a render can initialise state purely. */
     peek: () => carried,
-    /** Arms the drawer for the reload that follows a confirmed answer; null disarms it. */
-    set(value: DrawerRestore | null) {
+    /** Arms the drawer for the reload that follows a confirmed answer. */
+    set(value: DrawerRestore) {
       armed = value
     },
     /** Called by the reload that re-keys Processing, so the next mount brings the drawer back. */
