@@ -1,7 +1,9 @@
-import { BufferGeometry, type Fog, type Scene } from 'three'
+import { BufferGeometry, Vector3, type Fog, type Mesh, type Scene } from 'three'
 import { FINISHES } from './finishes'
+import type { PartType } from './part-model'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { createElectronicsCurrent } from './scene'
+import { WICK_ANCHOR } from './parts/wick'
+import { createElectronicsCurrent, HANGING_LAYER_NAME } from './scene'
 
 interface FakeRenderer {
   lastScene: Scene | null
@@ -10,6 +12,18 @@ interface FakeRenderer {
 }
 
 const rendering = vi.hoisted(() => ({ instances: [] as FakeRenderer[] }))
+
+// Lets one test fill the masthead with a single part type; null keeps the real weighted pick.
+const catalogue = vi.hoisted(() => ({ forcedType: null as PartType | null }))
+
+vi.mock('./catalogue', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./catalogue')>()
+
+  return {
+    ...actual,
+    pickPartType: (random: () => number) => catalogue.forcedType ?? actual.pickPartType(random),
+  }
+})
 
 // jsdom has no WebGL: replace only the renderer and keep the rest of three.js real.
 vi.mock('three', async (importOriginal) => {
@@ -58,8 +72,11 @@ function seededRandom(seed: number): () => number {
   }
 }
 
+// Frame timestamps keep advancing across calls, so stepping one frame at a time is still 16.7 ms.
+let clock = 0
+
 function runFrames(count: number): void {
-  let now = performance.now()
+  clock = Math.max(clock, performance.now())
 
   for (let index = 0; index < count; index++) {
     const next = frames.shift()
@@ -68,8 +85,8 @@ function runFrames(count: number): void {
       return
     }
 
-    now += 16.7
-    next(now)
+    clock += 16.7
+    next(clock)
   }
 }
 
@@ -78,6 +95,11 @@ function setVisible(visible: boolean): void {
     [{ isIntersecting: visible } as IntersectionObserverEntry],
     {} as IntersectionObserver,
   )
+}
+
+/** The scene's part objects, leaving out the layer that holds loose ends. */
+function partObjects(scene: Scene | null | undefined) {
+  return (scene?.children ?? []).filter((child) => child.name !== HANGING_LAYER_NAME)
 }
 
 function currentRenderer(): FakeRenderer {
@@ -137,6 +159,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  catalogue.forcedType = null
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   observers.resizeDisconnect.mockReset()
@@ -149,7 +172,7 @@ test('reduced motion renders one static frame and never starts a loop', () => {
 
   expect(requestAnimationFrame).not.toHaveBeenCalled()
   expect(currentRenderer().renders).toBe(1)
-  expect(currentRenderer().lastScene?.children.length).toBe(30)
+  expect(partObjects(currentRenderer().lastScene)).toHaveLength(30)
   controller.dispose()
 })
 
@@ -189,11 +212,11 @@ test('the loop pauses while the masthead is off-screen and resumes when it retur
 
 test('parts leaving the masthead are replaced while the count stays steady', () => {
   const controller = start(false)
-  const initial = new Set(currentRenderer().lastScene?.children.map((child) => child.uuid))
+  const initial = new Set(partObjects(currentRenderer().lastScene).map((child) => child.uuid))
 
   // About 90 simulated seconds: every starting part crosses the masthead.
   runFrames(1800)
-  const children = currentRenderer().lastScene?.children ?? []
+  const children = partObjects(currentRenderer().lastScene)
   const survivors = children.filter((child) => initial.has(child.uuid))
 
   expect(children).toHaveLength(30)
@@ -211,7 +234,7 @@ test('stirring with the pointer keeps every part position finite', () => {
 
   controller.setPointer(-500, -500)
   runFrames(10)
-  const positions = currentRenderer().lastScene?.children.map((child) => child.position) ?? []
+  const positions = partObjects(currentRenderer().lastScene).map((child) => child.position)
 
   expect(positions).toHaveLength(30)
   positions.forEach((position) => {
@@ -271,4 +294,183 @@ test('starts in the requested theme', () => {
 
   expect(fog.color.getHex()).toBe(FINISHES.dark.ground)
   controller?.dispose()
+})
+
+test('loose ends join the scene with their dispensers, follow them and leave with them', () => {
+  catalogue.forcedType = 'solderWick'
+  const controller = start(false)
+  const scene = currentRenderer().lastScene
+  const layer = scene?.getObjectByName(HANGING_LAYER_NAME)
+  const initial = new Set(layer?.children.map((child) => child.uuid))
+  const ribbonDisposals = (layer?.children ?? []).map((child) =>
+    vi.spyOn((child as Mesh).geometry, 'dispose'),
+  )
+
+  expect(layer?.children).toHaveLength(60)
+
+  runFrames(1800)
+  const positions = layer?.children.flatMap((child) =>
+    Array.from((child as Mesh).geometry.getAttribute('position').array),
+  )
+  const survivors = layer?.children.filter((child) => initial.has(child.uuid)) ?? []
+
+  expect(layer?.children).toHaveLength(60)
+  expect(survivors.length).toBeLessThan(60)
+  expect(positions?.every(Number.isFinite)).toBe(true)
+
+  // Each ribbon starts on its dispenser's rim as rendered, so loose ends never trail a frame.
+  const ribbonStarts = (layer?.children ?? [])
+    .filter((child) => (child as Mesh).isMesh)
+    .map((child) => {
+      const edge = (child as Mesh).geometry.getAttribute('position')
+      const left = new Vector3().fromBufferAttribute(edge, 0)
+
+      return left.add(new Vector3().fromBufferAttribute(edge, 1)).multiplyScalar(0.5)
+    })
+  partObjects(scene).forEach((object) => {
+    object.updateWorldMatrix(true, true)
+    const rim = object.children[0].localToWorld(WICK_ANCHOR.clone())
+    const nearest = Math.min(...ribbonStarts.map((start) => start.distanceTo(rim)))
+
+    expect(nearest).toBeLessThan(1e-4)
+  })
+
+  ribbonDisposals.push(
+    ...(layer?.children ?? []).map((child) => vi.spyOn((child as Mesh).geometry, 'dispose')),
+  )
+  controller.dispose()
+
+  // Every loose end, recycled or still in place at the end, released its own geometry.
+  expect(layer?.children).toHaveLength(0)
+  expect(ribbonDisposals.length).toBeGreaterThan(60)
+  ribbonDisposals.forEach((dispose) => expect(dispose).toHaveBeenCalledTimes(1))
+})
+
+test('the reduced-motion still frame hangs each loose end straight down from its rim', () => {
+  catalogue.forcedType = 'solderWick'
+  const controller = start(true)
+  const scene = currentRenderer().lastScene
+  const ribbons = (scene?.getObjectByName(HANGING_LAYER_NAME)?.children ?? [])
+    .filter((child) => (child as Mesh).isMesh)
+    .map((child) => (child as Mesh).geometry.getAttribute('position'))
+
+  function midpoint(positions: (typeof ribbons)[number], index: number): Vector3 {
+    const left = new Vector3().fromBufferAttribute(positions, index * 2)
+
+    return left.add(new Vector3().fromBufferAttribute(positions, index * 2 + 1)).multiplyScalar(0.5)
+  }
+
+  expect(ribbons).toHaveLength(30)
+  partObjects(scene).forEach((object) => {
+    object.updateWorldMatrix(true, true)
+    const rim = object.children[0].localToWorld(WICK_ANCHOR.clone())
+    const ribbon = ribbons.find((positions) => midpoint(positions, 0).distanceTo(rim) < 1e-4)
+
+    if (!ribbon) {
+      throw new Error('every dispenser should have a loose end on its rim')
+    }
+
+    const end = midpoint(ribbon, 11)
+    expect(end.x).toBeCloseTo(rim.x, 4)
+    expect(end.z).toBeCloseTo(rim.z, 4)
+    expect(end.y).toBeLessThan(rim.y)
+  })
+  controller.dispose()
+})
+
+test('a recycled dispenser enters already posed, so its loose end does not whip', () => {
+  catalogue.forcedType = 'solderWick'
+  const controller = start(false)
+  const scene = currentRenderer().lastScene
+  const layer = scene?.getObjectByName(HANGING_LAYER_NAME)
+  const seen = new Set(layer?.children.map((child) => child.uuid))
+  let checked = 0
+
+  for (let frame = 0; frame < 1800 && checked < 5; frame++) {
+    const fresh = (layer?.children ?? []).filter(
+      (child) => (child as Mesh).isMesh && !seen.has(child.uuid),
+    )
+    layer?.children.forEach((child) => seen.add(child.uuid))
+    runFrames(1)
+
+    fresh.forEach((child) => {
+      const positions = (child as Mesh).geometry.getAttribute('position')
+      const start = new Vector3().fromBufferAttribute(positions, 0)
+      start.add(new Vector3().fromBufferAttribute(positions, 1)).multiplyScalar(0.5)
+      const end = new Vector3().fromBufferAttribute(positions, 22)
+      end.add(new Vector3().fromBufferAttribute(positions, 23)).multiplyScalar(0.5)
+
+      // One frame after entering, the end still hangs almost straight below the rim.
+      expect(Math.hypot(end.x - start.x, end.z - start.z)).toBeLessThan(0.3)
+      checked += 1
+    })
+  }
+
+  expect(checked).toBeGreaterThan(0)
+  controller.dispose()
+})
+
+test('the pointer reaches a loose end through the scene', () => {
+  // The isometric camera's screen axes, matching the scene's camera.
+  const right = new Vector3(1, 0, -1).normalize()
+  const up = new Vector3(-1, 2, -1).normalize()
+
+  function ribbonEnds(): Vector3[] {
+    const layer = currentRenderer().lastScene?.getObjectByName(HANGING_LAYER_NAME)
+
+    return (layer?.children ?? [])
+      .filter((child) => (child as Mesh).isMesh)
+      .map((child) => {
+        const positions = (child as Mesh).geometry.getAttribute('position')
+        const end = new Vector3().fromBufferAttribute(positions, 22)
+
+        return end.add(new Vector3().fromBufferAttribute(positions, 23)).multiplyScalar(0.5)
+      })
+  }
+
+  function run(pointerAt: { x: number; y: number } | null): Vector3[] {
+    catalogue.forcedType = 'solderWick'
+    const controller = start(false)
+    runFrames(10)
+
+    if (pointerAt) {
+      for (let frame = 0; frame < 20; frame++) {
+        controller.setPointer(pointerAt.x, pointerAt.y)
+        runFrames(1)
+      }
+    } else {
+      runFrames(20)
+    }
+
+    const ends = ribbonEnds()
+    controller.dispose()
+
+    return ends
+  }
+
+  const before = (() => {
+    catalogue.forcedType = 'solderWick'
+    const controller = start(false)
+    runFrames(10)
+    const ends = ribbonEnds()
+    controller.dispose()
+
+    return ends
+  })()
+  // Hold the pointer 20 px left of a loose end that is on screen.
+  const target = before.findIndex((end) => {
+    const y = 60 - end.dot(up) / 0.17
+    const x = end.dot(right) / 0.17 + 640
+
+    return x > 40 && x < 1240 && y > 10 && y < 110
+  })
+  expect(target).toBeGreaterThanOrEqual(0)
+  const end = before[target]
+  const pointerAt = { x: end.dot(right) / 0.17 + 620, y: 60 - end.dot(up) / 0.17 }
+
+  const untouched = run(null)
+  const stirred = run(pointerAt)
+
+  expect(stirred.flatMap((point) => point.toArray()).every(Number.isFinite)).toBe(true)
+  expect(stirred[target].dot(right) - untouched[target].dot(right)).toBeGreaterThan(0.05)
 })
