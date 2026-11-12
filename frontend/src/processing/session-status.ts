@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { examineLead, subjectStatuses, WORK_STEPS } from './source'
 import type { ProcessingClient } from './types'
+import { useServerScope } from '#/context'
 
 export const SESSION_STATUS_REFRESH_MS = 15_000
 

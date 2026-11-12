@@ -8,7 +8,7 @@ import { useEvidenceWorkspace } from '#/media/useEvidenceWorkspace'
 import { CaptureEditor } from '#/components/capture/CaptureEditor'
 import { SubjectAttachmentChoice } from '#/components/media/SubjectAttachmentChoice'
 import { Heading, HeadingRow, Panel, Small, Button } from '#/components/ui'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 import { useBatchCommands } from '#/capture/batch-commands'
 

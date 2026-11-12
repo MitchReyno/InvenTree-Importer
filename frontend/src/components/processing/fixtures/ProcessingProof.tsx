@@ -12,7 +12,7 @@ import { ProcessingWorkspace } from '#/components/processing/ProcessingWorkspace
 import { Main, PageContent } from '#/components/AppLayout'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
 import { useHashRoute } from '#/navigation/useHashRoute'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {

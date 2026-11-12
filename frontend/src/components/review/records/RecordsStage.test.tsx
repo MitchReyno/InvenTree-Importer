@@ -14,7 +14,7 @@ import { render } from '#/test/render'
 import { RecordsStage } from './RecordsStage'
 import type { ProcessingClient } from '#/processing/types'
 import { CompanyDecision } from './CompanyDecision'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
 

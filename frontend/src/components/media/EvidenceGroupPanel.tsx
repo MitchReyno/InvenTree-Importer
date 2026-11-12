@@ -21,7 +21,7 @@ import { MediaEvidenceRelations } from './MediaEvidenceRelations'
 import { MediaTextEditor } from './MediaTextEditor'
 import { MediaNoteSummary } from './MediaNoteSummary'
 import { InstructionForm } from '#/components/operator/InstructionForm'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients } from '#/context'
 import type { CaptureEdit } from '#/capture/types'
 
 type Props = {

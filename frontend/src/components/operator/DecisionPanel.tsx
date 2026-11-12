@@ -45,7 +45,7 @@ import { AgentLine } from './AgentLine'
 import type { LotStatus } from '#/processing/source'
 import { problemActions } from '#/operator/problem-actions'
 import type { Provenance } from '#/operator/review-model'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients } from '#/context'
 import { useBatchCommands } from '#/capture/batch-commands'
 
 type Lot = CaptureSnapshotDto['lots'][number]

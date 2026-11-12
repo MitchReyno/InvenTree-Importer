@@ -1,6 +1,5 @@
 import { AgentSettings } from './components/agents/AgentSettings'
 import { Banner } from './components/ui/Banner'
-import { ConfirmationProvider } from './components/ui/Confirmation'
 import { AgentSessions } from './components/agents/AgentSessions'
 import { PageTitle, Panel, Paragraph } from './components/ui/primitives'
 import { Button } from './components/ui/Button'
@@ -37,8 +36,7 @@ import { AppMasthead } from './components/masthead/AppMasthead'
 import { CompactStatusContext } from './components/masthead/CompactStatus'
 import { HeaderObservationsProvider } from './components/masthead/HeaderObservations'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
-import type { ApiClients } from './clients/api-clients'
+import { ApiClientsProvider, ConfirmationProvider, type ApiClients } from './context'
 
 export default function App() {
   const { route, navigationBlocked, onDirtyChange } = useNavigationGuard()

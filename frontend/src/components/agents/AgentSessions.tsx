@@ -3,7 +3,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import styled from 'styled-components'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { batchHref, processingStepFor, sessionHref } from '#/navigation/batch-route'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
 import {
   AiMark,
@@ -24,6 +24,7 @@ import {
   SessionFailureDetails,
   type FailureLoader,
 } from './SessionFailureDetails'
+import { useServerScope } from '#/context'
 
 type Session = AgentSessionListDto['sessions'][number]
 type Filter = 'all' | 'running' | 'waiting' | 'queued' | 'finished'

@@ -16,7 +16,7 @@ import { Batches } from './components/batches/Batches'
 import type { Client } from './capture/client'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from './context'
 import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
 import { batchCommands } from './test/batch-commands'
 

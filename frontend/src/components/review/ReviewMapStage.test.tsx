@@ -6,7 +6,7 @@ import { render } from '#/test/render'
 import type { MediaClient } from '#/media/types'
 import type { ProcessingClient } from '#/processing/types'
 import { ReviewMapStage } from './ReviewMapStage'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
 

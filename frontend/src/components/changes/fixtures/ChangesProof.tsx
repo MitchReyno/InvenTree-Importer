@@ -13,7 +13,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { Batch } from '#/components/batches/Batch'
 import { Main } from '#/components/AppLayout'
 import { useHashRoute } from '#/navigation/useHashRoute'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 
 /**
  * Owned browser fixture for Changes: an in-memory manual client prepares exactly the ticked lots,

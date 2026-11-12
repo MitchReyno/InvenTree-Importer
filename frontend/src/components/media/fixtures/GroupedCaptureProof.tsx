@@ -7,7 +7,7 @@ import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import type { MediaClient } from '#/media/types'
 import { EvidenceViewer } from '#/components/operator/EvidenceViewer'
 import { Main, PageContent } from '#/components/AppLayout'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
 

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import type { BatchAttentionDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { useServerScope } from '#/context'
 
 export type AttentionClient = { read: (batchId: string) => Promise<BatchAttentionDto> }
 

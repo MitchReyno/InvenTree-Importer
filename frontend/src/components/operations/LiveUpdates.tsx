@@ -8,7 +8,8 @@ import {
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
-import { serverQueryKey, ServerScopeContext } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
+import { ServerScopeContext } from '#/context'
 import { Small } from '#/components/ui'
 import { useOnForeground } from '#/browser/useOnForeground'
 

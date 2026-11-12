@@ -8,7 +8,7 @@ import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
 import { serverQueryKey, type ServerScope } from './queries/scope'
 import type { ProcessingClient } from './processing/types'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from './context'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'

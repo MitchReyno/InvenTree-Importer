@@ -9,7 +9,7 @@ import { ProposedLotsGlance } from './ProposedLotsGlance'
 import { proposedLots } from '#/processing/proposed-lots'
 import { batchHref } from '#/navigation/batch-route'
 import { useSessionStatuses } from '#/processing/session-status'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients } from '#/context'
 import { useBatchCommands } from '#/capture/batch-commands'
 
 type DirtySource = 'settings' | 'media' | 'note'

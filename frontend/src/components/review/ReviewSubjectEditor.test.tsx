@@ -7,7 +7,7 @@ import type { MediaClient } from '#/media/types'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { render } from '#/test/render'
 import { ReviewSubjectEditor } from './ReviewSubjectEditor'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
 

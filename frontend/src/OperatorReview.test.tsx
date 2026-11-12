@@ -24,7 +24,7 @@ import { ManualWorkspace } from './components/review/ManualWorkspace'
 import type { ManualClient } from './manual/types'
 import type { OperatorReviewClient } from './operator/types'
 import type { MediaClient } from './media/types'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from './context'
 import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
 import { batchCommands } from './test/batch-commands'
 

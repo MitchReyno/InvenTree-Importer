@@ -3,14 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
 import { examineLead } from '#/processing/source'
 import { confirmPending, editPending, pendingMessage, sendKey } from '#/processing/pending-messages'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { color, radius, space } from '#/theme/generated/tokens'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { chatConfirmation } from '#/components/processing/SessionChatPanel'
 import { AiMark, Button, Small } from '#/components/ui'
 import { Label, TextArea } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients, useServerScope } from '#/context'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead

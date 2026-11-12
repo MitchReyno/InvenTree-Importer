@@ -7,7 +7,7 @@ import {
   type RecordTypeDto,
 } from '@invimport/contracts'
 import { batchHref, parseBatchRoute, processingStepFor } from '#/navigation/batch-route'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { ENDED_SESSIONS } from '#/processing/source'
 import { clearPending } from '#/processing/pending-messages'
@@ -32,7 +32,7 @@ import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
 import { ReloadContext, SavingContext, type Save } from './draft'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients, useServerScope } from '#/context'
 import { useBatchCommands } from '#/capture/batch-commands'
 
 type Props = {

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-import { Toast } from './Toast'
+import { Toast } from '#/components/ui'
 
 const ConfirmationContext = createContext<(message: string) => void>(() => {})
 

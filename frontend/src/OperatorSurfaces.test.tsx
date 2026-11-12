@@ -17,7 +17,7 @@ import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace
 import type { OperatorReviewClient } from './operator/types'
 import type { SettingsPorts } from './capture/types'
 import type { ProcessingClient } from './processing/types'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from './context'
 import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
 import { batchCommands } from './test/batch-commands'
 

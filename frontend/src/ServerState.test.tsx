@@ -4,13 +4,9 @@ import { expect, test, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
-import {
-  serverQueryKey,
-  serverScopeIdentity,
-  useServerScope,
-  type ServerScope,
-} from './queries/scope'
+import { serverQueryKey, serverScopeIdentity, type ServerScope } from './queries/scope'
 import { fixtureScope } from './test/render'
+import { useServerScope } from './context'
 
 function deferred<T>() {
   let complete: (value: T) => void = () => {

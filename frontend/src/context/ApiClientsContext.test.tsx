@@ -2,8 +2,7 @@ import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { expect, test } from 'vitest'
 import type { MediaClient } from '#/media/types'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
-import { useApiClients } from './api-clients'
+import { ApiClientsProvider, useApiClients } from '#/context'
 
 test('outside a provider every feature client is unavailable', () => {
   const { result } = renderHook(() => useApiClients())

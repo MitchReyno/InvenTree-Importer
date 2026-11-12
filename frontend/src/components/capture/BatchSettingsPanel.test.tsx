@@ -14,7 +14,7 @@ import type { CatalogueClient } from '#/catalogue/types'
 import { fixtureScope, render } from '#/test/render'
 import { UpdateHealthContext } from '#/components/operations/LiveUpdates'
 import { CaptureWorkspace } from './CaptureWorkspace'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
 
