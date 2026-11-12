@@ -13,7 +13,7 @@ import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '#/components/processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
 import { LotObservations } from './LotObservations'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useBatchCommands } from '#/context'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]

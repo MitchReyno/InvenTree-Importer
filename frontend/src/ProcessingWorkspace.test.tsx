@@ -8,7 +8,7 @@ import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
 import { serverQueryKey, type ServerScope } from './queries/scope'
 import type { ProcessingClient } from './processing/types'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from './context'
 import { useState, useSyncExternalStore } from 'react'
 import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
 

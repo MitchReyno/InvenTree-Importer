@@ -13,7 +13,7 @@ import { Batch } from '#/components/batches/Batch'
 import { Batches } from '#/components/batches/Batches'
 import { Main, PageContent } from '#/components/AppLayout'
 import { useHashRoute } from '#/navigation/useHashRoute'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },

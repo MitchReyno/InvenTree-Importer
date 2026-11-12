@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import { Button } from '#/components/ui'
+import { useAsyncAction } from '#/lifecycle/useAsyncAction'
 
 type Props = {
   paused: boolean
@@ -24,33 +24,25 @@ export function PauseButton({
   pauseLabel = 'Pause all',
   resumeLabel = 'Resume',
 }: Props) {
-  const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState('')
+  const { busy, error, run } = useAsyncAction()
 
   return (
     <Control>
       <Button
         size="sm"
         disabled={busy}
-        onClick={async () => {
-          setBusy(true)
-          setFailed('')
-          try {
-            await change(!paused)
-          } catch {
-            setFailed(
-              paused
-                ? 'Resuming failed; the agents are still paused.'
-                : 'Pausing failed; the agents are still running.',
-            )
-          } finally {
-            setBusy(false)
-          }
-        }}
+        onClick={() =>
+          void run(
+            () => change(!paused),
+            paused
+              ? 'Resuming failed; the agents are still paused.'
+              : 'Pausing failed; the agents are still running.',
+          )
+        }
       >
         {paused ? resumeLabel : pauseLabel}
       </Button>
-      {failed && <Failed role="alert">{failed}</Failed>}
+      {error && <Failed role="alert">{error}</Failed>}
     </Control>
   )
 }

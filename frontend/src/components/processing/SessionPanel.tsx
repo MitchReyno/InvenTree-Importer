@@ -5,11 +5,11 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import type { ProcessingJobDto } from '@invimport/contracts'
 import type { ProcessingClient } from '#/processing/types'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { serverQueryKey } from '#/queries/scope'
 import { Small } from '#/components/ui'
 import { chatMessages, SessionChatPanel } from './SessionChatPanel'
 import { SessionTimeline } from './SessionTimeline'
+import { useServerScope, useRetainedPollInterval } from '#/context'
 
 interface Props {
   batchId: string

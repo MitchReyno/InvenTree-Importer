@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { render } from '#/test/render'
 import { DecisionPanel, recordLinks } from './DecisionPanel'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
+import { BatchCommandsProvider } from '#/context'
 
 const batch = { id: 'b' } as unknown as CaptureSnapshotDto
 const lot = { id: 'l', label: 'Packet A' } as unknown as CaptureSnapshotDto['lots'][number]

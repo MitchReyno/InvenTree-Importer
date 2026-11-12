@@ -7,8 +7,7 @@ import {
   type RecordTypeDto,
 } from '@invimport/contracts'
 import { batchHref, parseBatchRoute, processingStepFor } from '#/navigation/batch-route'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { serverQueryKey } from '#/queries/scope'
 import { ENDED_SESSIONS } from '#/processing/source'
 import { clearPending } from '#/processing/pending-messages'
 import { useQuery } from '@tanstack/react-query'
@@ -39,9 +38,15 @@ import {
 import { MappingReader } from '#/components/capture/MappingReader'
 import { RecordDetail } from './RecordDetail'
 import { ParameterMatrix } from './ParameterMatrix'
-import { ReloadContext, SavingContext, type Save } from './draft'
-import { useApiClients } from '#/clients/api-clients'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { type Save } from './draft'
+import {
+  useApiClients,
+  useServerScope,
+  useRetainedPollInterval,
+  ReloadContext,
+  SavingContext,
+  useBatchCommands,
+} from '#/context'
 
 type Props = {
   batch: CaptureSnapshotDto

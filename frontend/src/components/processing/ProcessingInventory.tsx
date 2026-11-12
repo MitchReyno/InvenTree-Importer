@@ -5,7 +5,7 @@ import type {
   CaptureSnapshotDto,
   ProcessingJobDto,
 } from '@invimport/contracts'
-import { useApiClients } from '#/clients/api-clients'
+import { useApiClients } from '#/context'
 import { batchHref } from '#/navigation/batch-route'
 import { STATE_LABELS } from '#/records/model'
 import { locationUse, locationUseText, stockQuantityText } from '#/records/locations'

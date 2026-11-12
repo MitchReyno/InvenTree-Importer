@@ -1,16 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import {
-  Banner,
-  Paragraph,
-  Heading,
-  HeadingRow,
-  VisuallyHidden,
-  useConfirmation,
-  Button,
-} from '#/components/ui'
+import { Banner, Paragraph, Heading, HeadingRow, VisuallyHidden, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { serverQueryKey } from '#/queries/scope'
 import type {
   CaptureSnapshotDto,
   ManualPreviewDto,
@@ -30,8 +21,13 @@ import { ReviewWorkspace } from './ReviewWorkspace'
 import { ReadyToAdd } from '#/components/changes/ReadyToAdd'
 import { Added } from '#/components/changes/Added'
 import { useTargetNavigation } from '#/header/useTargetNavigation'
-import { useApiClients } from '#/clients/api-clients'
-import { useBatchCommands } from '#/capture/batch-commands'
+import {
+  useApiClients,
+  useConfirmation,
+  useServerScope,
+  useRetainedPollInterval,
+  useBatchCommands,
+} from '#/context'
 
 interface Props {
   batch: CaptureSnapshotDto

@@ -1,4 +1,4 @@
-import type { BatchCommands } from '#/capture/batch-commands'
+import type { BatchCommands } from '#/context'
 
 /** Batch commands for rendering a batch surface alone; unspecified commands do nothing. */
 export function batchCommands(commands: Partial<BatchCommands> = {}): BatchCommands {

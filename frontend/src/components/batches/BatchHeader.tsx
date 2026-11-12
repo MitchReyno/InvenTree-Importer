@@ -16,9 +16,9 @@ import {
   linkTouchArea,
   useMediaQuery,
 } from '#/components/ui'
-import { useCompactStatus } from '#/components/masthead/CompactStatus'
 import { useOutOfView } from '#/browser/useOutOfView'
 import { NeedsYouPanel } from './NeedsYouPanel'
+import { useCompactStatus } from '#/context'
 
 type BatchHeaderProps = {
   batch: CaptureSnapshotDto

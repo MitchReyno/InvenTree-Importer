@@ -24,7 +24,7 @@ export function useDirtySources(onDirtyChange?: (dirty: boolean) => void) {
     }
     notify.current?.(next)
   }, [])
-  const callbacks = useMemo(() => new Map<string, (value: boolean) => void>(), [report])
+  const callbacks = useMemo(() => new Map<string, (value: boolean) => void>(), [])
   const forSource = useCallback(
     (source: string) => {
       let callback = callbacks.get(source)
