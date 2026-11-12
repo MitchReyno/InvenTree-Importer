@@ -1,3 +1,4 @@
+import reactHooks from 'eslint-plugin-react-hooks'
 import readability from './tooling/eslint/readability.mjs'
 
 export default [
@@ -28,5 +29,11 @@ export default [
       'media-decoder/src/**/*.ts',
       'contracts/src/**/*.ts',
     ],
+  },
+  {
+    // Frontend lint owns these rules and reports its unused disable comments; here they are only known.
+    files: ['frontend/src/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    linterOptions: { reportUnusedDisableDirectives: 'off' },
   },
 ]

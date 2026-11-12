@@ -12,6 +12,9 @@ export function useIntentTicket() {
     ticket.current += 1
     return ticket.current
   }, [])
-  const isCurrent = useCallback((value: number) => mounted.current && ticket.current === value, [])
+  const isCurrent = useCallback(
+    (value: number) => mounted.current && ticket.current === value,
+    [mounted],
+  )
   return { take, isCurrent }
 }

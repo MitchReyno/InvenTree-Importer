@@ -118,9 +118,10 @@ export function BatchSettingsPanel({
   const values = watch()
 
   // Batch rebuilds its ports on every render, so Effects read the latest through these refs.
-  const latest = useRef({ ports, adoptRead, attachLogo })
+  const instructionText = instructionRecord?.text ?? ''
+  const latest = useRef({ ports, adoptRead, attachLogo, instructionText })
   useEffect(() => {
-    latest.current = { ports, adoptRead, attachLogo }
+    latest.current = { ports, adoptRead, attachLogo, instructionText }
   })
   const hasPorts = ports !== undefined
   const instructionLane = Boolean(ports?.instruct) && operatorReview !== undefined
@@ -148,7 +149,7 @@ export function BatchSettingsPanel({
           revisionOf: (review) => review.revision,
           onAcknowledged: (review) => void latest.current.adoptRead(review.revision),
         },
-        instructionRecord?.text ?? '',
+        latest.current.instructionText,
       )
     }
     if (logoLane) {

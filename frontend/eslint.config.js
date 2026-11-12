@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 import readability from '../tooling/eslint/readability.mjs'
 
@@ -14,6 +15,15 @@ export default tseslint.config(
     rules: {
       // Omitting props from a rest spread names them without using them.
       '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+    },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    // Only the classic rules: the React Compiler rules in the plugin's preset assume the compiler.
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   {

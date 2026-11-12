@@ -40,7 +40,7 @@ When an Effect is the right tool:
 - Name the external system it synchronizes, in code or a short comment when that is not obvious.
 - Return a cleanup that undoes the setup: remove listeners, clear timers and close connections.
 - Make it safe to run twice. `main.tsx` renders under StrictMode, which mounts, cleans up and remounts every Effect in development.
-- List every reactive value it reads (props, state and values computed from them) in the dependency array. Ref contents are not reactive and stay out. No lint rule enforces this yet, so check it in review. When an object or function created during render forces the Effect to rerun on every render, move it inside the Effect if only the Effect uses it.
+- List every reactive value it reads (props, state and values computed from them) in the dependency array. Ref contents are not reactive and stay out. `react-hooks/exhaustive-deps` enforces this for Effects, memos and callbacks, and `react-hooks/rules-of-hooks` keeps hooks unconditional. Disable a rule only on one line, with a comment saying why the list cannot be complete, and keep a deliberately narrowed list by reading values through a ref rather than leaving them out. When an object or function created during render forces the Effect to rerun on every render, move it inside the Effect if only the Effect uses it.
 - Ignore stale async results. If an Effect awaits work that is not a TanStack Query, set a cancelled flag in cleanup and drop results that arrive after it, so an older response cannot overwrite a newer one.
 - Move it into a named custom hook when the same synchronization appears in more than one component.
 
