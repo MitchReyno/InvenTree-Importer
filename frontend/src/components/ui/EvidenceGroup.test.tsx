@@ -56,3 +56,24 @@ test('removing the group mid-rename releases the guard', async () => {
   unmount()
   expect(onDraftChange).toHaveBeenLastCalledWith(false)
 })
+
+/** Rules that would style `element` once focused, read from the injected component styles. */
+function focusRulesFor(element: Element) {
+  const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
+
+  return rules.filter((rule): rule is CSSStyleRule => {
+    if (!(rule instanceof CSSStyleRule) || !/:focus(?!-)/.test(rule.selectorText)) {
+      return false
+    }
+
+    return element.matches(rule.selectorText.replaceAll(':focus', ''))
+  })
+}
+
+test('a group region focused by script shows the focus ring, even after a pointer click', () => {
+  render(<EvidenceGroup name="Reels" count={2} label="Reels" tabIndex={-1} />)
+  const region = screen.getByRole('region', { name: 'Reels' })
+
+  const outlines = focusRulesFor(region).map((rule) => rule.style.outline)
+  expect(outlines.some((outline) => outline.includes('var(--ring-width)'))).toBe(true)
+})

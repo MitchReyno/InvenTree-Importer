@@ -120,6 +120,16 @@ function renderWorkspace(client: MediaClient, workspaceBatch = batch, disabled =
   }
 }
 
+function noteOn() {
+  return {
+    id: 'c1000000-0000-4000-8000-0000000000c1',
+    version: '1',
+    text: 'Reel came loose.',
+    actor_id: fixtureScope.actorId,
+    created_at: '2026-11-03T00:00:00Z',
+  }
+}
+
 /** A ready original with one decoded page, so the file has a thumbnail. */
 function withPage(item: MediaSnapshotDto['evidence'][number], previewId: string) {
   return {
@@ -343,7 +353,7 @@ test('the delete dialog shows the file it deletes and says its note goes with it
   const pictured = {
     ...present,
     evidence: present.evidence.map((item) =>
-      item.id === front ? withPage(item, thumbnail) : item,
+      item.id === front ? { ...withPage(item, thumbnail), note: noteOn() } : item,
     ),
   }
   renderWorkspace(mediaClient(pictured))
@@ -805,4 +815,38 @@ test('deleting and restoring a file never renumbers the files that share its nam
   await user.click(screen.getByRole('button', { name: 'Undo' }))
   expect(await screen.findByRole('button', { name: 'Open a (1)' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Open a (2)' })).toBeVisible()
+})
+
+test('the delete dialog mentions a note only when the file has one', async () => {
+  const user = userEvent.setup()
+  renderWorkspace(mediaClient())
+  await chooseDelete(user, 'Back marking')
+
+  const dialog = await screen.findByRole('dialog', { name: 'Delete Back marking?' })
+  expect(dialog).toHaveTextContent('It leaves the batch and what agents read.')
+  expect(dialog).not.toHaveTextContent(/note/)
+})
+
+test('deleting several files counts only the notes they have', async () => {
+  const user = userEvent.setup()
+  const third = 'd0000000-0000-4000-8000-00000000000d'
+  renderWorkspace(
+    mediaClient({
+      ...present,
+      evidence: [
+        { ...present.evidence[0], note: noteOn() },
+        present.evidence[1],
+        { ...present.evidence[1], id: third, label: 'Reel side', note: noteOn() },
+      ],
+    }),
+  )
+  for (const name of ['Front label', 'Back marking', 'Reel side']) {
+    await user.click(await screen.findByRole('checkbox', { name: `Select ${name}` }))
+  }
+  await user.click(screen.getByRole('button', { name: 'Delete 3 files…' }))
+
+  const dialog = await screen.findByRole('dialog', { name: 'Delete 3 files?' })
+  expect(dialog).toHaveTextContent(
+    'They leave the batch and what agents read, and 2 notes go with them.',
+  )
 })

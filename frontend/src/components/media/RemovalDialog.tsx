@@ -127,6 +127,21 @@ function useRemovalImpact(
   }
 }
 
+/** What leaves with the files, naming their notes only when they have them. */
+function leavesSentence(items: MediaEvidenceDto[]) {
+  const notes = items.filter((item) => item.note?.text).length
+  if (items.length === 1) {
+    return notes
+      ? 'It leaves the batch and what agents read, and its note goes with it.'
+      : 'It leaves the batch and what agents read.'
+  }
+  if (!notes) {
+    return 'They leave the batch and what agents read.'
+  }
+  const goes = notes === 1 ? '1 note goes' : `${notes} notes go`
+  return `They leave the batch and what agents read, and ${goes} with them.`
+}
+
 /** Confirms a delete, naming the lots it touches, any left with no evidence and cleared choices. */
 export function RemovalDialog({
   batch,
@@ -154,10 +169,7 @@ export function RemovalDialog({
       <Body>
         <FilesToDelete batchId={batch.id} items={items} name={name} />
         <Paragraph>
-          {single
-            ? 'It leaves the batch and what agents read, and its note goes with it.'
-            : 'They leave the batch and what agents read, and their notes go with them.'}{' '}
-          You can restore {pronoun} from Deleted files.
+          {leavesSentence(items)} You can restore {pronoun} from Deleted files.
         </Paragraph>
         {!impact && !failed && <Small role="status">Checking which lots use {pronoun}…</Small>}
         {failed && (

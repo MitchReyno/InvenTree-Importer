@@ -150,6 +150,12 @@ const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  /* Script moves focus here, such as after a delete confirmed by pointer, when
+     :focus-visible wouldn't match, so the ring shows on :focus. */
+  &:focus {
+    outline: ${ring.width} solid ${color.accent};
+    outline-offset: ${ring.offset};
+  }
   ${({ $ungrouped }) =>
     $ungrouped &&
     css`
