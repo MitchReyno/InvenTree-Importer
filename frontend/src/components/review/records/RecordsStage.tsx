@@ -13,6 +13,14 @@ import { clearPending } from '#/processing/pending-messages'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { TYPE_LABELS, STATE_LABELS } from '#/records/model'
+import {
+  existingRead,
+  locationPath,
+  locationPathText,
+  locationUse,
+  locationUseText,
+  stockCountText,
+} from '#/records/locations'
 import { useBatchRecords, useExistingValues, type RecordsClient } from '#/records/useBatchRecords'
 import { color, radius, size, space, type, typeVar } from '#/theme/generated/tokens'
 import {
@@ -94,12 +102,21 @@ export function RecordsStage({
     lastGood.current = query.data
   }
   const records = query.data ?? lastGood.current
-  // The target is read only while a record it already holds is open.
+  const type: RecordTypeDto =
+    chosenType ??
+    records?.counts.find((count) => count.new + count.existing + count.decide > 0)?.type ??
+    'part'
+  // The target is read only while a record it already holds is open, or while Locations lists
+  // the paths of locations it holds.
+  const openMapped = Boolean(records?.records.find((record) => record.key === chosenKey)?.mapped)
+  const listsMappedLocations =
+    type === 'location' &&
+    Boolean(records?.records.some((record) => record.type === 'location' && record.mapped))
   const existing = useExistingValues(
     client,
     batch.id,
     batch.revision,
-    Boolean(records?.records.find((record) => record.key === chosenKey)?.mapped),
+    openMapped || listsMappedLocations,
   )
 
   const scope = useServerScope()
@@ -176,10 +193,6 @@ export function RecordsStage({
   const stale = query.isError || (!refreshing && records.revision !== batch.revision)
   const disabled = stale || refreshing || batch.archived
 
-  const withRecords = records.counts.filter(
-    (count) => count.new + count.existing + count.decide > 0,
-  )
-  const type: RecordTypeDto = chosenType ?? withRecords[0]?.type ?? 'part'
   const ofType = records.records.filter((record) => record.type === type)
   const shown = ofType.filter((record) => matchesFilter(record, filter))
   const selected = ofType.find((record) => record.key === chosenKey) ?? null
@@ -249,20 +262,34 @@ export function RecordsStage({
             {ofType.length > 0 && shown.length === 0 && (
               <Small>No {TYPE_LABELS[type].toLowerCase()} match this filter.</Small>
             )}
-            {shown.map((record) => (
-              <RecordButton
-                key={record.key}
-                type="button"
-                aria-label={record.label}
-                aria-description={`${STATE_LABELS[record.state]}. ${lotsText(record)}`}
-                aria-current={record.key === selected?.key ? 'true' : undefined}
-                onClick={() => choose(type, record.key)}
-              >
-                <strong>{record.label}</strong>
-                <RecordStatePill state={record.state}>{STATE_LABELS[record.state]}</RecordStatePill>
-                {lotsText(record) && <RowDetail>{lotsText(record)}</RowDetail>}
-              </RecordButton>
-            ))}
+            {shown.map((record) => {
+              // A path still being read is left out of the row until it arrives.
+              const located =
+                record.type === 'location'
+                  ? locationPath(batch, record, existingRead(existing))
+                  : null
+              const path =
+                located && located.kind !== 'reading' ? locationPathText(located) : undefined
+              const detail = rowDetail(batch, record)
+
+              return (
+                <RecordButton
+                  key={record.key}
+                  type="button"
+                  aria-label={record.label}
+                  aria-description={`${STATE_LABELS[record.state]}. ${detail}`}
+                  aria-current={record.key === selected?.key ? 'true' : undefined}
+                  onClick={() => choose(type, record.key)}
+                >
+                  <strong>{record.label}</strong>
+                  <RecordStatePill state={record.state}>
+                    {STATE_LABELS[record.state]}
+                  </RecordStatePill>
+                  {path && <RowDetail>{path}</RowDetail>}
+                  {detail && <RowDetail>{detail}</RowDetail>}
+                </RecordButton>
+              )
+            })}
           </List>
           <Detail>
             {stale && (
@@ -372,12 +399,18 @@ export function RecordsStage({
                 key={`${selected.key}:${discards}:${discarded}`}
                 batch={batch}
                 record={selected}
+                records={records.records}
                 save={save}
                 disabled={disabled}
                 reportFor={drafts.forSource}
                 dirty={drafts.dirty}
                 ask={askFor(selected)}
-                existing={selected.mapped && client?.existing ? existing : undefined}
+                // A new location's path comes from its parent's existing values.
+                existing={
+                  (selected.mapped || selected.type === 'location') && client?.existing
+                    ? existing
+                    : undefined
+                }
               />
             ) : (
               <Empty>Choose a record to see its values and who set them.</Empty>
@@ -417,6 +450,15 @@ function matchesFilter(record: BatchRecordDto, filter: RecordFilter) {
 function lotsText(record: BatchRecordDto) {
   const lots = record.lot_ids.length
   return lots ? `Used by ${lots} ${lots === 1 ? 'lot' : 'lots'}` : ''
+}
+
+/** A location says why the batch uses it and how much stock goes there; others, their lots. */
+function rowDetail(batch: CaptureSnapshotDto, record: BatchRecordDto) {
+  if (record.type !== 'location') {
+    return lotsText(record)
+  }
+
+  return `${locationUseText(locationUse(batch, record))} · ${stockCountText(record)}`
 }
 
 const Header = styled.div`
