@@ -89,10 +89,10 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 - Verification: `git grep` for retired names; frontend typecheck, lint, tests and build.
 - Risks and decisions: None.
 
-- [ ] 4.1 Update the env template, development guide and README.
-- [ ] 4.2 Update architecture notes, the qualification README, dev paragraphs of the deployment README and the BI-009 wording.
-- [ ] 4.3 Update the Agent settings hint and run the frontend checks.
-- [ ] 4.4 Search for remaining retired names and confirm each hit is internal, deployment or archived.
+- [x] 4.1 Update the env template, development guide and README.
+- [x] 4.2 Update architecture notes, the qualification README, dev paragraphs of the deployment README and the BI-009 wording.
+- [x] 4.3 Update the Agent settings hint and run the frontend checks.
+- [x] 4.4 Search for remaining retired names and confirm each hit is internal, deployment or archived.
 
 ## 5. Delivery
 
