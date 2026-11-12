@@ -67,7 +67,8 @@ const Segment = styled.button`
   font-weight: ${typeVar.buttonLg.weight};
   cursor: pointer;
   ${hoverTransition}
-  &:hover:not([aria-disabled='true']) {
+  /* The pressed segment keeps its fg fill on hover, as a pressed filter chip does. */
+  &:hover:not([aria-disabled='true']):not([aria-pressed='true']) {
     background: ${color.surface2};
   }
   &[aria-disabled='true'] {
