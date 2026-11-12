@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { Profiler } from 'react'
 import userEvent from '@testing-library/user-event'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -390,6 +390,61 @@ describe('ReviewMap at region level', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Regions of Front label' })).not.toBeInTheDocument()
   })
+})
+
+it('redraws the connectors when a column changes size and the canvas does not', () => {
+  const observed: Element[] = []
+
+  let resized: () => void = () => {}
+
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resized = callback
+      }
+
+      observe(element: Element) {
+        observed.push(element)
+      }
+
+      disconnect() {}
+    },
+  )
+  try {
+    const { container } = render(
+      <ReviewMap
+        batch={batch}
+        evidence={evidence}
+        disabled={false}
+        link={vi.fn(async () => undefined)}
+        newLotFrom={vi.fn(async () => undefined)}
+        openRestructure={vi.fn()}
+        approvedLotIds={new Set()}
+        retiredLotIds={new Set()}
+        loading={false}
+      />,
+    )
+    const lots = screen.getByRole('region', { name: 'Lots' })
+    expect(observed).toContain(screen.getByRole('region', { name: 'Evidence' }))
+    expect(observed).toContain(lots)
+
+    const connectors = () =>
+      [...container.querySelectorAll('path[data-style]')].map((path) => path.getAttribute('d'))
+
+    const before = connectors()
+    expect(before.length).toBeGreaterThan(0)
+
+    // A card above grew, so every lot heading sits lower; the canvas itself kept its size.
+    lots.querySelectorAll<HTMLElement>('[data-lot-anchor]').forEach((heading) => {
+      heading.getBoundingClientRect = () => new DOMRect(300, 120, 200, 24)
+    })
+    act(() => resized())
+
+    connectors().forEach((d, index) => expect(d).not.toBe(before[index]))
+  } finally {
+    vi.unstubAllGlobals()
+  }
 })
 
 it('measuring the same layout again adds no render', () => {

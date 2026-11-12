@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
 import type { AttentionClient } from '#/attention/useBatchAttention'
 import type { CatalogueClient } from '#/catalogue/types'
 import type { MediaClient } from '#/media/types'
@@ -17,7 +17,17 @@ export interface ApiClients {
   records?: RecordsClient
 }
 
-export const ApiClientsContext = createContext<ApiClients>({})
+const ApiClientsContext = createContext<ApiClients>({})
+
+export function ApiClientsProvider({
+  value,
+  children,
+}: {
+  value: ApiClients
+  children: ReactNode
+}) {
+  return <ApiClientsContext.Provider value={value}>{children}</ApiClientsContext.Provider>
+}
 
 export function useApiClients() {
   return useContext(ApiClientsContext)

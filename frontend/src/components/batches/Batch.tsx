@@ -1,9 +1,8 @@
 import { Paragraph, Summary, Banner, Button } from '#/components/ui'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { useCachedData } from '#/queries/useCachedData'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
 import { approvedLotIds, predecessorLotIds, retiredLotIds } from '#/operator/review-model'
 import { unusedEvidenceCount } from '#/operator/review-map'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -33,12 +32,16 @@ import {
 import { useBatchAttention } from '#/attention/useBatchAttention'
 import { BatchHeader } from './BatchHeader'
 import { PageContent } from '#/components/AppLayout'
-import { useApiClients } from '#/clients/api-clients'
+import {
+  useApiClients,
+  useServerScope,
+  useRetainedPollInterval,
+  BatchCommandsProvider,
+} from '#/context'
 import { RecordsStage } from '#/components/review/records/RecordsStage'
 import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
-import { BatchCommandsProvider } from './BatchCommandsProvider'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
@@ -368,14 +371,17 @@ export function Batch({
   const operatorUnavailable =
     operator !== undefined &&
     (!currentOperatorReview || operatorQuery.isError || operatorQuery.fetchStatus === 'paused')
-  const retired = retiredLotIds(operatorReview, batch ?? undefined)
+  // Retirement comes from both the operator projection and capture history.
+  const retired = useMemo(
+    () => retiredLotIds(operatorReview, batch ?? undefined),
+    [operatorReview, batch],
+  )
   const activeBatch = useMemo(
     () =>
       batch && retired.size
         ? { ...batch, lots: batch.lots.filter((lot) => !retired.has(lot.id)) }
         : batch,
-    // Retirement comes from both the operator projection and capture history.
-    [batch, operatorReview],
+    [batch, retired],
   )
 
   const attentionQuery = useBatchAttention(attention, id, batch?.revision)
@@ -388,22 +394,15 @@ export function Batch({
   const mediaKey = serverQueryKey(scope, 'media', id)
   useQuery({ queryKey: mediaKey, queryFn: () => media!.snapshot(id), enabled: false })
   const mediaCurrent = useCachedData<MediaSnapshotDto>(mediaKey)
-  const predecessors = predecessorLotIds(currentOperatorReview ?? acceptedOperatorReview)
+  const lineageReview = currentOperatorReview ?? acceptedOperatorReview
+  const predecessors = useMemo(() => predecessorLotIds(lineageReview), [lineageReview])
   // While lineage is unknown, inherited files would read as unused, as the Map also holds.
   const unusedFiles = useMemo(
     () =>
       batch && mediaCurrent && !(operatorUnavailable && retired.size > 0)
         ? unusedEvidenceCount(batch, mediaCurrent.evidence, retired, predecessors)
         : undefined,
-    // `retired` and `predecessors` follow the operator review.
-    [
-      batch,
-      mediaCurrent,
-      currentOperatorReview,
-      acceptedOperatorReview,
-      operatorReview,
-      operatorUnavailable,
-    ],
+    [batch, mediaCurrent, retired, predecessors, operatorUnavailable],
   )
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)

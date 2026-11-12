@@ -11,8 +11,8 @@ import type { CatalogueClient } from '#/catalogue/types'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { CaptureWorkspace } from '#/components/capture/CaptureWorkspace'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
+import { BatchCommandsProvider } from '#/context'
 
 const scope = {
   origin: 'http://fixture.invalid',

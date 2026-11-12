@@ -1,9 +1,9 @@
 import { act, render, screen, within } from '@testing-library/react'
 import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CompactStatusContext } from '#/components/masthead/CompactStatus'
 import { stubIntersectionObserver, stubPhoneViewport } from '#/test/viewport'
 import { BatchHeader } from './BatchHeader'
+import { CompactStatusContext } from '#/context'
 
 const noSteps = {
   examine: { questions: 0, failed: 0, jobs: 0, ready: 0, running: 0 },

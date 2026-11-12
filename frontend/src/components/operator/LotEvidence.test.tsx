@@ -3,8 +3,8 @@ import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
 import { render } from '#/test/render'
 import { LotEvidence } from './LotEvidence'
-import { BatchCommandsProvider } from '#/components/batches/BatchCommandsProvider'
 import { batchCommands } from '#/test/batch-commands'
+import { BatchCommandsProvider } from '#/context'
 
 const lot = {
   id: '30000000-0000-4000-8000-000000000003',

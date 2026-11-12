@@ -5,12 +5,11 @@ import { Button, IconButton, media, SettingsIcon, useMediaQuery } from '#/compon
 import type { HeaderClient } from '#/header/types'
 import type { useHeaderObservations } from '#/header/useHeaderObservations'
 import { safeTargetNavigation, targetStatus } from '#/header/observations'
-import { useUpdateHealth } from '#/components/operations/LiveUpdates'
 import { ActivityIndicator } from './ActivityIndicator'
 import { ConnectionDetails } from './ConnectionDetails'
 import { ConnectionStatus } from './ConnectionStatus'
-import { HeaderObservationsProvider, useSharedHeaderObservations } from './HeaderObservations'
 import { PhoneMenu } from './PhoneMenu'
+import { useUpdateHealth, HeaderObservationsProvider, useSharedHeaderObservations } from '#/context'
 
 interface Props {
   client: HeaderClient

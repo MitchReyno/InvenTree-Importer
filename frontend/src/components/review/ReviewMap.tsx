@@ -74,7 +74,7 @@ export function ReviewMap({
   const [merging, setMerging] = useState<string[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const canvas = useRef<HTMLDivElement>(null)
-  const paths = useConnectorPaths(canvas, [batch, evidence, retiredLotIds, predecessors])
+  const paths = useConnectorPaths(canvas, { batch, evidence, retiredLotIds, predecessors })
 
   if (loading) {
     return (
@@ -613,10 +613,13 @@ function samePaths(left: Record<string, string>, right: Record<string, string>) 
   return keys.length === Object.keys(left).length && keys.every((key) => left[key] === right[key])
 }
 
+/** What adds or removes cards; a card that only grows or shrinks is caught by the observer. */
+type ConnectorLayout = Pick<Props, 'batch' | 'evidence' | 'retiredLotIds' | 'predecessors'>
+
 /** Measures each card's heading after layout and on resize, and curves between the two. */
 function useConnectorPaths(
   canvas: React.RefObject<HTMLDivElement | null>,
-  inputs: readonly unknown[],
+  { batch, evidence, retiredLotIds, predecessors }: ConnectorLayout,
 ) {
   const [paths, setPaths] = useState<Record<string, string>>({})
   useLayoutEffect(() => {
@@ -649,8 +652,10 @@ function useConnectorPaths(
     measure()
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
     observer?.observe(root)
+    // The grid aligns columns to the start, so a growing card resizes its column, not the root.
+    root.querySelectorAll(':scope > section').forEach((column) => observer?.observe(column))
     return () => observer?.disconnect()
-  }, inputs)
+  }, [canvas, batch, evidence, retiredLotIds, predecessors])
   return paths
 }
 

@@ -2,14 +2,13 @@ import { useState } from 'react'
 import { Banner, Button } from '#/components/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
+import { serverQueryKey } from '#/queries/scope'
 import { RestructureDialog } from '#/components/operator/RestructureDialog'
 
 import { ReviewMap } from './ReviewMap'
 import { TellExamine } from './TellExamine'
 import { useDirtySources } from '#/operator/useDirtySources'
-import { useApiClients } from '#/clients/api-clients'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useApiClients, useServerScope, useBatchCommands } from '#/context'
 
 type Props = {
   batch: CaptureSnapshotDto

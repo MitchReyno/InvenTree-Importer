@@ -9,7 +9,7 @@ import { BulkBar, Button } from '#/components/ui'
 import { BulkEditPanel } from './BulkEditPanel'
 import { RestructureDialog } from './RestructureDialog'
 import { ReviewTable, type ReviewTableProps } from './ReviewTable'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useBatchCommands } from '#/context'
 
 const MAX_MERGE_LOTS = 10
 

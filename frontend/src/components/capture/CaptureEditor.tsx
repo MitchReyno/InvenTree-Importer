@@ -14,7 +14,7 @@ import { QuantityField } from './QuantityField'
 import { AssignedLocationField } from './AssignedLocationField'
 import { ReferenceField } from './ReferenceField'
 import type { CaptureEdit } from '#/capture/types'
-import { useBatchCommands } from '#/capture/batch-commands'
+import { useBatchCommands } from '#/context'
 
 type EditorProps = {
   batch: Snapshot

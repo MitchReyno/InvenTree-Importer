@@ -17,8 +17,7 @@ import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace
 import type { OperatorReviewClient } from './operator/types'
 import type { SettingsPorts } from './capture/types'
 import type { ProcessingClient } from './processing/types'
-import { ApiClientsProvider } from './components/clients/ApiClientsProvider'
-import { BatchCommandsProvider } from './components/batches/BatchCommandsProvider'
+import { ApiClientsProvider, BatchCommandsProvider } from './context'
 import { batchCommands } from './test/batch-commands'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
