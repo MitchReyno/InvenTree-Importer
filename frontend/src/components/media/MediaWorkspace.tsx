@@ -1,4 +1,4 @@
-import { mediaIdentityLabels } from '#/media/identity-labels'
+import { mediaDisplayLabels, mediaIdentityLabels } from '#/media/identity-labels'
 import { useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '#/theme/generated/tokens'
@@ -22,7 +22,6 @@ import { SubjectAttachmentChoice } from './SubjectAttachmentChoice'
 import { RemovalDialog } from './RemovalDialog'
 import { DeletedFiles } from './DeletedFiles'
 import { approvalRefusal, bulkApprovalRefusal } from '#/media/removal'
-import { mediaDisplayLabels } from '#/media/identity-labels'
 import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
