@@ -115,6 +115,6 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
 - **Outcome:** the reviewed PR, merged into `interactive-app`.
 
 - [x] 6.1 Run the readability, format, typecheck, lint, test and build checks.
-- [ ] 6.2 Check the browser render in both themes, and record the demo video for the PR.
+- [x] 6.2 Check the browser render in both themes, and record the demo video for the PR.
 - [x] 6.3 Get an independent exact-head review, repeated until clean.
 - [ ] 6.4 Open the PR, wait for green CI, then merge.
