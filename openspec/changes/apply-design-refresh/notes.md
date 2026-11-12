@@ -190,7 +190,7 @@ None for task 10.
 
 - **2026-11-10T09:45+11:00, task 5 (review round 3):** Before writing confirmed settings into the `agent-settings` query, the section cancels any read of it still running, so an older answer can't replace them.
 
-- **2026-11-12T13:50+11:00, task 5 (merge of `interactive-app` 608251fd):** `usePersonalClaudeCredential` now uses the shared `useAsyncAction` (#198) for its busy flag and failure text, as the trunk's panel did; the card still reads "Check failed" from that text. `useChatGPTSignIn` keeps its own busy and message, as the trunk left `ChatGPTSignIn` (its failures also reset the account and its generations), and `AgentSettingsForm` keeps its own, since it tells a revision conflict apart. Settings imports its contexts from `#/context` (#196). The hooks lint (#197) found nothing in this branch's code.
+- **2026-11-12T13:50+11:00, task 5 (merge of `interactive-app` 608251fd):** `usePersonalClaudeCredential` now uses the shared `useAsyncAction` (#198) for its busy flag and failure text, as the trunk's panel did; the card still reads "Check failed" from that text. `useChatGPTSignIn` keeps its own busy flag and message, as the trunk left `ChatGPTSignIn`: its guard also waits for a poll still running, and it keeps the last message shown until a call settles. Likewise, `AgentSettingsForm` keeps its own, since it tells a revision conflict apart. Settings imports its contexts from `#/context` (#196). The hooks lint (#197) found nothing in this branch's code.
 
 ### Open items
 
