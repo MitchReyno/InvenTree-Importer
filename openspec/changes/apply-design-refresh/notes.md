@@ -192,6 +192,9 @@ None for task 10.
 
 - **2026-11-12T13:50+11:00, task 5 (merge of `interactive-app` 608251fd):** `usePersonalClaudeCredential` now uses the shared `useAsyncAction` (#198) for its busy flag and failure text, as the trunk's panel did; the card still reads "Check failed" from that text. `useChatGPTSignIn` keeps its own busy flag and message, as the trunk left `ChatGPTSignIn`: its guard also waits for a poll still running, and it keeps the last message shown until a call settles. Likewise, `AgentSettingsForm` keeps its own, since it tells a revision conflict apart. Settings imports its contexts from `#/context` (#196). The hooks lint (#197) found nothing in this branch's code.
 
+- **2026-11-12T15:00+11:00, task 5 (demo film):** The hover rule that skips disabled segments outranked the pressed rule, so hovering the selected segment showed the hover ground under its light text. `SegmentedControl` now leaves the pressed segment's fill alone on hover, as `FilterChips` does; a test checks that no hover rule in the injected styles matches the pressed segment.
+- **2026-11-12T15:00+11:00, task 5 (merge of `interactive-app` a95b2818):** The form's start hint names the split dev settings (`INTAKE_USE_MOCK_AI_AGENTS`, `INTAKE_USE_AGENT_SESSIONS`, #202). The docs keep the trunk's settings text with the "Settings › Agents" location. The section test types its fetch mock as `fetch`, so the type-aware promise rules (#203) see that its implementations return promises.
+
 ### Open items
 
 - The PR film is not recorded by this bundle's implementer; the fixture or `pnpm dev` can be filmed.

@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
 import { useQueryClient } from '@tanstack/react-query'
@@ -114,10 +114,10 @@ function expectCard(provider: 'Claude' | 'Codex', status: string) {
   expect(screen.getByRole('radio', { name: provider })).toHaveAccessibleDescription(status)
 }
 
-let send: ReturnType<typeof vi.fn>
+let send: Mock<typeof fetch>
 
 beforeEach(() => {
-  send = vi.fn()
+  send = vi.fn<typeof fetch>()
   vi.stubGlobal('isSecureContext', true)
   vi.stubGlobal('fetch', send)
 })
@@ -277,7 +277,7 @@ describe('the Codex card mirrors its sign-in panel', () => {
 
     expect(send).toHaveBeenCalledTimes(1)
     for (const [, request] of send.mock.calls) {
-      expect(request.headers.authorization).toBe('Bearer key')
+      expect(new Headers(request?.headers).get('authorization')).toBe('Bearer key')
     }
     expectCard('Codex', 'Not checked')
   })
@@ -434,9 +434,9 @@ test('after leaving and returning, a Codex command waits for the runner call sti
 test('a Codex runner call outlasting the guest limits fails and frees the queue', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   send.mockImplementationOnce(
-    (_url: string, init: RequestInit) =>
+    (_url, init) =>
       new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
       }),
   )
   send.mockResolvedValueOnce(Response.json({ state: 'disconnected' }))

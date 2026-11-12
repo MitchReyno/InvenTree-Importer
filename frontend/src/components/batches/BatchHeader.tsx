@@ -118,7 +118,7 @@ function secondRow(batchId: string, route: BatchRoute, input: TabCountInput) {
       return { label: 'Review views', items: reviewRow(batchId, input), current: route.view }
     case 'changes':
       return { label: 'Changes views', items: changesRow(batchId, input), current: route.view }
-    default:
+    case 'capture':
       return null
   }
 }

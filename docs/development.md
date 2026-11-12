@@ -1,11 +1,11 @@
 # Running the local application
 
-Use `pnpm dev` from the repository root to start the complete local Bench Intake app at **<http://127.0.0.1:4330>**. By default the command owns the UI, API, apply worker, decoder, Processing worker and a persistent fake inventory service. An explicitly configured external inventory uses the read-only profile described below, without a fake service or apply worker. The `local-inventree` profile reads from a [local development InvenTree](#local-development-inventree) instead. Ctrl-C or closing the terminal stops those processes and preserves PostgreSQL and app data. The previous preview is not automatically migrated into this separate namespace.
+Use `pnpm dev` from the repository root to start the complete local Bench Intake app at **<http://127.0.0.1:4330>**. By default the command owns the UI, API, apply worker, decoder, a scripted agent session worker and a persistent mock inventory service. [Switches in `.env`](#choosing-what-the-app-runs) select a [local development InvenTree](#local-development-inventree) or an external server instead, read-only access, and real agents. Ctrl-C or closing the terminal stops those processes and preserves PostgreSQL and app data. The previous preview is not automatically migrated into this separate namespace.
 
 Install the pinned Node 24/pnpm versions and run `pnpm install --frozen-lockfile` first. Docker with Compose 2.24 or later must be available for the shared `inventree-db` PostgreSQL and bounded image decoder. First startup builds the decoder image; later builds reuse Docker's cache. See the [service ledger](../intake-server/README.md#shared-development-service-ledger) before sharing the local PostgreSQL allocation.
 
 ```bash
-pnpm dev       # full local app, synthetic Processing by default
+pnpm dev       # full local app, scripted agents and mock inventory by default
 pnpm dev --tailscale # also serve it over HTTPS on your tailnet
 pnpm dev:ui    # standalone Vite UI; no API proxy or provisioning
 pnpm dev:intake # standalone API with explicit server configuration
@@ -28,26 +28,56 @@ Requirements:
 
 Source reloads keep the gateway and serve process running, like the UI.
 
-## Environment files and InvenTree targets
+## Environment files
 
 `pnpm dev`, `pnpm dev:intake` and `pnpm codex:login` load the **current checkout's root `.env`** once at startup. Existing shell environment values take precedence, including explicitly empty values. Use `INTAKE_ENV_FILE=.env.local pnpm dev` to select a caller-relative or absolute file; set `INTAKE_ENV_FILE=''` to disable file loading. A missing default `.env` is fine; an explicitly selected missing, symlinked, oversized or invalid UTF-8 file is refused. Inside the checkout, selected files must be root-level `.env` or `.env.*` names, which Vite already denies. Other filenames belong outside the checkout so source/static serving cannot expose their contents. No other checkout’s environment file is discovered.
 
 Start with the documented template in `.env.intake.example`. Create a new file only when the checkout has no `.env`; merge the relevant settings yourself if one already exists, and keep it private. `.env` and `.env.*` variants are gitignored; only the documented example templates are excepted. Values are parsed as dotenv data using Node24's built-in parser, never sourced as shell code. No variable expansion is performed. File changes require restarting the command and do not trigger live reload.
 
-For an external InvenTree target:
+The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_DEV_TAILSCALE`, `INTAKE_DEV_TAILSCALE_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, the [settings below](#choosing-what-the-app-runs), `INTAKE_CREDENTIAL_REF`, the session-worker pairing directory and port (`INTAKE_VM_PAIR` and `INTAKE_VM_PORT`), the native executable overrides and provider API-key names documented below.
+
+Standalone `dev:intake` takes the server's own variable names instead (`INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY`), which `pnpm dev` refuses. Keep them in a separate file, such as `.env.intake-api`, and select it with `INTAKE_ENV_FILE`. `dev:intake` additionally accepts its explicit `INTAKE_ORIGIN`, `INTAKE_DATABASE_URL`, actor/target/context IDs, blob root, deployment ID, Processing channel secret and research URL lists. The full-stack launcher continues to own its local app database/identity settings. File-provided PATH, HOME, Node process flags, Vite variables and unknown keys are ignored; Vite dotenv discovery remains disabled. The standalone API child additionally receives only its required runtime settings and basic host environment, excluding setup-admin URLs, provider keys, native executable overrides and unrelated shell secrets.
+
+## Choosing what the app runs
+
+Each setting below is independent, and its name says what it controls. Switches take `true` or `false` (`1` and `0` also work); an empty value counts as unset.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `INTAKE_USE_MOCK_INVENTREE` | unset | `true` uses the built-in mock inventory even when the two settings below are set. Unset uses the mock only when neither is set; `false` requires one of them. |
+| `INTAKE_USE_LOCAL_INVENTREE` | `false` | `true` reads the [local development InvenTree](#local-development-inventree). |
+| `INTAKE_INVENTREE_URL`, `INTAKE_INVENTREE_TOKEN` | unset | Read an external InvenTree server with this API token. |
+| `INTAKE_INVENTREE_READ_ONLY` | `false` for the mock, `true` otherwise | `true` never writes. A read-only mock starts no apply worker, so Apply cannot run. |
+| `INTAKE_USE_MOCK_AI_AGENTS` | `true` | `false` uses real Claude or Codex agents. |
+| `INTAKE_USE_AGENT_SESSIONS` | `true` | `false` produces one result per stage instead of Examine sessions. |
+| `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM. It needs `INTAKE_VM_PAIR` and `INTAKE_VM_PORT`, and serves the VM's credential management. |
+| `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` leaves out the tool worker and web reader. It has no effect on scripted agents or agents on the host. |
+
+The processing switches select one of the existing profiles, which the startup output names:
+
+| Mock agents | Sessions | In the VM | Profile |
+|---|---|---|---|
+| `true` | `true` | `false` | `synthetic-session/1`, a scripted Examine lead |
+| `true` | `true` | `true` | `synthetic-session/1` through the VM bridge |
+| `true` | `false` | `false` | `synthetic-research/2`, scripted per-stage results |
+| `false` | `true` | `false` | `native-agent/2` |
+| `false` | `false` | `false` | `native-agent/1` |
+| `false` | `true` | `true` | `shared-vm-agent/2`, or `shared-vm-agent/1` without VM tools |
+
+The app refuses to start, before any setup, when settings conflict. Examples are the local switch together with a URL; read-only `false` with a real server, because writes to a real InvenTree are not supported; VM agents without sessions; and a switch set to anything other than true or false. Errors never include a value; invalid, retired and conflicting settings are also named.
+
+The earlier `INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY` and `INTAKE_PERSONAL_MANAGEMENT` settings are refused, and the message names each replacement. The internal profile values are unchanged, so renaming the settings keeps your retained app data. For an external server, keep the `INTAKE_CREDENTIAL_REF` you used before, or the derived reference selects a new, empty namespace.
+
+### External InvenTree server
 
 ```dotenv
-INTAKE_TARGET_PROFILE=read-only
-INTAKE_READ_ORIGIN=https://inventory.example.invalid
-INTAKE_CREDENTIAL_REF=development_inventory
-INTAKE_DEV_API_KEY=your-read-only-api-token
+INTAKE_INVENTREE_URL=https://inventory.example.invalid
+INTAKE_INVENTREE_TOKEN=your-read-only-api-token
 ```
 
-Use the server origin, without an `/api/` suffix, credentials in the URL, query string or fragment. The credential reference is a nonsecret stable identifier, not the token. A URL/reference also selects read-only mode when no explicit profile is supplied; incomplete or contradictory fake/external settings fail. Each origin/reference receives its own retained namespace and target identity. Changing the key keeps the same namespace; changing origin/reference selects a different default namespace. An explicit `INTAKE_APP_STATE` cannot be rebound to a different target or switched between fake and read-only profiles.
+Use the server origin, without an `/api/` suffix, and without credentials in the URL, query string or fragment. Each server gets its own retained namespace, keyed by its origin and a credential reference. The reference defaults to `inventree_` plus the host name; set `INTAKE_CREDENTIAL_REF` to keep a namespace created under an earlier reference. Changing the token keeps the namespace. An explicit `INTAKE_APP_STATE` cannot be rebound to a different target or switched between the mock and a real server.
 
-Read-only mode supports connection status, existing-record lookups, local Capture/media and Processing. It creates no executor deployment and starts no fake inventory or apply worker, so inventory preparation/approval cannot authorize a remote write. Its external token is provided only to the API process and is not saved in retained state, sent to Vite/workers or returned in public responses. Native agents remain separately opt-in. Real-server compatibility, authentication and permission qualification are distinct from synthetic test evidence.
-
-The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_DEV_TAILSCALE`, `INTAKE_DEV_TAILSCALE_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_TARGET_PROFILE`, the three target settings above, the session-worker pairing directory and port (`INTAKE_VM_PAIR` and `INTAKE_VM_PORT`), the native executable overrides and provider API-key names documented below. Standalone `dev:intake` additionally accepts its explicit `INTAKE_ORIGIN`, `INTAKE_DATABASE_URL`, actor/target/context IDs, blob root, deployment ID, Processing channel secret and research URL lists. The full-stack launcher continues to own its local app database/identity settings. File-provided PATH, HOME, Node process flags, Vite variables and unknown keys are ignored; Vite dotenv discovery remains disabled. The standalone API child additionally receives only its required runtime settings and basic host environment, excluding setup-admin URLs, provider keys, native executable overrides and unrelated shell secrets.
+An external server supports connection status, existing-record lookups, local Capture/media and Processing. It creates no executor deployment and starts no mock inventory or apply worker, so inventory preparation/approval cannot authorize a remote write. The token is provided only to the API process; it is not saved in retained state, sent to Vite or workers, or returned in public responses. Real-server compatibility, authentication and permission qualification are distinct from synthetic test evidence.
 
 ## Local development InvenTree
 
@@ -63,7 +93,7 @@ pnpm inventree:dev down         # stop InvenTree; inventree-db keeps running
 pnpm inventree:dev reset --yes  # wipe InvenTree; intake dev databases are kept
 ```
 
-To read from it in the app, set `INTAKE_TARGET_PROFILE=local-inventree` and run `pnpm dev`. The launcher runs `inventree:dev up` first, then reads with the reader token from private state. Do not also set `INTAKE_READ_ORIGIN`, `INTAKE_CREDENTIAL_REF`, `INTAKE_DEV_API_KEY` or `INTAKE_DEV_ADMIN_URL`; with this profile they are refused. The app only reads from the instance, as with the read-only profile. For importer testing, `eval "$(pnpm --silent inventree:dev env)"` points `invimport` at the instance with the writer token.
+To read from it in the app, set `INTAKE_USE_LOCAL_INVENTREE=true` and run `pnpm dev`. The launcher runs `inventree:dev up` first, then reads with the reader token from private state. Do not also set `INTAKE_INVENTREE_URL`, `INTAKE_INVENTREE_TOKEN`, `INTAKE_CREDENTIAL_REF` or `INTAKE_DEV_ADMIN_URL`; with the local switch they are refused. The app only reads from the instance, as with an external server. For importer testing, `eval "$(pnpm --silent inventree:dev env)"` points `invimport` at the instance with the writer token.
 
 Seeding first runs `invimport parameters --write` and `categories --write` with `--env-file /dev/null`, so the instance matches `backend/config/` and the root `.env` is never read. A dry-run check then fails seeding if anything is still pending. Finally it loads `tooling/inventree-dev/seed/fixtures.json` over REST: locations, companies, parts, manufacturer and supplier parts, and stock. Each seeded record carries `metadata.bench_intake_seed`, so re-runs create nothing and records seeded under another key are left alone. An untagged record that matches a fixture's natural key (name, IPN, MPN, SKU, or part and location) is adopted and tagged, which recovers from a run interrupted between create and tag.
 
@@ -104,28 +134,28 @@ A partial first setup without `app.json` fails closed; inspect its retained `ini
 
 ## Processing and native agents
 
-Default Processing produces visibly **synthetic** source-bound proposals in either target profile. It performs no inference, image inspection or inventory research. The fake inventory supports local lookup and supervised apply; this is not a connection to a real inventory server.
+By default, scripted agents produce visibly **synthetic** source-bound proposals with any inventory. A scripted Examine lead reads the batch notes and forms lots, then Research, Images and Inventory run per lot as they do for real agents. With `INTAKE_USE_AGENT_SESSIONS=false`, the scripted per-stage pipeline runs instead. Neither performs inference, image inspection or inventory research. The mock inventory supports local lookup and supervised apply; it is not a connection to a real inventory server.
 
-To explicitly select a native-agent profile for new work:
+To use real agents for new work:
 
 ```bash
-INTAKE_PROCESSING_PROFILE=native-agent/2 pnpm dev   # sessions; Examine proposes lots from photos
-INTAKE_PROCESSING_PROFILE=native-agent/1 pnpm dev   # one queued result for a saved lot or part
+INTAKE_USE_MOCK_AI_AGENTS=false pnpm dev                                   # sessions; Examine proposes lots from photos
+INTAKE_USE_MOCK_AI_AGENTS=false INTAKE_USE_AGENT_SESSIONS=false pnpm dev   # one queued result for a saved lot or part
 ```
 
-`native-agent/2` starts the session supervisor. Setup provisions a dedicated, namespace-bound writer for intake capture changes and stores its credentials privately in `agent-writer.json`. Reuse verifies the server endpoint, role binding and login before reapplying grants; an unbound legacy or misplaced credential file is refused rather than upgrading another role. This grants no inventory-target write access. After a provider, authentication route and model are saved, ready photos queue one Examine session for the batch. `native-agent/1` starts the single-result supervisor and waits for a queued attempt.
+Sessions, scripted or real, start the session supervisor. Setup provisions a dedicated, namespace-bound writer for intake capture changes and stores its credentials privately in `agent-writer.json`. Reuse verifies the server endpoint, role binding and login before reapplying grants; an unbound legacy or misplaced credential file is refused rather than upgrading another role. This grants no inventory-target write access. With real agents, ready photos queue one Examine session for the batch once a provider, authentication route and model are saved; scripted sessions need no provider. Without sessions, real agents start the single-result supervisor and wait for a queued attempt.
 
 Then select the global provider, authentication route and model in Settings before starting an agent. Claude subscription authentication uses the signed-in CLI account under the host `HOME`. Codex subscription mode uses the worker's isolated `$INTAKE_APP_STATE/agents/codex` as `CODEX_HOME`; the default host Codex login is not automatically reused.
 
-Sign in with the checkout's own login command. It reads the same environment file as `pnpm dev` (shell values still win), resolves that app's private state, creates `agents/codex` so only your user can read it, and runs `codex login` with `CODEX_HOME` pointed there:
+Sign in with the checkout's own login command. It reads the same environment file and switches as `pnpm dev` (shell values still win), and refuses the same retired names and conflicting switches, even ones that do not affect the login, resolves that app's private state, creates `agents/codex` so only your user can read it, and runs `codex login` with `CODEX_HOME` pointed there:
 
 ```bash
 pnpm codex:login
 ```
 
-You can run it while `pnpm dev` is already up. Automatic read-only and local namespaces use `read-only-<hash>` and `local-inventree-<hash>` directories, so the fake profile's `app-<server id>` directory is not a substitute. A default namespace needs the shared database identity (`pnpm dev` or `pnpm db:intake start` creates it). A local InvenTree namespace also needs `pnpm inventree:dev up`, which records the instance id. An explicit `INTAKE_APP_STATE` is used as given and does not need those files; choose it before the first launch and keep it for later launches. `INTAKE_CODEX_EXECUTABLE` selects the binary when `codex` is not on `PATH`.
+You can run it while `pnpm dev` is already up. Automatic read-only and local namespaces use `read-only-<hash>` and `local-inventree-<hash>` directories, so the mock inventory's `app-<server id>` directory is not a substitute. A default namespace needs the shared database identity (`pnpm dev` or `pnpm db:intake start` creates it). A local InvenTree namespace also needs `pnpm inventree:dev up`, which records the instance id. An explicit `INTAKE_APP_STATE` is used as given and does not need those files; choose it before the first launch and keep it for later launches. `INTAKE_CODEX_EXECUTABLE` selects the binary when `codex` is not on `PATH`.
 
-Use the CLI login flow; do not copy an authentication store. The dedicated directory must contain no `config.toml`, hooks, plugins or skills. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the default synthetic profile.
+Use the CLI login flow; do not copy an authentication store. The dedicated directory must contain no `config.toml`, hooks, plugins or skills. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the scripted profiles, `synthetic-session/1` and `synthetic-research/2`.
 
 The authorized live qualification flow is reproducible with [the qualification driver](../intake-server/scripts/native-session-qualification/README.md). It sends real provider requests on your subscription, so run it only with explicit authorization, against an isolated app on its own port and state directory.
 
@@ -141,4 +171,4 @@ On startup and source reload, dev setup migrates its owned database and reapplie
 
 Migrations `0020_media_preview_renditions` and `0021_media_rendition_backfill` add display renditions of decoded pages. Media decoded before them is upgraded in the background after `pnpm dev` restarts: when no upload is waiting, the media worker renders one retained page at a time from its stored PNG, logging `renditions_backfilled` or `renditions_skipped_mismatch`. Until a page is upgraded, the app shows its full-resolution image. Both migrations are forward-only, and older code refuses an upgraded database at its schema compatibility gate. To be able to go back, take an archive **with the pre-change build** before starting the new one (`pnpm --filter @invimport/intake-server operations backup`; see the [intake-server README](../intake-server/README.md#coherent-archive-and-quarantined-restore)). To roll back, use the pre-change build to restore that archive into a fresh `intake_restore_*` database and point that build at it. Work done after the upgrade is not carried back.
 
-For a personal shared-VM deployment, `INTAKE_PERSONAL_MANAGEMENT=1` enables the dev UI proxy for credential management. Establish the loopback SSH tunnel before opening **Settings › Agents → Personal Claude subscription**. The provider token and operator key are entered explicitly and do not belong in the development env file. See [personal Claude setup](../tooling/deployment/README.md#personal-claude-subscription).
+For a personal shared-VM deployment, `INTAKE_RUN_AGENTS_IN_VM=true` also enables the dev UI proxy for credential management. Establish the loopback SSH tunnel before opening **Settings › Agents → Personal Claude subscription**. The provider token and operator key are entered explicitly and do not belong in the development env file. See [personal Claude setup](../tooling/deployment/README.md#personal-claude-subscription).

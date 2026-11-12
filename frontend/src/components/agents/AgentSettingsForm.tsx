@@ -305,9 +305,9 @@ export function AgentSettingsForm({
           Discard and reload
         </Button>
         <Small>
-          Start <code>pnpm dev</code> with <code>INTAKE_PROCESSING_PROFILE=native-agent/2</code> for
-          sessions that propose lots from photos, or <code>native-agent/1</code> for one queued
-          result. Saving settings starts no agent.
+          Start <code>pnpm dev</code> with <code>INTAKE_USE_MOCK_AI_AGENTS=false</code> for sessions
+          that propose lots from photos, and add <code>INTAKE_USE_AGENT_SESSIONS=false</code> for
+          one queued result instead. Saving settings starts no agent.
         </Small>
       </Actions>
       {conflict && (

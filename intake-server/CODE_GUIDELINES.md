@@ -20,7 +20,9 @@ Separate awaited query results from selection/projection when combining them obs
 
 Format SQL templates with visible clauses and parameter arrays easy to compare with placeholders. Preserve immutable migration bytes.
 
-Run `pnpm lint:readability` for the shared runtime TypeScript check, then `pnpm format` and inspect the result. The readability autofix splits variable declarations and adds branch braces; Prettier expands blocks/types/arguments. Authors still explain predicates, separate responsibilities and lay out SQL strings. Tests should distinguish setup, action and independently expected effects.
+An event API that ignores its listener's result (`createServer`, `process.on`, `request`) must not receive an async function, because a rejection the function does not catch ends the process. Wrap it with `settled` from `src/events/settled.ts` and say what an escaped failure means there, such as destroying the request or failing the worker.
+
+Run `pnpm lint:readability` for the shared runtime TypeScript check, which also applies typescript-eslint's recommended and type-aware rules to `src`, then `pnpm format` and inspect the result. The readability autofix splits variable declarations and adds branch braces; Prettier expands blocks/types/arguments. Authors still explain predicates, separate responsibilities and lay out SQL strings. Tests should distinguish setup, action and independently expected effects.
 
 ## Verify changes
 
