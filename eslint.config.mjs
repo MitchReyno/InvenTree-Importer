@@ -5,7 +5,11 @@ import typedRules from './tooling/eslint/typed-rules.mjs'
 
 const frontendSources = ['frontend/src/**/*.{ts,tsx}']
 // The frontend lints itself through frontend/eslint.config.js; these packages have no config of their own.
-const packageSources = ['intake-server/src/**/*.ts', 'media-decoder/src/**/*.ts', 'contracts/src/**/*.ts']
+const packageSources = [
+  'intake-server/src/**/*.ts',
+  'media-decoder/src/**/*.ts',
+  'contracts/src/**/*.ts',
+]
 
 export default [
   {
@@ -44,7 +48,8 @@ export default [
     },
     rules: {
       ...typedRules,
-      // TypeScript's noUnusedLocals already checks these; this adds rest siblings and `_` names.
+      // TypeScript's noUnusedLocals already reports unused names; these options let rest siblings
+      // and `_` names pass.
       '@typescript-eslint/no-unused-vars': [
         'error',
         { ignoreRestSiblings: true, varsIgnorePattern: '^_', argsIgnorePattern: '^_' },

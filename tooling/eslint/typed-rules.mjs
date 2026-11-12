@@ -5,7 +5,8 @@
 export default {
   // An unhandled rejection loses its failure; await it, return it or mark it with `void`.
   '@typescript-eslint/no-floating-promises': 'error',
-  // JSX event props may take async handlers; elsewhere a void callback must not get a promise.
+  // JSX attributes such as event props may take async handlers; elsewhere a void callback must not
+  // get a promise.
   '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
   '@typescript-eslint/await-thenable': 'error',
   // A new union member then fails lint wherever a switch does not handle it.
