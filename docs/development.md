@@ -1,6 +1,6 @@
 # Running the local application
 
-Use `pnpm dev` from the repository root to start the complete local Bench Intake app at **<http://127.0.0.1:4330>**. By default the command owns the UI, API, apply worker, decoder, Processing worker and a persistent fake inventory service. An explicitly configured external inventory uses the read-only profile described below, without a fake service or apply worker. The `local-inventree` profile reads from a [local development InvenTree](#local-development-inventree) instead. Ctrl-C stops those processes and preserves PostgreSQL and app data. The previous preview is not automatically migrated into this separate namespace.
+Use `pnpm dev` from the repository root to start the complete local Bench Intake app at **<http://127.0.0.1:4330>**. By default the command owns the UI, API, apply worker, decoder, Processing worker and a persistent fake inventory service. An explicitly configured external inventory uses the read-only profile described below, without a fake service or apply worker. The `local-inventree` profile reads from a [local development InvenTree](#local-development-inventree) instead. Ctrl-C or closing the terminal stops those processes and preserves PostgreSQL and app data. The previous preview is not automatically migrated into this separate namespace.
 
 Install the pinned Node 24/pnpm versions and run `pnpm install --frozen-lockfile` first. Docker with Compose 2.24 or later must be available for the shared `inventree-db` PostgreSQL and bounded image decoder. First startup builds the decoder image; later builds reuse Docker's cache. See the [service ledger](../intake-server/README.md#shared-development-service-ledger) before sharing the local PostgreSQL allocation.
 
@@ -94,7 +94,13 @@ Private state defaults to `$HOME/.local/state/bench-intake/app-<server id>`, a n
 
 `INTAKE_DEV_PORT` changes the public loopback port (4330 by default). An occupied port causes failure rather than silently choosing a different address. Retained fixture port 4310 and reserved port 4350 are refused by the full-stack launcher. Keep `INTAKE_APP_STATE` stable across starts to retain batches and uploads. `INTAKE_DEV_STATE` selects the existing PostgreSQL helper state directory. CI can explicitly inject an owned loopback `/postgres` connection through `INTAKE_DEV_ADMIN_URL`; that value is not passed to runtime children or saved in app configuration.
 
-An exclusive `supervisor.lock` prevents overlapping owners. If a hard kill leaves a lock, inspect its recorded PID and private `running.json`, confirm every owned child is stopped, and preserve/rename the lock before restarting. A partial first setup without `app.json` fails closed; inspect its retained `initializing` marker and database before recovery. Do not delete retained data to bypass a failure. Normal Ctrl-C releases the owned lock.
+An exclusive `supervisor.lock` prevents two supervisors from owning one namespace. Ctrl-C, SIGTERM and closing the terminal stop the supervisor and the app processes it owns, then release the lock. PostgreSQL and the retained app data stay.
+
+Closing the terminal delivers SIGHUP. The supervisor also stops if its parent process exits, which covers a terminal that drops the session without a signal the supervisor can catch. App processes run in their own sessions, so the supervisor stops them itself.
+
+A hard kill can still leave the lock behind. The next `pnpm dev` takes it over when the recorded supervisor is gone: it stops orphaned app processes whose identity still matches `running.json`, then removes the lock. A lock whose supervisor is still running is left in place, and startup refuses with `development_supervisor_lock_exists_inspect_owned_state`.
+
+A partial first setup without `app.json` fails closed; inspect its retained `initializing` marker and database before recovery. Do not delete retained data to bypass a failure.
 
 ## Processing and native agents
 

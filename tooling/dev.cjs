@@ -1,15 +1,6 @@
 #!/usr/bin/env node
 const { createRequire } = require('node:module')
-const {
-  mkdir,
-  lstat,
-  readFile,
-  writeFile,
-  open,
-  unlink,
-  realpath,
-  rename,
-} = require('node:fs/promises')
+const { mkdir, lstat, readFile, writeFile, realpath, rename } = require('node:fs/promises')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { createServer: netServer } = require('node:net')
@@ -21,6 +12,8 @@ const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
+const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
+const { bindSessionEnd } = require('./dev/session.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -85,13 +78,23 @@ function applicationArgs(entry) {
 }
 
 async function publishRunning(root, origin, children) {
+  const described = []
+  for (const item of children) {
+    const startedAt = processStartedAt(item.child.pid)
+    described.push({
+      name: item.name,
+      pid: item.child.pid,
+      ...(startedAt ? { startedAt } : {}),
+      ...(item.group ? { group: true } : {}),
+    })
+  }
   const file = join(root, `running-${randomUUID()}.json`)
   await writeFile(
     file,
     JSON.stringify({
       supervisor: process.pid,
       origin,
-      children: children.map((item) => ({ name: item.name, pid: item.child.pid })),
+      children: described,
     }),
     { mode: 0o600, flag: 'wx' },
   )
@@ -113,32 +116,13 @@ async function privateState(root) {
   ) {
     throw new Error('private_development_directory_required')
   }
-  const lock = join(root, 'supervisor.lock')
-  const nonce = randomUUID()
-  let handle
-  try {
-    handle = await open(lock, 'wx', 0o600)
-  } catch (error) {
-    if (error.code === 'EEXIST') {
-      throw new Error('development_supervisor_lock_exists_inspect_owned_state')
-    }
-    throw error
-  }
-  await handle.writeFile(JSON.stringify({ pid: process.pid, nonce }))
-  await handle.close()
-  return async () => {
-    const owned = JSON.parse(await readFile(lock, 'utf8'))
-    if (owned.pid !== process.pid || owned.nonce !== nonce) {
-      throw new Error('development_lock_owner_changed')
-    }
-    await unlink(lock)
-  }
+  return claimSupervisorLock(root)
 }
 
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
-      'pnpm dev — retained local app on http://127.0.0.1:4330; Ctrl-C stops app processes and keeps data/PostgreSQL. --tailscale also serves it over HTTPS on your tailnet. See docs/development.md.\n',
+      'pnpm dev — retained local app on http://127.0.0.1:4330; Ctrl-C or closing the terminal stops app processes and keeps data/PostgreSQL. --tailscale also serves it over HTTPS on your tailnet. See docs/development.md.\n',
     )
     return
   }
@@ -157,7 +141,13 @@ async function main() {
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 4310 || port === 4350) {
     throw new Error('invalid_development_port')
   }
-  await freePort(port)
+  let addressInUse = false
+  try {
+    await freePort(port)
+  } catch (error) {
+    if (error.code !== 'EADDRINUSE') throw error
+    addressInUse = true
+  }
   const tailscale = tailscaleOption(settings)
   // Fail before any setup when the tailnet cannot be served.
   const tailnet = tailscale && (await readTailnetIdentity('tailscale', tailscale.port, baseEnv))
@@ -169,13 +159,32 @@ async function main() {
   )
   // The database server comes first: the state root is scoped to its identity.
   const preparing = new AbortController()
-  const abortPreparing = () => preparing.abort()
-  for (const signal of ['SIGINT', 'SIGTERM']) {
-    process.once(signal, abortPreparing)
+  const startup = new AbortController()
+  let closeWatch = () => {}
+  let children = []
+  let closing = false
+  let intentional = false
+  let restart = Promise.resolve()
+  let resolveStop = () => {}
+  const stopped = new Promise((done) => {
+    resolveStop = done
+  })
+  let release = async () => {}
+  let reportStop = false
+  const shutdown = () => {
+    if (closing) return
+    closing = true
+    preparing.abort()
+    startup.abort()
+    for (const item of children) {
+      item.terminate()
+    }
+    resolveStop()
   }
-  let started
+  // SIGHUP is what a closed terminal delivers. The parent watch covers a launcher that exits first.
+  const session = bindSessionEnd(shutdown)
   try {
-    started = await startSupervision(settings, target, {
+    const started = await startSupervision(settings, target, {
       baseEnv,
       stateDirectory,
       startServices: (childEnv) =>
@@ -199,49 +208,28 @@ async function main() {
       stateRoot: developmentStateRoot,
       privateState,
     })
-  } finally {
-    for (const signal of ['SIGINT', 'SIGTERM']) {
-      process.removeListener(signal, abortPreparing)
+    release = started.release
+    reportStop = true
+    if (closing) return
+    // Orphans can hold the public port; reclaim stops them before this second check.
+    if (addressInUse) {
+      await freePort(port)
     }
-  }
-  const { serviceEnv, prepared, release } = started
-  const root = prepared.root
-  // The local read key exists only once `inventree:dev up` has run.
-  const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
-  const env = { ...serviceEnv, INTAKE_APP_STATE: root }
-  const setupEnv = {
-    ...env,
-    INTAKE_TARGET_PROFILE: target.kind,
-    ...(target.kind === 'read-only'
-      ? { INTAKE_READ_ORIGIN: target.origin, INTAKE_CREDENTIAL_REF: target.credentialRef }
-      : {}),
-    ...(settings.INTAKE_DEV_ADMIN_URL
-      ? { INTAKE_DEV_ADMIN_URL: settings.INTAKE_DEV_ADMIN_URL }
-      : {}),
-  }
-  let closeWatch = () => {}
-  let children = []
-  const startup = new AbortController()
-  let closing = false
-  let intentional = false
-  let restart = Promise.resolve()
-  let resolveStop
-  const stopped = new Promise((done) => {
-    resolveStop = done
-  })
-
-  const shutdown = () => {
-    closing = true
-    startup.abort()
-    for (const item of children) {
-      item.terminate()
+    const { serviceEnv, prepared } = started
+    const root = prepared.root
+    // The local read key exists only once `inventree:dev up` has run.
+    const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
+    const env = { ...serviceEnv, INTAKE_APP_STATE: root }
+    const setupEnv = {
+      ...env,
+      INTAKE_TARGET_PROFILE: target.kind,
+      ...(target.kind === 'read-only'
+        ? { INTAKE_READ_ORIGIN: target.origin, INTAKE_CREDENTIAL_REF: target.credentialRef }
+        : {}),
+      ...(settings.INTAKE_DEV_ADMIN_URL
+        ? { INTAKE_DEV_ADMIN_URL: settings.INTAKE_DEV_ADMIN_URL }
+        : {}),
     }
-    resolveStop()
-  }
-  for (const signal of ['SIGINT', 'SIGTERM']) {
-    process.once(signal, shutdown)
-  }
-  try {
     await run(
       process.execPath,
       applicationArgs('src/dev/setup.ts'),
@@ -537,13 +525,18 @@ async function main() {
     )
     await stopped
   } finally {
+    session.close()
     closing = true
     closeWatch()
     await restart
     intentional = true
-    await stop(children)
+    if (children.length > 0) {
+      await stop(children)
+    }
     await release()
-    process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+    if (reportStop) {
+      process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+    }
   }
 }
 main().catch((error) => {
