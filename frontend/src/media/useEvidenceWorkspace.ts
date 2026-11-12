@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { validate, type MediaEditDto, type MediaSnapshotDto } from '@invimport/contracts'
-import { serverQueryKey, useServerScope } from '#/queries/scope'
-import { useRetainedPollInterval } from '#/components/operations/LiveUpdates'
+import { serverQueryKey } from '#/queries/scope'
 import { useDirtySources } from '#/operator/useDirtySources'
 import { useRetainedCommand } from '#/operator/useRetainedCommand'
 import type { MediaClient } from './types'
+import { useServerScope, useRetainedPollInterval } from '#/context'
 
 /** `readConfirmed`: the caller has just completed a fresh read in the same handler. */
 interface MediaCommandOptions {

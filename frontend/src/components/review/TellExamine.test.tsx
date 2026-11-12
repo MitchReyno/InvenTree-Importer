@@ -5,7 +5,7 @@ import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import type { ProcessingClient } from '#/processing/types'
 import { render } from '#/test/render'
 import { TellExamine } from './TellExamine'
-import { ApiClientsProvider } from '#/components/clients/ApiClientsProvider'
+import { ApiClientsProvider } from '#/context'
 
 const snapshot = (state: string | null) => ({
   jobs: [
