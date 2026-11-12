@@ -39,7 +39,7 @@ export function useEvidenceWorkspace(
     client.edit(batchId, input, requestKey),
   )
   const unavailable = query.isError || query.fetchStatus === 'paused' || !query.isFetchedAfterMount
-  // The sources live in a ref, so a change in any draft is what reruns the adoption below.
+  // The sources live in a ref, so whether any draft is dirty is what reruns the adoption below.
   const { dirty: anyDraft, hasOtherSources } = drafts
 
   useEffect(() => {

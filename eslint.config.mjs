@@ -31,7 +31,8 @@ export default [
     ],
   },
   {
-    // Frontend lint owns these rules and reports its unused disable comments; here they are only known.
+    // Frontend lint owns these rules and reports unused disables; knowing them keeps its react-hooks
+    // disables valid here. A disable for another plugin's rule would still fail this config.
     files: ['frontend/src/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     linterOptions: { reportUnusedDisableDirectives: 'off' },

@@ -117,7 +117,8 @@ export function BatchSettingsPanel({
   const suppliers = useCatalogue(ports?.catalogue, batch.id, 'supplier', editable)
   const values = watch()
 
-  // Batch rebuilds its ports on every render, so Effects read the latest through these refs.
+  // Batch rebuilds its ports on every render, so Effects read the latest through this ref. It is
+  // updated before the Effects below run, so a lane registered now starts from this commit's text.
   const instructionText = instructionRecord?.text ?? ''
   const latest = useRef({ ports, adoptRead, attachLogo, instructionText })
   useEffect(() => {

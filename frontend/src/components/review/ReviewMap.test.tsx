@@ -392,6 +392,39 @@ describe('ReviewMap at region level', () => {
   })
 })
 
+it('measures the connectors again when either column changes size', () => {
+  const observed: Element[] = []
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(element: Element) {
+        observed.push(element)
+      }
+
+      disconnect() {}
+    },
+  )
+  try {
+    render(
+      <ReviewMap
+        batch={batch}
+        evidence={evidence}
+        disabled={false}
+        link={vi.fn(async () => undefined)}
+        newLotFrom={vi.fn(async () => undefined)}
+        openRestructure={vi.fn()}
+        approvedLotIds={new Set()}
+        retiredLotIds={new Set()}
+        loading={false}
+      />,
+    )
+    expect(observed).toContain(screen.getByRole('region', { name: 'Evidence' }))
+    expect(observed).toContain(screen.getByRole('region', { name: 'Lots' }))
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('measuring the same layout again adds no render', () => {
   const commits = vi.fn()
   const props = {
