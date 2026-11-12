@@ -5,6 +5,10 @@ import { space } from '#/theme/generated/tokens'
 import { Button, Small } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
+import { useAsyncAction } from '#/lifecycle/useAsyncAction'
+
+const NOT_CONFIRMED =
+  'Not confirmed, and it may already be queued. Sending again cannot queue it twice.'
 
 /**
  * Asks the step that proposed a field, through its session's inbox. "Asked" stays until the
@@ -29,9 +33,8 @@ export function AskControl({
   const kept = pendingMessage(storeKey).text
   const [open, setOpen] = useState(Boolean(kept))
   const [text, setText] = useState(kept || prefill)
-  const [busy, setBusy] = useState(false)
   const [asked, setAsked] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const { busy, error, run } = useAsyncAction()
   // The field value the ask was about; a different value means the answer may have arrived.
   const [askedValue, setAskedValue] = useState(value)
   const focus = useRef<'asked' | 'ask' | 'message' | null>(null)
@@ -47,6 +50,15 @@ export function AskControl({
   function changeOpen(next: boolean) {
     setOpen(next)
     report?.(next)
+  }
+
+  async function ask() {
+    await send(text.trim(), sendKey(storeKey, text))
+    confirmPending(storeKey)
+    setAskedValue(value)
+    focus.current = 'asked'
+    setAsked(true)
+    changeOpen(false)
   }
 
   useEffect(() => {
@@ -87,19 +99,7 @@ export function AskControl({
     <Form
       onSubmit={(event) => {
         event.preventDefault()
-        setBusy(true)
-        setFailed(false)
-        const message = text.trim()
-        send(message, sendKey(storeKey, text))
-          .then(() => {
-            confirmPending(storeKey)
-            setAskedValue(value)
-            focus.current = 'asked'
-            setAsked(true)
-            changeOpen(false)
-          })
-          .catch(() => setFailed(true))
-          .finally(() => setBusy(false))
+        void run(ask, NOT_CONFIRMED)
       }}
     >
       <TextArea
@@ -131,11 +131,7 @@ export function AskControl({
         >
           Cancel
         </Button>
-        {failed && (
-          <Small role="alert">
-            Not confirmed, and it may already be queued. Sending again cannot queue it twice.
-          </Small>
-        )}
+        {error && <Small role="alert">{error}</Small>}
       </Row>
     </Form>
   )

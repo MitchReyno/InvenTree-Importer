@@ -185,3 +185,32 @@ it('reports clean when a poll hides the form with text unsent, and dirty when it
     vi.useRealTimers()
   }
 })
+
+it('locks the instruction while it is sending, and a new edit clears the failure', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  let fail!: (error: Error) => void
+  processing.chat.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        fail = reject
+      }),
+  )
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="busy" />
+    </ApiClientsProvider>,
+  )
+  const field = await screen.findByLabelText('Instruction for Examine')
+  await user.type(field, 'Merge them')
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+
+  expect(field).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Tell Examine' })).toBeDisabled()
+  await act(async () => fail(new Error('timeout')))
+  expect(await screen.findByRole('alert')).toHaveTextContent('may already be queued')
+  expect(field).toBeEnabled()
+
+  await user.type(field, '!')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})

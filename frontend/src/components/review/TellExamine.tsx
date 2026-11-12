@@ -10,6 +10,10 @@ import { AiMark, Button, Small } from '#/components/ui'
 import { Label, TextArea } from '#/forms'
 import { useReportDirty } from '#/navigation/useReportDirty'
 import { useApiClients, useServerScope, useRetainedPollInterval } from '#/context'
+import { useAsyncAction } from '#/lifecycle/useAsyncAction'
+
+const NOT_CONFIRMED =
+  'The instruction was not confirmed and may already be queued. It is kept here; sending it again cannot queue it twice.'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead
@@ -29,9 +33,8 @@ export function TellExamine({
   const scope = useServerScope()
   const pollInterval = useRetainedPollInterval()
   const [text, setText] = useState(() => pendingMessage(storeKey).text)
-  const [busy, setBusy] = useState(false)
   const [outcome, setOutcome] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
+  const { busy, error, run, clearError } = useAsyncAction()
   const snapshot = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batchId),
     queryFn: () => processing!.read(batchId),
@@ -54,34 +57,26 @@ export function TellExamine({
   const state = lead.session_state
 
   async function send() {
-    setBusy(true)
     setOutcome(null)
-    setFailed(false)
     const key = sendKey(storeKey, text)
-    try {
-      await chat!.call(
-        processing,
-        batchId,
-        lead!.id,
-        { idempotency_key: key, text: text.trim() },
-        key,
-      )
-      confirmPending(storeKey)
-      setText('')
-      onDirtyChange?.(false)
-      setOutcome(chatConfirmation(state))
-    } catch {
-      setFailed(true)
-    } finally {
-      setBusy(false)
-    }
+    await chat!.call(
+      processing,
+      batchId,
+      lead!.id,
+      { idempotency_key: key, text: text.trim() },
+      key,
+    )
+    confirmPending(storeKey)
+    setText('')
+    onDirtyChange?.(false)
+    setOutcome(chatConfirmation(state))
   }
 
   return (
     <Form
       onSubmit={(event) => {
         event.preventDefault()
-        void send()
+        void run(send, NOT_CONFIRMED)
       }}
     >
       <Label>
@@ -96,7 +91,7 @@ export function TellExamine({
             setText(next)
             editPending(storeKey, next)
             setOutcome(null)
-            setFailed(false)
+            clearError()
             onDirtyChange?.(Boolean(next.trim()))
           }}
         />
@@ -106,12 +101,7 @@ export function TellExamine({
           Tell Examine
         </Button>
         {outcome && <Small role="status">{outcome}</Small>}
-        {failed && (
-          <Small role="alert">
-            The instruction was not confirmed and may already be queued. It is kept here; sending it
-            again cannot queue it twice.
-          </Small>
-        )}
+        {error && <Small role="alert">{error}</Small>}
       </Row>
     </Form>
   )

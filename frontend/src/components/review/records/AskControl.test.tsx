@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
@@ -6,7 +6,10 @@ import { AskControl } from './AskControl'
 
 let keys = 0
 
-function renderAsk(send = vi.fn(async () => undefined), value: string | null = 'Resistor') {
+function renderAsk(
+  send: (text: string, key: string) => Promise<void> = vi.fn(async () => undefined),
+  value: string | null = 'Resistor',
+) {
   const report = vi.fn()
   const storeKey = `ask-test:${keys++}`
   const props = { step: 'Research', prefill: 'Please check.', storeKey, send, report }
@@ -57,4 +60,23 @@ test('closing the record with an open message releases the guard', async () => {
   await user.click(screen.getByRole('button', { name: 'Ask Research' }))
   unmount()
   expect(report).toHaveBeenLastCalledWith(false)
+})
+
+test('locks the message while it is sending', async () => {
+  const user = userEvent.setup()
+  let confirm!: () => void
+  const send = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        confirm = resolve
+      }),
+  )
+  renderAsk(send)
+  await user.click(screen.getByRole('button', { name: 'Ask Research' }))
+  await user.click(screen.getByRole('button', { name: 'Send to Research' }))
+  expect(screen.getByLabelText('Message to Research')).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Send to Research' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+  await act(async () => confirm())
+  expect(await screen.findByRole('status')).toHaveTextContent('Asked Research')
 })
