@@ -15,7 +15,9 @@ type DialogProps = {
   placement?: 'center' | 'side'
   /**
    * Where focus goes on close when the opener can't take it back: focus was on the page itself
-   * when the dialog opened, such as a drawer restored after a remount, or the opener has gone.
+   * when the dialog opened, such as a drawer restored after a remount, or the opener was removed
+   * before the dialog closed. An opener removed in the same update as the dialog is still in the
+   * page when the dialog closes, so it takes focus and the fallback isn't used.
    */
   returnFocus?: () => HTMLElement | null
   children: ReactNode
