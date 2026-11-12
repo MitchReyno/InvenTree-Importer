@@ -14,7 +14,8 @@ export interface AsyncAction {
 
 /**
  * The busy flag and failure text around one plain async action, such as a button that sends a
- * request. It keeps no payload or key, so a payload-bound retry belongs to `useRetainedCommand`.
+ * request. It keeps no payload or key; a payload-bound retry keeps its key elsewhere, such as in
+ * `useRetainedCommand` or `processing/pending-messages`.
  * Every throw shows the same failure text, so an action that must tell a conflict, refusal or
  * uncertain outcome apart needs its own handling.
  */

@@ -19,6 +19,7 @@ export function PersonalClaudeCredential() {
     if (!window.isSecureContext) {
       throw new Error()
     }
+
     const response = await fetch('/personal-runner/claude', {
       method: 'POST',
       cache: 'no-store',
@@ -37,10 +38,12 @@ export function PersonalClaudeCredential() {
     if (!response.ok) {
       throw new Error()
     }
+
     const next = await response.json()
     if (typeof next.configured !== 'boolean' || typeof next.revision !== 'string') {
       throw new Error()
     }
+
     setStatus({ configured: next.configured, revision: next.revision })
     if (token.current) {
       token.current.value = ''
