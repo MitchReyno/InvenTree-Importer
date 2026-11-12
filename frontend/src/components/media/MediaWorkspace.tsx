@@ -82,7 +82,7 @@ const ARCHIVED_REASONS = {
 const NOWHERE_TO_MOVE = 'There’s no other group to move it to. Add a group first.'
 const SELECTION_HELD = 'Clear the selection first.'
 
-/** A toast waiting on an uncertain request; a delete's names are read once it is confirmed. */
+/** A toast waiting on an uncertain request; a delete's message is fixed when it is sent. */
 type UnconfirmedToast = Confirmation | { removed: string[]; message: string }
 
 export function MediaWorkspace({

@@ -72365,7 +72365,7 @@
                 },
                 "position": {
                   "minimum": 0,
-                  "maximum": 399,
+                  "maximum": 199,
                   "type": "integer"
                 }
               }
