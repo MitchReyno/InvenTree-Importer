@@ -363,7 +363,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
 - [x] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states.
 - [x] 12.4 Refactor; check focus return after the dialog and toast.
-- [ ] 12.5 Run the full gate, update the docs it affects, and record the results.
+- [x] 12.5 Run the full gate, update the docs it affects, and record the results.
 
 ## 13. Closing notes and index
 

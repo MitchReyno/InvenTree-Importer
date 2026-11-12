@@ -224,6 +224,10 @@ None for task 10.
 - **2026-11-12T20:20+11:00, task 12:** Focus: Cancel or a refused delete returns focus to the opener (the tile's menu button or "Delete N files…"). After a confirmed delete it goes to the group the first file was in, because the opener leaves in the same commit as the dialog, so the workspace takes focus off the opener when the dialog opens and `returnFocus` decides. Undo and Restore focus the restored file's menu button as it mounts; a refused Undo focuses the Deleted files summary.
 - **2026-11-12T20:20+11:00, task 12:** A written batch note's menu shows Delete disabled: "Deleting written notes comes later. A file’s note can be cleared by saving it empty."
 
+### Unexpected challenges
+
+- **2026-11-12T20:30+11:00, task 12:** 12.5 rests on the gate at `61bdad37`, after the merge of `interactive-app` at `81571854`. `pnpm lint`, `pnpm build`, `pnpm test` (frontend 1318 of 1318), `pnpm contracts:check` and `pnpm typecheck:intake` passed. The serial PostgreSQL run of `media-removal.test.ts` and `media-removal-upgrade.test.ts` passed 6 of 6. That includes round 3's new case, where `/media/removal-impact` with no `evidence_ids` returns 400 `invalid_id`; the route already refused it, so the case passed on its first run. Task 12 changes no other server code, so the full tiers weren't rerun.
+
 ## Task 5: Settings page
 
 ### Changes to the plan
