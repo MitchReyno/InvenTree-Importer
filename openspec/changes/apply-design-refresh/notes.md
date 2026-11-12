@@ -4,7 +4,7 @@ The design refresh is delivered in bundles PR-A to PR-G. This file records depar
 
 ## Open items for the whole change
 
-These are the change's open items as PR-G is reviewed. Each task's own section below has the detail; items later bundles resolved are marked there.
+These are the change's remaining open items. Each task's own section below has the detail; items later bundles resolved are marked there.
 
 - **Deferred to BI-015 (shown disabled, with the reason):**
   - Settings › Agents: model per step, instructions for every new batch and web research switches.
@@ -22,7 +22,7 @@ These are the change's open items as PR-G is reviewed. Each task's own section b
 
 ## Delivery evidence
 
-Each merged bundle's reviewed head, local review and CI. PR-G is recorded when it merges. CI is the selected checks; the PostgreSQL and process tiers are skipped in CI and run locally where a bundle touches the intake server (see each PR).
+Each merged bundle's reviewed head, local review and CI. CI is the selected checks; the PostgreSQL and process tiers are skipped in CI and run locally where a bundle touches the intake server (see each PR).
 
 | Bundle | Tasks | PR | Reviewed head | Local review | CI |
 | --- | --- | --- | --- | --- | --- |
@@ -33,6 +33,7 @@ Each merged bundle's reviewed head, local review and CI. PR-G is recorded when i
 | PR-B | 2, 3, 4 | #194 | `c9ef7a29` | 4 rounds; round 4 at `1075878a` clean apart from a `notes.md` nitpick, which `c9ef7a29` fixes alone | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
 | PR-E | 8, 9 | #204 | `b1aea6d2` | 11 rounds; round 11 at the head, with the merge, clean | Frontend, TypeScript lint, Markdown lint passed |
 | PR-C | 5 | #205 | `90e2125d` | 7 rounds; round 7 at the head, with the merges of `interactive-app` and PR-E, clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-G | 11, 12, 13 | #206 | `b61fcd44` | Task 11: 3 rounds, clean at `f141a79f`. Whole PR: 5 rounds; round 5 at `6ce7efd4` clean apart from a `notes.md` timestamp nitpick, which `b61fcd44` fixes alone | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
 
 ## Task 1: design-system foundation
 

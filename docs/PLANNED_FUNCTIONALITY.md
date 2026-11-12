@@ -101,7 +101,7 @@ Build the backend for the design-refresh controls that BI-014 shipped disabled, 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
 - Size: Unknown
-- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first; satisfied once its last PR, PR-G, merges (BI-014 is In review).
+- Prerequisites: BI-014 (`apply-design-refresh`) ships the disabled controls first. BI-014 is Done (satisfied).
 - OpenSpec: [complete-design-refresh-backend](../openspec/changes/complete-design-refresh-backend/)
 
 ## Fixes
@@ -127,7 +127,7 @@ BI-006's live qualification (#118) found that a native Codex session is not conf
 Carry the refined design and design system into the app: a calmer masthead and batch header (one attention count, tabs on their own row under the title, server menu holding Open InvenTree, Settings gear), short source chips with details in a popover, help buttons instead of helper text, a purple AI mark at agent touchpoints, and InvenTree descriptions where the app can show them. It adds a Settings page, a Processing › Inventory step page, Review › Records · Locations, and a slim phone header that condenses on scroll. Capture uploads start as soon as files are picked, and evidence can be deleted with undo. Controls that need new backend work ship disabled and are tracked as BI-015.
 
 - Change: `apply-design-refresh`
-- Status: In review — PR-A to PR-F merged (#191, #194, #205, #192, #204, #190); PR-G (evidence removal and these closing notes) is in review.
+- Status: Done — PR-A to PR-G merged in #191, #194, #205, #192, #204, #190 and #206. The controls it shipped disabled are BI-015.
 - Size: XL — every batch screen, the header, a new Settings page and one append-only removal backend, in seven PRs (PR-A to PR-G).
 - Prerequisites: BI-008 (`redesign-batch-workspace`) is Done and archived.
 - OpenSpec: [apply-design-refresh](../openspec/changes/apply-design-refresh/)

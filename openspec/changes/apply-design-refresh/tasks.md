@@ -378,7 +378,7 @@ Tasks 1, 10 and 11 can start in parallel.
 
 - [x] 13.1 Bring `notes.md` up to date with the final open items.
 - [x] 13.2 Update BI-014 and BI-015 in the index to match what PR-G delivers.
-- [ ] 13.3 Run local review rounds on PR-G's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 13.3 Run local review rounds on PR-G's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## Delivery evidence and lifecycle follow-up
 
