@@ -72,7 +72,7 @@ No external dependency is relevant: this is a mapping from a handful of env stri
 ## Impact and dependencies
 
 - Tooling: `tooling/dev.cjs`, `tooling/dev/profile.cjs`, `tooling/dev/environment.cjs`, `tooling/codex-login.cjs`, a new pure settings resolver, and their tests.
-- Intake server: no source changes. `intake-server/src/dev/target.ts` keeps its internal contract; only the dev process tests change.
+- Intake server: `intake-server/src/dev/target.ts` keeps its internal contract. One runtime fix: `header/binding.ts` now passes the target kind to connection status (see notes). The dev process tests change.
 - Frontend: the `AgentSettingsForm` hint text that names the old variable.
 - Docs: `.env.intake.example`, `docs/development.md`, `README.md`, `intake-server/scripts/native-session-qualification/README.md`, agent architecture notes and `intake-server/ARCHITECTURE.md` where they name the old dev variables.
 - Developers with an existing `.env` must rename their settings; the launcher names the replacements.

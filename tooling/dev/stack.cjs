@@ -21,7 +21,7 @@ async function prepareDevelopment(settings, target, deps) {
  * The read target the API child is given; only fake (v1) state carries its own runner profile.
  * Without a deployment ID the API cannot authorize an effect, which keeps a read-only mock read-only.
  */
-function apiTargetEnv(target, state, key, { readOnly }) {
+function apiTargetEnv(target, state, key, { readOnly } = {}) {
   // Required: a dropped flag must fail rather than quietly grant the mock its deployment.
   if (typeof readOnly !== 'boolean') {
     throw new Error('read_only_decision_required')
@@ -43,6 +43,9 @@ function apiTargetEnv(target, state, key, { readOnly }) {
 
 /** Only a writable mock runs the owned apply runner; local and external targets never do. */
 function startsApplyRunner(state, readOnly) {
+  if (typeof readOnly !== 'boolean') {
+    throw new Error('read_only_decision_required')
+  }
   return state.version === 1 && !readOnly
 }
 

@@ -16,7 +16,7 @@ The development launcher SHALL default to the owned mock inventory and select th
 
 - **GIVEN** an external URL and no `INTAKE_CREDENTIAL_REF`
 - **WHEN** the launcher resolves the target
-- **THEN** the credential reference is `inventree_` followed by the URL host with characters outside `[A-Za-z0-9_-]` replaced by `_`; an explicit valid `INTAKE_CREDENTIAL_REF` is used instead.
+- **THEN** the credential reference is `inventree_` followed by the URL host with characters outside `[A-Za-z0-9_-]` replaced by `_`, truncated to 128 characters; an explicit valid `INTAKE_CREDENTIAL_REF` is used instead.
 
 #### Scenario: Local development InvenTree
 

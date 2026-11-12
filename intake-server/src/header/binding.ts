@@ -22,7 +22,7 @@ export async function requireHeaderContext(client: Pool | PoolClient, binding: B
 
 export function scopedConnectionStatus(
   pool: Pool,
-  binding: Binding,
+  binding: Binding & Pick<DevConfig, 'targetKind'>,
   origin: string | undefined,
   probe?: () => Promise<Response>,
   version?: () => Promise<Response>,
@@ -32,7 +32,14 @@ export function scopedConnectionStatus(
     targetId: binding.targetId,
     targetContextId: binding.targetContextId,
   }
-  const read = connectionStatus(scope, origin, probe, Date.now, version)
+  // The label tells the browser whether approvals write to the owned test target.
+  const read = connectionStatus(
+    { ...scope, targetKind: binding.targetKind },
+    origin,
+    probe,
+    Date.now,
+    version,
+  )
   return async () => {
     await requireHeaderContext(pool, scope)
     const result = await read()

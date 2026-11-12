@@ -239,6 +239,11 @@ test('the API target environment needs an explicit read-only decision', () => {
     () => apiTargetEnv({ kind: 'fake' }, fake, undefined, {}),
     /read_only_decision_required/,
   )
+  assert.throws(
+    () => apiTargetEnv({ kind: 'fake' }, fake, undefined),
+    /read_only_decision_required/,
+  )
+  assert.throws(() => startsApplyRunner({ version: 1 }, undefined), /read_only_decision_required/)
 })
 
 test('only a writable mock starts the apply runner', () => {

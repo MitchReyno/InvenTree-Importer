@@ -64,7 +64,7 @@ The processing switches select one of the existing profiles, which the startup o
 | `false` | `false` | `false` | `native-agent/1` |
 | `false` | `true` | `true` | `shared-vm-agent/2`, or `shared-vm-agent/1` without VM tools |
 
-The app refuses to start, before any setup, when settings conflict. Examples are the local switch together with a URL; read-only `false` with a real server, because writes to a real InvenTree are not supported; VM agents without sessions; and a switch set to anything other than true or false. Errors name the variable but never its value.
+The app refuses to start, before any setup, when settings conflict. Examples are the local switch together with a URL; read-only `false` with a real server, because writes to a real InvenTree are not supported; VM agents without sessions; and a switch set to anything other than true or false. Errors never include a value; invalid, retired and conflicting settings are also named.
 
 The earlier `INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY` and `INTAKE_PERSONAL_MANAGEMENT` settings are refused, and the message names each replacement. The internal profile values are unchanged, so renaming the settings keeps your retained app data.
 
