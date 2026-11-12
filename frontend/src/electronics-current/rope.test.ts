@@ -30,8 +30,8 @@ function segmentLengths(rope: Rope): number[] {
   })
 }
 
-function nudgeWith(pointer: RopeNudge['pointer']): RopeNudge {
-  return { pointer, right: RIGHT, up: UP, unitsPerPx: 0.17, frameSeconds: FRAME }
+function nudgeWith(pointer: RopeNudge['pointer'], frameSeconds = FRAME): RopeNudge {
+  return { pointer, right: RIGHT, up: UP, unitsPerPx: 0.17, frameSeconds }
 }
 
 function allFinite(rope: Rope): boolean {
@@ -81,8 +81,10 @@ test('the pointer pushes nearby points and leaves distant ones alone', () => {
   const near = { x: 0.3, y: -1.2, velocityX: -40, velocityY: 0 }
   const far = { x: 50, y: 50, velocityX: -40, velocityY: 0 }
 
-  stepRope(nudged, anchor, FRAME, nudgeWith(near))
-  stepRope(still, anchor, FRAME, nudgeWith(far))
+  for (let frame = 0; frame < 6; frame++) {
+    stepRope(nudged, anchor, FRAME, nudgeWith(near))
+    stepRope(still, anchor, FRAME, nudgeWith(far))
+  }
 
   expect(tip(nudged).x).toBeLessThan(0)
   expect(tip(still).x).toBe(0)
@@ -179,4 +181,37 @@ test('a zero-length step leaves a swinging rope where it is', () => {
     expect(position.x).toBeCloseTo(before[index].x, 6)
     expect(position.y).toBeCloseTo(before[index].y, 6)
   })
+})
+
+/** Holds a still pointer beside the rope, then reports how far the end swings out. */
+function hoverSwing(framesPerSecond: number, seconds: number): { largest: number; last: number } {
+  const rope = createRope(12, 0.2)
+  const anchor = { x: 0, y: 0, z: 0 }
+  const frame = 1 / framesPerSecond
+  // About 35 px to the left of the rope's middle.
+  const pointer = { x: -6, y: -1.1, velocityX: 0, velocityY: 0 }
+  let largest = 0
+  stepRope(rope, anchor, 0)
+
+  for (let step = 0; step < seconds * framesPerSecond; step++) {
+    stepRope(rope, anchor, frame, nudgeWith(pointer, frame))
+    largest = Math.max(largest, Math.abs(tip(rope).x))
+  }
+
+  return { largest, last: Math.abs(tip(rope).x) }
+}
+
+test('a hovering pointer pushes the end aside alike at 60 and 120 frames per second', () => {
+  const at60 = hoverSwing(60, 0.15)
+  const at120 = hoverSwing(120, 0.15)
+
+  expect(at60.largest).toBeGreaterThan(0.02)
+  expect(at120.largest / at60.largest).toBeGreaterThan(0.8)
+  expect(at120.largest / at60.largest).toBeLessThan(1.25)
+})
+
+test('a pointer held beside the end tilts it only gently', () => {
+  // About 25 degrees from vertical at most for a 2.2-unit rope.
+  expect(hoverSwing(60, 3).last).toBeLessThan(0.95)
+  expect(hoverSwing(120, 3).last).toBeLessThan(0.95)
 })

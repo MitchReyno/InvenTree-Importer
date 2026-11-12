@@ -80,3 +80,16 @@ test('disposing the loose end releases its geometry', () => {
 
   disposals.forEach((dispose) => expect(dispose).toHaveBeenCalledTimes(1))
 })
+
+test('the pointer pushes the loose end aside through the wick', () => {
+  const { holder, hanging } = buildWick()
+  holder.updateMatrixWorld(true)
+  hanging.update(STILL)
+  const pointer = { x: WICK_ANCHOR.x - 1, y: WICK_ANCHOR.y - 1.2, velocityX: 0, velocityY: 0 }
+
+  for (let frame = 0; frame < 30; frame++) {
+    hanging.update({ ...STILL, frameSeconds: 1 / 60, pointer })
+  }
+
+  expect(ribbonPoint(hanging, 11).x).toBeGreaterThan(WICK_ANCHOR.x + 0.05)
+})

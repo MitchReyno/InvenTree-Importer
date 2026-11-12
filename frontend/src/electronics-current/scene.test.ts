@@ -409,3 +409,68 @@ test('a recycled dispenser enters already posed, so its loose end does not whip'
   expect(checked).toBeGreaterThan(0)
   controller.dispose()
 })
+
+test('the pointer reaches a loose end through the scene', () => {
+  // The isometric camera's screen axes, matching the scene's camera.
+  const right = new Vector3(1, 0, -1).normalize()
+  const up = new Vector3(-1, 2, -1).normalize()
+
+  function ribbonEnds(): Vector3[] {
+    const layer = currentRenderer().lastScene?.getObjectByName(HANGING_LAYER_NAME)
+
+    return (layer?.children ?? [])
+      .filter((child) => (child as Mesh).isMesh)
+      .map((child) => {
+        const positions = (child as Mesh).geometry.getAttribute('position')
+        const end = new Vector3().fromBufferAttribute(positions, 22)
+
+        return end.add(new Vector3().fromBufferAttribute(positions, 23)).multiplyScalar(0.5)
+      })
+  }
+
+  function run(pointerAt: { x: number; y: number } | null): Vector3[] {
+    catalogue.forcedType = 'solderWick'
+    const controller = start(false)
+    runFrames(10)
+
+    if (pointerAt) {
+      for (let frame = 0; frame < 20; frame++) {
+        controller.setPointer(pointerAt.x, pointerAt.y)
+        runFrames(1)
+      }
+    } else {
+      runFrames(20)
+    }
+
+    const ends = ribbonEnds()
+    controller.dispose()
+
+    return ends
+  }
+
+  const before = (() => {
+    catalogue.forcedType = 'solderWick'
+    const controller = start(false)
+    runFrames(10)
+    const ends = ribbonEnds()
+    controller.dispose()
+
+    return ends
+  })()
+  // Hold the pointer 20 px left of a loose end that is on screen.
+  const target = before.findIndex((end) => {
+    const y = 60 - end.dot(up) / 0.17
+    const x = end.dot(right) / 0.17 + 640
+
+    return x > 40 && x < 1240 && y > 10 && y < 110
+  })
+  expect(target).toBeGreaterThanOrEqual(0)
+  const end = before[target]
+  const pointerAt = { x: end.dot(right) / 0.17 + 620, y: 60 - end.dot(up) / 0.17 }
+
+  const untouched = run(null)
+  const stirred = run(pointerAt)
+
+  expect(stirred.flatMap((point) => point.toArray()).every(Number.isFinite)).toBe(true)
+  expect(stirred[target].dot(right) - untouched[target].dot(right)).toBeGreaterThan(0.05)
+})

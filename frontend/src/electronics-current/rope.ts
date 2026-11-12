@@ -37,14 +37,17 @@ const CONSTRAINT_PASSES = 30
 /** Below this separation two points have no direction to be pushed apart along. */
 const MIN_SEPARATION = 1e-6
 
-/** Share of the pointer's own motion passed to the rope it brushes. */
+/** How quickly a brushed point takes on the pointer's dragged velocity, per second at full influence. */
+const POINTER_DRAG_RATE = 4
+
+/** Share of the pointer's own velocity a brushed point is dragged towards. */
 const POINTER_DRAG = 0.7
 
-/** How fast the pointer pushes the rope aside, in scene units per second at full influence. */
-const POINTER_PUSH_SPEED = 3
+/** Acceleration pushing points away from the pointer, in scene units per second squared at full influence. */
+const POINTER_PUSH = 8
 
-/** Largest pointer shift per point per step, as a share of a segment, so a flick cannot whip the end. */
-const MAX_NUDGE_SEGMENTS = 0.5
+/** Fastest the pointer can make a point move across the screen, in scene units per second. */
+const MAX_NUDGE_SPEED = 8
 
 export function createRope(count: number, segmentLength: number): Rope {
   const points = Array.from({ length: count }, () => ({
@@ -102,8 +105,8 @@ function constrain(first: Vec3, second: Vec3, rest: number, firstPinned: boolean
 
 /**
  * Advances the rope one frame with its first point at `anchor`. A new rope first hangs
- * straight down; 0 seconds adds no motion and only follows the anchor. A pointer nudge is
- * applied before the constraints, so the rope keeps its length.
+ * straight down; 0 seconds adds no motion and only follows the anchor. A pointer nudge changes
+ * point velocities before the constraints run, so the rope keeps its length.
  */
 export function stepRope(
   rope: Rope,
@@ -124,7 +127,7 @@ export function stepRope(
   pinned.position = { ...anchor }
   pinned.previous = { ...anchor }
 
-  if (nudge) {
+  if (nudge && frameSeconds > 0) {
     nudgeRope(rope, nudge)
   }
 
@@ -164,14 +167,17 @@ function along(point: Vec3, axis: Vec3): number {
   return point.x * axis.x + point.y * axis.y + point.z * axis.z
 }
 
-/** Drags and pushes the free points the pointer passes over, on the screen plane. */
+/**
+ * Changes the velocity of the free points the pointer passes over, on the screen plane, the way
+ * the flow stirs parts. Runs after integration, so it rewrites `previous`.
+ */
 function nudgeRope(rope: Rope, nudge: RopeNudge): void {
   const { pointer, right, up, unitsPerPx, frameSeconds } = nudge
-  const maxShift = rope.segmentLength * MAX_NUDGE_SEGMENTS
 
   for (const point of rope.points.slice(1)) {
-    const offsetX = (along(point.position, right) - pointer.x) / unitsPerPx
-    const offsetY = (along(point.position, up) - pointer.y) / unitsPerPx
+    const { position, previous } = point
+    const offsetX = (along(position, right) - pointer.x) / unitsPerPx
+    const offsetY = (along(position, up) - pointer.y) / unitsPerPx
     const distancePx = Math.hypot(offsetX, offsetY)
     const influence = stirFalloff(distancePx, 1)
 
@@ -179,17 +185,30 @@ function nudgeRope(rope: Rope, nudge: RopeNudge): void {
       continue
     }
 
-    const awayX = offsetX / (distancePx + 1)
-    const awayY = offsetY / (distancePx + 1)
-    const rawRight =
-      (pointer.velocityX * POINTER_DRAG + awayX * POINTER_PUSH_SPEED) * frameSeconds * influence
-    const rawUp =
-      (pointer.velocityY * POINTER_DRAG + awayY * POINTER_PUSH_SPEED) * frameSeconds * influence
-    const limit = Math.min(1, maxShift / (Math.hypot(rawRight, rawUp) || 1))
-    const shiftRight = rawRight * limit
-    const shiftUp = rawUp * limit
-    point.position.x += right.x * shiftRight + up.x * shiftUp
-    point.position.y += right.y * shiftRight + up.y * shiftUp
-    point.position.z += right.z * shiftRight + up.z * shiftUp
+    const velocity = {
+      x: (position.x - previous.x) / frameSeconds,
+      y: (position.y - previous.y) / frameSeconds,
+      z: (position.z - previous.z) / frameSeconds,
+    }
+    const acrossSpeed = along(velocity, right)
+    const upSpeed = along(velocity, up)
+    const drag = Math.min(1, frameSeconds * POINTER_DRAG_RATE * influence)
+    const push = POINTER_PUSH * influence * frameSeconds
+    let newAcross = acrossSpeed + (pointer.velocityX * POINTER_DRAG - acrossSpeed) * drag
+    let newUp = upSpeed + (pointer.velocityY * POINTER_DRAG - upSpeed) * drag
+    newAcross += (offsetX / (distancePx + 1)) * push
+    newUp += (offsetY / (distancePx + 1)) * push
+    const speed = Math.hypot(newAcross, newUp)
+
+    if (speed > MAX_NUDGE_SPEED) {
+      newAcross *= MAX_NUDGE_SPEED / speed
+      newUp *= MAX_NUDGE_SPEED / speed
+    }
+
+    const changeAcross = (newAcross - acrossSpeed) * frameSeconds
+    const changeUp = (newUp - upSpeed) * frameSeconds
+    previous.x -= right.x * changeAcross + up.x * changeUp
+    previous.y -= right.y * changeAcross + up.y * changeUp
+    previous.z -= right.z * changeAcross + up.z * changeUp
   }
 }

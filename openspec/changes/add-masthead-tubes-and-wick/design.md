@@ -54,8 +54,8 @@ The scene handles its lifecycle:
 The rope maths is a pure module (`rope.ts`):
 
 - Verlet integration under gravity, with the first point pinned to the anchor;
-- a pointer nudge in the camera plane using the existing `stirFalloff`, capped per point and applied before the constraints so the rope keeps its length;
-- distance constraints over several iterations.
+- a pointer nudge in the camera plane using the existing `stirFalloff`, which changes point velocities (drag towards the pointer, a push away from it, and a speed cap in units per second) like the flow's stir, so it reacts the same at any frame rate;
+- distance constraints over several iterations, then a pass that holds each segment at its exact length.
 
 The wick builder turns the rope points into a flat ribbon strip and its outline, with the width along the dispenser's axis.
 
