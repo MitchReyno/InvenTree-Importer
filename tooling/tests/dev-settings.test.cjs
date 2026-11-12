@@ -147,6 +147,16 @@ test('contradictory or incomplete inventory settings are refused', () => {
     'conflicting_development_target_settings',
   )
   refusal({ INTAKE_INVENTREE_TOKEN: 'x' }, 'conflicting_development_target_settings')
+  assert.throws(
+    () =>
+      resolveDevelopmentSettings({
+        INTAKE_USE_LOCAL_INVENTREE: 'true',
+        INTAKE_DEV_ADMIN_URL: 'postgres://a',
+      }),
+    (error) =>
+      error.message === 'conflicting_development_target_settings' &&
+      error.names.some((entry) => entry.name === 'INTAKE_DEV_ADMIN_URL'),
+  )
   refusal({ INTAKE_CREDENTIAL_REF: 'x' }, 'conflicting_development_target_settings')
 })
 

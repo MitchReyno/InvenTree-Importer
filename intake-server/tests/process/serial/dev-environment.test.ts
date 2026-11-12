@@ -277,6 +277,7 @@ test(
       await start(false)
       assert.match(output, /retired_development_setting/)
       assert.match(output, /INTAKE_DEV_API_KEY: use INTAKE_INVENTREE_TOKEN/)
+      assert.equal(output.includes(key), false)
       assert.equal(target.requests.length, requestCount)
       assert.equal(await readFile(join(root, 'app.json'), 'utf8'), stateBytes)
     } finally {

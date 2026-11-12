@@ -114,19 +114,27 @@ function resolveInventory(settings) {
       ignored: overriddenByMock(settings),
     }
   }
-  if (local && (external || externalCredentials.length > 0)) {
-    const names = external ? ['INTAKE_INVENTREE_URL', ...externalCredentials] : externalCredentials
+
+  // The local stack owns its origin, key and database server; nothing may redirect them.
+  const localConflicts = [
+    ...(external ? ['INTAKE_INVENTREE_URL'] : []),
+    ...externalCredentials,
+    ...(present(settings, 'INTAKE_DEV_ADMIN_URL') ? ['INTAKE_DEV_ADMIN_URL'] : []),
+  ]
+  if (local && localConflicts.length > 0) {
     throw new DevelopmentSettingsError(
       'conflicting_development_target_settings',
-      names.map((name) => ({ name })),
+      localConflicts.map((name) => ({ name })),
     )
   }
+
   if (!external && externalCredentials.length > 0) {
     throw new DevelopmentSettingsError(
       'conflicting_development_target_settings',
       externalCredentials.map((name) => ({ name })),
     )
   }
+
   if (local) {
     return { targetSettings: { INTAKE_TARGET_PROFILE: 'local-inventree' }, ignored: [] }
   }
@@ -253,7 +261,10 @@ const TARGET_REFUSAL_SETTINGS = {
   invalid_development_target_origin: ['INTAKE_INVENTREE_URL'],
 }
 
-/** Runs a target-policy step, naming the settings to fix when it refuses an external target. */
+/**
+ * Runs a target-policy step (`intake-server/src/dev/target.ts`, which owns these fixed codes),
+ * naming the settings to fix when it refuses an external target.
+ */
 function withTargetSettingNames(step) {
   try {
     return step()
