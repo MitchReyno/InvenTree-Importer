@@ -52,8 +52,8 @@ export function AskControl({
     report?.(next)
   }
 
-  async function ask() {
-    await send(text.trim(), sendKey(storeKey, text))
+  async function ask(key: string) {
+    await send(text.trim(), key)
     confirmPending(storeKey)
     setAskedValue(value)
     focus.current = 'asked'
@@ -99,7 +99,9 @@ export function AskControl({
     <Form
       onSubmit={(event) => {
         event.preventDefault()
-        void run(ask, NOT_CONFIRMED)
+        // Made before the run, so a failure to make a key is not reported as a possibly queued send.
+        const key = sendKey(storeKey, text)
+        void run(() => ask(key), NOT_CONFIRMED)
       }}
     >
       <TextArea

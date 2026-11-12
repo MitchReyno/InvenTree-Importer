@@ -56,9 +56,8 @@ export function TellExamine({
   }
   const state = lead.session_state
 
-  async function send() {
+  async function send(key: string) {
     setOutcome(null)
-    const key = sendKey(storeKey, text)
     await chat!.call(
       processing,
       batchId,
@@ -76,7 +75,9 @@ export function TellExamine({
     <Form
       onSubmit={(event) => {
         event.preventDefault()
-        void run(send, NOT_CONFIRMED)
+        // Made before the run, so a failure to make a key is not reported as a possibly queued send.
+        const key = sendKey(storeKey, text)
+        void run(() => send(key), NOT_CONFIRMED)
       }}
     >
       <Label>

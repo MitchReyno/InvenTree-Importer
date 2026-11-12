@@ -6,7 +6,7 @@ export type AsyncActionOutcome = 'succeeded' | 'failed' | 'skipped'
 export interface AsyncAction {
   /** True while an action started by `run` has not settled. */
   busy: boolean
-  /** The failure text of the last run that threw, until the next run or `clearError`. */
+  /** The failure text of the last run that threw, until the next run that starts, or `clearError`. */
   error: string
   run: (action: () => Promise<unknown>, failureText: string) => Promise<AsyncActionOutcome>
   clearError: () => void
