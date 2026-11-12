@@ -51,7 +51,7 @@ Each setting below is independent, and its name says what it controls. Switches 
 | `INTAKE_USE_MOCK_AI_AGENTS` | `true` | `false` uses real Claude or Codex agents. |
 | `INTAKE_USE_AGENT_SESSIONS` | `true` | `false` produces one result per stage instead of Examine sessions. |
 | `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM. It needs `INTAKE_VM_PAIR` and `INTAKE_VM_PORT`, and serves the VM's credential management. |
-| `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` leaves out the tool worker and web reader. Scripted agents ignore it. |
+| `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` leaves out the tool worker and web reader. It has no effect on scripted agents or agents on the host. |
 
 The processing switches select one of the existing profiles, which the startup output names:
 

@@ -148,8 +148,11 @@ async function main() {
   const { developmentTarget, developmentCredential, developmentStateRoot } = await import(
     pathToFileURL(join(intake, 'src/dev/target.ts')).href
   )
-  const target = withTargetSettingNames(() => developmentTarget(targetValues))
-  const targetKey = withTargetSettingNames(() => developmentCredential(targetValues, target))
+  const target = withTargetSettingNames(() => developmentTarget(targetValues), settings)
+  const targetKey = withTargetSettingNames(
+    () => developmentCredential(targetValues, target),
+    settings,
+  )
   // Printed before setup, so an overridden setting is visible even if startup later fails.
   process.stdout.write(startupSummary(target.kind, resolved))
   const port = Number(settings.INTAKE_DEV_PORT ?? 4330)

@@ -207,8 +207,12 @@ const TARGET_SETTING_NAMES = [
 
 /** The settings `developmentTarget` and the state helpers read, with the resolved target in place. */
 function targetEnvironment(settings, targetSettings) {
+  // An empty admin URL means unset here too; the target policy would treat it as supplied.
   const others = Object.fromEntries(
-    Object.entries(settings).filter(([name]) => !TARGET_SETTING_NAMES.includes(name)),
+    Object.entries(settings).filter(
+      ([name, value]) =>
+        !TARGET_SETTING_NAMES.includes(name) && !(name === 'INTAKE_DEV_ADMIN_URL' && value === ''),
+    ),
   )
   return { ...others, ...targetSettings }
 }
@@ -265,7 +269,7 @@ const TARGET_REFUSAL_SETTINGS = {
  * Runs a target-policy step (`intake-server/src/dev/target.ts`, which owns these fixed codes),
  * naming the settings to fix when it refuses an external target.
  */
-function withTargetSettingNames(step) {
+function withTargetSettingNames(step, settings = {}) {
   try {
     return step()
   } catch (error) {
@@ -273,9 +277,13 @@ function withTargetSettingNames(step) {
     if (!names) {
       throw error
     }
+    // A derived reference is not something the user set, so it is not named.
+    const named = names.filter(
+      (name) => name !== 'INTAKE_CREDENTIAL_REF' || present(settings, name),
+    )
     throw new DevelopmentSettingsError(
       error.message,
-      names.map((name) => ({ name })),
+      named.map((name) => ({ name })),
     )
   }
 }

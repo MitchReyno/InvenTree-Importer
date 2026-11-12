@@ -67,7 +67,7 @@ When `INTAKE_CREDENTIAL_REF` is unset for an external URL, the resolver derives 
 | local true | `local-inventree` | none (`false` refused) | none |
 | URL + token | `read-only` | none (`false` refused) | none |
 
-All refusals happen in the resolver, before any service, database or lock is touched, and use fixed codes. Authority is never widened: no path gives a local or external target an executor, and the read-only mock removes authority the fake had. The inventory-target-protection guarantees for `read-only` and `local-inventree` targets are unchanged because the internal values are identical.
+All refusals happen before any service, database or lock is touched, and use fixed codes. The resolver refuses switch values, retired names and conflicts; `developmentTarget` and `developmentCredential` still refuse an incomplete or invalid external server, and `withTargetSettingNames` names the user-facing settings behind those codes. Authority is never widened: no path gives a local or external target an executor, and the read-only mock removes authority the fake had. The inventory-target-protection guarantees for `read-only` and `local-inventree` targets are unchanged because the internal values are identical.
 
 ## Verification strategy
 

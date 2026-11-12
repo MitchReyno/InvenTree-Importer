@@ -103,4 +103,4 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 
 ## Delivery evidence and lifecycle follow-up
 
-Record the reviewed SHA, check results and PR state here once they exist. No BI item is linked. Sync and archive only when authorized, after `pnpm openspec:overlap --change split-dev-profile-settings`.
+The reviewed SHA, check results and PR state are recorded in the PR description, not here. No BI item is linked. Sync and archive only when authorized, after `pnpm openspec:overlap --change split-dev-profile-settings`.

@@ -7,6 +7,8 @@ Splits the `pnpm dev` profile variables into independent switches. Delivered in 
 - **2026-11-12T13:45+11:00, task 2 (review):** The launcher's child decisions (agent-worker settings, apply-runner gate, credential proxy flag, startup summary) moved out of `tooling/dev.cjs` into `settings.cjs` and `stack.cjs` so they are unit-tested, and the summary now prints before setup rather than only on success. Design updated.
 - **2026-11-12T13:45+11:00, task 3 (review):** The external-target process test now runs scripted sessions on an external target, and the dev-stack test keeps the per-stage pipeline on the mock. The proposal's impact list no longer claims a `target.ts` change, which was never needed.
 
+- **2026-11-12T17:55+10:00, tasks 2 and 4 (review):** Later review rounds added three things the design did not list: `withTargetSettingNames`, which names the settings behind the target policy's external-server refusals; the same credential check and inventory-token stripping in `pnpm codex:login`; and named local-stack conflicts, including `INTAKE_DEV_ADMIN_URL`. Design updated.
+
 ## Unexpected challenges
 
 - **2026-11-12T13:59+11:00, task 3 (review):** A new process test for the read-only mock with default sessions found that connection status reported every target as `configured`, the plain mock included. `scopedConnectionStatus` (`header/binding.ts`) dropped `targetKind` from the binding before calling `connectionStatus`, so the spec's "Owned fake target label" was never true end to end; only `devConfig` was unit-tested. It now passes the kind through, and the new test asserts `owned_test` for the mock.

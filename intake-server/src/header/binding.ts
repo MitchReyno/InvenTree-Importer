@@ -8,6 +8,9 @@ import { connectionStatus } from './connection.ts'
 
 type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
 
+/** A header binding plus whether its target is the owned test fake. */
+type StatusBinding = Binding & Pick<DevConfig, 'targetKind'>
+
 export async function requireHeaderContext(client: Pool | PoolClient, binding: Binding) {
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
@@ -21,7 +24,7 @@ export async function requireHeaderContext(client: Pool | PoolClient, binding: B
 }
 
 /** What connection status is scoped to, including whether the target is the owned test fake. */
-export function statusBinding(binding: Binding & Pick<DevConfig, 'targetKind'>) {
+export function statusBinding(binding: StatusBinding) {
   return {
     actorId: binding.actorId,
     targetId: binding.targetId,
@@ -32,7 +35,7 @@ export function statusBinding(binding: Binding & Pick<DevConfig, 'targetKind'>) 
 
 export function scopedConnectionStatus(
   pool: Pool,
-  binding: Binding & Pick<DevConfig, 'targetKind'>,
+  binding: StatusBinding,
   origin: string | undefined,
   probe?: () => Promise<Response>,
   version?: () => Promise<Response>,

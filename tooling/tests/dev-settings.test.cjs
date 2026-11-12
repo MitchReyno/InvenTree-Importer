@@ -386,9 +386,12 @@ test('external-target refusals from the target policy name the settings to fix',
   ]) {
     assert.throws(
       () =>
-        withTargetSettingNames(() => {
-          throw new Error(code)
-        }),
+        withTargetSettingNames(
+          () => {
+            throw new Error(code)
+          },
+          { INTAKE_CREDENTIAL_REF: 'explicit' },
+        ),
       (error) =>
         error instanceof DevelopmentSettingsError &&
         error.message === code &&
@@ -406,4 +409,20 @@ test('external-target refusals from the target policy name the settings to fix',
     withTargetSettingNames(() => 'value'),
     'value',
   )
+  assert.throws(
+    () =>
+      withTargetSettingNames(() => {
+        throw new Error('development_read_target_required')
+      }, {}),
+    (error) => JSON.stringify(error.names) === JSON.stringify([{ name: 'INTAKE_INVENTREE_URL' }]),
+  )
+})
+
+test('an empty admin URL is unset for the local target', () => {
+  const settings = { INTAKE_USE_LOCAL_INVENTREE: 'true', INTAKE_DEV_ADMIN_URL: '' }
+  const { targetSettings } = resolveDevelopmentSettings(settings)
+  assert.deepEqual(targetEnvironment(settings, targetSettings), {
+    INTAKE_USE_LOCAL_INVENTREE: 'true',
+    INTAKE_TARGET_PROFILE: 'local-inventree',
+  })
 })
