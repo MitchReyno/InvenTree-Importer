@@ -64,6 +64,7 @@ export function CaptureWorkspace({
       },
     )
   }, [])
+
   const report = useCallback(
     (source: DirtySource, value: boolean) => {
       const { onDirtyChange, settings } = latest.current
@@ -79,6 +80,7 @@ export function CaptureWorkspace({
     },
     [refreshSettings],
   )
+
   const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
   const reportMedia = useCallback((value: boolean) => report('media', value), [report])
   const reportNote = useCallback((value: boolean) => report('note', value), [report])

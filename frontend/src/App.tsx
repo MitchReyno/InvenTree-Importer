@@ -49,9 +49,11 @@ export default function App() {
     refetchOnMount: false,
   })
   const refetchBootstrap = bootstrapQuery.refetch
+
   const refreshBootstrap = useCallback(() => {
     void refetchBootstrap()
   }, [refetchBootstrap])
+
   const bootstrapUnavailable = bootstrapQuery.isError || bootstrapQuery.fetchStatus === 'paused'
   const bootstrap = bootstrapQuery.data
   const actorId = bootstrap?.actor_id
