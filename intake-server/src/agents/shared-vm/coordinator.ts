@@ -10,6 +10,7 @@ import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
 import { pairing } from './pair.ts'
+import { settled } from '#/events/settled.ts'
 
 /** A guest connection accepts exactly one session turn. The capability stays on the host. */
 export async function startSessionBridge(directory: string, port: number) {
@@ -25,56 +26,60 @@ export async function startSessionBridge(directory: string, port: number) {
   const connected = new Set<TLSSocket>()
   const server = createServer(
     { ...(await pairing(directory)), requestCert: true },
-    async (socket) => {
-      if (
-        !socket.authorized ||
-        checkServerIdentity('bench-guest', socket.getPeerCertificate()) ||
-        connected.size >= 8
-      ) {
-        socket.destroy()
-        return
-      }
-      connected.add(socket)
-      socket.once('close', () => {
-        connected.delete(socket)
-        idle.delete(socket)
-      })
-      socket.on('error', () => socket.destroy())
-      socket.setTimeout(60_000, () => socket.destroy())
-      try {
-        const frames = new Frames(socket)
-        const greeting = await frames.read()
+    settled(
+      async (socket: TLSSocket) => {
         if (
-          greeting.reapProof === true &&
-          greeting.builtinTools === true &&
-          greeting.terminalProbe === true
+          !socket.authorized ||
+          checkServerIdentity('bench-guest', socket.getPeerCertificate()) ||
+          connected.size >= 8
         ) {
-          reapPeers.add(socket)
+          socket.destroy()
+          return
         }
-        if (greeting.terminalProbe === true) {
-          probePeers.add(socket)
-        }
-        if (greeting.claudeSubscription === true) {
-          subscriptions.set(socket, 'claude')
-        }
-        if (greeting.codexSubscription === true) {
-          subscriptions.set(socket, 'codex')
-        }
-        if (greeting.builtinTools === true) {
-          rich.add(socket)
-          if (greeting.evidenceFiles === true) {
-            evidencePeers.add(socket)
+        connected.add(socket)
+        socket.once('close', () => {
+          connected.delete(socket)
+          idle.delete(socket)
+        })
+        socket.on('error', () => socket.destroy())
+        socket.setTimeout(60_000, () => socket.destroy())
+        try {
+          const frames = new Frames(socket)
+          const greeting = await frames.read()
+          if (
+            greeting.reapProof === true &&
+            greeting.builtinTools === true &&
+            greeting.terminalProbe === true
+          ) {
+            reapPeers.add(socket)
           }
+          if (greeting.terminalProbe === true) {
+            probePeers.add(socket)
+          }
+          if (greeting.claudeSubscription === true) {
+            subscriptions.set(socket, 'claude')
+          }
+          if (greeting.codexSubscription === true) {
+            subscriptions.set(socket, 'codex')
+          }
+          if (greeting.builtinTools === true) {
+            rich.add(socket)
+            if (greeting.evidenceFiles === true) {
+              evidencePeers.add(socket)
+            }
+          }
+          if (greeting.ready !== protocol) {
+            throw new Error('runner_protocol_mismatch')
+          }
+          socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
+          idle.set(socket, frames)
+        } catch {
+          socket.destroy()
         }
-        if (greeting.ready !== protocol) {
-          throw new Error('runner_protocol_mismatch')
-        }
-        socket.setTimeout(0) // The greeting deadline ends once the peer is admitted.
-        idle.set(socket, frames)
-      } catch {
-        socket.destroy()
-      }
-    },
+      },
+      // A failure the handler did not catch drops this peer, not the coordinator.
+      (_error, socket) => socket.destroy(),
+    ),
   )
   const transports = new Set<Socket>()
   server.maxConnections = 16
