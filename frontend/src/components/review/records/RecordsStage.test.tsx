@@ -146,6 +146,13 @@ const batch = {
     { id: partC, label: 'Unknown resistor', revision: '1', choice: { mode: 'unset' } },
   ],
   lots: [lot(1, partA), lot(2, partA), lot(3, partB), lot(4, partC)],
+  defaults: {
+    quantity: { mode: 'unknown' },
+    location: {
+      mode: 'set',
+      value: { observation_id: id(920), target_context_id: context, model: 'location', pk: '43' },
+    },
+  },
   observations,
 } as unknown as CaptureSnapshotDto
 
@@ -1646,6 +1653,335 @@ describe('Descriptions on records', () => {
     expect(
       await screen.findByRole('dialog', { name: 'Location description source' }),
     ).toHaveTextContent('Entered with this new location in Capture.')
+  })
+
+  const drawer = entry({
+    key: 'location:43',
+    type: 'location',
+    label: 'Incoming inspection drawer',
+    lot_ids: [id(101), id(102), id(103)],
+    mapped: { model: 'location', pk: '43' },
+  })
+  const bin = entry({
+    key: 'location:44',
+    type: 'location',
+    label: 'Bench bin B3',
+    lot_ids: [id(104)],
+    mapped: { model: 'location', pk: '44' },
+  })
+  const locationValues: RecordExistingValuesDto['records'] = [
+    {
+      key: 'location:43',
+      status: 'found',
+      fields: [
+        { name: 'name', value: 'Incoming inspection drawer' },
+        { name: 'description', value: 'Parts waiting for check-in' },
+        { name: 'path', value: 'Workshop › Incoming inspection drawer' },
+      ],
+    },
+    {
+      key: 'location:44',
+      status: 'found',
+      fields: [
+        { name: 'name', value: 'B3' },
+        { name: 'description', value: 'Small parts kept at the bench' },
+        { name: 'path', value: 'Workshop › Bench › Bins › B3' },
+      ],
+    },
+  ]
+
+  it('lists Locations with their path, why each is used and their stock count', async () => {
+    const user = userEvent.setup()
+    stageRecords(withRecords(drawer, bin), locationValues)
+    await user.click(await screen.findByRole('button', { name: /^Locations/ }))
+    const list = screen.getByRole('region', { name: 'Locations' })
+
+    const row = (name: string) => within(list).getByRole('button', { name })
+
+    expect(row('Incoming inspection drawer')).toHaveTextContent('batch default · 3 stock items')
+    expect(row('Bench bin B3')).toHaveTextContent('from 1 lot override · 1 stock item')
+    expect(await within(list).findByText('Workshop › Bench › Bins › B3')).toBeVisible()
+    expect(row('Bench bin B3')).toHaveAccessibleDescription(/from 1 lot override/)
+  })
+
+  it('shows a location’s path, description, type and the stock going there, without editing it', async () => {
+    const user = userEvent.setup()
+    const { edit } = stageRecords(withRecords(drawer, bin), locationValues)
+    await open(user, /^Locations/, 'Bench bin B3')
+    const detail = screen.getByRole('region', { name: 'Bench bin B3' })
+
+    expect(await within(detail).findByText('Workshop › Bench › Bins › B3')).toBeVisible()
+    expect(within(detail).getByRole('group', { name: 'Location description' })).toHaveTextContent(
+      'Small parts kept at the bench',
+    )
+    const type = within(detail).getByRole('combobox', { name: 'Location type' })
+    expect(type).toHaveAttribute('aria-disabled', 'true')
+    expect(type).toHaveAccessibleDescription(/aren’t read from InvenTree yet/)
+    const stock = within(detail).getByRole('list', { name: 'Stock going here' })
+    expect(within(stock).getByRole('link', { name: 'Lot 4' })).toHaveAttribute(
+      'href',
+      `#${batch.id}/review/lots/${id(104)}`,
+    )
+    expect(stock).toHaveTextContent('Not known · overrides the batch default')
+    expect(detail).toHaveTextContent('Locations are set on lots in Lots, or for the batch')
+    expect(edit).not.toHaveBeenCalled()
+  })
+
+  it('reads each lot’s quantity from its stock item, keeping an estimate an estimate', async () => {
+    const user = userEvent.setup()
+    // An AI lot that inherits never takes the batch default of 10, as approval reads it.
+    const snapshot = {
+      ...batch,
+      defaults: { ...batch.defaults, quantity: { mode: 'set', value: '10' } },
+      lots: batch.lots.map((item) =>
+        item.id === id(104)
+          ? { ...item, origin: 'agent', quantity: { mode: 'inherit' }, estimated_quantity: '12' }
+          : item,
+      ),
+    } as unknown as CaptureSnapshotDto
+
+    const stockItem = (lotId: string, value: string | null, estimate = false) =>
+      entry({
+        key: `stock_item:${lotId}`,
+        type: 'stock_item',
+        label: 'Stock',
+        state: estimate || value === null ? 'choose' : 'new',
+        lot_ids: [lotId],
+        fields: [
+          {
+            name: 'quantity',
+            value,
+            origin: estimate ? { kind: 'estimate', step: 'examine' } : operatorOrigin,
+          },
+        ],
+        decision:
+          estimate || value === null
+            ? { code: 'quantity_required', detail: 'Set an exact quantity for this lot.' }
+            : null,
+      })
+
+    const both = entry({ ...bin, lot_ids: [id(104), id(103), id(102)] })
+    stageRecords(
+      withRecords(
+        drawer,
+        both,
+        stockItem(id(104), '12', true),
+        stockItem(id(103), null),
+        stockItem(id(102), '7'),
+      ),
+      locationValues,
+      snapshot,
+    )
+    await open(user, /^Locations/, 'Bench bin B3')
+    const stock = within(screen.getByRole('region', { name: 'Bench bin B3' })).getByRole('list', {
+      name: 'Stock going here',
+    })
+
+    const line = (lot: string) => within(stock).getByRole('link', { name: lot }).closest('li')!
+
+    expect(line('Lot 4')).toHaveTextContent('About 12 pcs · Examine’s estimate, not yet accepted')
+    expect(line('Lot 4')).not.toHaveTextContent('10 pcs')
+    expect(line('Lot 3')).toHaveTextContent('Quantity needs a decision')
+    expect(line('Lot 2')).toHaveTextContent('7 pcs')
+  })
+
+  it('says a path is unavailable when InvenTree can’t be read, in the list and the detail', async () => {
+    const user = userEvent.setup()
+    const read = withRecords(drawer, bin)
+    render(
+      <BatchCommandsProvider
+        value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+      >
+        <RecordsStage
+          batch={batch}
+          client={{
+            read: vi.fn(async () => read),
+            existing: vi.fn(async () => Promise.reject(new Error('down'))),
+          }}
+          onDirtyChange={vi.fn()}
+        />
+      </BatchCommandsProvider>,
+    )
+    await user.click(await screen.findByRole('button', { name: /^Locations/ }))
+    const list = screen.getByRole('region', { name: 'Locations' })
+    await waitFor(() =>
+      expect(within(list).getByRole('button', { name: 'Bench bin B3' })).toHaveTextContent(
+        'Path unavailable: InvenTree couldn’t be read',
+      ),
+    )
+    await user.click(within(list).getByRole('button', { name: 'Bench bin B3' }))
+    const detail = screen.getByRole('region', { name: 'Bench bin B3' })
+    expect(detail).toHaveTextContent('Path unavailable: InvenTree couldn’t be read')
+    expect(detail).not.toHaveTextContent('PathNot known')
+  })
+
+  it('gives a new location its parent’s path, and no path for a decision or no location', async () => {
+    const user = userEvent.setup()
+    const draftId = id(600)
+
+    const draftBatch = (parent: object | null) =>
+      ({
+        ...batch,
+        defaults: { quantity: { mode: 'unknown' }, location: { mode: 'unset' } },
+        settings_intent: { default_location_draft: draftId },
+        observations: [
+          ...observations,
+          {
+            id: id(921),
+            model: 'location',
+            pk: '43',
+            target_context_id: context,
+            label: 'Incoming inspection drawer',
+            observed_at: '2026-11-06T00:00:00.000Z',
+          },
+        ],
+        target_context_id: context,
+        reference_drafts: [
+          {
+            draft_id: draftId,
+            kind: 'location',
+            value: { name: 'Bench bin B3', description: '', parent },
+            version: '1',
+            actor_id: id(2),
+            created_at: '2026-11-09T00:00:00Z',
+          },
+        ],
+      }) as unknown as CaptureSnapshotDto
+
+    const draft = entry({
+      key: `location:draft:${draftId}`,
+      type: 'location',
+      label: 'Bench bin B3',
+      state: 'new',
+      lot_ids: [id(101)],
+    })
+    const none = entry({
+      key: 'location:none',
+      type: 'location',
+      label: 'No location',
+      state: 'choose',
+      lot_ids: [id(104)],
+      decision: { code: 'location_required', detail: 'Set a location for these lots.' },
+    })
+    const parent = {
+      observation_id: id(921),
+      target_context_id: context,
+      model: 'location',
+      pk: '43',
+    }
+    stageRecords(withRecords(drawer, draft, none), locationValues, draftBatch(parent))
+    await user.click(await screen.findByRole('button', { name: /^Locations/ }))
+    const list = screen.getByRole('region', { name: 'Locations' })
+    expect(
+      await within(list).findByText('Workshop › Incoming inspection drawer › Bench bin B3'),
+    ).toBeVisible()
+    expect(within(list).getByRole('button', { name: 'Bench bin B3' })).toHaveTextContent(
+      'batch default',
+    )
+    await user.click(within(list).getByRole('button', { name: 'No location' }))
+    const detail = screen.getByRole('region', { name: 'No location' })
+    expect(detail).toHaveTextContent('PathNot known')
+    expect(detail).toHaveTextContent('needs a decision')
+  })
+
+  it('leaves a new location’s path unknown when its parent is invalid', async () => {
+    const user = userEvent.setup()
+    const draftId = id(600)
+    const snapshot = {
+      ...batch,
+      defaults: { quantity: { mode: 'unknown' }, location: { mode: 'unset' } },
+      settings_intent: { default_location_draft: draftId },
+      target_context_id: context,
+      reference_drafts: [
+        {
+          draft_id: draftId,
+          kind: 'location',
+          value: {
+            name: 'Bench bin B3',
+            description: '',
+            // No retained observation backs this parent.
+            parent: {
+              observation_id: id(999),
+              target_context_id: context,
+              model: 'location',
+              pk: '43',
+            },
+          },
+          version: '1',
+          actor_id: id(2),
+          created_at: '2026-11-09T00:00:00Z',
+        },
+      ],
+    } as unknown as CaptureSnapshotDto
+    const draft = entry({
+      key: `location:draft:${draftId}`,
+      type: 'location',
+      label: 'Bench bin B3',
+      state: 'choose',
+      lot_ids: [id(101)],
+      decision: {
+        code: 'location_draft_parent_invalid',
+        detail: 'Choose this new location’s parent again in Capture.',
+      },
+    })
+    stageRecords(withRecords(drawer, draft), locationValues, snapshot)
+    await open(user, /^Locations/, 'Bench bin B3')
+    const detail = screen.getByRole('region', { name: 'Bench bin B3' })
+    expect(detail).toHaveTextContent('PathNot known')
+    expect(detail).not.toHaveTextContent('Workshop › Incoming inspection drawer › Bench bin B3')
+  })
+
+  it('asks the Inventory session about a location', async () => {
+    const user = userEvent.setup()
+    const chat = vi.fn(async () => ({ id: 'inbox' }))
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          {
+            id: 'inventory-job',
+            stage: 'inventory',
+            subject_id: id(104),
+            session_state: 'running',
+          },
+        ],
+      })),
+      session: vi.fn(),
+      chat,
+    } as unknown as ProcessingClient
+    render(
+      <ApiClientsProvider value={{ processing }}>
+        <BatchCommandsProvider
+          value={batchCommands({ edit: vi.fn(async () => true), observe: vi.fn(async () => null) })}
+        >
+          <RecordsStage
+            batch={batch}
+            client={{ read: vi.fn(async () => withRecords(drawer, bin)) }}
+            onDirtyChange={vi.fn()}
+          />
+        </BatchCommandsProvider>
+      </ApiClientsProvider>,
+    )
+    await open(user, /^Locations/, 'Bench bin B3')
+    const detail = screen.getByRole('region', { name: 'Bench bin B3' })
+    await user.click(await within(detail).findByRole('button', { name: 'Ask Inventory' }))
+    expect(within(detail).getByLabelText('Message to Inventory')).toHaveValue(
+      'Please check the location Bench bin B3.',
+    )
+    await user.click(within(detail).getByRole('button', { name: 'Send to Inventory' }))
+    expect(chat).toHaveBeenCalledWith(
+      batch.id,
+      'inventory-job',
+      { idempotency_key: expect.any(String), text: 'Please check the location Bench bin B3.' },
+      expect.any(String),
+    )
+    // No Inventory session works on the default's lots, so there is no one to ask there.
+    await user.click(screen.getByRole('button', { name: 'Incoming inspection drawer' }))
+    expect(
+      within(screen.getByRole('region', { name: 'Incoming inspection drawer' })).queryByRole(
+        'button',
+        { name: 'Ask Inventory' },
+      ),
+    ).not.toBeInTheDocument()
   })
 
   it('counts a new Part’s description as it will be saved, so a trailing space can still save', async () => {

@@ -68,6 +68,7 @@ export function SessionRows({
         <li key={session.jobId}>
           <SessionRow
             type="button"
+            data-session-job={session.jobId}
             aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
             aria-describedby={`session-${session.jobId}-state${
               session.status ? ` session-${session.jobId}-status` : ''

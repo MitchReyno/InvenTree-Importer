@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styled, { css } from 'styled-components'
 import { color, radius, shadow, space, type } from '#/theme/generated/tokens'
@@ -13,6 +13,12 @@ type DialogProps = {
   closeDisabled?: boolean
   /** "side" docks the dialog to the right edge at full height, as a drawer. */
   placement?: 'center' | 'side'
+  /**
+   * Where focus goes on close when the opener can't take it back: focus was on the page itself
+   * when the dialog opened, such as a drawer restored after a remount, or the opener was removed
+   * before the dialog closed. A connected opener always takes focus back instead.
+   */
+  returnFocus?: () => HTMLElement | null
   children: ReactNode
 }
 
@@ -22,6 +28,7 @@ export function Dialog({
   onClose,
   closeDisabled = false,
   placement = 'center',
+  returnFocus,
   children,
 }: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -29,8 +36,13 @@ export function Dialog({
 
   // The element that had focus before the dialog opened, which gets it back on close.
   const opener = useRef<HTMLElement | null>(null)
+  const fallback = useRef(returnFocus)
+  useLayoutEffect(() => {
+    fallback.current = returnFocus
+  })
 
-  useEffect(() => {
+  // A layout Effect, so the dialog is open and focus settled before its children's Effects run.
+  useLayoutEffect(() => {
     const element = dialog.current
     const active = document.activeElement
     // Keeps the recorded opener if focus is already inside the dialog.
@@ -53,8 +65,11 @@ export function Dialog({
           element.open = false
         }
       }
-      if (opener.current?.isConnected) {
-        opener.current.focus()
+      const back = opener.current
+      if (back?.isConnected && back !== document.body) {
+        back.focus()
+      } else {
+        fallback.current?.()?.focus()
       }
     }
   }, [])
@@ -73,7 +88,10 @@ export function Dialog({
       }}
     >
       <TitleRow>
-        <Title id={titleId}>{title}</Title>
+        {/* Focusable by script, so focus can land on the title when content it held leaves. */}
+        <Title id={titleId} tabIndex={-1}>
+          {title}
+        </Title>
         <Button size="sm" disabled={closeDisabled} onClick={onClose}>
           Close
         </Button>

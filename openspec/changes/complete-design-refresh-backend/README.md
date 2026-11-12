@@ -8,4 +8,4 @@ Backend for the design-refresh controls that `apply-design-refresh` ships disabl
 - reading existing manufacturer part, supplier part and location type descriptions;
 - the Settings › InvenTree token row (status, Check now, Replace token), Check connection now and the import reference prefix;
 - deleting written batch notes;
-- fuller existing-stock data for the Inventory duplicate comparison.
+- Inventory questions that carry the session's answer options (for the drawer's option cards) and the existing record's fields (for the Inventory comparison).

@@ -30,20 +30,20 @@ It SHALL NOT list lots as an editing surface, and it SHALL NOT repeat the Review
 
 ### Requirement: Inventory step page
 
-Processing › Inventory SHALL follow the step page pattern. Its main column lists each lot's Part match and why, possible duplicate stock as a side-by-side comparison built from the retained question, and location and company matches linking to Review › Records. Fields the retained data doesn't hold SHALL read "Not known" rather than being invented.
+Processing › Inventory SHALL follow the step page pattern. Its main column lists each lot's Part match and why, a side-by-side comparison for each open Inventory clarification about a lot (such as possible duplicate stock), built from the retained question and Review's records, and location and company matches linking to Review › Records. Fields the retained data doesn't hold SHALL read "Not known" rather than being invented.
 
 #### Scenario: Duplicate stock question
 
 - **GIVEN** Inventory asked whether a tube is existing stock #1712
 - **WHEN** the operator opens Processing › Inventory
-- **THEN** the comparison shows both records' Part, date code, location and quantity that the question carries, and fields it lacks read "Not known"
+- **THEN** the comparison shows this batch's Part, location and quantity, and the InvenTree record's fields read "Not known" until questions carry the existing record (BI-015)
 
 ### Requirement: Inventory session drawer
 
-The Inventory step page's session drawer SHALL show the selected Inventory session's timeline, its open question as option cards with Answer, and the message box.
+The Inventory step page's session drawer SHALL show the selected Inventory session's timeline, its open question with Answer, and the message box. The question's option cards SHALL show disabled, explaining that questions don't carry the session's options yet (BI-015), and the answer SHALL go through the free-text answer form below them.
 
 #### Scenario: Answer from the drawer
 
 - **GIVEN** the duplicate stock question open in the drawer
-- **WHEN** the operator picks "Different tube: add new stock" and answers
-- **THEN** the answer is sent through the existing question path and the question leaves Needs you
+- **WHEN** the operator writes "Different tube: add new stock" in the answer form and sends it
+- **THEN** the answer is sent through the existing question path and the question leaves Needs you, while the option cards above it stay disabled
