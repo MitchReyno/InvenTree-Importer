@@ -1903,6 +1903,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{batchId}/media/removal-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    /** @description Comma-separated evidence IDs, each named once. */
+                    evidence_ids: string;
+                };
+                header?: never;
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description MediaRemovalImpact */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaRemovalImpact"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{batchId}/media/commands": {
         parameters: {
             query?: never;
@@ -16736,6 +16787,25 @@ export interface components {
                         preview_id: string;
                     }[];
                 }[];
+                pinned_by?: {
+                    approval_id: string;
+                    approved_at: string;
+                };
+                lot_ids?: string[];
+                sole_evidence_lot_ids?: string[];
+                selected_attachment_of?: {
+                    subject_id: string;
+                    destination: "lot_attachment" | "part_attachment";
+                }[];
+            }[];
+            removed?: {
+                id: string;
+                label: string;
+                preview_id: string | null;
+                /** Format: int64 */
+                removed_revision: string;
+                removed_at: string;
+                position: number;
             }[];
             attachments: {
                 id: string;
@@ -16884,6 +16954,14 @@ export interface components {
                 group_id: string | null;
             } | {
                 /** @constant */
+                kind: "remove";
+                evidence_ids: string[];
+            } | {
+                /** @constant */
+                kind: "restore";
+                evidence_ids: string[];
+            } | {
+                /** @constant */
                 kind: "link";
                 evidence_id: string;
                 subject_id: string;
@@ -16934,6 +17012,15 @@ export interface components {
                 version_id: string | null;
                 destination: "lot_attachment" | "part_attachment";
             };
+        };
+        MediaRemovalImpact: {
+            evidence_ids: string[];
+            lot_ids: string[];
+            sole_evidence_lot_ids: string[];
+            selected_attachment_of: {
+                subject_id: string;
+                destination: "lot_attachment" | "part_attachment";
+            }[];
         };
         LiveCursor: {
             stream_id: string;
@@ -18076,7 +18163,7 @@ export interface components {
                 };
             };
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -18218,7 +18305,7 @@ export interface components {
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed" | "media_evidence_removed";
             issues?: {
                 path: string;
                 rule: string;
@@ -18757,6 +18844,7 @@ export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']
 export type MediaReceipt = components['schemas']['MediaReceipt']
 export type MediaEdit = components['schemas']['MediaEdit']
+export type MediaRemovalImpact = components['schemas']['MediaRemovalImpact']
 export type LiveCursor = components['schemas']['LiveCursor']
 export type LiveSubscribe = components['schemas']['LiveSubscribe']
 export type LiveFrame = components['schemas']['LiveFrame']

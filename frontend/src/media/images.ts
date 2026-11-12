@@ -3,6 +3,7 @@ import {
   renditionDimensions,
   type MediaRenditionSize,
 } from '@invimport/contracts/media'
+import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { mediaResource, observationCrop } from './types'
 
 /** How an image is shown, which bounds the largest size worth loading. */
@@ -69,6 +70,16 @@ function sizedUrl(base: string, size: MediaRenditionSize | 'full', extra = '') {
   return query ? `${base}?${query}` : base
 }
 
+/** The version a file is shown by: a ready crop in place of its original, else the newest. */
+export function shownVersion(evidence: MediaEvidenceDto): MediaVersionDto | undefined {
+  const ready = evidence.versions.filter((version) => version.state === 'ready')
+  return (
+    ready.findLast((version) => version.kind === 'derived') ??
+    ready.find((version) => version.kind === 'original') ??
+    evidence.versions.at(-1)
+  )
+}
+
 /** A decoded page at the size its surface needs. */
 export function previewImage(
   batchId: string,
@@ -78,6 +89,11 @@ export function previewImage(
 ): ImageAttributes {
   const base = mediaResource(batchId, 'previews', page.preview_id)
   return attributes(page, usage, (size) => sizedUrl(base, size), sizes)
+}
+
+/** A page at the thumbnail size: the delete dialog, and the only size a deleted file still has. */
+export function thumbnailUrl(batchId: string, previewId: string) {
+  return sizedUrl(mediaResource(batchId, 'previews', previewId), 'thumb')
 }
 
 /** The full-resolution page, for zoomed inspection or opening the image on its own. */

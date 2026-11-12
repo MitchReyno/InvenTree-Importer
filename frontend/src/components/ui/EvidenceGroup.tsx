@@ -26,6 +26,8 @@ type EvidenceGroupProps = {
   onDraftChange?: (dirty: boolean) => void
   /** The drop target's element. */
   ref?: Ref<HTMLElement>
+  /** The region's element id, so a caller can hand it focus. */
+  id?: string
   /** -1 lets the region take focus, such as after a tile inside it is removed. */
   tabIndex?: number
   children?: ReactNode
@@ -96,6 +98,7 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   return (
     <Group
       ref={props.ref}
+      id={props.id}
       aria-label={props.label ?? (draft || name)}
       tabIndex={props.tabIndex}
       $ungrouped={ungrouped}
@@ -147,6 +150,13 @@ const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
+  /* A pointer click inside the group focuses it without a ring. A caller moving focus here by
+     script, such as after a delete confirmed by pointer, marks it with data-focus-ring. */
+  &:focus-visible,
+  &[data-focus-ring]:focus {
+    outline: ${ring.width} solid ${color.accent};
+    outline-offset: ${ring.offset};
+  }
   ${({ $ungrouped }) =>
     $ungrouped &&
     css`

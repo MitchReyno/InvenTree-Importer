@@ -1,6 +1,6 @@
 import { activeMediaGroups, retainGroupHistory, retainEvidenceNote } from './context.ts'
 import { requireMediaRecipeBounds, MediaEvidence, MediaSnapshot } from '@invimport/contracts/media'
-import { and, count, eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import {
@@ -24,7 +24,9 @@ import {
 } from './schema.ts'
 import { fail, type CaptureBinding } from '#/capture/model.ts'
 import { advanceMediaRevision, lockMediaBatch } from './commands.ts'
-import { mediaSnapshot } from './read.ts'
+import { mediaSnapshot, operatorMediaSnapshot } from './read.ts'
+import { requirePresentEvidence, requirePresentVersion } from './removal.ts'
+import { removeEvidence, restoreEvidence } from './removal-edit.ts'
 import { DECODER_BUILD } from './repository.ts'
 
 type Change = MediaEditDto['change']
@@ -94,6 +96,7 @@ async function linkEvidence(
   capture: CaptureSnapshotDto,
 ) {
   await requireEvidence(client, batchId, change.evidence_id)
+  await requirePresentEvidence(client, batchId, [change.evidence_id])
   const subjects = [...capture.parts, ...capture.lots]
   if (!subjects.some((subject) => subject.id === change.subject_id)) {
     fail('not_found', 404)
@@ -140,6 +143,7 @@ async function requestDerivation(
   batchId: string,
   change: Extract<Change, { kind: 'derive' }>,
 ) {
+  await requirePresentEvidence(client, batchId, [change.evidence_id])
   const snapshot = await mediaSnapshot(client, binding, batchId)
   const evidence = snapshot.evidence.find((item) => item.id === change.evidence_id)
   const source = evidence?.versions.find(
@@ -228,6 +232,7 @@ async function selectAttachment(
     fail('invalid_attachment_selection')
   }
   if (change.version_id) {
+    await requirePresentVersion(client, batchId, change.version_id)
     const snapshot = await mediaSnapshot(client, binding, batchId)
     const version = snapshot.evidence
       .flatMap((item) => item.versions)
@@ -251,6 +256,35 @@ async function selectAttachment(
         actorId: binding.actorId,
       }),
   )
+}
+
+function mediaEventKind(change: Change) {
+  if (change.kind === 'remove') {
+    return 'media_removed'
+  }
+  if (change.kind === 'restore') {
+    return 'media_restored'
+  }
+  return 'media_changed'
+}
+
+function activeLotIds(capture: CaptureSnapshotDto) {
+  return new Set(capture.lots.filter((lot) => lot.retired !== true).map((lot) => lot.id))
+}
+
+/** Every item whose current group is this one, removed items included. */
+async function groupMembers(client: PoolClient, batchId: string, groupId: string) {
+  const memberships = await executeDatabaseQuery(
+    queryDatabase(client)
+      .selectDistinctOn([mediaMemberships.evidenceId], {
+        evidenceId: mediaMemberships.evidenceId,
+        groupId: mediaMemberships.groupId,
+      })
+      .from(mediaMemberships)
+      .where(eq(mediaMemberships.batchId, batchId))
+      .orderBy(asc(mediaMemberships.evidenceId), desc(mediaMemberships.revision)),
+  )
+  return memberships.filter((row) => row.groupId === groupId).map((row) => row.evidenceId)
 }
 
 /** Every media edit retains its own semantic command and exact optimistic revision. */
@@ -286,13 +320,11 @@ export async function editMedia(
               fail('not_found', 404)
             }
             if (change.kind === 'ungroup') {
-              const current = await mediaSnapshot(client, binding, batchId)
-              for (const evidence of current.evidence.filter(
-                (item) => item.group_id === group.id,
-              )) {
+              // Removed members leave too, so a restore never returns one to a retired group.
+              for (const evidenceId of await groupMembers(client, batchId, group.id)) {
                 await moveEvidence(client, binding, batchId, revision, {
                   kind: 'move',
-                  evidence_id: evidence.id,
+                  evidence_id: evidenceId,
                   group_id: null,
                 })
               }
@@ -312,6 +344,7 @@ export async function editMedia(
             for (const evidenceId of change.evidence_ids) {
               await requireEvidence(client, batchId, evidenceId)
             }
+            await requirePresentEvidence(client, batchId, change.evidence_ids)
             for (const evidenceId of change.evidence_ids) {
               await moveEvidence(client, binding, batchId, revision, {
                 kind: 'move',
@@ -322,6 +355,7 @@ export async function editMedia(
             break
           case 'evidence_note':
             await requireEvidence(client, batchId, change.evidence_id)
+            await requirePresentEvidence(client, batchId, [change.evidence_id])
             await retainEvidenceNote(
               client,
               batchId,
@@ -335,7 +369,23 @@ export async function editMedia(
             await createGroup(client, binding, batchId, change.label)
             break
           case 'move':
+            await requireEvidence(client, batchId, change.evidence_id)
+            await requirePresentEvidence(client, batchId, [change.evidence_id])
             await moveEvidence(client, binding, batchId, revision, change)
+            break
+          case 'remove':
+            await removeEvidence(client, binding, activeLotIds(capture.snapshot), {
+              batchId,
+              revision,
+              evidenceIds: change.evidence_ids,
+            })
+            break
+          case 'restore':
+            await restoreEvidence(client, binding, {
+              batchId,
+              revision,
+              evidenceIds: change.evidence_ids,
+            })
             break
           case 'link':
             await linkEvidence(client, binding, batchId, revision, change, capture.snapshot)
@@ -348,11 +398,11 @@ export async function editMedia(
             break
         }
         await advanceMediaRevision(client, batchId)
-        await appendEvent(client, capture.streamId, 'media_changed', {
+        await appendEvent(client, capture.streamId, mediaEventKind(change), {
           batch_id: batchId,
           revision,
         })
-        return mediaSnapshot(client, binding, batchId)
+        return operatorMediaSnapshot(client, binding, batchId)
       },
     ),
   )

@@ -9,8 +9,10 @@ import { transaction } from '#/db/database.ts'
 import { sha256 } from '#/db/authority.ts'
 import type { BlobStore } from '#/media/blob-store.ts'
 import { mediaContent } from '#/media/content.ts'
+import { removedEvidenceAndNotes } from '#/media/removal.ts'
 import { decodeMediaInputs } from '#/media/inputs.ts'
 import { evidenceNotes } from '#/capture/context-input.ts'
+import { CaptureError } from '#/capture/model.ts'
 import type { ProcessingConfig } from '#/processing/attempts.ts'
 import type { ResearchInput } from '#/processing/runner.ts'
 import { loadProcessingAuthority } from '#/processing/authority.ts'
@@ -30,7 +32,7 @@ export async function stageNativePrompt(
   input: ResearchInput,
   manifest: ProcessingInputV4Dto,
 ): Promise<StagedNativePrompt> {
-  await transaction(pool, async (client) => {
+  const removed = await transaction(pool, async (client) => {
     const retained = await loadProcessingAuthority(client, config, input.payload.attempt_id)
     if (
       canonical(retained.payload) !== canonical(input.payload) ||
@@ -39,22 +41,34 @@ export async function stageNativePrompt(
     ) {
       throw new Error('agent_input_invalid')
     }
+    return removedEvidenceAndNotes(client, manifest.batch_id)
   })
-  const sources: ProcessingSourceDto[] = evidenceNotes(manifest.notes, manifest.batch_id).map(
-    (note) => ({
-      kind: 'note',
-      note_id: note.id,
-      text_sha256: sha256(Buffer.from(note.text)).toString('hex'),
-    }),
-  )
+  // Evidence removed after the input was sealed never reaches the agent: not its versions, its
+  // notes or its media context.
+  const notes = manifest.notes.filter((note) => !removed.notes.has(note.id))
+  const sources: ProcessingSourceDto[] = evidenceNotes(notes, manifest.batch_id).map((note) => ({
+    kind: 'note',
+    note_id: note.id,
+    text_sha256: sha256(Buffer.from(note.text)).toString('hex'),
+  }))
   const images: NativePrompt['images'] = []
   const unavailable: string[] = []
   const media = decodeMediaInputs(
     Buffer.from(manifest.media.manifest),
     Buffer.from(manifest.media.sha256, 'hex'),
   )
+  const mediaContext = media.context && {
+    ...media.context,
+    evidenceNotes: media.context.evidenceNotes.filter(
+      (entry) => !removed.evidence.has(entry.evidenceId),
+    ),
+  }
   let imageBytes = 0
   for (const version of media.versions) {
+    if (removed.evidence.has(version.evidenceId)) {
+      unavailable.push(version.versionId)
+      continue
+    }
     const type = version.mediaType
     const supportedImage = type === 'image/jpeg' || type === 'image/png' || type === 'image/webp'
     const exceedsBudget =
@@ -64,10 +78,17 @@ export async function stageNativePrompt(
       unavailable.push(version.versionId)
       continue
     }
-    const bytes = await mediaContent(pool, config, store).original(
-      manifest.batch_id,
-      version.versionId,
-    )
+    let bytes: Buffer
+    try {
+      bytes = await mediaContent(pool, config, store).original(manifest.batch_id, version.versionId)
+    } catch (error) {
+      // Evidence removed after the input was sealed never reaches the agent.
+      if (error instanceof CaptureError && error.code === 'media_evidence_removed') {
+        unavailable.push(version.versionId)
+        continue
+      }
+      throw error
+    }
     if (
       bytes.length.toString() !== version.byteSize ||
       sha256(bytes).toString('hex') !== version.digest
@@ -89,8 +110,8 @@ export async function stageNativePrompt(
     subject: manifest.subject,
     linked_part: manifest.linked_part,
     defaults: manifest.defaults,
-    notes: manifest.notes,
-    ...(media.context ? { media_context: media.context } : {}),
+    notes,
+    ...(mediaContext ? { media_context: mediaContext } : {}),
     inspected_sources: sources,
     unavailable_media_version_ids: unavailable,
     image_order: sources.filter((source) => source.kind === 'media_version'),

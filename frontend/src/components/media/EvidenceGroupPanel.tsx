@@ -11,7 +11,14 @@ import { reviewMap } from '#/operator/review-map'
 import { predecessorLotIds } from '#/operator/review-model'
 import type { EditMedia } from '#/media/types'
 import type { UploadItem, UploadProgress, UploadQueue } from '#/media/useUploadQueue'
-import { Paragraph, Button, EvidenceGroup, Dialog, EvidenceGrid } from '#/components/ui'
+import {
+  ActionsMenu,
+  Paragraph,
+  Button,
+  EvidenceGroup,
+  Dialog,
+  EvidenceGrid,
+} from '#/components/ui'
 import { useEvidenceDropZone } from './EvidenceDropZone'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
@@ -53,6 +60,19 @@ type Props = {
   reload?: () => Promise<void>
   /** Capture command for the group's location assignment; absent where capture is read-only. */
   captureEdit?: CaptureEdit
+  /** The region's element id, which takes focus once a file in it is deleted. */
+  regionId?: string
+  /** Why a file can't be deleted now, or null when its Delete can be chosen. */
+  deleteRefusal?: (item: MediaSnapshotDto['evidence'][number]) => string | null
+  onDelete?: (item: MediaSnapshotDto['evidence'][number]) => void
+  /** Why a file can't be moved now, or null when its Move to group can be chosen. */
+  moveRefusal?: (item: MediaSnapshotDto['evidence'][number]) => string | null
+  /** Selects the file and hands focus to the selection's move control. */
+  onMoveToGroup?: (item: MediaSnapshotDto['evidence'][number]) => void
+  /** A media request is being sent: Move to group… and Delete… wait, with no reason to give. */
+  sending?: boolean
+  /** Receives each file's actions button, so focus can return to a restored file. */
+  actionsRef?: (evidenceId: string, element: HTMLButtonElement | null) => void
 }
 
 export function EvidenceGroupPanel({
@@ -78,6 +98,13 @@ export function EvidenceGroupPanel({
   review,
   reload,
   captureEdit,
+  regionId,
+  deleteRefusal,
+  onDelete,
+  moveRefusal,
+  onMoveToGroup,
+  sending = false,
+  actionsRef,
 }: Props) {
   const { operator } = useApiClients()
   const [noteId, setNoteId] = useState<string | null>(null)
@@ -113,7 +140,7 @@ export function EvidenceGroupPanel({
   }
 
   // Files sharing a name are numbered; their identifiers stay in the viewer's details.
-  const displayLabels = mediaDisplayLabels(snapshot.evidence)
+  const displayLabels = mediaDisplayLabels(snapshot.evidence, snapshot.removed)
 
   function fileName(item: MediaSnapshotDto['evidence'][number]) {
     return displayLabels.evidence.get(item.id) ?? item.label
@@ -138,6 +165,7 @@ export function EvidenceGroupPanel({
   return (
     <EvidenceGroup
       ref={drop.ref}
+      id={regionId}
       dropState={drop.dropState}
       name={name}
       count={evidence.length}
@@ -253,6 +281,32 @@ export function EvidenceGroupPanel({
                     )
                   }
                   onOpen={() => setOpenId(item.id)}
+                  actions={
+                    onDelete && deleteRefusal ? (
+                      <ActionsMenu
+                        label={`Actions for ${controlLabel}`}
+                        triggerRef={(element) => actionsRef?.(item.id, element)}
+                        items={[
+                          { label: 'Open', onSelect: () => setOpenId(item.id) },
+                          {
+                            label: 'Move to group…',
+                            onSelect: () => onMoveToGroup?.(item),
+                            disabledReason:
+                              (onMoveToGroup
+                                ? moveRefusal?.(item)
+                                : 'Moving isn’t available here.') ?? undefined,
+                            disabled: sending,
+                          },
+                          {
+                            label: 'Delete…',
+                            onSelect: () => onDelete(item),
+                            disabledReason: deleteRefusal(item) ?? undefined,
+                            disabled: sending,
+                          },
+                        ]}
+                      />
+                    ) : undefined
+                  }
                   onNote={
                     blocked(`note:${item.id}`)
                       ? undefined

@@ -171,6 +171,7 @@ export const MediaHumanNote = object({
   actor_id: Id,
   created_at: Type.String(),
 })
+const evidenceLotIds = Type.Array(Id, { minItems: 1, maxItems: 200, uniqueItems: true })
 export const MediaEvidence = object({
   id: Id,
   label,
@@ -178,11 +179,59 @@ export const MediaEvidence = object({
   linked_subject_ids: Type.Array(Id, { maxItems: 200, uniqueItems: true }),
   note: Type.Optional(MediaHumanNote),
   versions: Type.Array(MediaVersion, { maxItems: 100 }),
+  /** The approval that used it, so it can't be removed. Omitted while no approval used it. */
+  pinned_by: Type.Optional(object({ approval_id: Id, approved_at: Type.String() })),
+  /** Lots it feeds through observations or subject links. Omitted when none. */
+  lot_ids: Type.Optional(evidenceLotIds),
+  /** Lots that would be left with no supporting evidence if it were removed. Omitted when none. */
+  sole_evidence_lot_ids: Type.Optional(evidenceLotIds),
+  /** Attachment selections of one of its versions that removing it clears. Omitted when none. */
+  selected_attachment_of: Type.Optional(
+    Type.Array(
+      object({
+        subject_id: Id,
+        destination: Type.Union([Type.Literal('lot_attachment'), Type.Literal('part_attachment')]),
+      }),
+      { minItems: 1, maxItems: 200 },
+    ),
+  ),
+})
+const removalSelections = Type.Array(
+  object({
+    subject_id: Id,
+    destination: Type.Union([Type.Literal('lot_attachment'), Type.Literal('part_attachment')]),
+  }),
+  { maxItems: 200 },
+)
+/** What removing several present items together would change, for a bulk delete. */
+export const MediaRemovalImpact = object({
+  evidence_ids: Type.Array(Id, { minItems: 1, maxItems: 200, uniqueItems: true }),
+  lot_ids: Type.Array(Id, { maxItems: 200, uniqueItems: true }),
+  /** Lots left with no supporting evidence once all of them are removed. */
+  sole_evidence_lot_ids: Type.Array(Id, { maxItems: 200, uniqueItems: true }),
+  selected_attachment_of: removalSelections,
+})
+/** A removed item: kept with its history, shown only by its label and thumbnail until restored. */
+export const MediaRemovedEvidence = object({
+  id: Id,
+  label,
+  /** The first page of its original, served only at the `thumb` size; null before it is decoded. */
+  preview_id: nullableId,
+  removed_revision: Revision,
+  removed_at: Type.String(),
+  /**
+   * Its place among all the batch's files, present and removed, in upload order. Present files
+   * fill the other places in snapshot order, so names numbered over both stay stable. Upload
+   * capacity counts removed items, so a batch never holds more than 200 files in all.
+   */
+  position: Type.Integer({ minimum: 0, maximum: 199 }),
 })
 export const MediaSnapshot = object({
   batch_id: Id,
   revision: Revision,
   evidence: Type.Array(MediaEvidence, { maxItems: 200 }),
+  /** Removed items still count towards the 200-item capacity. Omitted when none. */
+  removed: Type.Optional(Type.Array(MediaRemovedEvidence, { minItems: 1, maxItems: 200 })),
   attachments: Type.Array(
     object({
       id: Id,
@@ -214,6 +263,7 @@ export const MediaReceipt = object({
   evidence_id: Id,
   version: MediaVersion,
 })
+const evidenceIds = Type.Array(Id, { minItems: 1, maxItems: 200, uniqueItems: true })
 export const MediaEdit = object({
   expected_revision: Revision,
   change: Type.Union([
@@ -231,6 +281,10 @@ export const MediaEdit = object({
       text: Type.String({ maxLength: 8192 }),
     }),
     object({ kind: Type.Literal('move'), evidence_id: Id, group_id: nullableId }),
+    /** Removes photos or documents from the batch; bytes and history are kept. */
+    object({ kind: Type.Literal('remove'), evidence_ids: evidenceIds }),
+    /** Brings removed items back, into their group while it is still active. */
+    object({ kind: Type.Literal('restore'), evidence_ids: evidenceIds }),
     object({ kind: Type.Literal('link'), evidence_id: Id, subject_id: Id, linked: Type.Boolean() }),
     object({
       kind: Type.Literal('derive'),
@@ -251,10 +305,19 @@ export const MediaEdit = object({
 export type MediaRecipeDto = Static<typeof MediaRecipe>
 export type MediaVersionDto = Static<typeof MediaVersion>
 export type MediaEvidenceDto = Static<typeof MediaEvidence>
+export type MediaRemovedEvidenceDto = Static<typeof MediaRemovedEvidence>
+export type MediaRemovalImpactDto = Static<typeof MediaRemovalImpact>
 export type MediaSnapshotDto = Static<typeof MediaSnapshot>
 export type MediaReceiptDto = Static<typeof MediaReceipt>
 export type MediaEditDto = Static<typeof MediaEdit>
-export const mediaSchemas = { MediaRecipe, MediaVersion, MediaSnapshot, MediaReceipt, MediaEdit }
+export const mediaSchemas = {
+  MediaRecipe,
+  MediaVersion,
+  MediaSnapshot,
+  MediaReceipt,
+  MediaEdit,
+  MediaRemovalImpact,
+}
 
 /** Interpreted validation for the isolated decoder, where dynamic code generation is disabled. */
 export function assertMediaRecipe(value: unknown): asserts value is MediaRecipeDto {

@@ -33,6 +33,7 @@ const snapshot = {
 
 function media(): MediaClient {
   return {
+    removalImpact: vi.fn(),
     snapshot: vi.fn(async () => snapshot),
     edit: vi.fn(async () => snapshot),
     upload: vi.fn(),

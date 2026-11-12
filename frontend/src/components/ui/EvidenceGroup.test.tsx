@@ -56,3 +56,34 @@ test('removing the group mid-rename releases the guard', async () => {
   unmount()
   expect(onDraftChange).toHaveBeenLastCalledWith(false)
 })
+
+/** Focus rules whose selector, without its focus pseudo-class, matches `element` as it is now. */
+function focusRulesFor(element: Element, pseudo: ':focus' | ':focus-visible') {
+  const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
+
+  return rules.filter((rule): rule is CSSStyleRule => {
+    if (!(rule instanceof CSSStyleRule)) {
+      return false
+    }
+
+    return rule.selectorText
+      .split(',')
+      .map((selector) => selector.trim())
+      .filter((selector) => selector.endsWith(pseudo))
+      .some((selector) => element.matches(selector.slice(0, -pseudo.length)))
+  })
+}
+
+function hasRing(rules: CSSStyleRule[]) {
+  return rules.some((rule) => rule.style.outline.includes('var(--ring-width)'))
+}
+
+test('a group region rings on keyboard focus, and on plain focus only when marked for it', () => {
+  render(<EvidenceGroup name="Reels" count={2} label="Reels" tabIndex={-1} />)
+  const region = screen.getByRole('region', { name: 'Reels' })
+
+  expect(hasRing(focusRulesFor(region, ':focus-visible'))).toBe(true)
+  expect(hasRing(focusRulesFor(region, ':focus'))).toBe(false)
+  region.setAttribute('data-focus-ring', '')
+  expect(hasRing(focusRulesFor(region, ':focus'))).toBe(true)
+})

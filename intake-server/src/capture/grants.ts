@@ -11,6 +11,9 @@ export async function grantCaptureRead(pool: Pool, role: string): Promise<void> 
     capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,
     capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,
     capture_group_location,capture_evidence_observation,capture_lot_evidence_observation TO ${role}`)
+  // The snapshot leaves out observations on removed evidence.
+  await pool.query(`GRANT SELECT(id,batch_id,evidence_id) ON media_version TO ${role};
+    GRANT SELECT ON media_evidence_removal TO ${role}`)
 }
 
 /** Row-lock capability only; immutable subject identity rejects updates and selections stay denied. */

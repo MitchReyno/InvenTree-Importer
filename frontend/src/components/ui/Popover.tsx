@@ -14,6 +14,12 @@ type PopoverProps = {
   align?: 'start' | 'center' | 'end'
   /** A set width for panels whose content needs one; the window's width still caps it. */
   width?: string
+  /** `menu` when the panel holds menu items; otherwise a non-modal dialog. */
+  role?: 'dialog' | 'menu'
+  /** Lets the content place focus itself when it opens. */
+  onOpenAutoFocus?: (event: Event) => void
+  /** Lets the opener keep focus where a chosen action put it when the panel closes. */
+  onCloseAutoFocus?: (event: Event) => void
   children: ReactNode
 }
 
@@ -25,6 +31,9 @@ export function Popover({
   onOpenChange,
   align = 'end',
   width,
+  role = 'dialog',
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   children,
 }: PopoverProps) {
   return (
@@ -35,7 +44,10 @@ export function Popover({
           align={align}
           sideOffset={8}
           collisionPadding={12}
+          role={role}
           aria-label={label}
+          onOpenAutoFocus={onOpenAutoFocus}
+          onCloseAutoFocus={onCloseAutoFocus}
           style={width ? { width } : undefined}
         >
           {children}

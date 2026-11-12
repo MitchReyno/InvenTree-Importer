@@ -1,9 +1,11 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import { captureInTransaction } from '#/capture/repository.ts'
+import { CaptureError } from '#/capture/model.ts'
 import { lockMediaRevision } from './commands.ts'
 import { lockBlob } from './blob-store.ts'
 import type { MediaPlan, MediaPlanEvidence } from '#/execution/media-plan.ts'
+import { removedVersionIds } from './removal.ts'
 
 interface RetainedVersion {
   id: string
@@ -69,6 +71,15 @@ export async function lockApprovedMedia(
   )
   if (versions.rows.length !== plan.evidence.length) {
     throw new Error('approved_media_not_ready')
+  }
+  // Approval refuses removed evidence first; this keeps a pin from ever naming one.
+  const removed = await removedVersionIds(
+    client,
+    batchId,
+    plan.evidence.map((version) => version.versionId),
+  )
+  if (removed.size) {
+    throw new CaptureError(409, 'approval_evidence_removed')
   }
   for (const expected of plan.evidence) {
     const retained = versions.rows.find((version) => version.id === expected.versionId)

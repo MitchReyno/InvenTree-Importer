@@ -162,3 +162,12 @@ export const mediaEvidenceNotes = pgTable('media_evidence_note', {
   actorId: uuid('actor_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+export const mediaEvidenceRemovals = pgTable('media_evidence_removal', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  evidenceId: uuid('evidence_id').notNull(),
+  revision: decimalInteger().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  removed: boolean().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

@@ -215,6 +215,7 @@ export function ReviewMapStage({
         <ReviewMap
           batch={batch}
           evidence={query.data?.evidence}
+          removed={query.data?.removed}
           loading={query.isPending}
           approvedLotIds={approvedLotIds}
           restructureUnavailable={restructureUnavailable}

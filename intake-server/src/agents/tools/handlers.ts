@@ -11,6 +11,7 @@ import {
   type RegroupArgsDto,
   type ProcessingProposalV5Dto,
   type ProcessingSourceDto,
+  type ProcessingRelianceDto,
   type SessionAskArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
@@ -49,6 +50,7 @@ import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import sharp from 'sharp'
 import { regionCropCache } from '#/media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
+import { removedVersionIds, versionRemovedSql } from '#/media/removal.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
 const SUPPORTED_IMAGES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -144,6 +146,7 @@ async function previewFetchEvidence(
       if (!version) {
         refuse('source_not_delivered', 'That evidence was not delivered to this session.')
       }
+      await refuseRemovedVersions(client, principal.batchId, [version!.version_id])
       const previews = await client.query<{
         id: string
         page: number
@@ -428,6 +431,9 @@ async function withLeadSession(
         result = await work(client, found)
       } catch (error) {
         if (error instanceof CaptureError) {
+          if (error.code === 'media_evidence_removed') {
+            refuse('media_evidence_removed', 'That evidence was deleted by the operator.')
+          }
           if (error.code === 'capture_capacity') {
             refuse('capacity_reached', 'This batch has reached its limit of lots or observations.')
           }
@@ -484,6 +490,57 @@ async function ok(client: PoolClient, principal: SessionPrincipal, extra: object
     ok: true as const,
     pending_inbox: await pendingSessionInbox(client, principal.lineageId!),
     ...extra,
+  }
+}
+
+async function refuseRemovedVersions(
+  client: PoolClient,
+  batchId: string,
+  versionIds: readonly string[],
+) {
+  if ((await removedVersionIds(client, batchId, versionIds)).size) {
+    refuse('media_evidence_removed', 'That evidence was deleted by the operator.')
+  }
+}
+
+/**
+ * A proposal can't rely on deleted evidence, even evidence delivered before it was deleted: a
+ * cited version, an observation on one, or an evidence note of a deleted item.
+ */
+async function refuseRemovedSources(
+  client: PoolClient,
+  batchId: string,
+  sources: readonly (ProcessingSourceDto | ProcessingRelianceDto['sources'][number])[],
+) {
+  const versions: string[] = []
+  const observations: string[] = []
+  const notes: string[] = []
+  for (const source of sources) {
+    if (source.kind === 'media_version') {
+      versions.push(source.version_id)
+    } else if (source.kind === 'evidence_observation') {
+      observations.push(source.evidence_observation_id)
+    } else if (source.kind === 'note') {
+      notes.push(source.note_id)
+    }
+  }
+  const removed = await client.query(
+    `SELECT 1 FROM public.media_version v
+     WHERE v.batch_id=$1 AND ${versionRemovedSql('v')}
+       AND (v.id::text = ANY($2::text[])
+         OR EXISTS (SELECT 1 FROM public.capture_evidence_observation o
+                    WHERE o.evidence_version_id=v.id AND o.id::text = ANY($3::text[]))
+         OR EXISTS (SELECT 1 FROM public.media_evidence_note n
+                    WHERE n.evidence_id=v.evidence_id AND n.batch_id=v.batch_id
+                      AND n.id::text = ANY($4::text[])))
+     LIMIT 1`,
+    [batchId, versions, observations, notes],
+  )
+  if (removed.rowCount) {
+    refuse(
+      'media_evidence_removed',
+      'A cited source was deleted by the operator; cite current evidence.',
+    )
   }
 }
 
@@ -839,6 +896,11 @@ export function sessionTools(context: SessionToolContext) {
             refuse('validation_failed', 'A proposal must be for this session’s lot.')
           }
           await requireDeliveredSources(client, context, principal, proposal)
+          await refuseRemovedSources(client, principal.batchId, [
+            ...proposal.sources,
+            ...catalogueSources(proposal),
+            ...proposal.relies_on.sources,
+          ])
           await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
           const { messageId, streamId } = await retainSessionMessage(
             client,
@@ -987,6 +1049,7 @@ export function sessionTools(context: SessionToolContext) {
           if (!version) {
             refuse('source_not_delivered', 'That evidence was not delivered to this session.')
           }
+          await refuseRemovedVersions(client, principal.batchId, [version!.versionId])
           // The budget belongs to this provider run and is reserved before any await.
           const used = context.imageBudget.get(run) ?? 0
           const size = Number(version!.byteSize)

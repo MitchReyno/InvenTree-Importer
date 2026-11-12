@@ -2,6 +2,38 @@
 
 The design refresh is delivered in bundles PR-A to PR-G. This file records departures, decisions and open items as each task is implemented.
 
+## Open items for the whole change
+
+These are the change's open items as PR-G is reviewed. Each task's own section below has the detail; items later bundles resolved are marked there.
+
+- **Deferred to BI-015 (shown disabled, with the reason):**
+  - Settings › Agents: model per step, instructions for every new batch and web research switches.
+  - Settings: app-level batch defaults and the description rules.
+  - Settings › InvenTree: the token row and the import reference prefix; Check connection now in the server menu.
+  - Records: description fields for manufacturer parts, supplier parts and agent-proposed companies. The location type field (Task 8).
+  - Processing › Inventory: the question's option cards, and the comparison's InvenTree column and date code (Task 9).
+  - Capture: Delete on written batch notes (Task 12).
+- **Not shown at all yet (also BI-015):** descriptions for agent-proposed categories and parameter templates, which are listed under "Not supported yet" (Task 6).
+- **Other open items:**
+  - Review's supporting-evidence rule counts an `unset` lot-attachment selection as evidence, so clearing a lot's only attachment doesn't raise `no_supporting_evidence` (Task 11).
+  - No screen passes `onEdit` to a source chip yet, so no chip offers Edit value (Task 7).
+  - The Processing fixture has no Inventory work, so the Inventory step page isn't in the screenshot set (Task 9).
+  - The evidence removal UI follows change log D31, design D6 and the delta specs; the canvas's "Capture › delete evidence" artboard couldn't be read to check it against (Task 12).
+
+## Delivery evidence
+
+Each merged bundle's reviewed head, local review and CI. PR-G is recorded when it merges. CI is the selected checks; the PostgreSQL and process tiers are skipped in CI and run locally where a bundle touches the intake server (see each PR).
+
+| Bundle | Tasks | PR | Reviewed head | Local review | CI |
+| --- | --- | --- | --- | --- | --- |
+| Plan | — | #189 | `808cbc2e` | 18 rounds of fresh reviewer subagents; round 18 at `808cbc2e` clean. The merged head `784e95f4` differs from it only by one trailing space | Markdown lint passed |
+| PR-F | 10 | #190 | `d09655b0` | 5 rounds of fresh reviewer subagents; round 5 at the head found nothing Critical, Important or Minor | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
+| PR-A | 1 | #191 | `d75ad9a9` | 5 rounds; round 5 at `cd72e2b9` clean, then the merge of `interactive-app` (`d75ad9a9`) reviewed clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-D | 6, 7 | #192 | `b7944f8b` | 3 rounds; round 3 at the head clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-B | 2, 3, 4 | #194 | `c9ef7a29` | 4 rounds; round 4 at `1075878a` clean apart from a `notes.md` nitpick, which `c9ef7a29` fixes alone | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
+| PR-E | 8, 9 | #204 | `b1aea6d2` | 11 rounds; round 11 at the head, with the merge, clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-C | 5 | #205 | `90e2125d` | 7 rounds; round 7 at the head, with the merges of `interactive-app` and PR-E, clean | Frontend, TypeScript lint, Markdown lint passed |
+
 ## Task 1: design-system foundation
 
 ### Changes to the plan
@@ -158,6 +190,96 @@ None for task 10.
 ### Open items
 
 - No call site passes `onEdit` yet, so no chip offers Edit value on a screen.
+
+## Task 11: evidence removal backend
+
+### Changes to the plan
+
+- **2026-11-10T03:00+11:00, task 11 (PR-G):** The 11.6 claim that an app build without the change still runs with the table unused was false: `operations/compatibility.ts` requires the applied migrations to match the build's set exactly, and startup quarantines on a mismatch, so an older build refuses a database with `0031`. Rollback means keeping this build; there is no down-migration (coordinator decision). Task 11.6 and design "Migration, rollout and recovery" now say so. `tests/pg/media-removal-upgrade.test.ts` proves the rest: `0031` applies over a database migrated to 0030 with existing evidence, which stays present with no removal rows.
+- **2026-11-10T03:00+11:00, task 11 (PR-G):** The tests were written after the implementation, not before (11.2). To show they discriminate, three behaviours were disabled together (the snapshot filter, the stale marking, the publication refusal): four of the six Postgres tests then present failed, and all passed once restored. The append-only and Examine-trigger tests don't depend on those behaviours; the upgrade and process tests were written afterwards.
+- **2026-11-10T03:00+11:00, task 11 (PR-G), approval deviation:** `pinned_by`, `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of` appear only on the operator's snapshot (`operatorMediaSnapshot`, used by GET `/media` and edit responses), not on every media snapshot. `mediaSnapshot` is also read by Processing, preparation and records under roles that can't read `executor_run`, so it keeps its shape apart from leaving removed items out. The new fields and the `removed` list are optional and omitted when empty, so existing snapshots keep their bytes.
+- **2026-11-10T03:00+11:00, task 11 (PR-G), approval deviation:** Review's existing `no_supporting_evidence` rule counts any lot-attachment selection row as support, `unset` included. A lot whose only evidence was its selected lot attachment therefore keeps counting as supported after the delete clears the selection to `unset`, and doesn't raise the warning the spec describes. `sole_evidence_lot_ids` mirrors the gate rather than contradicting it. The quirk predates this change.
+- **2026-11-10T03:00+11:00, task 11 (PR-G):** No lot-session tool lists observations; only the Examine lead's `read_batch` does. Removal is enforced for lot sessions through the proposal publication check and their media inputs.
+
+- **2026-11-10T07:40+11:00, task 11 (PR-G, review round 1):** Added `GET /api/v1/batches/{batchId}/media/removal-impact?evidence_ids=…` (`MediaRemovalImpact`), which the plan didn't list. A bulk "Delete N files" must name a lot left with no other evidence, and that can depend on the whole set: two photos that each leave the other supporting a lot leave it bare together. The read returns `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of` for the set removed together; per-item fields use the same computation.
+- **2026-11-10T07:40+11:00, task 11 (PR-G, review round 1):** Native (non-session) prompts staged from an input sealed before a removal now leave out the removed item's versions, evidence notes and media context. Native proposals carry no `relies_on`, so they aren't marked stale individually. Instead, a native proposal citing a removed source fails the inspected-source check, and the attempt reads as superseded because its input no longer matches the batch.
+
+### Unexpected challenges
+
+- **2026-11-10T03:00+11:00, task 11:** Almost every evidence consumer reads through `mediaSnapshot`: Processing inputs and their evidence notes, the lead's manifest, preparation and its supporting-evidence gate, records and operator review. Leaving removed items and their derivations out of its `evidence` covers them at once. Code that reads media rows directly checks removal itself with `versionRemovedSql`: `media/content.ts` (which also serves native prompts, the research broker and session fetches), the session tools, the Examine trigger, `requireEvidenceRegion`, `leadBatchView`, the capture snapshot's observations, `lockApprovedMedia` and the batch list's counts and thumbnail.
+- **2026-11-10T03:00+11:00, task 11:** Evidence notes reach sessions as manifest notes whose `note_id` is a `media_evidence_note` id, so the third stale join goes through `media_evidence_note.evidence_id`. Session proposals cite in their value and rely through `relies_on`; both are checked.
+- **2026-11-10T03:00+11:00, task 11:** Hiding observations on removed evidence from the capture snapshot reads `media_version` and the new table, so `grantCaptureRead` now grants `SELECT` on `media_evidence_removal` and on `media_version(id,batch_id,evidence_id)`. Existing namespaces need their grants reapplied after migrating, as for any new table.
+
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** The first stale query read only a proposal's top-level `sources` and `relies_on`, while publication also checked catalogue values' sources. A proposal citing a removed photo only for one parameter value stayed current. The query now walks every nested `sources` array (`lax $.**.sources[*]`).
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** The batch-list counts and thumbnail, and a removal queued behind an approval, already behaved as intended, so their new tests passed on first run. To show they discriminate, the batch-list filter and the pin refusal were disabled from backups; both tests then failed, and passed again once restored.
+
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** Earlier full PostgreSQL tier runs each had one or two child-process startup or decoder deadline failures, and the failing test changed between runs. The last of them was `media-startup-authority.test.ts` › "actual main reopens its bound store…" (`manual_checkpoint_timeout`), which failed twice and passed once when rerun alone. Review found the change adds no startup work and timed that test at 8.3 s under load, so these were load timeouts. After review round 1, a serial run of the full tier on `786bde3c` passed 316 of 316, so 11.5 is ticked.
+- **2026-11-12T20:02+11:00, task 11 (review round 2):** 11.5 rests on runs at `4b3310e1`, the merge of `interactive-app` at `a95b2818`; later commits touch only these notes. The full gate passed. The full PostgreSQL tier passed 316 of 316, run serially. `test:intake:process` passed with 0 failures: 85 of 96 tests ran, and 11 were skipped by environment. The 7 paired-VM tests need a VM pairing, and the 4 sandbox probe tests need `INTAKE_MEDIA_PROBE_IMAGE`.
+- **2026-11-12T20:02+11:00, task 11 (review round 2):** Two earlier full runs at `ffecd767` failed:
+  - **`capture-process.test.ts` › "actual capture web process restart…":** failed once each, with `capture_child_start_timeout`. Its readiness poll waits about 5 seconds for the restarted web process. The test passes alone in 6.4–6.7 s, and passed within the full tier at `4b3310e1`.
+  - **Backend demo test `test_timeout_after_applied_stock_recovers_original_locator_without_replay`:** failed once, while the backend suite took 11 minutes instead of the usual 4–5 under load. It passed in the next run.
+
+  This branch changes neither the capture start-up path nor the backend.
+
+### Decisions made during implementation
+
+- **2026-11-10T03:00+11:00, task 11:** Restoring an item that isn't removed is refused with `media_evidence_not_removed` (409), and removing one already removed with `media_evidence_removed`.
+- **2026-11-10T03:00+11:00, task 11:** Each `removed` entry carries `id`, `label`, `preview_id` (the original's first page, null before decoding), `removed_revision` and `removed_at`. Restore decides the group, so the entry doesn't list one.
+- **2026-11-10T03:00+11:00, task 11:** `pinned_by` names the earliest pinning approval, timed by its run's command.
+- **2026-11-10T03:00+11:00, task 11:** The lead's batch notice and the lots' notices are `revision` items with fields `["identity"]`, keyed `evidence_removed:<revision>:<session>`, one per session per removal. Owners of directly stale proposals are told the same way, and the cascade sends its existing `cascade:<proposal>` notices. Affected lots are the active lots the removed items feed through links or active observations.
+- **2026-11-10T03:00+11:00, task 11:** `media/removal-impact.ts` reimplements Review's supporting-evidence rule rather than importing `review/model.ts` into media. It counts retired ancestors' attachment selections, which the gate may not.
+- **2026-11-10T03:00+11:00, task 11:** Native prompts list a removed version sealed in an older input as unavailable instead of failing the attempt.
+- **2026-11-10T03:00+11:00, task 11:** The batch list's evidence counts and thumbnail skip removed items, so a deleted file leaves Batches too.
+- **2026-11-10T03:00+11:00, task 11:** Company logo drafts (`retainedImageVersion`) still accept a removed version; refusing it would block complete-state settings saves. Preparation already reports such a logo as unavailable, because the snapshot leaves it out.
+- **2026-11-10T03:00+11:00, task 11:** `requireEvidenceRegion` takes the media revision lock after the capture lock it already holds, matching `lockMediaBatch`'s order.
+
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** The combined impact is a `GET` with a comma-separated `evidence_ids` query, like the other media reads. It refuses an empty, duplicated or over-200 list (400), an unknown item (404) and a removed one (`media_evidence_removed`, 409).
+- **2026-11-10T07:40+11:00, task 11 (review round 1):** `pinned_by` assumes every approval pin has its run, which the approval writes in the same transaction. A pin without one is now an error rather than being skipped.
+
+### Open items
+
+- Review's supporting-evidence rule should stop counting an `unset` lot-attachment selection as evidence (see Changes to the plan).
+
+## Task 12: evidence removal UI
+
+### Changes to the plan
+
+- **2026-11-12T20:31+11:00, task 12 (PR-G):** The design canvas working copy is gone, so the build follows the change log's D31 text, design D6 and the delta specs, not the "Capture › delete evidence" artboard.
+- **2026-11-12T20:31+11:00, task 12 (PR-G, coordinator review):** The tile menu has Open, Move to group… and Delete…, as D6 and D31 list. Move to group… doesn't add a second move path: it selects only that file, preselects its first other destination and focuses the selection's existing "Move selected evidence to" picker, whose Move button sends the usual `move_many`. It is disabled with a reason in an archived batch, while other evidence changes are unsaved, or when there is no other group to move the file to.
+- **2026-11-12T20:31+11:00, task 12 (PR-G, coordinator review):** The confirmation shows the file: one file's thumbnail (`?size=thumb` of its shown page) with its name, or for several the first four with their names and "and N more". A lot left with nothing is described in Review's terms: Review will warn that no note or linked media supports it, a warning that can be dismissed, and the lot isn't left out.
+- **2026-11-12T20:31+11:00, task 12 (PR-G, coordinator review):** D31's "Undo until the batch is approved" needed no change. The server refuses `restore` only in an archived batch; an approval can't pin a deleted file (approval refuses removed evidence), so approving other lots doesn't end restore. The toast hides Undo while media commands are frozen, which includes an archived batch, and Deleted files' Restore is disabled with "Resume the batch to restore files." there. A test archiving the batch while the toast shows passed on its first run, because that behaviour was already in place.
+
+### Decisions made during implementation
+
+- **2026-11-12T20:20+11:00, task 12:** `ActionsMenu` (`components/ui`) is a "⋯" `IconButton` opening the existing Radix `Popover` with `role="menu"`; no menu package was added. A disabled item keeps `aria-disabled` and stays focusable, with its reason as its description.
+- **2026-11-12T20:20+11:00, task 12:** One file's dialog uses that file's own `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of`. Several files use `mediaClient.removalImpact`, a TanStack Query keyed by revision and ids; Delete stays disabled until that read succeeds, and a failed read offers "Check again". The command carries the revision the dialog opened on.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** Delete and Restore don't wait for a held selection. They do change it, though: once a remove or restore is confirmed, by its first send or an exact retry, `useEvidenceWorkspace` drops the deleted files from the selection and moves what is left onto the confirmed revision, so the next Move isn't sent at a stale revision (412). The membership the operator selected is otherwise unchanged. Restore is disabled with "Resume the batch to restore files." in an archived batch.
+- **2026-11-12T20:20+11:00, task 12:** Focus: Cancel or a refused delete returns focus to the opener (the tile's menu button or "Delete N files…"). After a confirmed delete it goes to the group the first file was in, because the opener leaves in the same commit as the dialog, so the workspace takes focus off the opener when the dialog opens and `returnFocus` decides. Undo and Restore focus the restored file's menu button as it mounts; a refused Undo focuses the Deleted files summary.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** `useEvidenceWorkspace.send` returns `saved`, `unconfirmed` or `not_sent`. A request refused before sending, such as while another change's intent is held, is never recorded as an unconfirmed delete, so it can't later claim "Deleted …". The confirmation's Delete waits while an intent is held or the saved evidence isn't read.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** The reasons on Delete, Move to group… and Restore name the actual cause: archived, waiting for a fresh read, an unconfirmed request to retry or discard, or other unsaved changes. A request that is merely being sent gives no reason, so Restore's reason doesn't flash on every save.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** The combined impact is used only from a read made by this opening of the dialog (`isFetchedAfterMount`, `refetchOnMount: 'always'`), because it also depends on capture state. Until that read arrives the dialog says "Checking…" and Delete stays disabled.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** The evidence header says "N deleted, counting towards 200" while there are deleted files, and the `media_capacity` upload refusal says deleted files count towards the 200-file limit.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** Move to group… is disabled with "Clear the selection first." while a selection is held, rather than replacing it.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** Deleted files are numbered after the present files that share their name (`deletedFileNames`), so present names keep the numbering every screen uses. Round 2 replaced this with `position` (below). The delete toast names the file as Deleted files then does. A written note's menu is named by its subject and time.
+- **2026-11-12T21:11+11:00, task 12 (review round 2):** Delete… and Move to group… are disabled, with no reason, while a media request is being sent (`ActionsMenu` items take `disabled` apart from `disabledReason`). An open delete dialog refuses once the shown snapshot moves past the revision it opened on ("The saved evidence changed after this opened. Close it and choose Delete again."), and it shows `waitReason` inside the dialog, since the page behind it is inert.
+- **2026-11-12T21:11+11:00, task 12 (review round 2), contract addition:** Each `removed` entry carries `position`, its index among all the batch's files in upload order. The plan didn't list this field. Present files fill the other places in snapshot order, so `evidenceDisplayNames` numbers present and deleted files together in one stable order, and a delete or restore renumbers nothing. Capture, the Map, Review and Processing pass the snapshot's `removed` list. The toast names the file as the dialog did.
+- **2026-11-12T21:11+11:00, task 12 (review round 2):** A confirmed remove or restore moves a held selection onto the confirmed revision only when it was sent at the selection's own revision; otherwise the selection keeps its revision. That `send` never reports a change refused before sending as unconfirmed is tested on the hook (`useEvidenceWorkspace.test.tsx`), because the dialog's Delete is disabled whenever another intent is held.
+- **2026-11-12T21:55+11:00, task 12 (demo film):** The delete dialog says a note goes with a file only when the file has one, and for several files counts theirs ("and 2 notes go with them"). The evidence group region, which takes focus after a confirmed delete, shows the focus ring there even when the delete was confirmed by pointer, which leaves `:focus-visible` unmatched.
+- **2026-11-12T22:07+11:00, task 12 (review round 4):** The group's ring shows on `:focus-visible`, or on `:focus` while the region carries `data-focus-ring`. Only the confirmed-delete focus path sets that attribute, and blur removes it, so a pointer click inside a group no longer rings it.
+- **2026-11-12T20:20+11:00, task 12:** A written batch note's menu shows Delete disabled: "Deleting written notes comes later. A file’s note can be cleared by saving it empty."
+
+### Unexpected challenges
+
+- **2026-11-12T20:30+11:00, task 12:** 12.5 rests on the gate at `61bdad37`, after the merge of `interactive-app` at `81571854`. `pnpm lint`, `pnpm build`, `pnpm test` (frontend 1318 of 1318), `pnpm contracts:check` and `pnpm typecheck:intake` passed. The serial PostgreSQL run of `media-removal.test.ts` and `media-removal-upgrade.test.ts` passed 6 of 6. That includes round 3's new case, where `/media/removal-impact` with no `evidence_ids` returns 400 `invalid_id`; the route already refused it, so the case passed on its first run. Task 12 changes no other server code, so the full tiers weren't rerun.
+- **2026-11-12T20:39+11:00, task 12 (coordinator review):** After the Move to group, dialog and Undo changes, the gate passed again at `57162056`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1324 of 1324), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6).
+- **2026-11-12T20:58+11:00, task 12 (review round 1):** After the round 1 fixes the gate passed at `a74b40cc`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1338 of 1338), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6).
+- **2026-11-12T21:19+11:00, task 12 (review round 2):** After the round 2 fixes the gate passed at `4f4074b9`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1346 of 1346), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6), which now check the removed entry's `position`.
+- **2026-11-12T21:54+11:00, task 12 (review round 3):** At `626fb093` (Task 13 included), with `interactive-app` still at `81571854`, the full gate passed: lint, build, `pnpm test` (frontend 1346 of 1346), `contracts:check`, `typecheck:intake` and `test:openspec`. Because the snapshot projection gained `position`, both intake tiers ran again. The full PostgreSQL tier, run serially, passed 316 of 316. `test:intake:process` passed with 0 failures: 85 of 96 tests ran, and 11 were skipped by environment. The 7 paired-VM tests need a VM pairing, and the 4 sandbox probe tests need `INTAKE_MEDIA_PROBE_IMAGE`.
+- **2026-11-12T22:13+11:00, task 12 (review round 4):** At `4c3dd4dc`, the last code change, with `interactive-app` still at `81571854`, the full gate passed: lint, build, `pnpm test` (frontend 1350 of 1350), `contracts:check`, `typecheck:intake` and `test:openspec` (25 of 25). The demo-film and round 4 fixes touch only the frontend and notes, so the intake tiers recorded at `626fb093` still hold.
+
+### Open items
+
+- Check the delete flow against the canvas's "Capture › delete evidence" artboard, which couldn't be read for this build.
 
 ## Task 5: Settings page
 

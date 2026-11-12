@@ -12,6 +12,14 @@ interface MediaCommandOptions {
   readConfirmed?: boolean
 }
 
+/**
+ * What one media command did: confirmed, sent but unconfirmed (its intent is kept for an exact
+ * retry), or not done (refused before sending, or definitely refused by the server).
+ */
+export type MediaCommandOutcome = 'saved' | 'unconfirmed' | 'not_sent'
+
+type MediaChange = MediaEditDto['change']
+
 export function useEvidenceWorkspace(
   batchId: string,
   client: MediaClient,
@@ -35,6 +43,9 @@ export function useEvidenceWorkspace(
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const selectionRevision = useRef<string | null>(null)
+  // The request behind the retained intent, so its exact retry can update the selection as the
+  // first send would have.
+  const retainedInput = useRef<MediaEditDto | null>(null)
   const command = useRetainedCommand((input: MediaEditDto, requestKey: string) =>
     client.edit(batchId, input, requestKey),
   )
@@ -67,12 +78,37 @@ export function useEvidenceWorkspace(
     return result.data
   }
 
-  async function confirmed(value: MediaSnapshotDto | null) {
+  /**
+   * A remove or restore leaves the membership the operator selected as it was, apart from the
+   * files removed. When it was sent at the selection's own revision, the selection carries on at
+   * the confirmed one; otherwise it keeps its revision, so it never takes in another change.
+   */
+  function rebaseSelection(input: MediaEditDto | null, revision: string) {
+    const change = input?.change
+    if (change?.kind !== 'remove' && change?.kind !== 'restore') {
+      return
+    }
+    const removed = change.kind === 'remove' ? change.evidence_ids : []
+    const kept = selected.filter((id) => !removed.includes(id))
+    setSelected(kept)
+    if (!kept.length) {
+      selectionRevision.current = null
+    } else if (input?.expected_revision === selectionRevision.current) {
+      selectionRevision.current = revision
+    }
+    drafts.forSource('selection')(kept.length > 0)
+  }
+
+  async function confirmed(value: MediaSnapshotDto | null, input: MediaEditDto | null) {
     drafts.forSource('command')(command.hasPendingIntent())
+    if (!command.hasPendingIntent()) {
+      retainedInput.current = null
+    }
     if (!value) {
       return false
     }
     accept(value)
+    rebaseSelection(input, value.revision)
     const close = onRetainedConfirmed.current
     onRetainedConfirmed.current = null
     close?.()
@@ -86,28 +122,46 @@ export function useEvidenceWorkspace(
     return true
   }
 
-  /** A confirmed read overrides render-time `unavailable`, which may describe an earlier failed poll. */
-  async function edit(
-    change: MediaEditDto['change'],
+  /**
+   * Sends one change. A confirmed read overrides render-time `unavailable`, which may describe an
+   * earlier failed poll. Another change's retained intent refuses it before sending, so an
+   * `unconfirmed` outcome is always this change's.
+   */
+  async function send(
+    change: MediaChange,
     revision = snapshot?.revision,
     onConfirmed?: () => void,
     { readConfirmed = false }: MediaCommandOptions = {},
-  ) {
+  ): Promise<MediaCommandOutcome> {
     const readUnavailable = unavailable && !readConfirmed
     if (disabled || readUnavailable || command.busy || command.hasPendingIntent() || !revision) {
-      return false
+      return 'not_sent'
     }
     const input = { expected_revision: revision, change }
     try {
       validate('MediaEdit', input)
     } catch {
       setError('Check the evidence name, note or selection before saving.')
-      return false
+      return 'not_sent'
     }
     setError('')
     drafts.forSource('command')(true)
     onRetainedConfirmed.current = onConfirmed ?? null
-    return confirmed(await command.submit(input))
+    retainedInput.current = input
+    const saved = await confirmed(await command.submit(input), input)
+    if (saved) {
+      return 'saved'
+    }
+    return command.hasPendingIntent() ? 'unconfirmed' : 'not_sent'
+  }
+
+  async function edit(
+    change: MediaChange,
+    revision = snapshot?.revision,
+    onConfirmed?: () => void,
+    options: MediaCommandOptions = {},
+  ) {
+    return (await send(change, revision, onConfirmed, options)) === 'saved'
   }
 
   function select(ids: string[], revision = snapshot?.revision) {
@@ -201,6 +255,9 @@ export function useEvidenceWorkspace(
     setError,
     command,
     edit,
+    send,
+    /** The last accepted snapshot, as a handler reads it after awaiting a command. */
+    current: () => accepted.current,
     selected,
     select,
     move,
@@ -209,8 +266,11 @@ export function useEvidenceWorkspace(
     refresh,
     accept,
     retry: async () => {
-      const saved = await confirmed(await command.retry())
-      if (saved) {
+      const input = retainedInput.current
+      const change = input?.change
+      const saved = await confirmed(await command.retry(), input)
+      // A retried move confirms the selection it moved; a remove or restore rebased it above.
+      if (saved && change?.kind !== 'remove' && change?.kind !== 'restore') {
         select([])
       }
       return Boolean(saved)
@@ -218,6 +278,7 @@ export function useEvidenceWorkspace(
     discard: () => {
       if (!command.busy) {
         command.discard()
+        retainedInput.current = null
         onRetainedConfirmed.current = null
         drafts.forSource('command')(false)
       }

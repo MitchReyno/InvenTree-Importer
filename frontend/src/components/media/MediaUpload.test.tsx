@@ -142,7 +142,9 @@ test('a refused file shows Not added with its reason and Dismiss, and later file
   await user.upload(screen.getByLabelText('Choose photos'), [photo('a.png'), photo('b.png')])
 
   const refused = await screen.findByRole('group', { name: 'Upload of a.png' })
-  expect(within(refused).getByRole('alert')).toHaveTextContent(/Not added.*evidence limit/)
+  expect(within(refused).getByRole('alert')).toHaveTextContent(
+    /Not added.*200-file limit.*Deleted files count towards it/,
+  )
   await waitFor(() => expect(queue.finish).toHaveBeenCalledOnce())
   expect(vi.mocked(queue.upload).mock.calls[1][0].name).toBe('b.png')
   // A file that was not added leaves nothing to protect.

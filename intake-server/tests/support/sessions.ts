@@ -16,9 +16,11 @@ export async function lotSession(
   options: {
     state?: 'running' | 'queued'
     profile?: Parameters<typeof sessionLotInputManifest>[4]
+    stage?: 'research' | 'images'
   } = {},
 ) {
   const state = options.state ?? 'running'
+  const stage = options.stage ?? 'research'
   const profile = options.profile ?? { id: 'synthetic-session/1' as const }
   const ids = {
     job: randomUUID(),
@@ -31,7 +33,7 @@ export async function lotSession(
     const manifest = sessionLotInputManifest(
       capture.batch,
       lot.id,
-      'research',
+      stage,
       { manifest: media.bytes.toString('utf8'), sha256: media.digest.toString('hex') },
       profile,
     )
@@ -55,8 +57,8 @@ export async function lotSession(
       ],
     )
     await client.query(
-      "INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state) VALUES($1,$2,$3,'research',$4,$5)",
-      [ids.job, capture.batch.id, lot.id, ids.attempt, state],
+      'INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state) VALUES($1,$2,$3,$4,$5,$6)',
+      [ids.job, capture.batch.id, lot.id, stage, ids.attempt, state],
     )
     await client.query(
       `INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)

@@ -1,4 +1,5 @@
 // Public design-system surface. Files inside ui/ import siblings directly, never this barrel.
+export * from './ActionsMenu'
 export * from './AiMark'
 export * from './AutosaveStatus'
 export * from './Banner'

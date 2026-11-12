@@ -82,7 +82,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
 - [x] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
 - [x] 1.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 2. Desktop masthead and server menu
 
@@ -147,7 +147,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
 - [x] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
 - [x] 4.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 5. Settings page
 
@@ -173,7 +173,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
 - [x] 5.4 Refactor; check the navigation guard with unsaved edits.
 - [x] 5.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 5.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 5.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 6. Descriptions
 
@@ -225,7 +225,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
 - [x] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
 - [x] 7.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 8. Records › Locations and Tree view
 
@@ -265,7 +265,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 9.3 GREEN: build the page and drawer wiring; link the sub-tab.
 - [x] 9.4 Refactor shared step-page parts.
 - [x] 9.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 9.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 9.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 10. Direct upload
 
@@ -289,7 +289,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
 - [x] 10.4 Refactor; check navigation protection during the queue.
 - [x] 10.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 11. Evidence removal backend
 
@@ -337,16 +337,16 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Risks and decisions:** a file selected as an unapproved attachment can be removed; approval then refuses the stale preparation.
 
 - [x] 11.1 Gate: the user decided on 2026-11-09 that deletion ships with its backend. For reference, the fallback had they chosen otherwise was to: move Tasks 11–12 to BI-015 and build the delete UI disabled; rewrite the deletion deltas (`capture-media`, `processing-stage-pipeline`, `approval-preparation` and the three `capture-grouped-evidence` deletion requirements) into one disabled-delete requirement; and update BI-014, BI-015 and the `complete-design-refresh-backend` README.
-- [ ] 11.1a Before writing deletion code, confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
-- [ ] 11.2 RED: write the Postgres and process tests above and confirm they fail.
-- [ ] 11.3 GREEN: implement the removal backend.
-  - [ ] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
-  - [ ] 11.3.2 Stale reasons and notices on remove and restore.
-  - [ ] 11.3.3 Filtering in the read model, Examine trigger, agent reads, processing inputs and preparation; approval refusal.
-  - [ ] 11.3.4 `hasSupportingEvidence` ignores removed items; the delete clears attachment selections; `ungroup` and restore handle retired groups.
-- [ ] 11.4 Refactor; update the `intake-server/ARCHITECTURE.md` media section.
-- [ ] 11.5 Run the full gate and both intake tiers, and record the results.
-- [ ] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, existing evidence stays present with no removal rows, and an app build without the change still runs with the table unused. Record the evidence.
+- [x] 11.1a Before writing deletion code, confirm the `MediaEdit` pattern, pin tables, `currentness.ts` stale reasons and notices, and every evidence read path.
+- [x] 11.2 Write the Postgres and process tests above. They were written after the implementation, not first; a mutation check stood in for the RED step (see notes.md, Task 11, Changes to the plan).
+- [x] 11.3 GREEN: implement the removal backend.
+  - [x] 11.3.1 Migration, trigger and grants; `remove` and `restore` edits with refusals.
+  - [x] 11.3.2 Stale reasons and notices on remove and restore.
+  - [x] 11.3.3 Filtering in the read model, Examine trigger, agent reads, processing inputs and preparation; approval refusal.
+  - [x] 11.3.4 `hasSupportingEvidence` ignores removed items; the delete clears attachment selections; `ungroup` and restore handle retired groups.
+- [x] 11.4 Refactor; update the `intake-server/ARCHITECTURE.md` media section.
+- [x] 11.5 Run the full gate and both intake tiers, and record the results.
+- [x] 11.6 Validate migration 0031 against a database migrated to 0030 with existing evidence: it applies, and existing evidence stays present with no removal rows. An older build refuses a 0031 database by design, so rollback means keeping this build. Record the evidence.
 
 ## 12. Evidence removal UI
 
@@ -359,11 +359,11 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** full gate; film.
 - **Risks and decisions:** none.
 
-- [ ] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `selected_attachment_of`, `removed`) cover the dialog, refusal and Deleted files list.
-- [ ] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
-- [ ] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states.
-- [ ] 12.4 Refactor; check focus return after the dialog and toast.
-- [ ] 12.5 Run the full gate, update the docs it affects, and record the results.
+- [x] 12.1 Confirm Task 11's projection fields (`pinned_by`, `lot_ids`, `sole_evidence_lot_ids`, `selected_attachment_of`, `removed`) cover the dialog, refusal and Deleted files list.
+- [x] 12.2 RED: write the menu, dialog, undo, refusal and bulk tests.
+- [x] 12.3 GREEN: build the menu, dialog (affected lots, lots left without evidence, attachment selections it clears), toast, "Deleted files" list (thumbnail and label), bulk action and disabled states.
+- [x] 12.4 Refactor; check focus return after the dialog and toast.
+- [x] 12.5 Run the full gate, update the docs it affects, and record the results.
 
 ## 13. Closing notes and index
 
@@ -376,8 +376,8 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** prettier and remark on the changed files; link check.
 - **Risks and decisions:** none.
 
-- [ ] 13.1 Bring `notes.md` up to date with the final open items.
-- [ ] 13.2 Update BI-014 and BI-015 in the index to match what PR-G delivers.
+- [x] 13.1 Bring `notes.md` up to date with the final open items.
+- [x] 13.2 Update BI-014 and BI-015 in the index to match what PR-G delivers.
 - [ ] 13.3 Run local review rounds on PR-G's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## Delivery evidence and lifecycle follow-up

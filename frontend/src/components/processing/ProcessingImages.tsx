@@ -20,7 +20,9 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
     refetchInterval: interval,
   })
   const unavailable = query.isError || query.fetchStatus === 'paused'
-  const labels = query.data ? mediaDisplayLabels(query.data.evidence) : undefined
+  const labels = query.data
+    ? mediaDisplayLabels(query.data.evidence, query.data.removed)
+    : undefined
   if (!client) {
     return <Banner tone="plain">Retained media is not configured for this application.</Banner>
   }

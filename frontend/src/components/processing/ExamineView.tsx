@@ -55,7 +55,7 @@ function photoNames(media: MediaSnapshotDto | undefined) {
   if (!media) {
     return names
   }
-  const display = evidenceDisplayNames(media.evidence)
+  const display = evidenceDisplayNames(media.evidence, media.removed)
   for (const item of media.evidence) {
     const group = media.groups.find((candidate) => candidate.id === item.group_id)?.label ?? null
     for (const version of item.versions) {

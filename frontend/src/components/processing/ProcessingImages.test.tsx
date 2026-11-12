@@ -35,7 +35,12 @@ const saved: MediaSnapshotDto = {
 }
 
 test('Images exposes saved output inspection and Capture link without choosing an attachment', async () => {
-  const client = { snapshot: vi.fn(async () => saved), upload: vi.fn(), edit: vi.fn() }
+  const client = {
+    snapshot: vi.fn(async () => saved),
+    removalImpact: vi.fn(),
+    upload: vi.fn(),
+    edit: vi.fn(),
+  }
   render(<ProcessingImages batchId="batch" client={client} />)
   expect(await screen.findByRole('heading', { name: 'Saved packet' })).toBeVisible()
   expect(screen.getByRole('link', { name: 'Open exact original preview' })).toHaveAttribute(
@@ -54,6 +59,7 @@ test('failed media reads report unavailable, not an empty successful gallery', a
   const client = {
     snapshot: vi.fn().mockRejectedValue(new Error('offline')),
     upload: vi.fn(),
+    removalImpact: vi.fn(),
     edit: vi.fn(),
   }
   render(<ProcessingImages batchId="batch" client={client} />)

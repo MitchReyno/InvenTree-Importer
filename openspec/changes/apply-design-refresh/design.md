@@ -233,7 +233,8 @@ Applied per design change log entry. The table names the owning component, with 
 
 ## Migration, rollout and recovery
 
-- **Migration:** `0031` is additive (a new table, trigger, indexes and grants), with no data rewrite. Rolling back the app leaves the table unused. Existing evidence has no removal rows and stays present. Task 11 proves this against a database migrated to 0030 with existing evidence.
+- **Migration:** `0031` is additive (a new table, trigger, indexes and grants), with no data rewrite. Existing evidence has no removal rows and stays present. Task 11 proves this against a database migrated to 0030 with existing evidence.
+- **Rollback:** an older build refuses a database with `0031` by design, because startup requires the exact migration set (`operations/compatibility.ts`). Rolling back therefore means keeping this build; there is no down-migration.
 - **Spec sync:** run `pnpm openspec:overlap --change apply-design-refresh` before syncing.
 - **Feature exposure:** no feature flags. Deferred controls ship disabled.
 

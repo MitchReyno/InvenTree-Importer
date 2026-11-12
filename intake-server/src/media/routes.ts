@@ -43,6 +43,19 @@ function renditionSize(request: FastifyRequest): MediaRenditionSize | 'full' {
   return fail('invalid_size', 400)
 }
 
+/** A batch holds at most 200 items, removed ones included. */
+const MAX_REMOVAL_IMPACT_IDS = 200
+
+/** Comma-separated evidence IDs, at most the batch's 200 items, each named once. */
+function evidenceIdList(request: FastifyRequest) {
+  const value = (request.query as Record<string, unknown> | undefined)?.evidence_ids
+  const ids = typeof value === 'string' ? value.split(',') : []
+  if (!ids.length || ids.length > MAX_REMOVAL_IMPACT_IDS || new Set(ids).size !== ids.length) {
+    fail('invalid_id', 400)
+  }
+  return ids.map(identifier)
+}
+
 function parameters(request: FastifyRequest) {
   const values = request.params as Record<string, unknown>
   return { batchId: identifier(values.batchId), resourceId: values.resourceId }
@@ -91,6 +104,11 @@ export function registerMediaRoutes(
       '/api/v1/batches/:batchId/media',
       { schema: { response: { 200: schemas.MediaSnapshot } } },
       (request) => repository.snapshot(parameters(request).batchId),
+    )
+    scope.get(
+      '/api/v1/batches/:batchId/media/removal-impact',
+      { schema: { response: { 200: schemas.MediaRemovalImpact } } },
+      (request) => repository.removalImpact(parameters(request).batchId, evidenceIdList(request)),
     )
     scope.post(
       '/api/v1/batches/:batchId/media/commands',

@@ -1759,6 +1759,7 @@ test('Batch sends the region move for a new lot at the revision that made the lo
     ),
   } as unknown as Client
   const media: MediaClient = {
+    removalImpact: vi.fn(),
     snapshot: vi.fn(
       async () =>
         ({
