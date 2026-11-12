@@ -108,8 +108,8 @@ export function tabCount(tab: TabKey, input: TabCountInput): TabCount | undefine
         ? count(problems, plural(problems, 'needs attention', 'need attention'), 'bad')
         : undefined
     }
-    default:
-      // Capture and Processing › Overview carry no count.
+    case 'capture':
+    case 'processing/overview':
       return undefined
   }
 }

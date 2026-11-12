@@ -1,5 +1,15 @@
 import reactHooks from 'eslint-plugin-react-hooks'
+import tseslint from 'typescript-eslint'
 import readability from './tooling/eslint/readability.mjs'
+import typedRules from './tooling/eslint/typed-rules.mjs'
+
+const frontendSources = ['frontend/src/**/*.{ts,tsx}']
+// The frontend lints itself through frontend/eslint.config.js; these packages have no config of their own.
+const packageSources = [
+  'intake-server/src/**/*.ts',
+  'media-decoder/src/**/*.ts',
+  'contracts/src/**/*.ts',
+]
 
 export default [
   {
@@ -23,17 +33,33 @@ export default [
   },
   {
     ...readability,
-    files: [
-      'frontend/src/**/*.{ts,tsx}',
-      'intake-server/src/**/*.ts',
-      'media-decoder/src/**/*.ts',
-      'contracts/src/**/*.ts',
-    ],
+    files: [...frontendSources, ...packageSources],
+  },
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: [...frontendSources, ...packageSources],
+    // Frontend lint applies these rules itself; here they would only repeat it.
+    ignores: config.rules ? frontendSources : [],
+  })),
+  {
+    files: packageSources,
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      ...typedRules,
+      // TypeScript's noUnusedLocals already reports unused names; these options let rest siblings
+      // and `_` names pass.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { ignoreRestSiblings: true, varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
+      ],
+    },
   },
   {
-    // Frontend lint owns these rules and reports unused disables; knowing them keeps its react-hooks
-    // disables valid here. A disable for another plugin's rule would still fail this config.
-    files: ['frontend/src/**/*.{ts,tsx}'],
+    // Frontend lint owns its rules and reports unused disables; knowing the plugins here keeps its
+    // justified disable comments valid.
+    files: frontendSources,
     plugins: { 'react-hooks': reactHooks },
     linterOptions: { reportUnusedDisableDirectives: 'off' },
   },

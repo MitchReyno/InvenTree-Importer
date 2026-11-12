@@ -89,7 +89,7 @@ Keep capability labels truthful. Buttons and success states must not imply uploa
 
 ## Tooling and tests
 
-Frontend owns its dependencies/scripts; pinned pnpm updates the root lockfile. Add no second lockfile or Python dependency. Other routing/state/component frameworks need demonstrated requirements and an explicit engineering decision.
+Frontend owns its dependencies/scripts; pinned pnpm updates the root lockfile. `pnpm lint:frontend` also runs the shared type-aware rules on `src`, so tests await `act` and other promises rather than leaving them floating. Add no second lockfile or Python dependency. Other routing/state/component frameworks need demonstrated requirements and an explicit engineering decision.
 
 For frontend behavior changes, run from root:
 

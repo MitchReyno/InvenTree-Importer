@@ -1,11 +1,13 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi, type Mock } from 'vitest'
 import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
 import type { ProcessingClient } from '#/processing/types'
 import { render } from '#/test/render'
 import { TellExamine } from './TellExamine'
 import { ApiClientsProvider } from '#/context'
+
+type SendChat = NonNullable<ProcessingClient['chat']>
 
 const snapshot = (state: string | null) => ({
   jobs: [
@@ -24,8 +26,8 @@ function client(session: boolean | string | (() => string)) {
   return {
     read: vi.fn(async () => snapshot(typeof state === 'function' ? state() : state)),
     session: vi.fn(),
-    chat: vi.fn(async () => ({ id: 'inbox-1' })),
-  } as unknown as ProcessingClient & { chat: ReturnType<typeof vi.fn> }
+    chat: vi.fn<SendChat>(async () => ({ item_id: 'inbox-1', seq: '1' })),
+  } as unknown as ProcessingClient & { chat: Mock<SendChat> }
 }
 
 it('sends a free-text instruction to the Examine lead session', async () => {

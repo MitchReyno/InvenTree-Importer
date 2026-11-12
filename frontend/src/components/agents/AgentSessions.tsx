@@ -74,7 +74,7 @@ function matches(session: Session, filter: Filter) {
       return session.state === 'queued'
     case 'finished':
       return finishedToday(session)
-    default:
+    case 'all':
       return true
   }
 }
