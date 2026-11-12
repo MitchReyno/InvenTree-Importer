@@ -39,12 +39,12 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
 - **Scope:** `frontend/src/electronics-current/outline-kit.ts`, `finishes.ts` and `outline-kit.test.ts`.
 - **Verification:** `pnpm test:frontend`.
 
-- [ ] 1.1 Baseline: run the existing kit tests.
-- [ ] 1.2 RED: add tests that:
-  - [ ] 1.2.1 cache glass opacity variants per colour and opacity;
-  - [ ] 1.2.2 keep Nixie unlit cathodes from writing depth;
-  - [ ] 1.2.3 re-tint the new materials with the theme.
-- [ ] 1.3 GREEN: implement the materials, and add new fills to `finishes.ts`.
+- [x] 1.1 Baseline: run the existing kit tests.
+- [x] 1.2 RED: add tests that:
+  - [x] 1.2.1 cache glass opacity variants per colour and opacity;
+  - [x] 1.2.2 keep Nixie unlit cathodes from writing depth;
+  - [x] 1.2.3 re-tint the new materials with the theme.
+- [x] 1.3 GREEN: implement the materials, and add new fills to `finishes.ts`.
 
 ## 2. Octal tube and 5U4 rectifier
 

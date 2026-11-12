@@ -88,3 +88,39 @@ test('parts built while dark start with the dark finish, and disposed LEDs stop 
   expect(led.crease.color.getHex()).toBe(crease)
   kit.dispose()
 })
+
+test('glass opacity variants are cached per colour and opacity and still shared', () => {
+  const kit = createOutlineKit()
+  const tube = kit.glass(box(1, 1, 1), fills.tubeGlass, 0.4)
+  const sameTube = kit.glass(box(1, 1, 1), fills.tubeGlass, 0.4)
+  const standard = kit.glass(box(1, 1, 1), fills.tubeGlass)
+
+  expect(tube.material).toBe(sameTube.material)
+  expect(tube.material).not.toBe(standard.material)
+  expect((tube.material as MeshBasicMaterial).opacity).toBe(0.4)
+  kit.dispose()
+})
+
+test('unlit Nixie cathodes are translucent and never hide the lit numeral', () => {
+  const kit = createOutlineKit()
+
+  expect(kit.nixie.unlit.transparent).toBe(true)
+  expect(kit.nixie.unlit.depthWrite).toBe(false)
+  expect(kit.nixie.lit.transparent).toBe(true)
+  kit.dispose()
+})
+
+test('tube glass, Nixie cathodes and the wick ribbon re-tint with the theme', () => {
+  const kit = createOutlineKit('light')
+  const tube = kit.glass(box(1, 1, 1), fills.tubeGlass, 0.4)
+
+  kit.setTheme('dark')
+
+  expect((tube.material as MeshBasicMaterial).color.getHex()).toBe(
+    fillFor(fills.tubeGlass, 'dark').getHex(),
+  )
+  expect(kit.nixie.unlit.color.getHex()).toBe(fillFor(fills.unlitCathode, 'dark').getHex())
+  expect(kit.ribbon.fill.color.getHex()).toBe(fillFor(fills.copper, 'dark').getHex())
+  expect(kit.ribbon.edge.color.getHex()).toBe(FINISHES.dark.outline)
+  kit.dispose()
+})
