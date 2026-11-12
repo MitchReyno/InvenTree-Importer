@@ -146,6 +146,12 @@ function waitForExit(child) {
   })
 }
 
+/** The login needs no inventory token; keep it out of the Codex process. */
+function loginEnvironment(baseEnv) {
+  const { INTAKE_INVENTREE_TOKEN, INTAKE_DEV_API_KEY, ...rest } = baseEnv
+  return rest
+}
+
 /**
  * Resolves this checkout's dev app state, then runs interactive `codex login`
  * with CODEX_HOME set to its private subscription directory.
@@ -163,7 +169,7 @@ async function runCodexLogin({
   const child = spawnImpl(executable, ['login'], {
     stdio: 'inherit',
     shell: false,
-    env: { ...baseEnv, CODEX_HOME: home },
+    env: { ...loginEnvironment(baseEnv), CODEX_HOME: home },
   })
   const { code, signal } = await waitForExit(child)
   if (signal || code === null) {

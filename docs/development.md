@@ -51,7 +51,7 @@ Each setting below is independent, and its name says what it controls. Switches 
 | `INTAKE_USE_MOCK_AI_AGENTS` | `true` | `false` uses real Claude or Codex agents. |
 | `INTAKE_USE_AGENT_SESSIONS` | `true` | `false` produces one result per stage instead of Examine sessions. |
 | `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM. It needs `INTAKE_VM_PAIR` and `INTAKE_VM_PORT`, and serves the VM's credential management. |
-| `INTAKE_VM_AGENT_TOOLS` | `true` | With VM agents, `false` leaves out the tool worker and web reader. |
+| `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` leaves out the tool worker and web reader. Scripted agents ignore it. |
 
 The processing switches select one of the existing profiles, which the startup output names:
 
@@ -66,7 +66,7 @@ The processing switches select one of the existing profiles, which the startup o
 
 The app refuses to start, before any setup, when settings conflict. Examples are the local switch together with a URL; read-only `false` with a real server, because writes to a real InvenTree are not supported; VM agents without sessions; and a switch set to anything other than true or false. Errors never include a value; invalid, retired and conflicting settings are also named.
 
-The earlier `INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY` and `INTAKE_PERSONAL_MANAGEMENT` settings are refused, and the message names each replacement. The internal profile values are unchanged, so renaming the settings keeps your retained app data.
+The earlier `INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY` and `INTAKE_PERSONAL_MANAGEMENT` settings are refused, and the message names each replacement. The internal profile values are unchanged, so renaming the settings keeps your retained app data. For an external server, keep the `INTAKE_CREDENTIAL_REF` you used before, or the derived reference selects a new, empty namespace.
 
 ### External InvenTree server
 

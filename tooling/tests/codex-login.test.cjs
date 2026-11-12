@@ -68,7 +68,12 @@ test('explicit app state is the login directory and ignores a host CODEX_HOME', 
   const code = await runCodexLogin({
     settings: { INTAKE_APP_STATE: root },
     spawnImpl,
-    baseEnv: { PATH: '/usr/bin', CODEX_HOME: '/host/codex', OPENAI_API_KEY: 'not-copied-as-login' },
+    baseEnv: {
+      PATH: '/usr/bin',
+      CODEX_HOME: '/host/codex',
+      OPENAI_API_KEY: 'not-copied-as-login',
+      INTAKE_INVENTREE_TOKEN: 'synthetic-inventory-token',
+    },
     log: (line) => lines.push(line),
   })
   assert.equal(code, 0)
@@ -79,6 +84,7 @@ test('explicit app state is the login directory and ignores a host CODEX_HOME', 
   assert.equal(calls[0].options.shell, false)
   assert.equal(calls[0].options.env.CODEX_HOME, join(root, 'agents', 'codex'))
   assert.equal(calls[0].options.env.PATH, '/usr/bin')
+  assert.equal(calls[0].options.env.INTAKE_INVENTREE_TOKEN, undefined)
   assert.equal(lines[0].includes(join(root, 'agents', 'codex')), true)
   const home = await lstat(join(root, 'agents', 'codex'))
   assert.equal(home.isDirectory(), true)

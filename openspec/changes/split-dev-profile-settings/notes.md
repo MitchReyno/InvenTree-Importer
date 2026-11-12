@@ -15,6 +15,8 @@ Splits the `pnpm dev` profile variables into independent switches. Delivered in 
 
 ## Decisions made during implementation
 
+- **2026-11-12T14:05+11:00, task 4 (review):** `dev:intake` keeps reading only the server's own variable names, so a shared `.env` written with the new switches no longer configures it. The development guide says to keep its names in a separate file selected with `INTAKE_ENV_FILE`; translating the switches for `dev:intake` too was rejected because it runs no workers and takes explicit server configuration by design.
+
 - **2026-11-12T13:12+11:00, task 2:** Scripted agents receive no provider keys or executable overrides; previously no worker ran for the mock profile, so nothing was forwarded. The resolver returns a `mockAgents` flag for this.
 
 - **2026-11-12T13:05+11:00, planning:** A switch for the research stub (`restricted-research-stub/1`) was dropped from the agreed switch set. Only a test fixture runs that profile and the dev processing worker is fixed to `synthetic-research/2`, so it would need a new development worker; `pnpm dev` could not run it before this change either.
@@ -23,3 +25,4 @@ Splits the `pnpm dev` profile variables into independent switches. Delivered in 
 
 - `restricted-research-stub/1` remains unavailable in `pnpm dev`.
 - Writes to a local or external InvenTree remain unsupported; `INTAKE_INVENTREE_READ_ONLY=false` refuses them.
+- The server menu says "Approvals write only to this test InvenTree" for a read-only mock, and "Approvals write to this InvenTree" for local and external targets, which are always read-only. A truthful message needs a read-only signal in the connection-status contract; it belongs with the design-refresh work that owns the server menu.

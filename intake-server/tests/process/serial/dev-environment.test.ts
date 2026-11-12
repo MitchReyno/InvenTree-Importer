@@ -161,6 +161,7 @@ test(
       const connection = await request('/connection-status')
       assert.equal(connection.status, 200)
       assert.equal(connection.value.target.state, 'reachable')
+      assert.equal(connection.value.target.kind, 'configured')
       assert.equal(connection.value.target.navigation_url, target.origin + '/')
       for (const suffix of ['', '?raw']) {
         const blocked = await fetch(`${origin}/@fs${envFile}${suffix}`)

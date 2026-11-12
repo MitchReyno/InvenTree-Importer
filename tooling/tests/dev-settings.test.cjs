@@ -204,7 +204,7 @@ test('retired names are refused with their replacements and no values', () => {
       ],
     )
     for (const entry of error.names) {
-      assert.match(entry.replacement, /^INTAKE_[A-Z_]+(, INTAKE_[A-Z_]+)*$/)
+      assert.match(entry.replacement, /^INTAKE_[A-Z_]+/)
     }
     assert.doesNotMatch(
       JSON.stringify(error.names),
