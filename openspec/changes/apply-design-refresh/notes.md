@@ -2,6 +2,38 @@
 
 The design refresh is delivered in bundles PR-A to PR-G. This file records departures, decisions and open items as each task is implemented.
 
+## Open items for the whole change
+
+These are the change's open items as PR-G is reviewed. Each task's own section below has the detail; items later bundles resolved are marked there.
+
+- **Deferred to BI-015 (shown disabled, with the reason):**
+  - Settings › Agents: model per step, instructions for every new batch and web research switches.
+  - Settings: app-level batch defaults and the description rules.
+  - Settings › InvenTree: the token row and the import reference prefix; Check connection now in the server menu.
+  - Records: description fields for manufacturer parts, supplier parts and agent-proposed companies. The location type field (Task 8).
+  - Processing › Inventory: the question's option cards, and the comparison's InvenTree column and date code (Task 9).
+  - Capture: Delete on written batch notes (Task 12).
+- **Not shown at all yet (also BI-015):** descriptions for agent-proposed categories and parameter templates, which are listed under "Not supported yet" (Task 6).
+- **Other open items:**
+  - Review's supporting-evidence rule counts an `unset` lot-attachment selection as evidence, so clearing a lot's only attachment doesn't raise `no_supporting_evidence` (Task 11).
+  - No screen passes `onEdit` to a source chip yet, so no chip offers Edit value (Task 7).
+  - The Processing fixture has no Inventory work, so the Inventory step page isn't in the screenshot set (Task 9).
+  - The evidence removal UI follows change log D31, design D6 and the delta specs; the canvas's "Capture › delete evidence" artboard couldn't be read to check it against (Task 12).
+
+## Delivery evidence
+
+Each merged bundle's reviewed head, local review and CI. PR-G is recorded when it merges. CI is the selected checks; the PostgreSQL and process tiers are skipped in CI and run locally (see each PR).
+
+| Bundle | Tasks | PR | Reviewed head | Local review | CI |
+| --- | --- | --- | --- | --- | --- |
+| Plan | — | #189 | `784e95f4` | Not recorded | Markdown lint passed |
+| PR-F | 10 | #190 | `d09655b0` | 5 rounds of fresh reviewer subagents; round 5 at the head found nothing Critical, Important or Minor | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
+| PR-A | 1 | #191 | `d75ad9a9` | 5 rounds; round 5 at `cd72e2b9` clean, then the merge of `interactive-app` (`d75ad9a9`) reviewed clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-D | 6, 7 | #192 | `b7944f8b` | 3 rounds; round 3 at the head clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-B | 2, 3, 4 | #194 | `c9ef7a29` | 4 rounds; round 4 at `1075878a` clean apart from a `notes.md` nitpick, which `c9ef7a29` fixes alone | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
+| PR-E | 8, 9 | #204 | `b1aea6d2` | 11 rounds; round 11 at the head, with the merge, clean | Frontend, TypeScript lint, Markdown lint passed |
+| PR-C | 5 | #205 | `90e2125d` | 7 rounds; round 7 at the head, with the merges of `interactive-app` and PR-E, clean | Frontend, TypeScript lint, Markdown lint passed |
+
 ## Task 1: design-system foundation
 
 ### Changes to the plan
@@ -228,7 +260,7 @@ None for task 10.
 - **2026-11-12T20:50+11:00, task 12 (review round 1):** The combined impact is used only from a read made by this opening of the dialog (`isFetchedAfterMount`, `refetchOnMount: 'always'`), because it also depends on capture state. Until that read arrives the dialog says "Checking…" and Delete stays disabled.
 - **2026-11-12T20:50+11:00, task 12 (review round 1):** The evidence header says "N deleted, counting towards 200" while there are deleted files, and the `media_capacity` upload refusal says deleted files count towards the 200-file limit.
 - **2026-11-12T20:50+11:00, task 12 (review round 1):** Move to group… is disabled with "Clear the selection first." while a selection is held, rather than replacing it.
-- **2026-11-12T20:50+11:00, task 12 (review round 1):** Deleted files are numbered after the present files that share their name (`deletedFileNames`), so present names keep the numbering every screen uses. The delete toast names the file as Deleted files then does. A written note's menu is named by its subject and time.
+- **2026-11-12T20:50+11:00, task 12 (review round 1):** Deleted files are numbered after the present files that share their name (`deletedFileNames`), so present names keep the numbering every screen uses. Round 2 replaced this with `position` (below). The delete toast names the file as Deleted files then does. A written note's menu is named by its subject and time.
 - **2026-11-12T21:11+11:00, task 12 (review round 2):** Delete… and Move to group… are disabled, with no reason, while a media request is being sent (`ActionsMenu` items take `disabled` apart from `disabledReason`). An open delete dialog refuses once the shown snapshot moves past the revision it opened on ("The saved evidence changed after this opened. Close it and choose Delete again."), and it shows `waitReason` inside the dialog, since the page behind it is inert.
 - **2026-11-12T21:11+11:00, task 12 (review round 2), contract addition:** Each `removed` entry carries `position`, its index among all the batch's files in upload order. The plan didn't list this field. Present files fill the other places in snapshot order, so `evidenceDisplayNames` numbers present and deleted files together in one stable order, and a delete or restore renumbers nothing. Capture, the Map, Review and Processing pass the snapshot's `removed` list. The toast names the file as the dialog did.
 - **2026-11-12T21:11+11:00, task 12 (review round 2):** A confirmed remove or restore moves a held selection onto the confirmed revision only when it was sent at the selection's own revision; otherwise the selection keeps its revision. That `send` never reports a change refused before sending as unconfirmed is tested on the hook (`useEvidenceWorkspace.test.tsx`), because the dialog's Delete is disabled whenever another intent is held.
@@ -240,6 +272,10 @@ None for task 10.
 - **2026-11-12T20:39+11:00, task 12 (coordinator review):** After the Move to group, dialog and Undo changes, the gate passed again at `57162056`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1324 of 1324), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6).
 - **2026-11-12T20:58+11:00, task 12 (review round 1):** After the round 1 fixes the gate passed at `a74b40cc`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1338 of 1338), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6).
 - **2026-11-12T21:19+11:00, task 12 (review round 2):** After the round 2 fixes the gate passed at `4f4074b9`, with `interactive-app` still at `81571854`: lint, build, `pnpm test` (frontend 1346 of 1346), `contracts:check`, `typecheck:intake`, and the two removal PostgreSQL files run serially (6 of 6), which now check the removed entry's `position`.
+
+### Open items
+
+- Check the delete flow against the canvas's "Capture › delete evidence" artboard, which couldn't be read for this build.
 
 ## Task 5: Settings page
 

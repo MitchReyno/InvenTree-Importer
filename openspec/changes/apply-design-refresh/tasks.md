@@ -82,7 +82,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 1.3 GREEN: implement the tokens, icons and components; update `Pill`, `KeyValue` and `Breadcrumb`; add gallery entries.
 - [x] 1.4 Refactor shared styles onto tokens; check both themes for contrast.
 - [x] 1.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 1.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 2. Desktop masthead and server menu
 
@@ -147,7 +147,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 4.3 GREEN: implement the phone masthead, sheet and condensed row.
 - [x] 4.4 Refactor; check there's no horizontal scroll at 360px and 390px.
 - [x] 4.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 4.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 5. Settings page
 
@@ -173,7 +173,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 5.3 GREEN: build the shell, sections, back link and disabled cards; move the theme here and drop the interim theme item from Task 2.
 - [x] 5.4 Refactor; check the navigation guard with unsaved edits.
 - [x] 5.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 5.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 5.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 6. Descriptions
 
@@ -225,7 +225,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 7.3 GREEN: apply the removals, help buttons, chip migration and marks.
 - [x] 7.4 Refactor; search for leftover helper sentences and "source · certainty" strings.
 - [x] 7.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 7.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 8. Records › Locations and Tree view
 
@@ -265,7 +265,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 9.3 GREEN: build the page and drawer wiring; link the sub-tab.
 - [x] 9.4 Refactor shared step-page parts.
 - [x] 9.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 9.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 9.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 10. Direct upload
 
@@ -289,7 +289,7 @@ Tasks 1, 10 and 11 can start in parallel.
 - [x] 10.3 GREEN: remove Retain and Discard; implement the queue, per-file states and progress.
 - [x] 10.4 Refactor; check navigation protection during the queue.
 - [x] 10.5 Run the frontend gate, update the docs it affects, and record the results.
-- [ ] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
+- [x] 10.6 Run local review rounds on the bundle's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## 11. Evidence removal backend
 
@@ -376,8 +376,8 @@ Tasks 1, 10 and 11 can start in parallel.
 - **Verification:** prettier and remark on the changed files; link check.
 - **Risks and decisions:** none.
 
-- [ ] 13.1 Bring `notes.md` up to date with the final open items.
-- [ ] 13.2 Update BI-014 and BI-015 in the index to match what PR-G delivers.
+- [x] 13.1 Bring `notes.md` up to date with the final open items.
+- [x] 13.2 Update BI-014 and BI-015 in the index to match what PR-G delivers.
 - [ ] 13.3 Run local review rounds on PR-G's exact head until one is clean, open its PR, wait for green selected CI, and merge pinned to the reviewed head.
 
 ## Delivery evidence and lifecycle follow-up
