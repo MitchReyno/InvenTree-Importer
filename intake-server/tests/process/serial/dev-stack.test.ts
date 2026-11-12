@@ -59,6 +59,8 @@ test(
           INTAKE_DEV_PORT: String(port),
           INTAKE_DEV_ADMIN_URL: process.env.INTAKE_TEST_ADMIN_URL,
           INTAKE_MEDIA_DECODER_IMAGE: process.env.INTAKE_MEDIA_DECODER_IMAGE,
+          // This test covers the per-stage synthetic Processing child.
+          INTAKE_USE_AGENT_SESSIONS: 'false',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       })

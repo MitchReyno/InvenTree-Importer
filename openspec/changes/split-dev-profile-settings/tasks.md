@@ -75,8 +75,8 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 - Verification: `pnpm --filter @invimport/intake-server test:process` for the dev-environment file, with the running app stopped; result recorded in the PR.
 - Risks and decisions: the process tier needs Docker and the shared database server.
 
-- [ ] 3.1 Update the external-target test to the new settings and add the retired-name refusal check.
-- [ ] 3.2 Run the dev-environment process tests locally and record the result.
+- [x] 3.1 Update the external-target test to the new settings and add the retired-name refusal check.
+- [x] 3.2 Run the dev-environment process tests locally and record the result.
 
 ## 4. Documentation and hints
 

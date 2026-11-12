@@ -80,21 +80,24 @@ test(
     const port = await freePort()
     const origin = `http://127.0.0.1:${port}`
     const key = 'synthetic-read-token-never-public'
-    const writeSettings = async (targetOrigin: string) =>
+    const writeSettings = async (targetLines: string[]) =>
       writeFile(
         envFile,
         [
           `INTAKE_APP_STATE="${root}"`,
           `INTAKE_DEV_PORT=${port}`,
-          'INTAKE_TARGET_PROFILE=read-only',
-          `INTAKE_READ_ORIGIN=${targetOrigin}`,
-          'INTAKE_CREDENTIAL_REF=controlled_readonly',
-          `INTAKE_DEV_API_KEY=${key}`,
+          ...targetLines,
+          'INTAKE_USE_AGENT_SESSIONS=false',
           'OPENAI_API_KEY=synthetic-provider-must-not-run',
           `INTAKE_MEDIA_DECODER_IMAGE=${process.env.INTAKE_MEDIA_DECODER_IMAGE}`,
         ].join('\n'),
         { mode: 0o600 },
       )
+    const externalTarget = (targetOrigin: string) => [
+      `INTAKE_INVENTREE_URL=${targetOrigin}`,
+      'INTAKE_CREDENTIAL_REF=controlled_readonly',
+      `INTAKE_INVENTREE_TOKEN=${key}`,
+    ]
     let child: ChildProcess | undefined
     let output = ''
     let csrf = ''
@@ -154,7 +157,7 @@ test(
       }
     }
     try {
-      await writeSettings(target.origin)
+      await writeSettings(externalTarget(target.origin))
       await start()
       const connection = await request('/connection-status')
       assert.equal(connection.status, 200)
@@ -255,7 +258,7 @@ test(
       assert.equal((await request(`/batches/${batch.id}`)).value.title, 'Readonly target context')
       await stop()
       const requestCount = target.requests.length
-      await writeSettings(other.origin)
+      await writeSettings(externalTarget(other.origin))
       await start(false)
       assert.equal(target.requests.length, requestCount)
       assert.equal(other.requests.length, 0)
@@ -263,6 +266,17 @@ test(
         JSON.parse(await readFile(join(root, 'app.json'), 'utf8')).target,
         state.target,
       )
+      await writeSettings([
+        'INTAKE_TARGET_PROFILE=read-only',
+        `INTAKE_READ_ORIGIN=${target.origin}`,
+        'INTAKE_CREDENTIAL_REF=controlled_readonly',
+        `INTAKE_DEV_API_KEY=${key}`,
+      ])
+      await start(false)
+      assert.match(output, /retired_development_setting/)
+      assert.match(output, /INTAKE_DEV_API_KEY: use INTAKE_INVENTREE_TOKEN/)
+      assert.equal(target.requests.length, requestCount)
+      assert.equal(await readFile(join(root, 'app.json'), 'utf8'), stateBytes)
     } finally {
       await stop()
       await target.close()
