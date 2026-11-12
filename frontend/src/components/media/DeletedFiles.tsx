@@ -1,0 +1,97 @@
+import { useId, type Ref } from 'react'
+import styled from 'styled-components'
+import { color, radius, space, typeVar } from '#/theme/generated/tokens'
+import type { MediaRemovedEvidenceDto } from '@invimport/contracts'
+import { Button, Small, Summary } from '#/components/ui'
+import { removedThumbnail } from '#/media/images'
+
+type Props = {
+  batchId: string
+  removed: MediaRemovedEvidenceDto[]
+  /** Why Restore is unavailable, or null when it can be sent. */
+  restoreRefusal: string | null
+  onRestore: (item: MediaRemovedEvidenceDto) => void
+  /** The disclosure's summary, which takes focus when an Undo is refused. */
+  summaryRef?: Ref<HTMLElement>
+}
+
+const THUMBNAIL_PX = 48
+
+/** Deleted photos and documents, each with its thumbnail, label and Restore. */
+export function DeletedFiles({ batchId, removed, restoreRefusal, onRestore, summaryRef }: Props) {
+  const reasonId = useId()
+
+  return (
+    <details>
+      <Summary ref={summaryRef}>Deleted files · {removed.length}</Summary>
+      {restoreRefusal && <Small id={reasonId}>{restoreRefusal}</Small>}
+      <List aria-label="Deleted files">
+        {removed.map((item) => (
+          <Row key={item.id}>
+            <Thumbnail>
+              {item.preview_id && (
+                <img
+                  src={removedThumbnail(batchId, item.preview_id)}
+                  alt=""
+                  width={THUMBNAIL_PX}
+                  height={THUMBNAIL_PX}
+                  loading="lazy"
+                />
+              )}
+            </Thumbnail>
+            <Name title={item.label}>{item.label}</Name>
+            <Button
+              size="sm"
+              aria-label={`Restore ${item.label}`}
+              aria-describedby={restoreRefusal ? reasonId : undefined}
+              disabled={restoreRefusal !== null}
+              onClick={() => onRestore(item)}
+            >
+              Restore
+            </Button>
+          </Row>
+        ))}
+      </List>
+    </details>
+  )
+}
+
+const List = styled.ul`
+  display: grid;
+  gap: ${space[3]};
+  margin: ${space[4]} 0 0;
+  padding: 0;
+  list-style: none;
+`
+
+const Row = styled.li`
+  display: flex;
+  align-items: center;
+  gap: ${space[4]};
+  min-width: 0;
+`
+
+const Thumbnail = styled.span`
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: ${THUMBNAIL_PX}px;
+  height: ${THUMBNAIL_PX}px;
+  overflow: hidden;
+  border-radius: ${radius.sm};
+  background: ${color.photoStage};
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`
+
+const Name = styled.span`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: ${typeVar.small.size};
+`

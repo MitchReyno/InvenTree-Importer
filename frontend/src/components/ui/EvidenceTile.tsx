@@ -27,6 +27,8 @@ type EvidenceTileProps = {
   handle?: ReactNode
   /** Opens the file's note; the tile then shows "＋ Note" or "Edit note". */
   onNote?: () => void
+  /** An actions menu, drawn at the end of the caption. */
+  actions?: ReactNode
 }
 
 function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'name' | 'state'>) {
@@ -96,6 +98,7 @@ export function EvidenceTile(props: EvidenceTileProps) {
         ) : (
           support && <Support>{support}</Support>
         )}
+        {props.actions && <CaptionActions>{props.actions}</CaptionActions>}
       </Caption>
       {state === 'failed' && props.onRetry && (
         <Retry type="button" aria-label={`Retry preview for ${name}`} onClick={props.onRetry}>
@@ -265,16 +268,26 @@ const Tick = styled.label`
 
 const Caption = styled.span`
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: ${space[2]};
   padding: ${space[2]} ${space[3]};
   font-size: ${typeVar.pill.size};
   line-height: ${typeVar.pill.lineHeight};
   span:first-child {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+`
+
+const CaptionActions = styled.span`
+  flex: none;
+  /* The menu button keeps its touch size without making the caption taller. */
+  margin-block: calc(-1 * ${space[2]});
+  margin-right: calc(-1 * ${space[2]});
 `
 
 const Support = styled.span`

@@ -80,6 +80,11 @@ export function previewImage(
   return attributes(page, usage, (size) => sizedUrl(base, size), sizes)
 }
 
+/** A deleted file's thumbnail, the only size the server still serves for it. */
+export function removedThumbnail(batchId: string, previewId: string) {
+  return sizedUrl(mediaResource(batchId, 'previews', previewId), 'thumb')
+}
+
 /** The full-resolution page, for zoomed inspection or opening the image on its own. */
 export function fullPreview(
   batchId: string,

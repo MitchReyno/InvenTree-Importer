@@ -2,7 +2,12 @@ import { mediaIdentityLabels } from '#/media/identity-labels'
 import { useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '#/theme/generated/tokens'
-import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
+import type {
+  CaptureSnapshotDto,
+  MediaEvidenceDto,
+  MediaVersionDto,
+  OperatorReviewDto,
+} from '@invimport/contracts'
 import { Paragraph, Small, Banner, Toast, Button, HelpButton } from '#/components/ui'
 import { Label, Select } from '#/forms'
 import type { MediaClient } from '#/media/types'
@@ -14,6 +19,10 @@ import { EvidenceDragContext } from './EvidenceDragContext'
 import { EvidenceGroupPanel } from './EvidenceGroupPanel'
 import { MediaTextEditor } from './MediaTextEditor'
 import { SubjectAttachmentChoice } from './SubjectAttachmentChoice'
+import { RemovalDialog } from './RemovalDialog'
+import { DeletedFiles } from './DeletedFiles'
+import { approvalRefusal, bulkApprovalRefusal } from '#/media/removal'
+import { mediaDisplayLabels } from '#/media/identity-labels'
 import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
@@ -39,6 +48,29 @@ const GROUPS_EXPLANATION =
 function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? '' : 's'}`
 }
+
+/** What Undo on the confirmation toast sends back. */
+type ToastUndo =
+  { kind: 'move'; ids: string[]; groupId: string | null } | { kind: 'restore'; ids: string[] }
+
+type Confirmation = {
+  /** Each confirmed change gets its own toast, even when its message repeats. */
+  id: string
+  message: string
+  undo?: ToastUndo
+}
+
+/** A delete waiting for confirmation, pinned to the files and revision the dialog opened on. */
+type PendingRemoval = { items: MediaEvidenceDto[]; revision: string }
+
+function groupRegionId(groupId: string | null) {
+  return `evidence-group-${groupId ?? 'ungrouped'}`
+}
+
+const ARCHIVED_DELETE = 'Resume the batch to delete files.'
+const ARCHIVED_RESTORE = 'Resume the batch to restore files.'
+const WAIT_DELETE = 'Delete waits until other evidence changes are saved or discarded.'
+const WAIT_RESTORE = 'Restore waits until other evidence changes are saved or discarded.'
 
 export function MediaWorkspace({
   batch,
@@ -89,12 +121,14 @@ export function MediaWorkspace({
   })
   const [newGroup, setNewGroup] = useState(false)
   const [destinationGroup, setDestinationGroup] = useState('')
-  const [moved, setMoved] = useState<{
-    /** Each confirmed move gets its own toast, even when its message repeats. */
-    id: string
-    message: string
-    undo?: { ids: string[]; groupId: string | null }
-  } | null>(null)
+  const [toast, setToast] = useState<Confirmation | null>(null)
+  const [removal, setRemoval] = useState<PendingRemoval | null>(null)
+  // A restored file's actions button takes focus when it mounts; Undo and Restore set this.
+  const focusOnMount = useRef<string | null>(null)
+  const deletedSummary = useRef<HTMLElement>(null)
+  // Where focus goes when the delete dialog closes: its opener, unless the delete was confirmed.
+  const removalOpener = useRef<HTMLElement | null>(null)
+  const removalConfirmed = useRef(false)
   const [crop, setCrop] = useState<{
     version: MediaVersionDto
     page: number
@@ -133,9 +167,113 @@ export function MediaWorkspace({
   // Clearing or reloading a selection never sends media, so queued uploads must not lock it.
   const selectionResetDisabled = drafts.hasOtherSources('selection', 'upload')
 
-  // A confirmed move is undoable when its files all came from one group. It is forgotten once
-  // nothing is retained: confirmed or refused on retry, or discarded.
-  const unconfirmedMove = useRef<typeof moved>(null)
+  // A confirmed move is undoable when its files all came from one group; a delete always is. The
+  // toast is forgotten once nothing is retained: confirmed or refused on retry, or discarded.
+  const unconfirmedChange = useRef<Confirmation | null>(null)
+
+  const displayLabels = mediaDisplayLabels(snapshot?.evidence ?? [])
+
+  function fileName(item: MediaEvidenceDto) {
+    return displayLabels.evidence.get(item.id) ?? item.label
+  }
+
+  // Delete and Restore never touch the selection, so a held selection doesn't lock them.
+  const removalBlocked = frozen || drafts.hasOtherSources('removal', 'selection')
+
+  function deleteRefusal(item: MediaEvidenceDto) {
+    const refusal = approvalRefusal(item)
+    if (refusal) {
+      return refusal
+    }
+    if (batch.archived) {
+      return ARCHIVED_DELETE
+    }
+    return removalBlocked ? WAIT_DELETE : null
+  }
+
+  function restoreRefusal() {
+    if (batch.archived) {
+      return ARCHIVED_RESTORE
+    }
+    return removalBlocked ? WAIT_RESTORE : null
+  }
+
+  const selectedItems = (snapshot?.evidence ?? []).filter((item) =>
+    state.selected.includes(item.id),
+  )
+  const bulkDeleteRefusal = bulkApprovalRefusal(selectedItems, fileName)
+
+  function requestRemoval(items: MediaEvidenceDto[]) {
+    if (!snapshot || !items.length) {
+      return
+    }
+    // The dialog's own opener check can't tell a confirmed delete, whose file leaves in the same
+    // commit, from a cancelled one, so focus leaves the opener and `returnFocus` decides.
+    const active = document.activeElement
+    removalOpener.current = active instanceof HTMLElement ? active : null
+    removalConfirmed.current = false
+    removalOpener.current?.blur()
+    setRemoval({ items, revision: snapshot.revision })
+  }
+
+  function focusAfterRemoval(pending: PendingRemoval) {
+    const opener = removalOpener.current
+    if (!removalConfirmed.current && opener?.isConnected) {
+      return opener
+    }
+    return document.getElementById(groupRegionId(pending.items[0].group_id))
+  }
+
+  async function confirmRemoval(pending: PendingRemoval) {
+    const ids = pending.items.map((item) => item.id)
+    const [first] = pending.items
+    const message =
+      ids.length === 1 ? `Deleted ${fileName(first)}` : `Deleted ${plural(ids.length, 'file')}`
+    const confirmation: Confirmation = {
+      id: crypto.randomUUID(),
+      message,
+      undo: { kind: 'restore', ids },
+    }
+    const saved = await state.edit({ kind: 'remove', evidence_ids: ids }, pending.revision)
+    if (saved) {
+      removalConfirmed.current = true
+      state.select(state.selected.filter((id) => !ids.includes(id)))
+      setToast(confirmation)
+    } else if (command.hasPendingIntent()) {
+      unconfirmedChange.current = confirmation
+    }
+    setRemoval(null)
+  }
+
+  /** Sends `restore`; the first restored file's actions button takes focus as it comes back. */
+  async function restore(ids: string[]) {
+    focusOnMount.current = ids[0]
+    const saved = await state.edit({ kind: 'restore', evidence_ids: ids })
+    if (!saved) {
+      focusOnMount.current = null
+    }
+    return saved
+  }
+
+  async function undoFromToast(undo: ToastUndo) {
+    setToast(null)
+    if (undo.kind === 'move') {
+      await state.move(undo.ids, undo.groupId)
+      return
+    }
+    const saved = await restore(undo.ids)
+    // The toast is gone; the file waits in Deleted files, where Restore can be tried again.
+    if (!saved) {
+      deletedSummary.current?.focus()
+    }
+  }
+
+  function focusRestored(evidenceId: string, element: HTMLButtonElement | null) {
+    if (element && focusOnMount.current === evidenceId) {
+      focusOnMount.current = null
+      element.focus()
+    }
+  }
 
   async function moveEvidence(ids: string[], groupId: string | null) {
     const origins = new Set(
@@ -145,17 +283,17 @@ export function MediaWorkspace({
       ? (snapshot?.groups.find((group) => group.id === groupId)?.label ?? 'a group')
       : 'Ungrouped'
     const [origin] = origins
-    const confirmation = {
+    const confirmation: Confirmation = {
       id: crypto.randomUUID(),
       message: `Moved ${plural(ids.length, 'file')} to ${name}`,
-      undo: origins.size === 1 ? { ids, groupId: origin ?? null } : undefined,
+      undo: origins.size === 1 ? { kind: 'move', ids, groupId: origin ?? null } : undefined,
     }
     const result = await state.move(ids, groupId)
     if (result === 'saved') {
-      setMoved(confirmation)
+      setToast(confirmation)
     } else if (result === 'unconfirmed' && command.hasPendingIntent()) {
       // Only a retained, uncertain move can still be confirmed by an exact retry.
-      unconfirmedMove.current = confirmation
+      unconfirmedChange.current = confirmation
     }
     return result
   }
@@ -165,13 +303,13 @@ export function MediaWorkspace({
       <Button
         disabled={command.busy || state.unavailable || disabled}
         onClick={() => {
-          const move = unconfirmedMove.current
+          const change = unconfirmedChange.current
           void state.retry().then((saved) => {
-            if (saved && move) {
-              setMoved(move)
+            if (saved && change) {
+              setToast(change)
             }
             if (!command.hasPendingIntent()) {
-              unconfirmedMove.current = null
+              unconfirmedChange.current = null
             }
           })
         }}
@@ -181,7 +319,7 @@ export function MediaWorkspace({
       <Button
         disabled={command.busy}
         onClick={() => {
-          unconfirmedMove.current = null
+          unconfirmedChange.current = null
           state.discard()
         }}
       >
@@ -301,6 +439,15 @@ export function MediaWorkspace({
               >
                 Move selected evidence
               </Button>
+              <Button
+                variant="warn"
+                aria-describedby={bulkDeleteRefusal ? 'bulk-delete-refusal' : undefined}
+                disabled={blocked('selection') || bulkDeleteRefusal !== null}
+                onClick={() => requestRemoval(selectedItems)}
+              >
+                Delete {plural(state.selected.length, 'file')}…
+              </Button>
+              {bulkDeleteRefusal && <Small id="bulk-delete-refusal">{bulkDeleteRefusal}</Small>}
               <Button disabled={frozen || selectionResetDisabled} onClick={() => state.select([])}>
                 Clear evidence selection
               </Button>
@@ -354,11 +501,24 @@ export function MediaWorkspace({
                     }}
                     review={review}
                     reload={reload}
+                    regionId={groupRegionId(groupId)}
+                    deleteRefusal={deleteRefusal}
+                    onDelete={(item) => requestRemoval([item])}
+                    actionsRef={focusRestored}
                   />
                 )
               })}
             </Groups>
           </EvidenceDragContext>
+          {snapshot.removed && (
+            <DeletedFiles
+              batchId={batch.id}
+              removed={snapshot.removed}
+              restoreRefusal={restoreRefusal()}
+              summaryRef={deletedSummary}
+              onRestore={(item) => void restore([item.id])}
+            />
+          )}
           {selectedSubject && (
             <SubjectAttachmentChoice
               batch={batch}
@@ -395,24 +555,30 @@ export function MediaWorkspace({
           save={state.saveCrop}
         />
       )}
-      {moved && (
+      {removal && (
+        <RemovalDialog
+          batch={batch}
+          client={client}
+          items={removal.items}
+          revision={removal.revision}
+          name={fileName}
+          busy={command.busy}
+          onConfirm={() => void confirmRemoval(removal)}
+          onClose={() => setRemoval(null)}
+          returnFocus={() => focusAfterRemoval(removal)}
+        />
+      )}
+      {toast && (
         <Toast
-          key={moved.id}
-          message={moved.message}
+          key={toast.id}
+          message={toast.message}
           action={
             // Undo waits for other drafts, as any move does, so it cannot discard them.
-            moved.undo && !(frozen || drafts.hasOtherSources('selection', 'drag'))
-              ? {
-                  label: 'Undo',
-                  onClick: () => {
-                    const undo = moved.undo!
-                    setMoved(null)
-                    void state.move(undo.ids, undo.groupId)
-                  },
-                }
+            toast.undo && !(frozen || drafts.hasOtherSources('selection', 'drag'))
+              ? { label: 'Undo', onClick: () => void undoFromToast(toast.undo!) }
               : undefined
           }
-          onDismiss={() => setMoved(null)}
+          onDismiss={() => setToast(null)}
         />
       )}
     </Workspace>

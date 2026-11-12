@@ -208,6 +208,22 @@ None for task 10.
 
 - Review's supporting-evidence rule should stop counting an `unset` lot-attachment selection as evidence (see Changes to the plan).
 
+## Task 12: evidence removal UI
+
+### Changes to the plan
+
+- **2026-11-12T20:20+11:00, task 12 (PR-G):** The tile menu has Open and Delete…, not "Move to group…" (design D6). Moving stays with dragging and the selection's Move control; a menu item that only selected the file and sent focus to that control added little.
+- **2026-11-12T20:20+11:00, task 12 (PR-G):** The design canvas working copy named in the brief wasn't on disk, so the UI follows the change log's D31 entry, design D6 and the delta specs. It needs a check against the canvas's "Capture › delete evidence" artboard before the PR merges.
+- **2026-11-12T20:20+11:00, task 12 (PR-G):** The confirmation doesn't show the file's image; it names the file in its title. D31's dialog "shows the file".
+
+### Decisions made during implementation
+
+- **2026-11-12T20:20+11:00, task 12:** `ActionsMenu` (`components/ui`) is a "⋯" `IconButton` opening the existing Radix `Popover` with `role="menu"`; no menu package was added. A disabled item keeps `aria-disabled` and stays focusable, with its reason as its description.
+- **2026-11-12T20:20+11:00, task 12:** One file's dialog uses that file's own `lot_ids`, `sole_evidence_lot_ids` and `selected_attachment_of`. Several files use `mediaClient.removalImpact`, a TanStack Query keyed by revision and ids; Delete stays disabled until that read succeeds, and a failed read offers "Check again". The command carries the revision the dialog opened on.
+- **2026-11-12T20:20+11:00, task 12:** Delete and Restore don't wait for a held selection, since they don't touch it; a confirmed delete drops the deleted files from it. Restore is disabled with "Resume the batch to restore files." in an archived batch.
+- **2026-11-12T20:20+11:00, task 12:** Focus: Cancel or a refused delete returns focus to the opener (the tile's menu button or "Delete N files…"). After a confirmed delete it goes to the group the first file was in, because the opener leaves in the same commit as the dialog, so the workspace takes focus off the opener when the dialog opens and `returnFocus` decides. Undo and Restore focus the restored file's menu button as it mounts; a refused Undo focuses the Deleted files summary.
+- **2026-11-12T20:20+11:00, task 12:** A written batch note's menu shows Delete disabled: "Deleting written notes comes later. A file’s note can be cleared by saving it empty."
+
 ## Task 8: Records › Locations and Tree view
 
 ### Changes to the plan

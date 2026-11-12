@@ -36,6 +36,7 @@ const snapshot: MediaSnapshotDto = {
 
 function client(read: MediaClient['snapshot']): MediaClient {
   return {
+    removalImpact: vi.fn(),
     snapshot: read,
     edit: vi.fn(async () => snapshot),
     upload: vi.fn(async () => {

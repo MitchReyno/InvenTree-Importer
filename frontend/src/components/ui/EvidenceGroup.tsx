@@ -26,6 +26,8 @@ type EvidenceGroupProps = {
   onDraftChange?: (dirty: boolean) => void
   /** The drop target's element. */
   ref?: Ref<HTMLElement>
+  /** The region's element id, so a caller can hand it focus. */
+  id?: string
   /** -1 lets the region take focus, such as after a tile inside it is removed. */
   tabIndex?: number
   children?: ReactNode
@@ -96,6 +98,7 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   return (
     <Group
       ref={props.ref}
+      id={props.id}
       aria-label={props.label ?? (draft || name)}
       tabIndex={props.tabIndex}
       $ungrouped={ungrouped}

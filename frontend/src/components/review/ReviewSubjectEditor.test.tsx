@@ -97,6 +97,7 @@ function Harness({ client, reload }: { client: MediaClient; reload: () => Promis
 test('an uncertain attachment change blocks closing and offers only exact retry or discard', async () => {
   const user = userEvent.setup()
   const client: MediaClient = {
+    removalImpact: vi.fn(),
     snapshot: vi.fn(async () => media),
     edit: vi.fn(async () => {
       throw new TypeError('acknowledgement_lost')
@@ -123,6 +124,7 @@ test('an uncertain attachment change blocks closing and offers only exact retry 
 test('a subject draft and an attachment change fence each other', async () => {
   const user = userEvent.setup()
   const client: MediaClient = {
+    removalImpact: vi.fn(),
     snapshot: vi.fn(async () => media),
     edit: vi.fn(async () => {
       throw new TypeError('acknowledgement_lost')
@@ -161,6 +163,7 @@ test('a confirmed attachment change keeps the subject form fenced until the relo
         }),
     )
   const client: MediaClient = {
+    removalImpact: vi.fn(),
     snapshot,
     edit: vi.fn(async () => ({ ...media, revision: '5' })),
     upload: vi.fn(),

@@ -16,6 +16,7 @@ type EvidenceFileTileProps = {
   onOpen: () => void
   handle?: ReactNode
   onNote?: () => void
+  actions?: ReactNode
 }
 
 /** A ready crop shows in place of its original; otherwise the newest version decides. */
@@ -58,6 +59,7 @@ export function EvidenceFileTile(props: EvidenceFileTileProps) {
       onOpen={props.onOpen}
       handle={props.handle}
       onNote={props.onNote}
+      actions={props.actions}
     />
   )
 }

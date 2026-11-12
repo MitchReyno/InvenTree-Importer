@@ -452,6 +452,12 @@ const captureClient = {
 
 const mediaClient: MediaClient = {
   snapshot: async () => media,
+  removalImpact: async (_batchId, ids) => ({
+    evidence_ids: [...ids],
+    lot_ids: [],
+    sole_evidence_lot_ids: [],
+    selected_attachment_of: [],
+  }),
   edit: async () => media,
   upload: async () => {
     throw new Error('fixture uploads are disabled')

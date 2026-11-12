@@ -1,7 +1,14 @@
-import type { MediaEditDto, MediaReceiptDto, MediaSnapshotDto } from '@invimport/contracts'
+import type {
+  MediaEditDto,
+  MediaReceiptDto,
+  MediaRemovalImpactDto,
+  MediaSnapshotDto,
+} from '@invimport/contracts'
 
 export interface MediaClient {
   snapshot: (batchId: string) => Promise<MediaSnapshotDto>
+  /** What removing these present items together changes, for a bulk delete's confirmation. */
+  removalImpact: (batchId: string, evidenceIds: readonly string[]) => Promise<MediaRemovalImpactDto>
   edit: (batchId: string, input: MediaEditDto, key: string) => Promise<MediaSnapshotDto>
   upload: (
     batchId: string,

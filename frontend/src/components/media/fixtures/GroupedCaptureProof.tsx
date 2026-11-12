@@ -128,6 +128,12 @@ export function GroupedCaptureProof() {
 
   const media: MediaClient = {
     snapshot: async () => retained.current,
+    removalImpact: async (_batchId, ids) => ({
+      evidence_ids: [...ids],
+      lot_ids: [],
+      sole_evidence_lot_ids: [],
+      selected_attachment_of: [],
+    }),
     edit: async (_id, input) => edit(input),
     upload: async () => {
       throw new Error(
