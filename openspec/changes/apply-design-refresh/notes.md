@@ -22,11 +22,11 @@ These are the change's open items as PR-G is reviewed. Each task's own section b
 
 ## Delivery evidence
 
-Each merged bundle's reviewed head, local review and CI. PR-G is recorded when it merges. CI is the selected checks; the PostgreSQL and process tiers are skipped in CI and run locally (see each PR).
+Each merged bundle's reviewed head, local review and CI. PR-G is recorded when it merges. CI is the selected checks; the PostgreSQL and process tiers are skipped in CI and run locally where a bundle touches the intake server (see each PR).
 
 | Bundle | Tasks | PR | Reviewed head | Local review | CI |
 | --- | --- | --- | --- | --- | --- |
-| Plan | — | #189 | `784e95f4` | Not recorded | Markdown lint passed |
+| Plan | — | #189 | `808cbc2e` | 18 rounds of fresh reviewer subagents; round 18 at `808cbc2e` clean. The merged head `784e95f4` differs from it only by one trailing space | Markdown lint passed |
 | PR-F | 10 | #190 | `d09655b0` | 5 rounds of fresh reviewer subagents; round 5 at the head found nothing Critical, Important or Minor | Frontend, TypeScript lint, Markdown lint, intake contracts passed |
 | PR-A | 1 | #191 | `d75ad9a9` | 5 rounds; round 5 at `cd72e2b9` clean, then the merge of `interactive-app` (`d75ad9a9`) reviewed clean | Frontend, TypeScript lint, Markdown lint passed |
 | PR-D | 6, 7 | #192 | `b7944f8b` | 3 rounds; round 3 at the head clean | Frontend, TypeScript lint, Markdown lint passed |
@@ -264,7 +264,8 @@ None for task 10.
 - **2026-11-12T21:11+11:00, task 12 (review round 2):** Delete… and Move to group… are disabled, with no reason, while a media request is being sent (`ActionsMenu` items take `disabled` apart from `disabledReason`). An open delete dialog refuses once the shown snapshot moves past the revision it opened on ("The saved evidence changed after this opened. Close it and choose Delete again."), and it shows `waitReason` inside the dialog, since the page behind it is inert.
 - **2026-11-12T21:11+11:00, task 12 (review round 2), contract addition:** Each `removed` entry carries `position`, its index among all the batch's files in upload order. The plan didn't list this field. Present files fill the other places in snapshot order, so `evidenceDisplayNames` numbers present and deleted files together in one stable order, and a delete or restore renumbers nothing. Capture, the Map, Review and Processing pass the snapshot's `removed` list. The toast names the file as the dialog did.
 - **2026-11-12T21:11+11:00, task 12 (review round 2):** A confirmed remove or restore moves a held selection onto the confirmed revision only when it was sent at the selection's own revision; otherwise the selection keeps its revision. That `send` never reports a change refused before sending as unconfirmed is tested on the hook (`useEvidenceWorkspace.test.tsx`), because the dialog's Delete is disabled whenever another intent is held.
-- **2026-11-12T22:05+11:00, task 12 (demo film):** The delete dialog says a note goes with a file only when the file has one, and for several files counts theirs ("and 2 notes go with them"). The evidence group region, which takes focus after a confirmed delete, shows the focus ring on `:focus`, because a delete confirmed by pointer leaves `:focus-visible` unmatched. Clicking a blank part of a group, which focuses it, shows the ring too.
+- **2026-11-12T21:59+11:00, task 12 (demo film):** The delete dialog says a note goes with a file only when the file has one, and for several files counts theirs ("and 2 notes go with them"). The evidence group region, which takes focus after a confirmed delete, shows the focus ring there even when the delete was confirmed by pointer, which leaves `:focus-visible` unmatched.
+- **2026-11-12T22:07+11:00, task 12 (review round 4):** The group's ring shows on `:focus-visible`, or on `:focus` while the region carries `data-focus-ring`. Only the confirmed-delete focus path sets that attribute, and blur removes it, so a pointer click inside a group no longer rings it.
 - **2026-11-12T20:20+11:00, task 12:** A written batch note's menu shows Delete disabled: "Deleting written notes comes later. A file’s note can be cleared by saving it empty."
 
 ### Unexpected challenges

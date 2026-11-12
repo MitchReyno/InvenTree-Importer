@@ -850,3 +850,20 @@ test('deleting several files counts only the notes they have', async () => {
     'They leave the batch and what agents read, and 2 notes go with them.',
   )
 })
+
+test('the group focused after a confirmed delete shows its ring until focus leaves it', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce(afterRemoval)
+  renderWorkspace(client)
+  const region = await screen.findByRole('region', { name: /Packet A/ })
+  expect(region).not.toHaveAttribute('data-focus-ring')
+  await chooseDelete(user, 'Front label')
+  vi.mocked(client.snapshot).mockResolvedValue(afterRemoval)
+  await user.click(await screen.findByRole('button', { name: 'Delete file' }))
+
+  await waitFor(() => expect(region).toHaveFocus())
+  expect(region).toHaveAttribute('data-focus-ring')
+  act(() => region.blur())
+  expect(region).not.toHaveAttribute('data-focus-ring')
+})

@@ -57,23 +57,33 @@ test('removing the group mid-rename releases the guard', async () => {
   expect(onDraftChange).toHaveBeenLastCalledWith(false)
 })
 
-/** Rules that would style `element` once focused, read from the injected component styles. */
-function focusRulesFor(element: Element) {
+/** Focus rules whose selector, without its focus pseudo-class, matches `element` as it is now. */
+function focusRulesFor(element: Element, pseudo: ':focus' | ':focus-visible') {
   const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
 
   return rules.filter((rule): rule is CSSStyleRule => {
-    if (!(rule instanceof CSSStyleRule) || !/:focus(?!-)/.test(rule.selectorText)) {
+    if (!(rule instanceof CSSStyleRule)) {
       return false
     }
 
-    return element.matches(rule.selectorText.replaceAll(':focus', ''))
+    return rule.selectorText
+      .split(',')
+      .map((selector) => selector.trim())
+      .filter((selector) => selector.endsWith(pseudo))
+      .some((selector) => element.matches(selector.slice(0, -pseudo.length)))
   })
 }
 
-test('a group region focused by script shows the focus ring, even after a pointer click', () => {
+function hasRing(rules: CSSStyleRule[]) {
+  return rules.some((rule) => rule.style.outline.includes('var(--ring-width)'))
+}
+
+test('a group region rings on keyboard focus, and on plain focus only when marked for it', () => {
   render(<EvidenceGroup name="Reels" count={2} label="Reels" tabIndex={-1} />)
   const region = screen.getByRole('region', { name: 'Reels' })
 
-  const outlines = focusRulesFor(region).map((rule) => rule.style.outline)
-  expect(outlines.some((outline) => outline.includes('var(--ring-width)'))).toBe(true)
+  expect(hasRing(focusRulesFor(region, ':focus-visible'))).toBe(true)
+  expect(hasRing(focusRulesFor(region, ':focus'))).toBe(false)
+  region.setAttribute('data-focus-ring', '')
+  expect(hasRing(focusRulesFor(region, ':focus'))).toBe(true)
 })

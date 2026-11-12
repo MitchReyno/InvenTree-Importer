@@ -150,9 +150,10 @@ const Group = styled.section<{ $ungrouped: boolean; $over: boolean }>`
   border: 1px solid ${color.line};
   border-radius: ${radius.card};
   background: ${color.surface};
-  /* Script moves focus here, such as after a delete confirmed by pointer, when
-     :focus-visible wouldn't match, so the ring shows on :focus. */
-  &:focus {
+  /* A pointer click inside the group focuses it without a ring. A caller moving focus here by
+     script, such as after a delete confirmed by pointer, marks it with data-focus-ring. */
+  &:focus-visible,
+  &[data-focus-ring]:focus {
     outline: ${ring.width} solid ${color.accent};
     outline-offset: ${ring.offset};
   }

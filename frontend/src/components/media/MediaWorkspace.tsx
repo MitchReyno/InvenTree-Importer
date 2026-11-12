@@ -70,6 +70,17 @@ type PendingRemoval = {
 const EVIDENCE_CHANGED =
   'The saved evidence changed after this opened. Close it and choose Delete again.'
 
+/**
+ * Marks a region that script is about to focus, so it shows the focus ring even when the action
+ * that led here was a pointer click, until focus leaves it.
+ */
+function showFocusRingUntilBlur(element: HTMLElement) {
+  element.setAttribute('data-focus-ring', '')
+  element.addEventListener('blur', () => element.removeAttribute('data-focus-ring'), {
+    once: true,
+  })
+}
+
 function groupRegionId(groupId: string | null) {
   return `evidence-group-${groupId ?? 'ungrouped'}`
 }
@@ -290,7 +301,11 @@ export function MediaWorkspace({
     if (!removalConfirmed.current && opener?.isConnected) {
       return opener
     }
-    return document.getElementById(groupRegionId(pending.items[0].group_id))
+    const region = document.getElementById(groupRegionId(pending.items[0].group_id))
+    if (region) {
+      showFocusRingUntilBlur(region)
+    }
+    return region
   }
 
   function confirmedToast(change: UnconfirmedToast): Confirmation {
