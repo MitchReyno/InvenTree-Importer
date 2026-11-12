@@ -18,6 +18,8 @@ import {
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
+import { PauseAllAgents } from './PauseAllAgents'
+import { slotUse } from './slot-use'
 import {
   FAILED_SESSION_STATES,
   SessionFailureDetails,
@@ -143,9 +145,7 @@ export function AgentSessions({ client, batches }: Props) {
     ...(query.data?.paused_batch_ids ?? []),
     ...sessions.filter((session) => session.paused).map((session) => session.batch_id),
   ])
-  const somePaused = pausedBatches.size > 0 || query.data?.paused_truncated === true
-  const inUse = sessions.filter((session) => session.occupies_lane).length
-  const queued = sessions.filter((session) => session.state === 'queued').length
+  const { inUse, queued } = slotUse(sessions)
 
   return (
     <Page>
@@ -212,33 +212,7 @@ export function AgentSessions({ client, batches }: Props) {
               <Muted>Waiting sessions hold no slot.</Muted>
             </Block>
             <Push>
-              {client.pauseAll ? (
-                <>
-                  {/* Some batches can be paused while others run, so both stay on offer. */}
-                  <PauseButton
-                    paused={false}
-                    change={async (paused) => {
-                      await client.pauseAll!(paused)
-                      await reread()
-                    }}
-                    pauseLabel="Pause all agents"
-                  />
-                  {somePaused && (
-                    <PauseButton
-                      paused
-                      change={async (paused) => {
-                        await client.pauseAll!(paused)
-                        await reread()
-                      }}
-                      resumeLabel="Resume all agents"
-                    />
-                  )}
-                </>
-              ) : (
-                <Button size="sm" disabledReason="Pausing is not available for this setup.">
-                  Pause all agents
-                </Button>
-              )}
+              <PauseAllAgents pauseAll={client.pauseAll} list={query.data} />
             </Push>
           </Summary>
           <FilterChips

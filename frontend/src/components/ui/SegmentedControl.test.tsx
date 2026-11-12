@@ -113,3 +113,57 @@ describe('FilterChips', () => {
     expect(screen.getByRole('button', { name: 'All, 12' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+describe('SegmentedControl while disabled', () => {
+  it('shows each segment unavailable and ignores clicks and keys', async () => {
+    const user = userEvent.setup()
+    const changes: string[] = []
+    render(
+      <SegmentedControl
+        label="Sign-in method"
+        value="subscription"
+        disabled
+        onChange={(id) => changes.push(id)}
+        options={[
+          { id: 'subscription', label: 'Subscription' },
+          { id: 'api_key', label: 'API key' },
+        ]}
+      />,
+    )
+    const key = screen.getByRole('button', { name: 'API key' })
+
+    expect(key).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Subscription' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await user.click(key)
+    key.focus()
+    await user.keyboard('{Enter} ')
+    expect(changes).toEqual([])
+  })
+})
+
+/** Rules that would style `element` on hover, read from the injected component styles. */
+function hoverRulesFor(element: Element) {
+  const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
+
+  return rules.filter((rule): rule is CSSStyleRule => {
+    if (!(rule instanceof CSSStyleRule) || !rule.selectorText.includes(':hover')) {
+      return false
+    }
+
+    return element.matches(rule.selectorText.replaceAll(':hover', ''))
+  })
+}
+
+describe('SegmentedControl hover', () => {
+  it('leaves the pressed segment its own fill, so its light text stays readable', () => {
+    render(<Views />)
+    const pressed = screen.getByRole('button', { name: 'Workspace' })
+    const other = screen.getByRole('button', { name: 'Table' })
+
+    expect(hoverRulesFor(other).length).toBeGreaterThan(0)
+    expect(hoverRulesFor(pressed).map((rule) => rule.selectorText)).toEqual([])
+  })
+})

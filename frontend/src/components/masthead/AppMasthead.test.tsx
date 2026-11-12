@@ -27,11 +27,11 @@ test('app pages name the page after Batches, including any settings section', ()
   unmount()
 
   const settings = render(<AppMasthead route="settings" status={null} />)
-  expect(trail()).toEqual(['Batches', 'Agent settings'])
+  expect(trail()).toEqual(['Batches', 'Settings'])
   settings.unmount()
 
   render(<AppMasthead route="settings/inventree" status={null} />)
-  expect(trail()).toEqual(['Batches', 'Agent settings'])
+  expect(trail()).toEqual(['Batches', 'Settings'])
 })
 
 test('the batch list names only Batches', () => {
