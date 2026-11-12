@@ -8,19 +8,20 @@ const NOTE_DELETE_LATER =
 
 export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; batch: Snapshot }) {
   const subject = [...batch.lots, ...batch.parts].find((s) => s.id === note.subject_id)
+  const written = new Date(note.created_at).toLocaleString()
   return (
     <NoteCard>
       <Heading>
         <strong>Human · {subject?.label ?? 'Batch'}</strong>
         <ActionsMenu
-          label="Actions for note"
+          label={`Actions for the ${subject?.label ?? 'Batch'} note of ${written}`}
           items={[
             { label: 'Delete…', onSelect: () => undefined, disabledReason: NOTE_DELETE_LATER },
           ]}
         />
       </Heading>
       <Paragraph>{note.text || '(Empty original note)'}</Paragraph>
-      <Small>{new Date(note.created_at).toLocaleString()}</Small>
+      <Small>{written}</Small>
       <details>
         <Summary>Note attribution</Summary>
         <Small>

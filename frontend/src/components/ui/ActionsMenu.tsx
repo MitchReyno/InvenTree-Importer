@@ -29,8 +29,10 @@ export function ActionsMenu({ label, items, triggerRef }: ActionsMenuProps) {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement | null>(null)
   const itemElements = useRef<(HTMLButtonElement | null)[]>([])
-  // Set while an item is chosen, so closing doesn't move focus a second time.
+  // Set while an item is chosen or Tab leaves, so closing doesn't move focus a second time.
   const chosen = useRef(false)
+  // Which item takes focus when the menu opens: the last one when ArrowUp opened it.
+  const openAtLast = useRef(false)
   const reasonId = useId()
 
   function setTrigger(element: HTMLButtonElement | null) {
@@ -50,6 +52,7 @@ export function ActionsMenu({ label, items, triggerRef }: ActionsMenuProps) {
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
+      openAtLast.current = event.key === 'ArrowUp'
       setOpen(true)
     }
   }
@@ -63,6 +66,12 @@ export function ActionsMenu({ label, items, triggerRef }: ActionsMenuProps) {
       focusItem(0)
     } else if (event.key === 'End') {
       focusItem(items.length - 1)
+    } else if (event.key === 'Tab') {
+      // Focus goes back to the trigger first, so the browser's Tab carries on from there.
+      chosen.current = true
+      setOpen(false)
+      trigger.current?.focus()
+      return
     } else {
       return
     }
@@ -88,7 +97,8 @@ export function ActionsMenu({ label, items, triggerRef }: ActionsMenuProps) {
       onOpenChange={setOpen}
       onOpenAutoFocus={(event) => {
         event.preventDefault()
-        focusItem(0)
+        focusItem(openAtLast.current ? items.length - 1 : 0)
+        openAtLast.current = false
       }}
       onCloseAutoFocus={(event) => {
         if (chosen.current) {

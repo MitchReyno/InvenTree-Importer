@@ -25,6 +25,8 @@ type Props = {
   name: (item: MediaEvidenceDto) => string
   /** A media command is being sent, this one or another. */
   busy: boolean
+  /** Media commands wait: an unconfirmed request is held, or the saved evidence isn't read. */
+  unavailable: boolean
   onConfirm: () => void
   onClose: () => void
   returnFocus: () => HTMLElement | null
@@ -107,13 +109,22 @@ function useRemovalImpact(
     queryKey: serverQueryKey(scope, 'media-removal-impact', batchId, revision, ...ids),
     queryFn: () => client.removalImpact(batchId, ids),
     enabled: several,
+    // The impact depends on capture state as well as media, so each opening reads it afresh.
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
   if (!several) {
     return { impact: itemImpact(items[0]), failed: false, refetch: undefined }
   }
-  const impact: RemovalImpact | undefined = query.isSuccess ? query.data : undefined
+  // A cached result from an earlier opening never enables Delete; only this opening's read does.
+  const fresh = query.isFetchedAfterMount && query.isSuccess && !query.isFetching
+  const impact: RemovalImpact | undefined = fresh ? query.data : undefined
 
-  return { impact, failed: query.isError, refetch: () => void query.refetch() }
+  return {
+    impact,
+    failed: query.isError && !query.isFetching,
+    refetch: () => void query.refetch(),
+  }
 }
 
 /** Confirms a delete, naming the lots it touches, any left with no evidence and cleared choices. */
@@ -124,6 +135,7 @@ export function RemovalDialog({
   revision,
   name,
   busy,
+  unavailable,
   onConfirm,
   onClose,
   returnFocus,
@@ -201,7 +213,7 @@ export function RemovalDialog({
           <Button disabled={busy} onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="warn" disabled={busy || !impact} onClick={onConfirm}>
+          <Button variant="warn" disabled={busy || unavailable || !impact} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </Actions>

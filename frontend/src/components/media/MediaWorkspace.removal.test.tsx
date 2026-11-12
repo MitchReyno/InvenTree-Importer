@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -394,6 +394,17 @@ test('Undo leaves the toast and Restore is disabled once the batch is archived',
   expect(client.edit).toHaveBeenCalledOnce()
 })
 
+test('Move to group… is disabled while another selection is held', async () => {
+  const user = userEvent.setup()
+  renderWorkspace(mediaClient())
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Back marking' }))
+  await user.click(screen.getByRole('button', { name: 'Actions for Front label' }))
+
+  expect(
+    await screen.findByRole('menuitem', { name: 'Move to group…' }),
+  ).toHaveAccessibleDescription('Clear the selection first.')
+})
+
 test('Move to group… selects the file and focuses the existing move control', async () => {
   const user = userEvent.setup()
   const client = mediaClient()
@@ -442,4 +453,226 @@ test('Move to group… is disabled with its reason in an archived batch', async 
   expect(
     await screen.findByRole('menuitem', { name: 'Move to group…' }),
   ).toHaveAccessibleDescription('Resume the batch to move files.')
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done
+    reject = fail
+  })
+  return { promise, resolve, reject }
+}
+
+test('a held selection moves at the revision a delete confirmed', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockResolvedValueOnce(afterRemoval).mockResolvedValueOnce(afterRemoval)
+  renderWorkspace(client)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Back marking' }))
+  await chooseDelete(user, 'Front label')
+  vi.mocked(client.snapshot).mockResolvedValue(afterRemoval)
+  await user.click(await screen.findByRole('button', { name: 'Delete file' }))
+  await screen.findByText('Deleted Front label')
+
+  expect(screen.getByRole('checkbox', { name: 'Select Back marking' })).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(2))
+  expect(vi.mocked(client.edit).mock.calls[1][1]).toEqual({
+    expected_revision: '5',
+    change: { kind: 'move_many', evidence_ids: [back], group_id: null },
+  })
+})
+
+test('a held selection moves at the revision a restore confirmed', async () => {
+  const user = userEvent.setup()
+  const restored = { ...present, revision: '6' }
+  const client = mediaClient(afterRemoval)
+  vi.mocked(client.edit).mockResolvedValueOnce(restored).mockResolvedValueOnce(restored)
+  renderWorkspace(client)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Back marking' }))
+  await user.click(screen.getByText('Deleted files · 1'))
+  vi.mocked(client.snapshot).mockResolvedValue(restored)
+  await user.click(screen.getByRole('button', { name: 'Restore Front label' }))
+  await screen.findByRole('button', { name: 'Open Front label' })
+
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await waitFor(() => expect(client.edit).toHaveBeenCalledTimes(2))
+  expect(vi.mocked(client.edit).mock.calls[1][1]).toMatchObject({ expected_revision: '6' })
+})
+
+test('an uncertain delete confirmed by Retry shows its toast and keeps the rest of the selection', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit)
+    .mockRejectedValueOnce(new Error('lost'))
+    .mockResolvedValueOnce(afterRemoval)
+  renderWorkspace(client)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Back marking' }))
+  await chooseDelete(user, 'Front label')
+  await user.click(await screen.findByRole('button', { name: 'Delete file' }))
+  vi.mocked(client.snapshot).mockResolvedValue(afterRemoval)
+  await user.click(await screen.findByRole('button', { name: 'Retry exact media request' }))
+
+  expect(await screen.findByText('Deleted Front label')).toBeVisible()
+  expect(vi.mocked(client.edit).mock.calls[1][2]).toBe(vi.mocked(client.edit).mock.calls[0][2])
+  expect(screen.getByRole('checkbox', { name: 'Select Back marking' })).toBeChecked()
+})
+
+test('an earlier uncertain move keeps the delete confirmation disabled and claims no delete', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit).mockRejectedValueOnce(new Error('lost'))
+  renderWorkspace(client)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.click(screen.getByRole('button', { name: 'Move selected evidence' }))
+  await screen.findByRole('button', { name: 'Retry exact media request' })
+  await user.click(screen.getByRole('button', { name: 'Actions for Back marking' }))
+
+  const remove = await screen.findByRole('menuitem', { name: 'Delete…' })
+  expect(remove).toHaveAccessibleDescription(
+    'Delete waits until the unconfirmed evidence change is retried or discarded.',
+  )
+  await user.click(remove)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(client.edit).toHaveBeenCalledOnce()
+})
+
+test('an unread snapshot gives Delete its own reason', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  renderWorkspace(client)
+  await screen.findByRole('button', { name: 'Actions for Front label' })
+  vi.mocked(client.snapshot).mockRejectedValue(new Error('offline'))
+  await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
+  await screen.findByText(/Current saved media could not be confirmed/)
+  await user.click(screen.getByRole('button', { name: 'Actions for Front label' }))
+
+  expect(await screen.findByRole('menuitem', { name: 'Delete…' })).toHaveAccessibleDescription(
+    'Delete waits for a fresh read of the saved evidence.',
+  )
+})
+
+test('Restore gives no reason while another restore is being sent', async () => {
+  const user = userEvent.setup()
+  const twoRemoved: MediaSnapshotDto = {
+    ...afterRemoval,
+    evidence: [],
+    removed: [
+      ...afterRemoval.removed!,
+      { ...afterRemoval.removed![0], id: back, label: 'Back marking' },
+    ],
+  }
+  const client = mediaClient(twoRemoved)
+  const sending = deferred<MediaSnapshotDto>()
+  vi.mocked(client.edit).mockReturnValueOnce(sending.promise)
+  renderWorkspace(client)
+  await user.click(await screen.findByText('Deleted files · 2'))
+  await user.click(screen.getByRole('button', { name: 'Restore Front label' }))
+
+  const other = screen.getByRole('button', { name: 'Restore Back marking' })
+  expect(other).toBeDisabled()
+  expect(other).not.toHaveAccessibleDescription()
+  await act(async () => sending.resolve(twoRemoved))
+})
+
+test('reopening Delete N files reads the impact again before Delete is enabled', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  renderWorkspace(client)
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Front label' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Back marking' }))
+  await user.click(screen.getByRole('button', { name: 'Delete 2 files…' }))
+  let dialog = await screen.findByRole('dialog', { name: 'Delete 2 files?' })
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: 'Delete 2 files' })).toBeEnabled(),
+  )
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+  const reread = deferred<Awaited<ReturnType<MediaClient['removalImpact']>>>()
+  vi.mocked(client.removalImpact).mockReturnValueOnce(reread.promise)
+  await user.click(screen.getByRole('button', { name: 'Delete 2 files…' }))
+  dialog = await screen.findByRole('dialog', { name: 'Delete 2 files?' })
+  expect(within(dialog).getByRole('button', { name: 'Delete 2 files' })).toBeDisabled()
+  expect(within(dialog).getByRole('status')).toHaveTextContent('Checking which lots use them…')
+  expect(client.removalImpact).toHaveBeenCalledTimes(2)
+  await act(async () =>
+    reread.resolve({
+      evidence_ids: [front, back],
+      lot_ids: [],
+      sole_evidence_lot_ids: [],
+      selected_attachment_of: [],
+    }),
+  )
+  await waitFor(() =>
+    expect(within(dialog).getByRole('button', { name: 'Delete 2 files' })).toBeEnabled(),
+  )
+})
+
+test('the header counts deleted files towards the 200-file limit', async () => {
+  renderWorkspace(mediaClient(afterRemoval))
+
+  expect(
+    await screen.findByText('1 file · 1 deleted, counting towards 200 · 1 group'),
+  ).toBeVisible()
+})
+
+test('Deleted files numbers files that share a name, as the tiles do', async () => {
+  const user = userEvent.setup()
+  renderWorkspace(
+    mediaClient({
+      ...afterRemoval,
+      evidence: [],
+      removed: [
+        ...afterRemoval.removed!,
+        { ...afterRemoval.removed![0], id: back, preview_id: null },
+      ],
+    }),
+  )
+  await user.click(await screen.findByText('Deleted files · 2'))
+
+  expect(screen.getByRole('button', { name: 'Restore Front label (1)' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Restore Front label (2)' })).toBeVisible()
+})
+
+test('deleting more than four files shows four and says how many more', async () => {
+  const user = userEvent.setup()
+  const ids = Array.from({ length: 6 }, (_, index) => `e0000000-0000-4000-8000-00000000000${index}`)
+  const many: MediaSnapshotDto = {
+    ...present,
+    evidence: ids.map((id, index) => ({
+      id,
+      label: `Photo ${index + 1}`,
+      group_id: groupA,
+      linked_subject_ids: [],
+      versions: [],
+    })),
+  }
+  renderWorkspace(mediaClient(many))
+  for (let index = 1; index <= 6; index += 1) {
+    await user.click(await screen.findByRole('checkbox', { name: `Select Photo ${index}` }))
+  }
+  await user.click(screen.getByRole('button', { name: 'Delete 6 files…' }))
+
+  const dialog = await screen.findByRole('dialog', { name: 'Delete 6 files?' })
+  expect(
+    within(within(dialog).getByRole('list', { name: 'Files to delete' })).getAllByRole('listitem'),
+  ).toHaveLength(4)
+  expect(within(dialog).getByText('and 2 more')).toBeVisible()
+})
+
+test('Escape closes the delete dialog and returns focus to the file’s menu button', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  renderWorkspace(client)
+  await chooseDelete(user, 'Front label')
+  const dialog = await screen.findByRole('dialog', { name: 'Delete Front label?' })
+  // jsdom doesn't turn Escape into the native dialog's cancel event, so the test sends it.
+  fireEvent(dialog, new Event('cancel', { cancelable: true }))
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(screen.getByRole('button', { name: 'Actions for Front label' })).toHaveFocus()
+  expect(client.edit).not.toHaveBeenCalled()
 })

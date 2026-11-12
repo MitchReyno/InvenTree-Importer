@@ -34,7 +34,7 @@ const batch: Snapshot = {
 test('a written note offers Delete disabled, saying deleting notes comes later', async () => {
   const user = userEvent.setup()
   render(<HumanNote note={batch.notes[0]} batch={batch} />)
-  await user.click(screen.getByRole('button', { name: 'Actions for note' }))
+  await user.click(screen.getByRole('button', { name: /^Actions for the Batch note of .+/ }))
   const remove = await screen.findByRole('menuitem', { name: 'Delete…' })
 
   expect(remove).toHaveAttribute('aria-disabled', 'true')

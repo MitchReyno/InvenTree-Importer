@@ -86,7 +86,7 @@ export function uploadProgress(items: UploadItem[]): UploadProgress | null {
 }
 
 const REFUSAL_REASONS: Record<string, string> = {
-  media_capacity: 'The batch has reached its evidence limit.',
+  media_capacity: 'The batch has reached its 200-file limit. Deleted files count towards it too.',
   batch_archived: 'Resume this batch before adding evidence.',
   revision_conflict: 'Evidence kept changing while it uploaded. Pick the file again.',
   current_revision_unread: 'Current saved evidence could not be read, so the file was not sent.',

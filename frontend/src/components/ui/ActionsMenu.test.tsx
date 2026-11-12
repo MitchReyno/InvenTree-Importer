@@ -67,3 +67,28 @@ test('a disabled item stays focusable, says why and does nothing when chosen', a
   await user.click(move)
   expect(screen.getByRole('menu')).toBeVisible()
 })
+
+test('ArrowUp on the trigger opens the menu on its last item', async () => {
+  const user = userEvent.setup()
+  const { trigger } = renderMenu()
+  trigger.focus()
+  await user.keyboard('{ArrowUp}')
+
+  expect(await screen.findByRole('menuitem', { name: 'Delete…' })).toHaveFocus()
+})
+
+test('Tab from an item closes the menu and moves on past the trigger', async () => {
+  const user = userEvent.setup()
+  render(
+    <>
+      <ActionsMenu label="Actions for Front label" items={[{ label: 'Open', onSelect: vi.fn() }]} />
+      <button type="button">Next control</button>
+    </>,
+  )
+  await user.click(screen.getByRole('button', { name: 'Actions for Front label' }))
+  expect(await screen.findByRole('menuitem', { name: 'Open' })).toHaveFocus()
+  await user.tab()
+
+  await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+  expect(screen.getByRole('button', { name: 'Next control' })).toHaveFocus()
+})

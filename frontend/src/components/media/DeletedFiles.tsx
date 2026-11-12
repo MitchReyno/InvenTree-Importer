@@ -8,8 +8,11 @@ import { thumbnailUrl } from '#/media/images'
 type Props = {
   batchId: string
   removed: MediaRemovedEvidenceDto[]
-  /** Why Restore is unavailable, or null when it can be sent. */
-  restoreRefusal: string | null
+  /** Each file's name, numbered as the tiles number files that share one. */
+  names: ReadonlyMap<string, string>
+  /** Why Restore waits, or null; a request being sent disables it without a reason. */
+  restoreReason: string | null
+  restoreDisabled: boolean
   onRestore: (item: MediaRemovedEvidenceDto) => void
   /** The disclosure's summary, which takes focus when an Undo is refused. */
   summaryRef?: Ref<HTMLElement>
@@ -18,39 +21,50 @@ type Props = {
 const THUMBNAIL_PX = 48
 
 /** Deleted photos and documents, each with its thumbnail, label and Restore. */
-export function DeletedFiles({ batchId, removed, restoreRefusal, onRestore, summaryRef }: Props) {
+export function DeletedFiles({
+  batchId,
+  removed,
+  names,
+  restoreReason,
+  restoreDisabled,
+  onRestore,
+  summaryRef,
+}: Props) {
   const reasonId = useId()
 
   return (
     <details>
       <Summary ref={summaryRef}>Deleted files · {removed.length}</Summary>
-      {restoreRefusal && <Small id={reasonId}>{restoreRefusal}</Small>}
+      {restoreReason && <Small id={reasonId}>{restoreReason}</Small>}
       <List aria-label="Deleted files">
-        {removed.map((item) => (
-          <Row key={item.id}>
-            <Thumbnail>
-              {item.preview_id && (
-                <img
-                  src={thumbnailUrl(batchId, item.preview_id)}
-                  alt=""
-                  width={THUMBNAIL_PX}
-                  height={THUMBNAIL_PX}
-                  loading="lazy"
-                />
-              )}
-            </Thumbnail>
-            <Name title={item.label}>{item.label}</Name>
-            <Button
-              size="sm"
-              aria-label={`Restore ${item.label}`}
-              aria-describedby={restoreRefusal ? reasonId : undefined}
-              disabled={restoreRefusal !== null}
-              onClick={() => onRestore(item)}
-            >
-              Restore
-            </Button>
-          </Row>
-        ))}
+        {removed.map((item) => {
+          const name = names.get(item.id) ?? item.label
+          return (
+            <Row key={item.id}>
+              <Thumbnail>
+                {item.preview_id && (
+                  <img
+                    src={thumbnailUrl(batchId, item.preview_id)}
+                    alt=""
+                    width={THUMBNAIL_PX}
+                    height={THUMBNAIL_PX}
+                    loading="lazy"
+                  />
+                )}
+              </Thumbnail>
+              <Name title={name}>{name}</Name>
+              <Button
+                size="sm"
+                aria-label={`Restore ${name}`}
+                aria-describedby={restoreReason ? reasonId : undefined}
+                disabled={restoreDisabled}
+                onClick={() => onRestore(item)}
+              >
+                Restore
+              </Button>
+            </Row>
+          )
+        })}
       </List>
     </details>
   )

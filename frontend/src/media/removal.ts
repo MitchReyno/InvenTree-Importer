@@ -2,7 +2,20 @@ import type {
   CaptureSnapshotDto,
   MediaEvidenceDto,
   MediaRemovalImpactDto,
+  MediaSnapshotDto,
 } from '@invimport/contracts'
+import { evidenceDisplayNames } from './identity-labels'
+
+/** The batch's file limit, which deleted files count towards too. */
+export const MAX_BATCH_FILES = 200
+
+/**
+ * Deleted files' names, numbered after the present files that share them. Present files come
+ * first, so their own numbering is unchanged and a deleted file never takes a present one's name.
+ */
+export function deletedFileNames(snapshot: Pick<MediaSnapshotDto, 'evidence' | 'removed'>) {
+  return evidenceDisplayNames([...snapshot.evidence, ...(snapshot.removed ?? [])])
+}
 
 /** What a delete changes, from the item's own fields or the combined read for several. */
 export type RemovalImpact = Pick<

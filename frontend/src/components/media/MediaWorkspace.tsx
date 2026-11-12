@@ -1,5 +1,5 @@
 import { mediaDisplayLabels, mediaIdentityLabels } from '#/media/identity-labels'
-import { useRef, useState, type ReactNode } from 'react'
+import { useId, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '#/theme/generated/tokens'
 import type {
@@ -21,7 +21,12 @@ import { MediaTextEditor } from './MediaTextEditor'
 import { SubjectAttachmentChoice } from './SubjectAttachmentChoice'
 import { RemovalDialog } from './RemovalDialog'
 import { DeletedFiles } from './DeletedFiles'
-import { approvalRefusal, bulkApprovalRefusal } from '#/media/removal'
+import {
+  approvalRefusal,
+  bulkApprovalRefusal,
+  deletedFileNames,
+  MAX_BATCH_FILES,
+} from '#/media/removal'
 import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
@@ -66,13 +71,16 @@ function groupRegionId(groupId: string | null) {
   return `evidence-group-${groupId ?? 'ungrouped'}`
 }
 
-const ARCHIVED_DELETE = 'Resume the batch to delete files.'
-const ARCHIVED_RESTORE = 'Resume the batch to restore files.'
-const WAIT_DELETE = 'Delete waits until other evidence changes are saved or discarded.'
-const WAIT_RESTORE = 'Restore waits until other evidence changes are saved or discarded.'
-const ARCHIVED_MOVE = 'Resume the batch to move files.'
-const WAIT_MOVE = 'Move waits until other evidence changes are saved or discarded.'
+const ARCHIVED_REASONS = {
+  Delete: 'Resume the batch to delete files.',
+  Restore: 'Resume the batch to restore files.',
+  Move: 'Resume the batch to move files.',
+}
 const NOWHERE_TO_MOVE = 'There’s no other group to move it to. Add a group first.'
+const SELECTION_HELD = 'Clear the selection first.'
+
+/** A toast waiting on an uncertain request; a delete's names are read once it is confirmed. */
+type UnconfirmedToast = Confirmation | { removed: string[] }
 
 export function MediaWorkspace({
   batch,
@@ -128,6 +136,8 @@ export function MediaWorkspace({
   // A restored file's actions button takes focus when it mounts; Undo and Restore set this.
   const focusOnMount = useRef<string | null>(null)
   const deletedSummary = useRef<HTMLElement>(null)
+  // Focus requests read by callback refs. Those refs are new functions each render, so React calls
+  // them again on every commit; a request is met once its element is mounted, then cleared.
   // Set by a tile's Move to group…, so the move control takes focus when it appears.
   const focusMoveControl = useRef(false)
   // Where focus goes when the delete dialog closes: its opener, unless the delete was confirmed.
@@ -173,7 +183,8 @@ export function MediaWorkspace({
 
   // A confirmed move is undoable when its files all came from one group; a delete always is. The
   // toast is forgotten once nothing is retained: confirmed or refused on retry, or discarded.
-  const unconfirmedChange = useRef<Confirmation | null>(null)
+  const unconfirmedChange = useRef<UnconfirmedToast | null>(null)
+  const bulkRefusalId = useId()
 
   const displayLabels = mediaDisplayLabels(snapshot?.evidence ?? [])
 
@@ -181,18 +192,33 @@ export function MediaWorkspace({
     return displayLabels.evidence.get(item.id) ?? item.label
   }
 
-  // Delete and Restore never touch the selection, so a held selection doesn't lock them.
-  const removalBlocked = frozen || drafts.hasOtherSources('removal', 'selection')
+  /**
+   * Why an action on files waits, or null when it can be chosen. A command being sent is
+   * transient and gives no reason: the action's own send waits for it. A held selection doesn't
+   * block Delete or Restore, which rebase it onto the revision they confirm.
+   */
+  function waitReason(action: keyof typeof ARCHIVED_REASONS, owner = 'selection') {
+    if (batch.archived) {
+      return ARCHIVED_REASONS[action]
+    }
+    if (!snapshot || state.unavailable) {
+      return `${action} waits for a fresh read of the saved evidence.`
+    }
+    if (command.busy) {
+      return null
+    }
+    // While nothing is being sent, a held intent is an unconfirmed request awaiting its retry.
+    if (command.pending) {
+      return `${action} waits until the unconfirmed evidence change is retried or discarded.`
+    }
+    if (disabled || drafts.hasOtherSources(owner, 'selection')) {
+      return `${action} waits until other changes are saved or discarded.`
+    }
+    return null
+  }
 
   function deleteRefusal(item: MediaEvidenceDto) {
-    const refusal = approvalRefusal(item)
-    if (refusal) {
-      return refusal
-    }
-    if (batch.archived) {
-      return ARCHIVED_DELETE
-    }
-    return removalBlocked ? WAIT_DELETE : null
+    return approvalRefusal(item) ?? waitReason('Delete')
   }
 
   // The groups a file could go to: every other group, and Ungrouped when it is in one.
@@ -204,17 +230,22 @@ export function MediaWorkspace({
   }
 
   function moveRefusal(item: MediaEvidenceDto) {
-    if (batch.archived) {
-      return ARCHIVED_MOVE
+    const waiting = waitReason('Move', 'drag')
+    if (waiting) {
+      return waiting
     }
-    if (blocked('selection')) {
-      return WAIT_MOVE
+    // Choosing it selects only this file, so it would drop a selection the operator built.
+    if (state.selected.length) {
+      return SELECTION_HELD
     }
     return moveDestinations(item).length ? null : NOWHERE_TO_MOVE
   }
 
-  /** Selects only this file and opens the selection's move control on its first destination. */
+  /** Selects this file and opens the selection's move control on its first destination. */
   function moveToGroup(item: MediaEvidenceDto) {
+    if (command.busy) {
+      return
+    }
     const [destination] = moveDestinations(item)
     focusMoveControl.current = true
     setDestinationGroup(destination ?? '')
@@ -228,12 +259,8 @@ export function MediaWorkspace({
     }
   }
 
-  function restoreRefusal() {
-    if (batch.archived) {
-      return ARCHIVED_RESTORE
-    }
-    return removalBlocked ? WAIT_RESTORE : null
-  }
+  const restoreReason = waitReason('Restore')
+  const restoreDisabled = restoreReason !== null || command.busy
 
   const selectedItems = (snapshot?.evidence ?? []).filter((item) =>
     state.selected.includes(item.id),
@@ -261,23 +288,28 @@ export function MediaWorkspace({
     return document.getElementById(groupRegionId(pending.items[0].group_id))
   }
 
+  /** The toast for a confirmed delete, naming the file as Deleted files now does. */
+  function removalToast(ids: string[]): Confirmation {
+    const confirmed = state.current()
+    const names = confirmed ? deletedFileNames(confirmed) : new Map<string, string>()
+    const label = confirmed?.removed?.find((item) => item.id === ids[0])?.label
+    const name = names.get(ids[0]) ?? label ?? 'the file'
+    const message = ids.length === 1 ? `Deleted ${name}` : `Deleted ${plural(ids.length, 'file')}`
+    return { id: crypto.randomUUID(), message, undo: { kind: 'restore', ids } }
+  }
+
+  function confirmedToast(change: UnconfirmedToast) {
+    return 'removed' in change ? removalToast(change.removed) : change
+  }
+
   async function confirmRemoval(pending: PendingRemoval) {
     const ids = pending.items.map((item) => item.id)
-    const [first] = pending.items
-    const message =
-      ids.length === 1 ? `Deleted ${fileName(first)}` : `Deleted ${plural(ids.length, 'file')}`
-    const confirmation: Confirmation = {
-      id: crypto.randomUUID(),
-      message,
-      undo: { kind: 'restore', ids },
-    }
-    const saved = await state.edit({ kind: 'remove', evidence_ids: ids }, pending.revision)
-    if (saved) {
+    const outcome = await state.send({ kind: 'remove', evidence_ids: ids }, pending.revision)
+    if (outcome === 'saved') {
       removalConfirmed.current = true
-      state.select(state.selected.filter((id) => !ids.includes(id)))
-      setToast(confirmation)
-    } else if (command.hasPendingIntent()) {
-      unconfirmedChange.current = confirmation
+      setToast(removalToast(ids))
+    } else if (outcome === 'unconfirmed') {
+      unconfirmedChange.current = { removed: ids }
     }
     setRemoval(null)
   }
@@ -335,6 +367,17 @@ export function MediaWorkspace({
     return result
   }
 
+  const deletedCount = snapshot?.removed?.length ?? 0
+  const evidenceCount =
+    snapshot &&
+    [
+      plural(snapshot.evidence.length, 'file'),
+      deletedCount ? `${deletedCount} deleted, counting towards ${MAX_BATCH_FILES}` : null,
+      plural(snapshot.groups.length, 'group'),
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
   const retained = (
     <>
       <Button
@@ -343,7 +386,7 @@ export function MediaWorkspace({
           const change = unconfirmedChange.current
           void state.retry().then((saved) => {
             if (saved && change) {
-              setToast(change)
+              setToast(confirmedToast(change))
             }
             if (!command.hasPendingIntent()) {
               unconfirmedChange.current = null
@@ -377,11 +420,7 @@ export function MediaWorkspace({
       {afterActions}
       <LabelRow>
         <EvidenceLabel id={headingId}>Evidence</EvidenceLabel>
-        {snapshot && (
-          <Small as="span">
-            {plural(snapshot.evidence.length, 'file')} · {plural(snapshot.groups.length, 'group')}
-          </Small>
-        )}
+        {snapshot && <Small as="span">{evidenceCount}</Small>}
         <HelpButton label="About groups" explanation={GROUPS_EXPLANATION} />
         <Spacer />
         {snapshot && (
@@ -479,13 +518,13 @@ export function MediaWorkspace({
               </Button>
               <Button
                 variant="warn"
-                aria-describedby={bulkDeleteRefusal ? 'bulk-delete-refusal' : undefined}
+                aria-describedby={bulkDeleteRefusal ? bulkRefusalId : undefined}
                 disabled={blocked('selection') || bulkDeleteRefusal !== null}
                 onClick={() => requestRemoval(selectedItems)}
               >
                 Delete {plural(state.selected.length, 'file')}…
               </Button>
-              {bulkDeleteRefusal && <Small id="bulk-delete-refusal">{bulkDeleteRefusal}</Small>}
+              {bulkDeleteRefusal && <Small id={bulkRefusalId}>{bulkDeleteRefusal}</Small>}
               <Button disabled={frozen || selectionResetDisabled} onClick={() => state.select([])}>
                 Clear evidence selection
               </Button>
@@ -554,7 +593,9 @@ export function MediaWorkspace({
             <DeletedFiles
               batchId={batch.id}
               removed={snapshot.removed}
-              restoreRefusal={restoreRefusal()}
+              names={deletedFileNames(snapshot)}
+              restoreReason={restoreReason}
+              restoreDisabled={restoreDisabled}
               summaryRef={deletedSummary}
               onRestore={(item) => void restore([item.id])}
             />
@@ -603,6 +644,7 @@ export function MediaWorkspace({
           revision={removal.revision}
           name={fileName}
           busy={command.busy}
+          unavailable={command.pending || state.unavailable}
           onConfirm={() => void confirmRemoval(removal)}
           onClose={() => setRemoval(null)}
           returnFocus={() => focusAfterRemoval(removal)}
