@@ -21,12 +21,7 @@ import { MediaTextEditor } from './MediaTextEditor'
 import { SubjectAttachmentChoice } from './SubjectAttachmentChoice'
 import { RemovalDialog } from './RemovalDialog'
 import { DeletedFiles } from './DeletedFiles'
-import {
-  approvalRefusal,
-  bulkApprovalRefusal,
-  deletedFileNames,
-  MAX_BATCH_FILES,
-} from '#/media/removal'
+import { approvalRefusal, bulkApprovalRefusal, fileNames, MAX_BATCH_FILES } from '#/media/removal'
 import type { CaptureEdit } from '#/capture/types'
 
 interface Props {
@@ -65,7 +60,15 @@ type Confirmation = {
 }
 
 /** A delete waiting for confirmation, pinned to the files and revision the dialog opened on. */
-type PendingRemoval = { items: MediaEvidenceDto[]; revision: string }
+type PendingRemoval = {
+  items: MediaEvidenceDto[]
+  revision: string
+  /** The remove has been sent; the snapshot it confirms then moves past `revision`. */
+  sending?: boolean
+}
+
+const EVIDENCE_CHANGED =
+  'The saved evidence changed after this opened. Close it and choose Delete again.'
 
 function groupRegionId(groupId: string | null) {
   return `evidence-group-${groupId ?? 'ungrouped'}`
@@ -80,7 +83,7 @@ const NOWHERE_TO_MOVE = 'There’s no other group to move it to. Add a group fir
 const SELECTION_HELD = 'Clear the selection first.'
 
 /** A toast waiting on an uncertain request; a delete's names are read once it is confirmed. */
-type UnconfirmedToast = Confirmation | { removed: string[] }
+type UnconfirmedToast = Confirmation | { removed: string[]; message: string }
 
 export function MediaWorkspace({
   batch,
@@ -186,7 +189,8 @@ export function MediaWorkspace({
   const unconfirmedChange = useRef<UnconfirmedToast | null>(null)
   const bulkRefusalId = useId()
 
-  const displayLabels = mediaDisplayLabels(snapshot?.evidence ?? [])
+  // Present and deleted files are numbered together, so a delete or restore renames nothing.
+  const displayLabels = mediaDisplayLabels(snapshot?.evidence ?? [], snapshot?.removed)
 
   function fileName(item: MediaEvidenceDto) {
     return displayLabels.evidence.get(item.id) ?? item.label
@@ -268,7 +272,8 @@ export function MediaWorkspace({
   const bulkDeleteRefusal = bulkApprovalRefusal(selectedItems, fileName)
 
   function requestRemoval(items: MediaEvidenceDto[]) {
-    if (!snapshot || !items.length) {
+    // A request in flight would move the revision the dialog pins.
+    if (!snapshot || !items.length || command.busy) {
       return
     }
     // The dialog's own opener check can't tell a confirmed delete, whose file leaves in the same
@@ -288,28 +293,39 @@ export function MediaWorkspace({
     return document.getElementById(groupRegionId(pending.items[0].group_id))
   }
 
-  /** The toast for a confirmed delete, naming the file as Deleted files now does. */
-  function removalToast(ids: string[]): Confirmation {
-    const confirmed = state.current()
-    const names = confirmed ? deletedFileNames(confirmed) : new Map<string, string>()
-    const label = confirmed?.removed?.find((item) => item.id === ids[0])?.label
-    const name = names.get(ids[0]) ?? label ?? 'the file'
-    const message = ids.length === 1 ? `Deleted ${name}` : `Deleted ${plural(ids.length, 'file')}`
-    return { id: crypto.randomUUID(), message, undo: { kind: 'restore', ids } }
+  function confirmedToast(change: UnconfirmedToast): Confirmation {
+    if (!('removed' in change)) {
+      return change
+    }
+    const undo: ToastUndo = { kind: 'restore', ids: change.removed }
+    return { id: crypto.randomUUID(), message: change.message, undo }
   }
 
-  function confirmedToast(change: UnconfirmedToast) {
-    return 'removed' in change ? removalToast(change.removed) : change
+  /** Why the open dialog's Delete waits, shown in the dialog since the page behind it is inert. */
+  function removalWaitReason(pending: PendingRemoval) {
+    if (pending.sending) {
+      return null
+    }
+    if (snapshot && snapshot.revision !== pending.revision) {
+      return EVIDENCE_CHANGED
+    }
+    return waitReason('Delete')
   }
 
   async function confirmRemoval(pending: PendingRemoval) {
     const ids = pending.items.map((item) => item.id)
+    // Names are stable across the delete, so the toast names the file as the dialog did.
+    const message =
+      ids.length === 1
+        ? `Deleted ${fileName(pending.items[0])}`
+        : `Deleted ${plural(ids.length, 'file')}`
+    setRemoval({ ...pending, sending: true })
     const outcome = await state.send({ kind: 'remove', evidence_ids: ids }, pending.revision)
     if (outcome === 'saved') {
       removalConfirmed.current = true
-      setToast(removalToast(ids))
+      setToast(confirmedToast({ removed: ids, message }))
     } else if (outcome === 'unconfirmed') {
-      unconfirmedChange.current = { removed: ids }
+      unconfirmedChange.current = { removed: ids, message }
     }
     setRemoval(null)
   }
@@ -583,6 +599,7 @@ export function MediaWorkspace({
                     onDelete={(item) => requestRemoval([item])}
                     moveRefusal={moveRefusal}
                     onMoveToGroup={moveToGroup}
+                    sending={command.busy}
                     actionsRef={focusRestored}
                   />
                 )
@@ -593,7 +610,7 @@ export function MediaWorkspace({
             <DeletedFiles
               batchId={batch.id}
               removed={snapshot.removed}
-              names={deletedFileNames(snapshot)}
+              names={fileNames(snapshot)}
               restoreReason={restoreReason}
               restoreDisabled={restoreDisabled}
               summaryRef={deletedSummary}
@@ -644,7 +661,7 @@ export function MediaWorkspace({
           revision={removal.revision}
           name={fileName}
           busy={command.busy}
-          unavailable={command.pending || state.unavailable}
+          waitReason={removalWaitReason(removal)}
           onConfirm={() => void confirmRemoval(removal)}
           onClose={() => setRemoval(null)}
           returnFocus={() => focusAfterRemoval(removal)}

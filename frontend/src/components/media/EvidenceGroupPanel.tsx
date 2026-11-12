@@ -69,6 +69,8 @@ type Props = {
   moveRefusal?: (item: MediaSnapshotDto['evidence'][number]) => string | null
   /** Selects the file and hands focus to the selection's move control. */
   onMoveToGroup?: (item: MediaSnapshotDto['evidence'][number]) => void
+  /** A media request is being sent: Move to group… and Delete… wait, with no reason to give. */
+  sending?: boolean
   /** Receives each file's actions button, so focus can return to a restored file. */
   actionsRef?: (evidenceId: string, element: HTMLButtonElement | null) => void
 }
@@ -101,6 +103,7 @@ export function EvidenceGroupPanel({
   onDelete,
   moveRefusal,
   onMoveToGroup,
+  sending = false,
   actionsRef,
 }: Props) {
   const { operator } = useApiClients()
@@ -137,7 +140,7 @@ export function EvidenceGroupPanel({
   }
 
   // Files sharing a name are numbered; their identifiers stay in the viewer's details.
-  const displayLabels = mediaDisplayLabels(snapshot.evidence)
+  const displayLabels = mediaDisplayLabels(snapshot.evidence, snapshot.removed)
 
   function fileName(item: MediaSnapshotDto['evidence'][number]) {
     return displayLabels.evidence.get(item.id) ?? item.label
@@ -292,11 +295,13 @@ export function EvidenceGroupPanel({
                               (onMoveToGroup
                                 ? moveRefusal?.(item)
                                 : 'Moving isn’t available here.') ?? undefined,
+                            disabled: sending,
                           },
                           {
                             label: 'Delete…',
                             onSelect: () => onDelete(item),
                             disabledReason: deleteRefusal(item) ?? undefined,
+                            disabled: sending,
                           },
                         ]}
                       />

@@ -131,6 +131,8 @@ function projectEvidence(rows: MediaRows): MediaEvidenceDto[] {
 function projectRemoved(
   evidence: MediaEvidenceDto,
   removal: MediaRows['removals'][number],
+  /** Its index among all the batch's files in upload order. */
+  position: number,
 ): MediaRemovedEvidenceDto {
   const original = evidence.versions.find((version) => version.kind === 'original')
   const first = original?.pages.find((page) => page.page === 1)
@@ -140,6 +142,7 @@ function projectRemoved(
     preview_id: first?.preview_id ?? null,
     removed_revision: removal.revision,
     removed_at: removal.created_at.toISOString(),
+    position,
   }
 }
 
@@ -152,9 +155,10 @@ export function projectMediaSnapshot(batchId: string, rows: MediaRows): MediaSna
     rows.removals.filter((row) => row.removed).map((row) => [row.evidence_id, row]),
   )
   const projected = projectEvidence(rows)
-  const removed = projected.flatMap((item) => {
+  // `projected` is in upload order, so an item's index there is its position.
+  const removed = projected.flatMap((item, position) => {
     const removal = removals.get(item.id)
-    return removal ? [projectRemoved(item, removal)] : []
+    return removal ? [projectRemoved(item, removal, position)] : []
   })
   return {
     batch_id: batchId,

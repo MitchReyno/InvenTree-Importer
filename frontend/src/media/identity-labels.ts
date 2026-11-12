@@ -52,8 +52,11 @@ export function mediaIdentityLabels(evidence: readonly MediaEvidenceDto[]): Medi
  * Labels for normal viewing: a file's name and the version's kind. Files sharing a name are
  * numbered; identifiers stay in the viewer's Details.
  */
-export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): MediaIdentityLabels {
-  const evidenceLabels = evidenceDisplayNames(evidence)
+export function mediaDisplayLabels(
+  evidence: readonly MediaEvidenceDto[],
+  removed: readonly DeletedFile[] = [],
+): MediaIdentityLabels {
+  const evidenceLabels = evidenceDisplayNames(evidence, removed)
   const versionLabels = new Map<string, string>()
   for (const item of evidence) {
     const name = evidenceLabels.get(item.id) ?? item.label
@@ -70,10 +73,46 @@ export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): Media
   return { evidence: evidenceLabels, versions: versionLabels }
 }
 
-/** Each file's name, numbered in snapshot order when several files share it. */
+type NamedFile = Pick<MediaEvidenceDto, 'id' | 'label'>
+
+/** A deleted file, which keeps its place among the batch's files in upload order. */
+type DeletedFile = NamedFile & { position: number }
+
+/**
+ * Every file in upload order: each deleted file at its position, the present files filling the
+ * other places in snapshot order. Positions that don't fit put the deleted files last.
+ */
+function filesInUploadOrder(evidence: readonly NamedFile[], removed: readonly DeletedFile[]) {
+  const total = evidence.length + removed.length
+  const placed = new Map(removed.map((item) => [item.position, item]))
+  const positionsFit =
+    placed.size === removed.length &&
+    removed.every(
+      (item) => Number.isInteger(item.position) && item.position >= 0 && item.position < total,
+    )
+  if (!positionsFit) {
+    return [...evidence, ...removed]
+  }
+  const order: NamedFile[] = []
+  const present = evidence.values()
+  for (let position = 0; position < total; position += 1) {
+    const file = placed.get(position) ?? present.next().value
+    if (file) {
+      order.push(file)
+    }
+  }
+  return order
+}
+
+/**
+ * Each file's name, numbered in upload order when several files share it. Deleted files are
+ * counted too, so deleting or restoring a file never renumbers the others.
+ */
 export function evidenceDisplayNames(
-  evidence: readonly Pick<MediaEvidenceDto, 'id' | 'label'>[],
+  present: readonly NamedFile[],
+  removed: readonly DeletedFile[] = [],
 ): Map<string, string> {
+  const evidence = filesInUploadOrder(present, removed)
   const counts = new Map<string, number>()
   for (const item of evidence) {
     counts.set(item.label, (counts.get(item.label) ?? 0) + 1)

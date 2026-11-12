@@ -10,6 +10,8 @@ export type ActionsMenuItem = {
   onSelect: () => void
   /** Why the action is unavailable; the item stays focusable and announces it. */
   disabledReason?: string
+  /** Unavailable for a moment, such as while a request is sent; there is no reason to give. */
+  disabled?: boolean
 }
 
 type ActionsMenuProps = {
@@ -79,7 +81,7 @@ export function ActionsMenu({ label, items, triggerRef }: ActionsMenuProps) {
   }
 
   function choose(item: ActionsMenuItem) {
-    if (item.disabledReason) {
+    if (item.disabledReason || item.disabled) {
       return
     }
     chosen.current = true
@@ -128,7 +130,7 @@ export function ActionsMenu({ label, items, triggerRef }: ActionsMenuProps) {
             role="menuitem"
             tabIndex={-1}
             aria-label={item.label}
-            aria-disabled={item.disabledReason ? 'true' : undefined}
+            aria-disabled={item.disabledReason || item.disabled ? 'true' : undefined}
             aria-describedby={describedBy}
             onKeyDown={(event) => handleItemKeyDown(event, index)}
             onClick={() => choose(item)}

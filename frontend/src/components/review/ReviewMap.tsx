@@ -12,6 +12,8 @@ type Props = {
   batch: CaptureSnapshotDto
   /** Undefined while the media read is unavailable. */
   evidence: MediaSnapshotDto['evidence'] | undefined
+  /** Deleted files, so names are numbered as Capture numbers them. */
+  removed?: MediaSnapshotDto['removed']
   retiredLotIds: ReadonlySet<string>
   /** Each lot's direct predecessors, whose evidence its successors inherit. */
   predecessors?: ReadonlyMap<string, readonly string[]>
@@ -52,6 +54,7 @@ const MAP_LEGEND =
 export function ReviewMap({
   batch,
   evidence,
+  removed,
   retiredLotIds,
   predecessors,
   disabled,
@@ -100,7 +103,7 @@ export function ReviewMap({
     )
   }
 
-  const map = reviewMap(batch, evidence, retiredLotIds, predecessors)
+  const map = reviewMap(batch, evidence, retiredLotIds, predecessors, removed)
   const fileLabel = new Map(map.files.map((file) => [file.id, file.label]))
   const regions = map.files.flatMap((file) =>
     file.regions.map((region) => ({ ...region, file: file.label })),

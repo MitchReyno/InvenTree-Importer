@@ -16805,6 +16805,7 @@ export interface components {
                 /** Format: int64 */
                 removed_revision: string;
                 removed_at: string;
+                position: number;
             }[];
             attachments: {
                 id: string;

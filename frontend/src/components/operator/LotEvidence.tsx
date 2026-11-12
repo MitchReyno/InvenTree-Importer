@@ -120,7 +120,7 @@ export function LotEvidence({
           lotId={lot.id}
           evidence={evidence}
           groups={media.groups}
-          labels={mediaDisplayLabels(media.evidence)}
+          labels={mediaDisplayLabels(media.evidence, media.removed)}
           unavailable={mediaUnavailable}
         />
       )}

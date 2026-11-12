@@ -92,3 +92,21 @@ test('Tab from an item closes the menu and moves on past the trigger', async () 
   await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
   expect(screen.getByRole('button', { name: 'Next control' })).toHaveFocus()
 })
+
+test('an item disabled for a moment gives no reason and does nothing', async () => {
+  const user = userEvent.setup()
+  const remove = vi.fn()
+  render(
+    <ActionsMenu
+      label="Actions for Front label"
+      items={[{ label: 'Delete…', onSelect: remove, disabled: true }]}
+    />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Actions for Front label' }))
+  const item = await screen.findByRole('menuitem', { name: 'Delete…' })
+
+  expect(item).toHaveAttribute('aria-disabled', 'true')
+  expect(item).not.toHaveAccessibleDescription()
+  await user.click(item)
+  expect(remove).not.toHaveBeenCalled()
+})

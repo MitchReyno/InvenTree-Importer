@@ -76,6 +76,8 @@ export function reviewMap(
   evidence: MediaSnapshotDto['evidence'],
   retiredLotIds: ReadonlySet<string>,
   predecessors: ReadonlyMap<string, readonly string[]> = new Map(),
+  /** Deleted files, which share the numbering of names with the present ones. */
+  removed: MediaSnapshotDto['removed'] = [],
 ) {
   const lots = batch.lots.filter((lot) => !retiredLotIds.has(lot.id))
   const earlier = new Map(lots.map((lot) => [lot.id, ancestors(predecessors, lot.id)]))
@@ -116,7 +118,7 @@ export function reviewMap(
       }))
   }
 
-  const names = evidenceDisplayNames(evidence)
+  const names = evidenceDisplayNames(evidence, removed)
   const files: MapFile[] = evidence.map((file) => {
     const links: MapLink[] = lots.flatMap((lot) => {
       const route = via(file, lot)

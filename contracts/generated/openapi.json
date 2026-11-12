@@ -72331,7 +72331,8 @@
                 "label",
                 "preview_id",
                 "removed_revision",
-                "removed_at"
+                "removed_at",
+                "position"
               ],
               "properties": {
                 "id": {
@@ -72361,6 +72362,11 @@
                 },
                 "removed_at": {
                   "type": "string"
+                },
+                "position": {
+                  "minimum": 0,
+                  "maximum": 399,
+                  "type": "integer"
                 }
               }
             }

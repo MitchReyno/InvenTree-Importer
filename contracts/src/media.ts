@@ -219,6 +219,11 @@ export const MediaRemovedEvidence = object({
   preview_id: nullableId,
   removed_revision: Revision,
   removed_at: Type.String(),
+  /**
+   * Its place among all the batch's files, present and removed, in upload order. Present files
+   * fill the other places in snapshot order, so names numbered over both stay stable.
+   */
+  position: Type.Integer({ minimum: 0, maximum: 399 }),
 })
 export const MediaSnapshot = object({
   batch_id: Id,

@@ -43,9 +43,9 @@ export function useEvidenceWorkspace(
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const selectionRevision = useRef<string | null>(null)
-  // The change behind the retained intent, so its exact retry can update the selection as the
+  // The request behind the retained intent, so its exact retry can update the selection as the
   // first send would have.
-  const retainedChange = useRef<MediaChange | null>(null)
+  const retainedInput = useRef<MediaEditDto | null>(null)
   const command = useRetainedCommand((input: MediaEditDto, requestKey: string) =>
     client.edit(batchId, input, requestKey),
   )
@@ -80,29 +80,35 @@ export function useEvidenceWorkspace(
 
   /**
    * A remove or restore leaves the membership the operator selected as it was, apart from the
-   * files removed, so the selection carries on at the confirmed revision.
+   * files removed. When it was sent at the selection's own revision, the selection carries on at
+   * the confirmed one; otherwise it keeps its revision, so it never takes in another change.
    */
-  function rebaseSelection(change: MediaChange | null, revision: string) {
+  function rebaseSelection(input: MediaEditDto | null, revision: string) {
+    const change = input?.change
     if (change?.kind !== 'remove' && change?.kind !== 'restore') {
       return
     }
     const removed = change.kind === 'remove' ? change.evidence_ids : []
     const kept = selected.filter((id) => !removed.includes(id))
     setSelected(kept)
-    selectionRevision.current = kept.length ? revision : null
+    if (!kept.length) {
+      selectionRevision.current = null
+    } else if (input?.expected_revision === selectionRevision.current) {
+      selectionRevision.current = revision
+    }
     drafts.forSource('selection')(kept.length > 0)
   }
 
-  async function confirmed(value: MediaSnapshotDto | null, change: MediaChange | null) {
+  async function confirmed(value: MediaSnapshotDto | null, input: MediaEditDto | null) {
     drafts.forSource('command')(command.hasPendingIntent())
     if (!command.hasPendingIntent()) {
-      retainedChange.current = null
+      retainedInput.current = null
     }
     if (!value) {
       return false
     }
     accept(value)
-    rebaseSelection(change, value.revision)
+    rebaseSelection(input, value.revision)
     const close = onRetainedConfirmed.current
     onRetainedConfirmed.current = null
     close?.()
@@ -141,8 +147,8 @@ export function useEvidenceWorkspace(
     setError('')
     drafts.forSource('command')(true)
     onRetainedConfirmed.current = onConfirmed ?? null
-    retainedChange.current = change
-    const saved = await confirmed(await command.submit(input), change)
+    retainedInput.current = input
+    const saved = await confirmed(await command.submit(input), input)
     if (saved) {
       return 'saved'
     }
@@ -260,8 +266,9 @@ export function useEvidenceWorkspace(
     refresh,
     accept,
     retry: async () => {
-      const change = retainedChange.current
-      const saved = await confirmed(await command.retry(), change)
+      const input = retainedInput.current
+      const change = input?.change
+      const saved = await confirmed(await command.retry(), input)
       // A retried move confirms the selection it moved; a remove or restore rebased it above.
       if (saved && change?.kind !== 'remove' && change?.kind !== 'restore') {
         select([])
@@ -271,7 +278,7 @@ export function useEvidenceWorkspace(
     discard: () => {
       if (!command.busy) {
         command.discard()
-        retainedChange.current = null
+        retainedInput.current = null
         onRetainedConfirmed.current = null
         drafts.forSource('command')(false)
       }

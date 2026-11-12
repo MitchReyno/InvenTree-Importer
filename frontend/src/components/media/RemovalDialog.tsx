@@ -25,8 +25,8 @@ type Props = {
   name: (item: MediaEvidenceDto) => string
   /** A media command is being sent, this one or another. */
   busy: boolean
-  /** Media commands wait: an unconfirmed request is held, or the saved evidence isn't read. */
-  unavailable: boolean
+  /** Why Delete waits, such as an unread snapshot; shown here, since the page behind is inert. */
+  waitReason: string | null
   onConfirm: () => void
   onClose: () => void
   returnFocus: () => HTMLElement | null
@@ -135,7 +135,7 @@ export function RemovalDialog({
   revision,
   name,
   busy,
-  unavailable,
+  waitReason,
   onConfirm,
   onClose,
   returnFocus,
@@ -209,11 +209,16 @@ export function RemovalDialog({
             )}
           </>
         )}
+        {waitReason && <Small role="status">{waitReason}</Small>}
         <Actions>
           <Button disabled={busy} onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="warn" disabled={busy || unavailable || !impact} onClick={onConfirm}>
+          <Button
+            variant="warn"
+            disabled={busy || waitReason !== null || !impact}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </Button>
         </Actions>

@@ -163,8 +163,18 @@ test('removing and restoring evidence: revision, replay, refusals, projection, b
         entry.label,
         entry.preview_id,
         entry.removed_revision,
+        entry.position,
       ]),
-      [[label.evidence, 'Packet B label', label.preview, removed.revision]],
+      [
+        [
+          label.evidence,
+          'Packet B label',
+          label.preview,
+          removed.revision,
+          // Its place in upload order, which the snapshot before the removal lists.
+          before.evidence.findIndex((evidence) => evidence.id === label.evidence),
+        ],
+      ],
     )
     // The selected attachment is cleared in the same command and stays cleared.
     const selectionB = removed.attachments.find(

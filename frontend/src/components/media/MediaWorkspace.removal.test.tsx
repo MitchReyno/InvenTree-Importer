@@ -4,6 +4,9 @@ import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
+import { createServerQueryClient } from '#/queries/client'
+import { serverQueryKey } from '#/queries/scope'
+import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import type { MediaClient } from '#/media/types'
 import { MediaWorkspace } from './MediaWorkspace'
 
@@ -77,6 +80,7 @@ const afterRemoval: MediaSnapshotDto = {
       preview_id: thumbnail,
       removed_revision: '5',
       removed_at: '2026-11-04T00:00:00Z',
+      position: 0,
     },
   ],
 }
@@ -562,7 +566,7 @@ test('Restore gives no reason while another restore is being sent', async () => 
     evidence: [],
     removed: [
       ...afterRemoval.removed!,
-      { ...afterRemoval.removed![0], id: back, label: 'Back marking' },
+      { ...afterRemoval.removed![0], id: back, label: 'Back marking', position: 1 },
     ],
   }
   const client = mediaClient(twoRemoved)
@@ -627,7 +631,7 @@ test('Deleted files numbers files that share a name, as the tiles do', async () 
       evidence: [],
       removed: [
         ...afterRemoval.removed!,
-        { ...afterRemoval.removed![0], id: back, preview_id: null },
+        { ...afterRemoval.removed![0], id: back, preview_id: null, position: 1 },
       ],
     }),
   )
@@ -675,4 +679,130 @@ test('Escape closes the delete dialog and returns focus to the file’s menu but
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(screen.getByRole('button', { name: 'Actions for Front label' })).toHaveFocus()
   expect(client.edit).not.toHaveBeenCalled()
+})
+
+test('Delete… and Move to group… are disabled, without a reason, while a restore is sent', async () => {
+  const user = userEvent.setup()
+  const withDeleted: MediaSnapshotDto = {
+    ...present,
+    removed: [{ ...afterRemoval.removed![0], id: 'f0000000-0000-4000-8000-00000000000f' }],
+  }
+  const client = mediaClient(withDeleted)
+  const sending = deferred<MediaSnapshotDto>()
+  vi.mocked(client.edit).mockReturnValueOnce(sending.promise)
+  renderWorkspace(client)
+  await user.click(await screen.findByText('Deleted files · 1'))
+  await user.click(screen.getByRole('button', { name: /^Restore Front label/ }))
+  await user.click(screen.getByRole('button', { name: /^Actions for Back marking/ }))
+
+  for (const name of ['Delete…', 'Move to group…']) {
+    const item = await screen.findByRole('menuitem', { name })
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    expect(item).not.toHaveAccessibleDescription()
+    await user.click(item)
+  }
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.queryByLabelText('Move selected evidence to')).toBeNull()
+  await act(async () => sending.resolve(withDeleted))
+})
+
+function renderWithCache(client: MediaClient) {
+  const cache = createServerQueryClient()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <MediaWorkspace
+        batch={batch}
+        client={client}
+        disabled={false}
+        selectedSubject="defaults"
+        onDirtyChange={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+  return cache
+}
+
+test('the delete dialog refuses once the saved evidence moves past the revision it opened on', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const cache = renderWithCache(client)
+  await chooseDelete(user, 'Front label')
+  const dialog = await screen.findByRole('dialog', { name: 'Delete Front label?' })
+  await act(async () => {
+    cache.setQueryData(serverQueryKey(fixtureScope, 'media', batch.id), {
+      ...present,
+      revision: '5',
+    })
+  })
+
+  expect(await within(dialog).findByRole('status')).toHaveTextContent(
+    'The saved evidence changed after this opened. Close it and choose Delete again.',
+  )
+  expect(within(dialog).getByRole('button', { name: 'Delete file' })).toBeDisabled()
+})
+
+test('the delete dialog says why it waits when the saved evidence can’t be read', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const cache = renderWithCache(client)
+  await chooseDelete(user, 'Front label')
+  const dialog = await screen.findByRole('dialog', { name: 'Delete Front label?' })
+  vi.mocked(client.snapshot).mockRejectedValue(new Error('offline'))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'media', batch.id) })
+  })
+
+  await waitFor(() =>
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      'Delete waits for a fresh read of the saved evidence.',
+    ),
+  )
+  expect(within(dialog).getByRole('button', { name: 'Delete file' })).toBeDisabled()
+})
+
+test('a present file and a deleted file that share a name are numbered together', async () => {
+  const user = userEvent.setup()
+  renderWorkspace(
+    mediaClient({
+      ...afterRemoval,
+      evidence: [{ ...present.evidence[1], label: 'Front label' }],
+      removed: [{ ...afterRemoval.removed![0], position: 0 }],
+    }),
+  )
+  await user.click(await screen.findByText('Deleted files · 1'))
+
+  expect(screen.getByRole('button', { name: 'Open Front label (2)' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Restore Front label (1)' })).toBeVisible()
+})
+
+test('deleting and restoring a file never renumbers the files that share its name', async () => {
+  const user = userEvent.setup()
+  const twins: MediaSnapshotDto = {
+    ...present,
+    evidence: present.evidence.map((item) => ({ ...item, label: 'a' })),
+  }
+  const deleted: MediaSnapshotDto = {
+    ...twins,
+    revision: '5',
+    evidence: [twins.evidence[1]],
+    removed: [{ ...afterRemoval.removed![0], label: 'a', position: 0 }],
+  }
+  const restored = { ...twins, revision: '6' }
+  const client = mediaClient(twins)
+  vi.mocked(client.edit).mockResolvedValueOnce(deleted).mockResolvedValueOnce(restored)
+  renderWorkspace(client)
+  await chooseDelete(user, 'a (1)')
+  await screen.findByRole('dialog', { name: 'Delete a (1)?' })
+  vi.mocked(client.snapshot).mockResolvedValue(deleted)
+  await user.click(screen.getByRole('button', { name: 'Delete file' }))
+
+  expect(await screen.findByText('Deleted a (1)')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Open a (2)' })).toBeVisible()
+  await user.click(screen.getByText('Deleted files · 1'))
+  expect(screen.getByRole('button', { name: 'Restore a (1)' })).toBeVisible()
+
+  vi.mocked(client.snapshot).mockResolvedValue(restored)
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  expect(await screen.findByRole('button', { name: 'Open a (1)' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Open a (2)' })).toBeVisible()
 })
