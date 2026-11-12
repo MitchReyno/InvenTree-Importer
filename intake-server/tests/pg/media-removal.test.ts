@@ -442,6 +442,8 @@ test('the impact of removing several items together names a lot they alone suppo
       const refused = await impact(ids)
       assert.deepEqual([refused.status, refused.value.code], [400, 'invalid_id'], ids.slice(0, 80))
     }
+    const missing = await fixture.http(`/batches/${batchId}/media/removal-impact`)
+    assert.deepEqual([missing.status, missing.value.code], [400, 'invalid_id'])
     await media.applied({ kind: 'remove', evidence_ids: [other.evidence] })
     const removedItem = await impact(other.evidence)
     assert.deepEqual([removedItem.status, removedItem.value.code], [409, 'media_evidence_removed'])
