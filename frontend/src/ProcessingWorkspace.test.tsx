@@ -9,6 +9,8 @@ import { createServerQueryClient } from './queries/client'
 import { serverQueryKey, type ServerScope } from './queries/scope'
 import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider } from './context'
+import { useState, useSyncExternalStore } from 'react'
+import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -432,7 +434,11 @@ test('stale running input exposes its exact cancel action, while explicit false 
   expect(client.cancel).toHaveBeenCalledTimes(1)
 })
 
-function mountView(client: ProcessingClient, view: 'overview' | 'examine', sessionId?: string) {
+function mountView(
+  client: ProcessingClient,
+  view: 'overview' | 'examine' | 'inventory',
+  sessionId?: string,
+) {
   const queryClient = createServerQueryClient()
 
   const element = (session?: string) => (
@@ -512,6 +518,773 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   ).toBeInTheDocument()
   await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('the Inventory drawer answers its open question through the question path', async () => {
+  const user = userEvent.setup()
+  const inventoryJob = {
+    ...snapshot.jobs[0],
+    stage: 'inventory' as const,
+    session_state: 'waiting_input' as const,
+    questions: [
+      {
+        ...snapshot.jobs[0].questions[0],
+        assumption: 'Treating it as new until you say.',
+        spec: {
+          kind: 'clarification' as const,
+          subject_id: subjectId,
+          prompt: 'Is Packet A already in InvenTree?',
+          reason: 'Stock #1712 has the same Part, date code and bin.',
+        },
+      },
+    ],
+  }
+  const asked: ProcessingSnapshotDto = { ...snapshot, jobs: [inventoryJob] }
+  const answered: ProcessingSnapshotDto = {
+    ...asked,
+    capture_revision: '9',
+    jobs: [
+      {
+        ...inventoryJob,
+        questions: [{ ...inventoryJob.questions[0], state: 'answered' as const }],
+      },
+    ],
+  }
+  validate('ProcessingSnapshot', asked)
+  const read = vi.fn().mockResolvedValue(asked)
+  const client = {
+    ...clientFixture(),
+    read,
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  mountView(client, 'inventory', jobId)
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const form = await within(drawer).findByRole('form', {
+    name: 'Session question: Is Packet A already in InvenTree?',
+  })
+  expect(form).toHaveTextContent('Is Packet A already in InvenTree?')
+  expect(within(drawer).getByRole('textbox', { name: 'Message this session' })).toBeVisible()
+
+  await user.type(
+    within(form).getByRole('textbox', { name: 'Clarification' }),
+    'Different tube: add new stock',
+  )
+  read.mockResolvedValue(answered)
+  await user.click(within(form).getByRole('button', { name: 'Send answer to the session' }))
+  expect(client.answer).toHaveBeenCalledWith(
+    batchId,
+    questionId,
+    expect.objectContaining({
+      value: { kind: 'clarification', text: 'Different tube: add new stock' },
+    }),
+    expect.any(String),
+  )
+  await waitFor(() =>
+    expect(within(drawer).queryByRole('form', { name: /^Session question/ })).toBeNull(),
+  )
+})
+
+const secondQuestionId = 'e0000000-0000-4000-8000-00000000000e'
+
+/** An Inventory session waiting on two clarifications about Packet A. */
+function inventorySnapshot(captureRevision = '8', answeredIds: string[] = []) {
+  const ask = (id: string, prompt: string) => ({
+    ...snapshot.jobs[0].questions[0],
+    id,
+    state: answeredIds.includes(id) ? ('answered' as const) : ('open' as const),
+    assumption: 'Treating it as new until you say.',
+    spec: {
+      kind: 'clarification' as const,
+      subject_id: subjectId,
+      prompt,
+      reason: 'Stock #1712 has the same Part, date code and bin.',
+    },
+  })
+
+  const value: ProcessingSnapshotDto = {
+    ...snapshot,
+    capture_revision: captureRevision,
+    jobs: [
+      {
+        ...snapshot.jobs[0],
+        stage: 'inventory',
+        session_state: 'waiting_input',
+        questions: [
+          ask(questionId, 'Is Packet A already in InvenTree?'),
+          ask(secondQuestionId, 'Is Packet A the reel in drawer 2?'),
+        ],
+      },
+    ],
+  }
+  validate('ProcessingSnapshot', value)
+  return value
+}
+
+function subscribeHash(listener: () => void) {
+  addEventListener('hashchange', listener)
+  return () => removeEventListener('hashchange', listener)
+}
+
+/**
+ * Stands in for Batch: Processing remounts on every save, keyed as Batch keys it, and reads its
+ * session link from the URL; the drawer restore store lives above that key.
+ */
+/** How the harness's reload behaves; a failed reload in Batch leaves Processing mounted. */
+type ReloadControl = { remount: boolean }
+
+function RemountingWorkspace({
+  client,
+  dirty,
+  pinnedQuestionId,
+  reload,
+  drawerRestore,
+}: {
+  client: ProcessingClient
+  dirty: (value: boolean) => void
+  pinnedQuestionId?: string
+  reload: ReloadControl
+  drawerRestore: DrawerRestoreStore
+}) {
+  const [reset, setReset] = useState(0)
+  const [shown, setShown] = useState(true)
+  const hash = useSyncExternalStore(subscribeHash, () => location.hash)
+  const sessionId = new URLSearchParams(hash.split('?')[1] ?? '').get('session')
+
+  // As Batch's reload: only a reload that re-keys Processing carries the drawer across.
+  async function onSaved() {
+    if (reload.remount) {
+      drawerRestore.carry()
+      setReset((count) => count + 1)
+    }
+  }
+
+  return (
+    <>
+      {/* Leaving Processing and coming back, as another batch tab would. */}
+      <button type="button" onClick={() => setShown((value) => !value)}>
+        Toggle Processing
+      </button>
+      {shown && (
+        <ProcessingWorkspace
+          key={`${batch.id}:${batch.revision}:${reset}`}
+          batch={batch}
+          client={client}
+          view="inventory"
+          sessionId={sessionId}
+          questionId={pinnedQuestionId}
+          navigate={vi.fn()}
+          onDirtyChange={dirty}
+          onSaved={onSaved}
+          drawerRestore={drawerRestore}
+        />
+      )}
+    </>
+  )
+}
+
+/** Opens the Inventory drawer from a session link unless `fromRow` leaves it to the session row. */
+function mountInventoryDrawer(
+  read: ProcessingSnapshotDto,
+  pinnedQuestionId?: string,
+  { fromRow = false } = {},
+) {
+  history.replaceState(
+    null,
+    '',
+    `#${batchId}/processing/inventory${fromRow ? '' : `?session=${jobId}`}`,
+  )
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(read),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } satisfies ProcessingClient
+  const cache = createServerQueryClient()
+  cache.setDefaultOptions({
+    queries: { ...cache.getDefaultOptions().queries, networkMode: 'online' },
+  })
+  const dirty = vi.fn()
+  const reload: ReloadControl = { remount: true }
+  // Batch's store, above Processing's key; a test can reload from another tab through it.
+  const drawerRestore = createDrawerRestore()
+  render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <RemountingWorkspace
+        client={client}
+        dirty={dirty}
+        pinnedQuestionId={pinnedQuestionId}
+        reload={reload}
+        drawerRestore={drawerRestore}
+      />
+    </ServerStateProvider>,
+  )
+  return {
+    client,
+    cache,
+    dirty,
+    reload,
+    drawerRestore,
+    key: serverQueryKey(scope, 'processing', batchId),
+  }
+}
+
+const answerBox = (prompt: string) =>
+  within(screen.getByRole('form', { name: `Session question: ${prompt}` })).getByRole('textbox', {
+    name: 'Clarification',
+  })
+
+test('a failed or paused read keeps a drawer answer’s draft and its guard', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await screen.findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  client.read.mockRejectedValueOnce(new Error('read_unavailable'))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+
+  const resumed = deferredRead()
+  client.read.mockReturnValueOnce(resumed.promise)
+  act(() => {
+    onlineManager.setOnline(false)
+    void cache.invalidateQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(cache.getQueryState(key)?.fetchStatus).toBe('paused'))
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  act(() => {
+    onlineManager.setOnline(true)
+  })
+  await act(async () => {
+    resumed.resolve(inventorySnapshot())
+    await resumed.promise
+  })
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('closing the drawer with an unsaved answer asks first, and discards only on request', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  await user.click(within(drawer).getByRole('button', { name: 'Close' }))
+  expect(within(drawer).getByRole('alert')).toHaveTextContent(
+    'Save or discard your answer before closing this session.',
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  await user.click(within(drawer).getByRole('button', { name: 'Discard answer and close' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('answering one drawer question leaves the other answerable, and focus moves to it', async () => {
+  const user = userEvent.setup()
+  // Opened from a session link; saving the answer remounts Processing, as Batch does.
+  const { client } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  // The session's options are shown disabled, with why; the answer goes in words.
+  const options = within(drawer).getByRole('radiogroup', {
+    name: 'Answer options: Is Packet A already in InvenTree?',
+  })
+  for (const option of within(options).getAllByRole('radio')) {
+    expect(option).toHaveAttribute('aria-disabled', 'true')
+    expect(option).toHaveAccessibleDescription(/don’t carry the session’s answer options yet/)
+  }
+
+  const first = 'Is Packet A already in InvenTree?'
+  const second = 'Is Packet A the reel in drawer 2?'
+  await user.type(answerBox(first), 'Different tube')
+  await user.type(answerBox(second), 'No')
+
+  // Saving one answer reloads Processing, so neither saves while the other has a draft.
+  const send = (prompt: string) =>
+    within(screen.getByRole('form', { name: `Session question: ${prompt}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    })
+
+  expect(send(first)).toBeDisabled()
+  expect(screen.getByRole('form', { name: `Session question: ${first}` })).toHaveTextContent(
+    'Save or discard the other answer first',
+  )
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${second}` })).getByRole('button', {
+      name: 'Discard unsaved answer',
+    }),
+  )
+  expect(send(first)).toBeEnabled()
+
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(send(first))
+  expect(client.answer).toHaveBeenCalledWith(
+    batchId,
+    questionId,
+    expect.objectContaining({ expected_capture_revision: '8' }),
+    expect.any(String),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull(),
+  )
+  await waitFor(() => expect(answerBox(second)).toHaveFocus())
+
+  // The other form follows the new capture revision instead of reading as superseded.
+  const form = screen.getByRole('form', { name: `Session question: ${second}` })
+  expect(form).not.toHaveTextContent('superseded')
+  await user.type(answerBox(second), 'No, it is new')
+  await user.click(send(second))
+  expect(client.answer).toHaveBeenLastCalledWith(
+    batchId,
+    secondQuestionId,
+    expect.objectContaining({ expected_capture_revision: '9' }),
+    expect.any(String),
+  )
+})
+
+test('a drawer draft survives its question being answered elsewhere', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  const form = screen.getByRole('form', {
+    name: 'Session question: Is Packet A already in InvenTree?',
+  })
+  await waitFor(() =>
+    expect(form).toHaveTextContent('This question is superseded or its saved context changed'),
+  )
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(within(drawer).getByRole('button', { name: 'Close' }))
+  expect(within(drawer).getByRole('alert')).toHaveTextContent('Save or discard your answer')
+
+  // Discarding the draft lets the answered question's form go.
+  await user.click(within(form).getByRole('button', { name: 'Discard unsaved answer' }))
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('form', { name: 'Session question: Is Packet A already in InvenTree?' }),
+    ).toBeNull(),
+  )
+})
+
+test('a drawer draft survives its session leaving the read', async () => {
+  const user = userEvent.setup()
+  history.replaceState(null, '', `#${batchId}/processing/inventory?session=${jobId}`)
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  await within(drawer).findByRole('form', { name: /^Session question: Is Packet A already/ })
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+
+  const gone = inventorySnapshot('9')
+  delete gone.jobs[0].session_state
+  client.read.mockResolvedValue(gone)
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  // The session row leaves the step page once the read without the session is shown.
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+    ).not.toBeInTheDocument(),
+  )
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(answerBox('Is Packet A already in InvenTree?')).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  // Discarding the last draft closes the kept drawer for good, including its session link.
+  await user.click(screen.getByRole('button', { name: 'Discard unsaved answer' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(location.hash).not.toContain('session=')
+  client.read.mockResolvedValue(inventorySnapshot('9'))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('the drawer’s link to the page’s question asks first while a drawer answer is unsaved', async () => {
+  const user = userEvent.setup()
+  const { dirty } = mountInventoryDrawer(inventorySnapshot(), questionId)
+  const drawer = await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const second = 'Is Packet A the reel in drawer 2?'
+  await within(drawer).findByRole('form', { name: `Session question: ${second}` })
+  await user.type(answerBox(second), 'No')
+
+  await user.click(within(drawer).getByRole('link', { name: 'Is Packet A already in InvenTree?' }))
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(within(drawer).getByRole('alert')).toHaveTextContent('Save or discard your answer')
+  expect(answerBox(second)).toHaveValue('No')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('a drawer draft keeps its revision when another answer moves it, and reads as superseded', async () => {
+  const user = userEvent.setup()
+  const { client, cache, dirty, key } = mountInventoryDrawer(inventorySnapshot())
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+
+  client.read.mockResolvedValue(inventorySnapshot('9', [secondQuestionId]))
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  const form = screen.getByRole('form', { name: `Session question: ${first}` })
+  await waitFor(() =>
+    expect(form).toHaveTextContent('This question is superseded or its saved context changed'),
+  )
+  expect(answerBox(first)).toHaveValue('Different tube')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('other drawer forms are read-only while an answer saves', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('form', { name: /^Session question: Is Packet A already/ })
+
+  let finish: () => void = () => undefined
+
+  client.answer.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = () =>
+        resolve({
+          answer_id: 'c0000000-0000-4000-8000-000000000003',
+          question_id: questionId,
+          attempt_id: attemptId,
+          capture_revision: '9',
+          command_id: 'd0000000-0000-4000-8000-000000000004',
+        })
+    }),
+  )
+  await user.type(answerBox('Is Packet A already in InvenTree?'), 'Different tube')
+  await user.click(
+    within(
+      screen.getByRole('form', { name: 'Session question: Is Packet A already in InvenTree?' }),
+    ).getByRole('button', { name: 'Send answer to the session' }),
+  )
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toBeDisabled())
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await act(async () => {
+    finish()
+  })
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toBeEnabled())
+})
+
+test('the page’s clean pinned answer follows a revision a drawer answer moved', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot(), questionId)
+  await screen.findByRole('form', { name: 'Pinned application question' })
+  const second = 'Is Packet A the reel in drawer 2?'
+  await screen.findByRole('form', { name: `Session question: ${second}` })
+  await user.type(answerBox(second), 'No')
+  client.read.mockResolvedValue(inventorySnapshot('9', [secondQuestionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${second}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${second}` })).toBeNull(),
+  )
+
+  const pinned = screen.getByRole('form', { name: 'Pinned application question' })
+  expect(pinned).not.toHaveTextContent('superseded')
+  await user.type(within(pinned).getByRole('textbox', { name: 'Clarification' }), 'Same tube')
+  await user.click(within(pinned).getByRole('button', { name: 'Send answer to the session' }))
+  expect(client.answer).toHaveBeenLastCalledWith(
+    batchId,
+    questionId,
+    expect.objectContaining({ expected_capture_revision: '9' }),
+    expect.any(String),
+  )
+})
+
+test('a drawer opened from the session row stays open after an answer, focused on the next', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  const second = 'Is Packet A the reel in drawer 2?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+
+  await waitFor(() => expect(answerBox(second)).toHaveFocus())
+  expect(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).toBeInTheDocument()
+  expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull()
+})
+
+test('a skipped reload leaves nothing to reopen the drawer on a later visit', async () => {
+  const user = userEvent.setup()
+  const { client, reload } = mountInventoryDrawer(inventorySnapshot(), undefined, {
+    fromRow: true,
+  })
+  reload.remount = false
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull(),
+  )
+
+  // Leave Processing with the drawer open, then come back: it starts from its route alone.
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('an answer’s failed reload leaves nothing for another tab’s reload to carry', async () => {
+  const user = userEvent.setup()
+  const { client, reload, drawerRestore } = mountInventoryDrawer(inventorySnapshot(), undefined, {
+    fromRow: true,
+  })
+  reload.remount = false
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole('form', { name: `Session question: ${first}` })).toBeNull(),
+  )
+
+  // Off to Records, whose save reloads the batch and re-keys every stage, then back.
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  act(() => drawerRestore.carry())
+  await user.click(screen.getByRole('button', { name: 'Toggle Processing' }))
+  await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('focus the operator moves while the remount’s read is still pending stays where they put it', async () => {
+  const user = userEvent.setup()
+  const { client } = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  // The answer's own refresh succeeds; the remounted Processing's first read is slow.
+  const slow = deferredRead()
+  client.read
+    .mockResolvedValueOnce(inventorySnapshot('9', [questionId]))
+    .mockReturnValueOnce(slow.promise)
+    .mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  chat.focus()
+
+  await act(async () => {
+    slow.resolve(inventorySnapshot('9', [questionId]))
+    await slow.promise
+  })
+  await screen.findByRole('form', { name: 'Session question: Is Packet A the reel in drawer 2?' })
+  expect(chat).toHaveFocus()
+})
+
+test('focus the operator moves while the remount’s read fails stays where they put it', async () => {
+  const user = userEvent.setup()
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot(), undefined, {
+    fromRow: true,
+  })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  // The answer's own refresh succeeds; the remounted Processing's first read fails.
+  client.read
+    .mockResolvedValueOnce(inventorySnapshot('9', [questionId]))
+    .mockRejectedValueOnce(new Error('read_unavailable'))
+    .mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  expect(await screen.findByText(/Processing status unavailable/)).toBeInTheDocument()
+  const chat = await screen.findByRole('textbox', { name: 'Message this session' })
+  chat.focus()
+
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await screen.findByRole('form', { name: 'Session question: Is Packet A the reel in drawer 2?' })
+  expect(chat).toHaveFocus()
+})
+
+/** Answers the first question from a drawer opened on the session row, remounting Processing. */
+async function answerFirstFromRow(user: ReturnType<typeof userEvent.setup>) {
+  const mounted = mountInventoryDrawer(inventorySnapshot(), undefined, { fromRow: true })
+  await user.click(
+    await screen.findByRole('button', { name: 'Open session: Inventory · Packet A' }),
+  )
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+  mounted.client.read.mockResolvedValue(inventorySnapshot('9', [questionId]))
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  return mounted
+}
+
+test('closing a drawer restored after a remount returns focus to its session row', async () => {
+  const user = userEvent.setup()
+  await answerFirstFromRow(user)
+  await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
+
+  await user.click(
+    within(screen.getByRole('dialog', { name: 'Inventory · Packet A' })).getByRole('button', {
+      name: 'Close',
+    }),
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Open session: Inventory · Packet A' })).toHaveFocus()
+})
+
+test('a drawer that focuses its own Close on opening still moves to the next question', async () => {
+  const user = userEvent.setup()
+  // As browsers do: showModal opens the dialog and focuses its first focusable control. jsdom
+  // has no showModal, so Dialog would otherwise just set `open`.
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = true
+      this.querySelector<HTMLElement>('button')?.focus()
+    },
+  })
+  try {
+    await answerFirstFromRow(user)
+    await waitFor(() => expect(answerBox('Is Packet A the reel in drawer 2?')).toHaveFocus())
+  } finally {
+    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal
+  }
+})
+
+test('saving a drawer’s last draft after its session left clears the session link', async () => {
+  const user = userEvent.setup()
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot())
+  const first = 'Is Packet A already in InvenTree?'
+  await screen.findByRole('form', { name: `Session question: ${first}` })
+  await user.type(answerBox(first), 'Different tube')
+
+  // The session ends; its question is still open at the same capture revision.
+  const ended = inventorySnapshot('8')
+  delete ended.jobs[0].session_state
+  client.read.mockResolvedValue(ended)
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Open session: Inventory · Packet A' }),
+    ).not.toBeInTheDocument(),
+  )
+  const answered = inventorySnapshot('9', [questionId])
+  delete answered.jobs[0].session_state
+  client.read.mockResolvedValue(answered)
+  await user.click(
+    within(screen.getByRole('form', { name: `Session question: ${first}` })).getByRole('button', {
+      name: 'Send answer to the session',
+    }),
+  )
+  expect(client.answer).toHaveBeenCalled()
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(location.hash).not.toContain('session=')
+})
+
+test('a drawer with no draft closes at once when its session leaves, clearing its link', async () => {
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('form', { name: /^Session question: Is Packet A already/ })
+  const gone = inventorySnapshot('9')
+  delete gone.jobs[0].session_state
+  client.read.mockResolvedValue(gone)
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: key })
+  })
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(location.hash).not.toContain('session=')
+})
+
+test('a session that leaves a second time has its link cleared again', async () => {
+  const { client, cache, key } = mountInventoryDrawer(inventorySnapshot())
+  await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  const gone = inventorySnapshot('9')
+  delete gone.jobs[0].session_state
+
+  for (let round = 1; round <= 2; round += 1) {
+    client.read.mockResolvedValue(gone)
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: key })
+    })
+    await waitFor(() => expect(location.hash).not.toContain('session='))
+    // The session comes back and its link is followed again.
+    client.read.mockResolvedValue(inventorySnapshot('9'))
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: key })
+      location.hash = `${batchId}/processing/inventory?session=${jobId}`
+    })
+    await screen.findByRole('dialog', { name: 'Inventory · Packet A' })
+  }
 })
 
 test('a session link opens its drawer on arrival', async () => {

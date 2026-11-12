@@ -13,11 +13,13 @@ import {
   categoryTree,
   leftOutLots,
   locationTree,
+  overridingLocation,
   previewNodes,
   readyLotIds,
   STATE_LABELS,
   changeLines,
   summary,
+  withTicks,
 } from '#/changes/model'
 import { MAX_SELECTED_LOTS } from '#/manual/types'
 import { batchHref } from '#/navigation/batch-route'
@@ -90,8 +92,7 @@ export function ReadyToAdd({
   const current =
     preview !== null && workspace.preparations.some((value) => value.id === preview.id)
   const tree = treeQuery.data?.preparation_id === preview?.id ? treeQuery.data : undefined
-  const nodes: PreparationNodeDto[] = tree?.nodes ?? (preview ? previewNodes(preview) : [])
-  const counts = summary(nodes)
+  const prepared: PreparationNodeDto[] = tree?.nodes ?? (preview ? previewNodes(preview) : [])
 
   // A current preparation's lots stay listed; a stale one's count only if still ready.
   const ready = [
@@ -107,7 +108,12 @@ export function ReadyToAdd({
     preview !== null &&
     ticked.length === preview.selected_lot_ids.length &&
     ticked.every((lot) => preview.selected_lot_ids.includes(lot))
+  // Every view and count shows the preparation as the ticks leave it, until it is prepared again.
+  const nodes = preview ? withTicks(prepared, preview.selected_lot_ids, ticked) : prepared
+  const untickedSincePrepared = nodes !== prepared
+  const counts = summary(nodes)
   const leftOut = leftOutLots(workspace)
+  const treeShown = view === 'tree' && Boolean(tree?.nodes)
 
   const lotLabel = (id: string) => batch.lots.find((lot) => lot.id === id)?.label ?? 'Another lot'
 
@@ -134,10 +140,11 @@ export function ReadyToAdd({
   }
 
   const approvable = !busy && current && matches && !batch.archived
-  const lots = preview?.effects.length ?? 0
+  // The lots the operator ticked, which approval waits to match the shown preparation.
+  const lots = preview ? ticked.length : 0
 
   return (
-    <Layout data-columns="two">
+    <Layout data-columns="two" data-view={treeShown ? 'tree' : 'type'}>
       {pinnedPreparationId && !current && (
         <Banner tone="warn">
           This preparation is no longer current: it is stale or already approved, and no other has
@@ -145,7 +152,7 @@ export function ReadyToAdd({
         </Banner>
       )}
       <Panel aria-labelledby="ready-lots">
-        <Heading id="ready-lots">Lots to add</Heading>
+        <Heading id="ready-lots">Lots to include</Heading>
         {ready.length === 0 ? (
           <Paragraph>No reviewed lots are ready. Review lots in Review › Lots first.</Paragraph>
         ) : (
@@ -158,6 +165,7 @@ export function ReadyToAdd({
                 const lot = batch.lots.find((value) => value.id === id)
                 const cover = lot ? lotCrops(batch, lot, { width: 34, height: 34 })[0] : undefined
                 const effect = preview?.effects.find((value) => value.lot_id === id)
+                const place = effect ? overridingLocation(batch, effect) : null
                 return (
                   <LotRow key={id}>
                     <input
@@ -180,7 +188,7 @@ export function ReadyToAdd({
                       <strong>{lotLabel(id)}</strong>
                       {effect && (
                         <Small>
-                          {effect.quantity} pcs · {effect.location_label ?? 'No location'}
+                          {effect.quantity} pcs{place && ` · ${place}`}
                         </Small>
                       )}
                     </LotText>
@@ -280,12 +288,16 @@ export function ReadyToAdd({
             {(treeQuery.isError || tree?.nodes === null) && (
               <Small>The full list isn’t available, so only stock, Parts and locations show.</Small>
             )}
-            {view === 'tree' && tree?.nodes ? (
+            {untickedSincePrepared && (
+              <Small role="status">
+                Lots you unticked show as Not ticked, but they aren’t prepared without them yet.
+                Approval waits until they are.
+              </Small>
+            )}
+            {treeShown ? (
               <PreparationTreeView
                 label={grouping === 'category' ? 'By category' : 'By location'}
-                items={
-                  grouping === 'category' ? categoryTree(tree.nodes) : locationTree(tree.nodes)
-                }
+                items={(grouping === 'category' ? categoryTree : locationTree)(nodes)}
                 lotHref={lotHref}
               />
             ) : (
@@ -359,17 +371,24 @@ function groupByReason(lots: ReturnType<typeof leftOutLots>) {
   return [...groups.values()]
 }
 
-/** Lots beside what will change; one column below bp-stacked. */
+/** Lots beside what will change, narrower beside the Tree; one column below bp-stacked. */
 const Layout = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  &[data-view='tree'] {
+    /* literal-allowed: the canvas's 320px lot column beside the Tree */
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  }
   gap: ${space[6]};
   align-items: start;
   > :not(section) {
     grid-column: 1 / -1;
   }
   ${media.stacked} {
-    grid-template-columns: minmax(0, 1fr);
+    &,
+    &[data-view='tree'] {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 `
 const LeftOut = styled.ul`

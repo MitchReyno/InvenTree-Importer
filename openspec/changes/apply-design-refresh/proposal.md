@@ -113,6 +113,7 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 - Showing existing manufacturer part, supplier part and location type descriptions, which the server doesn't read yet.
 - The Settings › InvenTree token row (status, Check now, Replace token), the import reference prefix, and Check connection now in the server menu.
 - Deleting written batch notes, which live in the capture records rather than media evidence.
+- The Inventory question's option cards, and the existing record's fields in the Inventory comparison: questions carry neither the session's answer options nor the existing record yet, so the cards show disabled and the comparison's InvenTree column reads "Not known".
 
 Each is shown with a `DisabledFeature`-style explanation and no fabricated behaviour.
 

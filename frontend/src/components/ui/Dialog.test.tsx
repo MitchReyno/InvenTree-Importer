@@ -95,3 +95,43 @@ test('focus returns to the opener after a StrictMode replay, while the open moda
     delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).close
   }
 })
+
+function OpenerWithFallback({ fromPage = false }: { fromPage?: boolean }) {
+  const [open, setOpen] = useState(fromPage)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Open session
+      </button>
+      <button type="button">Session row</button>
+      {open && (
+        <Dialog
+          title="Session"
+          onClose={() => setOpen(false)}
+          returnFocus={() => screen.getByRole('button', { name: 'Session row' })}
+        >
+          <p>Timeline</p>
+        </Dialog>
+      )}
+    </>
+  )
+}
+
+test('closing returns focus to the fallback when the dialog opened with focus on the page', async () => {
+  const user = userEvent.setup()
+  ;(document.activeElement as HTMLElement | null)?.blur()
+  render(<OpenerWithFallback fromPage />)
+  expect(document.activeElement).toBe(document.body)
+
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.getByRole('button', { name: 'Session row' })).toHaveFocus()
+})
+
+test('closing returns focus to a connected opener rather than the fallback', async () => {
+  const user = userEvent.setup()
+  render(<OpenerWithFallback />)
+  await user.click(screen.getByRole('button', { name: 'Open session' }))
+
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.getByRole('button', { name: 'Open session' })).toHaveFocus()
+})

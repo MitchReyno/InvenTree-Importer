@@ -17,9 +17,17 @@ const lots = [1, 2, 3].map((n) => id(100 + n))
 const batch = {
   id: id(1),
   archived: false,
+  defaults: {
+    quantity: { mode: 'unknown' },
+    location: {
+      mode: 'set',
+      value: { observation_id: id(900), target_context_id: id(901), model: 'location', pk: '43' },
+    },
+  },
   lots: lots.map((lot, index) => ({ id: lot, label: `Packet ${'ABC'[index]}` })),
 } as unknown as CaptureSnapshotDto
 
+/** Packet C goes to Bench bin B3; the others go to the batch default, Bin 43. */
 function preview(selected: string[], n = 50): ManualPreviewDto {
   return {
     id: id(n),
@@ -35,8 +43,8 @@ function preview(selected: string[], n = 50): ManualPreviewDto {
       lot_label: batch.lots.find((value) => value.id === lot)!.label,
       part_label: 'Existing resistor',
       quantity: '10',
-      location_id: '43',
-      location_label: 'Bin 43',
+      location_id: lot === lots[2] ? '44' : '43',
+      location_label: lot === lots[2] ? 'Bench bin B3' : 'Bin 43',
       contribution_key: id(200),
       barcode: 'bi1:x:y',
       part_id: '29',
@@ -129,11 +137,52 @@ describe('ReadyToAdd', () => {
     setup()
     const row = screen.getByRole('checkbox', { name: 'Packet B' }).closest('label')!
     expect(row.querySelector('[data-thumb]')).not.toBeNull()
-    expect(row).toHaveTextContent('10 pcs · Bin 43')
-    expect(screen.getByRole('region', { name: 'Lots to add' }).parentElement).toHaveAttribute(
+    expect(row).toHaveTextContent('10 pcs')
+    expect(screen.getByRole('region', { name: 'Lots to include' }).parentElement).toHaveAttribute(
       'data-columns',
       'two',
     )
+  })
+
+  it('names a lot’s location only when it differs from the batch default', () => {
+    setup()
+
+    const row = (name: string) => screen.getByRole('checkbox', { name }).closest('label')!
+
+    expect(row('Packet A')).not.toHaveTextContent('Bin 43')
+    expect(row('Packet B')).not.toHaveTextContent('Bin 43')
+    expect(row('Packet C')).toHaveTextContent('10 pcs · Bench bin B3')
+  })
+
+  it('without a batch default, every lot names its location', () => {
+    const { props, rerender } = setup()
+    const noDefault = {
+      ...batch,
+      defaults: { quantity: { mode: 'unknown' }, location: { mode: 'clear' } },
+    } as unknown as CaptureSnapshotDto
+    rerender(<ReadyToAdd {...props} batch={noDefault} />)
+    expect(screen.getByRole('checkbox', { name: 'Packet A' }).closest('label')).toHaveTextContent(
+      '10 pcs · Bin 43',
+    )
+  })
+
+  it('keeps the lots beside the Tree, and unticking a lot marks its stock item at once', async () => {
+    const user = userEvent.setup()
+    const { prepareLots } = setup()
+    await user.click(await screen.findByRole('button', { name: 'Tree' }))
+    const lotsPane = screen.getByRole('region', { name: 'Lots to include' })
+    expect(lotsPane.parentElement).toHaveAttribute('data-view', 'tree')
+    const tree = screen.getByRole('tree', { name: 'By category' })
+    expect(within(tree).getByRole('treeitem', { name: /Packet A · 10/ })).toHaveTextContent('New')
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    expect(prepareLots).toHaveBeenCalledWith([lots[1], lots[2]])
+    // The lot list stays beside the tree, which shows the untick before the new preparation.
+    expect(lotsPane).toBeVisible()
+    const stock = within(tree).getByRole('treeitem', { name: /Packet A/ })
+    expect(stock).toHaveTextContent('Not ticked')
+    expect(stock).toHaveAttribute('data-dimmed', 'true')
+    expect(within(stock).getByRole('link', { name: /^Review Packet A/ })).toBeVisible()
   })
 
   it('unticking a lot prepares the rest, and approval waits for that preparation', async () => {
@@ -148,7 +197,7 @@ describe('ReadyToAdd', () => {
 
     // While the new preparation is made, the shown one is no longer the operator's choice.
     rerender(<ReadyToAdd {...props} busy />)
-    expect(screen.getByRole('button', { name: /Approve 3 lots/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Approve 2 lots/ })).toBeDisabled()
     const next = preview([lots[0], lots[2]], 51)
     rerender(
       <ReadyToAdd
@@ -356,7 +405,7 @@ describe('ReadyToAdd', () => {
     const row = within(tree).getByRole('treeitem', { name: /Packet B/ })
     expect(row).toHaveTextContent('Not ticked')
     expect(row).toHaveTextContent('Changed since review')
-    expect(row).toHaveAttribute('data-unticked', 'true')
+    expect(row).toHaveAttribute('data-dimmed', 'true')
     expect(within(row).getByRole('link', { name: 'Review Packet B' })).toHaveAttribute(
       'href',
       `#${batch.id}/review/lots/${left}`,
@@ -407,6 +456,98 @@ describe('ReadyToAdd', () => {
 
     await user.click(screen.getByRole('button', { name: 'Location' }))
     expect(screen.getByRole('tree', { name: 'By location' })).toHaveTextContent('No location')
+  })
+
+  it('counts and By type follow the ticks the Tree shows, before the lots are prepared again', async () => {
+    const user = userEvent.setup()
+    const { prepareLots } = setup()
+    const footer = screen.getByRole('region', { name: 'Approve' })
+    await waitFor(() => expect(footer).toHaveTextContent('3 new · 1 update'))
+    expect(screen.getByRole('region', { name: 'Stock items, 1' })).toBeVisible()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // Packet A's stock and the new Part only it uses are left out of every count.
+    expect(footer).toHaveTextContent('0 new · 0 update')
+    expect(screen.getByText(/0 new · 0 update to InvenTree/)).toBeVisible()
+    expect(screen.queryByRole('region', { name: /^Stock items/ })).not.toBeInTheDocument()
+    expect(prepareLots).toHaveBeenCalled()
+  })
+
+  it('leaves out of the counts the records only an unticked lot uses', async () => {
+    const user = userEvent.setup()
+    setup({
+      tree: [
+        ...treeNodes.map((value) =>
+          value.kind === 'stock_item' ? { ...value, location_key: 'location:new:b3' } : value,
+        ),
+        node({ key: 'location:new:b3', kind: 'location', label: 'Bench bin B3' }),
+        node({
+          key: `stock:${lots[1]}`,
+          kind: 'stock_item',
+          label: 'Packet B · 10',
+          parent_key: 'part:pk:29',
+          lot_id: lots[1],
+        }),
+        node({ key: 'part:pk:29', kind: 'part', label: 'Existing resistor', state: 'exists' }),
+      ],
+    })
+    const footer = screen.getByRole('region', { name: 'Approve' })
+    await waitFor(() => expect(footer).toHaveTextContent('5 new · 1 update'))
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // The new Part, its parameter, its supplier part and the new location serve only Packet A.
+    expect(footer).toHaveTextContent('1 new · 0 update')
+    expect(
+      screen.getByRole('button', { name: 'Approve 2 lots and add to InvenTree' }),
+    ).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Tree' }))
+    const tree = screen.getByRole('tree', { name: 'By category' })
+    expect(within(tree).getByRole('treeitem', { name: /New resistor/ })).toHaveTextContent(
+      'Not ticked',
+    )
+    expect(within(tree).getByRole('treeitem', { name: /Existing resistor/ })).toHaveTextContent(
+      'Exists',
+    )
+  })
+
+  it('leaves out a record whose other lot the preparation already left out', async () => {
+    const user = userEvent.setup()
+    const left = id(990)
+    setup({
+      tree: [
+        ...treeNodes,
+        node({
+          key: `unticked:${left}`,
+          kind: 'stock_item',
+          label: 'Packet Z',
+          state: 'not_ticked',
+          detail: 'Changed since review',
+          parent_key: 'part:p',
+          lot_id: left,
+        }),
+      ],
+    })
+    const footer = screen.getByRole('region', { name: 'Approve' })
+    await waitFor(() => expect(footer).toHaveTextContent('3 new · 1 update'))
+
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // Packet Z makes nothing, so the new Part serves only the unticked Packet A.
+    expect(footer).toHaveTextContent('0 new · 0 update')
+  })
+
+  it('flags unticked lots shown as Not ticked while no preparation matches them', async () => {
+    const user = userEvent.setup()
+    const { props, rerender } = setup()
+    await user.click(await screen.findByRole('button', { name: 'Tree' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
+    // The preparation failed: busy ends with the old preparation still shown.
+    rerender(<ReadyToAdd {...props} busy />)
+    rerender(<ReadyToAdd {...props} />)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Lots you unticked show as Not ticked, but they aren’t prepared without them yet.',
+    )
+    expect(screen.getByRole('button', { name: /^Approve/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Show what will change' })).toBeEnabled()
   })
 
   it('without a tree, By type still shows stock, Parts and locations from the preview', async () => {

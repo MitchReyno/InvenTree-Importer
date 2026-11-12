@@ -42,6 +42,7 @@ import { RecordsStage } from '#/components/review/records/RecordsStage'
 import { ReviewMapStage } from '#/components/review/ReviewMapStage'
 import { createSharperRequestStore } from '#/components/processing/ExamineView'
 import { useInstructionDelivery } from '#/processing/instruction-delivery'
+import { createDrawerRestore } from '#/processing/drawer-restore'
 import { useAcceptedOperatorReview } from '#/operator/useAcceptedOperatorReview'
 
 /** The screen each Review and Changes route mounts until their redesigns replace them. */
@@ -107,6 +108,8 @@ export function Batch({
   const shownPreparation = useRef<string | null>(null)
   // Sharper-photo requests awaiting confirmation, kept across Processing's revision remounts.
   const sharperRequests = useMemo(createSharperRequestStore, [id])
+  // Above Processing's remount key, so a drawer open when an answer reloads comes back.
+  const drawerRestore = useMemo(createDrawerRestore, [id])
   const instructionDelivery = useInstructionDelivery(id, agents?.deliverInstructions)
   if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
     shownPreparation.current = batchRoute.preparationId
@@ -332,6 +335,8 @@ export function Batch({
       }
       editIntent.current = null
       acceptSavedBatch(result.data)
+      // Re-keying Processing remounts it; a drawer an answer armed comes back on that mount.
+      drawerRestore.carry()
       setReset((revision) => revision + 1)
       setCurrent(null)
       setError('')
@@ -439,6 +444,7 @@ export function Batch({
         questionId={batchRoute.questionId}
         sessionId={parsed.kind === 'route' ? sessionFromQuery(parsed.query) : null}
         sharperRequests={sharperRequests}
+        drawerRestore={drawerRestore}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
         instructions={{
