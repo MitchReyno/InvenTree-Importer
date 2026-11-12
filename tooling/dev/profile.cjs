@@ -1,26 +1,13 @@
-const DEVELOPMENT_PROFILES = [
-  'synthetic-research/2',
-  'native-agent/1',
+const SESSION_PROFILES = new Set([
+  'synthetic-session/1',
   'native-agent/2',
   'shared-vm-agent/1',
   'shared-vm-agent/2',
-]
+])
 
-function developmentProfile(settings) {
-  const profile = settings.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
-  if (!DEVELOPMENT_PROFILES.includes(profile)) {
-    throw new Error('unsupported_development_profile')
-  }
-  return profile
-}
-
-/** The native worker for this profile, or null when the synthetic Processing child runs instead. */
+/** The agent worker for this profile, or null when the synthetic Processing child runs instead. */
 function processingWorker(profile) {
-  if (
-    profile === 'native-agent/2' ||
-    profile === 'shared-vm-agent/2' ||
-    profile === 'shared-vm-agent/1'
-  ) {
+  if (SESSION_PROFILES.has(profile)) {
     return {
       entry: 'src/agents/session/session-worker-main.ts',
       ready: 'session supervisor ready',
@@ -35,4 +22,4 @@ function processingWorker(profile) {
   return null
 }
 
-module.exports = { developmentProfile, processingWorker }
+module.exports = { processingWorker }

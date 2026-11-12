@@ -80,21 +80,23 @@ test(
     const port = await freePort()
     const origin = `http://127.0.0.1:${port}`
     const key = 'synthetic-read-token-never-public'
-    const writeSettings = async (targetOrigin: string) =>
+    const writeSettings = async (targetLines: string[]) =>
       writeFile(
         envFile,
         [
           `INTAKE_APP_STATE="${root}"`,
           `INTAKE_DEV_PORT=${port}`,
-          'INTAKE_TARGET_PROFILE=read-only',
-          `INTAKE_READ_ORIGIN=${targetOrigin}`,
-          'INTAKE_CREDENTIAL_REF=controlled_readonly',
-          `INTAKE_DEV_API_KEY=${key}`,
+          ...targetLines,
           'OPENAI_API_KEY=synthetic-provider-must-not-run',
           `INTAKE_MEDIA_DECODER_IMAGE=${process.env.INTAKE_MEDIA_DECODER_IMAGE}`,
         ].join('\n'),
         { mode: 0o600 },
       )
+    const externalTarget = (targetOrigin: string) => [
+      `INTAKE_INVENTREE_URL=${targetOrigin}`,
+      'INTAKE_CREDENTIAL_REF=controlled_readonly',
+      `INTAKE_INVENTREE_TOKEN=${key}`,
+    ]
     let child: ChildProcess | undefined
     let output = ''
     let csrf = ''
@@ -154,11 +156,12 @@ test(
       }
     }
     try {
-      await writeSettings(target.origin)
+      await writeSettings(externalTarget(target.origin))
       await start()
       const connection = await request('/connection-status')
       assert.equal(connection.status, 200)
       assert.equal(connection.value.target.state, 'reachable')
+      assert.equal(connection.value.target.kind, 'configured')
       assert.equal(connection.value.target.navigation_url, target.origin + '/')
       for (const suffix of ['', '?raw']) {
         const blocked = await fetch(`${origin}/@fs${envFile}${suffix}`)
@@ -166,12 +169,14 @@ test(
         assert.equal((await blocked.text()).includes(key), false)
       }
       const running = JSON.parse(await readFile(join(root, 'running.json'), 'utf8'))
+      // The default scripted sessions run in the session worker.
       assert.deepEqual(running.children.map((item: { name: string }) => item.name).sort(), [
+        'agents',
         'api',
         'media',
-        'processing',
         'ui',
       ])
+      assert.match(output, /Processing: synthetic-session\/1\./)
       const stateBytes = await readFile(join(root, 'app.json'), 'utf8')
       const state = JSON.parse(stateBytes)
       assert.equal(state.version, 2)
@@ -255,7 +260,7 @@ test(
       assert.equal((await request(`/batches/${batch.id}`)).value.title, 'Readonly target context')
       await stop()
       const requestCount = target.requests.length
-      await writeSettings(other.origin)
+      await writeSettings(externalTarget(other.origin))
       await start(false)
       assert.equal(target.requests.length, requestCount)
       assert.equal(other.requests.length, 0)
@@ -263,6 +268,18 @@ test(
         JSON.parse(await readFile(join(root, 'app.json'), 'utf8')).target,
         state.target,
       )
+      await writeSettings([
+        'INTAKE_TARGET_PROFILE=read-only',
+        `INTAKE_READ_ORIGIN=${target.origin}`,
+        'INTAKE_CREDENTIAL_REF=controlled_readonly',
+        `INTAKE_DEV_API_KEY=${key}`,
+      ])
+      await start(false)
+      assert.match(output, /retired_development_setting/)
+      assert.match(output, /INTAKE_DEV_API_KEY: use INTAKE_INVENTREE_TOKEN/)
+      assert.equal(output.includes(key), false)
+      assert.equal(target.requests.length, requestCount)
+      assert.equal(await readFile(join(root, 'app.json'), 'utf8'), stateBytes)
     } finally {
       await stop()
       await target.close()
@@ -320,6 +337,119 @@ test(
         const closed = once(child, 'close', { signal: AbortSignal.timeout(10000) })
         child.kill('SIGTERM')
         assert.equal((await closed)[0], 0)
+      }
+    }
+  },
+)
+
+test(
+  'a read-only mock runs scripted sessions with the mock inventory but no apply runner or deployment',
+  { timeout: 120000 },
+  async () => {
+    assert.ok(process.env.INTAKE_TEST_ADMIN_URL)
+    assert.match(process.env.INTAKE_MEDIA_DECODER_IMAGE ?? '', /^sha256:[a-f0-9]{64}$/)
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'bench-dev-readonly-mock-')))
+    const port = await freePort()
+    const origin = `http://127.0.0.1:${port}`
+    let output = ''
+    let csrf = ''
+    const child = spawn(process.execPath, ['tooling/dev.cjs'], {
+      cwd: repository,
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        TMPDIR: process.env.TMPDIR,
+        INTAKE_ENV_FILE: '',
+        INTAKE_APP_STATE: root,
+        INTAKE_DEV_PORT: String(port),
+        INTAKE_DEV_ADMIN_URL: process.env.INTAKE_TEST_ADMIN_URL,
+        INTAKE_MEDIA_DECODER_IMAGE: process.env.INTAKE_MEDIA_DECODER_IMAGE,
+        INTAKE_INVENTREE_READ_ONLY: 'true',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    for (const stream of [child.stdout!, child.stderr!]) {
+      stream.on('data', (bytes) => {
+        output = (output + bytes.toString()).slice(-65536)
+      })
+    }
+
+    async function request(path: string, body?: unknown) {
+      const response = await fetch(`${origin}/api/v1${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: {
+          origin,
+          'content-type': 'application/json',
+          'x-intake-csrf': csrf,
+          'idempotency-key': randomUUID(),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+      return { status: response.status, value: await response.json() }
+    }
+
+    try {
+      await processingCheckpoint(
+        async () => {
+          assert.equal(child.exitCode, null, output)
+          return output
+        },
+        (value) => value.includes('Development app ready:'),
+        60000,
+      )
+      csrf = (await request('/bootstrap')).value.csrf_token
+      assert.match(output, /Inventory: mock \(read-only\)\./)
+      assert.match(output, /Processing: synthetic-session\/1\./)
+      const running = JSON.parse(await readFile(join(root, 'running.json'), 'utf8'))
+      assert.deepEqual(running.children.map((item: { name: string }) => item.name).sort(), [
+        'agents',
+        'api',
+        'inventory',
+        'media',
+        'ui',
+      ])
+      const connection = await request('/connection-status')
+      assert.equal(connection.value.target.kind, 'owned_test', JSON.stringify(connection.value))
+
+      const created = await request('/batches', { title: 'Read-only mock', note: 'Controlled.' })
+      assert.equal(created.status, 201, JSON.stringify(created.value))
+      let batch = created.value
+      async function edit(change: unknown) {
+        const result = await request(`/batches/${batch.id}/edits`, {
+          expected_revision: batch.revision,
+          change,
+        })
+        assert.equal(result.status, 200, JSON.stringify(result.value))
+        batch = result.value
+      }
+      await edit({ kind: 'add_part', label: 'Mock part' })
+      await edit({
+        kind: 'add_lot',
+        label: 'Counted packet',
+        note: '5 counted pieces.',
+        part_subject_id: batch.parts[0].id,
+      })
+      const lot = batch.lots[0].id
+      await edit({ kind: 'lot', id: lot, quantity: { mode: 'set', value: '5' } })
+      const preparation = await request(`/batches/${batch.id}/preparations`, {
+        expected_batch_revision: batch.revision,
+        selected_lot_ids: [lot],
+      })
+      assert.equal(preparation.status, 200, JSON.stringify(preparation.value))
+      assert.notEqual(preparation.value.status, 'prepared')
+      // Without a deployment the API cannot authorize an effect, as for a real server.
+      assert.ok(
+        preparation.value.issues.some(
+          (issue: { code: string }) => issue.code === 'unsupported_capability',
+        ),
+        JSON.stringify(preparation.value),
+      )
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        const closed = once(child, 'close', { signal: AbortSignal.timeout(45000) })
+        child.kill('SIGTERM')
+        const [code] = await closed
+        assert.equal(code, 0, output)
       }
     }
   },

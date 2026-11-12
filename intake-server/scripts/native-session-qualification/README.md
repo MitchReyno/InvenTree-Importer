@@ -12,7 +12,7 @@ The driver is TypeScript run with `tsx`, unlike the `.cjs` utilities the code gu
 Start an isolated app from this checkout on a free port, with its own state directory, so another running app is not disturbed:
 
 ```sh
-INTAKE_ENV_FILE='' INTAKE_PROCESSING_PROFILE=native-agent/2 INTAKE_DEV_PORT=4331 \
+INTAKE_ENV_FILE='' INTAKE_USE_MOCK_AI_AGENTS=false INTAKE_DEV_PORT=4331 \
   INTAKE_APP_STATE="$HOME/.local/state/bench-intake/<private-name>" pnpm dev
 ```
 

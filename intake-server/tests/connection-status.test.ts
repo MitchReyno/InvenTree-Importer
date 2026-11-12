@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { connectionStatus, observationFreshness } from '#/header/connection.ts'
+import { statusBinding } from '#/header/binding.ts'
 
 const binding = {
   actorId: '00000000-0000-4000-8000-000000000001',
@@ -268,4 +269,14 @@ test('an unavailable target reports no version, and a hung version read ends at 
   const observed = await pending
   assert.equal(observed.target.state, 'reachable')
   assert.equal(observed.target.version, null)
+})
+
+test('the scoped status keeps the target kind, so the owned mock is labelled as the test target', async () => {
+  for (const targetKind of ['owned_test', 'configured'] as const) {
+    const config = { ...binding, targetKind, credentialRef: 'not-part-of-scope' }
+    const scoped = statusBinding(config)
+    assert.deepEqual(scoped, { ...binding, targetKind })
+    const read = connectionStatus(scoped, undefined)
+    assert.equal((await read()).target.kind, targetKind)
+  }
 })

@@ -89,6 +89,9 @@ class SelectionTests(unittest.TestCase):
             "tooling/dev.cjs",
             "tooling/dev/process.cjs",
             "tooling/tests/dev.test.cjs",
+            "tooling/tests/dev-settings.test.cjs",
+            "tooling/codex-login.cjs",
+            "tooling/tests/codex-login.test.cjs",
         ):
             with self.subTest(path=path):
                 self.assert_checks([path], "intake")
