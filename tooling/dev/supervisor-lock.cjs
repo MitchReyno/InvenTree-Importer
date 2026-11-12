@@ -1,6 +1,6 @@
 const { spawnSync } = require('node:child_process')
 const { randomUUID } = require('node:crypto')
-const { readFile, open, unlink, rename } = require('node:fs/promises')
+const { readFile, open, unlink, rename, link } = require('node:fs/promises')
 const { join } = require('node:path')
 const { setTimeout: delay } = require('node:timers/promises')
 
@@ -142,16 +142,14 @@ function signalOwned(children, signal, name) {
   }
 }
 
-async function stillOwned(child, inspect, supervisorPid) {
-  return classifyChild(child, await inspect(child.pid), supervisorPid) === 'owned'
-}
-
 async function waitUntilGone(children, inspect, supervisorPid, graceMs, wait) {
   const deadline = Date.now() + graceMs
   while (true) {
     const remaining = []
     for (const child of children) {
-      if (await stillOwned(child, inspect, supervisorPid)) remaining.push(child)
+      const kind = classifyChild(child, await inspect(child.pid), supervisorPid)
+      // An unreadable pid is not proof that the process exited.
+      if (kind === 'owned' || kind === 'unknown') remaining.push({ child, kind })
     }
     if (remaining.length === 0) return []
     if (Date.now() >= deadline) return remaining
@@ -163,8 +161,15 @@ async function stopOwned(children, inspect, supervisorPid, signal, wait, graceMs
   signalOwned(children, signal, 'SIGTERM')
   let remaining = await waitUntilGone(children, inspect, supervisorPid, graceMs, wait)
   if (remaining.length === 0) return
-  signalOwned(remaining, signal, 'SIGKILL')
-  remaining = await waitUntilGone(remaining, inspect, supervisorPid, killGraceMs, wait)
+  const killable = remaining.filter((item) => item.kind === 'owned').map((item) => item.child)
+  if (killable.length > 0) signalOwned(killable, signal, 'SIGKILL')
+  remaining = await waitUntilGone(
+    remaining.map((item) => item.child),
+    inspect,
+    supervisorPid,
+    killGraceMs,
+    wait,
+  )
   if (remaining.length > 0) throw held()
 }
 
@@ -177,8 +182,9 @@ async function readLock(lockPath) {
   }
 }
 
-async function takeStaleLock(lockPath, recorded, inspect) {
+async function takeStaleLock(lockPath, recorded, inspect, hooks) {
   const grave = `${lockPath}.${randomUUID()}.stale`
+  if (hooks.beforeMove) await hooks.beforeMove()
   try {
     await rename(lockPath, grave)
   } catch (error) {
@@ -194,17 +200,20 @@ async function takeStaleLock(lockPath, recorded, inspect) {
   const live = moved ? await inspect(moved.pid) : null
   const stillStale = moved && moved.nonce === recorded.nonce && !ownerLive(moved, live)
   if (!stillStale) {
+    // link fails with EEXIST instead of replacing a lock created while this one was aside.
+    if (hooks.beforeRestore) await hooks.beforeRestore()
     try {
-      await rename(grave, lockPath)
-    } catch {
-      // The original path was taken. Leave the moved file for inspection.
+      await link(grave, lockPath)
+    } catch (error) {
+      throw held(error)
     }
+    await unlink(grave)
     throw held()
   }
   await unlink(grave)
 }
 
-async function reclaim(lockPath, root, inspect, signal, wait, graceMs, killGraceMs, log) {
+async function reclaim(lockPath, root, inspect, signal, wait, graceMs, killGraceMs, log, hooks) {
   const recorded = await readLock(lockPath)
   if (recorded === undefined) return
   if (!recorded) throw held()
@@ -238,7 +247,7 @@ async function reclaim(lockPath, root, inspect, signal, wait, graceMs, killGrace
   ) {
     throw held()
   }
-  await takeStaleLock(lockPath, recorded, inspect)
+  await takeStaleLock(lockPath, recorded, inspect, hooks)
   log('Removed a stale development supervisor lock.')
 }
 
@@ -288,12 +297,16 @@ async function claimSupervisorLock(root, options = {}) {
   const graceMs = options.graceMs ?? STOP_GRACE_MS
   const killGraceMs = options.killGraceMs ?? KILL_GRACE_MS
   const log = options.log ?? ((line) => process.stderr.write(`${line}\n`))
+  const hooks = {
+    beforeMove: options.beforeMove,
+    beforeRestore: options.beforeRestore,
+  }
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await createLock(lockPath, pid, inspect)
     } catch (error) {
       if (error.code !== 'EEXIST') throw error
-      await reclaim(lockPath, root, inspect, signal, wait, graceMs, killGraceMs, log)
+      await reclaim(lockPath, root, inspect, signal, wait, graceMs, killGraceMs, log, hooks)
     }
   }
   throw held()

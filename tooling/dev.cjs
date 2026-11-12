@@ -13,7 +13,7 @@ const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startSupervision } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
-const { bindSessionEnd } = require('./dev/session.cjs')
+const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -528,14 +528,15 @@ async function main() {
     session.close()
     closing = true
     closeWatch()
-    await restart
-    intentional = true
-    if (children.length > 0) {
-      await stop(children)
-    }
-    await release()
-    if (reportStop) {
-      process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+    try {
+      await restart
+      intentional = true
+      await finishOwnedRun(children, stop)
+    } finally {
+      await release()
+      if (reportStop) {
+        process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+      }
     }
   }
 }

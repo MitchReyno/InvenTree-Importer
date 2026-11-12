@@ -53,4 +53,16 @@ function bindSessionEnd(onStop, options = {}) {
   }
 }
 
-module.exports = { bindSessionEnd, parentOf }
+/** Stop owned children, and force them down when the grace expires, before the caller releases the lock. */
+async function finishOwnedRun(children, stop) {
+  try {
+    if (children.length > 0) await stop(children)
+  } catch (error) {
+    for (const item of children) {
+      item.terminate('SIGKILL')
+    }
+    throw error
+  }
+}
+
+module.exports = { bindSessionEnd, parentOf, finishOwnedRun }

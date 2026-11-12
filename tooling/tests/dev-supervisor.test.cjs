@@ -11,7 +11,7 @@ const {
   inspectProcess,
   processStartedAt,
 } = require('../dev/supervisor-lock.cjs')
-const { bindSessionEnd } = require('../dev/session.cjs')
+const { bindSessionEnd, finishOwnedRun } = require('../dev/session.cjs')
 
 async function directory() {
   return mkdtemp(join(tmpdir(), 'dev-supervisor-'))
@@ -350,4 +350,88 @@ test('a changed parent requests shutdown and an unknown lookup does not', async 
   } finally {
     steady.close()
   }
+})
+
+test('an unreadable orphan keeps the lock and is not killed', async () => {
+  const root = await directory()
+  await writeJson(join(root, 'supervisor.lock'), { pid: 42, nonce: 'old', startedAt: 'supervisor' })
+  await writeJson(join(root, 'running.json'), {
+    children: [{ name: 'api', pid: 70, startedAt: 'api-start' }],
+  })
+  const signals = []
+  let identified = false
+  await assert.rejects(
+    claimSupervisorLock(root, {
+      pid: 99,
+      graceMs: 0,
+      killGraceMs: 0,
+      delay: async () => {},
+      inspect: async (pid) => {
+        if (pid === 42) return null
+        if (pid === 99) return live('new', 'node tooling/dev.cjs', 1)
+        if (!identified) {
+          identified = true
+          return live('api-start', 'node src/main.ts', 1)
+        }
+        return { startedAt: null, command: null, ppid: null, unreadable: true }
+      },
+      signal(pid, name) {
+        signals.push([pid, name])
+      },
+      log() {},
+    }),
+    { message: 'development_supervisor_lock_exists_inspect_owned_state' },
+  )
+  assert.deepEqual(signals, [[70, 'SIGTERM']])
+  assert.equal(JSON.parse(await readFile(join(root, 'supervisor.lock'), 'utf8')).nonce, 'old')
+  await rm(root, { recursive: true })
+})
+
+test('restoring a moved lock does not replace one created in the gap', async () => {
+  const root = await directory()
+  const lock = join(root, 'supervisor.lock')
+  await writeJson(lock, { pid: 42, nonce: 'old', startedAt: 'gone' })
+  await assert.rejects(
+    claimSupervisorLock(root, {
+      pid: 99,
+      inspect: async (pid) => {
+        if (pid === 42) return null
+        if (pid === 7) return live('winner', 'node tooling/dev.cjs', 8)
+        if (pid === 99) return live('new', 'node tooling/dev.cjs', 1)
+        return null
+      },
+      beforeMove: async () => {
+        await writeJson(lock, { pid: 7, nonce: 'moved', startedAt: 'winner' })
+      },
+      beforeRestore: async () => {
+        await writeJson(lock, { pid: 7, nonce: 'winner', startedAt: 'winner' })
+      },
+      log() {},
+    }),
+    { message: 'development_supervisor_lock_exists_inspect_owned_state' },
+  )
+  assert.equal(JSON.parse(await readFile(lock, 'utf8')).nonce, 'winner')
+  const graves = (await readdir(root)).filter((name) => name.endsWith('.stale'))
+  assert.equal(graves.length, 1)
+  assert.equal(JSON.parse(await readFile(join(root, graves[0]), 'utf8')).nonce, 'moved')
+  await rm(root, { recursive: true })
+})
+
+test('a failed stop forces children down and still lets the caller release the lock', async () => {
+  const signals = []
+  let released = false
+  await assert.rejects(
+    async () => {
+      try {
+        await finishOwnedRun([{ terminate: (name) => signals.push(name) }], async () => {
+          throw new Error('owned_app_shutdown_unconfirmed')
+        })
+      } finally {
+        released = true
+      }
+    },
+    { message: 'owned_app_shutdown_unconfirmed' },
+  )
+  assert.deepEqual(signals, ['SIGKILL'])
+  assert.equal(released, true)
 })
