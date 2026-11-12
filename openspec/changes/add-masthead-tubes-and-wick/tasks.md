@@ -52,13 +52,13 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
 - **Scope:** new `parts/tubes.ts`.
 - **Verification:** the catalogue builder test; a browser render.
 
-- [ ] 2.1 Build the octal tube:
+- [x] 2.1 Build the octal tube:
   - noval-style envelope scaled to the octal;
   - bakelite base;
   - plate, micas and getter;
   - heater glow;
   - 8 pins.
-- [ ] 2.2 Build the 5U4:
+- [x] 2.2 Build the 5U4:
   - tall base, 8 pins and a key spigot;
   - tapered glass with filleted 45° shoulders, a narrower top and a dome;
   - twin plates and filaments reaching almost to the dome;
@@ -70,9 +70,9 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
 - **Scope:** `part-model.ts` (`DisplayState.emphasis`, mode `nixie`), `parts/displays.ts` (font, `updateDisplay` emphasis) and new `parts/nixie.ts`.
 - **Verification:** `displays.test.ts`.
 
-- [ ] 3.1 RED: tests for Nixie glyph coverage, and for exactly one numeral lit and emphasised per step.
-- [ ] 3.2 GREEN: emphasis handling in `updateDisplay` and the `nixie` mode.
-- [ ] 3.3 Build the tube:
+- [x] 3.1 RED: tests for Nixie glyph coverage, and for exactly one numeral lit and emphasised per step.
+- [x] 3.2 GREEN: emphasis handling in `updateDisplay` and the `nixie` mode.
+- [x] 3.3 Build the tube:
   - stroke numerals merged per numeral, plus thick copies;
   - stacking order and draw order;
   - glass, back plate, glow and pins;
@@ -88,17 +88,17 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
   - tests: `rope.test.ts`, `wick.test.ts`, `scene-hanging.test.ts`.
 - **Verification:** `pnpm test:frontend`.
 
-- [ ] 4.1 RED: tests that the rope hangs at its set length, follows the anchor, is nudged by the pointer and stays finite.
-- [ ] 4.2 GREEN: Verlet rope with a pinned first point and distance constraints.
-- [ ] 4.3 Build the dispenser:
+- [x] 4.1 RED: tests that the rope hangs at its set length, follows the anchor, is nudged by the pointer and stays finite.
+- [x] 4.2 GREEN: Verlet rope with a pinned first point and distance constraints.
+- [x] 4.3 Build the dispenser:
   - clear dish-shaped case;
   - coloured label ring with a white segment;
   - copper coil and hub;
   - a ribbon strip and its edge built from the rope each update.
-- [ ] 4.4 RED, then GREEN, for the scene lifecycle:
-  - [ ] 4.4.1 hanging objects join the scene with their part;
-  - [ ] 4.4.2 they update after placement;
-  - [ ] 4.4.3 they leave and are disposed on recycle and on `dispose()`.
+- [x] 4.4 RED, then GREEN, for the scene lifecycle:
+  - [x] 4.4.1 hanging objects join the scene with their part;
+  - [x] 4.4.2 they update after placement;
+  - [x] 4.4.3 they leave and are disposed on recycle and on `dispose()`.
 
 ## 5. Catalogue and architecture
 
@@ -106,14 +106,15 @@ One PR suits this change. The parts share the kit, catalogue and scene changes, 
 - **Scope:** `part-model.ts` (`PartType`), `catalogue.ts`, `catalogue.test.ts` and `frontend/ARCHITECTURE.md`.
 - **Verification:** the catalogue tests and the docs consistency check.
 
-- [ ] 5.1 Add `octalTube`, `rectifier5u4`, `nixieTube` and `solderWick` with weights 1, 1, 2 and 1.
-- [ ] 5.2 Update the frontend architecture.
+- [x] 5.1 Add `octalTube`, `rectifier5u4`, `nixieTube` and `solderWick` with weights 1, 1, 2 and 1.
+- [x] 5.3 Raise the everyday parts so the niche additions stay occasional: resistor 9 to 11; small resistor, ceramic disc, monolithic, electrolytic, LED, diode, TO-92 and DIP 2 to 3.
+- [x] 5.2 Update the frontend architecture.
 
 ## 6. Review and delivery
 
 - **Outcome:** the reviewed PR, merged into `interactive-app`.
 
-- [ ] 6.1 Run the readability, format, typecheck, lint, test and build checks.
+- [x] 6.1 Run the readability, format, typecheck, lint, test and build checks.
 - [ ] 6.2 Check the browser render in both themes, and record the demo video for the PR.
 - [ ] 6.3 Get an independent exact-head review, repeated until clean.
 - [ ] 6.4 Open the PR, wait for green CI, then merge.

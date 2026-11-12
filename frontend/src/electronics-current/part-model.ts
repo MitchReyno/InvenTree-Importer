@@ -1,4 +1,5 @@
-import type { Group, Mesh } from 'three'
+import type { Group, Mesh, Object3D, Vector3 } from 'three'
+import type { PointerFlow } from './flow'
 import type { DisplayMaterials, LedMaterials, OutlineKit } from './outline-kit'
 
 export type PartType =
@@ -45,14 +46,41 @@ export type PartType =
   | 'relay'
   | 'display14'
   | 'display7'
+  | 'octalTube'
+  | 'rectifier5u4'
+  | 'nixieTube'
+  | 'solderWick'
 
-export type DisplayMode = 'text' | 'count' | 'seven'
+export type DisplayMode = 'text' | 'count' | 'seven' | 'nixie'
 
 export interface DisplayState {
   digits: Map<string, Mesh>[]
+  /** Per digit, a heavier copy of each glyph shown only while that glyph is lit. */
+  emphasis?: Map<string, Mesh>[]
   materials: DisplayMaterials
   mode: DisplayMode
   step: number | null
+}
+
+/** What a hanging piece updates against each frame. */
+export interface HangingFrame {
+  /** Scaled frame time; 0 settles the piece hanging straight down. */
+  frameSeconds: number
+  /** Camera axes, so pointer distances are measured in the screen plane. */
+  right: Vector3
+  up: Vector3
+  /** The pointer in scene units on the camera plane, or null when it is away. */
+  pointer: PointerFlow | null
+  unitsPerPx: number
+}
+
+/** Geometry that hangs freely in world space below its part, owned by that part. */
+export interface HangingPart {
+  /** World-space objects the scene adds alongside the part and removes with it. */
+  objects: Object3D[]
+  update: (frame: HangingFrame) => void
+  /** Releases the objects' geometry; materials belong to the kit. */
+  dispose: () => void
 }
 
 /** A part ready to place: its geometry plus optional behaviour hooks. */
@@ -70,6 +98,7 @@ export interface PartModel {
   animate?: (time: number, frameSeconds: number, seed: number) => void
   /** Pointer disturbance: influence 0..1 and pointer speed in px/s. */
   react?: (influence: number, pointerSpeed: number, time: number) => void
+  hanging?: HangingPart
 }
 
 export interface BuildContext {
@@ -87,6 +116,7 @@ export interface PartOptions {
   display?: DisplayState
   animate?: PartModel['animate']
   react?: PartModel['react']
+  hanging?: HangingPart
 }
 
 export function createPart(group: Group, options: PartOptions = {}): PartModel {
@@ -99,5 +129,6 @@ export function createPart(group: Group, options: PartOptions = {}): PartModel {
     display: options.display,
     animate: options.animate,
     react: options.react,
+    hanging: options.hanging,
   }
 }

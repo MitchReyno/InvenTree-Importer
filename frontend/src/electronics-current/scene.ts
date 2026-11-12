@@ -113,6 +113,9 @@ function createIsometricCamera(): { camera: OrthographicCamera; axes: CameraAxes
   return { camera, axes }
 }
 
+// Loose ends hang in world space, so they live in one layer beside the parts.
+export const HANGING_LAYER_NAME = 'hanging'
+
 function disposePartObject(part: LivePart): void {
   part.object.traverse((child) => {
     if (child instanceof Mesh || child instanceof LineSegments) {
@@ -120,6 +123,7 @@ function disposePartObject(part: LivePart): void {
     }
   })
   part.model.led?.dispose()
+  part.model.hanging?.dispose()
 }
 
 /** Pulse an LED's fill towards its colour and brighten its glow in time. */
@@ -151,6 +155,9 @@ export function createElectronicsCurrent(
   const initialTheme = options.theme ?? 'light'
   const kit = createOutlineKit(initialTheme)
   const parts: LivePart[] = []
+  const hangingLayer = new Group()
+  hangingLayer.name = HANGING_LAYER_NAME
+  scene.add(hangingLayer)
   const pointer: PointerState = {
     active: false,
     x: 0,
@@ -170,6 +177,7 @@ export function createElectronicsCurrent(
   let width = 0
   let height = 0
   let time = 0
+  let lastStepSeconds = 0
   let lastFrameAt = performance.now()
   let frameRequest = 0
   let running = false
@@ -208,6 +216,10 @@ export function createElectronicsCurrent(
     object.add(model.group)
     object.scale.setScalar(model.scale * (0.8 + random() * 0.28))
     scene.add(object)
+
+    if (model.hanging) {
+      hangingLayer.add(...model.hanging.objects)
+    }
 
     return {
       model,
@@ -283,6 +295,11 @@ export function createElectronicsCurrent(
 
   function removePart(part: LivePart): void {
     scene.remove(part.object)
+
+    if (part.model.hanging) {
+      hangingLayer.remove(...part.model.hanging.objects)
+    }
+
     disposePartObject(part)
   }
 
@@ -434,6 +451,7 @@ export function createElectronicsCurrent(
 
   function step(frameSeconds: number): void {
     time += frameSeconds
+    lastStepSeconds = frameSeconds
     const verticalLimit = Math.max(0.5, halfHeight() - 2.4)
     const stir = pointerInScene()
     separate(
@@ -469,8 +487,24 @@ export function createElectronicsCurrent(
     }
   }
 
+  /** Loose ends follow their parts' new poses; 0 seconds settles them hanging straight. */
+  function updateHanging(): void {
+    const frame = {
+      frameSeconds: lastStepSeconds,
+      right: axes.right,
+      up: axes.up,
+      pointer: pointer.active ? pointerInScene() : null,
+      unitsPerPx: UNITS_PER_PX,
+    }
+
+    for (const part of parts) {
+      part.model.hanging?.update(frame)
+    }
+  }
+
   function render(): void {
     placeAll()
+    updateHanging()
     renderer?.render(scene, camera)
   }
 

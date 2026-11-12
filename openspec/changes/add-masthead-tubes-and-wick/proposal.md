@@ -28,12 +28,13 @@ In scope:
 - The 5U4 rectifier: a tall base with 8 pins and a key spigot; glass that tapers out to a 45° shoulder, a narrower top and a dome; twin plates with filaments reaching almost to the dome.
 - The Nixie tube: ten stacked wire-formed numerals counting 0–9. The lit numeral is thicker and is never hidden by the unlit ones.
 - The solder wick dispenser: a clear dish-shaped case, a coloured label ring, a copper coil, and a short loose end that hangs under gravity, swings as the dispenser moves and reacts to the pointer.
-- Catalogue weights, theme re-tinting for the new materials, tests and frontend architecture text.
+- Slightly higher weights for the most common parts (resistors, ceramic and electrolytic capacitors, LEDs, diodes, TO-92 transistors, DIP ICs), so the niche additions stay occasional finds.
+- Catalogue weights for the new parts, theme re-tinting for the new materials, tests and frontend architecture text.
 
 Non-goals:
 
 - The canvas's other experiments: the 7-pin tube, toroids and the component-library grid.
-- Changes to existing parts, masthead layout or motion rules.
+- Changes to existing part geometry, masthead layout or motion rules.
 
 ## Reuse and dependency assessment
 

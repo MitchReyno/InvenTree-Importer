@@ -1,7 +1,8 @@
-import { BufferGeometry, type Fog, type Scene } from 'three'
+import { BufferGeometry, type Fog, type Mesh, type Scene } from 'three'
 import { FINISHES } from './finishes'
+import type { PartType } from './part-model'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { createElectronicsCurrent } from './scene'
+import { createElectronicsCurrent, HANGING_LAYER_NAME } from './scene'
 
 interface FakeRenderer {
   lastScene: Scene | null
@@ -10,6 +11,18 @@ interface FakeRenderer {
 }
 
 const rendering = vi.hoisted(() => ({ instances: [] as FakeRenderer[] }))
+
+// Lets one test fill the masthead with a single part type; null keeps the real weighted pick.
+const catalogue = vi.hoisted(() => ({ forcedType: null as PartType | null }))
+
+vi.mock('./catalogue', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./catalogue')>()
+
+  return {
+    ...actual,
+    pickPartType: (random: () => number) => catalogue.forcedType ?? actual.pickPartType(random),
+  }
+})
 
 // jsdom has no WebGL: replace only the renderer and keep the rest of three.js real.
 vi.mock('three', async (importOriginal) => {
@@ -80,6 +93,11 @@ function setVisible(visible: boolean): void {
   )
 }
 
+/** The scene's part objects, leaving out the layer that holds loose ends. */
+function partObjects(scene: Scene | null | undefined) {
+  return (scene?.children ?? []).filter((child) => child.name !== HANGING_LAYER_NAME)
+}
+
 function currentRenderer(): FakeRenderer {
   return rendering.instances[rendering.instances.length - 1]
 }
@@ -137,6 +155,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  catalogue.forcedType = null
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   observers.resizeDisconnect.mockReset()
@@ -149,7 +168,7 @@ test('reduced motion renders one static frame and never starts a loop', () => {
 
   expect(requestAnimationFrame).not.toHaveBeenCalled()
   expect(currentRenderer().renders).toBe(1)
-  expect(currentRenderer().lastScene?.children.length).toBe(30)
+  expect(partObjects(currentRenderer().lastScene)).toHaveLength(30)
   controller.dispose()
 })
 
@@ -189,11 +208,11 @@ test('the loop pauses while the masthead is off-screen and resumes when it retur
 
 test('parts leaving the masthead are replaced while the count stays steady', () => {
   const controller = start(false)
-  const initial = new Set(currentRenderer().lastScene?.children.map((child) => child.uuid))
+  const initial = new Set(partObjects(currentRenderer().lastScene).map((child) => child.uuid))
 
   // About 90 simulated seconds: every starting part crosses the masthead.
   runFrames(1800)
-  const children = currentRenderer().lastScene?.children ?? []
+  const children = partObjects(currentRenderer().lastScene)
   const survivors = children.filter((child) => initial.has(child.uuid))
 
   expect(children).toHaveLength(30)
@@ -211,7 +230,7 @@ test('stirring with the pointer keeps every part position finite', () => {
 
   controller.setPointer(-500, -500)
   runFrames(10)
-  const positions = currentRenderer().lastScene?.children.map((child) => child.position) ?? []
+  const positions = partObjects(currentRenderer().lastScene).map((child) => child.position)
 
   expect(positions).toHaveLength(30)
   positions.forEach((position) => {
@@ -271,4 +290,31 @@ test('starts in the requested theme', () => {
 
   expect(fog.color.getHex()).toBe(FINISHES.dark.ground)
   controller?.dispose()
+})
+
+test('loose ends join the scene with their dispensers, follow them and leave with them', () => {
+  catalogue.forcedType = 'solderWick'
+  const controller = start(false)
+  const scene = currentRenderer().lastScene
+  const layer = scene?.getObjectByName(HANGING_LAYER_NAME)
+  const initial = new Set(layer?.children.map((child) => child.uuid))
+  const disposeGeometry = vi.spyOn(BufferGeometry.prototype, 'dispose')
+
+  expect(layer?.children).toHaveLength(60)
+
+  runFrames(1800)
+  const positions = layer?.children.flatMap((child) =>
+    Array.from((child as Mesh).geometry.getAttribute('position').array),
+  )
+  const survivors = layer?.children.filter((child) => initial.has(child.uuid)) ?? []
+
+  expect(layer?.children).toHaveLength(60)
+  expect(survivors.length).toBeLessThan(60)
+  expect(positions?.every(Number.isFinite)).toBe(true)
+
+  disposeGeometry.mockClear()
+  controller.dispose()
+
+  expect(layer?.children).toHaveLength(0)
+  expect(disposeGeometry.mock.calls.length).toBeGreaterThanOrEqual(60)
 })

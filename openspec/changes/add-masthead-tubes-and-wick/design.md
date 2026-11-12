@@ -14,7 +14,7 @@ The canvas designs are the visual reference: the `TintedOutline3D` and `Componen
 - Meet the [added requirement](specs/ui-design-system/spec.md).
 - Keep the existing theme contract: every new material is created through the kit's tinting so `setTheme` re-tints it in place.
 - Keep the scene's resource ownership. Anything a part adds to the scene is removed and disposed with that part and on `dispose()`.
-- Make no change to existing parts, weights or motion.
+- Make no change to existing part geometry or motion. Only the everyday parts' weights rise, so the niche additions stay occasional.
 
 ## Decisions and alternatives
 
