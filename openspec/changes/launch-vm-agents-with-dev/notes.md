@@ -9,6 +9,7 @@
 - **2026-11-13T19:17+10:00, task 2:** Review round 3 found the `limactl` commands inherited the launcher's whole environment, so a shell secret could reach the Lima host agent. They now get the same base environment as the relays, and a command that ignores SIGTERM is killed after a 5 s grace so a timeout or cancellation stays bounded.
 - **2026-11-13T19:24+10:00, task 2:** The launcher's last-resort error printer accepted only `^[a-z_]+$`, so any child-named code with a hyphen printed as `development_startup_failed`. It is now `failureCode` in `process.cjs`, accepting `^[a-z][a-z0-9_-]*$`. Besides the new VM child codes, the existing `tailscale-serve_stopped_during_startup` now prints as itself.
 - **2026-11-13T19:24+10:00, task 4:** Review round 4 found the "startup fails after booting the VM" scenario unproved. The shutdown VM step moved into `vm.cjs` as `finishVm`, which never throws, with unit tests, and a qualification run with the tunnel port held confirmed the VM is stopped and the lock released.
+- **2026-11-13T19:29+10:00, task 2:** Review round 5 found that the launcher drops its signal handlers when shutdown starts, so a second Ctrl-C killed it before the VM stop. While a VM this run booted still needs stopping, the next stop signal is now held with a message and the one after quits, leaving the VM running. `limactl` messages are forwarded with a `[limactl]` prefix, so `vm_start_failed` comes with its cause.
 
 ## Unexpected challenges
 

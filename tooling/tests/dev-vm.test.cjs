@@ -1,6 +1,8 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const { EventEmitter } = require('node:events')
 const {
+  guardVmStop,
   finishVm,
   ensureVmRunning,
   runCommand,
@@ -332,4 +334,63 @@ test('a failed stop is reported with the command to run and never throws', async
   const { lines, write } = recordingWrites()
   await finishVm(PLAN, true, { exec, write })
   assert.deepEqual(lines.err, ['vm_stop_failed: run limactl stop bench-agent-test\n'])
+})
+
+test('command errors are forwarded line by line', async () => {
+  const lines = []
+  await assert.rejects(
+    runCommand(
+      process.execPath,
+      ['-e', "process.stderr.write('instance not found\\nsecond line\\n'); process.exit(1)"],
+      { stderr: (line) => lines.push(line) },
+    ),
+  )
+  assert.deepEqual(lines, ['instance not found', 'second line'])
+})
+
+test('booting forwards limactl messages with a prefix', async () => {
+  const { lines, write } = recordingWrites()
+  const exec = async (command, args, options) => {
+    options.stderr?.(`starting ${args[0]}`)
+    return args[0] === 'list' ? 'Stopped\n' : ''
+  }
+  await ensureVmRunning(PLAN, { exec, write, onBoot: () => {} })
+  assert.deepEqual(lines.err, ['[limactl] starting list\n', '[limactl] starting start\n'])
+})
+
+function signalSource() {
+  const source = new EventEmitter()
+  return {
+    source,
+    on: (name, handler) => source.on(name, handler),
+    off: (name, handler) => source.off(name, handler),
+  }
+}
+
+test('a second Ctrl-C while the VM still needs stopping is held, a third forces the quit', () => {
+  const { source, on, off } = signalSource()
+  const { lines, write } = recordingWrites()
+  const exits = []
+  const release = guardVmStop(PLAN, true, { on, off, write, exit: (code) => exits.push(code) })
+  source.emit('SIGINT')
+  assert.deepEqual(exits, [])
+  assert.match(lines.err[0], /Stopping VM bench-agent-test first/)
+  source.emit('SIGINT')
+  assert.deepEqual(exits, [130])
+  release()
+  assert.equal(source.listenerCount('SIGINT'), 0)
+  assert.equal(source.listenerCount('SIGTERM'), 0)
+  assert.equal(source.listenerCount('SIGHUP'), 0)
+})
+
+test('no guard is installed when the VM will not be stopped', () => {
+  for (const [plan, booted] of [
+    [PLAN, false],
+    [{ ...PLAN, keepRunning: true }, true],
+  ]) {
+    const { source, on, off } = signalSource()
+    const release = guardVmStop(plan, booted, { on, off, write: recordingWrites().write })
+    assert.equal(source.listenerCount('SIGINT'), 0)
+    release()
+  }
 })

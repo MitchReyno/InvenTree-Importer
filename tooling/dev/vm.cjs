@@ -25,7 +25,11 @@ const CREDENTIAL_PORTS = [14315, 14317]
  * Runs a command in its own process group and resolves with its standard output. A terminal
  * Ctrl-C therefore cannot interrupt it: a VM stop finishes even if the launcher is killed.
  */
-function runCommand(command, args, { timeout, signal, env, killGraceMs = KILL_GRACE_MS } = {}) {
+function runCommand(
+  command,
+  args,
+  { timeout, signal, env, stderr, killGraceMs = KILL_GRACE_MS } = {},
+) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason)
@@ -34,7 +38,7 @@ function runCommand(command, args, { timeout, signal, env, killGraceMs = KILL_GR
     const child = spawn(command, args, {
       detached: true,
       env,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', stderr ? 'pipe' : 'ignore'],
     })
     let stdout = ''
     let timer
@@ -58,8 +62,19 @@ function runCommand(command, args, { timeout, signal, env, killGraceMs = KILL_GR
     child.stdout.on('data', (bytes) => {
       stdout += bytes
     })
+    let partial = ''
+    child.stderr?.on('data', (bytes) => {
+      const lines = (partial + bytes).split('\n')
+      partial = lines.pop()
+      for (const line of lines) {
+        stderr(line)
+      }
+    })
     child.once('error', reject)
     child.once('close', (code) => {
+      if (partial) {
+        stderr(partial)
+      }
       clearTimeout(timer)
       clearTimeout(killTimer)
       signal?.removeEventListener('abort', terminate)
@@ -74,13 +89,24 @@ function runCommand(command, args, { timeout, signal, env, killGraceMs = KILL_GR
 
 const defaultExec = runCommand
 
-async function vmRunning(plan, { exec = defaultExec, signal, env } = {}) {
+const STANDARD_WRITE = {
+  out: (text) => process.stdout.write(text),
+  err: (text) => process.stderr.write(text),
+}
+
+/** Lima's own messages, so a failed or slow boot shows its cause and progress. */
+function limaMessages(write) {
+  return (line) => write.err(`[limactl] ${line}\n`)
+}
+
+async function vmRunning(plan, { exec = defaultExec, signal, env, write = STANDARD_WRITE } = {}) {
   let status
   try {
     status = await exec('limactl', ['list', '--format', '{{.Status}}', plan.name], {
       timeout: VM_STATUS_TIMEOUT_MS,
       signal,
       env,
+      stderr: limaMessages(write),
     })
   } catch {
     throw new Error('vm_start_failed')
@@ -92,12 +118,13 @@ async function vmRunning(plan, { exec = defaultExec, signal, env } = {}) {
   return value === 'Running'
 }
 
-async function startVm(plan, { exec = defaultExec, signal, env } = {}) {
+async function startVm(plan, { exec = defaultExec, signal, env, write = STANDARD_WRITE } = {}) {
   try {
     await exec('limactl', ['start', '--tty=false', plan.name], {
       timeout: VM_BOOT_TIMEOUT_MS,
       signal,
       env,
+      stderr: limaMessages(write),
     })
   } catch {
     throw new Error('vm_start_failed')
@@ -108,14 +135,14 @@ async function startVm(plan, { exec = defaultExec, signal, env } = {}) {
  * Boots the VM when it is not running. `onBoot` runs before the boot starts, so a cancelled or failed
  * boot is still treated as this run's; callers record the boot there. Resolves true when it booted.
  */
-async function ensureVmRunning(plan, { exec = defaultExec, signal, env, onBoot }) {
-  const running = await vmRunning(plan, { exec, signal, env })
+async function ensureVmRunning(plan, { exec = defaultExec, signal, env, write, onBoot }) {
+  const running = await vmRunning(plan, { exec, signal, env, write })
   signal?.throwIfAborted()
   if (running) {
     return false
   }
   onBoot()
-  await startVm(plan, { exec, signal, env })
+  await startVm(plan, { exec, signal, env, write })
   return true
 }
 
@@ -124,17 +151,16 @@ function shouldStopVm(plan, booted) {
   return booted && !plan.keepRunning
 }
 
-async function stopVm(plan, { exec = defaultExec, env } = {}) {
+async function stopVm(plan, { exec = defaultExec, env, write = STANDARD_WRITE } = {}) {
   try {
-    await exec('limactl', ['stop', plan.name], { timeout: VM_STOP_TIMEOUT_MS, env })
+    await exec('limactl', ['stop', plan.name], {
+      timeout: VM_STOP_TIMEOUT_MS,
+      env,
+      stderr: limaMessages(write),
+    })
   } catch {
     throw new Error('vm_stop_failed')
   }
-}
-
-const STANDARD_WRITE = {
-  out: (text) => process.stdout.write(text),
-  err: (text) => process.stderr.write(text),
 }
 
 /**
@@ -147,9 +173,51 @@ async function finishVm(plan, booted, { exec = defaultExec, env, write = STANDAR
   }
   write.out(`Stopping VM ${plan.name}.\n`)
   try {
-    await stopVm(plan, { exec, env })
+    await stopVm(plan, { exec, env, write })
   } catch {
     write.err(`vm_stop_failed: run limactl stop ${plan.name}\n`)
+  }
+}
+
+const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP']
+
+/**
+ * While shutdown still has a VM to stop, holds the next Ctrl-C (or other stop signal) so the stop is
+ * not skipped; the one after that quits at once and leaves the VM running. Returns the release.
+ */
+function guardVmStop(
+  plan,
+  booted,
+  {
+    on = (name, handler) => process.on(name, handler),
+    off = (name, handler) => process.off(name, handler),
+    write = STANDARD_WRITE,
+    exit = (code) => process.exit(code),
+  } = {},
+) {
+  if (!shouldStopVm(plan, booted)) {
+    return () => {}
+  }
+  let held = false
+
+  const hold = () => {
+    if (held) {
+      exit(130)
+      return
+    }
+    held = true
+    write.err(
+      `Stopping VM ${plan.name} first; press Ctrl-C again to quit now and leave it running.\n`,
+    )
+  }
+
+  for (const name of SHUTDOWN_SIGNALS) {
+    on(name, hold)
+  }
+  return () => {
+    for (const name of SHUTDOWN_SIGNALS) {
+      off(name, hold)
+    }
   }
 }
 
@@ -235,6 +303,7 @@ module.exports = {
   stopVm,
   shouldStopVm,
   finishVm,
+  guardVmStop,
   startVmChildren,
   confirmVmChildren,
   VM_CHILD_NAMES,

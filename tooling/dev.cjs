@@ -27,6 +27,7 @@ const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
 const {
   ensureVmRunning,
   finishVm,
+  guardVmStop,
   startVmChildren,
   confirmVmChildren,
   VM_CHILD_NAMES,
@@ -573,6 +574,8 @@ async function main() {
     await stopped
   } finally {
     session.close()
+    // A second Ctrl-C would otherwise skip the stop of a VM this run booted.
+    const releaseVmGuard = resolved.vm ? guardVmStop(resolved.vm, vmBooted) : () => {}
     closing = true
     closeWatch()
     try {
@@ -586,6 +589,7 @@ async function main() {
         }
       } finally {
         await release()
+        releaseVmGuard()
         if (reportStop) {
           process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
         }
