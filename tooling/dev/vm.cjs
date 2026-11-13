@@ -2,12 +2,9 @@
  * The agent VM's side of `pnpm dev`: boots and stops the Lima instance, and launches the credential
  * tunnel and one relay per provider. Commands and `launch` are passed in so tests can substitute them.
  */
-const { execFile } = require('node:child_process')
+const { spawn } = require('node:child_process')
 const { join } = require('node:path')
-const { promisify } = require('node:util')
 const { setTimeout: delay } = require('node:timers/promises')
-
-const run = promisify(execFile)
 
 /** Names the launcher keeps through source reloads and stops the app for when they exit. */
 const VM_CHILD_NAMES = ['vm-tunnel', 'vm-relay-claude', 'vm-relay-codex']
@@ -22,10 +19,45 @@ const CHILD_SETTLE_MS = 1000
 /** The loopback ports the dev UI proxies to the guest's Claude and Codex credential services. */
 const CREDENTIAL_PORTS = [14315, 14317]
 
-async function defaultExec(command, args, options) {
-  const { stdout } = await run(command, args, options)
-  return stdout
+/**
+ * Runs a command in its own process group and resolves with its standard output. A terminal
+ * Ctrl-C therefore cannot interrupt it: a VM stop finishes even if the launcher is killed.
+ */
+function runCommand(command, args, { timeout, signal } = {}) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason)
+      return
+    }
+    const child = spawn(command, args, { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+    let stdout = ''
+    let timer
+    const terminate = () => {
+      try {
+        process.kill(-child.pid, 'SIGTERM')
+      } catch {}
+    }
+    if (timeout) {
+      timer = setTimeout(terminate, timeout)
+    }
+    signal?.addEventListener('abort', terminate, { once: true })
+    child.stdout.on('data', (bytes) => {
+      stdout += bytes
+    })
+    child.once('error', reject)
+    child.once('close', (code) => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', terminate)
+      if (code === 0) {
+        resolve(stdout)
+      } else {
+        reject(new Error('command_failed'))
+      }
+    })
+  })
 }
+
+const defaultExec = runCommand
 
 async function vmRunning(plan, { exec = defaultExec, signal } = {}) {
   let status
@@ -53,6 +85,21 @@ async function startVm(plan, { exec = defaultExec, signal } = {}) {
   } catch {
     throw new Error('vm_start_failed')
   }
+}
+
+/**
+ * Boots the VM when it is not running. `onBoot` runs before the boot starts, so a cancelled or failed
+ * boot is still treated as this run's. Resolves true when this call booted it.
+ */
+async function ensureVmRunning(plan, { exec = defaultExec, signal, onBoot }) {
+  const running = await vmRunning(plan, { exec, signal })
+  signal?.throwIfAborted()
+  if (running) {
+    return false
+  }
+  onBoot()
+  await startVm(plan, { exec, signal })
+  return true
 }
 
 /** Only a VM this run booted is stopped: one that was already running may be in use elsewhere. */
@@ -143,6 +190,8 @@ async function confirmVmChildren(items, { settleMs = CHILD_SETTLE_MS, signal } =
 }
 
 module.exports = {
+  runCommand,
+  ensureVmRunning,
   vmRunning,
   startVm,
   stopVm,

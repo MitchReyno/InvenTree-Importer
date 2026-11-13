@@ -8,7 +8,7 @@ dir=${2:?paired directory inside VM}
 image=${3:?personal runner image}
 key_file=${4:?private operator key file on the host}
 origin=${5:?exact browser origin}
-[[ $vm =~ ^[a-z0-9-]+$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
+[[ $vm =~ ^[a-z0-9][a-z0-9-]*$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
 guest() { limactl shell --workdir=/ "$vm" "$@"; }
 guest test -d "$dir/guest"
 if [[ ! -e $key_file ]]; then (set -C; openssl rand -hex 32 > "$key_file"); fi

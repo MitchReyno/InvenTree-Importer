@@ -45,7 +45,7 @@ The tunnel passes `-o ControlPath=none`. Lima's `ssh.config` enables connection 
 
 ### Stop only what this run booted
 
-`vm.cjs` reads the status before booting and returns `{ booted }`. A VM that was already running may be used by another session or a manual relay, so it is left running.
+`ensureVmRunning` in `vm.cjs` reads the status, calls the launcher's `onBoot` before booting, and resolves whether it booted the VM. A VM that was already running may be used by another session or a manual relay, so it is left running.
 
 `INTAKE_VM_KEEP_RUNNING` (default false) keeps a VM this run booted, for quick restarts. It is a switch with the same parsing as the others.
 
@@ -62,7 +62,7 @@ Scripted agents in the VM use a controlled-provider runner chosen by the test ha
 | Boot (`limactl start --tty=false NAME`, bounded at 180 s, abortable by Ctrl-C) | VM running; `booted` recorded **before** the command runs, so a cancelled boot is still stopped | `vm_start_failed`; the `finally` block stops the VM |
 | Tunnel and relays | three owned children | `<name>_stopped_during_startup`; startup aborts and `finally` cleans up |
 | Running | — | a child's exit writes `<name> stopped; stopping the app.` and shuts down |
-| Shutdown | children stopped with the app's others, then `limactl stop NAME` if booted and not kept, then the lock release | a stop failure writes `vm_stop_failed: run limactl stop NAME` and the release still happens |
+| Shutdown | children stopped with the app's others, then `limactl stop NAME` (in its own process group, so a second Ctrl-C cannot interrupt it) if booted and not kept, then the lock release | a stop failure writes `vm_stop_failed: run limactl stop NAME` and the release still happens |
 
 Authority: the launcher already has the developer's local permissions. It uses `limactl` and `ssh` with the developer's Lima configuration and passes the relays only `PATH`, `HOME`, the other base variables, `LIMA_HOME` when set, and the provider and tool flags. No pairing key, operator key or token is read or passed by the launcher.
 

@@ -175,17 +175,28 @@ function resolveProcessing(settings) {
       profile: sessions ? 'synthetic-session/1' : 'synthetic-research/2',
       mockAgents,
       agentsInVm,
+      vmTools,
     }
   }
   if (agentsInVm) {
-    return { profile: vmTools ? 'shared-vm-agent/2' : 'shared-vm-agent/1', mockAgents, agentsInVm }
+    return {
+      profile: vmTools ? 'shared-vm-agent/2' : 'shared-vm-agent/1',
+      mockAgents,
+      agentsInVm,
+      vmTools,
+    }
   }
-  return { profile: sessions ? 'native-agent/2' : 'native-agent/1', mockAgents, agentsInVm }
+  return {
+    profile: sessions ? 'native-agent/2' : 'native-agent/1',
+    mockAgents,
+    agentsInVm,
+    vmTools,
+  }
 }
 
 /** The forms `tooling/deployment/bridge/relay.mjs` accepts, so the launcher never starts a relay it refuses. */
 const VM_LAUNCH_FORMS = {
-  INTAKE_VM_NAME: /^[a-z0-9-]+$/,
+  INTAKE_VM_NAME: /^[a-z0-9][a-z0-9-]*$/,
   INTAKE_VM_GUEST_DIR: /^\/[a-zA-Z0-9_./-]+$/,
   INTAKE_VM_RUNNER_IMAGE: /^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$/,
 }
@@ -196,7 +207,7 @@ function validRelayPort(value) {
 }
 
 /** The VM `pnpm dev` boots and relays into, or null when the developer runs the VM side themselves. */
-function resolveVmLaunch(settings, { mockAgents, agentsInVm, keepRunning }) {
+function resolveVmLaunch(settings, { mockAgents, agentsInVm, vmTools, keepRunning }) {
   if (!present(settings, 'INTAKE_VM_NAME')) {
     return null
   }
@@ -228,7 +239,7 @@ function resolveVmLaunch(settings, { mockAgents, agentsInVm, keepRunning }) {
     guestDir: settings.INTAKE_VM_GUEST_DIR,
     image: settings.INTAKE_VM_RUNNER_IMAGE,
     port: settings.INTAKE_VM_PORT,
-    tools: switchValue(settings, 'INTAKE_VM_AGENT_TOOLS') ?? true,
+    tools: vmTools,
     keepRunning,
   }
 }
@@ -241,10 +252,10 @@ function resolveDevelopmentSettings(settings) {
   refuseRetiredSettings(settings)
   const { targetSettings, ignored } = resolveInventory(settings)
   const readOnly = resolveReadOnly(settings, targetSettings.INTAKE_TARGET_PROFILE)
-  const { profile, mockAgents, agentsInVm } = resolveProcessing(settings)
+  const { profile, mockAgents, agentsInVm, vmTools } = resolveProcessing(settings)
   // Checked even without a VM name, like the other switches.
   const keepRunning = switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false
-  const vm = resolveVmLaunch(settings, { mockAgents, agentsInVm, keepRunning })
+  const vm = resolveVmLaunch(settings, { mockAgents, agentsInVm, vmTools, keepRunning })
   return { targetSettings, readOnly, profile, mockAgents, agentsInVm, ignored, vm }
 }
 

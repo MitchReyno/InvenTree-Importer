@@ -25,8 +25,7 @@ const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
 const {
-  vmRunning,
-  startVm,
+  ensureVmRunning,
   stopVm,
   shouldStopVm,
   startVmChildren,
@@ -44,7 +43,7 @@ const baseEnv = Object.fromEntries(
 )
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
-// The VM tunnel and relays reconnect to the restarted session worker by themselves.
+// The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.
 const KEPT_THROUGH_RELOAD = new Set([...FRONT_DOOR, ...VM_CHILD_NAMES])
 
 async function freePort(requested = 0) {
@@ -211,6 +210,19 @@ async function main() {
     }
     resolveStop()
   }
+  /** Children the app cannot run without: when one exits outside shutdown, the app stops. */
+  function stopAppWhenExited(items) {
+    for (const item of items) {
+      void item.exited.then(() => {
+        if (!closing) {
+          process.stderr.write(`${item.name} stopped; stopping the app.\n`)
+          process.exitCode = 1
+          shutdown()
+        }
+      })
+    }
+  }
+
   // SIGHUP is what a closed terminal delivers. The parent watch covers a launcher that exits first.
   const session = bindSessionEnd(shutdown)
   try {
@@ -246,14 +258,13 @@ async function main() {
       await freePort(port)
     }
     if (resolved.vm) {
-      const running = await vmRunning(resolved.vm, { signal: startup.signal })
-      startup.signal.throwIfAborted()
-      if (!running) {
-        // Recorded before booting, so a cancelled or failed boot is still stopped on exit.
-        vmBooted = true
-        process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
-        await startVm(resolved.vm, { signal: startup.signal })
-      }
+      await ensureVmRunning(resolved.vm, {
+        signal: startup.signal,
+        onBoot: () => {
+          vmBooted = true
+          process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
+        },
+      })
       const vmChildren = startVmChildren(resolved.vm, {
         launch,
         execPath: process.execPath,
@@ -265,15 +276,7 @@ async function main() {
       })
       children.push(...vmChildren)
       await confirmVmChildren(vmChildren, { signal: startup.signal })
-      for (const item of vmChildren) {
-        void item.exited.then(() => {
-          if (!closing) {
-            process.stderr.write(`${item.name} stopped; stopping the app.\n`)
-            process.exitCode = 1
-            shutdown()
-          }
-        })
-      }
+      stopAppWhenExited(vmChildren)
     }
     const { serviceEnv, prepared } = started
     const root = prepared.root
@@ -495,15 +498,7 @@ async function main() {
       )
       children.push(serve)
       await serve.ready(30000, startup.signal)
-      for (const item of [gateway, serve]) {
-        void item.exited.then(() => {
-          if (!closing) {
-            process.stderr.write(`${item.name} stopped; stopping the app.\n`)
-            process.exitCode = 1
-            shutdown()
-          }
-        })
-      }
+      stopAppWhenExited([gateway, serve])
     }
     await publishRunning(root, publicOrigin, children)
     closeWatch = await watchCode(

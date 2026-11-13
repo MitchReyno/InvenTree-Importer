@@ -510,6 +510,7 @@ test('a named VM needs its guest directory and runner image', () => {
 test('malformed VM settings are refused by name, never by value', () => {
   const cases = [
     ['INTAKE_VM_NAME', 'Bench Agent'],
+    ['INTAKE_VM_NAME', '--debug'],
     ['INTAKE_VM_GUEST_DIR', 'relative/dir'],
     ['INTAKE_VM_GUEST_DIR', '/dir with space'],
     ['INTAKE_VM_RUNNER_IMAGE', 'image name'],

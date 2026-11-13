@@ -5,7 +5,7 @@ umask 077
 vm=${1:?provide the Lima instance name}
 host_dir=${2:?provide a new private directory for the coordinator identity}
 guest_dir=${3:?provide a new private directory inside the guest}
-[[ "$vm" =~ ^[a-z0-9-]+$ && "$host_dir" = /* && "$guest_dir" =~ ^/[a-zA-Z0-9_./-]+$ ]]
+[[ "$vm" =~ ^[a-z0-9][a-z0-9-]*$ && "$host_dir" = /* && "$guest_dir" =~ ^/[a-zA-Z0-9_./-]+$ ]]
 mkdir -m 700 "$host_dir"
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT

@@ -196,3 +196,64 @@ test('the status read is cancellable', async () => {
   await vmRunning(PLAN, { exec, signal: controller.signal })
   assert.equal(calls[0].options.signal, controller.signal)
 })
+
+const { ensureVmRunning, runCommand } = require('../dev/vm.cjs')
+
+test('a running VM is not booted and not marked as booted', async () => {
+  const { exec, calls } = recordingExec({ 'limactl list': 'Running\n' })
+  let marked = false
+  const booted = await ensureVmRunning(PLAN, { exec, onBoot: () => (marked = true) })
+  assert.equal(booted, false)
+  assert.equal(marked, false)
+  assert.deepEqual(
+    calls.map((call) => call.args[0]),
+    ['list'],
+  )
+})
+
+test('a stopped VM is marked as booted before the boot starts', async () => {
+  const order = []
+  const exec = async (command, args) => {
+    order.push(args[0])
+    return args[0] === 'list' ? 'Stopped\n' : ''
+  }
+  const booted = await ensureVmRunning(PLAN, { exec, onBoot: () => order.push('marked') })
+  assert.equal(booted, true)
+  assert.deepEqual(order, ['list', 'marked', 'start'])
+})
+
+test('a boot cancelled after the status read is never started or marked', async () => {
+  const controller = new AbortController()
+  const order = []
+  const exec = async (command, args) => {
+    order.push(args[0])
+    controller.abort()
+    return 'Stopped\n'
+  }
+  await assert.rejects(
+    ensureVmRunning(PLAN, { exec, signal: controller.signal, onBoot: () => order.push('marked') }),
+  )
+  assert.deepEqual(order, ['list'])
+})
+
+test('commands run in their own process group, so a terminal Ctrl-C cannot interrupt them', async () => {
+  const output = await runCommand(process.execPath, [
+    '-e',
+    "process.stdout.write(require('node:child_process').execFileSync('ps', ['-o', 'pgid=', '-p', String(process.pid)]).toString().trim() + ' ' + process.pid)",
+  ])
+  const [group, pid] = output.trim().split(' ')
+  assert.equal(group, pid)
+})
+
+test('commands fail on a non-zero exit, a timeout or cancellation', async () => {
+  await assert.rejects(runCommand(process.execPath, ['-e', 'process.exit(3)']))
+  await assert.rejects(
+    runCommand(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { timeout: 100 }),
+  )
+  const controller = new AbortController()
+  const waiting = runCommand(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], {
+    signal: controller.signal,
+  })
+  controller.abort()
+  await assert.rejects(waiting)
+})

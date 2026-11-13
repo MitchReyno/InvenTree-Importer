@@ -5,7 +5,7 @@ vm=${1:?VM name}
 dir=${2:?private paired directory}
 image=${3:?personal runner image}
 origin=${4:?exact browser origin}
-[[ $vm =~ ^[a-z0-9-]+$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
+[[ $vm =~ ^[a-z0-9][a-z0-9-]*$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
 guest() { limactl shell --workdir=/ "$vm" "$@"; }
 guest test -d "$dir/guest"
 if ! guest sudo test -s "$dir/operator/key"; then

@@ -26,7 +26,7 @@ The development launcher SHALL manage the agent VM only when `INTAKE_VM_NAME` is
 
 ### Requirement: VM launch settings are validated
 
-The launcher SHALL accept an instance name matching `^[a-z0-9-]+$`, an absolute guest directory matching `^/[a-zA-Z0-9_./-]+$`, an image reference matching `^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$` and an `INTAKE_VM_PORT` from 1 to 65535, the forms the relay accepts. It SHALL accept `INTAKE_VM_KEEP_RUNNING` only as true, false, 1 or 0, whether or not a VM is named.
+The launcher SHALL accept an instance name matching `^[a-z0-9][a-z0-9-]*$`, an absolute guest directory matching `^/[a-zA-Z0-9_./-]+$`, an image reference matching `^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$` and an `INTAKE_VM_PORT` from 1 to 65535, the forms the relay accepts. It SHALL accept `INTAKE_VM_KEEP_RUNNING` only as true, false, 1 or 0, whether or not a VM is named.
 
 #### Scenario: Missing or malformed VM setting
 
