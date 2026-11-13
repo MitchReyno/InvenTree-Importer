@@ -106,10 +106,10 @@ origin=http://127.0.0.1:4330
 tooling/deployment/bridge/personal-claude.sh "$vm" "$guest_directory" "$personal_image" "$operator_key_file" "$origin"
 ```
 
-Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration.
+Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration. `ControlPath=none` gives the tunnel its own connection: Lima's SSH configuration shares one, and through it `ssh` would hand the forward to the shared connection and exit at once. With `INTAKE_VM_NAME` set, `pnpm dev` runs both tunnels itself (see [development](../../docs/development.md#running-the-agent-vm-with-the-app)).
 
 ```sh
-ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14315:127.0.0.1:14315 "lima-$vm"
 ```
 
@@ -132,7 +132,7 @@ Run `personal-codex.sh` once in an installation paired with `pair.sh`. It reuses
 
 ```sh
 tooling/deployment/bridge/personal-codex.sh "$vm" "$guest_directory" "$personal_image" "$origin" "$operator_key_file"
-ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14317:127.0.0.1:14317 "lima-$vm"
 ```
 

@@ -69,9 +69,9 @@ One PR carries tasks 1–4. The settings, the module that acts on them and their
 - Verification: `bash -n` on the script; manual boot check in task 4; Markdown reference check against the code.
 - Risks and decisions: None.
 
-- [ ] 3.1 Split the memory cap in `personal-claude.sh`.
-- [ ] 3.2 Fix the tunnel commands in `tooling/deployment/README.md`.
-- [ ] 3.3 Document the settings and lifecycle in `docs/development.md` and `.env.intake.example`, and check every claim against the code.
+- [x] 3.1 Split the memory cap in `personal-claude.sh`.
+- [x] 3.2 Fix the tunnel commands in `tooling/deployment/README.md`.
+- [x] 3.3 Document the settings and lifecycle in `docs/development.md` and `.env.intake.example`, and check every claim against the code.
 
 ## 4. Qualification and delivery
 

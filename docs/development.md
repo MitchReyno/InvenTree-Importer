@@ -34,7 +34,7 @@ Source reloads keep the gateway and serve process running, like the UI.
 
 Start with the documented template in `.env.intake.example`. Create a new file only when the checkout has no `.env`; merge the relevant settings yourself if one already exists, and keep it private. `.env` and `.env.*` variants are gitignored; only the documented example templates are excepted. Values are parsed as dotenv data using Node24's built-in parser, never sourced as shell code. No variable expansion is performed. File changes require restarting the command and do not trigger live reload.
 
-The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_DEV_TAILSCALE`, `INTAKE_DEV_TAILSCALE_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, the [settings below](#choosing-what-the-app-runs), `INTAKE_CREDENTIAL_REF`, the session-worker pairing directory and port (`INTAKE_VM_PAIR` and `INTAKE_VM_PORT`), the native executable overrides and provider API-key names documented below.
+The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_DEV_TAILSCALE`, `INTAKE_DEV_TAILSCALE_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, the [settings below](#choosing-what-the-app-runs), `INTAKE_CREDENTIAL_REF`, the session-worker pairing directory and port (`INTAKE_VM_PAIR` and `INTAKE_VM_PORT`), the [agent VM launch settings](#running-the-agent-vm-with-the-app), the native executable overrides and provider API-key names documented below.
 
 Standalone `dev:intake` takes the server's own variable names instead (`INTAKE_TARGET_PROFILE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_READ_ORIGIN`, `INTAKE_DEV_API_KEY`), which `pnpm dev` refuses. Keep them in a separate file, such as `.env.intake-api`, and select it with `INTAKE_ENV_FILE`. `dev:intake` additionally accepts its explicit `INTAKE_ORIGIN`, `INTAKE_DATABASE_URL`, actor/target/context IDs, blob root, deployment ID, Processing channel secret and research URL lists. The full-stack launcher continues to own its local app database/identity settings. File-provided PATH, HOME, Node process flags, Vite variables and unknown keys are ignored; Vite dotenv discovery remains disabled. The standalone API child additionally receives only its required runtime settings and basic host environment, excluding setup-admin URLs, provider keys, native executable overrides and unrelated shell secrets.
 
@@ -78,6 +78,38 @@ INTAKE_INVENTREE_TOKEN=your-read-only-api-token
 Use the server origin, without an `/api/` suffix, and without credentials in the URL, query string or fragment. Each server gets its own retained namespace, keyed by its origin and a credential reference. The reference defaults to `inventree_` plus the host name; set `INTAKE_CREDENTIAL_REF` to keep a namespace created under an earlier reference. Changing the token keeps the namespace. An explicit `INTAKE_APP_STATE` cannot be rebound to a different target or switched between the mock and a real server.
 
 An external server supports connection status, existing-record lookups, local Capture/media and Processing. It creates no executor deployment and starts no mock inventory or apply worker, so inventory preparation/approval cannot authorize a remote write. The token is provided only to the API process; it is not saved in retained state, sent to Vite or workers, or returned in public responses. Real-server compatibility, authentication and permission qualification are distinct from synthetic test evidence.
+
+## Running the agent VM with the app
+
+With real agents in the VM, `pnpm dev` can own the VM side as well: it boots the Lima instance, opens the credential tunnels and runs one relay per provider, and stops them when the app stops. Set the instance and its paired guest in the env file:
+
+```dotenv
+INTAKE_USE_MOCK_AI_AGENTS=false
+INTAKE_RUN_AGENTS_IN_VM=true
+INTAKE_VM_PAIR=/private/coordinator/pair
+INTAKE_VM_PORT=14313
+INTAKE_VM_NAME=bench-agent-m1
+INTAKE_VM_GUEST_DIR=/var/tmp/bench-personal
+INTAKE_VM_RUNNER_IMAGE=bench-intake-runner:personal
+```
+
+| Setting | What it names |
+|---|---|
+| `INTAKE_VM_NAME` | The Lima instance. Setting it turns on this behaviour. |
+| `INTAKE_VM_GUEST_DIR` | The guest directory given to `pair.sh`. |
+| `INTAKE_VM_RUNNER_IMAGE` | The personal runner image loaded into the VM's Docker. |
+| `INTAKE_VM_KEEP_RUNNING` | Switch, default `false`. `true` leaves a VM this run booted running after the app stops. |
+
+On start, after the database is ready, `pnpm dev` boots the VM if it is stopped (about 36 s on an M1) and starts:
+
+- `vm-tunnel`: forwards loopback ports 14315 and 14317 to the guest, for **Settings › Agents**;
+- `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`.
+
+They keep running through source reloads. If one of them exits, for example because the VM was stopped elsewhere, the app stops with `<name> stopped; stopping the app.`
+
+When the app stops, it stops these three and then the VM, but only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not `true`. A VM that was already running is left running, because something else may be using it. If the stop fails, the app says so and names the `limactl stop` command to run.
+
+The settings are checked before anything starts. `INTAKE_VM_NAME` with scripted agents, or without `INTAKE_RUN_AGENTS_IN_VM=true`, is refused (`vm_launch_requires_real_vm_agents`), as are a missing guest directory or image and values the relay would reject. Without `INTAKE_VM_NAME`, start the relays and tunnels yourself as described in the [deployment guide](../tooling/deployment/README.md#app-to-guest-dispatch). Creating and pairing the VM, loading the runner image and linking provider accounts stay one-off steps in that guide.
 
 ## Local development InvenTree
 
