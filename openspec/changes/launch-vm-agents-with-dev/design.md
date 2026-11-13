@@ -62,7 +62,7 @@ Scripted agents in the VM use a controlled-provider runner chosen by the test ha
 | Boot (`limactl start --tty=false NAME`, bounded at 180 s, abortable by Ctrl-C) | VM running; `booted` recorded **before** the command runs, so a cancelled boot is still stopped | `vm_start_failed`; the `finally` block stops the VM |
 | Tunnel and relays | three owned children | `<name>_stopped_during_startup`; startup aborts and `finally` cleans up |
 | Running | — | a child's exit writes `<name> stopped; stopping the app.` and shuts down |
-| Shutdown | children stopped with the app's others, then `limactl stop NAME` (in its own process group, so it finishes even if the launcher quits; from the start of shutdown a second Ctrl-C is held, and a third quits, leaving the VM running only if its stop had not started) if booted and not kept, then the lock release | a stop failure writes `vm_stop_failed: run limactl stop NAME` and the release still happens |
+| Shutdown | children stopped with the app's others, then `limactl stop NAME` (in its own process group with its output discarded, so it finishes even if the launcher quits; once shutdown reaches the VM step the next Ctrl-C is held and the one after quits, leaving the VM running only if its stop had not started) if booted and not kept, then the lock release | a stop failure writes `vm_stop_failed: run limactl stop NAME` and the release still happens |
 
 Authority: the launcher already has the developer's local permissions. It uses `limactl` and `ssh` with the developer's Lima configuration and passes the relays only `PATH`, `HOME`, the other base variables, `LIMA_HOME` when set, and the provider and tool flags. No pairing key, operator key or token is read or passed by the launcher.
 

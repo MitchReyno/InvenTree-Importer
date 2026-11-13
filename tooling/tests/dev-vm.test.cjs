@@ -394,3 +394,19 @@ test('no guard is installed when the VM will not be stopped', () => {
     release()
   }
 })
+
+test('a command run with discarded output holds no pipe to the launcher', async () => {
+  // Node connects child output with sockets on macOS and pipes elsewhere; neither may remain.
+  const check =
+    "const { fstatSync } = require('node:fs'); " +
+    'const piped = [1, 2].some((fd) => fstatSync(fd).isFIFO() || fstatSync(fd).isSocket()); ' +
+    'process.exit(piped ? 1 : 0)'
+  await runCommand(process.execPath, ['-e', check], { discardOutput: true })
+})
+
+test('stopping the VM discards its output, so it survives the launcher exiting', async () => {
+  const { exec, calls } = recordingExec()
+  await stopVm(PLAN, { exec })
+  assert.equal(calls[0].options.discardOutput, true)
+  assert.equal(calls[0].options.stderr, undefined)
+})

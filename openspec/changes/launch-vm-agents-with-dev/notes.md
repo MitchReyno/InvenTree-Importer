@@ -11,6 +11,7 @@
 - **2026-11-13T19:24+10:00, task 4:** Review round 4 found the "startup fails after booting the VM" scenario unproved. The shutdown VM step moved into `vm.cjs` as `finishVm`, which never throws, with unit tests, and a qualification run with the tunnel port held confirmed the VM is stopped and the lock released.
 - **2026-11-13T19:29+10:00, task 2:** Review round 5 found that the launcher drops its signal handlers when shutdown starts, so a second Ctrl-C killed it before the VM stop. While a VM this run booted still needs stopping, the next stop signal is now held with a message and the one after quits, leaving the VM running. `limactl` messages are forwarded with a `[limactl]` prefix, so `vm_start_failed` comes with its cause.
 - **2026-11-13T19:37+10:00, task 3:** Review round 7 corrected the round 5 description: a forced quit leaves the VM running only if its `limactl stop` had not started, because that stop runs in its own process group and finishes anyway. The docs, design and message now say so. The root README's hand-run tunnels also gained `ControlPath=none` and a pointer to the `INTAKE_VM_NAME` route.
+- **2026-11-13T19:45+10:00, task 2:** Review round 8 noted that `limactl stop` still wrote to pipes back to the launcher, so a forced quit could kill it on its next log line. It now runs with its output discarded; qualification forced a quit two seconds into the stop and the VM still stopped, and the next run removed the stale lock and started normally.
 
 ## Unexpected challenges
 

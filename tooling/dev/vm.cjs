@@ -22,13 +22,14 @@ const KILL_GRACE_MS = 5000
 const CREDENTIAL_PORTS = [14315, 14317]
 
 /**
- * Runs a command in its own process group and resolves with its standard output. A terminal
- * Ctrl-C therefore cannot interrupt it: a VM stop finishes even if the launcher is killed.
+ * Runs a command in its own process group and resolves with its standard output, so a terminal
+ * Ctrl-C cannot interrupt it. With `discardOutput` it holds no pipe to the launcher either, and
+ * finishes even if the launcher quits.
  */
 function runCommand(
   command,
   args,
-  { timeout, signal, env, stderr, killGraceMs = KILL_GRACE_MS } = {},
+  { timeout, signal, env, stderr, discardOutput = false, killGraceMs = KILL_GRACE_MS } = {},
 ) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -38,7 +39,7 @@ function runCommand(
     const child = spawn(command, args, {
       detached: true,
       env,
-      stdio: ['ignore', 'pipe', stderr ? 'pipe' : 'ignore'],
+      stdio: discardOutput ? 'ignore' : ['ignore', 'pipe', stderr ? 'pipe' : 'ignore'],
     })
     let stdout = ''
     let timer
@@ -59,7 +60,7 @@ function runCommand(
       timer = setTimeout(terminate, timeout)
     }
     signal?.addEventListener('abort', terminate, { once: true })
-    child.stdout.on('data', (bytes) => {
+    child.stdout?.on('data', (bytes) => {
       stdout += bytes
     })
     let partial = ''
@@ -151,12 +152,13 @@ function shouldStopVm(plan, booted) {
   return booted && !plan.keepRunning
 }
 
-async function stopVm(plan, { exec = defaultExec, env, write = STANDARD_WRITE } = {}) {
+async function stopVm(plan, { exec = defaultExec, env } = {}) {
   try {
+    // No pipes back: once signalled, the stop must not die writing to a launcher that has quit.
     await exec('limactl', ['stop', plan.name], {
       timeout: VM_STOP_TIMEOUT_MS,
       env,
-      stderr: limaMessages(write),
+      discardOutput: true,
     })
   } catch {
     throw new Error('vm_stop_failed')
@@ -173,7 +175,7 @@ async function finishVm(plan, booted, { exec = defaultExec, env, write = STANDAR
   }
   write.out(`Stopping VM ${plan.name}.\n`)
   try {
-    await stopVm(plan, { exec, env, write })
+    await stopVm(plan, { exec, env })
   } catch {
     write.err(`vm_stop_failed: run limactl stop ${plan.name}\n`)
   }
