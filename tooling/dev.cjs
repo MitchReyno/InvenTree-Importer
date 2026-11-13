@@ -41,6 +41,11 @@ const baseEnv = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key]]),
 )
+// Lima and the relays get the base environment, and Lima's home when the shell sets one.
+const vmEnv = {
+  ...baseEnv,
+  ...(process.env.LIMA_HOME ? { LIMA_HOME: process.env.LIMA_HOME } : {}),
+}
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
 // The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.
@@ -260,6 +265,7 @@ async function main() {
     if (resolved.vm) {
       await ensureVmRunning(resolved.vm, {
         signal: startup.signal,
+        env: vmEnv,
         onBoot: () => {
           vmBooted = true
           process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
@@ -269,10 +275,7 @@ async function main() {
         launch,
         execPath: process.execPath,
         repository,
-        baseEnv: {
-          ...baseEnv,
-          ...(process.env.LIMA_HOME ? { LIMA_HOME: process.env.LIMA_HOME } : {}),
-        },
+        baseEnv: vmEnv,
       })
       children.push(...vmChildren)
       await confirmVmChildren(vmChildren, { signal: startup.signal })
@@ -580,7 +583,7 @@ async function main() {
       try {
         if (resolved.vm && shouldStopVm(resolved.vm, vmBooted)) {
           process.stdout.write(`Stopping VM ${resolved.vm.name}.\n`)
-          await stopVm(resolved.vm)
+          await stopVm(resolved.vm, { env: vmEnv })
         }
       } catch {
         process.stderr.write(`vm_stop_failed: run limactl stop ${resolved.vm.name}\n`)

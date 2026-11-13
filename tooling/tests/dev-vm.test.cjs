@@ -1,6 +1,8 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
+  ensureVmRunning,
+  runCommand,
   vmRunning,
   startVm,
   stopVm,
@@ -197,8 +199,6 @@ test('the status read is cancellable', async () => {
   assert.equal(calls[0].options.signal, controller.signal)
 })
 
-const { ensureVmRunning, runCommand } = require('../dev/vm.cjs')
-
 test('a running VM is not booted and not marked as booted', async () => {
   const { exec, calls } = recordingExec({ 'limactl list': 'Running\n' })
   let marked = false
@@ -256,4 +256,39 @@ test('commands fail on a non-zero exit, a timeout or cancellation', async () => 
   })
   controller.abort()
   await assert.rejects(waiting)
+})
+
+test('commands get only the environment they are given', async () => {
+  const output = await runCommand(
+    process.execPath,
+    [
+      '-e',
+      'process.stdout.write(JSON.stringify([process.env.KEPT, process.env.SECRET_FROM_SHELL]))',
+    ],
+    { env: { PATH: process.env.PATH, KEPT: 'yes' } },
+  )
+  assert.deepEqual(JSON.parse(output), ['yes', null])
+})
+
+test('a command that ignores SIGTERM is killed after the grace', async () => {
+  const started = Date.now()
+  await assert.rejects(
+    runCommand(
+      process.execPath,
+      ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"],
+      { timeout: 100, killGraceMs: 200 },
+    ),
+  )
+  assert.ok(Date.now() - started < 5000)
+})
+
+test('the VM commands pass the environment through', async () => {
+  const { exec, calls } = recordingExec({ 'limactl list': 'Stopped\n' })
+  const env = { PATH: '/usr/bin' }
+  await ensureVmRunning(PLAN, { exec, env, onBoot: () => {} })
+  await stopVm(PLAN, { exec, env })
+  assert.deepEqual(
+    calls.map((call) => call.options.env),
+    [env, env, env],
+  )
 })

@@ -6,6 +6,7 @@
 
 - **2026-11-13T19:04+10:00, task 1:** Review found that the relay's port was only checked for presence and that `INTAKE_VM_KEEP_RUNNING` was checked only with a named VM. The resolver now validates the port with the relay's range and the switch always; the spec's validation requirement says so.
 - **2026-11-13T19:09+10:00, task 2:** Review round 2 found the boot decision sat in `dev.cjs`, outside the tested module the design described. It moved into `vm.cjs` as `ensureVmRunning` with tests. `limactl` commands now run in their own process group, so a second Ctrl-C during "Stopping VM" cannot kill the stop. The instance-name form now requires a leading letter or digit, so a name cannot be read as a `limactl` option; `relay.mjs` and the four bridge scripts use the same form. The design and spec were updated.
+- **2026-11-13T19:17+10:00, task 2:** Review round 3 found the `limactl` commands inherited the launcher's whole environment, so a shell secret could reach the Lima host agent. They now get the same base environment as the relays, and a command that ignores SIGTERM is killed after a 5 s grace so a timeout or cancellation stays bounded.
 
 ## Unexpected challenges
 

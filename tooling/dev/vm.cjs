@@ -15,6 +15,8 @@ const VM_STATUS_TIMEOUT_MS = 15_000
 const VM_STOP_TIMEOUT_MS = 60_000
 /** Healthy tunnels and relays print nothing; a bad port or argument makes them exit within this. */
 const CHILD_SETTLE_MS = 1000
+/** How long a command gets to exit after SIGTERM before its group is killed. */
+const KILL_GRACE_MS = 5000
 
 /** The loopback ports the dev UI proxies to the guest's Claude and Codex credential services. */
 const CREDENTIAL_PORTS = [14315, 14317]
@@ -23,19 +25,28 @@ const CREDENTIAL_PORTS = [14315, 14317]
  * Runs a command in its own process group and resolves with its standard output. A terminal
  * Ctrl-C therefore cannot interrupt it: a VM stop finishes even if the launcher is killed.
  */
-function runCommand(command, args, { timeout, signal } = {}) {
+function runCommand(command, args, { timeout, signal, env, killGraceMs = KILL_GRACE_MS } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason)
       return
     }
-    const child = spawn(command, args, { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+    const child = spawn(command, args, {
+      detached: true,
+      env,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
     let stdout = ''
     let timer
-    const terminate = () => {
+    let killTimer
+    const signalGroup = (name) => {
       try {
-        process.kill(-child.pid, 'SIGTERM')
+        process.kill(-child.pid, name)
       } catch {}
+    }
+    const terminate = () => {
+      signalGroup('SIGTERM')
+      killTimer ??= setTimeout(() => signalGroup('SIGKILL'), killGraceMs)
     }
     if (timeout) {
       timer = setTimeout(terminate, timeout)
@@ -47,6 +58,7 @@ function runCommand(command, args, { timeout, signal } = {}) {
     child.once('error', reject)
     child.once('close', (code) => {
       clearTimeout(timer)
+      clearTimeout(killTimer)
       signal?.removeEventListener('abort', terminate)
       if (code === 0) {
         resolve(stdout)
@@ -59,12 +71,13 @@ function runCommand(command, args, { timeout, signal } = {}) {
 
 const defaultExec = runCommand
 
-async function vmRunning(plan, { exec = defaultExec, signal } = {}) {
+async function vmRunning(plan, { exec = defaultExec, signal, env } = {}) {
   let status
   try {
     status = await exec('limactl', ['list', '--format', '{{.Status}}', plan.name], {
       timeout: VM_STATUS_TIMEOUT_MS,
       signal,
+      env,
     })
   } catch {
     throw new Error('vm_start_failed')
@@ -76,11 +89,12 @@ async function vmRunning(plan, { exec = defaultExec, signal } = {}) {
   return value === 'Running'
 }
 
-async function startVm(plan, { exec = defaultExec, signal } = {}) {
+async function startVm(plan, { exec = defaultExec, signal, env } = {}) {
   try {
     await exec('limactl', ['start', '--tty=false', plan.name], {
       timeout: VM_BOOT_TIMEOUT_MS,
       signal,
+      env,
     })
   } catch {
     throw new Error('vm_start_failed')
@@ -89,16 +103,16 @@ async function startVm(plan, { exec = defaultExec, signal } = {}) {
 
 /**
  * Boots the VM when it is not running. `onBoot` runs before the boot starts, so a cancelled or failed
- * boot is still treated as this run's. Resolves true when this call booted it.
+ * boot is still treated as this run's; callers record the boot there. Resolves true when it booted.
  */
-async function ensureVmRunning(plan, { exec = defaultExec, signal, onBoot }) {
-  const running = await vmRunning(plan, { exec, signal })
+async function ensureVmRunning(plan, { exec = defaultExec, signal, env, onBoot }) {
+  const running = await vmRunning(plan, { exec, signal, env })
   signal?.throwIfAborted()
   if (running) {
     return false
   }
   onBoot()
-  await startVm(plan, { exec, signal })
+  await startVm(plan, { exec, signal, env })
   return true
 }
 
@@ -107,9 +121,9 @@ function shouldStopVm(plan, booted) {
   return booted && !plan.keepRunning
 }
 
-async function stopVm(plan, { exec = defaultExec } = {}) {
+async function stopVm(plan, { exec = defaultExec, env } = {}) {
   try {
-    await exec('limactl', ['stop', plan.name], { timeout: VM_STOP_TIMEOUT_MS })
+    await exec('limactl', ['stop', plan.name], { timeout: VM_STOP_TIMEOUT_MS, env })
   } catch {
     throw new Error('vm_stop_failed')
   }

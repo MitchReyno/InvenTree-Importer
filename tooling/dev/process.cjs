@@ -108,6 +108,7 @@ function startupGroup(signal) {
     },
   }
 }
+
 /** Fixed codes, child-named ones included, are printed as is; anything else may carry details. */
 function failureCode(error) {
   const message = error?.message ?? ''
