@@ -26,8 +26,7 @@ const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
 const {
   ensureVmRunning,
-  stopVm,
-  shouldStopVm,
+  finishVm,
   startVmChildren,
   confirmVmChildren,
   VM_CHILD_NAMES,
@@ -215,6 +214,7 @@ async function main() {
     }
     resolveStop()
   }
+
   /** Children the app cannot run without: when one exits outside shutdown, the app stops. */
   function stopAppWhenExited(items) {
     for (const item of items) {
@@ -581,12 +581,9 @@ async function main() {
       await finishOwnedRun(children, stop)
     } finally {
       try {
-        if (resolved.vm && shouldStopVm(resolved.vm, vmBooted)) {
-          process.stdout.write(`Stopping VM ${resolved.vm.name}.\n`)
-          await stopVm(resolved.vm, { env: vmEnv })
+        if (resolved.vm) {
+          await finishVm(resolved.vm, vmBooted, { env: vmEnv })
         }
-      } catch {
-        process.stderr.write(`vm_stop_failed: run limactl stop ${resolved.vm.name}\n`)
       } finally {
         await release()
         if (reportStop) {

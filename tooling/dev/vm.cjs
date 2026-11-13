@@ -39,15 +39,18 @@ function runCommand(command, args, { timeout, signal, env, killGraceMs = KILL_GR
     let stdout = ''
     let timer
     let killTimer
+
     const signalGroup = (name) => {
       try {
         process.kill(-child.pid, name)
       } catch {}
     }
+
     const terminate = () => {
       signalGroup('SIGTERM')
       killTimer ??= setTimeout(() => signalGroup('SIGKILL'), killGraceMs)
     }
+
     if (timeout) {
       timer = setTimeout(terminate, timeout)
     }
@@ -126,6 +129,27 @@ async function stopVm(plan, { exec = defaultExec, env } = {}) {
     await exec('limactl', ['stop', plan.name], { timeout: VM_STOP_TIMEOUT_MS, env })
   } catch {
     throw new Error('vm_stop_failed')
+  }
+}
+
+const STANDARD_WRITE = {
+  out: (text) => process.stdout.write(text),
+  err: (text) => process.stderr.write(text),
+}
+
+/**
+ * The VM step of shutdown: stops a VM this run booted unless it is kept. Never throws, so the
+ * launcher's lock release after it always runs; a failed stop names the command to run.
+ */
+async function finishVm(plan, booted, { exec = defaultExec, env, write = STANDARD_WRITE } = {}) {
+  if (!shouldStopVm(plan, booted)) {
+    return
+  }
+  write.out(`Stopping VM ${plan.name}.\n`)
+  try {
+    await stopVm(plan, { exec, env })
+  } catch {
+    write.err(`vm_stop_failed: run limactl stop ${plan.name}\n`)
   }
 }
 
@@ -210,6 +234,7 @@ module.exports = {
   startVm,
   stopVm,
   shouldStopVm,
+  finishVm,
   startVmChildren,
   confirmVmChildren,
   VM_CHILD_NAMES,

@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
+  finishVm,
   ensureVmRunning,
   runCommand,
   vmRunning,
@@ -291,4 +292,44 @@ test('the VM commands pass the environment through', async () => {
     calls.map((call) => call.options.env),
     [env, env, env],
   )
+})
+
+function recordingWrites() {
+  const lines = { out: [], err: [] }
+  return {
+    lines,
+    write: { out: (text) => lines.out.push(text), err: (text) => lines.err.push(text) },
+  }
+}
+
+test('finishing stops a VM this run booted, including after a failed startup', async () => {
+  const { exec, calls } = recordingExec()
+  const { lines, write } = recordingWrites()
+  await finishVm(PLAN, true, { exec, write })
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [['stop', 'bench-agent-test']],
+  )
+  assert.deepEqual(lines.out, ['Stopping VM bench-agent-test.\n'])
+  assert.deepEqual(lines.err, [])
+})
+
+test('finishing leaves a VM alone when this run did not boot it or it is kept', async () => {
+  for (const [plan, booted] of [
+    [PLAN, false],
+    [{ ...PLAN, keepRunning: true }, true],
+  ]) {
+    const { exec, calls } = recordingExec()
+    const { lines, write } = recordingWrites()
+    await finishVm(plan, booted, { exec, write })
+    assert.equal(calls.length, 0)
+    assert.deepEqual(lines.out, [])
+  }
+})
+
+test('a failed stop is reported with the command to run and never throws', async () => {
+  const { exec } = recordingExec({ 'limactl stop': new Error('exit 1: private detail') })
+  const { lines, write } = recordingWrites()
+  await finishVm(PLAN, true, { exec, write })
+  assert.deepEqual(lines.err, ['vm_stop_failed: run limactl stop bench-agent-test\n'])
 })

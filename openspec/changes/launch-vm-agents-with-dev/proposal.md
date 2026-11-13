@@ -67,8 +67,8 @@ None.
 
 ## Impact and dependencies
 
-- Tooling only: `tooling/dev.cjs`, `tooling/dev/settings.cjs`, `tooling/dev/environment.cjs` (allowlist), a new `tooling/dev/vm.cjs`, and `tooling/tests/`. No application, contract or database change.
-- Deployment assets: `tooling/deployment/bridge/personal-claude.sh` memory cap, `tooling/deployment/README.md` tunnel commands.
+- Tooling only: `tooling/dev.cjs`, `tooling/dev/settings.cjs`, `tooling/dev/environment.cjs` (allowlist), `tooling/dev/process.cjs` (printed failure codes), a new `tooling/dev/vm.cjs`, and `tooling/tests/`. No application, contract or database change.
+- Deployment assets: `tooling/deployment/bridge/personal-claude.sh` memory cap, the instance-name form in `relay.mjs` and the other bridge scripts, and the `tooling/deployment/README.md` tunnel commands.
 - Docs: `docs/development.md`, `.env.intake.example`.
 - Prerequisites at run time: Lima installed, a paired VM with loaded runner image and linked providers (existing one-off setup).
 

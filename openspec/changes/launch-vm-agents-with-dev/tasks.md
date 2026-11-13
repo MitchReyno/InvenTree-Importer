@@ -79,7 +79,7 @@ One PR carries tasks 1–4. The settings, the module that acts on them and their
 - Outcome: the launcher behavior is shown against a real paired VM, reviewed and merged.
 - Prerequisites: 1–3.
 - Acceptance: all scenarios in the spec delta; evidence goes on the PR.
-- Verification: manual runs with a paired VM: cold start; Ctrl-C stops the VM; an already-running VM is kept; `INTAKE_VM_KEEP_RUNNING`; a killed relay stops the app; a source reload keeps the relays; a missing instance fails before services start.
+- Verification: manual runs with a paired VM: cold start; Ctrl-C stops the VM; an already-running VM is kept; `INTAKE_VM_KEEP_RUNNING`; a killed relay stops the app; a source reload keeps the relays; a missing instance fails before services start; a startup failure after a boot stops the VM and releases the lock.
 - Risks and decisions: no provider turn is run.
 
 - [x] 4.1 Run the manual qualification and record the outcomes for the PR.
