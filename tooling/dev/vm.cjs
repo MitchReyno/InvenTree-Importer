@@ -207,7 +207,7 @@ function guardVmStop(
     }
     held = true
     write.err(
-      `Stopping VM ${plan.name} first; press Ctrl-C again to quit now and leave it running.\n`,
+      `Stopping the app and VM ${plan.name} first; press Ctrl-C again to quit now and leave the VM running.\n`,
     )
   }
 

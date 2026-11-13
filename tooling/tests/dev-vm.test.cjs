@@ -374,7 +374,7 @@ test('a second Ctrl-C while the VM still needs stopping is held, a third forces 
   const release = guardVmStop(PLAN, true, { on, off, write, exit: (code) => exits.push(code) })
   source.emit('SIGINT')
   assert.deepEqual(exits, [])
-  assert.match(lines.err[0], /Stopping VM bench-agent-test first/)
+  assert.match(lines.err[0], /Stopping the app and VM bench-agent-test first/)
   source.emit('SIGINT')
   assert.deepEqual(exits, [130])
   release()

@@ -272,6 +272,7 @@ async function main() {
           process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
         },
       })
+      startup.signal.throwIfAborted()
       const vmChildren = startVmChildren(resolved.vm, {
         launch,
         execPath: process.execPath,
