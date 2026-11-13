@@ -426,3 +426,130 @@ test('an empty admin URL is unset for the local target', () => {
     INTAKE_TARGET_PROFILE: 'local-inventree',
   })
 })
+
+const REAL_VM_AGENTS = {
+  INTAKE_USE_MOCK_AI_AGENTS: 'false',
+  INTAKE_RUN_AGENTS_IN_VM: 'true',
+  ...VM,
+}
+const VM_LAUNCH = {
+  INTAKE_VM_NAME: 'bench-agent-test',
+  INTAKE_VM_GUEST_DIR: '/var/tmp/bench-paired',
+  INTAKE_VM_RUNNER_IMAGE: 'bench-intake-runner:personal-test',
+}
+
+function refusedNames(settings, code) {
+  try {
+    resolveDevelopmentSettings(settings)
+  } catch (error) {
+    assert.ok(error instanceof DevelopmentSettingsError)
+    assert.equal(error.message, code)
+    return error.names.map(({ name }) => name)
+  }
+  assert.fail(`expected ${code}`)
+}
+
+test('without a VM name the launcher manages no VM', () => {
+  assert.equal(resolveDevelopmentSettings({}).vm, null)
+  assert.equal(resolveDevelopmentSettings(REAL_VM_AGENTS).vm, null)
+})
+
+test('a named VM with real VM agents yields the launch plan', () => {
+  assert.deepEqual(resolveDevelopmentSettings({ ...REAL_VM_AGENTS, ...VM_LAUNCH }).vm, {
+    name: 'bench-agent-test',
+    guestDir: '/var/tmp/bench-paired',
+    image: 'bench-intake-runner:personal-test',
+    port: '14313',
+    tools: true,
+    keepRunning: false,
+  })
+  const plan = resolveDevelopmentSettings({
+    ...REAL_VM_AGENTS,
+    ...VM_LAUNCH,
+    INTAKE_VM_AGENT_TOOLS: 'false',
+    INTAKE_VM_KEEP_RUNNING: '1',
+  }).vm
+  assert.equal(plan.tools, false)
+  assert.equal(plan.keepRunning, true)
+})
+
+test('a named VM needs real agents in the VM', () => {
+  assert.deepEqual(
+    refusedNames(
+      { ...VM_LAUNCH, INTAKE_USE_MOCK_AI_AGENTS: 'false' },
+      'vm_launch_requires_real_vm_agents',
+    ),
+    ['INTAKE_VM_NAME', 'INTAKE_RUN_AGENTS_IN_VM', 'INTAKE_USE_MOCK_AI_AGENTS'],
+  )
+  assert.deepEqual(
+    refusedNames(
+      { ...VM_LAUNCH, INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM },
+      'vm_launch_requires_real_vm_agents',
+    ),
+    ['INTAKE_VM_NAME', 'INTAKE_RUN_AGENTS_IN_VM', 'INTAKE_USE_MOCK_AI_AGENTS'],
+  )
+})
+
+test('a named VM needs its guest directory and runner image', () => {
+  assert.deepEqual(
+    refusedNames(
+      { ...REAL_VM_AGENTS, INTAKE_VM_NAME: 'bench-agent-test' },
+      'vm_launch_setting_required',
+    ),
+    ['INTAKE_VM_GUEST_DIR', 'INTAKE_VM_RUNNER_IMAGE'],
+  )
+  assert.deepEqual(
+    refusedNames(
+      { ...REAL_VM_AGENTS, ...VM_LAUNCH, INTAKE_VM_GUEST_DIR: '' },
+      'vm_launch_setting_required',
+    ),
+    ['INTAKE_VM_GUEST_DIR'],
+  )
+})
+
+test('malformed VM settings are refused by name, never by value', () => {
+  const cases = [
+    ['INTAKE_VM_NAME', 'Bench Agent'],
+    ['INTAKE_VM_GUEST_DIR', 'relative/dir'],
+    ['INTAKE_VM_GUEST_DIR', '/dir with space'],
+    ['INTAKE_VM_RUNNER_IMAGE', 'image name'],
+    ['INTAKE_VM_RUNNER_IMAGE', '-flag'],
+  ]
+  for (const [name, value] of cases) {
+    const settings = { ...REAL_VM_AGENTS, ...VM_LAUNCH, [name]: value }
+    assert.deepEqual(refusedNames(settings, 'invalid_vm_launch_setting'), [name], value)
+    let lines
+    try {
+      resolveDevelopmentSettings(settings)
+    } catch (error) {
+      lines = settingsRefusalLines(error).join('\n')
+    }
+    assert.ok(!lines.includes(value), `refusal must not contain ${value}`)
+  }
+  assert.deepEqual(
+    refusedNames(
+      { ...REAL_VM_AGENTS, ...VM_LAUNCH, INTAKE_VM_KEEP_RUNNING: 'yes' },
+      'invalid_development_setting',
+    ),
+    ['INTAKE_VM_KEEP_RUNNING'],
+  )
+})
+
+test('the startup summary says whether the launcher manages the VM', () => {
+  const managed = resolveDevelopmentSettings({ ...REAL_VM_AGENTS, ...VM_LAUNCH })
+  assert.equal(
+    startupSummary('fake', managed),
+    'Inventory: mock (writable).\nProcessing: shared-vm-agent/2 in the VM.\n' +
+      'VM: bench-agent-test, started with the app and stopped with it if this run starts it.\n',
+  )
+  const kept = resolveDevelopmentSettings({
+    ...REAL_VM_AGENTS,
+    ...VM_LAUNCH,
+    INTAKE_VM_KEEP_RUNNING: 'true',
+  })
+  assert.match(
+    startupSummary('fake', kept),
+    /VM: bench-agent-test, started with the app and kept running afterwards\.\n$/,
+  )
+  assert.doesNotMatch(startupSummary('fake', resolveDevelopmentSettings(REAL_VM_AGENTS)), /VM:/)
+})

@@ -183,6 +183,48 @@ function resolveProcessing(settings) {
   return { profile: sessions ? 'native-agent/2' : 'native-agent/1', mockAgents, agentsInVm }
 }
 
+/** The forms `tooling/deployment/bridge/relay.mjs` accepts, so the launcher never starts a relay it refuses. */
+const VM_LAUNCH_FORMS = {
+  INTAKE_VM_NAME: /^[a-z0-9-]+$/,
+  INTAKE_VM_GUEST_DIR: /^\/[a-zA-Z0-9_./-]+$/,
+  INTAKE_VM_RUNNER_IMAGE: /^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$/,
+}
+
+/** The VM `pnpm dev` boots and relays into, or null when the developer runs the VM side themselves. */
+function resolveVmLaunch(settings, processing) {
+  if (!present(settings, 'INTAKE_VM_NAME')) {
+    return null
+  }
+  if (!processing.agentsInVm || processing.mockAgents) {
+    throw new DevelopmentSettingsError('vm_launch_requires_real_vm_agents', [
+      { name: 'INTAKE_VM_NAME' },
+      { name: 'INTAKE_RUN_AGENTS_IN_VM' },
+      { name: 'INTAKE_USE_MOCK_AI_AGENTS' },
+    ])
+  }
+  const missing = Object.keys(VM_LAUNCH_FORMS).filter((name) => !present(settings, name))
+  if (missing.length > 0) {
+    throw new DevelopmentSettingsError(
+      'vm_launch_setting_required',
+      missing.map((name) => ({ name })),
+    )
+  }
+  const malformed = Object.entries(VM_LAUNCH_FORMS)
+    .filter(([name, form]) => !form.test(settings[name]))
+    .map(([name]) => ({ name }))
+  if (malformed.length > 0) {
+    throw new DevelopmentSettingsError('invalid_vm_launch_setting', malformed)
+  }
+  return {
+    name: settings.INTAKE_VM_NAME,
+    guestDir: settings.INTAKE_VM_GUEST_DIR,
+    image: settings.INTAKE_VM_RUNNER_IMAGE,
+    port: settings.INTAKE_VM_PORT,
+    tools: switchValue(settings, 'INTAKE_VM_AGENT_TOOLS') ?? true,
+    keepRunning: switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false,
+  }
+}
+
 /**
  * Resolves every `pnpm dev` switch before any setup. `targetSettings` uses the internal names
  * `developmentTarget` and the child processes read.
@@ -192,7 +234,8 @@ function resolveDevelopmentSettings(settings) {
   const { targetSettings, ignored } = resolveInventory(settings)
   const readOnly = resolveReadOnly(settings, targetSettings.INTAKE_TARGET_PROFILE)
   const { profile, mockAgents, agentsInVm } = resolveProcessing(settings)
-  return { targetSettings, readOnly, profile, mockAgents, agentsInVm, ignored }
+  const vm = resolveVmLaunch(settings, { mockAgents, agentsInVm })
+  return { targetSettings, readOnly, profile, mockAgents, agentsInVm, ignored, vm }
 }
 
 /** User-facing and internal target names; only the resolved internal values may reach the policy. */
@@ -249,6 +292,12 @@ function startupSummary(targetKind, resolved) {
   ]
   if (resolved.ignored.length > 0) {
     lines.push(`Ignored because the mock inventory is selected: ${resolved.ignored.join(', ')}.`)
+  }
+  if (resolved.vm) {
+    const afterwards = resolved.vm.keepRunning
+      ? 'kept running afterwards'
+      : 'stopped with it if this run starts it'
+    lines.push(`VM: ${resolved.vm.name}, started with the app and ${afterwards}.`)
   }
   return `${lines.join('\n')}\n`
 }
