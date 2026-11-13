@@ -8,11 +8,13 @@ None.
 
 ## Unexpected challenges
 
-None.
+- **2026-11-13T18:57+10:00, task 4:** Qualifying from the worktree could not use the local InvenTree, whose Compose project belongs to the main checkout (`inventree_dev_owned_by_other_checkout`). The runs used the mock inventory instead; the inventory choice does not touch the VM lifecycle.
+- **2026-11-13T18:57+10:00, task 4:** The first cold-start run used the developer's retained mock namespace, where saved agent settings and ready photos made the real-agent worker queue an Examine session within seconds. The guest refused the turn (`guest_turn_refused`, no native session), but Ctrl-C left its agent slot held, so the next workers stopped with `agent_reap_confirmation_required`. Later runs used a fresh private `INTAKE_APP_STATE`. The held slot is reported to the developer rather than cleared by hand, because the explicit interruption step is a deliberate manual seam.
 
 ## Decisions made during implementation
 
-None.
+- **2026-11-13T18:57+10:00, task 2:** Ctrl-C during the VM boot reports `vm_start_failed`, as an interrupted setup step reports `development_setup_failed`; the VM is still stopped. A separate cancellation message was not added, to keep one failure style.
+- **2026-11-13T18:57+10:00, task 2:** Each relay logs `guest_turn_refused` when a source reload cuts off its waiting guest turn. It is left visible: it is the relay's own output, and the relay reconnects within seconds.
 
 ## Open items
 

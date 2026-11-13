@@ -82,7 +82,7 @@ One PR carries tasks 1–4. The settings, the module that acts on them and their
 - Verification: manual runs with a paired VM: cold start; Ctrl-C stops the VM; an already-running VM is kept; `INTAKE_VM_KEEP_RUNNING`; a killed relay stops the app; a source reload keeps the relays; a missing instance fails before services start.
 - Risks and decisions: no provider turn is run.
 
-- [ ] 4.1 Run the manual qualification and record the outcomes for the PR.
+- [x] 4.1 Run the manual qualification and record the outcomes for the PR.
 - [ ] 4.2 Run the full gate.
 - [ ] 4.3 Independent review rounds until one is clean, at the reviewed head.
 - [ ] 4.4 Open the PR against `interactive-app` with the evidence.
