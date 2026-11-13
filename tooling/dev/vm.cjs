@@ -27,11 +27,12 @@ async function defaultExec(command, args, options) {
   return stdout
 }
 
-async function vmRunning(plan, { exec = defaultExec } = {}) {
+async function vmRunning(plan, { exec = defaultExec, signal } = {}) {
   let status
   try {
     status = await exec('limactl', ['list', '--format', '{{.Status}}', plan.name], {
       timeout: VM_STATUS_TIMEOUT_MS,
+      signal,
     })
   } catch {
     throw new Error('vm_start_failed')

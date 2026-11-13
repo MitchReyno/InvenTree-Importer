@@ -553,3 +553,29 @@ test('the startup summary says whether the launcher manages the VM', () => {
   )
   assert.doesNotMatch(startupSummary('fake', resolveDevelopmentSettings(REAL_VM_AGENTS)), /VM:/)
 })
+
+test('the keep-running switch is checked even without a VM name', () => {
+  assert.deepEqual(refusedNames({ INTAKE_VM_KEEP_RUNNING: 'yes' }, 'invalid_development_setting'), [
+    'INTAKE_VM_KEEP_RUNNING',
+  ])
+  assert.deepEqual(
+    refusedNames(
+      { ...REAL_VM_AGENTS, INTAKE_VM_NAME: 'bench-agent-test', INTAKE_VM_KEEP_RUNNING: 'yes' },
+      'invalid_development_setting',
+    ),
+    ['INTAKE_VM_KEEP_RUNNING'],
+  )
+})
+
+test('a named VM needs a port the relay accepts', () => {
+  for (const port of ['0', '65536', '14313x', '-1']) {
+    assert.deepEqual(
+      refusedNames(
+        { ...REAL_VM_AGENTS, ...VM_LAUNCH, INTAKE_VM_PORT: port },
+        'invalid_vm_launch_setting',
+      ),
+      ['INTAKE_VM_PORT'],
+      port,
+    )
+  }
+})

@@ -4,7 +4,7 @@
 
 ## Changes to the plan
 
-None.
+- **2026-11-13T19:04+10:00, task 1:** Review found that the relay's port was only checked for presence and that `INTAKE_VM_KEEP_RUNNING` was checked only with a named VM. The resolver now validates the port with the relay's range and the switch always; the spec's validation requirement says so.
 
 ## Unexpected challenges
 

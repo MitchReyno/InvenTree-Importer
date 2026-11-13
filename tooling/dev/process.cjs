@@ -108,4 +108,10 @@ function startupGroup(signal) {
     },
   }
 }
-module.exports = { launch, stop, startupGroup }
+/** Fixed codes, child-named ones included, are printed as is; anything else may carry details. */
+function failureCode(error) {
+  const message = error?.message ?? ''
+  return /^[a-z][a-z0-9_-]*$/.test(message) ? message : 'development_startup_failed'
+}
+
+module.exports = { launch, stop, startupGroup, failureCode }

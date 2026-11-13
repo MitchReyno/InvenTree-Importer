@@ -115,6 +115,8 @@ ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.
 
 For `pnpm dev`, set `INTAKE_RUN_AGENTS_IN_VM=true` with the coordinator pair and port; it enables the dev UI proxy. Real subscription sessions also need `INTAKE_USE_MOCK_AI_AGENTS=false` (see [choosing what the app runs](../../docs/development.md#choosing-what-the-app-runs)). In a packaged deployment, route the exact same-origin path `/personal-runner/claude` to the private tunnel. Preserve the browser Origin and Authorization headers, disable body and authorization-header logging, and exclude the route from caches. The management service verifies the operator key and exact origin, including on status requests. Keep the guest credential directory and operator key outside backups and image builds.
 
+An installation set up before the management service's cap was raised to 384 MB keeps its old cap until this script is run again, or until `limactl shell "$vm" sudo docker update --memory=384m --memory-swap=384m bench-claude-management` is run.
+
 In **Settings › Agents → Personal Claude subscription**, enter the management key, choose **Check configuration**, enter the setup token, and explicitly save it. Reopening shows configuration status only. Replace and remove use the last acknowledged revision. Removing the credential blocks future launches. An already running provider process retains its environment until exit.
 
 Start a dedicated subscription relay beside the ordinary relay. The optional final argument is the coordinator container name when the coordinator runs in host Docker.

@@ -18,7 +18,7 @@ const {
   startupSummary,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
-const { launch, stop, startupGroup } = require('./dev/process.cjs')
+const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
@@ -246,7 +246,9 @@ async function main() {
       await freePort(port)
     }
     if (resolved.vm) {
-      if (!(await vmRunning(resolved.vm))) {
+      const running = await vmRunning(resolved.vm, { signal: startup.signal })
+      startup.signal.throwIfAborted()
+      if (!running) {
         // Recorded before booting, so a cancelled or failed boot is still stopped on exit.
         vmBooted = true
         process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
@@ -602,7 +604,6 @@ main().catch((error) => {
     process.exitCode = 1
     return
   }
-  const code = /^[a-z_]+$/.test(error.message ?? '') ? error.message : 'development_startup_failed'
-  process.stderr.write(`${code}\n`)
+  process.stderr.write(`${failureCode(error)}\n`)
   process.exitCode = 1
 })

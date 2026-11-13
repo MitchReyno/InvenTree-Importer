@@ -190,12 +190,17 @@ const VM_LAUNCH_FORMS = {
   INTAKE_VM_RUNNER_IMAGE: /^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$/,
 }
 
+/** The port range `relay.mjs` accepts. */
+function validRelayPort(value) {
+  return /^[0-9]+$/.test(value) && Number(value) >= 1 && Number(value) <= 65535
+}
+
 /** The VM `pnpm dev` boots and relays into, or null when the developer runs the VM side themselves. */
-function resolveVmLaunch(settings, processing) {
+function resolveVmLaunch(settings, { mockAgents, agentsInVm, keepRunning }) {
   if (!present(settings, 'INTAKE_VM_NAME')) {
     return null
   }
-  if (!processing.agentsInVm || processing.mockAgents) {
+  if (!agentsInVm || mockAgents) {
     throw new DevelopmentSettingsError('vm_launch_requires_real_vm_agents', [
       { name: 'INTAKE_VM_NAME' },
       { name: 'INTAKE_RUN_AGENTS_IN_VM' },
@@ -212,6 +217,9 @@ function resolveVmLaunch(settings, processing) {
   const malformed = Object.entries(VM_LAUNCH_FORMS)
     .filter(([name, form]) => !form.test(settings[name]))
     .map(([name]) => ({ name }))
+  if (!validRelayPort(settings.INTAKE_VM_PORT)) {
+    malformed.push({ name: 'INTAKE_VM_PORT' })
+  }
   if (malformed.length > 0) {
     throw new DevelopmentSettingsError('invalid_vm_launch_setting', malformed)
   }
@@ -221,7 +229,7 @@ function resolveVmLaunch(settings, processing) {
     image: settings.INTAKE_VM_RUNNER_IMAGE,
     port: settings.INTAKE_VM_PORT,
     tools: switchValue(settings, 'INTAKE_VM_AGENT_TOOLS') ?? true,
-    keepRunning: switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false,
+    keepRunning,
   }
 }
 
@@ -234,7 +242,9 @@ function resolveDevelopmentSettings(settings) {
   const { targetSettings, ignored } = resolveInventory(settings)
   const readOnly = resolveReadOnly(settings, targetSettings.INTAKE_TARGET_PROFILE)
   const { profile, mockAgents, agentsInVm } = resolveProcessing(settings)
-  const vm = resolveVmLaunch(settings, { mockAgents, agentsInVm })
+  // Checked even without a VM name, like the other switches.
+  const keepRunning = switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false
+  const vm = resolveVmLaunch(settings, { mockAgents, agentsInVm, keepRunning })
   return { targetSettings, readOnly, profile, mockAgents, agentsInVm, ignored, vm }
 }
 

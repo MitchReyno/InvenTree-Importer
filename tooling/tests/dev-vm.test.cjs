@@ -189,3 +189,10 @@ test('confirming stops waiting when startup is cancelled', async () => {
   controller.abort()
   await assert.rejects(waiting)
 })
+
+test('the status read is cancellable', async () => {
+  const { exec, calls } = recordingExec({ 'limactl list': 'Running\n' })
+  const controller = new AbortController()
+  await vmRunning(PLAN, { exec, signal: controller.signal })
+  assert.equal(calls[0].options.signal, controller.signal)
+})
