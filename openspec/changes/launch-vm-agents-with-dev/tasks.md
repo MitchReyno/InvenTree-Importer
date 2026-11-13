@@ -54,10 +54,10 @@ One PR carries tasks 1–4. The settings, the module that acts on them and their
 - Verification: `pnpm test:dev`; task 4.
 - Risks and decisions: readiness is "alive after one second" because the children print nothing when healthy.
 
-- [ ] 2.1 RED: module tests for the boot decision and `booted` flag, the stop decision for booted and keep-running combinations, relay arguments and environment with and without tools, tunnel arguments, early-exit detection and stop-failure reporting; confirm they fail for the missing module.
-- [ ] 2.2 GREEN: implement `tooling/dev/vm.cjs`; tests pass.
-- [ ] 2.3 Wire `tooling/dev.cjs`: boot and children after `startSupervision`, reload survival, exit handling, and the shutdown order (children, then VM stop, then lock release, with stop failures reported).
-- [ ] 2.4 Add the new test file to `test:dev`; refactor; run `pnpm format` and the readability checks.
+- [x] 2.1 RED: module tests for the boot decision and `booted` flag, the stop decision for booted and keep-running combinations, relay arguments and environment with and without tools, tunnel arguments, early-exit detection and stop-failure reporting; confirm they fail for the missing module.
+- [x] 2.2 GREEN: implement `tooling/dev/vm.cjs`; tests pass.
+- [x] 2.3 Wire `tooling/dev.cjs`: boot and children after `startSupervision`, reload survival, exit handling, and the shutdown order (children, then VM stop, then lock release, with stop failures reported).
+- [x] 2.4 Add the new test file to `test:dev`; refactor; run `pnpm format` and the readability checks.
 
 ## 3. Deployment fixes and documentation
 

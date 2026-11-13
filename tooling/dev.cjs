@@ -24,6 +24,15 @@ const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/sta
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
+const {
+  vmRunning,
+  startVm,
+  stopVm,
+  shouldStopVm,
+  startVmChildren,
+  confirmVmChildren,
+  VM_CHILD_NAMES,
+} = require('./dev/vm.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -35,6 +44,8 @@ const baseEnv = Object.fromEntries(
 )
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
+// The VM tunnel and relays reconnect to the restarted session worker by themselves.
+const KEPT_THROUGH_RELOAD = new Set([...FRONT_DOOR, ...VM_CHILD_NAMES])
 
 async function freePort(requested = 0) {
   const server = netServer()
@@ -189,6 +200,7 @@ async function main() {
   })
   let release = async () => {}
   let reportStop = false
+  let vmBooted = false
   const shutdown = () => {
     if (closing) return
     closing = true
@@ -232,6 +244,34 @@ async function main() {
     // Orphans can hold the public port; reclaim stops them before this second check.
     if (addressInUse) {
       await freePort(port)
+    }
+    if (resolved.vm) {
+      if (!(await vmRunning(resolved.vm))) {
+        // Recorded before booting, so a cancelled or failed boot is still stopped on exit.
+        vmBooted = true
+        process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
+        await startVm(resolved.vm, { signal: startup.signal })
+      }
+      const vmChildren = startVmChildren(resolved.vm, {
+        launch,
+        execPath: process.execPath,
+        repository,
+        baseEnv: {
+          ...baseEnv,
+          ...(process.env.LIMA_HOME ? { LIMA_HOME: process.env.LIMA_HOME } : {}),
+        },
+      })
+      children.push(...vmChildren)
+      await confirmVmChildren(vmChildren, { signal: startup.signal })
+      for (const item of vmChildren) {
+        void item.exited.then(() => {
+          if (!closing) {
+            process.stderr.write(`${item.name} stopped; stopping the app.\n`)
+            process.exitCode = 1
+            shutdown()
+          }
+        })
+      }
     }
     const { serviceEnv, prepared } = started
     const root = prepared.root
@@ -482,8 +522,8 @@ async function main() {
               'Source code changed; draining and restarting application services.\n',
             )
             intentional = true
-            await stop(children.filter((item) => !FRONT_DOOR.has(item.name)))
-            children = children.filter((item) => FRONT_DOOR.has(item.name))
+            await stop(children.filter((item) => !KEPT_THROUGH_RELOAD.has(item.name)))
+            children = children.filter((item) => KEPT_THROUGH_RELOAD.has(item.name))
             if (!closing) {
               try {
                 await run(
@@ -509,8 +549,8 @@ async function main() {
                 await start()
               } catch {
                 intentional = true
-                await stop(children.filter((item) => !FRONT_DOOR.has(item.name)))
-                children = children.filter((item) => FRONT_DOOR.has(item.name))
+                await stop(children.filter((item) => !KEPT_THROUGH_RELOAD.has(item.name)))
+                children = children.filter((item) => KEPT_THROUGH_RELOAD.has(item.name))
                 starting = false
                 process.stderr.write(
                   'Application reload failed; fix source code to retry. Retained data is unchanged.\n',
@@ -540,9 +580,18 @@ async function main() {
       intentional = true
       await finishOwnedRun(children, stop)
     } finally {
-      await release()
-      if (reportStop) {
-        process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+      try {
+        if (resolved.vm && shouldStopVm(resolved.vm, vmBooted)) {
+          process.stdout.write(`Stopping VM ${resolved.vm.name}.\n`)
+          await stopVm(resolved.vm)
+        }
+      } catch {
+        process.stderr.write(`vm_stop_failed: run limactl stop ${resolved.vm.name}\n`)
+      } finally {
+        await release()
+        if (reportStop) {
+          process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+        }
       }
     }
   }
