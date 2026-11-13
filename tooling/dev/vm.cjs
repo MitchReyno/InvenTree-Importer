@@ -183,7 +183,7 @@ const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP']
 
 /**
  * While shutdown still has a VM to stop, holds the next Ctrl-C (or other stop signal) so the stop is
- * not skipped; the one after that quits at once and leaves the VM running. Returns the release.
+ * not skipped; the one after that quits at once, so a stop not yet started is skipped. Returns the release.
  */
 function guardVmStop(
   plan,
@@ -207,7 +207,7 @@ function guardVmStop(
     }
     held = true
     write.err(
-      `Stopping the app and VM ${plan.name} first; press Ctrl-C again to quit now and leave the VM running.\n`,
+      `Stopping the app and VM ${plan.name} first; press Ctrl-C again to quit without waiting.\n`,
     )
   }
 
@@ -250,7 +250,9 @@ function relayEnv(plan, baseEnv, providerFlag) {
 function startVmChildren(plan, { launch, execPath, repository, baseEnv }) {
   const relay = join(repository, 'tooling/deployment/bridge/relay.mjs')
   const relayArgs = [relay, plan.name, plan.port, plan.guestDir, plan.image]
+
   const neverReady = () => false
+
   const [tunnelName, claudeName, codexName] = VM_CHILD_NAMES
   return [
     launch(

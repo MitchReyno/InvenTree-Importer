@@ -264,6 +264,7 @@ async function main() {
       await freePort(port)
     }
     if (resolved.vm) {
+      startup.signal.throwIfAborted()
       await ensureVmRunning(resolved.vm, {
         signal: startup.signal,
         env: vmEnv,

@@ -10,6 +10,7 @@
 - **2026-11-13T19:24+10:00, task 2:** The launcher's last-resort error printer accepted only `^[a-z_]+$`, so any child-named code with a hyphen printed as `development_startup_failed`. It is now `failureCode` in `process.cjs`, accepting `^[a-z][a-z0-9_-]*$`. Besides the new VM child codes, the existing `tailscale-serve_stopped_during_startup` now prints as itself.
 - **2026-11-13T19:24+10:00, task 4:** Review round 4 found the "startup fails after booting the VM" scenario unproved. The shutdown VM step moved into `vm.cjs` as `finishVm`, which never throws, with unit tests, and a qualification run with the tunnel port held confirmed the VM is stopped and the lock released.
 - **2026-11-13T19:29+10:00, task 2:** Review round 5 found that the launcher drops its signal handlers when shutdown starts, so a second Ctrl-C killed it before the VM stop. While a VM this run booted still needs stopping, the next stop signal is now held with a message and the one after quits, leaving the VM running. `limactl` messages are forwarded with a `[limactl]` prefix, so `vm_start_failed` comes with its cause.
+- **2026-11-13T19:37+10:00, task 3:** Review round 7 corrected the round 5 description: a forced quit leaves the VM running only if its `limactl stop` had not started, because that stop runs in its own process group and finishes anyway. The docs, design and message now say so. The root README's hand-run tunnels also gained `ControlPath=none` and a pointer to the `INTAKE_VM_NAME` route.
 
 ## Unexpected challenges
 
