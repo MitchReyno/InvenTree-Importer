@@ -1,0 +1,51 @@
+# Optional overlay for a provisioned media database role and retained blob store.
+services:
+  decoder-dispatch:
+    image: ${INTAKE_DISPATCHER_IMAGE:?select the verified dispatcher image}
+    platform: linux/arm64
+    pull_policy: never
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "1000:1000"
+    group_add: ["${INTAKE_ENGINE_SOCKET_GID:?select the numeric socket group}"]
+    environment:
+      INTAKE_MEDIA_DECODER_IMAGE: ${INTAKE_MEDIA_DECODER_IMAGE:?select the immutable decoder image ID}
+    volumes:
+      - decoder-ipc:/run/decoder
+      - type: bind
+        source: ${INTAKE_ENGINE_SOCKET:?select this installation's Docker engine socket}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+    tmpfs: [/tmp]
+    healthcheck:
+      test: [CMD-SHELL, test -S /run/decoder/worker.sock]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+  media:
+    image: ${INTAKE_APP_IMAGE:?select the verified app image}
+    platform: linux/arm64
+    pull_policy: never
+    command: [node, --import, tsx, src/media/worker-main.ts]
+    user: "1000:1000"
+    depends_on:
+      decoder-dispatch: {condition: service_healthy}
+      provision: {condition: service_completed_successfully}
+    network_mode: service:database
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    env_file: ["${INTAKE_MEDIA_RUNTIME_ENV:?provide the private media-role environment}"]
+    environment:
+      INTAKE_MEDIA_DISPATCH_SOCKET: /run/decoder/worker.sock
+      INTAKE_MEDIA_DECODER_IMAGE: ${INTAKE_MEDIA_DECODER_IMAGE}
+      INTAKE_BLOB_ROOT: /var/lib/intake/blobs/store
+    volumes:
+      - decoder-ipc:/run/decoder:ro
+      - blobs:/var/lib/intake/blobs
+volumes:
+  decoder-ipc: {}

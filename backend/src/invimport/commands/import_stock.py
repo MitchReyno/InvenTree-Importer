@@ -1,0 +1,1011 @@
+"""
+Import stock from a data file, for everything DigiKey cannot tell us about.
+
+    invimport import-stock stock.json            # read, check, report
+    invimport import-stock stock.json --validate # check only, machine-readable
+    invimport import-stock --schema              # the input format, as JSON Schema
+    invimport import-stock --vocabulary          # the category and parameter names
+    invimport import-stock stock.json --plan p.json  # also write the plan as JSON
+
+JSON, YAML or CSV; see PROPOSAL-stock-import.md for the shape and the reasoning.
+
+`--vocabulary` is the important one for generating a file with an LLM. It emits
+the category paths, parameter names, units and choices *from this config*, so an
+agent handed a photo produces values that land in the schema rather than near
+it. Pair it with `--validate`, whose errors carry `did_you_mean`, and an agent
+can iterate to a clean file without touching InvenTree at all.
+
+`--write` creates the records: parts, manufacturer and supplier parts, purchase
+orders and stock. Re-running the same file is a no-op - each stock item carries
+a barcode naming the line that made it, and InvenTree refuses to assign one
+twice.
+
+Each import lives in its own folder, `.local_imports/<import name>/`, with
+everything it was made from. `--write` zips that folder and attaches the zip to
+the purchase orders the import used, or to the supplier of lines bought on no
+order, so the evidence survives the disk it was written on. A dry run says
+where it would go; `--no-archive` leaves it out.
+
+Anything ambiguous stops and asks, with the same interactive prompts the other
+commands use: an unknown category offers close matches before creating one, and
+a partly-specified part offers the parts that match what was given. Neither is
+guessed, because InvenTree has no part merge and both mistakes are cleaned up
+by hand.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+from hashlib import sha256
+from typing import Any
+
+from ..execution.observation import Observation, observing, operation
+from ..execution.transport import protect_import_logs, safe_failure
+from .import_progress import ImportProgress
+from .. import notes as notes_md
+from ..config import load_categories_config, load_parameters_config
+from ..stockfile import (
+    CONDITIONS,
+    LINE_KEYS,
+    MANUFACTURER_PART_KEYS,
+    PART_KEYS,
+    PROVENANCE_KINDS,
+    SUPPORTED_VERSIONS,
+    V2_LINE_KEYS,
+    StockFileError,
+    read_file,
+)
+from ..inventree.api import connect
+from ..inventree.archive import (
+    ALREADY_ATTACHED,
+    ATTACHED,
+    FAILED,
+    UNKNOWN,
+    PURCHASE_ORDER,
+    WOULD_ATTACH,
+)
+from ..inventree import companies
+from ..inventree.importplan import build_plan, write_plan
+from ..inventree.parts import NEW_PART
+from ..inventree.stockimport import (
+    CREATED,
+    EXISTS,
+    REVIEW,
+    SKIPPED,
+    ImportOptions,
+    import_stock,
+)
+from ..validate import validate
+from . import _prompt
+
+# Set this (in the environment or .env) to mirror datasheets on every run
+# without passing --mirror-datasheets each time. 0 or false leaves it off.
+MIRROR_ENV_VAR = "INVIMPORT_MIRROR_DATASHEETS"
+
+NAME = "import-stock"
+HELP = "import stock from a JSON/YAML/CSV file"
+
+
+def add_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("files", nargs="*", type=Path, metavar="FILE",
+                        help="stock files to read (.json, .yaml, .csv)")
+    parser.add_argument("--config", type=Path, default=None, metavar="DIR",
+                        help="config directory (default: backend/config/ at the repo "
+                             "root)")
+    parser.add_argument("--validate", action="store_true",
+                        help="check only, and report as JSON for an agent to "
+                             "act on")
+    parser.add_argument("--schema", action="store_true",
+                        help="print the input format as JSON Schema and exit")
+    parser.add_argument("--vocabulary", action="store_true",
+                        help="print the categories, parameters and units this "
+                             "config defines, for generating a file")
+    parser.add_argument("--write", action="store_true",
+                        help="create the records (default is a dry run)")
+    parser.add_argument("--location", metavar="PATH",
+                        help="where stock with no location of its own goes")
+    parser.add_argument("--on-partial", choices=("ask", "new", "skip"),
+                        default="ask",
+                        help="a part whose key parameters are only partly "
+                             "given (default: ask)")
+    parser.add_argument("--min-confidence", type=float, default=0.0,
+                        metavar="N",
+                        help="hold any line the file rates below this, 0-1")
+    parser.add_argument("--no-orders", action="store_true",
+                        help="import the stock without creating purchase "
+                             "orders for it")
+    parser.add_argument("--mirror-datasheets", action="store_true",
+                        help="download each datasheet URL and attach a copy "
+                             "to the part, as well as linking it (local "
+                             "datasheet files are always attached); also "
+                             f"on when {MIRROR_ENV_VAR} is set")
+    parser.add_argument("--no-provenance", action="store_true",
+                        help="do not record where each record's facts came "
+                             "from and what the import did (a JSON file on "
+                             "each record, and one for the import)")
+    parser.add_argument("--no-archive", action="store_true",
+                        help="do not zip the import's folder and attach it "
+                             "to its purchase orders or suppliers")
+    parser.add_argument("--plan", type=Path, metavar="FILE",
+                        help="also write what each line does, or would do, "
+                             "to the server as JSON - new or existing part, "
+                             "location and the stock already there - for "
+                             "the interpretation montage")
+    parser.add_argument("--yes", action="store_true",
+                        help="do not prompt; report anything ambiguous "
+                             "instead")
+
+
+# --------------------------------------------------------------------------
+# Describing the format
+# --------------------------------------------------------------------------
+def schema() -> dict[str, Any]:
+    """JSON Schema for a stock file. Generated, so it cannot drift."""
+    line = {
+        "type": "object",
+        "required": ["id", "quantity", "category"],
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string", "minLength": 1,
+                   "description": "Stable and unique within the file. Part of "
+                                  "the key that makes a re-import a no-op."},
+            "quantity": {"type": "number", "exclusiveMinimum": 0},
+            "approximate": {"type": "boolean",
+                            "description": "The quantity is an estimate."},
+            "condition": {"enum": list(CONDITIONS), "default": "ok"},
+            "category": {"type": "string",
+                         "description": "InvenTree category path, e.g. "
+                                        "'Resistors/Through Hole Resistors'. "
+                                        "See --vocabulary."},
+            "suggest_category": {
+                "type": "object", "additionalProperties": False,
+                "description": "Only when the category does not exist yet; the "
+                               "import prompts before creating it.",
+                "properties": {
+                    "identity": {"enum": ["spec", "mpn", "type"]},
+                    "ipn_prefix": {"type": "string"},
+                    "description": {"type": "string"},
+                    "because": {"type": "string",
+                                "description": "Shown to whoever confirms. "
+                                               "Never stored."},
+                },
+            },
+            "name": {"type": "string", "maxLength": 100,
+                     "description": "What a new part is called: the part "
+                                    "number it is known by, e.g. "
+                                    "'CD4073BF' - never a description. "
+                                    "Overrides the generated name (the "
+                                    "category's parameter template, else "
+                                    "the type or MPN). Never renames an "
+                                    "existing part."},
+            "description": {"type": "string"},
+            "type": {"type": "string",
+                     "description": "Type designator such as 1N4007 or "
+                                    "XR-2206, when there is no MPN."},
+            "mpn": {"type": "string"},
+            "ipn": {"type": "string",
+                    "description": "Explicit existing part; skips matching."},
+            "manufacturer": {"type": "string"},
+            "parameters": {
+                "type": "object", "additionalProperties": {"type": "string"},
+                "description": "Parameter name to value. See --vocabulary.",
+            },
+            "supplier": {"type": "string"},
+            "sku": {"type": "string"},
+            "unit_price": {"type": "number",
+                           "description": "Ex-tax, per piece."},
+            "currency": {"type": "string"},
+            "order": {
+                "type": "object", "additionalProperties": False,
+                "description": "The purchase order this line was bought on. "
+                               "Lines sharing a supplier and a reference "
+                               "share one order.",
+                "properties": {
+                    "reference": {
+                        "type": "string",
+                        "description": "The seller's own invoice or order "
+                                       "number. Stored as supplier_reference "
+                                       "and used to recognise an order "
+                                       "already imported. Without it no "
+                                       "order is created."},
+                    "date": {
+                        "type": "string", "format": "date",
+                        "description": "When it was ordered, YYYY-MM-DD. "
+                                       "Stored as the order's start_date - "
+                                       "InvenTree's creation_date is "
+                                       "read-only and always the day the "
+                                       "record was written."},
+                    "target_date": {
+                        "type": "string", "format": "date",
+                        "description": "Expected delivery, YYYY-MM-DD."},
+                    "description": {
+                        "type": "string",
+                        "description": "Defaults to 'Imported order X'."},
+                    "link": {"type": "string", "format": "uri",
+                             "description": "Order or invoice page."},
+                    "notes": {"type": "string"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "invoice": {
+                        "type": "string",
+                        "description": "Invoice or receipt scan to attach to "
+                                       "the order: a path relative to this "
+                                       "file, or an absolute one. Uploaded "
+                                       "once; re-importing will not attach a "
+                                       "second copy."},
+                },
+            },
+            "location": {"type": "string",
+                         "description": "Stock location path; created if it "
+                                        "does not exist."},
+            "notes": notes_schema(
+                notes_md.STOCK_SECTIONS,
+                "About this quantity only: the count and how it was taken, "
+                "packaging and seal, markings as printed. Never research "
+                "about the part."),
+            "tags": {
+                "type": "array", "items": {"type": "string"},
+                "description": "Labels for the stock item, not the part. New "
+                               "old stock is [\"NOS\", \"new old stock\"]; "
+                               "use both spellings so either search finds it. "
+                               "An NSN shown on the label or invoice is "
+                               "'nsn:5961-00-123-4567'; do not look one up. "
+                               "A comma-separated string in CSV.",
+            },
+            "batch": {"type": "string",
+                      "description": "Lot or date code for this quantity, "
+                                     "e.g. 8231 for week 31 of 1982. Stored "
+                                     "on the stock item."},
+            "packaging": {"type": "string", "maxLength": 50,
+                          "description": "What this quantity is held in, "
+                                         "e.g. 'Cut Tape', 'Tape & Reel', "
+                                         "'Tube', 'Tray', 'Bag', 'Loose'. "
+                                         "Stored on the stock item. Required "
+                                         "for new old stock, with its seal "
+                                         "state: 'Tube, sealed', 'Bag, "
+                                         "opened', 'Tray, resealed'."},
+            "link": {"type": "string", "format": "uri",
+                     "description": "Product or listing page. Stored on the "
+                                    "Part (if there is no datasheet) and on "
+                                    "the SupplierPart."},
+            "datasheet": {"type": "string",
+                          "description": "Datasheet: an http(s) URL, stored "
+                                         "as the link on the Part and the "
+                                         "ManufacturerPart, or a PDF path "
+                                         "relative to this file, attached to "
+                                         "both. A URL is also downloaded and "
+                                         "attached under --mirror-datasheets."},
+            "datasheet_pages": {"type": "string",
+                                "description": "1-based pages of the "
+                                               "datasheet PDF that are this "
+                                               "device, e.g. '140-142' or "
+                                               "'3, 5-6'. They are attached "
+                                               "as the datasheet, and the "
+                                               "whole document beside them. "
+                                               "Applies to a local file, or "
+                                               "a mirrored URL."},
+            "image": {"type": "string",
+                      "description": "Product photo: an http(s) URL, or a "
+                                     "path relative to this file. Becomes "
+                                     "the Part's image when it has none."},
+            "images": {"type": "array", "items": {"type": "string"},
+                       "description": "Additional photos; the first "
+                                      "resolvable one is used if image is "
+                                      "absent."},
+            "part_of": {"type": "string",
+                        "description": "The id of an earlier line in this "
+                                       "file whose part this stock belongs "
+                                       "to - for a lot printed with an older "
+                                       "or alternate part number. Its own "
+                                       "mpn/manufacturer is added to that "
+                                       "part as a manufacturer part."},
+            "attachments": {"type": "array",
+                            "items": {"oneOf": [
+                                {"type": "string"},
+                                {"type": "object",
+                                 "properties": {
+                                     "file": {"type": "string"},
+                                     "comment": {"type": "string"}},
+                                 "required": ["file"]}]},
+                            "description": "Files attached to the part - "
+                                           "e.g. snapshots of the source "
+                                           "pages (source-snapshots skill). Path "
+                                           "relative to this file, or "
+                                           "{file, comment}."},
+            "stock_images": {"type": "array", "items": {"type": "string"},
+                             "description": "Photos of this quantity - its "
+                                            "packet or batch label - "
+                                            "attached to the stock item "
+                                            "rather than the part. URL or "
+                                            "path relative to this file."},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1,
+                           "description": "Agent hint. Never stored."},
+            "needs_review": {"type": "boolean",
+                             "description": "Agent hint. Never stored."},
+            "provenance": provenance_schema(),
+        },
+    }
+    fields = line["properties"]
+    part = {
+        "type": "object",
+        "required": ["id", "category"],
+        "additionalProperties": False,
+        "description": "One part, described once however many lines hold "
+                       "stock of it.",
+        "properties": {
+            **{key: fields[key] for key in sorted(PART_KEYS)
+               if key in fields and key not in ("notes",)},
+            "id": {"type": "string", "minLength": 1,
+                   "description": "Lines and manufacturer parts refer to "
+                                  "the part by this."},
+            "link": {"type": "string", "format": "uri",
+                     "description": "The part's product page. Stored on the "
+                                    "Part when there is no datasheet."},
+            "notes": notes_schema(
+                notes_md.PART_SECTIONS,
+                "What is true of the part whoever made it: what it is, "
+                "figures the parameters cannot hold, NSNs and equivalents, "
+                "look-alikes, documents. Written to the Part only when it "
+                "has no notes yet."),
+        },
+    }
+    manufacturer_part = {
+        "type": "object",
+        "required": ["id", "part", "mpn"],
+        "additionalProperties": False,
+        "description": "One maker's number for a part. A part may have "
+                       "several - an alternate or special number, a second "
+                       "source.",
+        "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "part": {"type": "string",
+                     "description": "The id of the part this is a number "
+                                    "for."},
+            "manufacturer": fields["manufacturer"],
+            "mpn": fields["mpn"],
+            "provenance": provenance_schema(),
+            "notes": notes_schema(
+                notes_md.MANUFACTURER_PART_SECTIONS,
+                "What is true of this number at this maker only: what its "
+                "suffix or grade means, a house or special number, how the "
+                "maker was established. Needs a manufacturer. Written only "
+                "when the manufacturer part has no notes yet."),
+        },
+    }
+    line_v2 = {
+        "type": "object",
+        "required": ["id", "quantity"],
+        "additionalProperties": False,
+        "description": "One quantity on hand. Names its part, or the "
+                       "manufacturer part its lot is marked with.",
+        "properties": {
+            **{key: fields[key] for key in sorted(V2_LINE_KEYS)
+               if key in fields},
+            "part": {"type": "string",
+                     "description": "The id of a part in `parts`."},
+            "manufacturer_part": {
+                "type": "string",
+                "description": "The id of a manufacturer part in "
+                               "`manufacturer_parts` - the number this "
+                               "lot is marked with. Implies its part."},
+            "link": {"type": "string", "format": "uri",
+                     "description": "The seller's listing page. Stored on "
+                                    "the SupplierPart."},
+        },
+    }
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "invimport stock file",
+        "type": "object",
+        "required": ["lines"],
+        "additionalProperties": False,
+        "if": {"properties": {"version": {"const": 2}},
+               "required": ["version"]},
+        "then": {"properties": {"lines": {"items": line_v2}}},
+        "else": {"properties": {"lines": {"items": line}},
+                 "not": {"anyOf": [{"required": ["parts"]},
+                                   {"required": ["manufacturer_parts"]}]}},
+        "properties": {
+            "version": {"enum": list(SUPPORTED_VERSIONS), "default": 1,
+                        "description": "2 describes each part once in "
+                                       "`parts` and `manufacturer_parts`, "
+                                       "and keeps only stock on the lines. "
+                                       "1 is the flat form CSV uses."},
+            "source": {
+                "type": "object", "additionalProperties": False,
+                "properties": {
+                    "kind": {"type": "string"},
+                    "reference": {"type": "string",
+                                  "description": "Names the file; keeps the "
+                                                 "import key stable if it is "
+                                                 "regenerated."},
+                    "captured": {"type": "string"},
+                    "agent": {"type": "string"},
+                },
+            },
+            "defaults": {
+                "type": "object",
+                "description": "Merged into every line; a line always wins, except tags and order, which merge.",
+            },
+            "parts": {"type": "array", "items": part,
+                      "description": "Version 2 only."},
+            "manufacturer_parts": {"type": "array",
+                                   "items": manufacturer_part,
+                                   "description": "Version 2 only."},
+            "companies": {
+                "type": "object",
+                "description": "Logos for the manufacturers and suppliers "
+                               "the lines name, keyed by that name. Set only "
+                               "on a company that has no image yet.",
+                "additionalProperties": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["image"],
+                    "properties": {
+                        "image": {"type": "string",
+                                  "description": "Logo URL, or a path "
+                                                 "relative to the stock "
+                                                 "file."},
+                        "provenance": provenance_schema(),
+                    },
+                },
+            },
+            "provenance": {
+                **provenance_schema(),
+                "description": "Sources that speak for every line - the "
+                               "invoice, the user's description of the lot. "
+                               "Facts name line fields.",
+            },
+            "lines": {"type": "array"},
+        },
+    }
+
+
+def provenance_schema() -> dict[str, Any]:
+    """Where an entry's facts came from: one row per source."""
+    text = {"type": "string"}
+    return {
+        "type": "array",
+        "description": "Where this entry's facts came from. One row per "
+                       "source, listing every fact it supports; kept with "
+                       "each record on the server as provenance JSON.",
+        "items": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["kind", "facts"],
+            "properties": {
+                "id": {**text, "description": "Unique in the file; what "
+                                              "derived_from names."},
+                "kind": {"enum": list(PROVENANCE_KINDS)},
+                "title": {**text, "description": "What the source is, e.g. "
+                                                 "'1981 Signetics Logic "
+                                                 "Data Book'."},
+                "file": {**text, "description": "A local copy, relative to "
+                                                "this file."},
+                "url": {**text, "format": "uri"},
+                "pages": {**text, "description": "1-based PDF pages, e.g. "
+                                                 "'140-142'."},
+                "snapshot": {**text, "description": "The snapshot of the "
+                                                    "page, relative to this "
+                                                    "file."},
+                "where": {**text, "description": "Where in the source: a "
+                                                 "table, the tube label, "
+                                                 "the top of the photo."},
+                "quote": {**text, "description": "What the source says, "
+                                                 "verbatim."},
+                "by": {**text, "description": "Who read or stated it: the "
+                                              "user, an agent."},
+                "date": {**text, "description": "When the source was "
+                                                "published or said."},
+                "retrieved": {**text, "description": "When it was read or "
+                                                     "fetched."},
+                "because": {**text, "description": "For an inference: the "
+                                                   "reasoning."},
+                "derived_from": {"type": "array", "items": text,
+                                 "description": "Ids of the rows an "
+                                                "inference rests on."},
+                "note": text,
+                "facts": {
+                    "type": "array", "minItems": 1,
+                    "items": {"oneOf": [
+                        {**text, "description": "A field of this entry: "
+                                                "'mpn', "
+                                                "'parameters.Resistance', "
+                                                "'order.reference'."},
+                        {"type": "object", "additionalProperties": False,
+                         "required": ["field"],
+                         "properties": {"field": text, "note": text}},
+                        {"type": "object", "additionalProperties": False,
+                         "required": ["claim"],
+                         "properties": {"claim": text, "note": text}},
+                    ]},
+                },
+            },
+        },
+    }
+
+
+def notes_schema(sections, description: str) -> dict[str, Any]:
+    """Notes are text, or named sections each of text or a list of text."""
+    text = {"type": "string"}
+    body = {"oneOf": [text, {"type": "array", "items": text}]}
+    return {
+        "description": description,
+        "oneOf": [
+            text,
+            {"type": "object", "additionalProperties": False,
+             "properties": {
+                 key: {**body, "description": f"Written under '{heading}'"
+                                              + (" verbatim, in a code block"
+                                                 if key in notes_md.VERBATIM
+                                                 else "")}
+                 for key, heading in sections}},
+        ],
+    }
+
+
+def vocabulary(directory: Path | None) -> dict[str, Any]:
+    """
+    The controlled vocabulary, generated from the config.
+
+    This is what an agent needs and cannot guess: that the category is
+    'Resistors/Through Hole Resistors', that the parameter is 'Power Rating'
+    and not 'Wattage', that Composition is one of a fixed set.
+    """
+    categories = load_categories_config(directory)
+    parameters = load_parameters_config(directory)
+
+    return {
+        "categories": [
+            {
+                "path": category.pathstring,
+                "identity": category.identity,
+                "ipn_prefix": category.ipn_prefix,
+                "key_parameters": category.key_parameters,
+                "parameters": category.parameters,
+            }
+            for category in categories.values() if not category.structural
+        ],
+        "parameters": [
+            {
+                "name": parameter.name,
+                **({"units": parameter.units} if parameter.units else {}),
+                **({"choices": parameter.choices} if parameter.choices else {}),
+                **({"description": parameter.description}
+                   if parameter.description else {}),
+                **({"also_accepts": parameter.aliases}
+                   if parameter.aliases else {}),
+            }
+            for parameter in parameters.values()
+        ],
+        "conditions": list(CONDITIONS),
+        "line_fields": sorted(LINE_KEYS),
+        "version_2": {
+            "part_fields": sorted(PART_KEYS),
+            "manufacturer_part_fields": sorted(MANUFACTURER_PART_KEYS),
+            "line_fields": sorted(V2_LINE_KEYS
+                                  | {"part", "manufacturer_part"}),
+        },
+        "note_sections": {
+            "part": [key for key, _ in notes_md.PART_SECTIONS],
+            "manufacturer_part": [key for key, _ in
+                                  notes_md.MANUFACTURER_PART_SECTIONS],
+            "stock": [key for key, _ in notes_md.STOCK_SECTIONS],
+        },
+        "notes": [
+            "Use a category path exactly as listed; the importer will offer "
+            "close matches for anything else.",
+            "A parameter value is written as the supplier writes it - "
+            "'4.7 kohm', '±1%', '0.25 W'. Units are parsed, not assumed.",
+            "A category with identity 'spec' is matched on its "
+            "key_parameters; supply all of them or the import will stop and "
+            "ask.",
+            "Every line needs a stable, unique id.",
+            "link must be a URL (https://...). datasheet and image may be a "
+            "URL or a path relative to the stock file; a local datasheet "
+            "PDF is attached to the part, and datasheet_pages adds an "
+            "extract of just the pages for this device.",
+            "Once a part is identified, look up its datasheet URL, one "
+            "product image, and every remaining parameter this category "
+            "lists. Copy what you opened; do not invent a typical part.",
+        ],
+    }
+
+
+# --------------------------------------------------------------------------
+# Reporting
+# --------------------------------------------------------------------------
+def report_file(document, report, resolved_preview: bool = True) -> None:
+    name = document.path.name if document.path else "(input)"
+    print(f"\n{name}: {len(document.lines)} line(s), file id {document.file_id}")
+
+    for line in document.lines:
+        flags = []
+        if line.approximate:
+            flags.append("approx")
+        if line.condition != "ok":
+            flags.append(line.condition)
+        if line.needs_review:
+            flags.append("needs review")
+        if line.confidence is not None:
+            flags.append(f"confidence {line.confidence:.0%}")
+        suffix = f"   [{', '.join(flags)}]" if flags else ""
+        identity = line.mpn or line.type or line.sku or line.ipn or "-"
+        print(f"  {line.id:<10} {line.quantity:>8g}  {line.category:<42} "
+              f"{identity}{suffix}")
+        if resolved_preview and report.resolved.get(line.id):
+            values = report.resolved[line.id]
+            print(f"             {', '.join(f'{k}={v}' for k, v in values.items())}")
+
+    if report.problems or report.warnings:
+        print()
+        print(report.text())
+
+
+# --------------------------------------------------------------------------
+# Prompts
+# --------------------------------------------------------------------------
+def ask_category(line, near: list[str]):
+    """
+    An unknown category. Existing matches first, then create, then skip.
+
+    Leading with what already exists is the point: inventing
+    'Resistors/SMD' when 'Resistors/Surface Mount Resistors' is right there is
+    the failure this is here to prevent.
+    """
+    title = f"  line {line.id}: category {line.category!r} is not in the config"
+    if line.description:
+        title += f"\n    {line.description}"
+    because = (line.suggest_category or {}).get("because")
+    if because:
+        title += f"\n    the file says: {because}"
+
+    options = [(path, f"use {path}") for path in near]
+    options.append((line.category, f"create {line.category}"))
+    options.append((None, "skip this line"))
+    picked = _prompt.choose_one(options, lambda o: o[1], title=title,
+                                prompt="  category > ")
+    return None if picked is None else picked[0]
+
+
+def ask_part(line, offered: list[Any]):
+    """
+    A partial specification: which existing part, or a new one.
+
+    Offered parts agree with every value the line gave and say nothing about
+    the ones it did not - which is exactly why a human picks.
+    """
+    title = (f"  line {line.id}: {line.description or line.category} gives "
+             f"only part of its specification")
+    if line.parameters:
+        title += ("\n    given: "
+                  + ", ".join(f"{k}={v}" for k, v in line.parameters.items()))
+
+    options = [(part, f"{getattr(part, 'IPN', '?')}  "
+                      f"{getattr(part, 'name', '')}") for part in offered]
+    options.append((None, "create a new part"))
+    picked = _prompt.choose_one(options, lambda o: o[1], title=title,
+                                prompt="  part > ")
+    return None if picked is None else picked[0]
+
+
+def ask_name_match(line, offered: list[Any]):
+    """
+    An MPN nothing confirms, and a part already carrying that name.
+
+    With no manufacturer on either side there is no ManufacturerPart to say
+    they are the same component, only the name - so a human decides whether
+    the stock goes onto the existing part.
+    """
+    title = (f"  line {line.id}: {line.mpn!r} has no manufacturer part to "
+             f"match, but a part with that name already exists")
+    if line.description:
+        title += f"\n    this line: {line.description}"
+    options = [(part, f"use {getattr(part, 'IPN', '?')}  "
+                      f"{getattr(part, 'name', '')}  "
+                      f"{getattr(part, 'description', '') or ''}".rstrip())
+               for part in offered]
+    options.append((NEW_PART, "create a new part"))
+    options.append((None, "skip this line"))
+    picked = _prompt.choose_one(options, lambda o: o[1], title=title,
+                                prompt="  part > ")
+    return None if picked is None else picked[0]
+
+
+def ask_company(kind: str):
+    """A chooser for an unmatched manufacturer or supplier name."""
+    def choose(name: str, offered: list[tuple[Any, float]]):
+        options = [(company, f"{company.name}  ({score:.0%} match)")
+                   for company, score in offered]
+        options.append((name, f"create {kind} {name!r}"))
+        options.append((None, "skip"))
+        picked = _prompt.choose_one(
+            options, lambda o: o[1],
+            title=f"  {kind} {name!r} is not on the server",
+            prompt=f"  {kind} > ")
+        return None if picked is None else picked[0]
+    return choose
+
+
+def report_actions(document, result, resolved=None) -> None:
+    """
+    One line per line: what it is, and what happened to it.
+
+    The parsed parameter values are shown underneath because they are how a
+    human checks a transcription - seeing '4k7' read back as '4.7 k' is the
+    point at which a misreading becomes obvious.
+    """
+    resolved = resolved or {}
+    name = document.path.name if document.path else "(input)"
+    print(f"\n{name}: {len(result.lines)} line(s), file id {document.file_id}")
+    for action in result.lines:
+        mark = {CREATED: "+", EXISTS: "=", SKIPPED: "-", REVIEW: "?"}.get(
+            action.action, " ")
+        print(f"  {mark} {action.id:<8} {action.quantity:>8g}  "
+              f"{action.ipn or '-':<12} {action.name or action.category}")
+        values = resolved.get(action.id)
+        if values:
+            print(f"      {', '.join(f'{k}={v}' for k, v in values.items())}")
+        detail = []
+        if action.part_of:
+            detail.append(f"same part as {action.part_of}")
+        if action.location:
+            detail.append(action.location)
+        if action.supplier_part:
+            detail.append(f"supplier part {action.supplier_part}")
+        if action.purchase_order:
+            detail.append(f"order {action.purchase_order}")
+        if action.datasheet:
+            detail.append(f"datasheet {action.datasheet}")
+        if detail:
+            print(f"      {'  '.join(detail)}")
+        if action.reason:
+            print(f"      {action.reason}")
+        if action.datasheet_problem:
+            lead = ("only the whole datasheet" if action.datasheet
+                    else "no datasheet attached")
+            print(f"      {lead}: {action.datasheet_problem}")
+        if action.name_kept:
+            print(f"      name kept: {action.name_kept}")
+        if action.part_notes:
+            print(f"      part notes {action.part_notes}")
+        if action.manufacturer_part_notes:
+            print(f"      manufacturer part notes "
+                  f"{action.manufacturer_part_notes}")
+        for candidate in action.candidates[:3]:
+            shown = candidate if isinstance(candidate, str) else (
+                f"{getattr(candidate, 'IPN', '')} "
+                f"{getattr(candidate, 'name', '')}".strip())
+            print(f"        -> {shown}")
+
+
+def _megabytes(size: int) -> str:
+    return f"{size / 1_000_000:.1f} MB" if size >= 100_000 \
+        else f"{size / 1000:.0f} kB"
+
+
+def report_archive(archive) -> None:
+    """Where the zip of the import's folder went, or would go, or why not."""
+    if archive is None:
+        return
+    if not archive.name:
+        print(f"\n  archive: none - {archive.reason}")
+        return
+    print(f"\n  archive {archive.name}: {len(archive.files)} file(s), "
+          f"{_megabytes(archive.size)}")
+    if archive.reason:
+        print(f"    {archive.reason}")
+    mark = {ATTACHED: "+", WOULD_ATTACH: "+", ALREADY_ATTACHED: "=",
+            FAILED: "!", UNKNOWN: "!"}
+    for target in archive.targets:
+        kind = "order" if target.kind == PURCHASE_ORDER else "supplier"
+        label = target.label if target.pk is None else f"{kind} {target.label}"
+        print(f"    {mark.get(target.outcome, ' ')} {label:<40} "
+              f"{target.outcome}  (lines {', '.join(target.lines)})")
+        if target.earlier:
+            print(f"        earlier version(s) kept: "
+                  f"{', '.join(target.earlier)}")
+    if archive.unattached:
+        print(f"    no order or supplier, so no archive for line(s): "
+              f"{', '.join(archive.unattached)}")
+    if not archive.targets and not archive.unattached:
+        print("    no imported lines to attach it to")
+
+
+def report_provenance(outcome, enabled: bool) -> None:
+    """Where this run's provenance went, or why there is none."""
+    if outcome is None:
+        if enabled:
+            print("\n  provenance: recorded on --write")
+        return
+    if (outcome.file is None and not outcome.attached and not outcome.failed
+            and not outcome.already_satisfied and not outcome.unknown):
+        print(f"\n  provenance: none - {outcome.reason}")
+        return
+    print("\n  provenance:")
+    if outcome.file is not None:
+        print(f"    + {outcome.file.name} (in the import folder and its "
+              f"archive)")
+    elif outcome.reason:
+        print(f"    {outcome.reason}")
+    if outcome.attached:
+        kinds: dict[str, int] = {}
+        for model, _, _ in outcome.attached:
+            kinds[model] = kinds.get(model, 0) + 1
+        print(f"    + attached to {len(outcome.attached)} record(s): "
+              f"{', '.join(f'{n} {k}' for k, n in kinds.items())}")
+    for model, pk, name in outcome.already_satisfied:
+        print(f"    = {name} already attached to {model} {pk}")
+    for model, pk, name in outcome.unknown:
+        print(f"    ! upload outcome unknown for {name} on {model} {pk}")
+    for model, pk, name in outcome.failed:
+        print(f"    ! could not attach {name} to {model} {pk}")
+
+
+def report_logos(logos) -> None:
+    """What became of each company logo the file gives."""
+    if not logos:
+        return
+    print("\n  company logos:")
+    mark = {companies.SET: "+", companies.WOULD_SET: "+",
+            companies.HAS_ONE: "=", companies.EXISTING: "=",
+            companies.NOT_FOUND: "-",
+            companies.FAILED: "!"}
+    for logo in logos:
+        detail = f" - {logo.reason}" if logo.reason else ""
+        print(f"    {mark.get(logo.action, ' ')} {logo.name:<40} "
+              f"{logo.action}{detail}")
+
+
+def mirror_datasheets(args: argparse.Namespace) -> bool:
+    """Is mirroring on, by the flag or by INVIMPORT_MIRROR_DATASHEETS?"""
+    if args.mirror_datasheets:
+        return True
+    return os.environ.get(MIRROR_ENV_VAR, "").strip().lower() not in (
+        "", "0", "false")
+
+
+def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
+    observation = Observation(ImportProgress())
+    protect_import_logs()
+    with observing(observation):
+        phases = ["connection", "discovery", "lines"]
+        if mirror_datasheets(args):
+            phases.insert(2, "datasheet prefetch")
+        if any(document.companies for document, _ in reports):
+            phases.append("company logos")
+        if args.write and not args.no_provenance:
+            phases.append("provenance")
+        if not args.no_archive:
+            phases.append("archive")
+        if args.plan:
+            phases.append("report plan reads/downloads")
+        observation.emit("outline", " -> ".join(phases))
+        try:
+            with operation("import invocation", group="invocation"):
+                return _write_run(args, reports)
+        except Exception as exc:
+            # Legacy SDK errors can contain authorization/payload/body dictionaries.
+            # Their causes remain available to library users; CLI is a safe boundary.
+            print(f"ERROR: {safe_failure(exc)}", file=sys.stderr, flush=True)
+            return 1
+
+
+def _write_run(args: argparse.Namespace, reports: list[Any]) -> int:
+    interactive = _prompt.interactive() and not args.yes
+    options = ImportOptions(
+        write=args.write,
+        default_location=args.location or "",
+        on_partial=args.on_partial,
+        min_confidence=args.min_confidence,
+        create_orders=not args.no_orders,
+        mirror_datasheets=mirror_datasheets(args),
+        archive=not args.no_archive,
+        provenance=not args.no_provenance,
+        choose_category=ask_category if interactive else None,
+        choose_part=ask_part if interactive else None,
+        choose_name_match=ask_name_match if interactive else None,
+        choose_manufacturer=ask_company("manufacturer") if interactive else None,
+        choose_supplier=ask_company("supplier") if interactive else None,
+    )
+
+    with operation("connection", group="connection"):
+        api = connect()
+    totals = {"created": 0, "exists": 0, "skipped": 0, "review": 0}
+    plans = []
+    for document, report in reports:
+        result = import_stock(document, api, directory=args.config,
+                              options=options)
+        report_actions(document, result, report.resolved)
+        report_archive(result.archive)
+        report_logos(result.logos)
+        report_provenance(result.provenance, not args.no_provenance)
+        if args.plan:
+            with operation("report plan", group="report",
+                           source=sha256(document.file_id.encode()).hexdigest()[:16]):
+                plans.append(build_plan(
+                    api, document, result,
+                    image_dir=args.plan.parent / f"{args.plan.stem}-images"))
+        for key in totals:
+            totals[key] += result.counts()[key]
+
+    if args.plan:
+        write_plan(args.plan, plans)
+        print(f"\nplan written to {args.plan}")
+    print(f"\n{totals['created']} created, {totals['exists']} already there, "
+          f"{totals['skipped']} skipped, {totals['review']} need review.")
+    if not args.write:
+        print("Dry run - nothing was written. Re-run with --write to apply.")
+    if totals["review"]:
+        print("Lines needing review were left alone; run interactively to "
+              "settle them.")
+    return 1 if totals["skipped"] or totals["review"] else 0
+
+
+def run(args: argparse.Namespace) -> int:
+    if args.schema:
+        print(json.dumps(schema(), indent=2))
+        return 0
+
+    if args.vocabulary:
+        print(json.dumps(vocabulary(args.config), indent=2))
+        return 0
+
+    if not args.files:
+        print("ERROR: name a file to import, or use --schema / --vocabulary",
+              file=sys.stderr)
+        return 2
+
+    categories = load_categories_config(args.config)
+    parameters = load_parameters_config(args.config)
+
+    documents = []
+    failures: list[str] = []
+    for path in args.files:
+        try:
+            documents.append(read_file(path))
+        except StockFileError as exc:
+            failures.append(str(exc))
+
+    if failures:
+        if args.validate:
+            print(json.dumps({"ok": False, "unreadable": failures}, indent=2))
+        else:
+            for failure in failures:
+                print(f"ERROR {failure}", file=sys.stderr)
+        return 1
+
+    reports = [(doc, validate(doc, categories, parameters))
+               for doc in documents]
+
+    if args.validate:
+        payload = {
+            "ok": all(report.ok for _, report in reports),
+            "files": [
+                {"file": str(doc.path) if doc.path else "", **report.as_dict()}
+                for doc, report in reports
+            ],
+        }
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["ok"] else 1
+
+    problems = sum(len(report.problems) for _, report in reports)
+    warnings = sum(len(report.warnings) for _, report in reports)
+    total = sum(len(doc.lines) for doc, _ in reports)
+
+    if problems:
+        for document, report in reports:
+            report_file(document, report)
+        print(f"\n{total} line(s), {problems} error(s), {warnings} warning(s).")
+        print("Fix the errors, or re-run with --validate for machine-readable "
+              "output.")
+        return 1
+
+    if warnings:
+        for _, report in reports:
+            for warning in report.warnings:
+                print(f"  warn  {warning.describe()}")
+
+    return write_run(args, reports)

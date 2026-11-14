@@ -1,0 +1,155 @@
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      backend:
+        type: boolean
+        required: true
+      frontend:
+        type: boolean
+        required: true
+      workflow-sync:
+        type: boolean
+        required: true
+      intake:
+        type: boolean
+        required: true
+
+jobs:
+  backend:
+    name: Backend
+    if: ${{ inputs.backend }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python project
+        run: uv sync --locked
+      - name: Test Python (includes shared workflow sync)
+        run: uv run pytest
+
+  workflow-sync:
+    name: Shared workflow sync
+    if: ${{ inputs.workflow-sync && !inputs.backend }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python project
+        run: uv sync --project backend --locked
+      - name: Check skills, agents and workspace commands only
+        run: uv run --directory backend pytest tests/test_project_workflow_sync.py
+
+  frontend:
+    name: Frontend
+    if: ${{ inputs.frontend }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm --filter @invimport/frontend typecheck
+      - name: Test
+        run: pnpm --filter @invimport/frontend test
+      - name: Build
+        run: pnpm --filter @invimport/frontend build
+
+  intake:
+    name: Intake contracts and HTTP
+    if: ${{ inputs.intake }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Contract generation drift
+        run: pnpm --filter @invimport/contracts check:generated
+      - name: Typecheck contracts
+        run: pnpm --filter @invimport/contracts typecheck
+      - name: Typecheck media decoder
+        run: pnpm --filter @invimport/media-decoder typecheck
+      - name: Typecheck server
+        run: pnpm --filter @invimport/intake-server typecheck
+      - name: Test contracts
+        run: pnpm --filter @invimport/contracts test
+      - name: Test development supervisor policies
+        run: pnpm test:dev
+      - name: Install the qualified OpenSpec CLI
+        run: npm install --global @fission-ai/openspec@1.16.0
+      - name: Test the OpenSpec sync overlap check
+        run: pnpm test:openspec
+      - name: Test media decoder
+        run: pnpm --filter @invimport/media-decoder test
+      - name: Test public HTTP and protected-target boundaries
+        run: pnpm --filter @invimport/intake-server test
+
+  intake-pg:
+    name: Intake PostgreSQL and process
+    # Disabled: these long-running tiers exceed the included free Actions minutes. Run
+    # `pnpm db:intake test` and `pnpm db:intake test:process` locally instead (see intake-server/TESTING.md).
+    if: ${{ false && inputs.intake }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-owned-disposable-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --cpus 1 --memory 512m --pids-limit 128
+    env:
+      INTAKE_TEST_ADMIN_URL: postgresql://postgres:ci-owned-disposable-only@127.0.0.1:5432/postgres
+      INTAKE_TEST_ALLOW_CREATE_DATABASE: owned-sandbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Build bounded decoder and isolated resource probe images
+        run: |
+          mkdir -p .temp/ci-media
+          node intake-server/scripts/build-media-image.cjs --output-file .temp/ci-media/decoder-image
+          IFS= read -r INTAKE_MEDIA_DECODER_IMAGE < .temp/ci-media/decoder-image
+          export INTAKE_MEDIA_DECODER_IMAGE
+          node intake-server/scripts/build-media-probe.cjs --output-file .temp/ci-media/probe-image
+          IFS= read -r INTAKE_MEDIA_PROBE_IMAGE < .temp/ci-media/probe-image
+          {
+            printf 'INTAKE_MEDIA_DECODER_IMAGE=%s\n' "$INTAKE_MEDIA_DECODER_IMAGE"
+            printf 'INTAKE_MEDIA_PROBE_IMAGE=%s\n' "$INTAKE_MEDIA_PROBE_IMAGE"
+          } >> "$GITHUB_ENV"
+      - name: Test reviewed migrations, transactions, grants and exact bytes
+        env:
+          INTAKE_TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: pnpm --filter @invimport/intake-server test:pg
+      - name: Qualify DBOS public API across actual worker crash and version changes
+        env:
+          INTAKE_TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: pnpm --filter @invimport/intake-server test:process

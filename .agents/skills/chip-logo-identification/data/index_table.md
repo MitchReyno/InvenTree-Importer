@@ -4,11 +4,11 @@
 |---|---|---|---|---|---|
 | s3_3 | S3 | symbol | 3 | italic "S3" with horizontal speed lines through it | p01-mono-1.png |
 | number9 | Number 9 | symbol | 9 | italic "9" digit | p01-mono-1.png |
-| acd | Advanced Communication Devices [ACD] | symbol | a | lowercase "a" built from concentric arcs, filled square top right | p01-mono-1.png |
+| acd | Advanced Communication Devices \[ACD] | symbol | a | lowercase "a" built from concentric arcs, filled square top right | p01-mono-1.png |
 | allegro1 | Allegro MicroSystems Inc. | symbol | A | italic script capital "A" | p01-mono-1.png |
 | aureal | Aureal | symbol | A | serif "A" with small wing/arrow shape to the right | p01-mono-1.png |
 | alphaind | Alpha Industries | symbol | ai | bold blocky "ai" ligature | p01-mono-1.png |
-| adv_lin_dev | Advanced Linear Devices [ALD] | symbol | AL | "A" and "L" lines inside a rounded "D" outline | p01-mono-1.png |
+| adv_lin_dev | Advanced Linear Devices \[ALD] | symbol | AL | "A" and "L" lines inside a rounded "D" outline | p01-mono-1.png |
 | avance | Avance Logic, Inc. | symbol | aL | script "aL" with vertical bars | p01-mono-1.png |
 | ati | ATI Technologies, Inc. | symbol | Ati | "Ati" in a box with a banner beneath (ATI Technologies) | p01-mono-1.png |
 | auravision | AuraVision | symbol | AV | bold slanted "AV" with slashes | p01-mono-1.png |
@@ -19,7 +19,7 @@
 | dionics | Dionics | symbol | D | bold square-ish "D" with "i" cut-out | p01-mono-1.png |
 | jetkey | Jetkey | symbol | D | halftone shaded "D" shape | p01-mono-1.png |
 | idt1 | Integrated Device Technology, Inc. | symbol | ∫dt | integral sign "∫" with "dt" (IDT) | p01-mono-1.png |
-| edi | Electronic Devices [EDI] | symbol | edi | condensed "edi" stacked letters with arrow | p01-mono-1.png |
+| edi | Electronic Devices \[EDI] | symbol | edi | condensed "edi" stacked letters with arrow | p01-mono-1.png |
 | etc | Electronic Technology | symbol | etc | blocky interlocked "etc" with vertical bars | p01-mono-1.png |
 | fairchild1 | Fairchild Semiconductor Corp | symbol | f | italic stylised "f" lowercase, bold | p01-mono-1.png |
 | fujitsu2 | Fujitsu Ltd. | symbol | F | serif "F" between two horizontal bars | p01-mono-1.png |
@@ -32,7 +32,7 @@
 | hp | Hewlett Packard Corp. | symbol | hp | italic "hp" in rounded rectangle | p01-mono-1.png |
 | imi | International Microcircuits | symbol | iMi | "iMI" with circular swoosh on the i | p01-mono-1.png |
 | diotec | Diotec GmbH | symbol | J | ornate blackletter/serif "J" | p01-mono-1.png |
-| klsi | Kawasaki LSI [KLSI] | symbol | K | bold "K" with halftone/dither fade | p02-mono-2.png |
+| klsi | Kawasaki LSI \[KLSI] | symbol | K | bold "K" with halftone/dither fade | p02-mono-2.png |
 | lattice1 | Lattice Semiconductor Corp | symbol | L | serif "L" thin | p02-mono-2.png |
 | lattice2 | Lattice Semiconductor Corp | symbol | L | bold italic "L" | p02-mono-2.png |
 | lattice3 | Lattice Semiconductor Corp | symbol | L | "L" with grid of small squares to the left (dot-matrix L) | p02-mono-2.png |
@@ -132,7 +132,7 @@
 | ichaus3 | iC-Haus | symbol+text | iC Haus | "iC" in circle + "Haus" | p06-circ-2.png |
 | idt2 | Integrated Device Technology, Inc. | symbol+text | IDT | dotted circle + bold "IDT" | p06-circ-2.png |
 | infineon3 | Infineon | symbol+text | Infineon | "Infineon" with elliptical swoosh underneath | p06-circ-2.png |
-| itex | Integrated Telecom Express [ITEX] | symbol | ITeX | "ITeX" inside a circle | p06-circ-2.png |
+| itex | Integrated Telecom Express \[ITEX] | symbol | ITeX | "ITeX" inside a circle | p06-circ-2.png |
 | kota | Kota Microcircuits | symbol | K | "K" / slash inside a solid circle | p06-circ-2.png |
 | linfinity2 | Linfinity Microelectronics, Inc. | symbol+text | LINFINITY | circular ring/arrow + "LINFINITY" | p06-circ-2.png |
 | microchip | Microchip Technology Inc. | symbol | M | Microchip: solid circle with "M" wave cut-out | p06-circ-2.png |
@@ -227,7 +227,7 @@
 | pretec | Pretec | symbol | ◇ | blurred diamond shape with faint text | p09-quad-2.png |
 | ramtron | Ramtron Corp. | symbol | ◇ | tall diamond outline with inner diamond facets (crystal) | p09-quad-2.png |
 | siliconians | Siliconians | symbol | ◇ | diamond with S-shaped split (two halves offset) | p09-quad-2.png |
-| synergy | Synergy Semi [Micrel] | symbol | ◇ | diamond/square split into pinwheel of four arrows | p09-quad-2.png |
+| synergy | Synergy Semi \[Micrel] | symbol | ◇ | diamond/square split into pinwheel of four arrows | p09-quad-2.png |
 | telefunken | Telefunken | symbol | ◇ | diamond containing a star / grid with letters | p09-quad-2.png |
 | ubicom | Ubicom | symbol | ◇ | rounded diamond with diagonal oval cut | p09-quad-2.png |
 | triquint | TriQuint Semiconductor, Inc. | symbol | ⬠ | solid pentagon | p09-quad-2.png |
@@ -247,7 +247,7 @@
 | ame | Analog Microelectronics | symbol | AM | stylised "AM"/double mountain peaks, solid | p10-tri-1.png |
 | ami3 | American Megatrends | symbol | AMI | striped pyramid/triangle with inner inverted triangle (American Megatrends) | p10-tri-1.png |
 | anadigic | Anadigic's | symbol+text | ANADIGICS | solid square with triangle cut + outlined "ANADIGICS" | p10-tri-1.png |
-| catc | Computer Access Tech Corp [CATC] | symbol+text | CATC | triangular "A" with arrow/bird shape and "CATC" beneath | p10-tri-1.png |
+| catc | Computer Access Tech Corp \[CATC] | symbol+text | CATC | triangular "A" with arrow/bird shape and "CATC" beneath | p10-tri-1.png |
 | datadelay | Data Delay Devices | symbol | DDD | inverted triangle with inner triangle and circle with stripes | p10-tri-1.png |
 | intersil4 | Intersil | symbol | i | "i" above a downward-pointing arrow/triangle | p10-tri-1.png |
 | epson1 | Seiko Epson Corp. | symbol | M | twin mountain peaks outline (stylised M) | p10-tri-1.png |
@@ -272,7 +272,7 @@
 | adc | Asian Design Corp | symbol | A | solid "A" triangle followed by vertical bars forming a half-circle (A + D shape) | p11-stripe-1.png |
 | aha1 | Advanced Hardware Architectures | symbol | AHA | horizontally striped "AHA" letters | p11-stripe-1.png |
 | anasys | Analog Systems | symbol+text | ANALOG SYSTEMS | "S"-like curve left + striped "ANALOG SYSTEMS" text | p11-stripe-1.png |
-| elec_designs2 | [White] Electronic Designs | symbol+text | EDI | diagonal-striped square + "EDI" condensed text | p11-stripe-1.png |
+| elec_designs2 | \[White] Electronic Designs | symbol+text | EDI | diagonal-striped square + "EDI" condensed text | p11-stripe-1.png |
 | ericsson | Ericsson | symbol+text | ERICSSON | "ERICSSON" + three slanted stacked bars | p11-stripe-1.png |
 | ils | Integrated Logic Systems | symbol | ILS | stacked U-shapes / meander of vertical lines in a square | p11-stripe-1.png |
 | mhs1 | MHS, Matra Harris Semiconductor | symbol+text | MHS | striped square "M" emblem + outlined "MHS" | p11-stripe-1.png |
@@ -319,7 +319,7 @@
 | ninja | Ninja | symbol | ninja | brushy calligraphy splash / ninja figure graphic | p12-pict-1.png |
 | rabbit | Rabbit Semi | symbol | rabbit | running rabbit silhouette | p12-pict-1.png |
 | daewoo | Daewoo Electronics | symbol | shell | shell / fan shape of radiating segments (Daewoo) | p12-pict-1.png |
-| elec_designs1 | [White] Electronic Designs | symbol | shell | diamond shape with radiating vertical lines on top (fan/shell) | p12-pict-1.png |
+| elec_designs1 | \[White] Electronic Designs | symbol | shell | diamond shape with radiating vertical lines on top (fan/shell) | p12-pict-1.png |
 | philips | Philips | symbol | shield | Philips shield with waves and stars | p12-pict-1.png |
 | ti1 | Texas Instruments | symbol | Texas | Texas state outline with "ti" (Texas Instruments) | p13-pict-2.png |
 | ti2 | Texas Instruments | symbol | Texas | Texas state silhouette with "ti" cut-out | p13-pict-2.png |
@@ -404,7 +404,7 @@
 | g2 | G2 | wordmark | G2 | bold "G2" | p15-text-2.png |
 | galileo | Galileo Technology | wordmark | Galileo | "Galileo" with dotted/halftone "G" | p15-text-2.png |
 | gi2 | General Instrument | wordmark | GI | serif "GI" | p15-text-2.png |
-| goldstar | Lucky Goldstar Semi [LGS] | wordmark | GoldStar | "GoldStar" rounded modern | p15-text-2.png |
+| goldstar | Lucky Goldstar Semi \[LGS] | wordmark | GoldStar | "GoldStar" rounded modern | p15-text-2.png |
 | harris3 | Harris | wordmark | HARRIS | italic "HARRIS" with lightning stroke through | p15-text-2.png |
 | hifn | hi/fn | wordmark | hi/fn | "hi/fn" in a box | p15-text-2.png |
 | highpoint | HighPoint | wordmark | HighPoint | tall condensed "HighPoint" | p16-text-3.png |
@@ -427,14 +427,14 @@
 | isd | Information Storage Devices | wordmark | ISD | bold italic "ISD" with dots/halftone | p16-text-3.png |
 | issi | Integrated Silicon Solution, Inc. | wordmark | ISSI | italic "ISSI" | p16-text-3.png |
 | ite | Integrated Technology Express | wordmark | ITE | "iTE" with swoosh arc from the i | p16-text-3.png |
-| itt | ITT Industries [Micronas Semi] | wordmark | ITT | serif "ITT" | p16-text-3.png |
+| itt | ITT Industries \[Micronas Semi] | wordmark | ITT | serif "ITT" | p16-text-3.png |
 | ixys | IXYS | symbol+text | IXYS | square emblem with stepped bars + serif "IXYS" | p16-text-3.png |
 | japanradio1 | New Japan Radio Co., Ltd. | wordmark | JRC | bold "JRC" | p16-text-3.png |
 | japanradio2 | New Japan Radio Co., Ltd. | wordmark | JRC | "JRC" inside a white rounded oval/box | p16-text-3.png |
 | kec | Korea Electronics | wordmark | KEC | wide "KEC" | p16-text-3.png |
 | kingmax | KingMax | wordmark | KINGMAX | blocky "KINGMAX" | p16-text-3.png |
 | legerity | Legerity | wordmark | Legerity | script "Legerity" with large swash L | p16-text-3.png |
-| lgsemi | Lucky Goldstar Semicon Co., Ltd. [LGS] | wordmark | LGS | small spaced "LGS" | p16-text-3.png |
+| lgsemi | Lucky Goldstar Semicon Co., Ltd. \[LGS] | wordmark | LGS | small spaced "LGS" | p16-text-3.png |
 | linfinity1 | Linfinity Microelectronics, Inc. | wordmark | LINFINITY | serif "LINFINITY" | p16-text-3.png |
 | liteon | LiteOn | wordmark | LITEON | "LITEON" with circled "O" | p16-text-3.png |
 | lsilogic | LSI Logic | wordmark | LSI LOGIC | "LSI" + "LOGIC" in a white box | p17-text-4.png |

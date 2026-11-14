@@ -1,0 +1,218 @@
+import { act, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { expect, it, vi, type Mock } from 'vitest'
+import { RETAINED_POLL_INTERVAL_MS } from '#/queries/client'
+import type { ProcessingClient } from '#/processing/types'
+import { render } from '#/test/render'
+import { TellExamine } from './TellExamine'
+import { ApiClientsProvider } from '#/context'
+
+type SendChat = NonNullable<ProcessingClient['chat']>
+
+const snapshot = (state: string | null) => ({
+  jobs: [
+    {
+      id: 'lead',
+      stage: 'examine',
+      subject_id: null,
+      ...(state ? { session_state: state } : {}),
+    },
+  ],
+})
+
+/** `session` may be a getter, for a state that changes between polls. */
+function client(session: boolean | string | (() => string)) {
+  const state = session === true ? 'running' : session === false ? null : session
+  return {
+    read: vi.fn(async () => snapshot(typeof state === 'function' ? state() : state)),
+    session: vi.fn(),
+    chat: vi.fn<SendChat>(async () => ({ item_id: 'inbox-1', seq: '1' })),
+  } as unknown as ProcessingClient & { chat: Mock<SendChat> }
+}
+
+it('sends a free-text instruction to the Examine lead session', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
+  await user.type(
+    await screen.findByLabelText('Instruction for Examine'),
+    'The two reels are one lot',
+  )
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+
+  await waitFor(() =>
+    expect(processing.chat).toHaveBeenCalledWith(
+      'b',
+      'lead',
+      { idempotency_key: expect.any(String), text: 'The two reels are one lot' },
+      expect.any(String),
+    ),
+  )
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'Queued. The agent receives it during this turn.',
+  )
+  expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('')
+  // The Tell box is an agent touchpoint; its label carries the mark.
+  expect(screen.getByText('Instruction for Examine').closest('label')).toContainElement(
+    document.querySelector('[data-ai-mark]') as HTMLElement,
+  )
+})
+
+it('keeps the instruction when it is not accepted', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  processing.chat.mockRejectedValueOnce(new Error('refused'))
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
+  await user.type(await screen.findByLabelText('Instruction for Examine'), 'Merge them')
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('may already be queued')
+  expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('Merge them')
+
+  // Sending the kept text again reuses its key, so it cannot be queued twice.
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+  await waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
+  const [first, second] = processing.chat.mock.calls
+  expect(second[3]).toBe(first[3])
+  expect(second[2]).toEqual(first[2])
+})
+
+it('is not offered for a cancelled Examine session', async () => {
+  const processing = client('cancelled')
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
+  await waitFor(() => expect(processing.read).toHaveBeenCalled())
+  expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
+})
+
+it('shows no instruction field without an Examine session', async () => {
+  const processing = client(false)
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="b" />
+    </ApiClientsProvider>,
+  )
+  await waitFor(() => expect(processing.read).toHaveBeenCalled())
+  expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
+})
+
+it('keeps an unsent instruction and its key when the Map closes, and reports it as unsaved', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  processing.chat.mockRejectedValueOnce(new Error('timeout'))
+  const onDirtyChange = vi.fn()
+  const first = render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="kept" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
+  )
+  await user.type(await screen.findByLabelText('Instruction for Examine'), 'Merge the reels')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+  await screen.findByRole('alert')
+  first.unmount()
+
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="kept" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
+  )
+  expect(await screen.findByLabelText('Instruction for Examine')).toHaveValue('Merge the reels')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+  await waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
+  expect(processing.chat.mock.calls[1][3]).toBe(processing.chat.mock.calls[0][3])
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+it('reports clean when it leaves, and a kept draft is not unsaved work while no session shows it', async () => {
+  const user = userEvent.setup()
+  const onDirtyChange = vi.fn()
+  const view = render(
+    <ApiClientsProvider value={{ processing: client(true) }}>
+      <TellExamine batchId="leaving" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
+  )
+  await user.type(await screen.findByLabelText('Instruction for Examine'), 'Hold this')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  view.unmount()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+  const hidden = client(false)
+  render(
+    <ApiClientsProvider value={{ processing: hidden }}>
+      <TellExamine batchId="leaving" onDirtyChange={onDirtyChange} />
+    </ApiClientsProvider>,
+  )
+  await waitFor(() => expect(hidden.read).toHaveBeenCalled())
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+it('reports clean when a poll hides the form with text unsent, and dirty when it shows again', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    let state = 'running'
+    const processing = client(() => state)
+    const onDirtyChange = vi.fn()
+    render(
+      <ApiClientsProvider value={{ processing }}>
+        <TellExamine batchId="polled" onDirtyChange={onDirtyChange} />
+      </ApiClientsProvider>,
+    )
+    await user.type(await screen.findByLabelText('Instruction for Examine'), 'Hold this')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+
+    state = 'cancelled'
+    await act(() => vi.advanceTimersByTimeAsync(RETAINED_POLL_INTERVAL_MS))
+    expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+    state = 'running'
+    await act(() => vi.advanceTimersByTimeAsync(RETAINED_POLL_INTERVAL_MS))
+    expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('Hold this')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('locks the instruction while it is sending, and a new edit clears the failure', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  let fail!: (error: Error) => void
+  processing.chat.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        fail = reject
+      }),
+  )
+  render(
+    <ApiClientsProvider value={{ processing }}>
+      <TellExamine batchId="busy" />
+    </ApiClientsProvider>,
+  )
+  const field = await screen.findByLabelText('Instruction for Examine')
+  await user.type(field, 'Merge them')
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+
+  expect(field).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Tell Examine' })).toBeDisabled()
+  await act(async () => fail(new Error('timeout')))
+  expect(await screen.findByRole('alert')).toHaveTextContent('may already be queued')
+  expect(field).toBeEnabled()
+
+  await user.type(field, '!')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})

@@ -1,0 +1,89 @@
+import { NativeSessionError } from './failure-model.ts'
+import { isAbsolute, join, resolve } from 'node:path'
+import { lstat, mkdir } from 'node:fs/promises'
+import type { AgentSelectionDto } from '@invimport/contracts'
+
+export interface NativeAgentHost {
+  codexExecutable: string
+  claudeExecutable: string
+  stateRoot: string
+  env: NodeJS.ProcessEnv
+  guestTools?: boolean
+  guestCodexSubscription?: boolean
+  guestClaudeToken?: string
+}
+
+/** Explicit host config only. No dotenv discovery, auth-store copying, or inventory credential inheritance. */
+export function nativeAgentHost(env: NodeJS.ProcessEnv): NativeAgentHost {
+  const stateRoot = env.INTAKE_AGENT_STATE_ROOT
+  if (!stateRoot || !isAbsolute(stateRoot)) {
+    throw new Error('private_agent_state_required')
+  }
+  return {
+    stateRoot: resolve(stateRoot),
+    codexExecutable: env.INTAKE_CODEX_EXECUTABLE ?? 'codex',
+    claudeExecutable: env.INTAKE_CLAUDE_EXECUTABLE ?? 'claude',
+    env,
+  }
+}
+
+export async function privateDirectory(path: string) {
+  await mkdir(path, { recursive: true, mode: 0o700 })
+  const stat = await lstat(path)
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    stat.uid !== process.getuid?.() ||
+    stat.mode & 0o077
+  ) {
+    throw new Error('private_agent_state_required')
+  }
+  return path
+}
+
+export function agentEnvironment(
+  host: NativeAgentHost,
+  selection: AgentSelectionDto,
+  cwd: string,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { TMPDIR: cwd }
+  for (const name of ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'SHELL', 'SYSTEMROOT']) {
+    if (host.env[name] !== undefined) {
+      env[name] = host.env[name]
+    }
+  }
+  // Ambient provider credentials and outbound proxies never select the billing route.
+  if (selection.provider === 'codex') {
+    env.CODEX_HOME = join(
+      host.stateRoot,
+      selection.authentication === 'subscription' ? 'codex' : 'codex-api',
+    )
+  }
+  if (
+    selection.provider === 'claude' &&
+    selection.authentication === 'subscription' &&
+    host.guestClaudeToken
+  ) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = host.guestClaudeToken
+    env.HTTPS_PROXY = 'http://127.0.0.1:14316'
+    env.NO_PROXY = 'localhost,127.0.0.1,::1'
+  }
+  if (
+    host.guestCodexSubscription &&
+    selection.provider === 'codex' &&
+    selection.authentication === 'subscription'
+  ) {
+    env.CODEX_HOME = '/run/codex-state/account'
+    env.HTTPS_PROXY = 'http://127.0.0.1:14316'
+    env.NO_PROXY = '127.0.0.1,localhost'
+  }
+  if (selection.authentication === 'api_key') {
+    const keyName = selection.provider === 'codex' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'
+    const key = host.env[keyName]
+    if (!key?.trim()) {
+      throw new NativeSessionError('agent_login_required')
+    }
+    env[keyName] = key
+  }
+  return env
+}

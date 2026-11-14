@@ -1,0 +1,66 @@
+{
+  "format": "bench-intake-fixture/1",
+  "synthetic": true,
+  "batch_id": "batch-two-lots",
+  "source_reference": "SPIKE-TWO-LOTS-001",
+  "instructions": "Synthetic evidence only. Keep the packets as two physical lots sharing one Part. Drawn resistor icons do not represent the unit count. Packet B was opened: ordered quantity is not its confirmed current quantity. Ask for a current count; do not guess a manufacturer or MPN. Produce proposals only; no inventory writes.",
+  "defaults": {
+    "supplier": "DEMO Supplier",
+    "location": "DEMO Shelf"
+  },
+  "evidence": [
+    {
+      "id": "packet-a",
+      "path": "evidence/packet-a.png",
+      "sha256": "4dc424d76ea6dd19104a553333f5c452d62b1ae8881dd322988fdf9178efec98",
+      "media_type": "image/png"
+    },
+    {
+      "id": "packet-b",
+      "path": "evidence/packet-b.png",
+      "sha256": "49e4e77e725f88bd54477cb19bf2c0b2c90125a64e311cfa5ae7b3e7841891bb",
+      "media_type": "image/png"
+    },
+    {
+      "id": "receipt",
+      "path": "evidence/receipt.pdf",
+      "sha256": "4c5373910f4a595047cc685a39b8e83c3aa65dd1ce355150ac94d282ebe2f37e",
+      "media_type": "application/pdf"
+    }
+  ],
+  "parts": [
+    {
+      "id": "resistor-100r",
+      "category": "Demo Resistors",
+      "parameters": {
+        "Resistance": "100",
+        "Tolerance": "5"
+      },
+      "manufacturer": null,
+      "mpn": null
+    }
+  ],
+  "lots": [
+    {
+      "id": "lot-a",
+      "part_id": "resistor-100r",
+      "quantity": "10",
+      "batch": "SPIKE-A",
+      "evidence_ids": [
+        "packet-a",
+        "receipt"
+      ]
+    },
+    {
+      "id": "lot-b",
+      "part_id": "resistor-100r",
+      "quantity": null,
+      "batch": "SPIKE-B",
+      "evidence_ids": [
+        "packet-b",
+        "receipt"
+      ]
+    }
+  ],
+  "human_answers": []
+}

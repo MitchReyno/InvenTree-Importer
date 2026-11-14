@@ -1,0 +1,14 @@
+[project]
+name = "bench-intake-combined-seams"
+version = "0.0.1"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "inventree-importer",
+  "django==5.2.8",
+  "dbos==2.10.0",
+  "psycopg[binary]==3.2.12",
+  "jsonschema==4.25.1",
+]
+
+[tool.uv.sources]
+inventree-importer = { path = "../../backend", editable = true }

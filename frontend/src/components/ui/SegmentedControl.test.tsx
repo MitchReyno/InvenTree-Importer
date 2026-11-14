@@ -1,0 +1,169 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
+import { describe, expect, it } from 'vitest'
+import { FilterChips } from './FilterChips'
+import { SegmentedControl } from './SegmentedControl'
+
+function Views() {
+  const [value, setValue] = useState('workspace')
+  return (
+    <SegmentedControl
+      label="View"
+      value={value}
+      onChange={setValue}
+      options={[
+        { id: 'workspace', label: 'Workspace' },
+        { id: 'table', label: 'Table' },
+        { id: 'map', label: 'Map' },
+      ]}
+    />
+  )
+}
+
+describe('SegmentedControl', () => {
+  it('moves the tab stop with focus, so Shift+Tab leaves the group after arrowing', async () => {
+    render(
+      <>
+        <button type="button">Before</button>
+        <Views />
+      </>,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Before' }))
+    await userEvent.tab()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Workspace' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await userEvent.tab({ shift: true })
+    expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus()
+    await userEvent.tab()
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveFocus()
+  })
+
+  it('is a labelled group of pressed buttons with one tab stop', async () => {
+    render(<Views />)
+
+    expect(screen.getByRole('group', { name: 'View' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Workspace' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await userEvent.tab()
+    expect(screen.getByRole('button', { name: 'Workspace' })).toHaveFocus()
+    await userEvent.tab()
+    expect(document.body).toHaveFocus()
+  })
+
+  it('moves focus with arrow keys, wrapping, and selects with Space or Enter', async () => {
+    render(<Views />)
+
+    await userEvent.tab()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Workspace' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await userEvent.keyboard(' ')
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    expect(screen.getByRole('button', { name: 'Workspace' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}{Enter}')
+    expect(screen.getByRole('button', { name: 'Map' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+function Filters() {
+  const [value, setValue] = useState('all')
+  return (
+    <FilterChips
+      label="Filter lots"
+      value={value}
+      onChange={setValue}
+      options={[
+        { id: 'all', label: 'All', count: 12 },
+        { id: 'blocked', label: 'Blocked', count: 0 },
+      ]}
+    />
+  )
+}
+
+describe('FilterChips', () => {
+  it('always shows counts, zero included, and selects by click or keyboard', async () => {
+    render(<Filters />)
+
+    expect(screen.getByRole('button', { name: 'Blocked, 0' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Blocked, 0' }))
+    expect(screen.getByRole('button', { name: 'Blocked, 0' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await userEvent.keyboard('{ArrowLeft}{Enter}')
+    expect(screen.getByRole('button', { name: 'All, 12' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+describe('SegmentedControl while disabled', () => {
+  it('shows each segment unavailable and ignores clicks and keys', async () => {
+    const user = userEvent.setup()
+    const changes: string[] = []
+    render(
+      <SegmentedControl
+        label="Sign-in method"
+        value="subscription"
+        disabled
+        onChange={(id) => changes.push(id)}
+        options={[
+          { id: 'subscription', label: 'Subscription' },
+          { id: 'api_key', label: 'API key' },
+        ]}
+      />,
+    )
+    const key = screen.getByRole('button', { name: 'API key' })
+
+    expect(key).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Subscription' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await user.click(key)
+    key.focus()
+    await user.keyboard('{Enter} ')
+    expect(changes).toEqual([])
+  })
+})
+
+/** Rules that would style `element` on hover, read from the injected component styles. */
+function hoverRulesFor(element: Element) {
+  const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
+
+  return rules.filter((rule): rule is CSSStyleRule => {
+    if (!(rule instanceof CSSStyleRule) || !rule.selectorText.includes(':hover')) {
+      return false
+    }
+
+    return element.matches(rule.selectorText.replaceAll(':hover', ''))
+  })
+}
+
+describe('SegmentedControl hover', () => {
+  it('leaves the pressed segment its own fill, so its light text stays readable', () => {
+    render(<Views />)
+    const pressed = screen.getByRole('button', { name: 'Workspace' })
+    const other = screen.getByRole('button', { name: 'Table' })
+
+    expect(hoverRulesFor(other).length).toBeGreaterThan(0)
+    expect(hoverRulesFor(pressed).map((rule) => rule.selectorText)).toEqual([])
+  })
+})

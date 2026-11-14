@@ -1,0 +1,67 @@
+import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { batchHref, type ProcessingStep } from '#/navigation/batch-route'
+import type { ProcessingClient } from '#/processing/types'
+import { ProcessingWorkspace } from './ProcessingWorkspace'
+import type { SharperRequestStore } from './ExamineView'
+import type { InstructionDelivery } from '#/processing/instruction-delivery'
+import { useBatchCommands } from '#/context'
+import type { DrawerRestoreStore } from '#/processing/drawer-restore'
+
+interface Props {
+  batch: CaptureSnapshotDto
+  client: ProcessingClient
+  step: ProcessingStep
+  questionId?: string
+  sessionId?: string | null
+  sharperRequests?: SharperRequestStore
+  drawerRestore?: DrawerRestoreStore
+  onDirtyChange: (dirty: boolean) => void
+  /** Retired lots keep their job history but cannot start new attempts. */
+  retiredLotIds?: ReadonlySet<string>
+  instructions?: {
+    text: string | undefined
+    unavailable?: boolean
+    instruct?: (text: string, revision: string, key: string) => Promise<unknown>
+    /** Whether the saved instructions reached the agents, kept across Processing's remounts. */
+    delivery?: InstructionDelivery
+    /** Sends the saved instructions to the agents again. */
+    deliver?: () => Promise<void>
+  }
+}
+
+export function ProcessingStage({
+  batch,
+  client,
+  step,
+  questionId,
+  sessionId,
+  sharperRequests,
+  drawerRestore,
+  onDirtyChange,
+  retiredLotIds,
+  instructions,
+}: Props) {
+  const { edit, reload } = useBatchCommands()
+
+  function navigateProcessing(view: ProcessingStep = 'overview', question?: string) {
+    location.hash = batchHref(batch.id, { tab: 'processing', step: view, questionId: question })
+  }
+
+  return (
+    <ProcessingWorkspace
+      batch={batch}
+      client={client}
+      view={step}
+      questionId={questionId}
+      sessionId={sessionId}
+      sharperRequests={sharperRequests}
+      drawerRestore={drawerRestore}
+      navigate={navigateProcessing}
+      onDirtyChange={onDirtyChange}
+      onSaved={reload}
+      edit={edit}
+      retiredLotIds={retiredLotIds}
+      instructions={instructions}
+    />
+  )
+}

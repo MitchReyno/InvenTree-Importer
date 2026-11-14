@@ -1,0 +1,144 @@
+"""
+Fixtures shared by every test in the project.
+
+Sitting at the top of tests/, this applies to the mirrored suites beneath it
+and anything added later. The fakes themselves live in tests/support.py so they
+can be imported without going through a fixture.
+
+Nothing here touches the network or the real .cache: the DigiKey fixtures patch
+requests.get, and every test that writes a cache runs in a temp working
+directory.
+"""
+
+from __future__ import annotations
+
+import io
+import os
+import sys
+from pathlib import Path
+from unittest import mock
+
+import pytest
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = BACKEND_ROOT.parent
+# src layout: the package lives under src/, and the repo root deliberately is
+# not importable as a package root. uv sync installs the project editable, so
+# this is only a fallback for running pytest without the project installed.
+sys.path.insert(0, str(BACKEND_ROOT / "src"))
+
+from invimport.commands import _keys as keys  # noqa: E402
+from invimport.digikey import api as digikey_api  # noqa: E402
+from tests.support import FakeDigiKey, InvenTreeStub  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def source_import_environment(monkeypatch):
+    """Fresh children use this worktree's source/tests from any pytest cwd."""
+    entries = [str(BACKEND_ROOT), str(BACKEND_ROOT / "src")]
+    if os.environ.get("PYTHONPATH"):
+        entries.append(os.environ["PYTHONPATH"])
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(entries))
+
+
+@pytest.fixture(autouse=True)
+def execution_state_root(tmp_path, monkeypatch):
+    """Every test owns its canonical state scope; never write user app data."""
+    monkeypatch.setenv("INVIMPORT_STATE_DIR", str(tmp_path / "execution-state"))
+
+
+@pytest.fixture
+def digikey():
+    """Patch the DigiKey transport and token grant; yields the FakeDigiKey."""
+    fake = FakeDigiKey()
+    with mock.patch.object(digikey_api.requests, "get", fake.get), \
+         mock.patch.object(digikey_api.requests, "post", fake.post), \
+         mock.patch.object(digikey_api, "REQUEST_DELAY_S", 0), \
+         mock.patch.object(digikey_api, "get_access_token", lambda *a, **k: "tok"):
+        yield fake
+
+
+@pytest.fixture
+def digikey_env(monkeypatch):
+    """Credentials in the environment, with any real ones cleared first."""
+    for key in [k for k in os.environ if k.startswith("DIGIKEY_")]:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("DIGIKEY_CLIENT_ID", "test-client")
+    monkeypatch.setenv("DIGIKEY_CLIENT_SECRET", "test-secret")
+    monkeypatch.setenv("DIGIKEY_ACCOUNT_ID", "test-account")
+
+
+@pytest.fixture
+def workspace(tmp_path, monkeypatch):
+    """
+    An isolated working directory. Cache paths are relative to the cwd, so this
+    keeps tests off the repo's real .cache.
+    """
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture
+def env_file(tmp_path):
+    """A .env holding a full set of DigiKey credentials."""
+    path = tmp_path / ".env"
+    path.write_text(
+        "DIGIKEY_CLIENT_ID=test-client\n"
+        "DIGIKEY_CLIENT_SECRET=test-secret\n"
+        "DIGIKEY_ACCOUNT_ID=test-account\n"
+    )
+    return path
+
+
+@pytest.fixture
+def client(digikey, digikey_env):
+    """A connected Client backed by the fake transport."""
+    return digikey_api.connect(need_account=True)
+
+
+class _Tty(io.StringIO):
+    """A stdin that claims to be a terminal, so the prompts engage."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def answers(monkeypatch):
+    """
+    Script the interactive prompts.
+
+    Call it with the lines a user would type; input() serves them in order and
+    raises EOFError once they run out, which the prompts treat as a cancel. The
+    lines are echoed so capsys shows the same transcript a terminal would.
+    """
+    queued: list[str] = []
+
+    def feed(*lines: str) -> None:
+        queued.extend(lines)
+
+    def fake_input(prompt: str = "") -> str:
+        print(prompt, end="")
+        if not queued:
+            raise EOFError
+        line = queued.pop(0)
+        print(line)
+        return line
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr(sys, "stdin", _Tty())
+    # Force the numbered fallback. Without this InquirerPy would take over
+    # whenever pytest runs with -s, and it reads keys off the real terminal.
+    monkeypatch.setenv(keys.PLAIN_ENV_VAR, "1")
+    return feed
+
+
+@pytest.fixture
+def inventree(monkeypatch):
+    """A running InvenTree stub with INVENTREE_* pointed at it."""
+    with InvenTreeStub() as stub:
+        for key in [k for k in os.environ if k.startswith("INVENTREE_")]:
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv("INVENTREE_URL", stub.url)
+        monkeypatch.setenv("INVENTREE_TOKEN", "test-token")
+        yield stub

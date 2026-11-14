@@ -1,5 +1,8 @@
 # Local environment variables
 .env
+.env.*
+!/.env.example
+!/.env.intake.example
 
 # Cache directory for downloaded data.
 # Holds DigiKey Data, which the API User Agreement forbids disclosing to third
@@ -18,7 +21,9 @@ orders.json
 __pycache__
 
 # IDE settings
-.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea
 .cursor
 
@@ -28,7 +33,7 @@ __pycache__
 # Local docs
 docs/.local
 
-# Database dumps taken by scripts/wipe-inventory.py
+# Database dumps taken by backend/scripts/wipe-inventory.py
 backups/
 
 # Local import files: one folder per import, holding the file and its
@@ -44,3 +49,14 @@ backups/
 
 # Worktrees
 .claude/worktrees/
+
+# JavaScript workspace outputs (the root lockfile is tracked).
+node_modules/
+frontend/dist/
+.pnpm-store/
+*.tsbuildinfo
+pnpm-debug.log*
+.ruff_cache/
+
+# Local screenshot-diff baseline and output (frontend/scripts/check-screenshots.cjs)
+frontend/.screenshots/

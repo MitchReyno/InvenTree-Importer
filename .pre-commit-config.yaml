@@ -1,0 +1,47 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # v6.0.0
+    hooks:
+      - id: check-merge-conflict
+        args: [--assume-in-merge]
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        # User-required byte-preserved original design reference exceeds 500 KiB.
+        exclude: ^docs/bench-intake/reference/07-table\.png$
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Prettier (format changed web/code files)
+        entry: pnpm exec prettier --write --ignore-unknown --
+        language: system
+        files: \.(?:[cm]?[jt]sx?|jsonc?|css)$
+      - id: ruff-format
+        name: Ruff (format changed Python files)
+        entry: uv run --project backend ruff format --config backend/pyproject.toml --force-exclude
+        language: system
+        types: [python]
+      - id: ruff
+        name: Ruff (changed Python files)
+        entry: uv run --project backend ruff check --config backend/pyproject.toml
+        language: system
+        types: [python]
+      - id: eslint
+        name: ESLint (frontend)
+        entry: pnpm lint:frontend
+        language: system
+        files: ^frontend/.*\.[cm]?[jt]sx?$
+        pass_filenames: false
+      - id: eslint-readability
+        name: ESLint (shared TypeScript readability)
+        entry: pnpm lint:readability
+        language: system
+        files: ^(?:(?:frontend/src|intake-server/src|contracts/src)/.*\.tsx?$|eslint\.config\.mjs$|tooling/eslint/)
+        pass_filenames: false
+      - id: remark
+        name: remark (format and lint changed Markdown)
+        entry: pnpm exec remark --frail --output --
+        language: system
+        types: [markdown]
