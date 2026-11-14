@@ -184,6 +184,7 @@ async function finishVm(plan, booted, { exec = runCommand, env, write = STANDARD
 }
 
 const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP']
+
 /** The conventional exit status for a process ended by a signal. */
 function signalExitCode(name) {
   return 128 + constants.signals[name]
