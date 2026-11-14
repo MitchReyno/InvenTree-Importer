@@ -1,6 +1,6 @@
 # Implementation notes
 
-`pnpm dev` starts and stops the agent VM, its credential tunnels and relays when `INTAKE_VM_NAME` names it. Delivered in one PR; in progress.
+`pnpm dev` starts and stops the agent VM, its credential tunnels and relays when `INTAKE_VM_NAME` names it. Delivered in #208. One open item, below, is a possible follow-up.
 
 ## Changes to the plan
 
