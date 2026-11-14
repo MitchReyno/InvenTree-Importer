@@ -171,3 +171,22 @@ test('group termination still reaches the real process after its wrapper has exi
   }
   await stop([owned], 5000)
 })
+
+test('a fixed failure code is printed as is, including child names with hyphens', () => {
+  const { failureCode } = require('../dev/process.cjs')
+  assert.equal(failureCode(new Error('vm_start_failed')), 'vm_start_failed')
+  assert.equal(
+    failureCode(new Error('vm-tunnel_stopped_during_startup')),
+    'vm-tunnel_stopped_during_startup',
+  )
+  assert.equal(
+    failureCode(new Error('tailscale-serve_stopped_during_startup')),
+    'tailscale-serve_stopped_during_startup',
+  )
+  assert.equal(
+    failureCode(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
+    'development_startup_failed',
+  )
+  assert.equal(failureCode(new Error('-leading hyphen')), 'development_startup_failed')
+  assert.equal(failureCode(undefined), 'development_startup_failed')
+})

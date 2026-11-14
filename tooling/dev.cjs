@@ -18,12 +18,20 @@ const {
   startupSummary,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
-const { launch, stop, startupGroup } = require('./dev/process.cjs')
+const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
 const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
+const {
+  ensureVmRunning,
+  finishVm,
+  guardVmStop,
+  startVmChildren,
+  confirmVmChildren,
+  VM_CHILD_NAMES,
+} = require('./dev/vm.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -33,8 +41,15 @@ const baseEnv = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key]]),
 )
+// Lima and the relays get the base environment, and Lima's home when the shell sets one.
+const vmEnv = {
+  ...baseEnv,
+  ...(process.env.LIMA_HOME ? { LIMA_HOME: process.env.LIMA_HOME } : {}),
+}
 // Survive source reloads: the browser keeps its connection through these.
 const FRONT_DOOR = new Set(['ui', 'tailnet', 'tailscale-serve'])
+// The VM tunnel does not use the app services, and the relays reconnect to the restarted worker.
+const KEPT_THROUGH_RELOAD = new Set([...FRONT_DOOR, ...VM_CHILD_NAMES])
 
 async function freePort(requested = 0) {
   const server = netServer()
@@ -129,6 +144,11 @@ async function privateState(root) {
   return claimSupervisorLock(root)
 }
 
+// After the terminal closes, writes to it fail; shutdown must still stop what this run started.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', () => {})
+}
+
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
@@ -189,6 +209,7 @@ async function main() {
   })
   let release = async () => {}
   let reportStop = false
+  let vmBooted = false
   const shutdown = () => {
     if (closing) return
     closing = true
@@ -199,6 +220,20 @@ async function main() {
     }
     resolveStop()
   }
+
+  /** Children the app cannot run without: when one exits outside shutdown, the app stops. */
+  function stopAppWhenExited(items) {
+    for (const item of items) {
+      void item.exited.then(() => {
+        if (!closing) {
+          process.stderr.write(`${item.name} stopped; stopping the app.\n`)
+          process.exitCode = 1
+          shutdown()
+        }
+      })
+    }
+  }
+
   // SIGHUP is what a closed terminal delivers. The parent watch covers a launcher that exits first.
   const session = bindSessionEnd(shutdown)
   try {
@@ -235,6 +270,30 @@ async function main() {
     }
     const { serviceEnv, prepared } = started
     const root = prepared.root
+    const publicOrigin = `http://127.0.0.1:${port}`
+    if (resolved.vm) {
+      startup.signal.throwIfAborted()
+      await ensureVmRunning(resolved.vm, {
+        signal: startup.signal,
+        env: vmEnv,
+        onBoot: () => {
+          vmBooted = true
+          process.stdout.write(`Starting VM ${resolved.vm.name}.\n`)
+        },
+      })
+      startup.signal.throwIfAborted()
+      const vmChildren = startVmChildren(resolved.vm, {
+        launch,
+        execPath: process.execPath,
+        repository,
+        baseEnv: vmEnv,
+      })
+      children.push(...vmChildren)
+      await confirmVmChildren(vmChildren, { signal: startup.signal })
+      stopAppWhenExited(vmChildren)
+      // Recorded now, so a run killed during the long setup below still has them reclaimed.
+      await publishRunning(root, publicOrigin, children)
+    }
     // The local read key exists only once `inventree:dev up` has run.
     const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
     const env = { ...serviceEnv, INTAKE_APP_STATE: root }
@@ -280,7 +339,6 @@ async function main() {
     if (!/^sha256:[a-f0-9]{64}$/.test(image)) {
       throw new Error('immutable_decoder_required')
     }
-    const publicOrigin = `http://127.0.0.1:${port}`
     const apiPort = await freePort()
     const scope = {
       INTAKE_ACTOR_ID: state.identity.actor,
@@ -453,15 +511,7 @@ async function main() {
       )
       children.push(serve)
       await serve.ready(30000, startup.signal)
-      for (const item of [gateway, serve]) {
-        void item.exited.then(() => {
-          if (!closing) {
-            process.stderr.write(`${item.name} stopped; stopping the app.\n`)
-            process.exitCode = 1
-            shutdown()
-          }
-        })
-      }
+      stopAppWhenExited([gateway, serve])
     }
     await publishRunning(root, publicOrigin, children)
     closeWatch = await watchCode(
@@ -482,8 +532,8 @@ async function main() {
               'Source code changed; draining and restarting application services.\n',
             )
             intentional = true
-            await stop(children.filter((item) => !FRONT_DOOR.has(item.name)))
-            children = children.filter((item) => FRONT_DOOR.has(item.name))
+            await stop(children.filter((item) => !KEPT_THROUGH_RELOAD.has(item.name)))
+            children = children.filter((item) => KEPT_THROUGH_RELOAD.has(item.name))
             if (!closing) {
               try {
                 await run(
@@ -509,8 +559,8 @@ async function main() {
                 await start()
               } catch {
                 intentional = true
-                await stop(children.filter((item) => !FRONT_DOOR.has(item.name)))
-                children = children.filter((item) => FRONT_DOOR.has(item.name))
+                await stop(children.filter((item) => !KEPT_THROUGH_RELOAD.has(item.name)))
+                children = children.filter((item) => KEPT_THROUGH_RELOAD.has(item.name))
                 starting = false
                 process.stderr.write(
                   'Application reload failed; fix source code to retry. Retained data is unchanged.\n',
@@ -533,6 +583,8 @@ async function main() {
     await stopped
   } finally {
     session.close()
+    // A second Ctrl-C would otherwise skip the stop of a VM this run booted.
+    const releaseVmGuard = resolved.vm ? guardVmStop(resolved.vm, vmBooted) : () => {}
     closing = true
     closeWatch()
     try {
@@ -540,9 +592,20 @@ async function main() {
       intentional = true
       await finishOwnedRun(children, stop)
     } finally {
-      await release()
-      if (reportStop) {
-        process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+      try {
+        const vmStopped = resolved.vm ? await finishVm(resolved.vm, vmBooted, { env: vmEnv }) : true
+        if (!vmStopped) {
+          process.exitCode = 1
+        }
+      } finally {
+        try {
+          await release()
+        } finally {
+          releaseVmGuard()
+        }
+        if (reportStop) {
+          process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
+        }
       }
     }
   }
@@ -553,7 +616,6 @@ main().catch((error) => {
     process.exitCode = 1
     return
   }
-  const code = /^[a-z_]+$/.test(error.message ?? '') ? error.message : 'development_startup_failed'
-  process.stderr.write(`${code}\n`)
+  process.stderr.write(`${failureCode(error)}\n`)
   process.exitCode = 1
 })

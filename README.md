@@ -154,15 +154,15 @@ Use another free loopback port when `14313` is already taken, and use that same 
 
 `shared-vm-agent/1` is the same VM with one guest turn and no tool worker; select it with `INTAKE_VM_AGENT_TOOLS=false`. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
 
-While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use.
+While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use. `ControlPath=none` gives each forward its own connection; through Lima's shared one, `ssh` would hand the forward over and exit.
 
 ```sh
-ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14315:127.0.0.1:14315 "lima-$vm"
 ```
 
 ```sh
-ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14317:127.0.0.1:14317 "lima-$vm"
 ```
 
@@ -179,7 +179,7 @@ Stop a running `pnpm dev`, then start it again so it reads the file. In **Settin
 
 The guest egress service has to be running during inference. Claude credential management can be offline after a saved token. Rebuilding the runner image is required after a change to guest or provider code, followed by `docker save` and `docker load` into the same VM. `pnpm dev` reloads the coordinator from this checkout.
 
-On a later day, start the same VM, export the same variables, then start the same tunnels and relays and run `pnpm dev`. Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
+On a later day, start the same VM, export the same variables, then start the same tunnels and relays and run `pnpm dev`. Alternatively, add `INTAKE_VM_NAME`, `INTAKE_VM_GUEST_DIR` and `INTAKE_VM_RUNNER_IMAGE` to `.env`, and `pnpm dev` starts the VM, tunnels and relays itself and stops them with the app (the VM only if that run booted it); see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
 
 ```sh
 limactl start "$vm"

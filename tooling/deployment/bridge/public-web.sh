@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 vm=${1:?VM name} dir=${2:?private paired directory} image=${3:?tool runner image}
-[[ $vm =~ ^[a-z0-9-]+$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
+[[ $vm =~ ^[a-z0-9][a-z0-9-]*$ && $dir =~ ^/[a-zA-Z0-9_./-]+$ && $image =~ ^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$ ]]
 guest() { limactl shell --workdir=/ "$vm" sudo "$@"; }
 guest test -d "$dir/guest"
 guest install -m 0444 /dev/stdin "$dir/browser-seccomp.json.new" < "$(dirname "$0")/../guest/browser-seccomp.json"

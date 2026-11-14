@@ -106,14 +106,16 @@ origin=http://127.0.0.1:4330
 tooling/deployment/bridge/personal-claude.sh "$vm" "$guest_directory" "$personal_image" "$operator_key_file" "$origin"
 ```
 
-Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration.
+Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration. `ControlPath=none` gives the tunnel its own connection: Lima's SSH configuration shares one, and through it `ssh` would hand the forward to the shared connection and exit at once. With `INTAKE_VM_NAME` set, `pnpm dev` runs one tunnel with both forwards itself (see [development](../../docs/development.md#running-the-agent-vm-with-the-app)).
 
 ```sh
-ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14315:127.0.0.1:14315 "lima-$vm"
 ```
 
 For `pnpm dev`, set `INTAKE_RUN_AGENTS_IN_VM=true` with the coordinator pair and port; it enables the dev UI proxy. Real subscription sessions also need `INTAKE_USE_MOCK_AI_AGENTS=false` (see [choosing what the app runs](../../docs/development.md#choosing-what-the-app-runs)). In a packaged deployment, route the exact same-origin path `/personal-runner/claude` to the private tunnel. Preserve the browser Origin and Authorization headers, disable body and authorization-header logging, and exclude the route from caches. The management service verifies the operator key and exact origin, including on status requests. Keep the guest credential directory and operator key outside backups and image builds.
+
+An installation set up before the management service's cap was raised to 384 MB keeps its old cap. Raise it in place with `limactl shell "$vm" sudo docker update --memory=384m --memory-swap=768m bench-claude-management`, which matches the swap a fresh setup gets; rerunning the setup script instead fails at its first `docker run`, because the containers already exist.
 
 In **Settings › Agents → Personal Claude subscription**, enter the management key, choose **Check configuration**, enter the setup token, and explicitly save it. Reopening shows configuration status only. Replace and remove use the last acknowledged revision. Removing the credential blocks future launches. An already running provider process retains its environment until exit.
 
@@ -132,7 +134,7 @@ Run `personal-codex.sh` once in an installation paired with `pair.sh`. It reuses
 
 ```sh
 tooling/deployment/bridge/personal-codex.sh "$vm" "$guest_directory" "$personal_image" "$origin" "$operator_key_file"
-ssh -NT -o ExitOnForwardFailure=yes -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
+ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14317:127.0.0.1:14317 "lima-$vm"
 ```
 

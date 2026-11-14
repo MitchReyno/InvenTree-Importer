@@ -12,7 +12,7 @@ const subscription = process.env.INTAKE_VM_CLAUDE_SUBSCRIPTION === '1'
 const [vm, port, directory, image, coordinator] = process.argv.slice(2)
 if (
   (codex && subscription) ||
-  !/^[a-z0-9-]+$/.test(vm) ||
+  !/^[a-z0-9][a-z0-9-]*$/.test(vm) ||
   !isAbsolute(directory) ||
   !/^\/[a-zA-Z0-9_./-]+$/.test(directory) ||
   !/^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$/.test(image) ||

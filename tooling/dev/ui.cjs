@@ -1,6 +1,7 @@
 const { createRequire } = require('node:module')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
+const { CREDENTIAL_PORTS } = require('./vm.cjs')
 const repository = resolve(__dirname, '../..')
 const frontend = join(repository, 'frontend')
 const frontendRequire = createRequire(join(frontend, 'package.json'))
@@ -28,8 +29,14 @@ async function main() {
         '/api': { target: `http://127.0.0.1:${apiPort}`, ws: true, changeOrigin: false },
         ...(process.env.INTAKE_PERSONAL_MANAGEMENT === '1'
           ? {
-              '/personal-runner/codex': { target: 'http://127.0.0.1:14317', changeOrigin: false },
-              '/personal-runner/claude': { target: 'http://127.0.0.1:14315', changeOrigin: false },
+              '/personal-runner/codex': {
+                target: `http://127.0.0.1:${CREDENTIAL_PORTS.codex}`,
+                changeOrigin: false,
+              },
+              '/personal-runner/claude': {
+                target: `http://127.0.0.1:${CREDENTIAL_PORTS.claude}`,
+                changeOrigin: false,
+              },
             }
           : {}),
       },
