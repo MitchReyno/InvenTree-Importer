@@ -74,7 +74,7 @@ Compatibility: unset `INTAKE_VM_NAME` leaves every code path as before. Manual r
 - **VM module (unit, new `tooling/tests/dev-vm.test.cjs`):** with fake runners and `launch`, check the boot decision, the `booted` flag, the stop decision for each combination of booted and keep-running, the relay arguments and environment with and without tools, the tunnel arguments including `ControlPath=none`, early-exit detection, and stop-failure reporting.
 - **Launcher wiring:** `dev.cjs` has no unit harness for its main path. The insertion is checked by review and by manual qualification against the real VM, recorded in the PR: cold start, Ctrl-C stops the VM, an already-running VM is kept, `INTAKE_VM_KEEP_RUNNING`, a killed relay stops the app, a source reload keeps the relays, a missing instance fails before services start, and a startup failure after a boot (the tunnel port held) stops the VM and releases the lock.
 - **Deployment assets:** `bash -n` on the edited script, and a manual check that the Claude credential service stays up after a VM boot with the new cap.
-- **Gate:** `pnpm test:dev`, `pnpm lint`, `pnpm format:check`, plus the repository gate (`pnpm lint && pnpm build && pnpm test`).
+- **Gate:** `pnpm test:dev`, `pnpm lint`, Prettier on the changed files, plus the repository gate (`pnpm lint && pnpm build && pnpm test`).
 
 Limits: the qualification uses one developer machine (an M1 with Lima 2.3.0). Provider turns are not exercised, because a turn spends subscription quota and the relay path itself is unchanged.
 
@@ -85,6 +85,7 @@ No migration. Developers opt in by adding three settings. Rolling back means rem
 ## Risks and open decisions
 
 - **Memory:** with tools on, two idle relays keep two sets of waiting guest containers in a 2 GiB VM. This was observed to be stable on 2026-11-13. The VM size remains an operator choice.
+- **Concurrent start:** if another tool starts the same instance between this run's status read and its `limactl start`, the start can fail and this run, having recorded the boot first, stops a VM the other tool now uses. Telling that race apart from a start that brought the VM up and then reported an error is not reliable, and getting it wrong would leave a VM this run booted running. The window is a few milliseconds and needs two launchers on one instance, so the race is accepted.
 - **External VM stop:** if the VM is stopped behind the launcher's back, the tunnel exits and the app stops, which is the intended loud failure.
 
 No open decisions.

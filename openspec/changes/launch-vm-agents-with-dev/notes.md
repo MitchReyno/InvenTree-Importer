@@ -13,11 +13,13 @@
 - **2026-11-13T19:37+10:00, task 3:** Review round 7 corrected the round 5 description: a forced quit leaves the VM running only if its `limactl stop` had not started, because that stop runs in its own process group and finishes anyway. The docs, design and message now say so. The root README's hand-run tunnels also gained `ControlPath=none` and a pointer to the `INTAKE_VM_NAME` route.
 - **2026-11-13T19:45+10:00, task 2:** Review round 8 noted that `limactl stop` still wrote to pipes back to the launcher, so a forced quit could kill it on its next log line. It now runs with its output discarded; qualification forced a quit two seconds into the stop and the VM still stopped, and the next run removed the stale lock and started normally.
 - **2026-11-14T12:28+10:00, task 2:** Review round 9 found a failed VM stop still exited with status 0; the launcher now exits 1 when `finishVm` reports a failed stop. Rounds 8 and 9 read the start of the Ctrl-C hold differently; the docs and design now say it runs from when the app begins stopping its processes, which is where the guard is installed.
+- **2026-11-14T12:33+10:00, task 2:** Review round 10 was clean apart from nitpicks: the guard is now released even if the lock release throws, the concurrent-start race is recorded under the design's risks, and the duplicated process-group handling is listed under open items.
 
 ## Unexpected challenges
 
 - **2026-11-13T18:57+10:00, task 4:** Qualifying from the worktree could not use the local InvenTree, whose Compose project belongs to the main checkout (`inventree_dev_owned_by_other_checkout`). The runs used the mock inventory instead; the inventory choice does not touch the VM lifecycle.
 - **2026-11-13T18:57+10:00, task 4:** The first cold-start run used the developer's retained mock namespace, where saved agent settings and ready photos made the real-agent worker queue an Examine session within seconds. The guest refused the turn (`guest_turn_refused`, no native session), but Ctrl-C left its agent slot held, so the next workers stopped with `agent_reap_confirmation_required`. Later runs used a fresh private `INTAKE_APP_STATE`. The held slot is reported to the developer rather than cleared by hand, because the explicit interruption step is a deliberate manual seam.
+- **2026-11-14T12:33+10:00, task 4:** The repository-wide `pnpm format:check` fails on `tooling/deployment/guest/browser-seccomp.json`, unchanged since #150 and untouched here; CI does not run that check. The gate runs Prettier on the files this change touches instead, and the design and task plan say so.
 
 ## Decisions made during implementation
 
@@ -26,4 +28,4 @@
 
 ## Open items
 
-None.
+- `runCommand` in `tooling/dev/vm.cjs` repeats the process-group handling of `run()` in `tooling/dev.cjs` (detached spawn, SIGTERM then SIGKILL after a grace), because `run` has no output capture, timeout or discarded output. Moving `run` onto `runCommand` is a possible follow-up; it is not tracked elsewhere.

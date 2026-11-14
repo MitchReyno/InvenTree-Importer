@@ -591,8 +591,11 @@ async function main() {
           process.exitCode = 1
         }
       } finally {
-        await release()
-        releaseVmGuard()
+        try {
+          await release()
+        } finally {
+          releaseVmGuard()
+        }
         if (reportStop) {
           process.stdout.write('Development app stopped; retained data and PostgreSQL preserved.\n')
         }

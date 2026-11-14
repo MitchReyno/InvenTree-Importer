@@ -25,7 +25,7 @@ One PR carries tasks 1–4. The settings, the module that acts on them and their
 
 - Branch `feat/launch-vm-agents-with-dev`, base `interactive-app`.
 - Subject `feat(launch-vm-agents-with-dev): start and stop the agent VM with pnpm dev`.
-- Gates: `pnpm test:dev`, `pnpm lint && pnpm build && pnpm test`, `pnpm format:check`, manual qualification against a real VM, independent exact-head review, green selected CI.
+- Gates: `pnpm test:dev`, `pnpm lint && pnpm build && pnpm test`, Prettier on the changed files, manual qualification against a real VM, independent exact-head review, green selected CI.
 
 ## 1. VM launch settings
 
