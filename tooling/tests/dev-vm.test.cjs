@@ -372,10 +372,10 @@ test('a second Ctrl-C while the VM still needs stopping is held, a third forces 
   const { lines, write } = recordingWrites()
   const exits = []
   const release = guardVmStop(PLAN, true, { on, off, write, exit: (code) => exits.push(code) })
-  source.emit('SIGINT')
+  source.emit('SIGINT', 'SIGINT')
   assert.deepEqual(exits, [])
   assert.match(lines.err[0], /Stopping the app and VM bench-agent-test first/)
-  source.emit('SIGINT')
+  source.emit('SIGINT', 'SIGINT')
   assert.deepEqual(exits, [130])
   release()
   assert.equal(source.listenerCount('SIGINT'), 0)
@@ -409,4 +409,25 @@ test('stopping the VM discards its output, so it survives the launcher exiting',
   await stopVm(PLAN, { exec })
   assert.equal(calls[0].options.discardOutput, true)
   assert.equal(calls[0].options.stderr, undefined)
+})
+
+test('a repeated stop signal other than Ctrl-C quits with its own status and no Ctrl-C hint', () => {
+  const { source, on, off } = signalSource()
+  const { lines, write } = recordingWrites()
+  const exits = []
+  const release = guardVmStop(PLAN, true, { on, off, write, exit: (code) => exits.push(code) })
+  source.emit('SIGTERM', 'SIGTERM')
+  assert.deepEqual(exits, [])
+  assert.doesNotMatch(lines.err.join(''), /Ctrl-C/)
+  source.emit('SIGTERM', 'SIGTERM')
+  assert.deepEqual(exits, [143])
+  release()
+})
+
+test('the tunnel forwards the ports the dev UI proxies', () => {
+  const { CREDENTIAL_PORTS } = require('../dev/vm.cjs')
+  const ui = require('node:fs').readFileSync(require.resolve('../dev/ui.cjs'), 'utf8')
+  assert.match(ui, /CREDENTIAL_PORTS\.claude/)
+  assert.match(ui, /CREDENTIAL_PORTS\.codex/)
+  assert.deepEqual(CREDENTIAL_PORTS, { claude: 14315, codex: 14317 })
 })

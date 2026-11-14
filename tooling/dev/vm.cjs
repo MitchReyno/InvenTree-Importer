@@ -3,6 +3,7 @@
  * tunnel and one relay per provider. Commands and `launch` are passed in so tests can substitute them.
  */
 const { spawn } = require('node:child_process')
+const { constants } = require('node:os')
 const { join } = require('node:path')
 const { setTimeout: delay } = require('node:timers/promises')
 
@@ -19,7 +20,7 @@ const CHILD_SETTLE_MS = 1000
 const KILL_GRACE_MS = 5000
 
 /** The loopback ports the dev UI proxies to the guest's Claude and Codex credential services. */
-const CREDENTIAL_PORTS = [14315, 14317]
+const CREDENTIAL_PORTS = { claude: 14315, codex: 14317 }
 
 /**
  * Runs a command in its own process group and resolves with its standard output, so a terminal
@@ -88,8 +89,6 @@ function runCommand(
   })
 }
 
-const defaultExec = runCommand
-
 const STANDARD_WRITE = {
   out: (text) => process.stdout.write(text),
   err: (text) => process.stderr.write(text),
@@ -100,7 +99,7 @@ function limaMessages(write) {
   return (line) => write.err(`[limactl] ${line}\n`)
 }
 
-async function vmRunning(plan, { exec = defaultExec, signal, env, write = STANDARD_WRITE } = {}) {
+async function vmRunning(plan, { exec = runCommand, signal, env, write = STANDARD_WRITE } = {}) {
   let status
   try {
     status = await exec('limactl', ['list', '--format', '{{.Status}}', plan.name], {
@@ -119,7 +118,7 @@ async function vmRunning(plan, { exec = defaultExec, signal, env, write = STANDA
   return value === 'Running'
 }
 
-async function startVm(plan, { exec = defaultExec, signal, env, write = STANDARD_WRITE } = {}) {
+async function startVm(plan, { exec = runCommand, signal, env, write = STANDARD_WRITE } = {}) {
   try {
     await exec('limactl', ['start', '--tty=false', plan.name], {
       timeout: VM_BOOT_TIMEOUT_MS,
@@ -136,7 +135,7 @@ async function startVm(plan, { exec = defaultExec, signal, env, write = STANDARD
  * Boots the VM when it is not running. `onBoot` runs before the boot starts, so a cancelled or failed
  * boot is still treated as this run's; callers record the boot there. Resolves true when it booted.
  */
-async function ensureVmRunning(plan, { exec = defaultExec, signal, env, write, onBoot }) {
+async function ensureVmRunning(plan, { exec = runCommand, signal, env, write, onBoot }) {
   const running = await vmRunning(plan, { exec, signal, env, write })
   signal?.throwIfAborted()
   if (running) {
@@ -152,7 +151,7 @@ function shouldStopVm(plan, booted) {
   return booted && !plan.keepRunning
 }
 
-async function stopVm(plan, { exec = defaultExec, env } = {}) {
+async function stopVm(plan, { exec = runCommand, env } = {}) {
   try {
     // No pipes back: once signalled, the stop must not die writing to a launcher that has quit.
     await exec('limactl', ['stop', plan.name], {
@@ -170,7 +169,7 @@ async function stopVm(plan, { exec = defaultExec, env } = {}) {
  * launcher's lock release after it always runs; a failed stop names the command to run and
  * resolves false, so the launcher can exit with a failure.
  */
-async function finishVm(plan, booted, { exec = defaultExec, env, write = STANDARD_WRITE } = {}) {
+async function finishVm(plan, booted, { exec = runCommand, env, write = STANDARD_WRITE } = {}) {
   if (!shouldStopVm(plan, booted)) {
     return true
   }
@@ -185,8 +184,10 @@ async function finishVm(plan, booted, { exec = defaultExec, env, write = STANDAR
 }
 
 const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP']
-/** The conventional status for a run ended by Ctrl-C (128 + SIGINT). */
-const INTERRUPTED_EXIT_CODE = 130
+/** The conventional exit status for a process ended by a signal. */
+function signalExitCode(name) {
+  return 128 + constants.signals[name]
+}
 
 /**
  * While shutdown still has a VM to stop, holds the next Ctrl-C (or other stop signal) so the stop is
@@ -207,15 +208,18 @@ function guardVmStop(
   }
   let held = false
 
-  const hold = () => {
+  const hold = (signal) => {
     if (held) {
-      exit(INTERRUPTED_EXIT_CODE)
+      exit(signalExitCode(signal))
       return
     }
     held = true
-    write.err(
-      `Stopping the app and VM ${plan.name} first; press Ctrl-C again to quit without waiting.\n`,
-    )
+    // A closed terminal (SIGHUP) or a process manager (SIGTERM) gets no Ctrl-C hint.
+    if (signal === 'SIGINT') {
+      write.err(
+        `Stopping the app and VM ${plan.name} first; press Ctrl-C again to quit without waiting.\n`,
+      )
+    }
   }
 
   for (const name of SHUTDOWN_SIGNALS) {
@@ -230,7 +234,10 @@ function guardVmStop(
 
 function tunnelArgs(plan, baseEnv) {
   const limaHome = baseEnv.LIMA_HOME ?? join(baseEnv.HOME, '.lima')
-  const forwards = CREDENTIAL_PORTS.flatMap((port) => ['-L', `127.0.0.1:${port}:127.0.0.1:${port}`])
+  const forwards = Object.values(CREDENTIAL_PORTS).flatMap((port) => [
+    '-L',
+    `127.0.0.1:${port}:127.0.0.1:${port}`,
+  ])
   // Lima's ssh.config shares one connection; through it, ssh would hand the forwards over and exit.
   return [
     '-NT',
@@ -313,6 +320,7 @@ module.exports = {
   shouldStopVm,
   finishVm,
   guardVmStop,
+  CREDENTIAL_PORTS,
   startVmChildren,
   confirmVmChildren,
   VM_CHILD_NAMES,

@@ -179,7 +179,7 @@ Stop a running `pnpm dev`, then start it again so it reads the file. In **Settin
 
 The guest egress service has to be running during inference. Claude credential management can be offline after a saved token. Rebuilding the runner image is required after a change to guest or provider code, followed by `docker save` and `docker load` into the same VM. `pnpm dev` reloads the coordinator from this checkout.
 
-On a later day, start the same VM, export the same variables, then start the same tunnels and relays and run `pnpm dev`. Alternatively, add `INTAKE_VM_NAME`, `INTAKE_VM_GUEST_DIR` and `INTAKE_VM_RUNNER_IMAGE` to `.env`, and `pnpm dev` starts the VM, tunnels and relays itself and stops them with the app; see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
+On a later day, start the same VM, export the same variables, then start the same tunnels and relays and run `pnpm dev`. Alternatively, add `INTAKE_VM_NAME`, `INTAKE_VM_GUEST_DIR` and `INTAKE_VM_RUNNER_IMAGE` to `.env`, and `pnpm dev` starts the VM, tunnels and relays itself and stops them with the app (the VM only if that run booted it); see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
 
 ```sh
 limactl start "$vm"

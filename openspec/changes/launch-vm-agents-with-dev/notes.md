@@ -14,6 +14,7 @@
 - **2026-11-13T19:45+10:00, task 2:** Review round 8 noted that `limactl stop` still wrote to pipes back to the launcher, so a forced quit could kill it on its next log line. It now runs with its output discarded; qualification forced a quit two seconds into the stop and the VM still stopped, and the next run removed the stale lock and started normally.
 - **2026-11-14T12:28+10:00, task 2:** Review round 9 found a failed VM stop still exited with status 0; the launcher now exits 1 when `finishVm` reports a failed stop. Rounds 8 and 9 read the start of the Ctrl-C hold differently; the docs and design now say it runs from when the app begins stopping its processes, which is where the guard is installed.
 - **2026-11-14T12:33+10:00, task 2:** Review round 10 was clean apart from nitpicks: the guard is now released even if the lock release throws, the concurrent-start race is recorded under the design's risks, and the duplicated process-group handling is listed under open items.
+- **2026-11-14T12:41+10:00, task 2:** Review round 11 found the VM children were only recorded in `running.json` after the first `start()`, so a run killed during setup left relays and a tunnel the next run could not reclaim. They are now recorded as soon as they are confirmed; a run killed with SIGKILL during setup left them behind and the next run reclaimed them and started. The credential ports are now one constant shared with the dev UI's proxy, and a repeated SIGTERM or SIGHUP exits with its own status and no Ctrl-C hint.
 
 ## Unexpected challenges
 

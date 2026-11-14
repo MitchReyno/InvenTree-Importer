@@ -263,6 +263,9 @@ async function main() {
     if (addressInUse) {
       await freePort(port)
     }
+    const { serviceEnv, prepared } = started
+    const root = prepared.root
+    const publicOrigin = `http://127.0.0.1:${port}`
     if (resolved.vm) {
       startup.signal.throwIfAborted()
       await ensureVmRunning(resolved.vm, {
@@ -283,9 +286,9 @@ async function main() {
       children.push(...vmChildren)
       await confirmVmChildren(vmChildren, { signal: startup.signal })
       stopAppWhenExited(vmChildren)
+      // Recorded now, so a run killed during the long setup below still has them reclaimed.
+      await publishRunning(root, publicOrigin, children)
     }
-    const { serviceEnv, prepared } = started
-    const root = prepared.root
     // The local read key exists only once `inventree:dev up` has run.
     const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
     const env = { ...serviceEnv, INTAKE_APP_STATE: root }
@@ -331,7 +334,6 @@ async function main() {
     if (!/^sha256:[a-f0-9]{64}$/.test(image)) {
       throw new Error('immutable_decoder_required')
     }
-    const publicOrigin = `http://127.0.0.1:${port}`
     const apiPort = await freePort()
     const scope = {
       INTAKE_ACTOR_ID: state.identity.actor,
