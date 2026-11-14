@@ -100,6 +100,8 @@ INTAKE_VM_RUNNER_IMAGE=bench-intake-runner:personal
 | `INTAKE_VM_RUNNER_IMAGE` | The personal runner image loaded into the VM's Docker. |
 | `INTAKE_VM_KEEP_RUNNING` | Switch, default `false`. `true` leaves a VM this run booted running after the app stops. |
 
+A non-default Lima home is taken from `LIMA_HOME` in the shell that runs `pnpm dev`, not from the env file.
+
 On start, after the database is ready, `pnpm dev` boots the VM if it is stopped (about 36 s on an M1) and starts:
 
 - `vm-tunnel`: forwards loopback ports 14315 and 14317 to the guest, for **Settings › Agents**;

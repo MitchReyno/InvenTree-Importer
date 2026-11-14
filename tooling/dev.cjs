@@ -144,6 +144,11 @@ async function privateState(root) {
   return claimSupervisorLock(root)
 }
 
+// After the terminal closes, writes to it fail; shutdown must still stop what this run started.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', () => {})
+}
+
 async function main() {
   if (process.argv.includes('--help')) {
     process.stdout.write(
