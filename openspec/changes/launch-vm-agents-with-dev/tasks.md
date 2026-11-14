@@ -85,6 +85,6 @@ One PR carries tasks 1–4. The settings, the module that acts on them and their
 - [x] 4.1 Run the manual qualification and record the outcomes for the PR.
 - [x] 4.2 Run the full gate.
 - [x] 4.3 Independent review rounds until one is clean, at the reviewed head.
-- [ ] 4.4 Open the PR against `interactive-app` with the evidence.
-- [ ] 4.5 Selected CI green.
-- [ ] 4.6 Merge.
+- [x] 4.4 Open the PR against `interactive-app` with the evidence.
+- [x] 4.5 Selected CI green.
+- [x] 4.6 Merge.
