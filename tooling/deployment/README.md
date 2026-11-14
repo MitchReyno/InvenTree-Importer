@@ -106,7 +106,7 @@ origin=http://127.0.0.1:4330
 tooling/deployment/bridge/personal-claude.sh "$vm" "$guest_directory" "$personal_image" "$operator_key_file" "$origin"
 ```
 
-Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration. `ControlPath=none` gives the tunnel its own connection: Lima's SSH configuration shares one, and through it `ssh` would hand the forward to the shared connection and exit at once. With `INTAKE_VM_NAME` set, `pnpm dev` runs both tunnels itself (see [development](../../docs/development.md#running-the-agent-vm-with-the-app)).
+Forward the private management endpoint to loopback on the machine running the UI proxy. For Lima on the Mac, keep this tunnel open while editing credentials. For the Pi run it on the deployment server using that instance's Lima SSH configuration. `ControlPath=none` gives the tunnel its own connection: Lima's SSH configuration shares one, and through it `ssh` would hand the forward to the shared connection and exit at once. With `INTAKE_VM_NAME` set, `pnpm dev` runs one tunnel with both forwards itself (see [development](../../docs/development.md#running-the-agent-vm-with-the-app)).
 
 ```sh
 ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \

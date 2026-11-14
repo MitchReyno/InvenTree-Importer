@@ -167,21 +167,26 @@ async function stopVm(plan, { exec = defaultExec, env } = {}) {
 
 /**
  * The VM step of shutdown: stops a VM this run booted unless it is kept. Never throws, so the
- * launcher's lock release after it always runs; a failed stop names the command to run.
+ * launcher's lock release after it always runs; a failed stop names the command to run and
+ * resolves false, so the launcher can exit with a failure.
  */
 async function finishVm(plan, booted, { exec = defaultExec, env, write = STANDARD_WRITE } = {}) {
   if (!shouldStopVm(plan, booted)) {
-    return
+    return true
   }
   write.out(`Stopping VM ${plan.name}.\n`)
   try {
     await stopVm(plan, { exec, env })
+    return true
   } catch {
     write.err(`vm_stop_failed: run limactl stop ${plan.name}\n`)
+    return false
   }
 }
 
 const SHUTDOWN_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP']
+/** The conventional status for a run ended by Ctrl-C (128 + SIGINT). */
+const INTERRUPTED_EXIT_CODE = 130
 
 /**
  * While shutdown still has a VM to stop, holds the next Ctrl-C (or other stop signal) so the stop is
@@ -204,7 +209,7 @@ function guardVmStop(
 
   const hold = () => {
     if (held) {
-      exit(130)
+      exit(INTERRUPTED_EXIT_CODE)
       return
     }
     held = true

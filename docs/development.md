@@ -107,9 +107,9 @@ On start, after the database is ready, `pnpm dev` boots the VM if it is stopped 
 
 They keep running through source reloads. If one of them exits, for example because the VM was stopped elsewhere, the app stops with `<name> stopped; stopping the app.` Lima's own messages appear with a `[limactl]` prefix, so a slow or failed boot shows its progress and cause.
 
-When the app stops, it stops these three and then the VM, but only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not `true`. A VM that was already running is left running, because something else may be using it. If the stop fails, the app says so and names the `limactl stop` command to run.
+When the app stops, it stops these three and then the VM, but only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not `true`. A VM that was already running is left running, because something else may be using it. If the stop fails, the app says so, names the `limactl stop` command to run and exits with status 1.
 
-Once shutdown reaches the VM step, the next Ctrl-C is held with a message, and the one after quits at once. A VM stop already under way still finishes. Quitting before it starts, or killing the run outright, leaves the VM running; the next run then finds it running and leaves it running, so stop it with `limactl stop` when you are done.
+From when the app begins stopping its processes until a VM this run booted has stopped, the next Ctrl-C is held with a message, and the one after quits at once. A VM stop already under way still finishes. Quitting before it starts, or killing the run outright, leaves the VM running; the next run then finds it running and leaves it running, so stop it with `limactl stop` when you are done.
 
 The settings are checked before anything starts. `INTAKE_VM_NAME` with scripted agents, or without `INTAKE_RUN_AGENTS_IN_VM=true`, is refused (`vm_launch_requires_real_vm_agents`), as are a missing guest directory or image and values the relay would reject.
 

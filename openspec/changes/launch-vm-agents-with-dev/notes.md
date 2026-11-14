@@ -12,6 +12,7 @@
 - **2026-11-13T19:29+10:00, task 2:** Review round 5 found that the launcher drops its signal handlers when shutdown starts, so a second Ctrl-C killed it before the VM stop. While a VM this run booted still needs stopping, the next stop signal is now held with a message and the one after quits, leaving the VM running. `limactl` messages are forwarded with a `[limactl]` prefix, so `vm_start_failed` comes with its cause.
 - **2026-11-13T19:37+10:00, task 3:** Review round 7 corrected the round 5 description: a forced quit leaves the VM running only if its `limactl stop` had not started, because that stop runs in its own process group and finishes anyway. The docs, design and message now say so. The root README's hand-run tunnels also gained `ControlPath=none` and a pointer to the `INTAKE_VM_NAME` route.
 - **2026-11-13T19:45+10:00, task 2:** Review round 8 noted that `limactl stop` still wrote to pipes back to the launcher, so a forced quit could kill it on its next log line. It now runs with its output discarded; qualification forced a quit two seconds into the stop and the VM still stopped, and the next run removed the stale lock and started normally.
+- **2026-11-14T12:28+10:00, task 2:** Review round 9 found a failed VM stop still exited with status 0; the launcher now exits 1 when `finishVm` reports a failed stop. Rounds 8 and 9 read the start of the Ctrl-C hold differently; the docs and design now say it runs from when the app begins stopping its processes, which is where the guard is installed.
 
 ## Unexpected challenges
 

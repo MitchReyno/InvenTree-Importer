@@ -586,8 +586,9 @@ async function main() {
       await finishOwnedRun(children, stop)
     } finally {
       try {
-        if (resolved.vm) {
-          await finishVm(resolved.vm, vmBooted, { env: vmEnv })
+        const vmStopped = resolved.vm ? await finishVm(resolved.vm, vmBooted, { env: vmEnv }) : true
+        if (!vmStopped) {
+          process.exitCode = 1
         }
       } finally {
         await release()

@@ -307,7 +307,7 @@ function recordingWrites() {
 test('finishing stops a VM this run booted, including after a failed startup', async () => {
   const { exec, calls } = recordingExec()
   const { lines, write } = recordingWrites()
-  await finishVm(PLAN, true, { exec, write })
+  assert.equal(await finishVm(PLAN, true, { exec, write }), true)
   assert.deepEqual(
     calls.map((call) => call.args),
     [['stop', 'bench-agent-test']],
@@ -323,7 +323,7 @@ test('finishing leaves a VM alone when this run did not boot it or it is kept', 
   ]) {
     const { exec, calls } = recordingExec()
     const { lines, write } = recordingWrites()
-    await finishVm(plan, booted, { exec, write })
+    assert.equal(await finishVm(plan, booted, { exec, write }), true)
     assert.equal(calls.length, 0)
     assert.deepEqual(lines.out, [])
   }
@@ -332,7 +332,7 @@ test('finishing leaves a VM alone when this run did not boot it or it is kept', 
 test('a failed stop is reported with the command to run and never throws', async () => {
   const { exec } = recordingExec({ 'limactl stop': new Error('exit 1: private detail') })
   const { lines, write } = recordingWrites()
-  await finishVm(PLAN, true, { exec, write })
+  assert.equal(await finishVm(PLAN, true, { exec, write }), false)
   assert.deepEqual(lines.err, ['vm_stop_failed: run limactl stop bench-agent-test\n'])
 })
 
