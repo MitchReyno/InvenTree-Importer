@@ -50,7 +50,16 @@ Rejected: a fixed absolute default such as `/var/tmp/bench-intake-guest`. It wou
 
 ### Importer fallback applied once at environment loading
 
-A new function next to `load_env_file` (`apply_local_inventree_default`) runs once in the CLI entry, after the `.env` is loaded and before any command. When none of the four InvenTree settings has a non-empty value (the template ships them present but empty, and `load_env_file` loads empty values, so an empty value counts as unset) it reads the local state and sets `INVENTREE_URL` and `INVENTREE_TOKEN` in `os.environ`, overwriting the empty entries, then prints `Using the local development InvenTree at http://127.0.0.1:4320 (no InvenTree server configured).` to standard error. Because it fills the environment, `connect()` and the approved-plan endpoint check see the same server without further changes. When no server can be found, the importer still needs one refusal everywhere: `import-run prepare` reads the endpoint (`_current()`, `normalize_endpoint`) before `connect()`, so an empty URL currently fails there with a generic error. A typed `InvenTreeNotConfigured` error, raised by one helper that both paths call, carries the guidance (`INVENTREE_URL`, or `pnpm inventree:dev up`), and `import_run.py`'s error handler reports it as such. Commands that do not need a server (offline validation, status) keep working without one.
+A new function next to `load_env_file` (`apply_local_inventree_default`) runs once in the CLI entry, after the `.env` is loaded and before any command. It applies only when none of the four InvenTree settings has a non-empty value. The template ships them present but empty, and `load_env_file` loads empty values, so an empty value counts as unset. It then reads the local state and sets `INVENTREE_URL` and `INVENTREE_TOKEN` in `os.environ`, overwriting the empty entries.
+
+Because it fills the environment, `connect()` and the approved-plan endpoint check in `import_run.py` see the same server without further changes. It prints `Using the local development InvenTree at http://127.0.0.1:4320 (no InvenTree server configured).` to standard error, never the token.
+
+Two refusals need to reach the operator intact. Today `import_run.py`'s handler replaces every non-domain error with "operation stopped; inspect local status and configuration", so neither a missing server nor a plan bound to another server is named. Both get typed errors with messages composed by our code, never from the SDK, on the same footing as `PreparationReview`:
+
+- `InvenTreeNotConfigured`, raised by one helper that both `_current()` and `connect()` use, names `INVENTREE_URL` and `pnpm inventree:dev up`. `import-run prepare` reads the endpoint before connecting, so it reaches this too.
+- `TargetMismatch`, raised by `_current()` in place of today's `ValueError`, names the configured and approved endpoints, before any connection.
+
+The handler renders these two messages as it renders `PreparationReview`. Commands that do not need a server (offline validation, status) keep working without one.
 
 The read mirrors the Node side's private-file rules: a regular file, not a symbolic link, owned by the current user, no group or other permissions, at most 16 KiB, JSON with `version` 1 and a writer token matching the token form. Anything else is treated as no local instance.
 
@@ -81,7 +90,7 @@ Authority: the importer gains write access to the local development InvenTree by
 
 - **Launcher (unit):** defaults and their summary marks; the worker environment carries the resolved pairing and port in managed, unmanaged and scripted VM modes; explicit values win; pairing follows `INTAKE_DEV_STATE`; management default on, off with the switch, refused for scripted agents; switch validation; guest-directory resolution with a fake `exec`.
 - **Launcher (manual, recorded on the PR):** with the developer's explicit settings, unchanged behaviour; with a fresh `INTAKE_DEV_STATE`, `vm_pairing_missing` before boot; a defaulted guest directory resolved against the real VM.
-- **Importer CLI (pytest, real argument parsing):** `import-run prepare` and a connecting command print the guidance with no server and no local instance; offline validation and status still run.
+- **Importer CLI (pytest, real argument parsing):** `import-run prepare` and a connecting command print the guidance with no server and no local instance; offline validation and status still run. Execute, resume and retry of a plan bound to an external endpoint, with the local fallback in effect, print the mismatch with both endpoints and make no connection.
 - **Importer (pytest):** an autouse fixture points `INTAKE_DEV_STATE` at an empty temporary directory for every test, so no test reaches the developer's real local InvenTree; then: default applied and announced without the token; explicit and partial settings untouched; each unsafe-state case ignored; the endpoint check sees the default; DigiKey defaults and explicit overrides.
 - **Contract:** the cross-language constants test.
 - **Template:** the template test, a fresh-clone check (copy `.env.example` into a temporary clone and run the settings resolver and the importer's environment step), and Markdown reference checks.

@@ -50,7 +50,7 @@ When none of `INVENTREE_URL`, `INVENTREE_TOKEN`, `INVENTREE_USER` and `INVENTREE
 
 - **GIVEN** an approved plan for an external endpoint, and no InvenTree settings, so the local instance is used
 - **WHEN** execute, resume or retry runs
-- **THEN** it stops before connecting and reports the endpoint mismatch
+- **THEN** it stops before connecting and reports the mismatch, naming the configured and approved endpoints
 
 #### Scenario: Unsafe state file
 
