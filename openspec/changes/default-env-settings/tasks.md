@@ -78,9 +78,9 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Scope: `.env.example` rewritten, `.env.intake.example` removed, `.gitignore`, `tooling/tests/dev-environment.test.cjs` template check, `README.md` (setup and VM walkthrough, `bench-agent` rename), `backend/README.md`, `docs/development.md`, `tooling/deployment/README.md` where it names the old template or opt-in.
 - Verification: the template test; a fresh-clone check in a temporary clone; Markdown reference check of every changed claim against the code.
 
-- [ ] 3.1 Write the single template and remove the old one; update `.gitignore` and the template test.
-- [ ] 3.2 Update the READMEs and `docs/development.md`.
-- [ ] 3.3 Check every changed claim against the code.
+- [x] 3.1 Write the single template and remove the old one; update `.gitignore` and the template test.
+- [x] 3.2 Update the READMEs and `docs/development.md`.
+- [x] 3.3 Check every changed claim against the code.
 
 ## 4. Qualification and delivery
 

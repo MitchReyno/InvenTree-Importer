@@ -157,3 +157,27 @@ def test_connect_with_a_url_but_no_credentials_refuses_as_before(monkeypatch):
         connect()
     assert not isinstance(refusal.value, InvenTreeNotConfigured)
     assert "INVENTREE_TOKEN" in str(refusal.value)
+
+
+def test_a_copied_template_still_falls_back_to_the_local_instance(
+    development_state_directory, monkeypatch, tmp_path
+):
+    import shutil
+
+    from invimport.env import load_env_file
+    from invimport.paths import discover_layout
+
+    from dotenv import dotenv_values
+
+    copied = tmp_path / ".env"
+    shutil.copyfile(discover_layout().repository / ".env.example", copied)
+    # Register every template key with monkeypatch, so the values loaded below are undone.
+    for name in dotenv_values(copied):
+        monkeypatch.setenv(name, "")
+        monkeypatch.delenv(name)
+    load_env_file(copied)
+    write_state(development_state_directory)
+    messages = []
+    assert apply_local_inventree_default(os.environ, report=messages.append)
+    assert os.environ["INVENTREE_URL"] == LOCAL_DEV_ORIGIN
+    assert len(messages) == 1

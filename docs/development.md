@@ -32,7 +32,7 @@ Source reloads keep the gateway and serve process running, like the UI.
 
 `pnpm dev`, `pnpm dev:intake` and `pnpm codex:login` load the **current checkout's root `.env`** once at startup. Existing shell environment values take precedence, including explicitly empty values. Use `INTAKE_ENV_FILE=.env.local pnpm dev` to select a caller-relative or absolute file; set `INTAKE_ENV_FILE=''` to disable file loading. A missing default `.env` is fine; an explicitly selected missing, symlinked, oversized or invalid UTF-8 file is refused. Inside the checkout, selected files must be root-level `.env` or `.env.*` names, which Vite already denies. Other filenames belong outside the checkout so source/static serving cannot expose their contents. No other checkout’s environment file is discovered.
 
-Start with the documented template in `.env.intake.example`. Create a new file only when the checkout has no `.env`; merge the relevant settings yourself if one already exists, and keep it private. `.env` and `.env.*` variants are gitignored; only the documented example templates are excepted. Values are parsed as dotenv data using Node24's built-in parser, never sourced as shell code. No variable expansion is performed. File changes require restarting the command and do not trigger live reload.
+Start by copying `.env.example` to `.env`. It sets nothing: every behavioural setting is commented out with its default, and only credentials are left to fill in, so an existing `.env` keeps working and needs no merge. An empty value counts as unset. `.env` and `.env.*` variants are gitignored; only `.env.example` is excepted. Values are parsed as dotenv data using Node24's built-in parser, never sourced as shell code. No variable expansion is performed. File changes require restarting the command and do not trigger live reload.
 
 The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_DEV_TAILSCALE`, `INTAKE_DEV_TAILSCALE_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, the [settings below](#choosing-what-the-app-runs), `INTAKE_CREDENTIAL_REF`, the session-worker pairing directory and port (`INTAKE_VM_PAIR` and `INTAKE_VM_PORT`), the [agent VM launch settings](#running-the-agent-vm-with-the-app), the native executable overrides and provider API-key names documented below.
 
@@ -50,7 +50,7 @@ Each setting below is independent, and its name says what it controls. Switches 
 | `INTAKE_INVENTREE_READ_ONLY` | `false` for the mock, `true` otherwise | `true` never writes. A read-only mock starts no apply worker, so Apply cannot run. |
 | `INTAKE_USE_MOCK_AI_AGENTS` | `true` | `false` uses real Claude or Codex agents. |
 | `INTAKE_USE_AGENT_SESSIONS` | `true` | `false` produces one result per stage instead of Examine sessions. |
-| `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM. It needs `INTAKE_VM_PAIR` and `INTAKE_VM_PORT`, and serves the VM's credential management. |
+| `INTAKE_RUN_AGENTS_IN_VM` | `false` | `true` runs agents through the shared VM, with the pairing in `INTAKE_VM_PAIR` (default `vm-pair` in the development state directory) on `INTAKE_VM_PORT` (default 14313), and serves the VM's credential management. |
 | `INTAKE_VM_AGENT_TOOLS` | `true` | With real agents in the VM, `false` leaves out the tool worker and web reader. It has no effect on scripted agents or agents on the host. |
 
 The processing switches select one of the existing profiles, which the startup output names:
@@ -81,28 +81,28 @@ An external server supports connection status, existing-record lookups, local Ca
 
 ## Running the agent VM with the app
 
-With real agents in the VM, `pnpm dev` can own the VM side as well: it boots the Lima instance, opens the credential tunnels and runs one relay per provider, and stops them when the app stops. Set the instance and its paired guest in the env file:
+With real agents in the VM, `pnpm dev` runs the VM side as well: it boots the Lima instance, opens the credential tunnels and runs one relay per provider, and stops them when the app stops. With the README's setup, two switches are enough:
 
 ```dotenv
 INTAKE_USE_MOCK_AI_AGENTS=false
 INTAKE_RUN_AGENTS_IN_VM=true
-INTAKE_VM_PAIR=/private/coordinator/pair
-INTAKE_VM_PORT=14313
-INTAKE_VM_NAME=bench-agent-m1
-INTAKE_VM_GUEST_DIR=/var/tmp/bench-personal
-INTAKE_VM_RUNNER_IMAGE=bench-intake-runner:personal
 ```
 
-| Setting | What it names |
-|---|---|
-| `INTAKE_VM_NAME` | The Lima instance. Setting it turns on this behaviour. |
-| `INTAKE_VM_GUEST_DIR` | The guest directory given to `pair.sh`. |
-| `INTAKE_VM_RUNNER_IMAGE` | The personal runner image loaded into the VM's Docker. |
-| `INTAKE_VM_KEEP_RUNNING` | Switch, default `false`. `true` leaves a VM this run booted running after the app stops. |
+| Setting | Default | What it names |
+|---|---|---|
+| `INTAKE_VM_MANAGED` | on for real VM agents | Switch. `false` leaves the VM side to you; `true` with scripted agents is refused. |
+| `INTAKE_VM_NAME` | `bench-agent` | The Lima instance. |
+| `INTAKE_VM_PAIR` | `vm-pair` in the development state directory | The host side of the pairing made by `pair.sh`. |
+| `INTAKE_VM_PORT` | `14313` | The loopback port the session worker listens on. |
+| `INTAKE_VM_GUEST_DIR` | `bench-intake-guest` in the guest user's home, looked up after boot | The guest directory given to `pair.sh`; an explicit value is an absolute path. |
+| `INTAKE_VM_RUNNER_IMAGE` | `bench-intake-runner:personal` | The personal runner image loaded into the VM's Docker. |
+| `INTAKE_VM_KEEP_RUNNING` | `false` | Switch. `true` leaves a VM this run booted running after the app stops. |
 
-A non-default Lima home is taken from `LIMA_HOME` in the shell that runs `pnpm dev`, not from the env file.
+Explicit values always win. The startup summary names the VM and lists each value it filled in, for example `Defaults used: INTAKE_VM_NAME=bench-agent, …`. A non-default Lima home is taken from `LIMA_HOME` in the shell that runs `pnpm dev`, not from the env file.
 
-On start, after the database is ready, `pnpm dev` boots the VM if it is stopped (about 36 s on an M1) and starts:
+Before anything starts, `pnpm dev` checks that the pairing directory holds `ca.pem`, `cert.pem` and `key.pem`, and otherwise stops with `vm_pairing_missing` and the README step to run.
+
+After the database is ready, `pnpm dev` boots the VM if it is stopped (about 36 s on an M1), looks up the default guest directory if needed, and starts:
 
 - `vm-tunnel`: forwards loopback ports 14315 and 14317 to the guest, for **Settings › Agents**;
 - `vm-relay-claude` and `vm-relay-codex`: one relay each, using `INTAKE_VM_PORT`, with the tool worker unless `INTAKE_VM_AGENT_TOOLS=false`.
@@ -113,9 +113,9 @@ When the app stops, it stops these three and then the VM, but only if this run b
 
 From when the app begins stopping its processes until a VM this run booted has stopped, the next Ctrl-C is held with a message, and the one after quits at once. A VM stop already under way still finishes. Quitting before it starts, or killing the run outright, leaves the VM running; the next run then finds it running and leaves it running, so stop it with `limactl stop` when you are done.
 
-The settings are checked before anything starts. `INTAKE_VM_NAME` with scripted agents, or without `INTAKE_RUN_AGENTS_IN_VM=true`, is refused (`vm_launch_requires_real_vm_agents`), as are a missing guest directory or image and values the relay would reject.
+The settings are checked before anything starts. `INTAKE_VM_MANAGED=true` with scripted agents, or without `INTAKE_RUN_AGENTS_IN_VM=true`, is refused (`vm_launch_requires_real_vm_agents`), as are values the relay would reject. When the default guest directory cannot be looked up after boot, startup stops with `vm_guest_dir_unavailable` before any relay starts.
 
-Close any tunnel or relay you started by hand before switching to this; a port still held on 14315 or 14317 stops startup with `vm-tunnel_stopped_during_startup`. Without `INTAKE_VM_NAME`, start the relays and tunnels yourself as described in the [deployment guide](../tooling/deployment/README.md#app-to-guest-dispatch). Creating and pairing the VM, loading the runner image and linking provider accounts stay one-off steps in that guide.
+Close any tunnel or relay you started by hand before switching to this; a port still held on 14315 or 14317 stops startup with `vm-tunnel_stopped_during_startup`. With `INTAKE_VM_MANAGED=false`, start the relays and tunnels yourself as described in the [deployment guide](../tooling/deployment/README.md#app-to-guest-dispatch). Creating and pairing the VM, loading the runner image and linking provider accounts stay one-off steps in that guide.
 
 ## Local development InvenTree
 
