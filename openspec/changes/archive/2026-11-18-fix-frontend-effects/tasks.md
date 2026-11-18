@@ -101,7 +101,7 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 - [x] 4.2 RED: add the J-after-E regression and confirm it fails.
 - [x] 4.3 GREEN: implement the quick-edit request.
 - [x] 4.4 Assess item 25 and fix or drop it with a note. Dropped; see `notes.md`.
-- [ ] 4.5 Record the demo and run the owning checks.
+- [x] 4.5 Record the demo and run the owning checks. The demo and check results are on #186.
 
 ## 5. Commands from handlers
 
@@ -217,8 +217,8 @@ Check an action off only after it is done and verified, and stage that `tasks.md
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] E1 reviewed, published and its reviewed commit recorded.
-- [ ] E2 reviewed, published and its reviewed commit recorded.
-- [ ] E3 reviewed, published and its reviewed commit recorded.
+- [x] E1 reviewed, published and its reviewed commit recorded: #185, clean review round on `c64318c1`.
+- [x] E2 reviewed, published and its reviewed commit recorded: #186, clean review round on `45eec90d`.
+- [x] E3 reviewed, published and its reviewed commit recorded: #187, clean review round on `0e3acb08`.
 
 No BI items are linked. Archive the change only when authorized after the PRs merge.
