@@ -124,6 +124,12 @@ The development launcher SHALL select the processing profile from `INTAKE_USE_MO
 - **WHEN** the launcher resolves the profile
 - **THEN** it refuses with `unsupported_agent_settings` before any setup.
 
+#### Scenario: VM pairing required
+
+- **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true` with an explicit `INTAKE_VM_PORT` that is not a port from 1 to 65535
+- **WHEN** the launcher resolves the profile
+- **THEN** it refuses with `invalid_vm_launch_setting` before any setup, naming `INTAKE_VM_PORT`.
+
 #### Scenario: VM pairing defaults
 
 - **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true` without `INTAKE_VM_PAIR` and `INTAKE_VM_PORT`
@@ -140,17 +146,23 @@ The development launcher SHALL select the processing profile from `INTAKE_USE_MO
 
 The launcher SHALL accept an instance name matching `^[a-z0-9][a-z0-9-]*$`, an absolute guest directory matching `^/[a-zA-Z0-9_./-]+$`, an image reference matching `^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$` and an `INTAKE_VM_PORT` from 1 to 65535, the forms the relay accepts, whether each value is explicit or a default. It SHALL accept `INTAKE_VM_KEEP_RUNNING` and `INTAKE_VM_MANAGED` only as true, false, 1 or 0, whether or not the VM is managed.
 
-#### Scenario: Malformed VM setting
+#### Scenario: Missing or malformed VM setting
 
-- **GIVEN** `INTAKE_VM_RUNNER_IMAGE` contains a space, or `INTAKE_VM_GUEST_DIR` is relative
+- **GIVEN** `INTAKE_VM_RUNNER_IMAGE` contains a space, or `INTAKE_VM_GUEST_DIR` is relative, or a VM setting is missing
 - **WHEN** `pnpm dev` resolves its settings
-- **THEN** it refuses with `invalid_vm_launch_setting`, naming that setting without its value
+- **THEN** a malformed value is refused with `invalid_vm_launch_setting`, naming that setting without its value, and a missing one takes its default
 
-#### Scenario: Invalid switch
+#### Scenario: Invalid keep-running switch
 
-- **GIVEN** `INTAKE_VM_KEEP_RUNNING=yes` or `INTAKE_VM_MANAGED=maybe`
+- **GIVEN** `INTAKE_VM_KEEP_RUNNING=yes`
 - **WHEN** `pnpm dev` resolves its settings
-- **THEN** it refuses with `invalid_development_setting`, naming that switch
+- **THEN** it refuses with `invalid_development_setting`, naming `INTAKE_VM_KEEP_RUNNING`
+
+#### Scenario: Invalid managed switch
+
+- **GIVEN** `INTAKE_VM_MANAGED=maybe`
+- **WHEN** `pnpm dev` resolves its settings
+- **THEN** it refuses with `invalid_development_setting`, naming `INTAKE_VM_MANAGED`
 
 ## REMOVED Requirements
 

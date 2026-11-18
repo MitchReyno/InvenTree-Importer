@@ -45,13 +45,13 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 
 - PR delivery: the main PR.
 - Outcome: with real agents in the VM, `pnpm dev` needs no VM settings beyond the two switches; it refuses early without a pairing and marks defaults in its summary.
-- Scope: `tooling/dev/settings.cjs`, `tooling/dev/vm.cjs`, `tooling/dev.cjs`, `tooling/dev/environment.cjs` (allowlist `INTAKE_VM_MANAGED`), `tooling/tests/dev-settings.test.cjs`, `tooling/tests/dev-vm.test.cjs`, `tooling/tests/dev-environment.test.cjs`. Design: "Launcher defaults in the resolver", "Management on by default", "The default guest directory is resolved inside the guest", "Pairing checked before the boot".
+- Scope: `tooling/dev/settings.cjs`, `tooling/dev/vm.cjs`, `tooling/dev.cjs`, `tooling/codex-login.cjs` (the resolver's second caller) with `tooling/tests/codex-login.test.cjs`, `tooling/dev/environment.cjs` (allowlist `INTAKE_VM_MANAGED`), `tooling/tests/dev-settings.test.cjs`, `tooling/tests/dev-vm.test.cjs`, `tooling/tests/dev-environment.test.cjs`. Design: "Launcher defaults in the resolver", "Management on by default", "The default guest directory is resolved inside the guest", "Pairing checked before the boot".
 - Acceptance: every development-launcher scenario in this change.
 - TDD: settings and VM-module tests first; they fail on the current opt-in and missing defaults.
 - Risks: the renamed default instance; recorded in the design.
 
 - [ ] 1.1 Baseline `pnpm test:dev`.
-- [ ] 1.2 RED: settings tests for the defaults and their marks, explicit values winning, pairing under `INTAKE_DEV_STATE`, the worker environment carrying the resolved pairing and port in managed, unmanaged and scripted VM modes, management default on and opted out, `INTAKE_VM_MANAGED=true` refused with scripted agents, switch validation; VM-module tests for guest-directory resolution and its failure; a pairing-check test.
+- [ ] 1.2 RED: settings tests for the defaults and their marks, explicit values winning, pairing under `INTAKE_DEV_STATE`, the worker environment carrying the resolved pairing and port in managed, unmanaged and scripted VM modes, `codex-login` resolving the same defaults, management default on and opted out, `INTAKE_VM_MANAGED=true` refused with scripted agents, switch validation; VM-module tests for guest-directory resolution and its failure; a pairing-check test.
 - [ ] 1.3 GREEN: implement the defaults, the switch, the summary marks, the pairing check and the guest-directory resolution; build the worker environment from resolved values; wire them in `dev.cjs`.
 - [ ] 1.4 Refactor; run `pnpm format` and the readability checks.
 
@@ -59,14 +59,14 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 
 - PR delivery: the main PR.
 - Outcome: with no InvenTree settings and a local development InvenTree, importer commands use it and say so; DigiKey defaults to US, USD and English.
-- Scope: `backend/src/invimport/env.py` (or a sibling module), the CLI entry in `backend/src/invimport/__main__.py` and `invimport/__init__.py`, `backend/src/invimport/inventree/api.py` (refusal text), `backend/src/invimport/digikey/api.py`, backend tests and their shared fixture, and a cross-language constants test in `tooling/tests/`. Design: "Importer fallback applied once at environment loading".
+- Scope: `backend/src/invimport/env.py` (or a sibling module), the CLI entry in `backend/src/invimport/__main__.py` and `invimport/__init__.py`, `backend/src/invimport/inventree/api.py` and `backend/src/invimport/commands/import_run.py` (one typed not-configured refusal on both paths), `backend/src/invimport/digikey/api.py`, backend tests and their shared fixture, and a cross-language constants test in `tooling/tests/`. Design: "Importer fallback applied once at environment loading".
 - Acceptance: every importer-configuration scenario.
 - TDD: pytest cases first; they fail because nothing fills the environment and the locale defaults to AU.
 - Risks: tests reaching the developer's real local instance; the autouse fixture prevents it.
 
 - [ ] 2.1 Baseline `pnpm test:backend`.
 - [ ] 2.2 Add the autouse fixture that points `INTAKE_DEV_STATE` at an empty temporary directory.
-- [ ] 2.3 RED: tests for the default applied and announced without the token, explicit and partial settings untouched, each unsafe state case ignored, the refusal text, the endpoint check seeing the default, and the DigiKey defaults with explicit overrides.
+- [ ] 2.3 RED: tests for the default applied and announced without the token, explicit and partial settings untouched, each unsafe state case ignored, the refusal text from a connecting command and from `import-run prepare` through the real CLI, offline validation and status still working without a server, the endpoint check seeing the default, and the DigiKey defaults with explicit overrides.
 - [ ] 2.4 GREEN: implement the state read, the one-time default and its announcement, the refusal text and the locale defaults.
 - [ ] 2.5 Add the cross-language constants test (state directory rule, file name, server address).
 - [ ] 2.6 Run `pnpm lint:backend` and the formatters.

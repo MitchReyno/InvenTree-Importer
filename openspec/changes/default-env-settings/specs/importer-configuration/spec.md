@@ -43,7 +43,7 @@ When none of `INVENTREE_URL`, `INVENTREE_TOKEN`, `INVENTREE_USER` and `INVENTREE
 #### Scenario: No local instance
 
 - **GIVEN** no InvenTree settings and no valid local development state
-- **WHEN** an importer command that connects runs
+- **WHEN** an importer command that connects runs, including `import-run prepare`
 - **THEN** it refuses, naming `INVENTREE_URL` and `pnpm inventree:dev up` as the two ways to configure a server
 
 #### Scenario: Plan bound to another server

@@ -22,7 +22,7 @@ The proposal's outcome and the deltas in `specs/development-launcher/spec.md` an
 
 ### Launcher defaults in the resolver, marked for the summary
 
-`resolveDevelopmentSettings` gains an input for the development state directory (computed in `dev.cjs` from `INTAKE_DEV_STATE` or the home directory, so the resolver stays pure) and fills in the VM defaults. The plan records which names were defaulted, and `startupSummary` prints them, for example `VM: bench-agent (default), image bench-intake-runner:personal (default)`.
+`resolveDevelopmentSettings` gains an input for the development state directory, computed from `INTAKE_DEV_STATE` or the home directory by one shared helper so the resolver stays pure. Both production callers pass it: `dev.cjs` and `tooling/codex-login.cjs`, which resolves the same settings to pick its login scope and fills in the VM defaults. The plan records which names were defaulted, and `startupSummary` prints them, for example `VM: bench-agent (default), image bench-intake-runner:personal (default)`.
 
 Rejected: defaults spread across `dev.cjs` and `vm.cjs`. The summary and the refusals would no longer see the same values.
 
@@ -50,7 +50,7 @@ Rejected: a fixed absolute default such as `/var/tmp/bench-intake-guest`. It wou
 
 ### Importer fallback applied once at environment loading
 
-A new function next to `load_env_file` (`apply_local_inventree_default`) runs once in the CLI entry, after the `.env` is loaded and before any command. When none of the four InvenTree settings has a non-empty value (the template ships them present but empty, and `load_env_file` loads empty values, so an empty value counts as unset) it reads the local state and sets `INVENTREE_URL` and `INVENTREE_TOKEN` in `os.environ`, overwriting the empty entries, then prints `Using the local development InvenTree at http://127.0.0.1:4320 (no InvenTree server configured).` to standard error. Because it fills the environment, `connect()` and the approved-plan endpoint check see the same server without further changes.
+A new function next to `load_env_file` (`apply_local_inventree_default`) runs once in the CLI entry, after the `.env` is loaded and before any command. When none of the four InvenTree settings has a non-empty value (the template ships them present but empty, and `load_env_file` loads empty values, so an empty value counts as unset) it reads the local state and sets `INVENTREE_URL` and `INVENTREE_TOKEN` in `os.environ`, overwriting the empty entries, then prints `Using the local development InvenTree at http://127.0.0.1:4320 (no InvenTree server configured).` to standard error. Because it fills the environment, `connect()` and the approved-plan endpoint check see the same server without further changes. When no server can be found, the importer still needs one refusal everywhere: `import-run prepare` reads the endpoint (`_current()`, `normalize_endpoint`) before `connect()`, so an empty URL currently fails there with a generic error. A typed `InvenTreeNotConfigured` error, raised by one helper that both paths call, carries the guidance (`INVENTREE_URL`, or `pnpm inventree:dev up`), and `import_run.py`'s error handler reports it as such. Commands that do not need a server (offline validation, status) keep working without one.
 
 The read mirrors the Node side's private-file rules: a regular file, not a symbolic link, owned by the current user, no group or other permissions, at most 16 KiB, JSON with `version` 1 and a writer token matching the token form. Anything else is treated as no local instance.
 
@@ -81,6 +81,7 @@ Authority: the importer gains write access to the local development InvenTree by
 
 - **Launcher (unit):** defaults and their summary marks; the worker environment carries the resolved pairing and port in managed, unmanaged and scripted VM modes; explicit values win; pairing follows `INTAKE_DEV_STATE`; management default on, off with the switch, refused for scripted agents; switch validation; guest-directory resolution with a fake `exec`.
 - **Launcher (manual, recorded on the PR):** with the developer's explicit settings, unchanged behaviour; with a fresh `INTAKE_DEV_STATE`, `vm_pairing_missing` before boot; a defaulted guest directory resolved against the real VM.
+- **Importer CLI (pytest, real argument parsing):** `import-run prepare` and a connecting command print the guidance with no server and no local instance; offline validation and status still run.
 - **Importer (pytest):** an autouse fixture points `INTAKE_DEV_STATE` at an empty temporary directory for every test, so no test reaches the developer's real local InvenTree; then: default applied and announced without the token; explicit and partial settings untouched; each unsafe-state case ignored; the endpoint check sees the default; DigiKey defaults and explicit overrides.
 - **Contract:** the cross-language constants test.
 - **Template:** the template test, a fresh-clone check (copy `.env.example` into a temporary clone and run the settings resolver and the importer's environment step), and Markdown reference checks.
