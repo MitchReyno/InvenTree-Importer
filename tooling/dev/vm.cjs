@@ -176,7 +176,7 @@ async function checkPairing(pairDir, { lstat = fsLstat } = {}) {
 /** The relays' guest directory: the explicit one, or the default looked up in the booted guest. */
 async function resolveGuestDir(
   plan,
-  { exec = defaultExec, env, signal, write = STANDARD_WRITE } = {},
+  { exec = runCommand, env, signal, write = STANDARD_WRITE } = {},
 ) {
   if (plan.guestDir) {
     return plan.guestDir

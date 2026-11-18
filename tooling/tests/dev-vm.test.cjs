@@ -494,3 +494,17 @@ test('a missing or incomplete pairing is refused with the step to run', async ()
     })
   }
 })
+
+test('the guest lookup runs the real limactl on PATH by default', async () => {
+  const { mkdtemp, writeFile, chmod } = require('node:fs/promises')
+  const { tmpdir } = require('node:os')
+  const { join } = require('node:path')
+  const bin = await mkdtemp(join(tmpdir(), 'fake-lima-'))
+  await writeFile(join(bin, 'limactl'), '#!/bin/sh\nprintf %s /home/fake.guest\n')
+  await chmod(join(bin, 'limactl'), 0o755)
+  const dir = await resolveGuestDir(
+    { ...PLAN, guestDir: null },
+    { env: { PATH: `${bin}:/bin:/usr/bin` } },
+  )
+  assert.equal(dir, '/home/fake.guest/bench-intake-guest')
+})

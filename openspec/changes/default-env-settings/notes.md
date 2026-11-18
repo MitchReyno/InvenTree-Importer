@@ -10,6 +10,7 @@ None.
 
 - **2026-11-18T20:25+10:00, task 2:** The autouse fixture first created its empty state directory inside each test's `tmp_path`, and 13 tests that assert exactly what their `tmp_path` contains failed. It now uses `tmp_path_factory`, outside `tmp_path`.
 - **2026-11-18T20:25+10:00, task 2:** `import-run prepare` also checks that the API client points at the plan's target, so a CLI test with a stub client cannot prepare successfully against the local default; the announcement test asserts the server and token the importer connected with instead.
+- **2026-11-19T01:30+11:00, task 4:** Running the default guest-directory lookup against the real VM failed with `defaultExec is not defined`: `resolveGuestDir` defaulted to a name `vm.cjs` no longer has, and every unit test injected its own `exec`. It now defaults to `runCommand`, and a regression test runs the lookup through a fake `limactl` on `PATH`.
 
 ## Decisions made during implementation
 
@@ -21,3 +22,4 @@ None.
 ## Open items
 
 - Task 0 (archiving `split-dev-profile-settings` and `launch-vm-agents-with-dev`) waits for the developer's authorization. Tasks 1–4 do not depend on it; this change's own archive does.
+- Tooling `.cjs` files are not linted for undefined names (`no-undef`), which let the missing default above pass ESLint; worth a separate lint change.
