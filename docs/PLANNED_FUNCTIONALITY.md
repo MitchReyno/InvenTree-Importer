@@ -130,7 +130,7 @@ Carry the refined design and design system into the app: a calmer masthead and b
 - Status: Done — PR-A to PR-G merged in #191, #194, #205, #192, #204, #190 and #206. The controls it shipped disabled are BI-015.
 - Size: XL — every batch screen, the header, a new Settings page and one append-only removal backend, in seven PRs (PR-A to PR-G).
 - Prerequisites: BI-008 (`redesign-batch-workspace`) is Done and archived.
-- OpenSpec: [apply-design-refresh](../openspec/changes/apply-design-refresh/)
+- OpenSpec: [apply-design-refresh](../openspec/changes/archive/2026-11-18-apply-design-refresh/)
 
 ### Normal
 
