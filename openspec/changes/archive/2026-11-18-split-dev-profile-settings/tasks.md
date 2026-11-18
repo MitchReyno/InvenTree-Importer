@@ -97,9 +97,9 @@ One PR carries tasks 1–5: the resolver, its wiring and the docs describe one r
 ## 5. Delivery
 
 - [x] 5.1 Independent read-only review of the exact candidate commit; fix and re-review until clear.
-- [ ] 5.2 Open the PR against `interactive-app` with evidence attached.
-- [ ] 5.3 Selected CI green.
-- [ ] 5.4 Merge.
+- [x] 5.2 Open the PR against `interactive-app` with evidence attached: #202.
+- [x] 5.3 Selected CI green on `2cfdfe74`.
+- [x] 5.4 Merge. #202 merged into `interactive-app` on 2026-11-12.
 
 ## Delivery evidence and lifecycle follow-up
 

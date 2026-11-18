@@ -1,6 +1,6 @@
 # Implementation notes
 
-Splits the `pnpm dev` profile variables into independent switches. Delivered in one PR against `interactive-app`; in progress.
+Splits the `pnpm dev` profile variables into independent switches. Delivered in #202, merged into `interactive-app`.
 
 ## Changes to the plan
 
