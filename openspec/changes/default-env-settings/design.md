@@ -26,6 +26,12 @@ The proposal's outcome and the deltas in `specs/development-launcher/spec.md` an
 
 Rejected: defaults spread across `dev.cjs` and `vm.cjs`. The summary and the refusals would no longer see the same values.
 
+### Pairing and port resolved for every VM mode and forwarded to the worker
+
+The session worker reads `INTAKE_VM_PAIR` and `INTAKE_VM_PORT` itself (`intake-server/src/agents/session/session-worker-main.ts`), and `dev.cjs` builds its environment from the raw settings through `agentWorkerSettingNames`. So the pairing directory and port are resolved in the processing step whenever agents run in the VM, managed or not and scripted or real, not only in the managed-VM plan. The resolver returns them, and the worker's environment is built from the resolved values (`agentWorkerSettings(resolved)` returning name-value pairs replaces the names-only helper), so a defaulted pairing reaches the worker exactly as an explicit one does.
+
+Rejected: defaulting only inside the managed-VM plan. The relays would start, but the worker would refuse for a missing pairing, and scripted VM sessions would lose their bridge.
+
 ### Management on by default, `INTAKE_VM_MANAGED` to opt out
 
 The plan exists whenever real agents run in the VM, unless `INTAKE_VM_MANAGED` is false. `INTAKE_VM_NAME` becomes an ordinary setting with a default. `INTAKE_VM_MANAGED=true` with scripted agents is refused, as `INTAKE_VM_NAME` with scripted agents is today; scripted agents in the VM keep their manual relays.
@@ -44,7 +50,7 @@ Rejected: a fixed absolute default such as `/var/tmp/bench-intake-guest`. It wou
 
 ### Importer fallback applied once at environment loading
 
-A new function next to `load_env_file` (`apply_local_inventree_default`) runs once in the CLI entry, after the `.env` is loaded and before any command. When none of the four InvenTree settings is present it reads the local state and sets `INVENTREE_URL` and `INVENTREE_TOKEN` in `os.environ`, then prints `Using the local development InvenTree at http://127.0.0.1:4320 (no InvenTree server configured).` to standard error. Because it fills the environment, `connect()` and the approved-plan endpoint check see the same server without further changes.
+A new function next to `load_env_file` (`apply_local_inventree_default`) runs once in the CLI entry, after the `.env` is loaded and before any command. When none of the four InvenTree settings has a non-empty value (the template ships them present but empty, and `load_env_file` loads empty values, so an empty value counts as unset) it reads the local state and sets `INVENTREE_URL` and `INVENTREE_TOKEN` in `os.environ`, overwriting the empty entries, then prints `Using the local development InvenTree at http://127.0.0.1:4320 (no InvenTree server configured).` to standard error. Because it fills the environment, `connect()` and the approved-plan endpoint check see the same server without further changes.
 
 The read mirrors the Node side's private-file rules: a regular file, not a symbolic link, owned by the current user, no group or other permissions, at most 16 KiB, JSON with `version` 1 and a writer token matching the token form. Anything else is treated as no local instance.
 
@@ -73,7 +79,7 @@ Authority: the importer gains write access to the local development InvenTree by
 
 ## Verification strategy
 
-- **Launcher (unit):** defaults and their summary marks; explicit values win; pairing follows `INTAKE_DEV_STATE`; management default on, off with the switch, refused for scripted agents; switch validation; guest-directory resolution with a fake `exec`.
+- **Launcher (unit):** defaults and their summary marks; the worker environment carries the resolved pairing and port in managed, unmanaged and scripted VM modes; explicit values win; pairing follows `INTAKE_DEV_STATE`; management default on, off with the switch, refused for scripted agents; switch validation; guest-directory resolution with a fake `exec`.
 - **Launcher (manual, recorded on the PR):** with the developer's explicit settings, unchanged behaviour; with a fresh `INTAKE_DEV_STATE`, `vm_pairing_missing` before boot; a defaulted guest directory resolved against the real VM.
 - **Importer (pytest):** an autouse fixture points `INTAKE_DEV_STATE` at an empty temporary directory for every test, so no test reaches the developer's real local InvenTree; then: default applied and announced without the token; explicit and partial settings untouched; each unsafe-state case ignored; the endpoint check sees the default; DigiKey defaults and explicit overrides.
 - **Contract:** the cross-language constants test.

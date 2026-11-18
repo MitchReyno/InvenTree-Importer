@@ -18,6 +18,12 @@ With agents in the VM, the development launcher SHALL default `INTAKE_VM_PORT` t
 - **WHEN** `pnpm dev` starts
 - **THEN** it uses those values, and the summary does not mark them as defaults
 
+#### Scenario: The worker gets the resolved pairing
+
+- **GIVEN** agents in the VM, scripted or real, managed or not, with `INTAKE_VM_PAIR` and `INTAKE_VM_PORT` unset
+- **WHEN** the agent worker starts
+- **THEN** its environment carries the default pairing directory and port 14313
+
 #### Scenario: Pairing follows the state directory
 
 - **GIVEN** `INTAKE_DEV_STATE` names another private directory and `INTAKE_VM_PAIR` is unset
@@ -51,6 +57,28 @@ The launcher SHALL boot and stop the VM, its credential tunnel and its relays wh
 - **GIVEN** `INTAKE_VM_MANAGED=true` with scripted agents
 - **WHEN** `pnpm dev` resolves its settings
 - **THEN** it refuses with `vm_launch_requires_real_vm_agents` before any setup
+
+### Requirement: The default guest directory is found inside the guest
+
+When `INTAKE_VM_GUEST_DIR` is unset and the launcher manages the VM, it SHALL, after the VM is running and before starting the relays, use `bench-intake-guest` in the guest user's home directory, validated as an absolute guest directory. If the lookup fails or returns an unusable path, it SHALL fail startup with `vm_guest_dir_unavailable` before starting any relay, and shutdown SHALL stop the VM only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not true.
+
+#### Scenario: Default resolved
+
+- **GIVEN** a managed VM, no `INTAKE_VM_GUEST_DIR`, and a guest whose home directory is `/home/dev.guest`
+- **WHEN** `pnpm dev` starts
+- **THEN** the relays run with `/home/dev.guest/bench-intake-guest`
+
+#### Scenario: Lookup fails after this run booted the VM
+
+- **GIVEN** a managed VM this run booted, no `INTAKE_VM_GUEST_DIR`, and a home-directory lookup that fails or returns a relative or malformed path
+- **WHEN** `pnpm dev` starts
+- **THEN** startup fails with `vm_guest_dir_unavailable`, no relay starts, and the VM is stopped unless `INTAKE_VM_KEEP_RUNNING=true`
+
+#### Scenario: Lookup fails on a VM that was already running
+
+- **GIVEN** a managed VM that was already running and a failing home-directory lookup
+- **WHEN** `pnpm dev` starts
+- **THEN** startup fails with `vm_guest_dir_unavailable` and the VM keeps running
 
 ### Requirement: A missing pairing is refused before the VM starts
 

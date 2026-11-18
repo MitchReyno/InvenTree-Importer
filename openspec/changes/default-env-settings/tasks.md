@@ -51,8 +51,8 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Risks: the renamed default instance; recorded in the design.
 
 - [ ] 1.1 Baseline `pnpm test:dev`.
-- [ ] 1.2 RED: settings tests for the defaults and their marks, explicit values winning, pairing under `INTAKE_DEV_STATE`, management default on and opted out, `INTAKE_VM_MANAGED=true` refused with scripted agents, switch validation; VM-module tests for guest-directory resolution and its failure; a pairing-check test.
-- [ ] 1.3 GREEN: implement the defaults, the switch, the summary marks, the pairing check and the guest-directory resolution; wire them in `dev.cjs`.
+- [ ] 1.2 RED: settings tests for the defaults and their marks, explicit values winning, pairing under `INTAKE_DEV_STATE`, the worker environment carrying the resolved pairing and port in managed, unmanaged and scripted VM modes, management default on and opted out, `INTAKE_VM_MANAGED=true` refused with scripted agents, switch validation; VM-module tests for guest-directory resolution and its failure; a pairing-check test.
+- [ ] 1.3 GREEN: implement the defaults, the switch, the summary marks, the pairing check and the guest-directory resolution; build the worker environment from resolved values; wire them in `dev.cjs`.
 - [ ] 1.4 Refactor; run `pnpm format` and the readability checks.
 
 ## 2. Importer default server and DigiKey locale

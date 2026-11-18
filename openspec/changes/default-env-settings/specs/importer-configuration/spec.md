@@ -8,7 +8,7 @@ The importer (`invimport`) finds the InvenTree server and credentials it works a
 
 ### Requirement: The local development InvenTree is the default server
 
-When none of `INVENTREE_URL`, `INVENTREE_TOKEN`, `INVENTREE_USER` and `INVENTREE_PASSWORD` is set in the environment or the env file, the importer SHALL use the local development InvenTree at `http://127.0.0.1:4320` with the writer token kept by `pnpm inventree:dev`, when that state exists and is valid.
+When none of `INVENTREE_URL`, `INVENTREE_TOKEN`, `INVENTREE_USER` and `INVENTREE_PASSWORD` has a non-empty value in the environment or the env file (an empty value counts as unset), the importer SHALL use the local development InvenTree at `http://127.0.0.1:4320` with the writer token kept by `pnpm inventree:dev`, when that state exists and is valid.
 
 #### Scenario: Local InvenTree only
 
@@ -22,9 +22,21 @@ When none of `INVENTREE_URL`, `INVENTREE_TOKEN`, `INVENTREE_USER` and `INVENTREE
 - **WHEN** an importer command runs
 - **THEN** it uses them and does not read the local development state
 
+#### Scenario: Untouched template
+
+- **GIVEN** a `.env` copied from `.env.example`, whose InvenTree settings are present but empty, and a ready local development InvenTree
+- **WHEN** an importer command that connects runs
+- **THEN** it uses the local development InvenTree
+
+#### Scenario: Empty shell override
+
+- **GIVEN** `INVENTREE_URL=` exported empty in the shell and a ready local development InvenTree
+- **WHEN** an importer command that connects runs
+- **THEN** it treats the setting as unset and uses the local development InvenTree
+
 #### Scenario: Partly configured
 
-- **GIVEN** `INVENTREE_URL` is set without a token, or a token without a URL
+- **GIVEN** a non-empty `INVENTREE_URL` without a token, or a non-empty token or user without a URL
 - **WHEN** an importer command that connects runs
 - **THEN** it refuses as it does today, without filling in the missing part from the local instance
 
