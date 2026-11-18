@@ -1,6 +1,6 @@
 # Implementation notes
 
-Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1, E2 and E3 are implemented and awaiting independent review.
+Fixes for the #180 Effects audit, delivered as three stacked PRs (E1, E2, E3) on top of #183. E1 (#185), E2 (#186) and E3 (#187) were independently reviewed and merged into `interactive-app`; the open items were resolved in #193.
 
 ## Changes to the plan
 
