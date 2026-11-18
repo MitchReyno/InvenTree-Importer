@@ -64,12 +64,12 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - TDD: pytest cases first; they fail because nothing fills the environment and the locale defaults to AU.
 - Risks: tests reaching the developer's real local instance; the autouse fixture prevents it.
 
-- [ ] 2.1 Baseline `pnpm test:backend`.
-- [ ] 2.2 Add the autouse fixture that points `INTAKE_DEV_STATE` at an empty temporary directory.
-- [ ] 2.3 RED: tests for the default applied and announced without the token, explicit and partial settings untouched, each unsafe state case ignored, the refusal text from a connecting command and from `import-run prepare` through the real CLI, the target mismatch named with both endpoints and no connection for execute, resume and retry of an externally bound plan, offline validation and status still working without a server, the endpoint check seeing the default, and the DigiKey defaults with explicit overrides.
-- [ ] 2.4 GREEN: implement the state read, the one-time default and its announcement, the refusal text and the locale defaults.
-- [ ] 2.5 Add the cross-language constants test (state directory rule, file name, server address).
-- [ ] 2.6 Run `pnpm lint:backend` and the formatters.
+- [x] 2.1 Baseline `pnpm test:backend`.
+- [x] 2.2 Add the autouse fixture that points `INTAKE_DEV_STATE` at an empty temporary directory.
+- [x] 2.3 RED: tests for the default applied and announced without the token, explicit and partial settings untouched, each unsafe state case ignored, the refusal text from a connecting command and from `import-run prepare` through the real CLI, the target mismatch named with both endpoints and no connection for execute, resume and retry of an externally bound plan, offline validation and status still working without a server, the endpoint check seeing the default, and the DigiKey defaults with explicit overrides.
+- [x] 2.4 GREEN: implement the state read, the one-time default and its announcement, the refusal text and the locale defaults.
+- [x] 2.5 Add the cross-language constants test (state directory rule, file name, server address).
+- [x] 2.6 Run `pnpm lint:backend` and the formatters.
 
 ## 3. One template and the docs
 

@@ -110,7 +110,9 @@ def test_target_and_continuity_checks_precede_connection(scene, tmp_path, monkey
     monkeypatch.setattr(import_run, 'connect', lambda: pytest.fail('must not connect'))
     monkeypatch.setenv('INVENTREE_URL', 'https://other.invalid/')
     assert cli(['import-run', 'execute', str(path), '--write', '--json']) == 1
-    assert json.loads(capsys.readouterr().out)['error'] == 'ValueError'
+    mismatch = json.loads(capsys.readouterr().out)
+    assert mismatch['error'] == 'TargetMismatch'
+    assert 'https://other.invalid' in mismatch['message'] and api.api_url.rstrip('/') in mismatch['message']
     monkeypatch.setenv('INVENTREE_URL', api.api_url)
     assert cli(['import-run', 'resume', initial['run_id'], '--write', '--yes', '--json']) == 1
     assert json.loads(capsys.readouterr().out)['error'] == 'ValueError'
@@ -571,3 +573,89 @@ def test_cancelled_write_retains_exit130_when_event_export_fails(scene, tmp_path
     assert result['error'] == 'cancelled' and result['events_saved'] is False
     assert any(row['state'] == 'uncertain' for row in inspect_run(result['run_id'])['operations'])
     assert len(api.get('stock/')) == 1
+
+
+WRITER = 'inv-' + 'c' * 40 + '-20261118'
+
+
+def no_inventree_settings(monkeypatch, tmp_path):
+    for name in ('INVENTREE_URL', 'INVENTREE_TOKEN', 'INVENTREE_USER', 'INVENTREE_PASSWORD'):
+        monkeypatch.delenv(name, raising=False)
+    return ['--env-file', str(tmp_path / 'absent.env')]
+
+
+def ready_local_instance(directory):
+    from invimport.inventree import local_dev
+    path = directory / local_dev.STATE_FILE_NAME
+    path.write_text(json.dumps({'version': 1, 'tokens': {'reader': WRITER, 'writer': WRITER}}), encoding='utf-8')
+    path.chmod(0o600)
+
+
+def test_no_server_and_no_local_instance_refuses_with_guidance_but_status_still_works(
+        scene, tmp_path, monkeypatch, capsys):
+    api, categories, parameters = scene
+    doc = document(tmp_path)
+    env_file = no_inventree_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(import_run, 'load_categories_config', lambda _: categories)
+    monkeypatch.setattr(import_run, 'load_parameters_config', lambda _: parameters)
+    monkeypatch.setattr(import_run, 'connect', lambda: pytest.fail('must not connect'))
+    output = tmp_path / 'plan.json'
+    assert cli([*env_file, 'import-run', 'prepare', str(doc.path), '--output', str(output), '--no-archive', '--json']) == 1
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal['error'] == 'InvenTreeNotConfigured'
+    assert 'INVENTREE_URL' in refusal['message'] and 'pnpm inventree:dev up' in refusal['message']
+
+    _, _, plan, _ = prepared(scene, tmp_path)
+    api.fail('stock/', 'lost')
+    initial = execute_stock(plan, api=api, current_target=plan.target, run_directory=tmp_path / 'offline')
+    cli([*env_file, 'import-run', 'status', initial['run_id'], '--json'])
+    status = json.loads(capsys.readouterr().out)
+    assert status.get('error') != 'InvenTreeNotConfigured'
+    assert status['run_id'] == initial['run_id']
+
+
+def test_the_local_instance_is_announced_without_its_token(
+        scene, tmp_path, monkeypatch, capsys, development_state_directory):
+    api, categories, parameters = scene
+    doc = document(tmp_path)
+    env_file = no_inventree_settings(monkeypatch, tmp_path)
+    ready_local_instance(development_state_directory)
+    monkeypatch.setattr(import_run, 'load_categories_config', lambda _: categories)
+    monkeypatch.setattr(import_run, 'load_parameters_config', lambda _: parameters)
+    seen = {}
+
+    def connect():
+        seen['url'], seen['token'] = os.environ['INVENTREE_URL'], os.environ['INVENTREE_TOKEN']
+        return api
+
+    monkeypatch.setattr(import_run, 'connect', connect)
+    output = tmp_path / 'plan.json'
+    # The stub client keeps its own address, so preparation then stops on its client check;
+    # what matters here is which server and token the importer connected with.
+    cli([*env_file, 'import-run', 'prepare', str(doc.path), '--output', str(output), '--no-archive', '--json'])
+    captured = capsys.readouterr()
+    assert seen == {'url': 'http://127.0.0.1:4320', 'token': WRITER}
+    assert 'Using the local development InvenTree at http://127.0.0.1:4320' in captured.err
+    assert WRITER not in captured.err + captured.out
+
+
+def test_a_plan_bound_to_another_server_stops_before_connecting_to_the_local_default(
+        scene, tmp_path, monkeypatch, capsys, development_state_directory):
+    api, _, plan, path = prepared(scene, tmp_path)
+    api.fail('stock/', 'rejected')
+    initial = execute_stock(plan, api=api, current_target=plan.target, run_directory=tmp_path / 'run')
+    env_file = no_inventree_settings(monkeypatch, tmp_path)
+    ready_local_instance(development_state_directory)
+    monkeypatch.setattr(import_run, 'connect', lambda: pytest.fail('must not connect'))
+    barcode = operation(plan, 'barcode')
+    for arguments in (
+        ['execute', str(path), '--write', '--json'],
+        ['resume', initial['run_id'], '--write', '--yes', '--json'],
+        ['retry-operation', initial['run_id'], barcode.id, '--write',
+         '--continuity-reason', 'same test database retained', '--json'],
+    ):
+        assert cli([*env_file, 'import-run', *arguments]) == 1, arguments
+        refusal = json.loads(capsys.readouterr().out)
+        assert refusal['error'] == 'TargetMismatch', arguments
+        assert 'http://127.0.0.1:4320' in refusal['message'], arguments
+        assert api.api_url.rstrip('/') in refusal['message'], arguments

@@ -8,8 +8,8 @@ Credentials come from the environment (see invimport.env):
     DIGIKEY_ACCOUNT_ID=...        # order endpoints only, see below
 
 Optional:
-    DIGIKEY_LOCALE_SITE=AU        # default AU
-    DIGIKEY_LOCALE_CURRENCY=AUD   # default AUD
+    DIGIKEY_LOCALE_SITE=US        # default US
+    DIGIKEY_LOCALE_CURRENCY=USD   # default USD
     DIGIKEY_LOCALE_LANGUAGE=en    # default en
 
 The app must be subscribed to each API product separately in the DigiKey
@@ -82,10 +82,11 @@ class Locale:
 
 
 def resolve_locale() -> Locale:
+    # An empty value, as a template line leaves it, counts as unset.
     return Locale(
-        os.getenv("DIGIKEY_LOCALE_SITE", "AU"),
-        os.getenv("DIGIKEY_LOCALE_CURRENCY", "AUD"),
-        os.getenv("DIGIKEY_LOCALE_LANGUAGE", "en"),
+        os.getenv("DIGIKEY_LOCALE_SITE") or "US",
+        os.getenv("DIGIKEY_LOCALE_CURRENCY") or "USD",
+        os.getenv("DIGIKEY_LOCALE_LANGUAGE") or "en",
     )
 
 

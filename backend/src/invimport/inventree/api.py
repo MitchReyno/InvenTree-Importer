@@ -96,6 +96,24 @@ class InvenTreeError(RuntimeError):
     pass
 
 
+class InvenTreeNotConfigured(InvenTreeError):
+    """No InvenTree server is configured and no local development instance is ready."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "no InvenTree server configured: set INVENTREE_URL and INVENTREE_TOKEN in the .env, "
+            "or run `pnpm inventree:dev up` to use the local development InvenTree"
+        )
+
+
+def configured_url() -> str:
+    """The configured InvenTree URL; every reader uses this, so they all agree on the server."""
+    url = os.getenv("INVENTREE_URL")
+    if not url:
+        raise InvenTreeNotConfigured()
+    return url
+
+
 # A create can be answered with a list rather than the object that was made:
 #
 #     POST /api/stock/  ->  [{"pk": 406, ...}]
@@ -148,13 +166,10 @@ InventreeObject.create = classmethod(_create)
 
 
 def connect() -> InvenTreeAPI:
-    url = os.getenv("INVENTREE_URL")
+    url = configured_url()
     token = os.getenv("INVENTREE_TOKEN")
     user = os.getenv("INVENTREE_USER")
     password = os.getenv("INVENTREE_PASSWORD")
-
-    if not url:
-        raise InvenTreeError("set INVENTREE_URL in the .env or environment")
 
     if token:
         api = client(url, token=token, observation=active())

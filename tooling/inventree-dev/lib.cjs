@@ -548,6 +548,7 @@ async function status(ctx) {
 module.exports = {
   IMAGE,
   ORIGIN,
+  TOKEN,
   PROJECT,
   FILES,
   InventreeDevError,
