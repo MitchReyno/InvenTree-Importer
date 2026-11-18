@@ -13,7 +13,7 @@ const {
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
-  agentWorkerSettingNames,
+  agentWorkerSettings,
   personalManagementFlag,
   startupSummary,
   DevelopmentSettingsError,
@@ -26,6 +26,8 @@ const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
 const {
   ensureVmRunning,
+  checkPairing,
+  resolveGuestDir,
   finishVm,
   guardVmStop,
   startVmChildren,
@@ -161,8 +163,14 @@ async function main() {
     throw new Error('pinned_node_24_required')
   }
   const settings = await developmentEnvironment(repository)
+  // The same state directory rule as the database identity; it holds the default VM pairing.
+  const { stateDirectory: developmentStateDirectory } = await import(
+    pathToFileURL(join(intake, 'src/dev/pg-identity.ts')).href
+  )
   // Every switch is resolved and refused here, before any service or state is touched.
-  const resolved = resolveDevelopmentSettings(settings)
+  const resolved = resolveDevelopmentSettings(settings, {
+    stateDirectory: developmentStateDirectory(settings),
+  })
   const targetValues = targetEnvironment(settings, resolved.targetSettings)
   // Pure config only; application processes keep their existing pinned tsx entrypoints.
   const { developmentTarget, developmentCredential, developmentStateRoot } = await import(
@@ -175,6 +183,10 @@ async function main() {
   )
   // Printed before setup, so an overridden setting is visible even if startup later fails.
   process.stdout.write(startupSummary(target.kind, resolved))
+  if (resolved.vm) {
+    // A missing pairing is refused before any service starts or the VM boots.
+    await checkPairing(resolved.vm.pair)
+  }
   const port = Number(settings.INTAKE_DEV_PORT ?? 4330)
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 4310 || port === 4350) {
     throw new Error('invalid_development_port')
@@ -282,12 +294,17 @@ async function main() {
         },
       })
       startup.signal.throwIfAborted()
-      const vmChildren = startVmChildren(resolved.vm, {
-        launch,
-        execPath: process.execPath,
-        repository,
-        baseEnv: vmEnv,
-      })
+      const guestDir = await resolveGuestDir(resolved.vm, { env: vmEnv, signal: startup.signal })
+      startup.signal.throwIfAborted()
+      const vmChildren = startVmChildren(
+        { ...resolved.vm, guestDir },
+        {
+          launch,
+          execPath: process.execPath,
+          repository,
+          baseEnv: vmEnv,
+        },
+      )
       children.push(...vmChildren)
       await confirmVmChildren(vmChildren, { signal: startup.signal })
       stopAppWhenExited(vmChildren)
@@ -422,11 +439,7 @@ async function main() {
         text.includes('DEV_MEDIA_READY'),
       ).ready()
       if (worker) {
-        const providerEnv = Object.fromEntries(
-          agentWorkerSettingNames(resolved)
-            .filter((key) => settings[key])
-            .map((key) => [key, settings[key]]),
-        )
+        const providerEnv = agentWorkerSettings(resolved, settings)
         await child(
           'agents',
           worker.entry,

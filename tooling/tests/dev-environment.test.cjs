@@ -46,6 +46,7 @@ test('the switches load from the file, and retired names still load so the launc
     INTAKE_VM_GUEST_DIR: '/var/tmp/bench-paired',
     INTAKE_VM_RUNNER_IMAGE: 'bench-intake-runner:personal-test',
     INTAKE_VM_KEEP_RUNNING: 'false',
+    INTAKE_VM_MANAGED: 'true',
     INTAKE_TARGET_PROFILE: 'local-inventree',
     INTAKE_PROCESSING_PROFILE: 'native-agent/2',
     INTAKE_PERSONAL_MANAGEMENT: '1',

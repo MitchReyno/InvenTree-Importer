@@ -39,9 +39,11 @@ async function loadStateModules() {
 
 /** The app directory `pnpm dev` retains, including an explicit INTAKE_APP_STATE. */
 async function appStateRoot(settings) {
-  const { targetSettings } = resolveDevelopmentSettings(settings)
-  const values = targetEnvironment(settings, targetSettings)
   const { targetModule, identity, localInventree } = await loadStateModules()
+  const { targetSettings } = resolveDevelopmentSettings(settings, {
+    stateDirectory: identity.stateDirectory(settings),
+  })
+  const values = targetEnvironment(settings, targetSettings)
   const target = withTargetSettingNames(() => targetModule.developmentTarget(values), settings)
   // The same credential check as `pnpm dev`, so a login never goes to a namespace dev refuses.
   withTargetSettingNames(() => targetModule.developmentCredential(values, target), settings)

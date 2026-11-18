@@ -29,6 +29,7 @@ const SETTINGS = new Set([
   'INTAKE_VM_GUEST_DIR',
   'INTAKE_VM_RUNNER_IMAGE',
   'INTAKE_VM_KEEP_RUNNING',
+  'INTAKE_VM_MANAGED',
   // Readable only so `pnpm dev` can refuse them; `dev:intake` reads the first four as its server names.
   'INTAKE_PROCESSING_PROFILE',
   'INTAKE_TARGET_PROFILE',

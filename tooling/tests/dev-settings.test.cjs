@@ -3,9 +3,21 @@ const assert = require('node:assert/strict')
 const { resolveDevelopmentSettings, DevelopmentSettingsError } = require('../dev/settings.cjs')
 
 const VM = { INTAKE_VM_PAIR: '/pair', INTAKE_VM_PORT: '14313' }
+const STATE = { stateDirectory: '/state' }
 const EXTERNAL = {
   INTAKE_INVENTREE_URL: 'https://inventory.example.invalid',
   INTAKE_INVENTREE_TOKEN: 'synthetic-read-token',
+}
+
+function refusedNames(settings, code) {
+  try {
+    resolveDevelopmentSettings(settings, STATE)
+  } catch (error) {
+    assert.ok(error instanceof DevelopmentSettingsError)
+    assert.equal(error.message, code)
+    return error.names.map(({ name }) => name)
+  }
+  assert.fail(`expected ${code}`)
 }
 
 function refusal(settings, code) {
@@ -50,14 +62,35 @@ test('defaults give a writable mock inventory and scripted sessions on the host'
   assert.deepEqual(resolved.ignored, [])
 })
 
-test('VM agents need sessions and a pairing', () => {
+test('VM agents need sessions; their pairing and port default under the state directory', () => {
   refusal(
     { INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_USE_AGENT_SESSIONS: 'false', ...VM },
     'unsupported_agent_settings',
   )
-  refusal({ INTAKE_RUN_AGENTS_IN_VM: 'true' }, 'vm_pairing_required')
-  refusal({ INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_VM_PAIR: '/pair' }, 'vm_pairing_required')
-  assert.equal(resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: '1', ...VM }).agentsInVm, true)
+  const defaulted = resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true' }, STATE)
+  assert.deepEqual(defaulted.vmPairing, { pair: '/state/vm-pair', port: '14313' })
+  assert.deepEqual(defaulted.defaulted, ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT'])
+  const explicit = resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: '1', ...VM }, STATE)
+  assert.deepEqual(explicit.vmPairing, { pair: '/pair', port: '14313' })
+  assert.deepEqual(explicit.defaulted, [])
+  assert.equal(resolveDevelopmentSettings({}, STATE).vmPairing, null)
+})
+
+test('a defaulted pairing needs the state directory from the caller', () => {
+  assert.throws(
+    () => resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true' }),
+    /development_state_directory_required/,
+  )
+})
+
+test('an explicit VM port must be one the relay accepts', () => {
+  for (const port of ['0', '65536', '14313x', '-1']) {
+    const names = refusedNames(
+      { INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_VM_PORT: port },
+      'invalid_vm_launch_setting',
+    )
+    assert.deepEqual(names, ['INTAKE_VM_PORT'], port)
+  }
 })
 
 test('the local switch and a URL each select their real server, read-only by default', () => {
@@ -295,31 +328,36 @@ test('a refusal prints its code, then each named variable and its replacement', 
 const { pathToFileURL } = require('node:url')
 const { join } = require('node:path')
 const {
-  agentWorkerSettingNames,
+  agentWorkerSettings,
   personalManagementFlag,
   startupSummary,
 } = require('../dev/settings.cjs')
 
-test('scripted agents get no provider access; real agents get it; VM agents get only the pairing', () => {
-  assert.deepEqual(agentWorkerSettingNames(resolveDevelopmentSettings({})), [])
-  assert.deepEqual(
-    agentWorkerSettingNames(resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM })),
-    ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT'],
-  )
-  assert.deepEqual(
-    agentWorkerSettingNames(
-      resolveDevelopmentSettings({
-        INTAKE_USE_MOCK_AI_AGENTS: 'false',
-        INTAKE_RUN_AGENTS_IN_VM: 'true',
-        ...VM,
-      }),
-    ),
-    ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT'],
-  )
-  assert.deepEqual(
-    agentWorkerSettingNames(resolveDevelopmentSettings({ INTAKE_USE_MOCK_AI_AGENTS: 'false' })),
-    ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'INTAKE_CODEX_EXECUTABLE', 'INTAKE_CLAUDE_EXECUTABLE'],
-  )
+test('scripted agents get no provider access; real agents get it; VM agents get only the resolved pairing', () => {
+  const providers = {
+    OPENAI_API_KEY: 'synthetic-openai',
+    ANTHROPIC_API_KEY: 'synthetic-anthropic',
+  }
+  const worker = (settings) =>
+    agentWorkerSettings(resolveDevelopmentSettings(settings, STATE), settings)
+  assert.deepEqual(worker({ ...providers }), {})
+  const pairing = { INTAKE_VM_PAIR: '/state/vm-pair', INTAKE_VM_PORT: '14313' }
+  for (const settings of [
+    { INTAKE_RUN_AGENTS_IN_VM: 'true' },
+    { INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_USE_MOCK_AI_AGENTS: 'false' },
+    {
+      INTAKE_RUN_AGENTS_IN_VM: 'true',
+      INTAKE_USE_MOCK_AI_AGENTS: 'false',
+      INTAKE_VM_MANAGED: 'false',
+    },
+  ]) {
+    assert.deepEqual(worker({ ...settings, ...providers }), pairing, JSON.stringify(settings))
+  }
+  assert.deepEqual(worker({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM }), {
+    INTAKE_VM_PAIR: '/pair',
+    INTAKE_VM_PORT: '14313',
+  })
+  assert.deepEqual(worker({ INTAKE_USE_MOCK_AI_AGENTS: 'false', ...providers }), providers)
 })
 
 test('the credential-management proxy is on only with VM agents', () => {
@@ -430,81 +468,85 @@ test('an empty admin URL is unset for the local target', () => {
 const REAL_VM_AGENTS = {
   INTAKE_USE_MOCK_AI_AGENTS: 'false',
   INTAKE_RUN_AGENTS_IN_VM: 'true',
-  ...VM,
 }
-const VM_LAUNCH = {
+const VM_EXPLICIT = {
+  INTAKE_VM_PAIR: '/pair',
+  INTAKE_VM_PORT: '14320',
   INTAKE_VM_NAME: 'bench-agent-test',
   INTAKE_VM_GUEST_DIR: '/var/tmp/bench-paired',
   INTAKE_VM_RUNNER_IMAGE: 'bench-intake-runner:personal-test',
 }
 
-function refusedNames(settings, code) {
-  try {
-    resolveDevelopmentSettings(settings)
-  } catch (error) {
-    assert.ok(error instanceof DevelopmentSettingsError)
-    assert.equal(error.message, code)
-    return error.names.map(({ name }) => name)
-  }
-  assert.fail(`expected ${code}`)
-}
-
-test('without a VM name the launcher manages no VM', () => {
-  assert.equal(resolveDevelopmentSettings({}).vm, null)
-  assert.equal(resolveDevelopmentSettings(REAL_VM_AGENTS).vm, null)
-})
-
-test('a named VM with real VM agents yields the launch plan', () => {
-  assert.deepEqual(resolveDevelopmentSettings({ ...REAL_VM_AGENTS, ...VM_LAUNCH }).vm, {
-    name: 'bench-agent-test',
-    guestDir: '/var/tmp/bench-paired',
-    image: 'bench-intake-runner:personal-test',
+test('real VM agents get a managed VM with every default', () => {
+  const resolved = resolveDevelopmentSettings(REAL_VM_AGENTS, STATE)
+  assert.deepEqual(resolved.vm, {
+    name: 'bench-agent',
+    guestDir: null,
+    image: 'bench-intake-runner:personal',
+    pair: '/state/vm-pair',
     port: '14313',
     tools: true,
     keepRunning: false,
   })
-  const plan = resolveDevelopmentSettings({
-    ...REAL_VM_AGENTS,
-    ...VM_LAUNCH,
-    INTAKE_VM_AGENT_TOOLS: 'false',
-    INTAKE_VM_KEEP_RUNNING: '1',
-  }).vm
+  assert.deepEqual(resolved.defaulted, [
+    'INTAKE_VM_PAIR',
+    'INTAKE_VM_PORT',
+    'INTAKE_VM_NAME',
+    'INTAKE_VM_GUEST_DIR',
+    'INTAKE_VM_RUNNER_IMAGE',
+  ])
+})
+
+test('explicit VM values win and are not marked as defaults', () => {
+  const resolved = resolveDevelopmentSettings({ ...REAL_VM_AGENTS, ...VM_EXPLICIT }, STATE)
+  assert.deepEqual(resolved.vm, {
+    name: 'bench-agent-test',
+    guestDir: '/var/tmp/bench-paired',
+    image: 'bench-intake-runner:personal-test',
+    pair: '/pair',
+    port: '14320',
+    tools: true,
+    keepRunning: false,
+  })
+  assert.deepEqual(resolved.defaulted, [])
+  const plan = resolveDevelopmentSettings(
+    { ...REAL_VM_AGENTS, INTAKE_VM_AGENT_TOOLS: 'false', INTAKE_VM_KEEP_RUNNING: '1' },
+    STATE,
+  ).vm
   assert.equal(plan.tools, false)
   assert.equal(plan.keepRunning, true)
 })
 
-test('a named VM needs real agents in the VM', () => {
-  assert.deepEqual(
-    refusedNames(
-      { ...VM_LAUNCH, INTAKE_USE_MOCK_AI_AGENTS: 'false' },
-      'vm_launch_requires_real_vm_agents',
-    ),
-    ['INTAKE_VM_NAME', 'INTAKE_RUN_AGENTS_IN_VM', 'INTAKE_USE_MOCK_AI_AGENTS'],
+test('the pairing default follows the state directory it is given', () => {
+  const resolved = resolveDevelopmentSettings(REAL_VM_AGENTS, { stateDirectory: '/other/state' })
+  assert.equal(resolved.vm.pair, '/other/state/vm-pair')
+})
+
+test('management is off when opted out, and for scripted agents unless asked for', () => {
+  assert.equal(
+    resolveDevelopmentSettings({ ...REAL_VM_AGENTS, INTAKE_VM_MANAGED: 'false' }, STATE).vm,
+    null,
   )
-  assert.deepEqual(
-    refusedNames(
-      { ...VM_LAUNCH, INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM },
-      'vm_launch_requires_real_vm_agents',
-    ),
-    ['INTAKE_VM_NAME', 'INTAKE_RUN_AGENTS_IN_VM', 'INTAKE_USE_MOCK_AI_AGENTS'],
+  assert.equal(resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true' }, STATE).vm, null)
+  assert.equal(resolveDevelopmentSettings({}, STATE).vm, null)
+  // A name alone no longer turns management on or off.
+  assert.equal(
+    resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_VM_NAME: 'x' }, STATE).vm,
+    null,
   )
 })
 
-test('a named VM needs its guest directory and runner image', () => {
-  assert.deepEqual(
-    refusedNames(
-      { ...REAL_VM_AGENTS, INTAKE_VM_NAME: 'bench-agent-test' },
-      'vm_launch_setting_required',
-    ),
-    ['INTAKE_VM_GUEST_DIR', 'INTAKE_VM_RUNNER_IMAGE'],
-  )
-  assert.deepEqual(
-    refusedNames(
-      { ...REAL_VM_AGENTS, ...VM_LAUNCH, INTAKE_VM_GUEST_DIR: '' },
-      'vm_launch_setting_required',
-    ),
-    ['INTAKE_VM_GUEST_DIR'],
-  )
+test('asking for management without real VM agents is refused', () => {
+  for (const settings of [
+    { INTAKE_VM_MANAGED: 'true', INTAKE_RUN_AGENTS_IN_VM: 'true' },
+    { INTAKE_VM_MANAGED: 'true', INTAKE_USE_MOCK_AI_AGENTS: 'false' },
+  ]) {
+    assert.deepEqual(
+      refusedNames(settings, 'vm_launch_requires_real_vm_agents'),
+      ['INTAKE_VM_MANAGED', 'INTAKE_RUN_AGENTS_IN_VM', 'INTAKE_USE_MOCK_AI_AGENTS'],
+      JSON.stringify(settings),
+    )
+  }
 })
 
 test('malformed VM settings are refused by name, never by value', () => {
@@ -515,68 +557,49 @@ test('malformed VM settings are refused by name, never by value', () => {
     ['INTAKE_VM_GUEST_DIR', '/dir with space'],
     ['INTAKE_VM_RUNNER_IMAGE', 'image name'],
     ['INTAKE_VM_RUNNER_IMAGE', '-flag'],
+    ['INTAKE_VM_PORT', '70000'],
   ]
   for (const [name, value] of cases) {
-    const settings = { ...REAL_VM_AGENTS, ...VM_LAUNCH, [name]: value }
+    const settings = { ...REAL_VM_AGENTS, ...VM_EXPLICIT, [name]: value }
     assert.deepEqual(refusedNames(settings, 'invalid_vm_launch_setting'), [name], value)
     let lines
     try {
-      resolveDevelopmentSettings(settings)
+      resolveDevelopmentSettings(settings, STATE)
     } catch (error) {
       lines = settingsRefusalLines(error).join('\n')
     }
     assert.ok(!lines.includes(value), `refusal must not contain ${value}`)
   }
-  assert.deepEqual(
-    refusedNames(
-      { ...REAL_VM_AGENTS, ...VM_LAUNCH, INTAKE_VM_KEEP_RUNNING: 'yes' },
-      'invalid_development_setting',
-    ),
-    ['INTAKE_VM_KEEP_RUNNING'],
-  )
 })
 
-test('the startup summary says whether the launcher manages the VM', () => {
-  const managed = resolveDevelopmentSettings({ ...REAL_VM_AGENTS, ...VM_LAUNCH })
+test('the VM switches are checked whether or not a VM is managed', () => {
+  for (const name of ['INTAKE_VM_KEEP_RUNNING', 'INTAKE_VM_MANAGED']) {
+    assert.deepEqual(refusedNames({ [name]: 'maybe' }, 'invalid_development_setting'), [name])
+    assert.deepEqual(
+      refusedNames({ ...REAL_VM_AGENTS, [name]: 'yes' }, 'invalid_development_setting'),
+      [name],
+    )
+  }
+})
+
+test('the startup summary names the managed VM and every default it filled in', () => {
+  const summary = startupSummary('fake', resolveDevelopmentSettings(REAL_VM_AGENTS, STATE))
   assert.equal(
-    startupSummary('fake', managed),
+    summary,
     'Inventory: mock (writable).\nProcessing: shared-vm-agent/2 in the VM.\n' +
-      'VM: bench-agent-test, started with the app and stopped with it if this run starts it.\n',
+      'VM: bench-agent, started with the app and stopped with it if this run starts it.\n' +
+      'Defaults used: INTAKE_VM_PAIR=/state/vm-pair, INTAKE_VM_PORT=14313, ' +
+      'INTAKE_VM_NAME=bench-agent, INTAKE_VM_GUEST_DIR=bench-intake-guest in the guest home, ' +
+      'INTAKE_VM_RUNNER_IMAGE=bench-intake-runner:personal.\n',
   )
-  const kept = resolveDevelopmentSettings({
-    ...REAL_VM_AGENTS,
-    ...VM_LAUNCH,
-    INTAKE_VM_KEEP_RUNNING: 'true',
-  })
+  const kept = resolveDevelopmentSettings(
+    { ...REAL_VM_AGENTS, ...VM_EXPLICIT, INTAKE_VM_KEEP_RUNNING: 'true' },
+    STATE,
+  )
   assert.match(
     startupSummary('fake', kept),
     /VM: bench-agent-test, started with the app and kept running afterwards\.\n$/,
   )
-  assert.doesNotMatch(startupSummary('fake', resolveDevelopmentSettings(REAL_VM_AGENTS)), /VM:/)
-})
-
-test('the keep-running switch is checked even without a VM name', () => {
-  assert.deepEqual(refusedNames({ INTAKE_VM_KEEP_RUNNING: 'yes' }, 'invalid_development_setting'), [
-    'INTAKE_VM_KEEP_RUNNING',
-  ])
-  assert.deepEqual(
-    refusedNames(
-      { ...REAL_VM_AGENTS, INTAKE_VM_NAME: 'bench-agent-test', INTAKE_VM_KEEP_RUNNING: 'yes' },
-      'invalid_development_setting',
-    ),
-    ['INTAKE_VM_KEEP_RUNNING'],
-  )
-})
-
-test('a named VM needs a port the relay accepts', () => {
-  for (const port of ['0', '65536', '14313x', '-1']) {
-    assert.deepEqual(
-      refusedNames(
-        { ...REAL_VM_AGENTS, ...VM_LAUNCH, INTAKE_VM_PORT: port },
-        'invalid_vm_launch_setting',
-      ),
-      ['INTAKE_VM_PORT'],
-      port,
-    )
-  }
+  const unmanaged = resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM }, STATE)
+  assert.doesNotMatch(startupSummary('fake', unmanaged), /VM:|Defaults used/)
 })
