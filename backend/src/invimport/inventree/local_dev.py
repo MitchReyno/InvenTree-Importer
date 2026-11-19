@@ -26,7 +26,7 @@ INVENTREE_SETTINGS = ("INVENTREE_URL", "INVENTREE_TOKEN", "INVENTREE_USER", "INV
 
 # The same limit and token form as the Node side's private-file read and state validation.
 _MAX_STATE_BYTES = 16384
-_TOKEN = re.compile(r"^inv-[A-Za-z0-9]{20,80}-\d{8}$")
+_TOKEN = re.compile(r"^inv-[A-Za-z0-9]{20,80}-\d{8}$", re.ASCII)
 _PRIVATE_MODE_BITS = 0o077
 
 
@@ -60,11 +60,13 @@ def read_local_writer_token(directory: Path) -> str | None:
         state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
-    if not isinstance(state, dict) or state.get("version") != 1:
+    # JSON true and 1.0 compare equal to 1 in Python; only the integer is version 1.
+    if not isinstance(state, dict) or type(state.get("version")) is not int or state["version"] != 1:
         return None
     tokens = state.get("tokens")
     writer = tokens.get("writer") if isinstance(tokens, dict) else None
-    if not isinstance(writer, str) or not _TOKEN.match(writer):
+    # fullmatch: `$` alone would accept a trailing newline.
+    if not isinstance(writer, str) or not _TOKEN.fullmatch(writer):
         return None
     return writer
 

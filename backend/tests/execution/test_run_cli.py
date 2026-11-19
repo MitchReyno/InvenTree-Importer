@@ -580,7 +580,9 @@ WRITER = 'inv-' + 'c' * 40 + '-20261118'
 
 def no_inventree_settings(monkeypatch, tmp_path):
     for name in ('INVENTREE_URL', 'INVENTREE_TOKEN', 'INVENTREE_USER', 'INVENTREE_PASSWORD'):
-        monkeypatch.delenv(name, raising=False)
+        # Registered first, so values the CLI's fallback sets are undone after the test.
+        monkeypatch.setenv(name, '')
+        monkeypatch.delenv(name)
     return ['--env-file', str(tmp_path / 'absent.env')]
 
 
@@ -659,3 +661,9 @@ def test_a_plan_bound_to_another_server_stops_before_connecting_to_the_local_def
         assert refusal['error'] == 'TargetMismatch', arguments
         assert 'http://127.0.0.1:4320' in refusal['message'], arguments
         assert api.api_url.rstrip('/') in refusal['message'], arguments
+
+
+def test_the_fallback_leaves_nothing_behind_for_later_tests():
+    for name in ('INVENTREE_URL', 'INVENTREE_TOKEN'):
+        assert os.environ.get(name) != 'http://127.0.0.1:4320'
+        assert os.environ.get(name) != WRITER

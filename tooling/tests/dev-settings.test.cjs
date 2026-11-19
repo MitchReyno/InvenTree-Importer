@@ -603,3 +603,18 @@ test('the startup summary names the managed VM and every default it filled in', 
   const unmanaged = resolveDevelopmentSettings({ INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM }, STATE)
   assert.doesNotMatch(startupSummary('fake', unmanaged), /VM:|Defaults used/)
 })
+
+test('defaults are reported for unmanaged VM modes too', () => {
+  for (const settings of [
+    { INTAKE_RUN_AGENTS_IN_VM: 'true' },
+    { ...REAL_VM_AGENTS, INTAKE_VM_MANAGED: 'false' },
+  ]) {
+    const summary = startupSummary('fake', resolveDevelopmentSettings(settings, STATE))
+    assert.doesNotMatch(summary, /^VM:/m, JSON.stringify(settings))
+    assert.match(
+      summary,
+      /Defaults used: INTAKE_VM_PAIR=\/state\/vm-pair, INTAKE_VM_PORT=14313\.\n$/,
+      JSON.stringify(settings),
+    )
+  }
+})

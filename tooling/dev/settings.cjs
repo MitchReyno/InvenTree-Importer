@@ -389,7 +389,7 @@ function startupSummary(targetKind, resolved) {
       : 'stopped with it if this run starts it'
     lines.push(`VM: ${resolved.vm.name}, started with the app and ${afterwards}.`)
   }
-  if (resolved.vm && resolved.defaulted.length > 0) {
+  if (resolved.defaulted.length > 0) {
     lines.push(`Defaults used: ${defaultedValues(resolved).join(', ')}.`)
   }
   return `${lines.join('\n')}\n`

@@ -18,6 +18,7 @@ None.
 - **2026-11-18T20:10+10:00, task 1:** Refusal lines gained an optional hint (`NAME: hint`) so `vm_pairing_missing` can point at the README step without inventing a "replacement" setting. `INTAKE_VM_NAME` with scripted agents is no longer refused: it is only a name now, and the removed opt-in requirement was the only reason to refuse it.
 
 - **2026-11-18T20:25+10:00, task 2:** The DigiKey locale also treats an empty value as unset (`os.getenv(...) or "US"`), matching the InvenTree fallback, because a copied template line is empty. The one test that printed the old AUD default now expects USD. `TargetMismatch` names both endpoints; `ruff` and the token pattern are unchanged. `lib.cjs` now exports `TOKEN` for the cross-language contract test.
+- **2026-11-19T11:56+11:00, tasks 2–3:** Review round 1 (GPT 6 Astra): the state check now requires an integer version 1 and a full ASCII token match (JSON `true` and `1.0` equal 1 in Python; `$` admits a trailing newline; `\\d` admits non-ASCII digits); the CLI tests register the InvenTree variables so the fallback's values are undone; the defaults line is printed for unmanaged VM modes too; the template shows each switch's real default; the README copies with `cp -n` and moves the hand-run relays and forwards into a section for `INTAKE_VM_MANAGED=false`, where they cannot hold the managed tunnel's ports.
 
 ## Open items
 

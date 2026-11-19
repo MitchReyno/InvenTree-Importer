@@ -25,7 +25,7 @@ test('the importer uses the same local server address and state file name', () =
 })
 
 test('the importer accepts the same writer token form', () => {
-  const match = python.match(/^_TOKEN = re\.compile\(r"([^"]+)"\)$/m)
+  const match = python.match(/^_TOKEN = re\.compile\(r"([^"]+)", re\.ASCII\)$/m)
   assert.ok(match, '_TOKEN is defined in local_dev.py')
   assert.equal(match[1], TOKEN.source)
 })
