@@ -15,6 +15,11 @@ import { Settings } from './Settings'
 import { resetRunnerQueue } from '#/components/agents/useChatGPTSignIn'
 import { agentSettings, agentSettingsUpdate } from '#/test/agent-settings'
 
+const initialSelection = {
+  provider: 'claude',
+  authentication: 'subscription',
+  model: 'sonnet',
+} as const
 const initial: AgentSettingsDto = agentSettings('7', {
   provider: 'claude',
   authentication: 'subscription',
@@ -107,15 +112,19 @@ function Harness({ api, dirty }: { api: Api; dirty?: (value: boolean) => void })
   )
 }
 
-async function renderAgents(api = client(), dirty?: (value: boolean) => void) {
+async function renderAgents(api = client(), dirty?: (value: boolean) => void, ready = 'Claude') {
   render(<Harness api={api} dirty={dirty} />)
-  await screen.findByRole('radiogroup', { name: 'Provider' })
+  if (ready === 'Claude') {
+    await screen.findByRole('group', { name: 'Claude' })
+  } else {
+    await screen.findByRole('textbox', { name: ready })
+  }
   return api
 }
 
-/** The card's status is its radio's description, not part of its name. */
+/** A provider card's status, as its credential panel shows it, describes the card. */
 function expectCard(provider: 'Claude' | 'Codex', status: string) {
-  expect(screen.getByRole('radio', { name: provider })).toHaveAccessibleDescription(status)
+  expect(screen.getByRole('group', { name: provider })).toHaveAccessibleDescription(status)
 }
 
 let send: Mock<typeof fetch>
@@ -276,7 +285,7 @@ describe('the Codex card mirrors its sign-in panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
     await act(() => vi.advanceTimersByTimeAsync(9000))
     fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
-    await screen.findByRole('radiogroup', { name: 'Provider' })
+    await screen.findByRole('group', { name: 'Claude' })
     await act(() => vi.advanceTimersByTimeAsync(9000))
 
     expect(send).toHaveBeenCalledTimes(1)
@@ -287,50 +296,157 @@ describe('the Codex card mirrors its sign-in panel', () => {
   })
 })
 
-test('provider is an option card, sign-in a segmented control, and the stepper sets sessions at once', async () => {
+/** A subsection's card, inside its region of the same name, to scope its own Save. */
+const card = (name: string) => screen.getAllByRole('region', { name }).at(-1)!
+
+const bothOn = agentSettings(
+  '7',
+  { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
+  {
+    providers: {
+      claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
+      codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6.1-sol' },
+    },
+    stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna' } },
+  },
+)
+
+test('each provider card sets its own sign-in and model, and providers save with the steps', async () => {
   const api = await renderAgents()
-  expect(screen.getByRole('radio', { name: 'Claude' })).toBeChecked()
-  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
-  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('')
-  expect(screen.getByText(/codex login/)).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: 'API key' }))
-  expect(screen.getByText('OPENAI_API_KEY')).toBeVisible()
+  const codex = screen.getByRole('group', { name: 'Codex' })
+  fireEvent.click(within(codex).getByRole('checkbox', { name: 'On' }))
+  fireEvent.click(within(codex).getByRole('button', { name: 'API key' }))
+  expect(within(codex).getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-  fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), {
+  fireEvent.change(within(codex).getByRole('combobox', { name: 'Default model' }), {
     target: { value: 'gpt-6-luna' },
   })
-  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
-  fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  const research = screen.getByRole('group', { name: 'Research' })
+  fireEvent.change(within(research).getByRole('combobox', { name: 'Research provider' }), {
+    target: { value: 'codex' },
+  })
+  fireEvent.click(within(card('Provider and model per step')).getByRole('button', { name: 'Save' }))
   await waitFor(() =>
-    // The form edits the default provider only; Claude stays on until the provider cards arrive.
     expect(api.saveSettings).toHaveBeenCalledWith(
       agentSettingsUpdate(
         '7',
-        { provider: 'codex', authentication: 'api_key', model: 'gpt-6-luna' },
+        { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
         {
-          session_concurrency: 2,
           providers: {
             claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
             codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6-luna' },
           },
+          stage_selections: { research: { provider: 'codex', model: 'gpt-6-luna' } },
         },
       ),
     ),
   )
 })
 
-test('changing a segmented or stepper value reports unsaved input to the navigation guard', async () => {
+test('turning a provider off shows its steps on Default with a note, before saving', async () => {
+  const api = client()
+  api.settings.mockResolvedValue(bothOn)
+  await renderAgents(api)
+  const research = within(screen.getByRole('group', { name: 'Research' }))
+  expect(research.getByRole('combobox', { name: 'Research provider' })).toHaveValue('codex')
+  fireEvent.click(
+    within(screen.getByRole('group', { name: 'Codex' })).getByRole('checkbox', { name: 'On' }),
+  )
+  expect(research.getByRole('combobox', { name: 'Research provider' })).toHaveValue('')
+  expect(research.getByText(/now uses Default/)).toBeVisible()
+  expect(screen.getByRole('radio', { name: 'Codex' })).toBeDisabled()
+  expect(api.saveSettings).not.toHaveBeenCalled()
+})
+
+test('with no provider on, Providers says so and sends nothing', async () => {
+  const api = await renderAgents()
+  fireEvent.click(
+    within(screen.getByRole('group', { name: 'Claude' })).getByRole('checkbox', { name: 'On' }),
+  )
+  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(/Turn on at least one provider/)).toBeVisible()
+  expect(api.saveSettings).not.toHaveBeenCalled()
+})
+
+test('on a fresh setup, Instructions save with no provider on', async () => {
+  const api = client()
+  api.settings.mockResolvedValue(agentSettings('0', null))
+  await renderAgents(api, undefined, 'Instructions for every new batch')
+  fireEvent.change(screen.getByRole('textbox', { name: 'Instructions for every new batch' }), {
+    target: { value: 'Count reels by their labels.' },
+  })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('0', null, { new_batch_instructions: 'Count reels by their labels.' }),
+    ),
+  )
+})
+
+test('a save sends the loaded values for other subsections, and keeps their unsaved edits', async () => {
+  const api = await renderAgents()
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Draft, not saved yet' } })
+  fireEvent.click(
+    within(screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!).getByRole('button', {
+      name: 'One fewer',
+    }),
+  )
+  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenLastCalledWith(
+      agentSettingsUpdate('7', initialSelection, { session_concurrency: 2 }),
+    ),
+  )
+  expect(instructions).toHaveValue('Draft, not saved yet')
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenLastCalledWith(
+      agentSettingsUpdate('8', initialSelection, {
+        session_concurrency: 2,
+        new_batch_instructions: 'Draft, not saved yet',
+      }),
+    ),
+  )
+})
+
+test('a description style over 500 characters shows the limit and sends nothing', async () => {
+  const api = await renderAgents()
+  const style = screen.getByRole('textbox', { name: 'Part description style' })
+  fireEvent.change(style, { target: { value: 'x'.repeat(501) } })
+  expect(screen.getByText(/501 of 500 characters: shorten it to save/)).toBeVisible()
+  fireEvent.click(within(card('Descriptions and naming')).getByRole('button', { name: 'Save' }))
+  await new Promise((done) => setTimeout(done, 20))
+  expect(api.saveSettings).not.toHaveBeenCalled()
+  expect(style).toHaveValue('x'.repeat(501))
+})
+
+test('Suggest tags for new batches saves on its own', async () => {
+  const api = await renderAgents()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))
+  fireEvent.click(within(card('Tag suggestions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      agentSettingsUpdate('7', initialSelection, { auto_tags_default: true }),
+    ),
+  )
+})
+
+test('editing a segmented control or the stepper reports unsaved input, and a save releases it', async () => {
   const dirty = vi.fn()
   await renderAgents(client(), dirty)
-  fireEvent.click(screen.getByRole('button', { name: 'API key' }))
-  expect(dirty).toHaveBeenLastCalledWith(true)
-  dirty.mockClear()
   fireEvent.click(
-    within(screen.getAllByRole('group', { name: 'Sessions at once' })[0]).getByRole('button', {
+    within(screen.getByRole('group', { name: 'Claude' })).getByRole('button', { name: 'API key' }),
+  )
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  fireEvent.click(
+    within(screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!).getByRole('button', {
       name: 'One more',
     }),
   )
+  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
+  // Claude's sign-in edit is still unsaved, so the guard stays held.
+  await waitFor(() => expect(screen.getByText(/^Saved\./)).toBeVisible())
   expect(dirty).toHaveBeenLastCalledWith(true)
 })
 
@@ -356,32 +472,30 @@ test('a stale revision is refused as a conflict, keeps the edit and offers Reloa
     .mockResolvedValueOnce(initial)
     .mockResolvedValueOnce({ ...initial, revision: '9', session_concurrency: 5 })
   await renderAgents(api)
-  fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), { target: { value: 'opus' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
 
   expect(await screen.findByText(/changed in another tab/)).toBeVisible()
-  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('opus')
+  expect(instructions).toHaveValue('Mine')
   fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
-  await waitFor(() => expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('sonnet'))
-  expect(
-    within(screen.getAllByRole('group', { name: 'Sessions at once' })[0]).getByRole('status'),
-  ).toHaveTextContent('5')
+  await waitFor(() => expect(instructions).toHaveValue(''))
   expect(await screen.findByText('3 of 5 in use · 1 queued')).toBeVisible()
 })
 
 test('after a save the slot meter compares slot use with the saved limit', async () => {
   await renderAgents()
   expect(await screen.findByText('3 of 3 in use · 1 queued')).toBeVisible()
-  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!
   fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
   expect(screen.getByText('3 of 3 in use · 1 queued')).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
 
   expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
   expect(within(sessions).getByRole('status')).toHaveTextContent('2')
 })
 
-test('while a save is pending the sign-in method and the stepper show they are unavailable', async () => {
+test('while a save is pending its controls show they are unavailable', async () => {
   const api = client()
 
   let finish: (value: AgentSettingsDto) => void = () => undefined
@@ -390,28 +504,24 @@ test('while a save is pending the sign-in method and the stepper show they are u
     () => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)),
   )
   await renderAgents(api)
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(api.saveSettings).toHaveBeenCalled())
-  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+  const claude = within(screen.getByRole('group', { name: 'Claude' }))
 
-  expect(screen.getByRole('button', { name: 'API key' })).toHaveAttribute('aria-disabled', 'true')
-  expect(within(sessions).getByRole('button', { name: 'One more' })).toHaveAttribute(
-    'aria-disabled',
-    'true',
-  )
+  expect(claude.getByRole('button', { name: 'API key' })).toHaveAttribute('aria-disabled', 'true')
   await act(async () => finish({ ...initial, revision: '8' }))
-  expect(screen.getByRole('button', { name: 'API key' })).not.toHaveAttribute('aria-disabled')
+  expect(claude.getByRole('button', { name: 'API key' })).not.toHaveAttribute('aria-disabled')
 })
 
-test('the model field is described by its presets help and, when invalid, its error', async () => {
-  await renderAgents()
-  const model = screen.getByRole('combobox', { name: 'Model' })
-
-  expect(model).toHaveAccessibleDescription(/Presets do not verify account access/)
-  fireEvent.change(model, { target: { value: '-bad' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await waitFor(() => expect(model).toHaveAccessibleDescription(/Choose a valid model ID/))
-  expect(model).toHaveAccessibleDescription(/Presets do not verify account access/)
+test('an invalid default model is refused in the form and nothing is sent', async () => {
+  const api = await renderAgents()
+  const claude = within(screen.getByRole('group', { name: 'Claude' }))
+  fireEvent.change(claude.getByRole('combobox', { name: 'Default model' }), {
+    target: { value: '-bad' },
+  })
+  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
+  expect(await claude.findByText(/Choose a valid model ID for Claude/)).toBeVisible()
+  expect(api.saveSettings).not.toHaveBeenCalled()
 })
 
 test('after leaving and returning, a Codex command waits for the runner call still running', async () => {
@@ -430,7 +540,7 @@ test('after leaving and returning, a Codex command waits for the runner call sti
 
   fireEvent.click(screen.getByRole('button', { name: 'Leave Agents' }))
   fireEvent.click(screen.getByRole('button', { name: 'Return to Agents' }))
-  await screen.findByRole('radiogroup', { name: 'Provider' })
+  await screen.findByRole('group', { name: 'Claude' })
   fireEvent.click(screen.getByRole('button', { name: 'ChatGPT subscription' }))
   fireEvent.change(screen.getByLabelText('Codex runner management key'), {
     target: { value: 'key' },
@@ -464,7 +574,7 @@ test('a Codex runner call outlasting the guest limits fails and frees the queue'
   // Still waiting well past one guest RPC limit, then failing once the full bound has passed.
   await act(() => vi.advanceTimersByTimeAsync(85_000))
   expect(screen.queryByRole('alert')).toBeNull()
-  expect(screen.getByRole('radio', { name: 'Codex' })).not.toHaveAccessibleDescription(
+  expect(screen.getByRole('group', { name: 'Codex' })).not.toHaveAccessibleDescription(
     'Check failed',
   )
 
@@ -489,9 +599,9 @@ test('a settings read that was already running cannot replace a confirmed save',
   fireEvent.click(screen.getByRole('button', { name: 'Read settings again' }))
   await waitFor(() => expect(api.settings).toHaveBeenCalledTimes(2))
 
-  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' })[0]
+  const sessions = screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!
   fireEvent.click(within(sessions).getByRole('button', { name: 'One fewer' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
   expect(await screen.findByText('3 of 2 in use · 1 queued')).toBeVisible()
   await act(async () => {
     answerStale(initial)

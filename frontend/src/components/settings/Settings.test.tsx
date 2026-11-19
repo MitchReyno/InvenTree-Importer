@@ -234,18 +234,7 @@ test('the API token row never shows a stale or failed read as current', async ()
 })
 
 const DEFERRED: [SettingsSectionId, string[]][] = [
-  [
-    'agents',
-    [
-      'Model per step',
-      'Instructions for every new batch',
-      'Fill descriptions for',
-      'Part description style',
-      'Supplier part descriptions',
-      'Suggest tags automatically',
-      'Web research',
-    ],
-  ],
+  ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
   ['inventree', ['API token']],
   ['defaults', ['Default location', 'Default supplier', 'Tags']],
 ]
@@ -256,7 +245,7 @@ for (const [section, rows] of DEFERRED) {
     const client = agents()
     renderSettings(section, { client })
     if (section === 'agents') {
-      await screen.findByRole('group', { name: 'Model per step' })
+      await screen.findByRole('group', { name: 'Fill descriptions for' })
     }
 
     for (const name of rows) {
@@ -432,9 +421,11 @@ test('going back to Agents and then to the same subsection focuses its heading a
   expect(heading).toHaveFocus()
 })
 
-test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', () => {
+test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', async () => {
   const agentsView = renderSettings('agents')
-  expect(screen.getByRole('group', { name: 'Suggest tags automatically' })).toBeInTheDocument()
+  expect(
+    await screen.findByRole('group', { name: 'Suggest tags automatically' }),
+  ).toBeInTheDocument()
   agentsView.unmount()
 
   renderSettings('defaults')

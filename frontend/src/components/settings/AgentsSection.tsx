@@ -1,14 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import styled from 'styled-components'
 import type { AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
 import type { AgentSubsectionId } from '#/navigation/app-route'
 import { useRetainedPollInterval, useServerScope } from '#/context'
 import { Banner, Button, Paragraph, SettingRow } from '#/components/ui'
-import { color, space } from '#/theme/generated/tokens'
-import { AgentSettingsForm } from '#/components/agents/AgentSettingsForm'
 import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
@@ -18,11 +15,14 @@ import { SettingsCard } from './SettingsCard'
 import { SettingsSection } from './SettingsSection'
 import { AgentSubsection, subsectionHeadingId } from './agents/AgentSubsection'
 import { DescriptionsCard } from './agents/DescriptionsCard'
-import { ModelPerStepRow } from './agents/ModelPerStepRow'
-import { NewBatchInstructionsRow } from './agents/NewBatchInstructionsRow'
 import { SlotMeter } from './agents/SlotMeter'
-import { TagSuggestionsRow } from './agents/TagSuggestionsRow'
 import { WebResearchRow } from './agents/WebResearchRow'
+import { DescriptionStyleRow } from './agents/DescriptionStyleRow'
+import { InstructionsForm } from './agents/InstructionsForm'
+import { ProvidersAndSteps } from './agents/ProvidersAndSteps'
+import { SessionsForm } from './agents/SessionsForm'
+import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
+import { useDirtyForms } from './agents/useDirtyForms'
 
 type Props = {
   client: ReturnType<typeof agentsClient>
@@ -57,6 +57,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   })
   const loaded = settings.isFetchedAfterMount && settings.data
   const focused = useRef<AgentSubsectionId | undefined>(undefined)
+  const reportDirty = useDirtyForms(onDirtyChange)
 
   // Syncs the page with the route's location hash. Headings render before the settings load, so
   // the target exists on the first run; the ref keeps a refetch from moving focus again.
@@ -81,99 +82,95 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     queryClient.setQueryData(settingsKey, confirmed)
   }
 
-  return (
-    <SettingsSection
-      title="Agents"
-      lead="Everything that shapes how agents work, for every batch. A running turn finishes with the settings it started with."
-      agent
-    >
-      <AgentSubsection id="providers" title="Providers">
-        {(settings.isError || settings.fetchStatus === 'paused') && (
-          <div role="alert">
-            <Banner
-              tone="warn"
-              action={<Button onClick={() => void settings.refetch()}>Retry</Button>}
-            >
-              Settings unavailable. Unsaved input is preserved.
-            </Banner>
-          </div>
-        )}
-        {!settings.isFetchedAfterMount && (
-          <Paragraph role="status" $onField>
-            Loading saved settings…
-          </Paragraph>
-        )}
-        {loaded && (
-          <AgentSettingsForm
-            initial={settings.data}
-            client={client}
-            onDirtyChange={onDirtyChange}
-            providerStatus={{ claude: credential.card, codex: signIn.card }}
-            onLoaded={(loaded) => void adoptLoaded(loaded)}
-            slots={
-              <SlotMeter
-                list={sessions.data}
-                failed={sessions.isError}
-                limit={settings.data.session_concurrency}
-              />
-            }
-          />
-        )}
-        {loaded && (
-          <SettingsCard aria-label="Sign-in">
-            <SettingRow
-              label="Personal subscriptions"
-              help="Sign the shared VM's runners in to your own Claude or ChatGPT subscription."
-            >
-              <Panels>
-                <PersonalClaudeCredential credential={credential} />
-                <ChatGPTSignIn signIn={signIn} />
-              </Panels>
-            </SettingRow>
-          </SettingsCard>
-        )}
-      </AgentSubsection>
-      <AgentSubsection id="sessions" title="Sessions">
-        {loaded ? (
-          <SettingsCard aria-label="Pause">
+  const unavailable = (settings.isError || settings.fetchStatus === 'paused') && (
+    <div role="alert">
+      <Banner tone="warn" action={<Button onClick={() => void settings.refetch()}>Retry</Button>}>
+        Settings unavailable. Unsaved input is preserved.
+      </Banner>
+    </div>
+  )
+  const waiting = (
+    <Paragraph role="status" $onField>
+      Waiting for the saved settings…
+    </Paragraph>
+  )
+  const form = loaded && {
+    client,
+    loaded: settings.data,
+    onLoaded: (confirmed: AgentSettingsDto) => void adoptLoaded(confirmed),
+    reportDirty,
+  }
+  const sessionsSubsection = (
+    <AgentSubsection id="sessions" title="Sessions">
+      {form ? (
+        <SessionsForm
+          {...form}
+          slots={
+            <SlotMeter
+              list={sessions.data}
+              failed={sessions.isError}
+              limit={settings.data.session_concurrency}
+            />
+          }
+          pause={
             <SettingRow
               label="Pause all agents"
               help="Paused batches keep their place and resume where they stopped."
             >
               <PauseAllAgents pauseAll={client.pauseAll} list={sessions.data} />
             </SettingRow>
-          </SettingsCard>
-        ) : (
-          <Paragraph role="status" $onField>
-            Waiting for the saved settings…
-          </Paragraph>
-        )}
-      </AgentSubsection>
-      <AgentSubsection
-        id="models"
-        title="Provider and model per step"
-        lead="New sessions use these; running ones keep theirs."
-      >
-        <SettingsCard aria-label="Provider and model per step">
-          <ModelPerStepRow />
-        </SettingsCard>
-      </AgentSubsection>
+          }
+        />
+      ) : (
+        waiting
+      )}
+    </AgentSubsection>
+  )
+
+  return (
+    <SettingsSection
+      title="Agents"
+      lead="Everything that shapes how agents work, for every batch. A running turn finishes with the settings it started with."
+      agent
+    >
+      {unavailable}
+      {form ? (
+        <ProvidersAndSteps
+          {...form}
+          status={{ claude: credential.card, codex: signIn.card }}
+          credentials={{
+            claude: <PersonalClaudeCredential credential={credential} />,
+            codex: <ChatGPTSignIn signIn={signIn} />,
+          }}
+          sessions={sessionsSubsection}
+        />
+      ) : (
+        <>
+          <AgentSubsection id="providers" title="Providers">
+            {!settings.isFetchedAfterMount && (
+              <Paragraph role="status" $onField>
+                Loading saved settings…
+              </Paragraph>
+            )}
+          </AgentSubsection>
+          {sessionsSubsection}
+          <AgentSubsection id="models" title="Provider and model per step">
+            {waiting}
+          </AgentSubsection>
+        </>
+      )}
       <AgentSubsection id="instructions" title="Instructions">
-        <SettingsCard aria-label="Instructions">
-          <NewBatchInstructionsRow />
-        </SettingsCard>
+        {form ? <InstructionsForm {...form} /> : waiting}
       </AgentSubsection>
       <AgentSubsection
         id="descriptions"
         title="Descriptions and naming"
         lead="How agents write the free-text fields InvenTree shows. Existing records keep their text unless you change it in Review."
       >
-        <DescriptionsCard />
+        <DescriptionsCard style={form ? <DescriptionStyleRow {...form} /> : waiting} />
       </AgentSubsection>
       <AgentSubsection id="tags" title="Tag suggestions">
-        <SettingsCard aria-label="Tag suggestions">
-          <TagSuggestionsRow />
-        </SettingsCard>
+        {form ? <TagSuggestionsForm {...form} /> : waiting}
       </AgentSubsection>
       <AgentSubsection id="research" title="Web research">
         <SettingsCard aria-label="Web research">
@@ -183,18 +180,3 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     </SettingsSection>
   )
 }
-
-const Panels = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: ${space[6]};
-  fieldset {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: ${space[4]};
-    margin: ${space[4]} 0 0;
-    border: 1px solid ${color.line};
-  }
-`
