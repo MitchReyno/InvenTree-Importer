@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 import socket
 import sys
+from contextlib import contextmanager
 from tempfile import TemporaryDirectory
+import threading
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -24,9 +26,14 @@ def answers(*addresses):
             for a in addresses]
 
 
-def dns(table):
-    """A getaddrinfo stand-in: unknown names fail like an NXDOMAIN answer."""
+def dns(table, stalled=None):
+    """A getaddrinfo stand-in: unknown names fail like an NXDOMAIN answer.
+
+    A name in `stalled` blocks until its event is set, like an unresponsive resolver.
+    """
     def lookup(host, *_args, **_kwargs):
+        if stalled and host in stalled:
+            stalled[host].wait(10)
         if host not in table:
             raise socket.gaierror(socket.EAI_NONAME, "unknown name")
         return answers(*table[host])
@@ -54,32 +61,36 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             "protected_hosts": list(protected_hosts),
         }))
 
-    async def connect(self, target, table, open_results=None):
+    async def connect(self, target, table, open_results=None, stalled=None):
+        """One CONNECT through the proxy with fake DNS and a fake upstream."""
+        with self.fake_network(table, open_results, stalled) as upstream:
+            written = await self.handle(target)
+        return written, upstream
+
+    @contextmanager
+    def fake_network(self, table, open_results=None, stalled=None):
+        """Patches DNS and upstream connections once; concurrent CONNECTs share it."""
+        remote = asyncio.StreamReader()
+        remote.feed_eof()
+        upstream_writer = Mock()
+        upstream_writer.drain = AsyncMock()
+        self.guest_dns = Mock(side_effect=dns(table, stalled))
+        opened = AsyncMock(side_effect=open_results(remote, upstream_writer) if open_results else None,
+                           return_value=(remote, upstream_writer))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection", opened) as upstream:
+            yield upstream
+
+    async def handle(self, target):
         stream = asyncio.StreamReader()
         stream.feed_data(f"CONNECT {target} HTTP/1.1\r\n\r\n".encode())
         stream.feed_eof()
         client = Mock()
         client.drain = AsyncMock()
-        remote = asyncio.StreamReader()
-        remote.feed_eof()
-        upstream_writer = Mock()
-        upstream_writer.drain = AsyncMock()
-        lookup = dns(table)
-        loop = asyncio.get_running_loop()
-
-        async def loop_lookup(host, port, **kwargs):
-            return lookup(host, port, **kwargs)
-
-        with patch.object(socket, "getaddrinfo", side_effect=lookup) as guest_dns, \
-                patch.object(loop, "getaddrinfo", side_effect=loop_lookup) as provider_dns, \
-                patch.object(egress.asyncio, "open_connection",
-                             AsyncMock(side_effect=open_results(remote, upstream_writer) if open_results
-                                       else None, return_value=(remote, upstream_writer))) as upstream:
-            await egress.handle(stream, client)
-        written = b"".join(call.args[0] for call in client.write.call_args_list)
+        await egress.handle(stream, client)
         client.close.assert_called_once()
-        self.lookups = guest_dns.call_count + provider_dns.call_count
-        return written, upstream
+        self.lookups = self.guest_dns.call_count
+        return b"".join(call.args[0] for call in client.write.call_args_list)
 
     def assert_refused(self, written, upstream, reason):
         self.assertTrue(written.startswith(b"HTTP/1.1 403"), written)
@@ -264,6 +275,27 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_provider_lookup_failure_is_refused_with_its_reason(self):
         written, upstream = await self.connect("api.anthropic.com:443", {})
         self.assert_refused(written, upstream, "resolution_failed")
+
+    async def test_protected_subdomain_without_its_own_record_is_protected(self):
+        self.write_policy(protected_hosts=["inventory.example.com"])
+        written, upstream = await self.connect("api.inventory.example.com:443",
+                                               {"inventory.example.com": [OTHER_PUBLIC]})
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_stalled_public_lookups_leave_room_for_the_provider(self):
+        self.write_policy()
+        release = threading.Event()
+        self.addCleanup(release.set)
+        table = {"slow.example.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        stalled = {"slow.example.com": release}
+        with patch.object(egress, "DNS_TIMEOUT_S", 0.5), \
+                self.fake_network(table, stalled=stalled) as upstream:
+            public = [self.handle("slow.example.com:443") for _ in range(egress.DNS_SLOTS + 1)]
+            *refused, provider = await asyncio.gather(*public, self.handle("api.anthropic.com:443"))
+        for written in refused:
+            self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", written)
+        self.assertTrue(provider.startswith(b"HTTP/1.1 200"), provider)
+        upstream.assert_called_once_with(OTHER_PUBLIC, 443)
 
 
 if __name__ == "__main__":

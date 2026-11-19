@@ -14,12 +14,23 @@ done
 test ! -e /run/policy
 for egress in /run/egress/*.sock; do
   python3 - "$egress" <<'PY'
+import pathlib
 import socket
 import sys
-with socket.socket(socket.AF_UNIX) as tunnel:
-    tunnel.connect(sys.argv[1])
-    tunnel.sendall(b"CONNECT www.rfc-editor.org:443 HTTP/1.1\r\n\r\n")
-    reply = tunnel.recv(4096)
+egress = sys.argv[1]
+provider = {"claude.sock": "api.anthropic.com", "codex.sock": "chatgpt.com"}[pathlib.Path(egress).name]
+
+
+def connect(host):
+    with socket.socket(socket.AF_UNIX) as tunnel:
+        tunnel.connect(egress)
+        tunnel.sendall(f"CONNECT {host}:443 HTTP/1.1\r\n\r\n".encode())
+        return tunnel.recv(4096)
+
+
+# The provider still connects, so the refusal below comes from the policy, not a dead proxy.
+assert connect(provider).startswith(b"HTTP/1.1 200"), provider
+reply = connect("www.rfc-editor.org")
 assert reply.startswith(b"HTTP/1.1 403"), reply
 assert b"X-Bench-Refusal: destination_refused\r\n" in reply, reply
 PY

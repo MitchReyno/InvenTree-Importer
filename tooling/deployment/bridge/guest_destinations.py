@@ -102,7 +102,14 @@ def public_target(host, port, protected):
                    and not host.endswith(PRIVATE_SUFFIXES))
     if port != 443 or not target_name:
         raise Refused("destination_refused")
-    addresses = resolved_addresses(host)
+    # A private answer reports not_public even for a protected name; a protected name without
+    # its own record is still protected.
+    try:
+        addresses = resolved_addresses(host)
+    except Refused:
+        if protected_name(host, protected):
+            raise Refused("protected_destination") from None
+        raise
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if protected_name(host, protected):

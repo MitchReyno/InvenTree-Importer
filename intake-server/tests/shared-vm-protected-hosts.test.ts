@@ -15,7 +15,7 @@ import {
   writeTurnPolicy,
 } from '#/agents/shared-vm/turn-policy.ts'
 
-test('protected hosts come from every configured origin in a standard form', () => {
+test('protected hosts come from every configured origin in a standard form, without non-public literals', () => {
   assert.deepEqual(
     protectedHosts(
       [
@@ -30,8 +30,6 @@ test('protected hosts come from every configured origin in a standard form', () 
       ].join(','),
     ),
     [
-      '127.0.0.1',
-      '203.0.113.10',
       '2606:4700::1',
       '::ffff:101:101',
       'bench.tailnet.ts.net',
@@ -57,6 +55,8 @@ test('an origin that cannot be represented is refused, never dropped', () => {
     'https://inventree',
     'https://inventory_example.com',
     'https:inventory.example.com',
+    'https://\\inventory.example.com',
+    'https://inventory.\texample.com',
     'https://inventory.example.com,,',
     ',https://inventory.example.com',
     'https://',
@@ -73,6 +73,21 @@ test('an origin that cannot be represented is refused, never dropped', () => {
 test('more than 32 distinct protected hosts are refused', () => {
   const origins = Array.from({ length: 33 }, (_value, index) => `https://h${index}.example.com`)
   assert.throws(() => protectedHosts(origins.join(',')), /session_agent_configuration_required/)
+})
+
+test('non-public literals do not use the protected-host budget', () => {
+  const publicNames = Array.from(
+    { length: MAX_PROTECTED_HOSTS },
+    (_value, index) => `https://h${index}.example.com`,
+  )
+  const origins = [
+    ...publicNames,
+    'http://127.0.0.1:4330',
+    'http://10.0.0.5',
+    'https://[fd00::1]',
+    'https://[::ffff:7f00:1]',
+  ]
+  assert.equal(protectedHosts(origins.join(',')).length, MAX_PROTECTED_HOSTS)
 })
 
 test('the VM tool worker requires its protected origins; other profiles ignore them', () => {
@@ -93,7 +108,7 @@ test('the VM tool worker requires its protected origins; other profiles ignore t
       { INTAKE_AGENT_PROTECTED_ORIGINS: 'http://127.0.0.1:4330,https://inventory.example.com' },
       'shared-vm-agent/2',
     ),
-    ['127.0.0.1', 'inventory.example.com'],
+    ['inventory.example.com'],
   )
   assert.deepEqual(bridgeProtectedHosts({}, 'shared-vm-agent/1'), [])
   assert.deepEqual(bridgeProtectedHosts({}, 'synthetic-session/1'), [])

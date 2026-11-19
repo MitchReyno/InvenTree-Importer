@@ -7,6 +7,8 @@ import asyncio
 import json
 import os
 import socket
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from guest_destinations import (
@@ -37,6 +39,36 @@ HEADER_TIMEOUT_S = 5
 CONNECT_TIMEOUT_S = 10
 # A destination with many answers gets at most this many connection attempts.
 MAX_CONNECT_ATTEMPTS = 3
+# All DNS work for one CONNECT, including protected-host lookups, must finish within this.
+DNS_TIMEOUT_S = 10
+# Lookups in flight per path; a stalled lookup keeps its slot until its thread returns.
+DNS_SLOTS = 4
+
+
+class BoundedResolver:
+    """Runs blocking DNS work on its own small pool and refuses when every slot is busy.
+
+    Provider and public lookups use separate resolvers, so stalled public lookups can't hold
+    up the provider connection.
+    """
+
+    def __init__(self, name):
+        self.pool = ThreadPoolExecutor(max_workers=DNS_SLOTS, thread_name_prefix=name)
+        self.slots = threading.BoundedSemaphore(DNS_SLOTS)
+
+    async def run(self, function, *args):
+        if not self.slots.acquire(blocking=False):
+            raise Refused("resolution_failed")
+        future = self.pool.submit(function, *args)
+        future.add_done_callback(lambda _done: self.slots.release())
+        try:
+            return await asyncio.wait_for(asyncio.wrap_future(future), DNS_TIMEOUT_S)
+        except asyncio.TimeoutError as error:
+            raise Refused("resolution_failed") from error
+
+
+PROVIDER_DNS = BoundedResolver("provider-dns")
+PUBLIC_DNS = BoundedResolver("public-dns")
 
 
 def protected_entry(value):
@@ -104,15 +136,15 @@ def provider_protected_addresses(protected):
     return blocked
 
 
-async def provider_address(host, protected):
+def provider_addresses(host, protected):
+    """The provider host's checked IPv4 addresses, or Refused. Blocking; run on PROVIDER_DNS."""
     if protected_name(host, protected):
         raise Refused("protected_destination")
     try:
-        answers = await asyncio.get_running_loop().getaddrinfo(
-            host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
+        answers = socket.getaddrinfo(host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
     except OSError as error:
         raise Refused("resolution_failed") from error
-    blocked = await asyncio.to_thread(provider_protected_addresses, protected)
+    blocked = provider_protected_addresses(protected)
     addresses = [answer[4][0] for answer in answers]
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
@@ -126,10 +158,10 @@ async def checked_addresses(host, port):
     policy = load_policy()
     protected = PROTECTED | (policy["protected_hosts"] if policy else set())
     if host in HOSTS and port == 443:
-        return await provider_address(host, protected)
+        return await PROVIDER_DNS.run(provider_addresses, host, protected)
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
-    return await asyncio.to_thread(public_target, host, port, protected)
+    return await PUBLIC_DNS.run(public_target, host, port, protected)
 
 
 async def open_first(addresses):
