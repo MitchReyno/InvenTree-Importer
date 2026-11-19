@@ -1215,6 +1215,40 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         written, upstream = await self.connect("alias.example.net:443", table)
         self.assert_refused(written, upstream, "protected_destination")
 
+    async def test_provider_host_resolves_as_an_absolute_name(self):
+        self.write_policy(public_pages=False)
+        # A search domain could answer differently for the relative name.
+        table = {"api.anthropic.com.": [OTHER_PUBLIC], "api.anthropic.com": ["8.8.4.4"]}
+        written, upstream = await self.connect("api.anthropic.com:443", table)
+        self.assert_connected(written, upstream, OTHER_PUBLIC)
+
+    async def test_revoked_public_tunnel_keeps_its_slot_until_its_aborts_run(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+
+        def late_abort(revocation):
+            revocation.loop.call_soon_threadsafe(
+                revocation.loop.call_later, 0.3, revocation.fire)
+
+        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
+                patch.object(egress.Revocation, "schedule_abort", late_abort), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            await self.publish("inventory.example.com", PUBLIC)
+            remote.feed_data(b"after protection")
+            await asyncio.sleep(0.1)
+            during_abort = await self.handle("www.ti.com:443")
+            await asyncio.wait_for(tunnel, 2)
+        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", during_abort)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+        self.assertEqual(egress.public_tunnels, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

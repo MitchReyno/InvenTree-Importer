@@ -109,9 +109,10 @@ class Revocation:
         self.loop.call_soon_threadsafe(self.fire)
 
     def fire(self):
-        self.event.set()
+        """Aborts the streams, then sets the event, so the event means they are aborted."""
         for writer in self.streams:
             abort(writer)
+        self.event.set()
 
     def is_set(self):
         return self.revoked
@@ -332,7 +333,9 @@ def connect_target(request_line):
 def provider_answers(host):
     """The provider host's IPv4 answers, or Refused. Blocking; run on PROVIDER_DNS."""
     try:
-        answers = socket.getaddrinfo(host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
+        # An absolute name, so no search domain can supply the answer.
+        answers = socket.getaddrinfo(host + ".", 443, family=socket.AF_INET,
+                                     type=socket.SOCK_STREAM)
     except OSError as error:
         raise Refused("resolution_failed") from error
     return [answer[4][0] for answer in answers]
@@ -504,11 +507,17 @@ async def read_request(reader):
 
 async def close_tunnel(writers, revoked, drop):
     """Closes the streams, giving them CLOSE_TIMEOUT_S to flush, and aborts them at once when
-    `drop` is set or at the deadline. A fired `revoked`, even mid-close, has aborted them."""
+    `drop` is set or at the deadline. A revocation, even mid-close, aborts them; the close
+    waits for that abort, within the same deadline, before it returns."""
     def fired():
-        return revoked is not None and revoked.is_set()
+        return revoked is not None and revoked.event.is_set()
 
-    if fired():
+    if revoked is not None and revoked.is_set():
+        try:
+            await asyncio.wait_for(revoked.wait(), CLOSE_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            for writer in writers:
+                abort(writer)
         return
     if drop:
         for writer in writers:

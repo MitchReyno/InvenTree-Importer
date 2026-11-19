@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import socket
 import stat
+import re
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
@@ -77,8 +78,12 @@ class ToolTurnMounts(unittest.TestCase):
         peer = self.container(runs, "-peer")
         egress = self.container(runs, "-egress")
         worker = self.container(runs, "")
-        self.assertRegex(peer, r"--volume \S+/policy:/run/policy( |$)")
-        self.assertRegex(egress, r"--volume \S+/policy:/run/policy:ro( |$)")
+        written = re.search(r"--volume (\S+/policy):/run/policy( |$)", peer)
+        read = re.search(r"--volume (\S+/policy):/run/policy:ro( |$)", egress)
+        self.assertIsNotNone(written, peer)
+        self.assertIsNotNone(read, egress)
+        # The egress reads the very directory the supervisor writes.
+        self.assertEqual(written.group(1), read.group(1))
         self.assertNotIn("/run/policy", worker)
 
     def test_egress_no_longer_receives_protected_hosts_from_the_environment(self):
