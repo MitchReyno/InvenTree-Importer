@@ -162,19 +162,22 @@ class ProtectedLookups:
         with self.lock:
             if addresses is None:
                 self.failed = True
+                for _address, revocation, public_request in self.tunnels.values():
+                    if public_request:
+                        revocation.mark()
                 return
             self.known[name] = self.known.get(name, set()) | set(addresses)
-            for address, revocation in self.tunnels.values():
+            for address, revocation, _public_request in self.tunnels.values():
                 if address in addresses:
                     revocation.mark()
 
-    def watch(self, address):
-        """A Revocation fired once any protected lookup shows `address` is protected, and a
-        function that stops watching. Register before the first check, so no update falls
-        between them."""
+    def watch(self, address, public_request):
+        """A Revocation fired once any protected lookup shows `address` is protected, or, for
+        a public request, once a protected lookup fails; and a function that stops watching.
+        Register before the first check, so no update falls between them."""
         revocation = Revocation()
         with self.lock:
-            self.tunnels[revocation] = (normalized(address), revocation)
+            self.tunnels[revocation] = (normalized(address), revocation, public_request)
 
         def stop():
             with self.lock:
@@ -187,10 +190,10 @@ class ProtectedLookups:
         lookup has failed; otherwise stops watching every answer but `kept`. One step under the
         publication lock, so nothing is published in between."""
         with self.lock:
-            if any(revocation.is_set() for revocation in revocations):
-                raise Refused("protected_destination")
             if public_request and self.failed:
                 raise Refused("resolution_failed")
+            if any(revocation.is_set() for revocation in revocations):
+                raise Refused("protected_destination")
             for revocation in revocations:
                 if revocation is not kept:
                     self.tunnels.pop(revocation, None)
@@ -374,13 +377,13 @@ async def open_first(addresses, guard, public_request):
     host, even when it names an address whose dial failed. Returns the streams, the
     Revocation that drops them and the function that stops watching.
     """
-    watches = [PROTECTED_LOOKUPS.watch(address) for address in addresses]
+    watches = [PROTECTED_LOOKUPS.watch(address, public_request) for address in addresses]
 
     def check():
-        if any(revocation.is_set() for revocation, _stop in watches):
-            raise Refused("protected_destination")
         for address in addresses:
             guard(address)
+        if any(revocation.is_set() for revocation, _stop in watches):
+            raise Refused("protected_destination")
 
     kept = None
     try:

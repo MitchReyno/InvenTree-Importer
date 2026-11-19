@@ -58,6 +58,17 @@ function localDatabaseUrl(value: string | undefined) {
   return value
 }
 
+/** The scheduler URL, with the fields DBOS requires when it launches, checked before recovery. */
+function schedulerDatabaseUrl(value: string | undefined) {
+  const checked = localDatabaseUrl(value)
+  const url = new URL(checked)
+  const name = url.pathname.slice(1)
+  if (!url.username || name.length < 1 || name.length > 63) {
+    throw new Error('local_agent_database_required')
+  }
+  return checked
+}
+
 /**
  * The paired VM bridge this worker starts, or undefined without one. Checked before any
  * effect, so a misconfigured worker refuses before it recovers or touches retained sessions.
@@ -91,7 +102,7 @@ async function main() {
     throw new Error('session_agent_configuration_required')
   }
   const vmBridge = vmBridgeConfiguration(process.env, config.profileId)
-  const schedulerUrl = localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL)
+  const schedulerUrl = schedulerDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL)
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))

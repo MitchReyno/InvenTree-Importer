@@ -951,6 +951,38 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(b"200 Connection Established", written)
         self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", written)
 
+    async def test_failed_protected_lookup_stops_open_public_tunnels_only(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        public_stream, public_remote, public_client, public_writer = \
+            await self.held_tunnel("www.ti.com:443")
+        provider_stream, provider_remote, provider_client, provider_writer = \
+            await self.held_tunnel("api.anthropic.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC],
+                 "api.anthropic.com": [OTHER_PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        dials = AsyncMock(side_effect=[(public_remote, public_writer),
+                                       (provider_remote, provider_writer)])
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection", dials):
+            public = asyncio.create_task(egress.handle(public_stream, public_client))
+            await self.until_open(public_client, public)
+            provider = asyncio.create_task(egress.handle(provider_stream, provider_client))
+            await self.until_open(provider_client, provider)
+            await self.publish_failure("inventory.example.com")
+            public_remote.feed_data(b"public after failure")
+            provider_remote.feed_data(b"provider after failure")
+            await asyncio.wait_for(public, 2)
+            await asyncio.sleep(0.05)
+            self.assertFalse(provider.done())
+        relayed = b"".join(call.args[0] for call in public_client.write.call_args_list)
+        self.assertNotIn(b"public after failure", relayed)
+        public_client.transport.abort.assert_called_once()
+        provider_client.write.assert_any_call(b"provider after failure")
+        provider_client.transport.abort.assert_not_called()
+
+    async def publish_failure(self, name):
+        await asyncio.to_thread(egress.PROTECTED_LOOKUPS.publish, name, None)
+
 
 if __name__ == "__main__":
     unittest.main()
