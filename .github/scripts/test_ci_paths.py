@@ -71,6 +71,15 @@ class SelectionTests(unittest.TestCase):
         )
         self.assert_checks(["tooling/inventree-dev/README.md"], "markdown")
 
+    def test_deployment_tooling_selects_the_job_running_its_tests(self):
+        for path in (
+            "tooling/deployment/bridge/guest-egress.py",
+            "tooling/deployment/tests/test_guest_egress.py",
+            "tooling/deployment/bridge/tool-turn.sh",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "intake")
+
     def test_openspec_overlap_tooling_selects_its_node_tests(self):
         for path in ("tooling/openspec/overlap.mjs", "tooling/tests/openspec-overlap.test.mjs"):
             with self.subTest(path=path):

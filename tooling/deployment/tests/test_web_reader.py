@@ -1,10 +1,9 @@
 """Policy checks with synthetic DNS. No private services are contacted."""
-import asyncio
 import importlib.util
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bridge"))
 spec = importlib.util.spec_from_file_location("reader", Path(__file__).resolve().parents[1] /
@@ -60,24 +59,3 @@ class PublicWeb(unittest.TestCase):
             raw = sock.return_value.__enter__.return_value
             raw.connect.assert_called_once_with(("1.1.1.1", 443))
             tls.return_value.wrap_socket.assert_called_once_with(raw, server_hostname="example.com")
-
-class ProviderTunnel(unittest.IsolatedAsyncioTestCase):
-    async def test_shared_public_address_does_not_open_an_upstream_socket(self):
-        script = Path(__file__).resolve().parents[1] / "bridge/claude-egress.py"
-        module_spec = importlib.util.spec_from_file_location("provider_egress", script)
-        egress = importlib.util.module_from_spec(module_spec)
-        module_spec.loader.exec_module(egress)
-        stream = asyncio.StreamReader()
-        stream.feed_data(b"CONNECT api.anthropic.com:443 HTTP/1.1\r\n\r\n")
-        stream.feed_eof()
-        client = Mock()
-        client.drain = AsyncMock()
-        address = [(2, 1, 6, "", ("1.1.1.1", 443))]
-        with patch.object(egress, "PROTECTED", {"inventory.example"}), \
-                patch.object(egress, "HOSTS", {"api.anthropic.com"}), \
-                patch.object(asyncio.get_running_loop(), "getaddrinfo", return_value=address), \
-                patch.object(egress.socket, "getaddrinfo", return_value=address), \
-                patch.object(egress.asyncio, "open_connection") as upstream:
-            await egress.handle(stream, client)
-            upstream.assert_not_called()
-            client.close.assert_called_once()

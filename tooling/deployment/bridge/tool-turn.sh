@@ -42,7 +42,7 @@ else
 fi
 docker run -d --name "$name-egress" --read-only --cap-drop=ALL --security-opt=no-new-privileges \
   --pids-limit=24 --memory=64m --env "$envarg" --env "INTAKE_VM_PROTECTED_HOSTS=$protected" \
-  --volume "$turn/egress:/run/egress" "$image" python3 /opt/guest-tools/claude-egress.py >/dev/null
+  --volume "$turn/egress:/run/egress" "$image" python3 /opt/guest-tools/guest-egress.py >/dev/null
 if [ -f "$directory/browser-seccomp.json" ]; then
   set -- --security-opt "seccomp=$directory/browser-seccomp.json" "$@"
 fi
