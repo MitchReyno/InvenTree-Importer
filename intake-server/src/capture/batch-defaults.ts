@@ -15,6 +15,9 @@ import { agentSettings } from '#/agents/schema.ts'
 import type { CatalogueReader, CatalogueRecordLookup } from './catalogue.ts'
 import { fail, type CaptureBinding as Binding } from './model.ts'
 import { batchDefaults } from './schema.ts'
+import { requireCurrentTargetContext } from './target-context.ts'
+
+type SavedRow = { revision: bigint; locationPk: bigint | null; supplierPk: bigint | null }
 
 function defaultsScope(binding: Binding) {
   return and(
@@ -42,6 +45,25 @@ async function lookup(
   return catalogue ? catalogue.record(model, pk.toString()) : { status: 'unavailable' }
 }
 
+/**
+ * Catalogue lookups for these PKs, fenced on both sides so a rotated target context never
+ * answers for, or with records from, the retired one.
+ */
+async function fencedLookups(
+  pool: Pool,
+  binding: Binding,
+  catalogue: CatalogueReader | undefined,
+  pks: { location: bigint | null; supplier: bigint | null },
+) {
+  await requireCurrentTargetContext(pool, binding)
+  const [location, supplier] = await Promise.all([
+    lookup(catalogue, 'location', pks.location),
+    lookup(catalogue, 'supplier', pks.supplier),
+  ])
+  await requireCurrentTargetContext(pool, binding)
+  return { location, supplier }
+}
+
 function shown(
   pk: bigint | null,
   found: CatalogueRecordLookup | undefined,
@@ -56,6 +78,19 @@ function shown(
   }
 }
 
+function defaultsResult(
+  row: SavedRow,
+  found: Awaited<ReturnType<typeof fencedLookups>>,
+): BatchDefaultsDto {
+  const result = {
+    revision: row.revision.toString(),
+    location: shown(row.locationPk, found.location),
+    supplier: shown(row.supplierPk, found.supplier),
+  }
+  validate('BatchDefaults', result)
+  return result
+}
+
 /** The saved defaults, each checked against InvenTree so Settings can name it or say it's gone. */
 export async function readBatchDefaults(
   pool: Pool,
@@ -64,19 +99,29 @@ export async function readBatchDefaults(
 ): Promise<BatchDefaultsDto> {
   const row = await savedRow(pool, binding)
   if (!row) {
+    await requireCurrentTargetContext(pool, binding)
     return { revision: '0', location: null, supplier: null }
   }
-  const [location, supplier] = await Promise.all([
-    lookup(catalogue, 'location', row.locationPk),
-    lookup(catalogue, 'supplier', row.supplierPk),
-  ])
-  const result = {
-    revision: row.revision.toString(),
-    location: shown(row.locationPk, location),
-    supplier: shown(row.supplierPk, supplier),
+  const found = await fencedLookups(pool, binding, catalogue, {
+    location: row.locationPk,
+    supplier: row.supplierPk,
+  })
+  return defaultsResult(row, found)
+}
+
+/** A newly chosen record must exist; an unchanged one may have gone missing since it was saved. */
+function requireChosen(
+  chosen: bigint | null,
+  saved: bigint | null | undefined,
+  found: CatalogueRecordLookup | undefined,
+) {
+  if (chosen === null || chosen === saved || found?.status === 'found') {
+    return
   }
-  validate('BatchDefaults', result)
-  return result
+  if (found?.status === 'not_found') {
+    fail('batch_default_not_found', 422)
+  }
+  fail('catalogue_unavailable', 503)
 }
 
 export async function saveBatchDefaults(
@@ -84,13 +129,21 @@ export async function saveBatchDefaults(
   binding: Binding,
   input: BatchDefaultsUpdateDto,
   catalogue: CatalogueReader | undefined,
-) {
+): Promise<BatchDefaultsDto> {
   validate('BatchDefaultsUpdate', input)
   const values = {
     locationPk: input.location_pk === null ? null : BigInt(input.location_pk),
     supplierPk: input.supplier_pk === null ? null : BigInt(input.supplier_pk),
   }
-  await transaction(pool, async (client) => {
+  const previous = await savedRow(pool, binding)
+  const found = await fencedLookups(pool, binding, catalogue, {
+    location: values.locationPk,
+    supplier: values.supplierPk,
+  })
+  requireChosen(values.locationPk, previous?.locationPk, found.location)
+  requireChosen(values.supplierPk, previous?.supplierPk, found.supplier)
+  const row = await transaction(pool, async (client) => {
+    await requireCurrentTargetContext(client, binding)
     const db = queryDatabase(client)
     const written =
       input.expected_revision === '0'
@@ -119,11 +172,10 @@ export async function saveBatchDefaults(
               )
               .returning(),
           )
-    if (!written.length) {
-      fail('revision_conflict', 412)
-    }
+    return written[0] ?? fail('revision_conflict', 412)
   })
-  return readBatchDefaults(pool, binding, catalogue)
+  // The committed row, not a later read, so a save never reports another tab's values.
+  return defaultsResult(row, found)
 }
 
 /** What a new batch copies at creation, resolved before its transaction opens. */
@@ -175,10 +227,10 @@ export async function resolveCreationDefaults(
         ),
     ),
   ])
-  const [location, supplier] = await Promise.all([
-    lookup(catalogue, 'location', row?.locationPk ?? null),
-    lookup(catalogue, 'supplier', row?.supplierPk ?? null),
-  ])
+  const { location, supplier } = await fencedLookups(pool, binding, catalogue, {
+    location: row?.locationPk ?? null,
+    supplier: row?.supplierPk ?? null,
+  })
   return {
     ...(location?.status === 'found' && location.record.kind === 'location'
       ? { location: location.record }

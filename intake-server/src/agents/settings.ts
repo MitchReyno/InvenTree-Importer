@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import {
   AGENT_MODEL_SUGGESTIONS,
   AGENT_SETTINGS_STAGES,
@@ -29,14 +29,6 @@ function settingsScope(binding: CaptureBinding) {
   )
 }
 
-function providerScope(binding: CaptureBinding) {
-  return and(
-    eq(agentProviderSettings.actorId, binding.actorId),
-    eq(agentProviderSettings.targetId, binding.targetId),
-    eq(agentProviderSettings.targetContextId, binding.targetContextId),
-  )
-}
-
 function providerOff(provider: AgentProviderId): AgentProviderSettingsDto {
   return {
     enabled: false,
@@ -59,29 +51,41 @@ export function unsavedAgentSettings(): AgentSettingsDto {
   }
 }
 
+type ProviderRow = {
+  provider: AgentProviderId
+  enabled: boolean
+  authentication: AgentProviderSettingsDto['authentication']
+  default_model: string
+}
+
 export async function readAgentSettings(
   client: Pool | PoolClient,
   binding: CaptureBinding,
   lock = false,
 ): Promise<AgentSettingsDto> {
-  const db = queryDatabase(client)
-  const query = db.select().from(agentSettings).where(settingsScope(binding))
+  // One statement, so the provider rows always come from the same save as their parent row.
+  const query = queryDatabase(client)
+    .select({
+      row: agentSettings,
+      providers: sql<ProviderRow[]>`(
+        SELECT coalesce(json_agg(json_build_object(
+          'provider', p.provider, 'enabled', p.enabled,
+          'authentication', p.authentication, 'default_model', p.default_model)), '[]'::json)
+        FROM ${agentProviderSettings} p
+        WHERE p.actor_id = ${agentSettings.actorId}
+          AND p.target_id = ${agentSettings.targetId}
+          AND p.target_context_id = ${agentSettings.targetContextId})`,
+    })
+    .from(agentSettings)
+    .where(settingsScope(binding))
   const rows = await executeDatabaseQuery(lock ? query.for('share') : query)
-  const row = rows[0]
-  if (!row) {
+  if (!rows[0]) {
     return unsavedAgentSettings()
   }
-  // Provider rows change only with their parent row, which the share lock above holds.
-  const providerRows = await executeDatabaseQuery(
-    db.select().from(agentProviderSettings).where(providerScope(binding)),
-  )
+  const { row, providers: providerRows } = rows[0]
   const providers = { claude: providerOff('claude'), codex: providerOff('codex') }
-  for (const provider of providerRows) {
-    providers[provider.provider] = {
-      enabled: provider.enabled,
-      authentication: provider.authentication,
-      default_model: provider.defaultModel,
-    }
+  for (const { provider, ...settings } of providerRows) {
+    providers[provider] = settings
   }
   return {
     revision: row.revision.toString(),
@@ -98,7 +102,8 @@ export async function readAgentSettings(
 /** Refuses settings that could seal an attempt on a provider that is off or an invalid model. */
 function checkAgentSettings(input: AgentSettingsUpdateDto) {
   const on = PROVIDERS.filter((provider) => input.providers[provider].enabled)
-  const defaultOn = input.default_provider !== null && input.providers[input.default_provider].enabled
+  const defaultOn =
+    input.default_provider !== null && input.providers[input.default_provider].enabled
   const invalid =
     on.some((provider) => !MODEL_ID.test(input.providers[provider].default_model)) ||
     (on.length > 0 ? !defaultOn : input.default_provider !== null) ||

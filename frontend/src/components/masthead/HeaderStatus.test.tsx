@@ -1166,3 +1166,36 @@ test('the server menu says where approvals write for a live target too', async (
     'Approvals write to this InvenTree, your live inventory.',
   )
 })
+
+test('a background read that started before a check never replaces its result', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await screen.findByText('InvenTree unreachable')
+  let finishRead: ((value: ConnectionStatusDto) => void) | undefined
+  vi.mocked(api.connection).mockImplementation(
+    () =>
+      new Promise<ConnectionStatusDto>((resolve) => {
+        finishRead = resolve
+      }),
+  )
+  // The page regains focus: a read starts and is still running when the check answers.
+  act(() => {
+    window.dispatchEvent(new Event('focus'))
+  })
+  const reachable = connection()
+  api.checkConnection = vi.fn(async () => ({
+    ...reachable,
+    target: { ...reachable.target, state: 'reachable', failure_code: null },
+  }))
+  await user.click(screen.getByRole('button', { name: 'Connection status' }))
+  const panel = screen.getByRole('dialog', { name: 'Connection details' })
+  await user.click(within(panel).getByRole('button', { name: 'Check connection now' }))
+  expect(await screen.findAllByText('inventory.example.test')).not.toHaveLength(0)
+  expect(finishRead, 'the background read is running').toBeDefined()
+  await act(async () => {
+    finishRead?.(connection())
+    await new Promise((done) => setTimeout(done, 50))
+  })
+  expect(screen.queryByText('InvenTree unreachable')).toBeNull()
+})

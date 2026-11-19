@@ -11,8 +11,11 @@ PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings
 - **2026-11-19T15:59+11:00, task 5 (PR-B):** The sessions-at-once stepper stays inside the current `AgentSettingsForm`, under Providers, because it shares that form's one Save with provider, sign-in and model. Sessions holds Pause all for now; the stepper moves to Sessions when task 9 rebuilds the forms in PR-D.
 
 - **2026-11-19, task 6 (PR-C):** Until task 9 adds the provider cards, the current form still edits one provider. Saving it turns the chosen provider on as the default and keeps the other provider's saved values, so switching from Claude to Codex leaves Claude on.
-- **2026-11-19, task 7 (PR-C):** design.md lists an `UPDATE` grant on `capture_batch.creation_notices`. It isn't needed: the notices are known before the creation transaction and written with the batch row, which the batch identity trigger then keeps unchanged. Dismissing Capture's banner is held in the page and lasts until reload.
+- **2026-11-19, task 7 (PR-C):** design.md listed an `UPDATE` grant on `capture_batch.creation_notices`; it isn't needed, and design.md is updated: the notices are known before the creation transaction and written with the batch row, which the batch identity trigger then keeps unchanged. Dismissing Capture's banner is held in the Capture tab, so it shows again when Capture is opened again.
 - **2026-11-19, task 8 (PR-C):** The import reference shown read-only in Settings › InvenTree is `bi1:‹batch source›:‹lot›`, built by `contributionBarcode()` in `intake-server/src/execution/plan.ts`. It isn't configurable, so the row is text, not a field.
+
+- **2026-11-19, review round 1 (PR-C):** design.md said rolling back the code was enough. Startup requires the exact migration list, so older code refuses a database with `0032`; rollback is restoring the pre-upgrade archive, and design.md now says so.
+- **2026-11-19, review round 1 (PR-C):** Settings › Batch defaults refuses a newly chosen record that InvenTree doesn't have (`batch_default_not_found`, 422) or that can't be checked (`catalogue_unavailable`, 503). A saved record deleted later can still be kept or cleared.
 
 ## Unexpected challenges
 

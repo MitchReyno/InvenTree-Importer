@@ -93,7 +93,7 @@ export function ConnectionDetails({
         ]}
       />
       {target?.failure_code === 'unauthorized' && (
-        <Line>InvenTree refused the read token. Replace it in Server settings.</Line>
+        <Line>InvenTree refused the read token. It is set in the server's environment.</Line>
       )}
       {target?.kind === 'owned_test' && (
         <Line>Approvals write only to this test InvenTree, never to a real one.</Line>

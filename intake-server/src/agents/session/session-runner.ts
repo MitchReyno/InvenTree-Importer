@@ -336,7 +336,8 @@ function inboxText(item: { id: string; seq: bigint; kind: string; payload: unkno
 const STYLE_GUIDANCE =
   'Write each Part description you propose in the pattern part_description_style gives, the operator’s saved style. It is still one line of at most 250 characters.'
 
-function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: boolean) {
+/** Exported for tests. */
+export function openingText(manifest: ProcessingInputV6Dto, pending: number, resumed: boolean) {
   if (resumed) {
     return `You have ${pending} new inbox item(s). Call read_inbox and continue.`
   }

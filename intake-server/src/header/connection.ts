@@ -132,6 +132,8 @@ export function connectionStatus(
   probe?: () => Promise<Response>,
   now: () => number = Date.now,
   version?: () => Promise<Response>,
+  /** Monotonic milliseconds for the forced-check window, so a clock change can't skip it. */
+  elapsed: () => number = () => performance.now(),
 ): ConnectionStatusReader {
   const scope = {
     actor_id: binding.actorId,
@@ -218,12 +220,16 @@ export function connectionStatus(
       await pending
       return latest()
     }
-    const sinceForced = lastForced === undefined ? Infinity : now() - lastForced
-    if (completed && sinceForced >= 0 && sinceForced < MIN_FORCED_CHECK_INTERVAL_MS) {
+    // The window runs from when the last forced check finished, however long it took.
+    if (
+      completed &&
+      lastForced !== undefined &&
+      elapsed() - lastForced < MIN_FORCED_CHECK_INTERVAL_MS
+    ) {
       return latest()
     }
-    lastForced = now()
     await probeNow(url!, probe!)
+    lastForced = elapsed()
     return latest()
   }
 

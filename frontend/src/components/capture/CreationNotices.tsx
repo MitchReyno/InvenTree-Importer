@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import styled from 'styled-components'
+import { space } from '#/theme/generated/tokens'
 import type { CaptureCreationNoticeDto } from '@invimport/contracts'
 import { Banner, Button } from '#/components/ui'
 
@@ -10,14 +12,14 @@ function sentence({ field, code }: CaptureCreationNoticeDto) {
     : `InvenTree couldn't be checked for the ${FIELD[field]} saved in Settings, so this batch started without it.`
 }
 
-/** Says which app-level defaults a new batch couldn't copy; dismissing hides it until reload. */
+/** Says which app-level defaults a new batch couldn't copy; dismissing hides it while Capture stays open. */
 export function CreationNotices({ notices }: { notices: readonly CaptureCreationNoticeDto[] }) {
   const [dismissed, setDismissed] = useState(false)
   if (dismissed || !notices.length) {
     return null
   }
   return (
-    <div role="status">
+    <Notice role="status">
       <Banner
         tone="info"
         action={
@@ -28,6 +30,10 @@ export function CreationNotices({ notices }: { notices: readonly CaptureCreation
       >
         {notices.map(sentence).join(' ')} Set it in Batch settings if you need it.
       </Banner>
-    </div>
+    </Notice>
   )
 }
+
+const Notice = styled.div`
+  margin-bottom: ${space[8]};
+`

@@ -296,6 +296,8 @@ test('a forced check skips the cache, reuses one in flight and is held to one pe
       })
     },
     () => clock,
+    undefined,
+    () => clock,
   )
   // A background read completes; a forced check right after it still probes.
   const background = status()
@@ -331,9 +333,34 @@ test('a refused token is told apart from other failures', async () => {
     const read = connectionStatus(
       binding,
       'https://inventory.example.invalid/',
-      async () =>
-        new Response('{}', { status, headers: { 'content-type': 'application/json' } }),
+      async () => new Response('{}', { status, headers: { 'content-type': 'application/json' } }),
     )
     assert.equal((await read.check()).target.failure_code, failure)
   }
+})
+
+test('the forced-check window runs from when a slow check finished', async () => {
+  let clock = 100000
+  let calls = 0
+  let settle: ((value: Response) => void) | undefined
+  const status = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    () => {
+      calls += 1
+      return new Promise<Response>((resolve) => {
+        settle = resolve
+      })
+    },
+    () => clock,
+    undefined,
+    () => clock,
+  )
+  const slow = status.check()
+  clock += 4000
+  settle?.(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+  await slow
+  clock += 2000
+  await status.check()
+  assert.equal(calls, 1, 'two seconds after it finished, no new probe')
 })

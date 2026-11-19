@@ -144,9 +144,7 @@ export function CaptureWorkspace({
         </PageNotice>
       )}
       {batch.creation_notices && (
-        <PageNotice>
-          <CreationNotices key={batch.id} notices={batch.creation_notices} />
-        </PageNotice>
+        <CreationNotices key={batch.id} notices={batch.creation_notices} />
       )}
       <CaptureGrid data-capture-grid>
         <EvidencePanel

@@ -84,7 +84,8 @@ async function captureApi() {
     credentialRef: 'batch_defaults_fixture',
     apiKey: 'fake-only',
   }
-  const state = { down: false, lookups: 0 }
+  // `deleted` holds `model:pk` keys removed from InvenTree after they were saved.
+  const state = { down: false, lookups: 0, deleted: new Set<string>() }
   const catalogue: CatalogueReader = {
     search: async () => {
       throw new Error('unused')
@@ -100,7 +101,7 @@ async function captureApi() {
       if (state.down) {
         return { status: 'unavailable' }
       }
-      const record = records[model].get(pk)
+      const record = state.deleted.has(`${model}:${pk}`) ? undefined : records[model].get(pk)
       return record ? { status: 'found', record } : { status: 'not_found' }
     },
   }
@@ -170,15 +171,27 @@ test('batch defaults save under a revision and name each saved record on read', 
     const stale = await api.saveDefaults('0', '12', null)
     assert.equal(stale.status, 412)
     assert.equal(stale.value.code, 'revision_conflict')
-    await api.saveDefaults('1', '99', null)
+    // A newly chosen record must exist, and must be checkable.
+    const missing = await api.saveDefaults('1', '99', null)
+    assert.equal(missing.status, 422)
+    assert.equal(missing.value.code, 'batch_default_not_found')
+    api.state.down = true
+    assert.equal((await api.saveDefaults('1', '12', '7')).status, 503)
+    api.state.down = false
+    // A saved record deleted later is reported, and an unchanged one can still be saved.
+    api.state.deleted.add('location:11')
     assert.deepEqual((await api.http('/batch-defaults')).value.location, {
-      pk: '99',
+      pk: '11',
       label: null,
       status: 'not_found',
     })
+    const kept = await api.saveDefaults('1', '11', null)
+    assert.equal(kept.status, 200)
+    assert.equal(kept.value.revision, '2')
+    assert.equal(kept.value.supplier, null)
     api.state.down = true
     assert.deepEqual((await api.http('/batch-defaults')).value.location, {
-      pk: '99',
+      pk: '11',
       label: null,
       status: 'unavailable',
     })
@@ -277,7 +290,8 @@ test('a new batch copies the defaults into its first revision through the picker
 test('a default that no longer exists, or cannot be checked, is left out and noted', async () => {
   const api = await captureApi()
   try {
-    await api.saveDefaults('0', '99', '7')
+    await api.saveDefaults('0', '11', '7')
+    api.state.deleted.add('location:11')
     const missing = await api.createBatch()
     assert.deepEqual(missing.defaults.location, { mode: 'unset' })
     assert.deepEqual(missing.creation_notices, [{ field: 'location', code: 'default_not_found' }])
@@ -327,6 +341,33 @@ test('Settings pickers read the catalogue without a batch', async () => {
     assert.equal(candidates.status, 200)
     assert.equal(candidates.value.candidates.length, 2)
     assert.equal((await api.http('/catalogue/part/candidates')).status, 400)
+  } finally {
+    await api.dispose()
+  }
+})
+
+test('a rotated target context refuses batch defaults and a batch that would copy them', async () => {
+  const api = await captureApi()
+  try {
+    await api.saveDefaults('0', '11', null)
+    const next = randomUUID()
+    await api.db.pool.query('INSERT INTO target_context VALUES ($1,$2,2,$3)', [
+      next,
+      api.identity.target,
+      Buffer.alloc(32, 1),
+    ])
+    await api.db.pool.query('UPDATE target SET current_context_id=$1 WHERE id=$2', [
+      next,
+      api.identity.target,
+    ])
+    const lookups = api.state.lookups
+    const read = await api.http('/batch-defaults')
+    assert.equal(read.status, 409)
+    assert.equal(read.value.code, 'target_context_changed')
+    assert.equal(api.state.lookups, lookups, 'refused before any catalogue lookup')
+    const created = await api.http('/batches', { title: 'After rotation', note: '' })
+    assert.equal(created.status, 409)
+    assert.equal(created.value.code, 'target_context_changed')
   } finally {
     await api.dispose()
   }

@@ -29,6 +29,7 @@ import {
   type CaptureCreationNoticeDto,
   captureIntentFromLegacy,
 } from '@invimport/contracts'
+import { requireCurrentTargetContext } from './target-context.ts'
 import type { CreationDefaults } from './batch-defaults.ts'
 import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { fail, type CaptureBinding } from './model.ts'
@@ -1322,6 +1323,10 @@ export function captureRepository(pool: Pool, config: Binding) {
     /** `defaults` are the app-level values resolved for this batch before the transaction. */
     async create(key: string, input: { title: string; note: string }, defaults?: CreationDefaults) {
       return command('capture_create', 'batches', key, input, async (c) => {
+        // Records looked up for the defaults belong to this context; refuse once it has rotated.
+        if (defaults?.location || defaults?.supplier) {
+          await requireCurrentTargetContext(c, config)
+        }
         const id = randomUUID()
         const source = randomUUID()
         const stream = randomUUID()

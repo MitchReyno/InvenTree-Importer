@@ -39,8 +39,12 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
       assertHeaderScope(result, scope)
       return result
     },
-    onSuccess: (result) =>
-      queryClient.setQueryData(serverQueryKey(scope, 'header-connection'), result),
+    // A read already running started before the check, so it must not replace the result.
+    onSuccess: async (result) => {
+      const key = serverQueryKey(scope, 'header-connection')
+      await queryClient.cancelQueries({ queryKey: key })
+      queryClient.setQueryData(key, result)
+    },
   })
   useOnForeground(() => {
     void connection.refetch()

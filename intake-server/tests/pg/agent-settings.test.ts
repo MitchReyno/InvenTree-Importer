@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AgentSettingsUpdateDto, ProcessingInputV6Dto } from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
-import { lotSession, seedPhoto } from '../support/sessions.ts'
+import { seedPhoto } from '../support/sessions.ts'
 import { singleProvider } from '../support/agent-settings.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 import { readAgentSettings, saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
@@ -17,7 +17,7 @@ import { createSessionAttempt } from '#/processing/session-attempts.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
 import { sessionProfiles } from '#/processing/session-policy.ts'
-import { runSessionTurn } from '#/agents/session/session-runner.ts'
+import { openingText, runSessionTurn } from '#/agents/session/session-runner.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -341,20 +341,18 @@ test('migration 0032 carries an existing selection over to its provider, on', as
   }
 })
 
-test('the style reaches the opening message only, and the instructions keep their digest', async () => {
+test('the style sealed at queue time reaches the opening turn only, outside the instructions', async () => {
   const fixture = await processingFixture()
   const root = await mkdtemp(join(tmpdir(), 'description-style-'))
   try {
+    await saveAgentSettings(fixture.api.pool, fixture.config, bothProviders('0'))
     const capture = await fixture.seedCapture()
-    const style = 'Type, key values, package, then variant'
-    const session = await lotSession(fixture, capture, capture.packetA, {
-      state: 'queued',
-      profile: {
-        id: 'native-agent/2',
-        agent: { provider: 'claude', authentication: 'api_key', model: 'sonnet' },
-        settingsRevision: '1',
-        partDescriptionStyle: style,
-      },
+    // Images runs on the default provider, Claude.
+    const attempt = await queueLotAttempt(fixture, capture, capture.packetA.id, 'images')
+    // Saved while the attempt waits for a slot: it keeps the style it was queued with.
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      ...bothProviders('1'),
+      part_description_style: 'Something else entirely',
     })
     const turns: { text: string; instructions: string }[] = []
     const deps = {
@@ -369,15 +367,23 @@ test('the style reaches the opening message only, and the instructions keep thei
         },
       },
     }
-    await runSessionTurn(deps, session.attempt, new AbortController().signal)
+    await runSessionTurn(deps, attempt.attemptId, new AbortController().signal)
     assert.equal(turns.length, 1)
-    const opening = JSON.parse(turns[0].text) as { part_description_style?: string }
+    const opening = JSON.parse(turns[0].text) as {
+      part_description_style?: string
+      instructions: string
+    }
+    const style = 'Type, key values, package, then variant'
     assert.equal(opening.part_description_style, style)
+    assert.match(opening.instructions, /in the pattern part_description_style gives/)
     assert.equal(turns[0].instructions.includes(style), false)
     assert.equal(
       createHash('sha256').update(turns[0].instructions, 'utf8').digest('hex'),
       sessionProfiles['native-agent/2'].instructionDigest,
     )
+    // A resumed turn carries only its inbox count.
+    const resumed = openingText(await sealedInput(fixture, attempt.inputId), 1, true)
+    assert.equal(resumed.includes(style), false)
   } finally {
     await fixture.dispose()
     await rm(root, { recursive: true, force: true })
