@@ -458,11 +458,13 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0.01)
             second = await self.handle("www.ti.com:443")
             wrong_port = await self.handle("www.ti.com:22")
+            private_suffix = await self.handle("other.internal:443")
             provider = await self.handle("api.anthropic.com:443")
             remote.feed_eof()
             await held
         self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", second)
         self.assertIn(b"X-Bench-Refusal: destination_refused\r\n", wrong_port)
+        self.assertIn(b"X-Bench-Refusal: destination_refused\r\n", private_suffix)
         self.assertTrue(provider.startswith(b"HTTP/1.1 200"), provider)
 
     async def test_idle_public_tunnel_closes_but_one_way_traffic_keeps_it_open(self):
@@ -577,6 +579,49 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", during_close)
         client.transport.abort.assert_called_once()
         self.assertEqual(egress.public_tunnels, 0)
+
+    async def test_protected_private_suffix_name_keeps_its_reason_at_the_cap(self):
+        self.write_policy(protected_hosts=["inventory.internal"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        self.guest_dns = Mock(side_effect=dns({"www.ti.com": [PUBLIC]}))
+        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            held = asyncio.create_task(egress.handle(stream, client))
+            while not client.write.called:
+                await asyncio.sleep(0.01)
+            protected = await self.handle("inventory.internal:443")
+            remote.feed_eof()
+            await held
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", protected)
+
+    async def test_provider_tunnel_is_dropped_when_a_late_lookup_protects_its_address(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        table = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table, delays={"inventory.example.com": 0.3}))
+
+        async def upstream_sends():
+            await asyncio.sleep(0.1)
+            remote.feed_data(b"before")
+            await asyncio.sleep(0.5)
+            remote.feed_data(b"after")
+            remote.feed_eof()
+
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.05), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            sending = asyncio.create_task(upstream_sends())
+            await asyncio.wait_for(egress.handle(stream, client), 2)
+            await sending
+        delivered = b"".join(call.args[0] for call in client.write.call_args_list)
+        self.assertTrue(delivered.startswith(b"HTTP/1.1 200"), delivered)
+        self.assertIn(b"before", delivered)
+        self.assertNotIn(b"after", delivered)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
 
 
 if __name__ == "__main__":

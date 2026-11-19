@@ -15,7 +15,6 @@ from pathlib import Path
 from guest_destinations import (
     Refused,
     check_public_form,
-    check_public_syntax,
     configured_hosts,
     connection_order,
     dns_name,
@@ -137,7 +136,8 @@ class ProtectedLookups:
         for known, waiter in refreshes:
             fresh = waiter.result() if waiter.done() else None
             blocked |= fresh if fresh is not None else known
-        return blocked
+        late = [waiter for _known, waiter in refreshes if not waiter.done()]
+        return blocked, late
 
     def latest(self, protected):
         """Every address a protected name is known to have now, including lookups that
@@ -223,13 +223,24 @@ async def provider_addresses(host, protected):
     except BaseException:
         deny.cancel()
         raise
+    blocked, late = await deny
     # Lookups that finished after the budget, while the provider lookup ran, still count.
-    blocked = await deny | PROTECTED_LOOKUPS.latest(protected)
+    blocked |= PROTECTED_LOOKUPS.latest(protected)
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
-    return connection_order(addresses)
+    return connection_order(addresses), late
+
+
+async def protected_watch(late, address, protected):
+    """Returns once a protected lookup still running at admission shows `address` is protected;
+    otherwise waits until the tunnel ends."""
+    for finished in asyncio.as_completed(late):
+        await finished
+        if normalized(address) in PROTECTED_LOOKUPS.latest(protected):
+            return
+    await asyncio.get_running_loop().create_future()
 
 
 def provider_guard(protected):
@@ -240,19 +251,29 @@ def provider_guard(protected):
     return guard
 
 
-async def checked_addresses(host, port):
-    """Addresses to try, in order, all of them checked, and a recheck to run before each dial;
-    or Refused."""
+def current_protection():
+    """This turn's policy and every protected entry: the environment's and the policy's."""
     policy = load_policy()
-    protected = PROTECTED | (policy["protected_hosts"] if policy else set())
-    if host in HOSTS and port == 443:
-        return await provider_addresses(host, protected), provider_guard(protected)
+    return policy, PROTECTED | (policy["protected_hosts"] if policy else set())
+
+
+def check_public_request(host, port, policy, protected):
+    """Every DNS-free check for a public CONNECT, run before it takes a tunnel slot."""
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     check_public_form(host, port, protected)
+
+
+async def checked_addresses(host, port, provider, protected):
+    """Addresses to try, in order, all of them checked; a recheck to run around each dial; and
+    the protected lookups still running, which must not confirm the connected address. Or
+    Refused."""
+    if provider:
+        addresses, late = await provider_addresses(host, protected)
+        return addresses, provider_guard(protected), late
     try:
         # public_target resolved every protected name for this request; nothing to recheck.
-        return await PUBLIC_DNS.run(public_target, host, port, protected), None
+        return await PUBLIC_DNS.run(public_target, host, port, protected), None, []
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
@@ -283,7 +304,7 @@ async def open_first(addresses, guard=None):
                 abort(upstream)
                 upstream.close()
                 raise
-        return remote, upstream
+        return remote, upstream, address
     raise failure
 
 
@@ -358,31 +379,35 @@ async def handle(reader, client):
     upstream = None
     tasks = []
     counted = False
-    idle_expired = False
+    drop = False
     try:
         host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
+        policy, protected = current_protection()
         if not provider:
-            check_public_syntax(host, port)
+            check_public_request(host, port, policy, protected)
             # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
             # provider, which is never counted.
             if public_tunnels >= MAX_PUBLIC_TUNNELS:
                 raise Refused("too_many_connections")
             public_tunnels += 1
             counted = True
-        addresses, guard = await checked_addresses(host, port)
-        remote, upstream = await open_first(addresses, guard)
+        addresses, guard, late = await checked_addresses(host, port, provider, protected)
+        remote, upstream, address = await open_first(addresses, guard)
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()
         tasks = [asyncio.create_task(copy(reader, upstream, activity)),
                  asyncio.create_task(copy(remote, client, activity))]
-        watch = None
+        watches = []
         if not provider:
-            watch = asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S))
-            tasks.append(watch)
+            watches.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))
+        if late:
+            watches.append(asyncio.create_task(protected_watch(late, address, protected)))
+        tasks += watches
         done, _running = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        idle_expired = watch in done
+        # An idle tunnel, or one to an address now known to be protected, is dropped at once.
+        drop = any(watch in done for watch in watches)
     except Refused as refusal:
         await refuse(client, refusal.reason)
     except (OSError, ValueError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
@@ -392,7 +417,7 @@ async def handle(reader, client):
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        if idle_expired:
+        if drop:
             abort(upstream)
             abort(client)
         if counted:

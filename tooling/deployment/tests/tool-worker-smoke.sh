@@ -22,10 +22,18 @@ provider = {"claude.sock": "api.anthropic.com", "codex.sock": "chatgpt.com"}[pat
 
 
 def connect(host):
+    """The proxy's response header, read through its terminator within 10 s and 8 KiB."""
+    reply = b""
     with socket.socket(socket.AF_UNIX) as tunnel:
+        tunnel.settimeout(10)
         tunnel.connect(egress)
         tunnel.sendall(f"CONNECT {host}:443 HTTP/1.1\r\n\r\n".encode())
-        return tunnel.recv(4096)
+        while b"\r\n\r\n" not in reply and len(reply) < 8192:
+            chunk = tunnel.recv(4096)
+            if not chunk:
+                break
+            reply += chunk
+    return reply
 
 
 # The provider still connects, so the refusal below comes from the policy, not a dead proxy.
