@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `harden-native-agent-sessions`, linked to [BI-010](../../../docs/PLANNED_FUNCTIONALITY.md#bi-010--harden-native-agent-sessions). Follow the [proposal and reuse assessment](proposal.md), [design](design.md) and [acceptance delta](specs/processing-agent-sessions/spec.md). Implementation is in progress; unchecked actions remain pending.
+Canonical change: `harden-native-agent-sessions`, linked to [BI-010](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-010--harden-native-agent-sessions). Follow the [proposal and reuse assessment](proposal.md), [design](design.md) and [acceptance delta](specs/processing-agent-sessions/spec.md). Implementation is in progress; unchecked actions remain pending.
 
 ## Completion and commit ordering
 
