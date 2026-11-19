@@ -56,7 +56,12 @@ export function WebResearchForm({ web, ...props }: Props) {
 
     return (
       <SettingsCard aria-label="Web research">
-        <SettingRow label="Web research" help={HELP} disabledReason={NO_WEB}>
+        <SettingRow
+          label="Web research"
+          help={HELP}
+          disabledReason={NO_WEB}
+          disabledBadge="Not for this profile"
+        >
           {({ disabled }) => (
             <Stack>
               {box(PUBLIC_PAGES, saved.public_pages, disabled)}

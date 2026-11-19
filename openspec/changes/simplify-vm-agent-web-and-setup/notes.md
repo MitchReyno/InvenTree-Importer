@@ -45,6 +45,7 @@ Implementation of `simplify-vm-agent-web-and-setup` (BI-017) started with PR-A (
 - **2026-11-20T09:30+11:00, task 3 (PR-C):** Agent settings carry the two values as one `web` object, `{ public_pages, prefer_datasheets }`, the same shape as the sealed input, stored in two new columns (migration `0034`) that default to on, so a row saved before the migration reads them as on. The input schema version is unchanged (`bench-intake-input/6`), since BI-016 didn't bump it.
 - **2026-11-20T09:30+11:00, task 3 (PR-C):** Profiles without web access seal `web` explicitly as both off, rather than leaving it out, so every new attempt's input says what it ran with. Synthetic sessions carry no agent settings and seal none.
 - **2026-11-20T09:30+11:00, task 3 (PR-C):** Settings › Agents reads readiness to decide whether the profile has web access. Until readiness answers, or if it fails, the settings stay usable: disabling them on an unknown state would hide the saved values for no reason, and saving them changes nothing for a profile without web access.
+- **2026-11-20T13:30+11:00, task 3 (PR-C):** `DisabledFeature` always showed "Coming later", which is wrong for settings that work under another profile. It and `SettingRow` take an optional badge, and Web research shows "Not for this profile". Every other deferred row keeps "Coming later".
 
 ## Open items
 

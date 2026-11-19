@@ -1020,6 +1020,9 @@ describe('Web research', () => {
         expect((box as HTMLInputElement).checked).toBe(checked)
       }
       expect(within(card('Web research')).queryByRole('button', { name: 'Save' })).toBeNull()
+      // These settings work elsewhere, so they don't claim to be coming later.
+      expect(within(card('Web research')).getByText('Not for this profile')).toBeVisible()
+      expect(within(card('Web research')).queryByText('Coming later')).toBeNull()
       expect(api.saveSettings).not.toHaveBeenCalled()
     })
   }
