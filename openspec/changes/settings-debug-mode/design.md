@@ -204,12 +204,11 @@ Reads already in flight finish with the old value. A refused or failed probe wri
 
 ### Debug mode as a device-local controller plus two components
 
-`frontend/src/debug/debug-mode.ts` copies the theme controller:
+`frontend/src/debug/debug-mode.ts` follows the masthead-style controller (`frontend/src/theme/masthead-style.ts`):
 
-- key `bench-intake.debug`;
-- try/catch read and write;
-- an in-memory fallback;
-- `useDebugMode()` through `useSyncExternalStore`.
+- it reads and writes key `bench-intake.debug` (`on` or `off`) through the shared `readPreference`/`writePreference` helpers (`frontend/src/theme/device-preference.ts`), which tolerate missing or throwing storage;
+- an in-memory value keeps the choice for the session when storage fails;
+- `useDebugMode()` reads it through `useSyncExternalStore`.
 
 There are two display components in `components/ui`:
 
