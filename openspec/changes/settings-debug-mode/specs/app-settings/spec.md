@@ -72,7 +72,7 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 
 **Sessions.** SHALL hold sessions at once, as a stepper from 1 to 8 with the current slot use, shared by both providers. It SHALL offer Pause all agents through the existing pause command used by the Agents page, and read slot use from the existing agent sessions read.
 
-**Provider and model per step.** For each of Examine, Research, Images and Inventory, a step SHALL offer "Default" (the default provider's default model) or any model of a provider that is on, grouped by provider. Turning a provider off SHALL show its steps as "Default", with a note that their choice was reset, before saving.
+**Provider and model per step.** For each of Examine, Research, Images and Inventory, a step SHALL offer "Default" (the default provider's default model) or a provider that is on with a model for it, suggested from that provider's presets or typed. Turning a provider off SHALL show its steps as "Default", with a note that their choice was reset, before saving.
 
 **Instructions.** SHALL hold "Instructions for every new batch", up to the batch instruction length limit, copied into each batch created after saving.
 

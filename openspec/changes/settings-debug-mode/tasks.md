@@ -47,7 +47,7 @@ All PRs target `interactive-app`.
 | Bundle | Outcome | Tasks | Why together | Prerequisites and order | Branch and subject | Gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-P | Reviewed plan, design canvas references, BI index | 1 | Planning only | None; first | `docs/settings-debug-mode` · `docs(settings-debug-mode): plan settings, debug mode and dev tools` | `openspec validate --strict`, `pnpm openspec:overlap --change settings-debug-mode`, independent review |
-| PR-A | Debug mode, its gating, Debug panels and the Dev mode popover | 2, 3, 4 | One frontend capability with one preference; no server change | After PR-P | `feat/settings-debug-mode-debug` · `feat(settings-debug-mode): add debug mode and dev tools popover` | Frontend checks, demo recording, independent review, green CI |
+| PR-A | Debug mode, its gating, Debug panels and the Dev mode popover | 2, 3, 4 | One capability with one preference; its only server change is adding `recovery` to the failure summary, so recovery still shows with debug mode off | After PR-P | `feat/settings-debug-mode-debug` · `feat(settings-debug-mode): add debug mode and dev tools popover` | Frontend checks, demo recording, independent review, green CI |
 | PR-B | Settings nav with Agents subsections and Descriptions moved | 5 | Pure frontend restructure, separately reviewable; rows stay deferred | After PR-P; independent of PR-A | `feat/settings-debug-mode-structure` · `feat(settings-debug-mode): group agent settings under Agents` | Frontend checks, demo recording, review, CI |
 | PR-C | Server and contracts for new settings, per-step sealing, style delivery, batch defaults, creation snapshot and the forced check | 6, 7, 8 | One migration and one contract regeneration; server tests cover them together | After PR-P | `feat/settings-debug-mode-server` · `feat(settings-debug-mode): store app settings and check the connection on demand` | intake-server suites, contracts generation check, review, CI |
 | PR-D | Working Settings rows, including the provider cards and per-step providers, and docs | 9, 10 | Needs PR-B's structure and PR-C's contracts | After PR-B and PR-C | `feat/settings-debug-mode-forms` · `feat(settings-debug-mode): make the deferred settings work` | Full frontend checks, demo recording, review, CI |
@@ -111,32 +111,38 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 
 - PR delivery: PR-A.
 - Outcome: With debug mode off, every developer detail listed in the proposal is gone. With it on, each shows as a `DebugDetails` block, and each main screen has a `DebugPanel`.
-- Scope:
-  - `agents/SessionFailureDetails.tsx` (Show details only in debug mode; category, summary and recovery always);
-  - `processing/QuestionAnswer.tsx`, `ProcessingSources.tsx` and `ExamineView.tsx`;
-  - `capture/EvidencePanel.tsx`, `HumanNote.tsx` and `CaptureContextSummary.tsx`;
-  - `media/MediaNoteSummary.tsx` and `operator/InstructionForm.tsx`;
-  - `batches/Batch.tsx` (revision JSON);
-  - `changes/ReadyToAdd.tsx`, `RoundOutcome.tsx`, `PartAttachments.tsx` and `AttachmentOutcome.tsx`;
-  - `masthead/ConnectionDetails.tsx` (the Details disclosure);
-  - Debug panels on Batches, the batch tabs, Agents and Settings, built from data already held (route, IDs, revisions, `LiveUpdatesContext`, `getQueryState`).
+- Scope (frontend paths under `frontend/src/components/`):
+  - session failures:
+    - `SessionFailureSummary` gains `recovery` (`contracts/src/session-failures.ts`, projected in `intake-server/src/agents/failures.ts`), with the generated client regenerated;
+    - `agents/SessionFailureDetails.tsx` shows category, summary and recovery always, and Show details (reading the details on demand) only in debug mode;
+  - `processing/QuestionAnswer.tsx`, `processing/ProcessingSources.tsx` and `processing/ExamineView.tsx`;
+  - `capture/EvidencePanel.tsx`, `capture/HumanNote.tsx` and `capture/CaptureContextSummary.tsx`;
+  - `media/MediaNoteSummary.tsx` (the inline "Version N" and the provenance disclosure) and `operator/InstructionForm.tsx`;
+  - the evidence viewers: `media/MediaEvidenceCard.tsx` ("Retained byte identity") and `operator/EvidenceViewer.tsx` (Details);
+  - `batches/Batch.tsx` (the inline "revision N" and the revision JSON);
+  - `changes/ReadyToAdd.tsx`, `changes/RoundOutcome.tsx`, `changes/PartAttachments.tsx` and `changes/AttachmentOutcome.tsx`;
+  - `masthead/ConnectionDetails.tsx` (the Details disclosure, including API and transport observations);
+  - Debug panels on Batches, the batch tabs, Agents and Settings, built from data already held: the route, IDs, revisions, `LiveUpdatesContext`, and the screen's own `useQuery` results.
 - Prerequisites: Task 2.
 - Acceptance:
-  - debug-mode › "Developer details hidden when debug mode is off" and "Debug panel per screen";
-  - processing-agent-sessions › "Failed session with debug mode off";
+  - debug-mode › "Developer details hidden when debug mode is off", "Developer details marked when debug mode is on" and "Debug panel per screen";
+  - processing-agent-sessions › "Categorized failures with diagnostic disclosure" (debug mode off and on);
   - ui-design-system › "Provenance on demand";
-  - header-connection-status › "Connection diagnostics only in debug mode".
+  - header-connection-status › "Independent connection observations" (debug mode off and on) and "Connection diagnostics only in debug mode".
 - TDD approach:
-  - RED: parameterized tests render each call site off and on and assert the technical text is absent and then present. Also, the Debug panel with a failed read shows "failed" and starts no request.
+  - RED: parameterized tests render each call site off and on and assert the technical text is absent and then present.
+  - RED: the Debug panel with a failed read shows "failed" and starts no request.
+  - RED: a failed session shows recovery with debug mode off and sends no details request.
+  - RED: a server test checks that the failure summary carries `recovery`.
   - Existing tests that expect these details always visible are updated to turn debug mode on, with a note in the PR.
-- Verification: The full frontend checks, and a browser pass on one screen per tab in both modes.
+- Verification: The full frontend checks, the intake-server failure tests and the contracts generation check, and a browser pass on one screen per tab in both modes.
 - Risks:
   - A detail some test or flow relies on, such as the approval binding text, could be hidden. Review each one for operator need.
   - InvenTree record numbers stay visible.
 
 - [ ] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
 - [ ] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
-- [ ] 3.3 GREEN: wrap each call site in `DebugDetails`, removing its bespoke disclosure.
+- [ ] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
 - [ ] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
 - [ ] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
 - [ ] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
@@ -150,7 +156,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - the `ConnectionDetails.tsx` pill stays static;
   - the popover content uses `Popover` with role `dialog` and the readiness query, enabled only while open.
 - Prerequisites: Task 2.
-- Acceptance: debug-mode › "Dev mode popover" (keyboard; readiness unavailable); access-identity › "Masthead mode badge".
+- Acceptance: debug-mode › "Dev mode popover" and "Dev mode popover is accessible" (all scenarios); access-identity › "Access development-key bootstrap" › "Masthead mode badge".
 - TDD approach: RED tests for opening by Enter, `aria-expanded`, switching debug mode, Escape returning focus, no readiness request until opened, readiness failure, and phone-width shortened label.
 - Verification: The frontend checks, plus a browser check at 360px.
 - Risks: The masthead's decorative layer clipping the popover, which `Popover` already portals around.
@@ -166,8 +172,9 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - PR delivery: PR-B.
 - Outcome:
   - The Settings nav lists Agents (with sub-nav), InvenTree, Batch defaults, Appearance and Developer.
-  - Settings › Agents is one page with six subsections.
+  - Settings › Agents is one page with seven subsections.
   - Descriptions and naming and "Suggest tags automatically" have moved in.
+  - The "Fill descriptions for" Parts switch shows on, still disabled, because agents already write Part descriptions.
   - `#settings/descriptions` redirects.
   - Deferred rows keep their `DisabledFeature` explanations.
 - Scope:
@@ -208,18 +215,21 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
     - grants in `processing/grants.ts`;
   - `agents/schema.ts` and `agents/settings.ts`, which keep writing the default provider's values into the old columns;
   - `contracts/src/agents.ts` (replace `selection`) and the generated client;
-  - every server and frontend reader of `selection`, including the Agents page summary;
-  - a pure `resolveSelection(settings, stage)` used by `processing/session-attempts.ts`;
-  - validation that returns `invalid_agent_settings`;
-  - the instruction delivery path for the style (`agents/instructions.ts` or the session runner's first message), sealed by settings revision.
+  - every reader and writer of `selection`:
+    - the server callers `processing/session-attempts.ts`, `processing/model.ts` `nativeInputManifest` and `processing/examine-trigger.ts`, each keeping its current outcome when nothing resolves;
+    - the Agents page summary;
+    - the current `frontend/src/components/agents/AgentSettingsForm.tsx`, its tests, `settings/AgentsSection.test.tsx` and the `settings/fixtures/SettingsProof.tsx` fixture. These are adapted to the new shape, still editing only the default provider, until task 9 replaces the form, so PR-C passes typecheck, tests and build on its own;
+  - a pure `resolveSelection(settings, stage)` used by those three callers;
+  - validation that returns `invalid_agent_settings`, with models checked against the ID pattern only;
+  - the style sealed as text in the session input (`contracts/src/processing.ts`, `processing/session-attempts.ts`) and appended to the opening message by `openingText()` in `agents/session/session-runner.ts`.
 - Prerequisites: None.
 - Acceptance: provider-runtime (all scenarios, including "Steps on different providers" and "Existing settings carried over"); processing-agent-sessions › "Part description style delivered to sessions"; the app-settings server-side scenarios (stale revision; description style too long, enforced server-side at 500; no provider on).
 - TDD approach:
   - RED tests:
     - `resolveSelection` unit cases: the step's choice, Default, a step on a provider that is off, the default provider off;
-    - Postgres-tier tests: round-trip and conflict, each `invalid_agent_settings` case, the migration of a single-selection row, a Research attempt sealed on Codex with its own sign-in method beside a Claude Images attempt, style delivered once with the profile digest unchanged, and style over 500 characters refused.
+    - Postgres-tier tests: round-trip and conflict, each `invalid_agent_settings` case, the migration of a single-selection row (including a model outside the presets), a Research attempt sealed on Codex with its own sign-in method beside a Claude Images attempt, the style sealed at queue time and unchanged by a save while queued, the style delivered only in the opening message with the profile digest unchanged, and style over 500 characters refused.
   - Each fails because the tables, columns and logic don't exist yet.
-- Verification: The intake-server test tiers, the contracts generation check, `pnpm lint:readability`, and the frontend typecheck for `selection` readers.
+- Verification: The intake-server test tiers, the contracts generation check, `pnpm lint:readability`, and the full frontend checks (`pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`).
 - Risks:
   - Grants missing for new columns or tables, which the test tier catches.
   - A missed `selection` reader, which the typecheck catches.
@@ -231,7 +241,8 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [ ] 6.5 GREEN: add the settings read and write, the old-column mirror and the validation.
 - [ ] 6.6 GREEN: resolve and seal each stage's provider and model.
 - [ ] 6.7 GREEN: deliver the style.
-- [ ] 6.8 Refactor, then run the server suites, the frontend typecheck and the readability checks.
+- [ ] 6.8 GREEN: adapt the current form, its tests and the fixture to the new shape.
+- [ ] 6.9 Refactor, then run the server suites, the full frontend checks and the readability checks.
 
 ## 7. Batch defaults storage and new-batch snapshot
 
@@ -241,21 +252,30 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - Batch creation copies the default location, default supplier, Auto tags value and new-batch instructions into revision 1.
   - Missing records are skipped and recorded.
   - A batch-free catalogue read lets Settings pick existing locations and companies.
-- Scope:
+- Scope (server paths under `intake-server/src/`):
   - `batch_defaults` repository and routes;
-  - `capture/repository.ts` `create()`;
-  - the catalogue reader exposed without a batch;
-  - contracts and client;
-  - a Capture-visible note code for a missing default.
+  - a public single-record lookup on `CatalogueReader` (`capture/catalogue.ts`), used before the creation transaction, and a batch-free search for the Settings pickers;
+  - `capture/repository.ts` `create()`:
+    - catalogue observations for the resolved records;
+    - the default location through the existing default-location write;
+    - supplier and Auto tags through the existing settings-intent write, which also writes `capture_context`;
+    - a version-1 whole-batch `capture_instruction`;
+  - a nullable `capture_batch.creation_notices` column returned on the capture snapshot, with Capture's dismissible info banner. Never a `capture_note`;
+  - contracts and client.
 - Prerequisites: Task 6, for the migration and agent settings fields.
-- Acceptance: capture-batch-settings (all scenarios); app-settings › "Default location no longer exists" and "Stale batch defaults" (server side).
-- TDD approach: RED tests for the route conflict, the snapshot contents at creation, a missing location skipped with its note, and a later default change not altering an existing batch.
-- Verification: The server suites and the contracts check.
+- Acceptance: capture-batch-settings › "New batches start from app-level defaults" and "Unresolvable defaults are left out"; app-settings › "Default location no longer exists" and "Stale batch defaults" (server side).
+- TDD approach: RED tests for:
+  - the route conflict;
+  - the snapshot contents at creation, including the observations and `capture_context`;
+  - Processing input and the Review fingerprint seeing the copied supplier;
+  - a missing location skipped and recorded in `creation_notices`, with no `capture_note`;
+  - a later default change not altering an existing batch.
+- Verification: The server suites, the contracts check, and the frontend checks for the banner.
 - Risks: The catalogue lookup sits outside the creation transaction, so a record deleted between the lookup and the insert is accepted. That is acceptable, because the batch later reconciles through the existing review freshness.
 
 - [ ] 7.1 Confirm the `create()` and catalogue reader paths as the baseline.
 - [ ] 7.2 RED: write the route and snapshot tests.
-- [ ] 7.3 GREEN: build the routes, the batch-free catalogue read, the snapshot and the missing-default note.
+- [ ] 7.3 GREEN: build the routes, the catalogue lookups, the snapshot through the existing writes, `creation_notices` and the Capture banner.
 - [ ] 7.4 Refactor, then run the server suites.
 
 ## 8. Forced connection check
@@ -270,9 +290,9 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - contracts and client;
   - `masthead/ConnectionDetails.tsx` and `settings/InvenTreeSection.tsx` (status row; the import reference shown read-only; Replace token is task 11).
 - Prerequisites: None.
-- Acceptance: header-connection-status › "Connection check on demand" (all scenarios); app-settings › "Check now with a refused token" and "Check now while a check is running".
+- Acceptance: header-connection-status › "Connection check on demand", "Token refusal reported separately" and "Forced checks are rate limited" (all scenarios except "Credential replaced", which is task 11); app-settings › "Check now with a refused token" and "Check now while a check is running".
 - TDD approach:
-  - RED server tests: reuse in flight, the 5-second window, the 401 mapping, and the cache updated.
+  - RED server tests: reuse in flight, the 5-second window counted from forced checks only (a check right after a background poll still probes), the 401 mapping, and the cache updated.
   - RED frontend tests: the button states, Refused wording, and no double request.
 - Verification: The server suites and the frontend checks.
 - Risks: A probe deadline longer than the click rate, which in-flight reuse covers.
@@ -347,10 +367,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - "Use the environment token" reverts.
   - Approvals and bootstrap are unchanged.
 - Scope:
-  - `INTAKE_SECRETS_DIR` in `intake-server/src/config.ts`, plus a launcher default under the development state directory (`tooling/dev/settings.cjs`) and the env template;
+  - `INTAKE_SECRETS_DIR` in `intake-server/src/config.ts`, plus the launcher default `secrets/` under the development state directory. The pure `tooling/dev/settings.cjs` resolves it before supervision starts, so the default is computed from the prepared state root in `tooling/dev.cjs` and `tooling/dev/stack.cjs`, and the variable is added to the allowlist in `tooling/dev/environment.cjs`. The env template gets it too;
   - a `CredentialHolder` read by `inventory/transport.ts` on each request;
   - startup loading in `main.ts`, refusing a file readable by other users;
-  - `PUT` and `DELETE /api/v1/inventory-credential`, with check-then-save and an atomic `0600` write;
+  - `PUT` and `DELETE /api/v1/inventory-credential`, with check-then-save and an atomic `0600` write, and both clearing the cached connection observation and the forced-check window;
   - request-log redaction;
   - `credential_source` and `saved_at` in connection status;
   - contracts and client;
@@ -358,7 +378,8 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Prerequisites: Task 8, for the status row and the probe it reuses.
 - Acceptance:
   - access-identity › "Access server-only credentials" (all scenarios);
-  - app-settings › "Replace the token", "Replacement refused", "Go back to the environment token".
+  - app-settings › "Replace the token", "Replacement refused", "Go back to the environment token";
+  - header-connection-status › "Forced checks are rate limited" › "Credential replaced".
 - TDD approach:
   - RED server tests:
     - the probe runs before the write, and a refusal or unreachable target writes nothing;
@@ -392,7 +413,7 @@ For each PR:
 - raise it with no reviewers;
 - merge once review is clean and CI is green.
 
-Then update the BI items to their actual status; Done only after PR-D merges. Sync and archive the change after delivery, running `pnpm openspec:overlap --change settings-debug-mode` first.
+Then update the BI items to their actual status; BI-016 is Done only after PR-A to PR-E have all merged. Sync and archive the change after delivery, running `pnpm openspec:overlap --change settings-debug-mode` first.
 
 - [ ] PR-A reviewed, published and merged
 - [ ] PR-B reviewed, published and merged

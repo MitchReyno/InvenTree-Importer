@@ -4,9 +4,9 @@
 
 ### Requirement: Categorized failures with diagnostic disclosure
 
-Processing and session history SHALL display a failure category, an actionable summary and its recovery guidance.
+Processing and session history SHALL display a failure category, an actionable summary and its recovery guidance. The failure summary read SHALL carry the recovery guidance, so showing it needs no details read.
 
-**Show details.** When debug mode is on, they SHALL also offer an accessible Show details button. With debug mode off, the button and the diagnostic panel SHALL NOT render.
+**Show details.** When debug mode is on, they SHALL also offer an accessible Show details button. It reads the details on demand and shows them as a debug-marked panel. With debug mode off, the button and the diagnostic panel SHALL NOT render, and no details read is made.
 
 **Retained details.** Details SHALL retain safe technical context across reloads, obey session read scope and exclude sensitive data before persistence, whatever the debug mode.
 
@@ -22,7 +22,7 @@ Processing and session history SHALL display a failure category, an actionable s
 
 - **GIVEN** a failed provider turn and debug mode off
 - **WHEN** the operator opens its Processing view or session-history entry
-- **THEN** the category, summary and recovery guidance are shown, and no Show details button, error code or ID is present
+- **THEN** the category, summary and recovery guidance are shown, no Show details button, error code or ID is present, and no failure details request is sent
 
 #### Scenario: Legacy and unknown failures
 
@@ -40,13 +40,19 @@ Processing and session history SHALL display a failure category, an actionable s
 
 ### Requirement: Part description style delivered to sessions
 
-When a Part description style is saved, each session queued afterwards that may propose a Part description SHALL receive the style as operator guidance, alongside its other instructions. The settings revision it came from SHALL be sealed in the attempt. The style SHALL NOT change the profile's digest-verified instruction bytes. It SHALL NOT relax the existing description validation: one line, at most 250 characters. A session already queued or running SHALL keep the guidance it was sealed with.
+Each attempt queued after a Part description style is saved SHALL seal the style text itself in its input, and the session SHALL receive it as operator guidance in its opening message. The style SHALL NOT change the profile's digest-verified instruction bytes or relax the existing description validation (one line, at most 250 characters). A later save SHALL NOT change what a queued or running attempt received.
 
 #### Scenario: Style reaches a new session
 
 - **GIVEN** a saved style "Type, key values, package, then variant"
-- **WHEN** a Research session for a lot is queued
-- **THEN** its delivered instructions contain the style, its attempt records the settings revision, and a proposed description over 250 characters is still rejected with the existing correctable error
+- **WHEN** a Research session for a lot is queued and starts
+- **THEN** its opening message contains the style, its sealed input holds the same text, and a proposed description over 250 characters is still rejected with the existing correctable error
+
+#### Scenario: Style changed while queued
+
+- **GIVEN** an attempt queued with style A and waiting for a slot
+- **WHEN** the operator saves style B and the attempt then starts
+- **THEN** the session receives style A, and only attempts queued after the save receive B
 
 #### Scenario: No style saved
 

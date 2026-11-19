@@ -18,7 +18,7 @@ Requested outcome (Mitch, 2026-11-19):
 - **Agent settings in one place.** Move agent-behaviour settings that live outside Settings › Agents into it, as subsections reached by sub-nav links under the Agents sidebar link.
 - **Replace token** is included (follow-up the same day).
 - **Independent providers.** Configure Claude and Codex separately, each on or off with its own sign-in and default model, rather than picking one, so steps can mix providers (follow-up the same day).
-- **Design first.** Update the design canvas, including every Settings page, before this proposal. Canvas v66 holds one artboard per Settings section, plus "Debug mode off and on", "Dev mode popover" and the Masthead component. The section artboards are "Settings › Agents (subsections with sub-nav)", "Settings › InvenTree", "Settings › Batch defaults", "Settings › Appearance" and "Settings › Developer". The design log records them as D32 to D35.
+- **Design first.** Update the design canvas, including every Settings page, before this proposal. Canvas v67 holds one artboard per Settings section, plus "Debug mode off and on", "Dev mode popover" and the Masthead component. The section artboards are "Settings › Agents (subsections with sub-nav)", "Settings › InvenTree", "Settings › Batch defaults", "Settings › Appearance" and "Settings › Developer". The design log records them as D32 to D35.
 
 ## Change identity and linked items
 
@@ -37,30 +37,34 @@ Linked items:
 
 ## Current behavior and evidence
 
-**Deferred rows.** Each is wrapped in `DisabledFeature`, which renders a "Coming later" pill (`frontend/src/components/ui/DisabledFeature.tsx:149`):
+**Deferred rows.** Each is wrapped in `DisabledFeature`, which renders a "Coming later" pill (`frontend/src/components/ui/DisabledFeature.tsx:149`). Frontend paths in this table are under `frontend/src/components/`; server paths are under `intake-server/src/`.
 
 | Row | Where | What exists today |
 | --- | --- | --- |
-| Model per step | `settings/AgentsSection.tsx:153` | One selection per actor and target (`agent_settings`, `intake-server/src/agents/schema.ts:21`). Each attempt seals the selection and settings revision when it is queued (`processing/session-attempts.ts:59-64`), and that code already knows `job.stage`. |
-| Instructions for every new batch | `AgentsSection.tsx:171` | Per-batch `capture_instruction` (migration 0008) with delivery in `agents/instructions.ts`. Batch creation inserts only a title and a note (`capture/repository.ts:1220-1250`). |
-| Web research switches | `AgentsSection.tsx:178` | See "Web research today" below. |
+| Model per step | `settings/AgentsSection.tsx:153` | One selection per actor and target (`agent_settings`, `agents/schema.ts:21`). Each attempt seals the selection and settings revision when it is queued (`processing/session-attempts.ts:59-64`), and that code already knows `job.stage`. |
+| Instructions for every new batch | `settings/AgentsSection.tsx:171` | Per-batch `capture_instruction` (migration 0008) with delivery in `agents/instructions.ts`. Batch creation inserts only a title and a note (`capture/repository.ts:1220-1250`). |
+| Web research switches | `settings/AgentsSection.tsx:178` | See "Web research today" below. |
 | API token Check now / Replace token | `settings/InvenTreeSection.tsx:69` | `GET /api/v1/connection-status` probes the target with the token (`inventory/transport.ts:240`). The result is cached for 30 s (`header/connection.ts:8`), and a 401 is not told apart from other failures (`http_error`, `connection.ts:63`). The token is `INTAKE_DEV_API_KEY`, used only for the read-only inventory transport built at boot (`main.ts:110-119`); it also decides bootstrap's development-key status (`config.ts:58`). Approvals run in a separate runner process with their own credential profile (`review/runner-main.ts:65-127`). |
+| Import reference prefix | `settings/InvenTreeSection.tsx:85` | Fixed as `bi1:${source}:${contribution}` (`execution/plan.ts:57-61`) and re-verified by plan and effects code. |
+| Default location, default supplier | `settings/BatchDefaultsSection.tsx` | Per batch only: `capture_selection` defaults and `capture_settings_intent` (migrations 0002, 0014). |
+| Suggest tags automatically | `settings/BatchDefaultsSection.tsx:40` | Per-batch `shared_tags.auto`, which adds an automation note to agent input (`capture/context-input.ts:69-84`). |
+| Tag every Part with its batch name | `settings/BatchDefaultsSection.tsx:40` | Nothing. |
+| Fill descriptions for, Part description style, Supplier part descriptions | `settings/DescriptionsSection.tsx` | Agents propose only the Part description (250 characters, `processing/catalogue.ts:65`). The session instructions are a fixed string (`agents/session/session-runner.ts:57`), and the profile instruction bytes are digest-verified (`processing/authority.ts:73`). |
 
-**Provider selection.** `AgentSettings` holds one `selection` (provider, authentication, model) and `session_concurrency` (`contracts/src/agents.ts:19`). Every attempt seals that one selection. The credential panels for both providers already exist side by side (`settings/AgentsSection.tsx`). Codex sessions are still labelled `native_unverified`, because BI-010 is blocked on Codex's code-mode tools.
+**Provider selection.** `AgentSettings` holds one `selection` (provider, authentication, model) and `session_concurrency` (`contracts/src/agents.ts:19`). Every attempt seals that one selection.
+
+- The model is free text: the form offers suggestions from a `PRESETS` list in `frontend/src/components/agents/AgentSettingsForm.tsx:51`, and the contract only checks the ID pattern (`contracts/src/agent-selection.ts`).
+- The credential panels for both providers already sit side by side (`frontend/src/components/settings/AgentsSection.tsx`).
+- Codex sessions are still labelled `native_unverified`, because BI-010 is blocked on Codex's code-mode tools.
 
 **Web research today.**
 
-- Sessions in the VM guest (the `pnpm dev` default) get shell tools. The runner image ships `bench-web`, which does anonymous public HTTPS document reads (`tooling/deployment/README.md:167`, `runner.Dockerfile:10`).
-- The non-VM native adapters disable web access (`agents/codex.ts:13`, `agents/claude.ts:62`).
-- The readiness value `research: 'unqualified'` is a fixed string (`main.ts:206`). It describes the fixture-only restricted research broker (`openspec/specs/research-broker`), not the VM's `bench-web`.
-- No BI item or change plans to qualify research, or to let the switches control `bench-web`.
-| Import reference prefix | `InvenTreeSection.tsx:85` | Fixed as `bi1:${source}:${contribution}` (`execution/plan.ts:57-61`) and re-verified by plan and effects code. |
-| Default location, default supplier | `settings/BatchDefaultsSection.tsx` | Per batch only: `capture_selection` defaults and `capture_settings_intent` (migrations 0002, 0014). |
-| Suggest tags automatically | `BatchDefaultsSection.tsx:40` | Per-batch `shared_tags.auto`, which adds an automation note to agent input (`capture/context-input.ts:69-84`). |
-| Tag every Part with its batch name | `BatchDefaultsSection.tsx:40` | Nothing. |
-| Fill descriptions for, Part description style, Supplier part descriptions | `settings/DescriptionsSection.tsx` | Agents propose only the Part description (250 characters, `processing/catalogue.ts:65`). The session instructions are a fixed string (`agents/session/session-runner.ts:57`), and the profile instruction bytes are digest-verified (`processing/authority.ts:73`). |
+- Sessions in the VM guest (the `pnpm dev` default) get shell tools. The runner image ships `bench-web`, which does anonymous public HTTPS document reads (`tooling/deployment/README.md:167`, `tooling/deployment/images/runner.Dockerfile:10`).
+- The non-VM native adapters disable web access (`intake-server/src/agents/codex.ts:13`, `intake-server/src/agents/claude.ts:62`).
+- The readiness value `research: 'unqualified'` is a fixed string (`intake-server/src/main.ts:206`). It describes the fixture-only restricted research broker (`openspec/specs/research-broker`), not the VM's `bench-web`.
+- Agent web access, including provider web search, is separate work outside this change.
 
-**Debug and developer UI shown to everyone.** All paths are under `frontend/src`:
+**Debug and developer UI shown to everyone.** All paths are under `frontend/src/components/` unless they start with `App.tsx`:
 
 - `App.tsx:278` renders `operations/Diagnostics.tsx` under every page.
 - `masthead/ConnectionDetails.tsx:113-129` has a Details disclosure with transport state and the raw `failure_code`.
@@ -69,34 +73,36 @@ Linked items:
   - `processing/QuestionAnswer.tsx:276` shows "Attempt ab12cd34 · question revision N";
   - `processing/ProcessingSources.tsx:12-39` shows raw receipt IDs;
   - `processing/ExamineView.tsx:508` has a region Details disclosure.
-- Capture:
+- Capture and evidence:
   - `capture/EvidencePanel.tsx:107` has a "Retained source identity" disclosure;
   - `capture/HumanNote.tsx:25` has "Note attribution";
   - `capture/CaptureContextSummary.tsx:21` shows record IDs, version and actor;
-  - `media/MediaNoteSummary.tsx:16` has "Note provenance";
+  - `media/MediaNoteSummary.tsx:16-24` shows an inline "Version N" and a "Note provenance" disclosure;
+  - `media/MediaEvidenceCard.tsx:53-59` (Capture's evidence viewer) has a "Retained byte identity" disclosure with byte size, SHA-256 and decoder build;
+  - `operator/EvidenceViewer.tsx:346-355` (Review's evidence viewer) has a Details disclosure with evidence and version IDs;
   - `operator/InstructionForm.tsx:91` shows "Version N".
-- `batches/Batch.tsx:566-592` has a JSON dump of the saved revision.
+- `batches/Batch.tsx:566-592` shows an inline "revision N" and a JSON dump of the saved revision.
 - Changes:
   - `changes/ReadyToAdd.tsx:323` has "Exact approval binding";
   - `changes/RoundOutcome.tsx:293` has "Round details";
   - `changes/PartAttachments.tsx:29` and `changes/AttachmentOutcome.tsx:33` show file hashes and version IDs.
 
-**Dev mode pill.** `masthead/DevBadge.tsx` is rendered unconditionally (`Masthead.tsx:41`, `ConnectionDetails.tsx:98`), as `access-identity` requires. It is a static `<span>`. The only device-local preference is the theme, stored under `bench-intake.theme` in `localStorage` through `theme/theme.ts` and read with `useSyncExternalStore`.
+**Dev mode pill.** `masthead/DevBadge.tsx` is rendered unconditionally (`masthead/Masthead.tsx:41`, `masthead/ConnectionDetails.tsx:98`), as `access-identity` requires. It is a static `<span>`. The only device-local preference is the theme, stored under `bench-intake.theme` in `localStorage` through `frontend/src/theme/theme.ts` and read with `useSyncExternalStore`.
 
 **Settings structure.**
 
 - `settings/Settings.tsx:23` lists five sections.
-- Routes are `#settings/<section>` (`navigation/app-route.ts`).
-- `SettingsNav` (`components/ui`) has no nested items.
+- Routes are `#settings/<section>` (`frontend/src/navigation/app-route.ts`).
+- `SettingsNav` (`ui/SettingsNav.tsx`) has no nested items.
 
 ## Scope and non-goals
 
 **Implemented Settings rows.** Each is stored per actor and target, revision-checked like agent settings, and applied only to sessions and batches started after a save:
 
 - **Independent providers.** Claude and Codex each have an On switch, their own sign-in method, a default model and their credential panel. One provider that is on is the default. Sessions at once stays one shared limit.
-- **Provider and model per step.** Examine, Research, Images and Inventory each take "Default" or any model of a provider that is on, so steps can mix providers. The attempt seals the resolved provider, sign-in method and model. Existing settings migrate to their one provider, on and default, with every step on "Default".
+- **Provider and model per step.** Examine, Research, Images and Inventory each take "Default" or a provider that is on plus a model for it (suggested from that provider's presets, or typed), so steps can mix providers. The attempt seals the resolved provider, sign-in method and model. Existing settings migrate to their one provider, on and default, with every step on "Default".
 - **Instructions for every new batch.** Copied into a new batch as its first whole-batch instruction. Existing batches are unchanged.
-- **Part description style.** Plain-words guidance delivered to sessions that propose Part descriptions, sealed with the settings revision.
+- **Part description style.** Plain-words guidance. Each attempt seals the text itself when it is queued, and the session receives it in its opening message.
 - **Suggest tags for new batches.** The initial value of a new batch's Auto tags.
 - **Default location and default supplier.** Existing InvenTree records only, copied into a new batch's defaults at creation.
 - **API token status and Check now.** A forced connection check that reports Accepted, Refused (a 401 or 403 from the target) or Unavailable, with its time. The masthead's "Check connection now" uses the same check.
@@ -232,8 +238,9 @@ Recommended direction: extend the existing settings storage and delivery paths, 
   - the Dev mode popover;
   - the Diagnostics move.
 - **Docs:** frontend and intake-server architecture and README, `docs/PLANNED_FUNCTIONALITY.md`, and the `complete-design-refresh-backend` README.
-- **Other readers of `selection`:** the Agents page summary and anything else reading `AgentSettings.selection` in the frontend.
-- **Design:** canvas v66 (D32 to D35 in the design log).
+- **Readers and writers of `selection`:** the server callers (`processing/session-attempts.ts`, `processing/model.ts` `nativeInputManifest`, `processing/examine-trigger.ts`), the current `AgentSettingsForm`, its tests and the `SettingsProof` fixture, and the Agents page summary.
+- **Session failures:** `SessionFailureSummary` gains the recovery guidance (`contracts/src/session-failures.ts`, `intake-server/src/agents/failures.ts`), so it shows without the details read.
+- **Design:** canvas v67 (D32 to D35 in the design log).
 - **Prerequisites:** none. The open `default-env-settings` change rewrites `.env.example` and the launcher defaults. Whichever lands second adds `INTAKE_SECRETS_DIR` to that template and launcher.
 
 ## Open decisions and assumptions

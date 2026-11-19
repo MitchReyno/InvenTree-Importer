@@ -8,7 +8,7 @@ No provider or model SHALL be selected implicitly: queuing a `native-agent/1` at
 
 **Resolution.** Each attempt SHALL seal the provider, authentication mode and model resolved for its stage, plus the settings revision it read:
 
-- **The step's own choice.** Used when the step names a provider that is on and one of that provider's models. The authentication mode is the one saved for that provider.
+- **The step's own choice.** Used when the step names a provider that is on and a model for it. The authentication mode is the one saved for that provider.
 - **Otherwise the default.** The default provider, with its authentication mode and default model.
 
 Later settings changes SHALL neither rewrite nor invalidate a sealed attempt.
@@ -17,8 +17,8 @@ Later settings changes SHALL neither rewrite nor invalidate a sealed attempt.
 
 - no provider is on;
 - the default provider is off;
-- a provider's default model isn't one of its models;
-- a step names a provider that is off, or a model that provider doesn't offer.
+- a default model or step model doesn't match the model ID pattern;
+- a step names a provider that is off.
 
 #### Scenario: No default saved
 

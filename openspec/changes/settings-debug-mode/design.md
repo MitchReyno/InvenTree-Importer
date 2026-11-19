@@ -81,18 +81,30 @@ A pure `resolveSelection(settings, stage)` returns the existing `AgentSelection`
 
 - **Step choice:** when the step has a selection whose provider is on, use that provider's authentication and the step's model.
 - **Otherwise:** the default provider's authentication and default model.
-- **Nothing usable:** when the default provider is off or missing, it returns none, and queuing fails with `agent_default_required` as today.
+- **Nothing usable:** when the default provider is off or missing, it returns none. Each caller keeps today's outcome:
+  - `processing/session-attempts.ts` fails with `agent_settings_required` (409);
+  - `processing/model.ts` `nativeInputManifest` fails with `agent_default_required` (422);
+  - `processing/examine-trigger.ts` returns early, so the lead session waits for a default.
 
-`session-attempts.ts` seals that selection, so the manifest shape, the worker and the provider adapters are unchanged. The lead Examine attempt uses the `examine` key.
+All three callers switch from reading `settings.selection` to calling `resolveSelection`. The sealed manifest field keeps its `AgentSelection` shape, so the worker and the provider adapters are unchanged. The lead Examine attempt uses the `examine` key.
 
 **Validation on save.** A save fails with `invalid_agent_settings` (422) when:
 
 - no provider is on;
 - the default provider is off;
-- a default model or step model isn't in that provider's model list (the list the form uses, `contracts/src/agent-selection.ts`);
+- a default model or step model doesn't match the existing model ID pattern (`contracts/src/agent-selection.ts`);
 - a step names a provider that is off.
 
-**Migration.** The existing `provider`, `authentication` and `model` become one enabled provider row and `default_provider`. The other provider gets a disabled row with its first listed model and subscription sign-in. Every step starts on Default, and the revision is unchanged.
+Models stay free text, as today. The form's suggestion lists (`PRESETS` in `frontend/src/components/agents/AgentSettingsForm.tsx:51`) move into the per-provider card unchanged, and the server doesn't restrict models to them. So existing values such as test model IDs keep working.
+
+**Migration.** The existing `provider`, `authentication` and `model` become one enabled provider row and `default_provider`. The other provider gets a disabled row with subscription sign-in and the first model of its suggestion list. Every step starts on Default, and the revision is unchanged.
+
+**Columns and empty settings.**
+
+- The new text columns are `NOT NULL DEFAULT ''`.
+- `auto_tags_default` defaults to `false`.
+- `default_provider` is nullable, and null only while no settings were ever saved.
+- An actor with no saved settings reads `revision: '0'`, both providers off, no default provider, every step Default and empty texts, matching today's `selection: null` case.
 
 **Slots and pausing.** Sessions at once stays one shared limit (`agents/session/slots.ts`), and Pause all is unchanged.
 
@@ -106,21 +118,33 @@ A pure `resolveSelection(settings, stage)` returns the existing `AgentSelection`
 
 ### Snapshot defaults into a batch at creation
 
-`create()` reads `agent_settings` and `batch_defaults` inside its transaction, then inserts:
+A batch default can't be written as a bare row:
 
-- the first `capture_selection` default location, when set;
-- a `capture_settings_intent` revision with the supplier and `shared_tags.auto`;
-- a version-1 whole-batch `capture_instruction` with the creating actor.
+- A default location in `capture_selection` must reference a `capture_observation` in the batch (migration 0002, `capture/repository.ts:456-500`).
+- A supplier in `capture_settings_intent` must reference a company observation.
+- A supplier change must also write the derived batch-level `capture_context`, which Processing, Review fingerprints and lot inheritance read (`capture/settings-intent.ts:347-354`).
 
-A missing location or company is detected with the existing catalogue reader before the transaction. It is recorded as a batch note code that Capture renders, and that value is skipped.
+So creation reuses the Capture write paths instead of inserting rows directly.
+
+1. **Before the transaction:** read `batch_defaults` and `agent_settings`, and resolve the saved location and supplier PKs against InvenTree. This needs a new public single-record lookup on `CatalogueReader` (`capture/catalogue.ts:18-21`; `exactId` is private today).
+2. **Inside the creation transaction:**
+   - insert the catalogue observations for the resolved records, exactly as the Batch settings pickers do;
+   - apply the location through the existing default-location write;
+   - apply the supplier and Auto tags through the existing settings-intent write, which also writes `capture_context`;
+   - insert the version-1 whole-batch `capture_instruction` with the creating actor, when instructions are set.
+3. **Missing defaults:** a default that doesn't resolve is skipped. Its reason is stored on a new nullable `capture_batch.creation_notices` column (`jsonb`, e.g. `[{"field":"location","code":"default_not_found"}]`) and returned on the capture snapshot. It is never stored as a `capture_note`, which Processing treats as human evidence (`processing/model.ts:137-147`). Capture shows it as an info banner the operator can dismiss.
 
 Rejected: live inheritance from the app-level values. It would silently change existing batches and their review freshness.
 
 ### Deliver the Part description style as operator guidance
 
-At queue time the attempt seals `settings_revision`. When the session starts, the runner appends the style text as an operator-guidance block in the first delivered instruction message. This is the same path `instructNewSession` uses, not the fixed system prompt, so `instructionBytes/Digest` stay as they are.
+`agent_settings` is one row that each save overwrites, so sealing only the settings revision would let a save made while an attempt waits for a slot change what it later receives.
 
-Lot sessions (Research, Images, Inventory) and the lead Examine session all receive it, because any of them may propose `catalogue.description`. The existing one-line, 250-character validation is unchanged.
+- **Sealing.** The text itself is sealed into the attempt's input at queue time, as an optional `part_description_style` field on the shared session input (`contracts/src/processing.ts`, around lines 120-133), set by `createSessionAttempt` (`processing/session-attempts.ts:59-77`).
+- **Delivery.** `openingText()` in `agents/session/session-runner.ts` (around lines 336-368) appends it as an operator-guidance paragraph on the opening turn only, not on resumed turns. That keeps it out of the fixed system prompt, so `instructionBytes/Digest` stay as they are.
+- **Not the inbox.** It is not sent through the instruction inbox: `instructNewSession` writes `kind: 'instruction'` inbox rows that a trigger requires to match a `capture_instruction` row (migration 0030).
+- **Which sessions.** Lot sessions (Research, Images, Inventory) and the lead Examine session all receive it, because any of them may propose `catalogue.description`.
+- **Validation.** The existing one-line, 250-character validation is unchanged.
 
 Rejected: editing the profile instruction string. It would change the verified digest per save and break qualification evidence.
 
@@ -129,8 +153,9 @@ Rejected: editing the profile instruction string. It would change the verified d
 The new route is `POST /api/v1/connection-status/check`, CSRF-protected like other commands. It shares the observation cache in `header/connection.ts`:
 
 - An in-flight probe is reused.
-- A probe younger than 5 s (`MIN_FORCED_CHECK_INTERVAL_MS`) returns the cached observation.
+- A forced check within 5 s of the previous forced check (`MIN_FORCED_CHECK_INTERVAL_MS`, tracked separately from the 30 s background cache) returns the cached observation.
 - Otherwise it probes with the existing deadline.
+- Replacing or reverting the read credential clears both the cached observation and the forced-check timestamp, so the next read probes with the new credential.
 
 A 401 or 403 from the target maps to a new `unauthorized` failure code. Other failures keep their codes. The result replaces the cached observation, so the masthead read sees it.
 
@@ -150,7 +175,8 @@ Rejected: a query flag on the GET. It would let a cache refetch force probes, an
 
 1. probes the target with the candidate, using the existing bounded read transport and deadline;
 2. on acceptance, writes a temporary file with mode `0600` and renames it over the saved one;
-3. swaps the credential in a `CredentialHolder` that the read transport reads on each request.
+3. swaps the credential in a `CredentialHolder` that the read transport reads on each request;
+4. clears the cached connection observation (see "Forced connection check").
 
 Reads already in flight finish with the old value. A refused or failed probe writes nothing. Startup loads a saved file when one exists, and otherwise uses `INTAKE_DEV_API_KEY`.
 
@@ -174,18 +200,29 @@ Reads already in flight finish with the old value. A refused or failed probe wri
 There are two display components in `components/ui`:
 
 - **`DebugDetails`** renders its children in a dashed block marked "Debug" only when debug mode is on. Each of the about 15 call sites in the proposal wraps its technical content in it, replacing the bespoke `<details>` disclosures.
-- **`DebugPanel`** is a collapsible panel taking `rows: {label, value}[]`, rendered by each main screen. Batch screens build the rows from data they already hold: the route, batch ID and revision, `LiveUpdatesContext` state, and each TanStack query's `dataUpdatedAt`, `status` and `fetchStatus` read through `useQueryClient().getQueryState`.
+- **`DebugPanel`** is a collapsible panel taking `rows: {label, value}[]`, rendered by each main screen. Batch screens build the rows from data they already hold: the route, batch ID and revision, `LiveUpdatesContext` state, and the `dataUpdatedAt`, `status` and `fetchStatus` of the `useQuery` results the screen already holds, so the panel re-renders with them. Reading `getQueryState` from the query client isn't reactive and isn't used.
 
 Rejected:
 
 - A React context provider holding the flag. The external store is already the pattern, and it needs no provider in tests.
 - A server flag. That is a non-goal.
 
+### Session failures: recovery always, details on demand in debug mode
+
+Today `SessionFailureSummary` carries only `{id, category, summary, details_available}` (`contracts/src/session-failures.ts:22-30`, projected in `intake-server/src/agents/failures.ts:52-58`). The recovery guidance comes only from the details read (`GET /api/v1/agent-sessions/:attemptId/failures/:failureId`) when Show details opens (`frontend/src/components/agents/SessionFailureDetails.tsx:50,79`).
+
+- **Contract.** The summary gains `recovery`, projected from the same retained failure record. So, with debug mode off, the category, summary and recovery show without a details read.
+- **Debug mode on.** Show details stays, reads the details on demand as today, and renders them inside `DebugDetails`.
+- **Debug mode off.** Show details isn't rendered, so no details read happens.
+- **No eager reads.** Failure details are never fetched just because debug mode is on.
+
+PR-A therefore includes this small contract and projection change, beside its frontend work.
+
 ### Settings structure and routes
 
 **Section list.** `SETTINGS_SECTIONS` becomes `agents`, `inventree`, `defaults`, `appearance` and `developer`.
 
-**Agent subsections.** `AGENT_SUBSECTIONS` lists `sessions`, `models`, `instructions`, `descriptions`, `tags` and `research`. `settingsSection()` maps `settings/descriptions` to `agents` plus the `descriptions` subsection.
+**Agent subsections.** `AGENT_SUBSECTIONS` lists `providers`, `sessions`, `models`, `instructions`, `descriptions`, `tags` and `research`. `settingsSection()` maps `settings/descriptions` to `agents` plus the `descriptions` subsection.
 
 **Nav.** `SettingsNav` gains optional `children` per section, rendered as nested links with `aria-current="location"` for the current subsection.
 
@@ -242,10 +279,19 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
     - Revert deletes it;
     - no secrets directory gives `secret_store_unavailable`;
     - the token is absent from every response and log line, checked with a planted value;
-  - `create()` snapshot, including a missing location;
+  - `create()` snapshot:
+    - observations, the default-location selection, the settings intent and `capture_context` are written as the pickers would;
+    - Processing and Review fingerprints see the supplier;
+    - a missing location is recorded in `creation_notices`, not as a note;
   - batch-defaults route conflict;
-  - description style delivered once in the first instruction message, with the digest unchanged;
-  - forced check: reuse in flight, the 5 s window, 401 mapping to `unauthorized`, and the observation updated.
+  - description style sealed at queue time and delivered only in the opening message; a save while the attempt is queued doesn't change it; the digest is unchanged;
+  - failure summaries carry `recovery`;
+  - forced check:
+    - reuse in flight;
+    - the 5 s window counted from forced checks only;
+    - 401 maps to `unauthorized`;
+    - the observation is updated;
+    - a credential change clears the cache.
 - **contracts:** TypeBox schemas and the generated client regenerated; decoding tests for the new fields.
 - **frontend (Vitest and Testing Library):**
   - routes and sub-nav, including the `#settings/descriptions` redirect;

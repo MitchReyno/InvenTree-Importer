@@ -47,8 +47,8 @@ With debug mode off, the app SHALL NOT render internal identifiers, hashes, revi
 #### Scenario: Same session with debug mode on
 
 - **GIVEN** the same session and debug mode on
-- **WHEN** Processing shows it
-- **THEN** a debug block marked "Debug" lists the code, correlation ID, attempt and turn, model and CLI version and provider session, with the same sanitization as today
+- **WHEN** Processing shows it and the operator activates Show details
+- **THEN** a block marked "Debug" lists the code, correlation ID, attempt and turn, model and CLI version and provider session, with the same sanitization as today; before Show details, no details request is sent
 
 #### Scenario: Footer diagnostics
 
@@ -64,7 +64,7 @@ With debug mode on, each detail hidden while it is off SHALL render where it bel
 
 - **GIVEN** debug mode on
 - **WHEN** an Added round is shown
-- **THEN** its run and approval IDs, effect certainty and plan hash appear in a block marked "Debug" below the round's operator summary
+- **THEN** its run and approval IDs, state, effect certainty and revision appear in a block marked "Debug" below the round's operator summary
 
 ### Requirement: Debug panel per screen
 
