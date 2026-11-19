@@ -370,8 +370,10 @@ test('with no provider on, Providers says so and sends nothing', async () => {
   fireEvent.click(
     within(screen.getByRole('group', { name: 'Claude' })).getByRole('checkbox', { name: 'On' }),
   )
-  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Save' }))
-  expect(await screen.findByText(/Turn on at least one provider/)).toBeVisible()
+  // The lower Save says why beside itself.
+  const steps = card('Provider and model per step')
+  fireEvent.click(within(steps).getByRole('button', { name: 'Save' }))
+  expect(await within(steps).findByText(/Turn on at least one provider/)).toBeVisible()
   expect(api.saveSettings).not.toHaveBeenCalled()
 })
 
@@ -677,6 +679,23 @@ test('the Part description style saves its own text, and a conflict Reload resto
   expect(style).toHaveValue('Mine')
   fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
   await waitFor(() => expect(style).toHaveValue('Theirs'))
+})
+
+test('when Reload keeps failing, Discard drops the edit and releases the guard', async () => {
+  const dirty = vi.fn()
+  const api = client()
+  api.saveSettings.mockRejectedValue(new Error('offline'))
+  api.settings.mockResolvedValueOnce(initial).mockRejectedValue(new Error('offline'))
+  await renderAgents(api, dirty)
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Reload' }))
+  expect(await screen.findByText(/couldn’t be loaded/)).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Discard my edit' }))
+  expect(instructions).toHaveValue('')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+  expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
 })
 
 test('Suggest tags for new batches saves on its own', async () => {

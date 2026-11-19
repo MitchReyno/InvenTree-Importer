@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { appPage } from './app-route'
+import { appPage, settingsSection } from './app-route'
 import {
   settingsReturnAfter,
   storeSettingsReturn,
@@ -10,6 +10,17 @@ import {
 /** The return route stored with the current history entry, read only on a Settings route. */
 function storedSettingsReturnFor(route: string) {
   return appPage(route) === 'settings' ? storedSettingsReturn(history.state) : undefined
+}
+
+/**
+ * Settings › Agents is one page whose subsection links only scroll it, so moving between them
+ * keeps every form, and its draft, mounted.
+ */
+function withinAgentsPage(from: string, to: string) {
+  const onAgents = (route: string) =>
+    appPage(route) === 'settings' && settingsSection(route) === 'agents'
+
+  return onAgents(from) && onAgents(to)
 }
 
 /**
@@ -36,7 +47,11 @@ export function useNavigationGuard() {
 
   useEffect(() => {
     function acceptRoute() {
-      if (dirty.current) {
+      const next = location.hash.slice(1)
+      if (dirty.current && withinAgentsPage(accepted.current.route, next)) {
+        // The drafts stay mounted; the guard now protects this subsection's URL.
+        protectedUrl.current = location.href
+      } else if (dirty.current) {
         if (protectedUrl.current && location.href !== protectedUrl.current) {
           // Restore the editor URL without consuming the requested history destination.
           // Retrying Back after save/discard can still reach that destination.
@@ -49,7 +64,6 @@ export function useNavigationGuard() {
         }
         return
       }
-      const next = location.hash.slice(1)
       // Back or Forward to a Settings entry restores the return route stored with it.
       const stored = storedSettingsReturnFor(next)
       const returnTo =
@@ -83,6 +97,9 @@ export function useNavigationGuard() {
         return
       }
       const target = new URL(anchor.href)
+      if (withinAgentsPage(accepted.current.route, target.hash.slice(1))) {
+        return
+      }
       if (
         target.origin === location.origin &&
         target.pathname === location.pathname &&

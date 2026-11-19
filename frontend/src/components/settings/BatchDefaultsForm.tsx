@@ -120,6 +120,15 @@ export function BatchDefaultsForm({
     }
   }
 
+  /** Drops the choice for the loaded defaults; what the server saved is left as it is. */
+  function discard() {
+    if (!busy) {
+      setEdit(null)
+      setState('idle')
+      onDirtyChange(false)
+    }
+  }
+
   async function reload() {
     setState('reloading')
     try {
@@ -166,6 +175,7 @@ export function BatchDefaultsForm({
             savedMessage="Saved. Batches created from now on start with these."
             onSave={() => void save()}
             onReload={() => void reload()}
+            onDiscard={discard}
           />
           {(state === 'missing' || state === 'unchecked') && (
             <Small role="alert">{REFUSED[state]}</Small>

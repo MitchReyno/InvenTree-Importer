@@ -16,7 +16,7 @@ const read = (settings: AgentSettingsDto): Values => ({ text: settings.new_batch
 
 /** Settings › Agents › Instructions: the text copied into each new batch's instructions. */
 export function InstructionsForm(props: SubsectionFormProps) {
-  const { form, state, busy, markDirty, save, reload } = useSubsectionForm({
+  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
     ...props,
     id: 'instructions',
     read,
@@ -55,6 +55,7 @@ export function InstructionsForm(props: SubsectionFormProps) {
               savedMessage="Saved. Batches created from now on start with these instructions; existing batches keep theirs."
               onSave={save}
               onReload={reload}
+              onDiscard={discard}
             />
           </Stack>
         )}

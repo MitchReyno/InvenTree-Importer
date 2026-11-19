@@ -24,7 +24,7 @@ export function SessionsForm({
   /** The Pause all agents row. */
   pause: ReactNode
 }) {
-  const { form, state, busy, markDirty, save, reload } = useSubsectionForm({
+  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
     ...props,
     id: 'sessions',
     read,
@@ -62,6 +62,7 @@ export function SessionsForm({
             savedMessage="Saved. The limit applies now: running turns finish, and queued sessions start as slots free up."
             onSave={save}
             onReload={reload}
+            onDiscard={discard}
           />
         </Stack>
       </SettingRow>

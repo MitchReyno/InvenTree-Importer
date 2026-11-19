@@ -12,7 +12,7 @@ const read = (settings: AgentSettingsDto): Values => ({ auto: settings.auto_tags
 
 /** Settings › Agents › Tag suggestions: whether new batches start with Auto tags on. */
 export function TagSuggestionsForm(props: SubsectionFormProps) {
-  const { form, state, busy, markDirty, save, reload } = useSubsectionForm({
+  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
     ...props,
     id: 'tags',
     read,
@@ -40,6 +40,7 @@ export function TagSuggestionsForm(props: SubsectionFormProps) {
             savedMessage="Saved. Batches created from now on start with this; existing batches keep theirs."
             onSave={save}
             onReload={reload}
+            onDiscard={discard}
           />
         </Stack>
       </SettingRow>

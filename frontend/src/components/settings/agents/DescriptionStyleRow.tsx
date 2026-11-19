@@ -14,7 +14,7 @@ const read = (settings: AgentSettingsDto): Values => ({ style: settings.part_des
 
 /** The Part description style agents follow, saved on its own. */
 export function DescriptionStyleRow(props: SubsectionFormProps) {
-  const { form, state, busy, markDirty, save, reload } = useSubsectionForm({
+  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
     ...props,
     id: 'description-style',
     read,
@@ -46,7 +46,7 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
               ? ': shorten it to save.'
               : '. Each description stays within 250, InvenTree’s limit.'}
           </Small>
-          <SaveBar state={state} busy={busy} onSave={save} onReload={reload} />
+          <SaveBar state={state} busy={busy} onSave={save} onReload={reload} onDiscard={discard} />
         </Stack>
       )}
     </SettingRow>

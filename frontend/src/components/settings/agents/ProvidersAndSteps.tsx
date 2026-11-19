@@ -37,7 +37,7 @@ export function ProvidersAndSteps({
   /** The Sessions subsection, placed between Providers and the steps. */
   sessions: ReactNode
 }) {
-  const { form, state, busy, markDirty, save, reload } = useSubsectionForm({
+  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
     ...props,
     id: 'providers',
     read: providerFormValues,
@@ -72,16 +72,25 @@ export function ProvidersAndSteps({
     })
   }
 
+  // Shown beside both of the form's Saves, so the one pressed always says why nothing was sent.
   const bar = (
-    <SaveBar
-      state={state}
-      busy={busy}
-      onSave={submit}
-      onReload={() => {
-        setReset([])
-        reload()
-      }}
-    />
+    <>
+      {noProvider && <Small role="alert">Turn on at least one provider to save providers.</Small>}
+      <SaveBar
+        state={state}
+        busy={busy}
+        onSave={submit}
+        onReload={() => {
+          setReset([])
+          reload()
+        }}
+        onDiscard={() => {
+          setReset([])
+          setNoProvider(false)
+          discard()
+        }}
+      />
+    </>
   )
 
   return (
@@ -124,9 +133,6 @@ export function ProvidersAndSteps({
                     </label>
                   ))}
                 </Choices>
-                {noProvider && (
-                  <Small role="alert">Turn on at least one provider to save providers.</Small>
-                )}
                 <Small>Saved together with Provider and model per step.</Small>
                 {bar}
               </Stack>

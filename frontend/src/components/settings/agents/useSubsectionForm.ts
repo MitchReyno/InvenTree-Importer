@@ -132,5 +132,12 @@ export function useSubsectionForm<V extends FieldValues>({
         })
     },
     reload: () => void saving.reload().then(settle),
+    /** Drops the edit for the loaded settings; what the server saved is left as it is. */
+    discard: () => {
+      if (!saving.busy) {
+        settle(loaded)
+        saving.discarded()
+      }
+    },
   }
 }
