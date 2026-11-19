@@ -87,7 +87,7 @@ def protected_addresses(protected, on_resolved=None):
     A name that resolves only to non-public addresses adds nothing: the public-address rule
     already refuses them. A name that doesn't resolve leaves its addresses unknown, so this
     raises and the caller refuses public access for the turn. `on_resolved(name, addresses)`
-    receives each name's answer as soon as it arrives.
+    receives each name's answer as soon as it arrives, or None when its lookup fails.
     """
     blocked = set()
     for entry in protected:
@@ -96,8 +96,13 @@ def protected_addresses(protected, on_resolved=None):
             if public(str(literal)):
                 blocked.add(literal)
             continue
-        addresses = {address for address in map(normalized, resolved_addresses(entry))
-                     if public(str(address))}
+        try:
+            answers = resolved_addresses(entry)
+        except Refused:
+            if on_resolved:
+                on_resolved(entry, None)
+            raise
+        addresses = {address for address in map(normalized, answers) if public(str(address))}
         if on_resolved:
             on_resolved(entry, addresses)
         blocked |= addresses
@@ -136,6 +141,10 @@ def public_target(host, port, protected, on_resolved=None):
         if protected_name(host, protected):
             raise Refused("protected_destination") from None
         raise
+    if host in protected and on_resolved:
+        # Its own answer joins the protected addresses before the request is refused.
+        on_resolved(host, {address for address in map(normalized, addresses)
+                           if public(str(address))})
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if protected_name(host, protected):

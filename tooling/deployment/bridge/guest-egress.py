@@ -139,6 +139,8 @@ class ProtectedLookups:
         self.lock = threading.Lock()
         self.known = {}
         self.in_flight = {}
+        # Set once a protected name fails to resolve: public hosts are refused for the turn.
+        self.failed = False
         # Open provider tunnels: their connected address and the event that drops them.
         self.tunnels = {}
 
@@ -148,16 +150,19 @@ class ProtectedLookups:
             addresses = protected_addresses({name})
         except Refused:
             addresses = None
-        if addresses is not None:
-            self.publish(name, addresses)
+        self.publish(name, addresses)
         with self.lock:
             self.in_flight.pop(name, None)
         return addresses
 
     def publish(self, name, addresses):
         """Adds a successful answer for `name`, from either path, to the addresses it blocks
-        and revokes every tunnel to one of them. A failed lookup publishes nothing."""
+        and revokes every tunnel to one of them. A failed lookup, given as None, refuses
+        public hosts for the rest of the turn."""
         with self.lock:
+            if addresses is None:
+                self.failed = True
+                return
             self.known[name] = self.known.get(name, set()) | set(addresses)
             for address, revocation in self.tunnels.values():
                 if address in addresses:
@@ -168,15 +173,24 @@ class ProtectedLookups:
         function that stops watching. Register before the first check, so no update falls
         between them."""
         revocation = Revocation()
-        key = object()
         with self.lock:
-            self.tunnels[key] = (normalized(address), revocation)
+            self.tunnels[revocation] = (normalized(address), revocation)
 
         def stop():
             with self.lock:
-                self.tunnels.pop(key, None)
+                self.tunnels.pop(revocation, None)
 
         return revocation, stop
+
+    def settle(self, revocations, kept):
+        """Refuses if any answer was revoked during setup, or stops watching every answer but
+        `kept`. One step under the publication lock, so no answer is published in between."""
+        with self.lock:
+            if any(revocation.is_set() for revocation in revocations):
+                raise Refused("protected_destination")
+            for revocation in revocations:
+                if revocation is not kept:
+                    self.tunnels.pop(revocation, None)
 
     def refresh(self, name):
         """Every address the name has answered with and its refresh in flight."""
@@ -317,6 +331,8 @@ def check_public_request(host, port, policy, protected):
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     check_public_form(host, port, protected)
+    if PROTECTED_LOOKUPS.failed:
+        raise Refused("resolution_failed")
 
 
 async def checked_addresses(host, port, provider, protected):
@@ -367,6 +383,7 @@ async def open_first(addresses, guard):
             revocation.streams.append(upstream)
             try:
                 check()
+                PROTECTED_LOOKUPS.settle([watched for watched, _stop in watches], revocation)
             except Refused:
                 abort(upstream)
                 upstream.close()

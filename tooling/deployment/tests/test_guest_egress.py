@@ -655,7 +655,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_protected_answer_from_a_public_request_drops_an_open_provider_tunnel(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
-        table = {"api.anthropic.com": [OTHER_PUBLIC], "www.ti.com": [PUBLIC]}
+        table = {"api.anthropic.com": [OTHER_PUBLIC], "www.ti.com": [PUBLIC],
+                 "inventory.example.com": ["8.8.8.8"]}
         self.guest_dns = Mock(side_effect=dns(table))
         with patch.object(socket, "getaddrinfo", self.guest_dns), \
                 patch.object(egress.asyncio, "open_connection",
@@ -867,6 +868,51 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             await self.publish("inventory.example.com", PUBLIC)
             release.set()
             written = await asyncio.wait_for(public, 2)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
+    async def test_failed_protected_lookup_refuses_public_hosts_for_the_rest_of_the_turn(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"www.ti.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+        # DNS recovers, but the turn stays refused; the provider is unaffected.
+        table["inventory.example.com"] = ["8.8.8.8"]
+        written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+        written, upstream = await self.connect("api.anthropic.com:443", table)
+        self.assert_connected(written, upstream, OTHER_PUBLIC)
+
+    async def test_connect_to_a_protected_name_revokes_tunnels_to_its_answer(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            table["inventory.example.com"] = [PUBLIC]
+            refused = await self.handle("inventory.example.com:443")
+            await asyncio.wait_for(tunnel, 2)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", refused)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
+    async def test_answer_published_as_setup_settles_refuses_the_host(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
+        settle = egress.PROTECTED_LOOKUPS.settle
+
+        def published_first(revocations, kept):
+            # The unused second answer becomes protected just before setup settles.
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+                                             {egress.normalized(OTHER_PUBLIC)})
+            return settle(revocations, kept)
+
+        with patch.object(egress.PROTECTED_LOOKUPS, "settle", published_first):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assertNotIn(b"200 Connection Established", written)
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
 
 
