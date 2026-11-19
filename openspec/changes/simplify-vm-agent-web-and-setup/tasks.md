@@ -96,7 +96,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - [x] 2.2 RED: add coordinator, peer and mount tests, and confirm the failures.
 - [x] 2.3 GREEN: implement `protectedHosts()`, the command field, the input `web` schema, peer validation and the atomic write, and the mounts.
 - [x] 2.4 Stop `tool-turn.sh` passing `INTAKE_VM_PROTECTED_HOSTS` to the per-turn egress, leaving the reader's configuration as it is. The existing reader tests, including public mode with protected hosts, still pass.
-- [ ] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
+- [x] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
 
 ## 3. Web settings, sealing and the opening message
 

@@ -36,6 +36,7 @@ Implementation of `simplify-vm-agent-web-and-setup` (BI-017) started with PR-A (
 
 ## Open items
 
+- **The paired-VM smoke wasn't run for PR-A.** The only paired VM is the operator's own, which tests must not touch. `tool-worker-smoke.sh` runs in task 10's requalification instead, with the operator's go-ahead.
 - **The paired-VM smoke checks a web-off turn only.** `tool-worker-smoke.sh` confirms that the provider connects and a public host is refused through each egress socket, and that `/run/policy` stays out of the worker. Checking `curl` through the worker's own proxy after a policy turns web on needs a live `/3` tool turn, so it belongs to the task 10 qualification run.
 - **Pending requests share one listener.** The egress accepts at most 16 connections still sending their CONNECT line, each for five seconds. Provider and public requests arrive on the same socket through the worker's proxy, so no capacity can be reserved for the provider before the line is read. An agent holding those slots can only stall its own turn.
 - **IPv6-only sites are unreachable from tool turns.** The egress container sits on Docker's default bridge in the VM, which has no IPv6. The checks accept public IPv6 answers, but the connection fails. Enabling IPv6 on that bridge is deployment work outside this change.
