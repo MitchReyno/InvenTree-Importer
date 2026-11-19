@@ -116,6 +116,12 @@ With public web access on, the proxy SHALL allow a `CONNECT` only to port 443 of
 - **WHEN** the agent asks the proxy for `CONNECT example.com:22`
 - **THEN** it is refused with `destination_refused`
 
+#### Scenario: More than one reason applies
+
+- **GIVEN** a request that more than one refusal reason applies to at the same moment, such as a failed protected lookup and a full tunnel cap
+- **WHEN** the proxy refuses it
+- **THEN** the refusal names any one of those reasons, and the request is still refused
+
 ### Requirement: Public tunnels are bounded
 
 Each turn's egress SHALL allow at most 32 public tunnels at once, refusing more with `too_many_connections`, and SHALL close a public tunnel that carries no data in either direction for two minutes. Provider tunnels SHALL count toward neither limit, and DNS work SHALL have a deadline, so public traffic can't hold up the provider.

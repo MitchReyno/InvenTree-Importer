@@ -41,7 +41,7 @@ HEADER_TIMEOUT_S = 5
 CONNECT_TIMEOUT_S = 10
 # A destination with many answers gets at most this many connection attempts.
 MAX_CONNECT_ATTEMPTS = 3
-# Each answer is watched during setup, so a larger answer set is refused before any watch.
+# Each answer is watched during setup, so a larger answer set is refused before any dial.
 MAX_ANSWERS = 32
 # Public tunnels open at once, and how long one may sit without data before it closes. Provider
 # tunnels have neither limit: model streams can pause for long stretches.
@@ -65,7 +65,7 @@ class BoundedResolver:
     """Runs blocking DNS work on its own small pool and refuses when every slot is busy.
 
     Provider and public lookups use separate resolvers, so stalled public lookups can't hold
-    up the provider connection.
+    up the provider connection. The work is a pure lookup; its answer comes back to the loop.
     """
 
     def __init__(self, name):
@@ -85,218 +85,145 @@ class BoundedResolver:
 
 PROVIDER_DNS = BoundedResolver("provider-dns")
 PUBLIC_DNS = BoundedResolver("public-dns")
-# Protected-name lookups for a provider CONNECT run beside the provider's own lookup and get
-# this budget. A name whose refresh is still running after it blocks its last known addresses.
+# A provider CONNECT waits this long for protected-name refreshes; a name still refreshing
+# after it blocks the addresses it has already answered with.
 PROTECTED_LOOKUP_BUDGET_S = 2
 
 
-class Revocation:
-    """Marks a tunnel's address protected. Revocation happens under the publication lock, and
-    every relay write checks it under that same lock, so once an answer is published no tunnel
-    it affects relays another byte. The streams are then aborted on the event loop."""
+class Tunnel:
+    """One CONNECT's watched addresses and streams.
 
-    def __init__(self, lock):
-        self.loop = asyncio.get_running_loop()
-        self.lock = lock
+    Until the CONNECT is acknowledged it watches every answer; afterwards only the address it
+    connected to. Revoking aborts its streams at once, so no relay writes after it.
+    """
+
+    def __init__(self, addresses, public_request):
+        self.addresses = {normalized(address) for address in addresses}
+        self.public_request = public_request
         self.revoked = False
-        self.event = asyncio.Event()
         self.streams = []
+        self.revocation = asyncio.Event()
 
     def revoke(self):
-        """Revokes the tunnel. The caller holds the publication lock."""
+        if self.revoked:
+            return
         self.revoked = True
-
-    def schedule_abort(self):
-        """Aborts the tunnel's streams on its event loop; called from any thread."""
-        self.loop.call_soon_threadsafe(self.fire)
-
-    def fire(self):
-        """Aborts the streams, then sets the event, so the event means they are aborted."""
         for writer in self.streams:
             abort(writer)
-        self.event.set()
-
-    def is_set(self):
-        return self.revoked
-
-    def write(self, target, data):
-        """Writes `data` unless the tunnel is revoked; returns whether it wrote."""
-        with self.lock:
-            if self.revoked:
-                return False
-            target.write(data)
-            return True
-
-    async def wait(self):
-        await self.event.wait()
+        self.revocation.set()
 
 
-class ProtectedLookups:
-    """Protected-name addresses for provider CONNECTs.
+class TurnProtection:
+    """The turn's protected addresses, failure latches and revocable tunnels.
 
-    Every CONNECT refreshes each name, joining a refresh already in flight, so a name that
-    moves is blocked at its new address straight away. Every address a name has answered
-    with stays blocked for the rest of the turn, whichever lookup finished last, so a late or
-    failed refresh never unblocks one. Each name has at most one refresh in flight and a turn
-    has at most a few dozen names, so the work stays bounded.
+    Everything here is read and changed only on the event loop. Resolver threads run lookups
+    and hand their answers back, so a decision made between two awaits sees one consistent
+    state, and a publication revokes every affected tunnel before any other coroutine runs.
+
+    Every address a protected name answers with stays blocked for the rest of the turn, so a
+    late or failed refresh never unblocks one. Each name has at most one refresh in flight.
     """
 
     def __init__(self):
         self.pool = ThreadPoolExecutor(max_workers=DNS_SLOTS, thread_name_prefix="protected-dns")
-        self.lock = threading.Lock()
         self.known = {}
-        self.in_flight = {}
-        # Set once a protected name fails to resolve: public hosts are refused for the turn.
-        # Read it only under the lock, so a failure is seen together with its revocations.
-        self.failed = False
-        # Set once the turn's protected addresses pass their bound: every request is refused.
-        self.overflowed = False
         self.recorded = 0
-        # Open provider tunnels: their connected address and the event that drops them.
-        self.tunnels = {}
+        # A protected name failed to resolve: public hosts are refused for the rest of the turn.
+        self.failed = False
+        # The turn's protected addresses passed their bound: every request is refused.
+        self.overflowed = False
+        self.in_flight = {}
+        self.tunnels = set()
 
-    def resolve(self, name):
+    def refresh(self, name):
+        """The refresh of `name` in flight, started if there is none. Requests share it, and
+        it publishes when it lands, even after they have stopped waiting."""
+        task = self.in_flight.get(name)
+        if task is None:
+            task = asyncio.get_running_loop().create_task(self._refresh(name))
+            self.in_flight[name] = task
+        return task
+
+    async def _refresh(self, name):
         """This lookup's public addresses for `name` and whether its answer was empty or held
         any private address; or None when the lookup fails."""
         try:
-            answers = resolved_addresses(name)
+            answers = await asyncio.get_running_loop().run_in_executor(
+                self.pool, resolved_addresses, name)
         except Refused:
-            addresses = None
             result = None
         else:
             # Blocked by the address each answer reaches, so an IPv4-mapped form blocks its
-            # IPv4 address; a private address is already refused by address. The reason for a
-            # request to this name classifies the answers as given, as the destination check does.
+            # IPv4 address. The reason for a request to this name classifies the answers as
+            # given, as the destination check does.
             addresses = {address for address in map(normalized, answers)
                          if public(str(address))}
             result = (addresses, not answers or not all(public(answer) for answer in answers))
-        self.publish(name, addresses)
-        with self.lock:
+        finally:
             self.in_flight.pop(name, None)
+        self.publish(name, None if result is None else result[0])
         return result
 
     def publish(self, name, addresses):
-        """Adds a successful answer for `name`, from either path, to the addresses it blocks
-        and revokes every tunnel to one of them. A failed lookup, given as None, refuses
-        public hosts for the rest of the turn."""
-        with self.lock:
-            if addresses is None:
-                self.failed = True
-                affected = [revocation for _address, revocation, public_request
-                            in self.tunnels.values() if public_request]
+        """Adds a successful answer for `name` to the addresses it blocks and revokes every
+        tunnel watching one of them. A failed lookup, given as None, refuses public hosts for
+        the rest of the turn and revokes every public tunnel."""
+        if addresses is None:
+            self.failed = True
+            affected = [tunnel for tunnel in self.tunnels if tunnel.public_request]
+        else:
+            known = self.known.setdefault(name, set())
+            added = set(addresses) - known
+            if self.recorded + len(added) > MAX_PROTECTED_ADDRESSES:
+                self.failed = self.overflowed = True
+                affected = list(self.tunnels)
             else:
-                known = self.known.setdefault(name, set())
-                added = set(addresses) - known
-                if self.recorded + len(added) > MAX_PROTECTED_ADDRESSES:
-                    self.failed = self.overflowed = True
-                    affected = [revocation for _address, revocation, _public_request
-                                in self.tunnels.values()]
-                else:
-                    known |= added
-                    self.recorded += len(added)
-                    affected = [revocation for address, revocation, _public_request
-                                in self.tunnels.values() if address in addresses]
-            # Every affected tunnel is revoked before any abort is queued, each only once.
-            affected = [revocation for revocation in affected if not revocation.revoked]
-            for revocation in affected:
-                revocation.revoke()
-            for revocation in affected:
-                revocation.schedule_abort()
+                known |= added
+                self.recorded += len(added)
+                affected = [tunnel for tunnel in self.tunnels if tunnel.addresses & added]
+        for tunnel in affected:
+            tunnel.revoke()
 
-    def watch(self, address, public_request):
-        """A Revocation fired once any protected lookup shows `address` is protected, or, for
-        a public request, once a protected lookup fails; and a function that stops watching.
-        Register before the first check, so no update falls between them."""
-        revocation = Revocation(self.lock)
-        with self.lock:
-            self.tunnels[revocation] = (normalized(address), revocation, public_request)
-
-        def stop():
-            with self.lock:
-                self.tunnels.pop(revocation, None)
-
-        return revocation, stop
-
-    def verdict(self, revocations, public_request):
-        """Refuses a public request once a protected lookup has failed, then any request whose
-        answers were revoked during setup. Call with the publication lock held."""
+    def check_latches(self, public_request):
+        """Refuses a request the turn's latches already rule out."""
         if self.overflowed or (public_request and self.failed):
             raise Refused("resolution_failed")
-        if any(revocation.is_set() for revocation in revocations):
+
+    def blocked(self, protected):
+        """Every address the protected entries name or have answered with this turn."""
+        literals = {literal for literal in map(literal_address, protected)
+                    if literal is not None and public(str(literal))}
+        return literals.union(*(self.known.get(entry, ()) for entry in protected))
+
+    def register(self, addresses, public_request, protected):
+        """A tunnel watching `addresses`, or Refused when they are already protected."""
+        self.check_latches(public_request)
+        blocked = self.blocked(protected)
+        if any(normalized(address) in blocked for address in addresses):
+            raise Refused("protected_destination")
+        tunnel = Tunnel(addresses, public_request)
+        self.tunnels.add(tunnel)
+        return tunnel
+
+    def verdict(self, tunnel):
+        """Refuses a tunnel the turn's latches or a revocation have ruled out."""
+        self.check_latches(tunnel.public_request)
+        if tunnel.revoked:
             raise Refused("protected_destination")
 
-    def check(self, revocations, public_request):
-        """The setup verdict, decided under the publication lock so its reason is consistent."""
-        with self.lock:
-            self.verdict(revocations, public_request)
+    def acknowledge(self, tunnel, address, client):
+        """Accepts the CONNECT: from now on the tunnel watches only the address it reached.
+        A client refused here never joins the tunnel, so it keeps its stream for the 403."""
+        self.verdict(tunnel)
+        tunnel.addresses = {normalized(address)}
+        tunnel.streams.append(client)
+        client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
 
-    def acknowledge(self, revocations, kept, public_request, client):
-        """The last verdict over every answer, then the 200, then stops watching every answer
-        but `kept`: one step under the publication lock, so no answer lands in between. A
-        refused client never joins the tunnel, so it keeps its stream for the 403."""
-        with self.lock:
-            self.verdict(revocations, public_request)
-            kept.streams.append(client)
-            client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
-            for revocation in revocations:
-                if revocation is not kept:
-                    self.tunnels.pop(revocation, None)
-
-    def refresh(self, name):
-        """Every address the name has answered with and its refresh in flight. Requests joining
-        a refresh share one event-loop future, so a stalled lookup gains no waiters per request."""
-        with self.lock:
-            if name not in self.in_flight:
-                self.in_flight[name] = asyncio.wrap_future(self.pool.submit(self.resolve, name))
-            return self.known.get(name, set()), self.in_flight[name]
-
-    async def deny_set(self, protected):
-        blocked = set()
-        refreshes = []
-        # Sorted, so which names win a resolver slot doesn't depend on hash order.
-        for entry in sorted(protected):
-            literal = literal_address(entry)
-            if literal is not None:
-                if public(str(literal)):
-                    blocked.add(literal)
-                continue
-            refreshes.append(self.refresh(entry))
-        if refreshes:
-            await asyncio.wait([waiter for _known, waiter in refreshes],
-                               timeout=PROTECTED_LOOKUP_BUDGET_S)
-        for known, waiter in refreshes:
-            fresh = waiter.result() if waiter.done() else None
-            blocked |= known | (fresh[0] if fresh else set())
-        return blocked
-
-    def latest(self, protected):
-        """Every address a protected name has answered with this turn, including lookups that
-        finished after their budget."""
-        with self.lock:
-            return set().union(*(self.known.get(entry, set()) for entry in protected))
-
-    def check_overflow(self):
-        """Refuses every request once the turn's protected addresses have passed their bound."""
-        with self.lock:
-            if self.overflowed:
-                raise Refused("resolution_failed")
-
-    def has_failed(self):
-        with self.lock:
-            return self.failed
-
-    def guard(self, address, protected, public_request):
-        """Refuses a public request once a protected lookup has failed, then an address any
-        protected name has answered with this turn, as one step under the publication lock."""
-        address = normalized(address)
-        with self.lock:
-            if self.overflowed or (public_request and self.failed):
-                raise Refused("resolution_failed")
-            if any(address in self.known.get(entry, ()) for entry in protected):
-                raise Refused("protected_destination")
+    def release(self, tunnel):
+        self.tunnels.discard(tunnel)
 
 
-PROTECTED_LOOKUPS = ProtectedLookups()
+PROTECTION = TurnProtection()
 
 
 def protected_entry(value):
@@ -362,37 +289,45 @@ def provider_answers(host):
     return [answer[4][0] for answer in answers]
 
 
+def protected_names(protected):
+    """The protected entries that are DNS names, sorted so which name wins a resolver slot
+    doesn't depend on hash order."""
+    return sorted(entry for entry in protected if literal_address(entry) is None)
+
+
 async def provider_addresses(host, protected):
     """The provider host's checked addresses, or Refused.
 
-    Its own lookup and the protected lookups run at the same time under separate deadlines, so
-    a stalled protected name can't cost the provider its DNS deadline. A protected name that
-    fails or stalls is skipped here; public access is refused separately by public_target.
+    Its own lookup and the protected refreshes run at the same time. The provider waits at
+    most PROTECTED_LOOKUP_BUDGET_S for the refreshes; a name that fails or stalls is skipped
+    here, and public access is refused separately.
     """
     if protected_name(host, protected):
         raise Refused("protected_destination")
-    deny = asyncio.create_task(PROTECTED_LOOKUPS.deny_set(protected))
+    PROTECTION.check_latches(False)
+    refreshes = [PROTECTION.refresh(name) for name in protected_names(protected)]
+    budget = (asyncio.ensure_future(asyncio.wait(refreshes, timeout=PROTECTED_LOOKUP_BUDGET_S))
+              if refreshes else None)
     try:
         addresses = await PROVIDER_DNS.run(provider_answers, host)
-    except BaseException:
-        deny.cancel()
+        if budget is not None:
+            await budget
+    except Refused:
+        # Past the protected-address bound, every request reports that, whatever its DNS says.
+        PROTECTION.check_latches(False)
         raise
-    blocked = await deny
-    # Lookups that finished after the budget, while the provider lookup ran, still count.
-    blocked |= PROTECTED_LOOKUPS.latest(protected)
+    finally:
+        # Cancelling the wait leaves the shared refreshes running.
+        if budget is not None and not budget.done():
+            budget.cancel()
+            await asyncio.gather(budget, return_exceptions=True)
+    PROTECTION.check_latches(False)
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
+    blocked = PROTECTION.blocked(protected)
     if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
     return connection_order(addresses)
-
-
-def protection_guard(protected, public_request):
-    """Refuses an address that a protected lookup has found since it was checked, and a public
-    request once a protected lookup has failed this turn."""
-    def guard(address):
-        PROTECTED_LOOKUPS.guard(address, protected, public_request)
-    return guard
 
 
 def current_protection():
@@ -408,117 +343,89 @@ def check_public_request(host, port, policy, protected):
     check_public_form(host, port, protected)
 
 
-async def checked_addresses(host, port, provider, protected):
-    """Addresses to try, in order, all of them checked, and a recheck to run around each dial;
-    or Refused."""
-    if provider:
-        # Past the protected-address bound, every request reports that, whatever its DNS says.
-        PROTECTED_LOOKUPS.check_overflow()
-        try:
-            addresses = await provider_addresses(host, protected)
-        except Refused:
-            PROTECTED_LOOKUPS.check_overflow()
-            raise
-        return addresses, protection_guard(protected, False)
-    # Protected names refresh on the shared per-name pool, joining any refresh in flight, while
-    # the destination resolves; each refresh publishes when it lands, even after this request.
-    # Sorted, so which names win a resolver slot doesn't depend on hash order.
-    refreshes = {entry: PROTECTED_LOOKUPS.refresh(entry)[1] for entry in sorted(protected)
-                 if literal_address(entry) is None}
-    # A protected name asked for directly is answered by its own refresh, not looked up twice.
+async def public_addresses(host, port, protected):
+    """The public destination's checked addresses, or Refused.
+
+    Protected names refresh on the shared per-name pool while the destination resolves, and
+    each refresh publishes when it lands, even after this request. A protected name asked for
+    directly is answered by its own refresh, not looked up twice.
+    """
+    refreshes = {name: PROTECTION.refresh(name) for name in protected_names(protected)}
     exact = refreshes.get(host)
-    target = None if exact else asyncio.ensure_future(PUBLIC_DNS.run(
-        public_target, host, port, protected))
-    # Refreshes still running at the deadline stay overdue for this request, even if they land
-    # while the destination lookup finishes; they keep running and publish when they do.
+    target = None if exact else asyncio.ensure_future(
+        PUBLIC_DNS.run(public_target, host, port, protected))
     overdue = set()
-    if refreshes:
-        _landed, overdue = await asyncio.wait(refreshes.values(), timeout=DNS_TIMEOUT_S)
+    addresses = None
     refusal = None
-    if target is not None:
-        try:
-            addresses = await target
-        except Refused as error:
-            refusal = error
-    # Once a protected lookup has failed, every public refusal reports that first; a refresh
-    # still running at the deadline refuses this request without failing the turn.
+    try:
+        if refreshes:
+            # A refresh still running at the deadline refuses this request without failing
+            # the turn; it keeps running and publishes when it lands.
+            _landed, overdue = await asyncio.wait(refreshes.values(), timeout=DNS_TIMEOUT_S)
+        if target is not None:
+            try:
+                addresses = await target
+            except Refused as error:
+                refusal = error
+    finally:
+        # The destination lookup belongs to this request alone.
+        if target is not None and not target.done():
+            target.cancel()
+            await asyncio.gather(target, return_exceptions=True)
+    PROTECTION.check_latches(True)
     if exact is not None:
-        # The name is protected whatever its lookup says, but the answer this request waited on
-        # reports not_public if it held any private address, as it would for any other host.
+        # The name is protected whatever its lookup says, but an answer that held a private
+        # address reports not_public, as it would for any other host.
         answer = None if exact in overdue else exact.result()
-        with PROTECTED_LOOKUPS.lock:
-            if PROTECTED_LOOKUPS.failed:
-                raise Refused("resolution_failed")
         raise Refused("not_public" if answer and answer[1] else "protected_destination")
-    literals = {literal for literal in map(literal_address, protected)
-                if literal is not None and public(str(literal))}
-    # One decision under the publication lock, so a failure latched at any point before it
-    # takes precedence over every other reason.
-    with PROTECTED_LOOKUPS.lock:
-        if PROTECTED_LOOKUPS.failed:
-            raise Refused("resolution_failed")
-        if overdue:
-            raise Refused("resolution_failed")
-        if refusal is not None:
-            # A protected name stays protected when its lookup runs out of time or slots.
-            if refusal.reason == "resolution_failed" and protected_name(host, protected):
-                raise Refused("protected_destination") from None
-            raise refusal
-        blocked = literals.union(*(PROTECTED_LOOKUPS.known.get(entry, ()) for entry in protected))
-        if any(normalized(address) in blocked for address in addresses):
-            raise Refused("protected_destination")
-    # Other connections' lookups can still protect this address before or after the dial.
-    return addresses, protection_guard(protected, True)
+    if overdue:
+        raise Refused("resolution_failed")
+    if refusal is not None:
+        # A protected name stays protected when its lookup runs out of time or slots.
+        if refusal.reason == "resolution_failed" and protected_name(host, protected):
+            raise Refused("protected_destination") from None
+        raise refusal
+    blocked = PROTECTION.blocked(protected)
+    if any(normalized(address) in blocked for address in addresses):
+        raise Refused("protected_destination")
+    return addresses
 
 
-async def open_first(addresses, guard, public_request):
+async def open_first(addresses, public_request, protected):
     """Connects to the first reachable checked address, trying at most a few.
 
-    Every answer is watched from before the first dial until the CONNECT is acknowledged, and
-    the connected one until the tunnel closes, so a protected lookup finishing at any point
-    refuses the host, even when it names an address whose dial failed. Returns the streams,
-    the connected answer's Revocation and every answer's watch, which the caller stops.
+    The returned tunnel watches every answer from before the first dial until the CONNECT is
+    acknowledged, so a protected answer landing at any point refuses the host, even one for an
+    address whose dial failed. Returns the tunnel, the address reached and its streams.
     """
-    # A latched failure or overflow reports itself ahead of the answer limit.
-    with PROTECTED_LOOKUPS.lock:
-        PROTECTED_LOOKUPS.verdict([], public_request)
-        if len(addresses) > MAX_ANSWERS:
-            raise Refused("destination_refused")
-    watches = [PROTECTED_LOOKUPS.watch(address, public_request) for address in addresses]
-
-    def check():
-        for address in addresses:
-            guard(address)
-        PROTECTED_LOOKUPS.check([watched for watched, _stop in watches], public_request)
-
-    handed_over = False
+    PROTECTION.check_latches(public_request)
+    if len(addresses) > MAX_ANSWERS:
+        raise Refused("destination_refused")
+    tunnel = PROTECTION.register(addresses, public_request, protected)
     try:
         failure = OSError("no checked address")
-        for index, address in enumerate(addresses[:MAX_CONNECT_ATTEMPTS]):
-            check()
+        for address in addresses[:MAX_CONNECT_ATTEMPTS]:
+            PROTECTION.verdict(tunnel)
             try:
                 remote, upstream = await asyncio.wait_for(
                     asyncio.open_connection(address, 443), CONNECT_TIMEOUT_S)
             except (OSError, asyncio.TimeoutError) as error:
                 failure = error
                 continue
-            revocation, _stop = watches[index]
-            revocation.streams.append(upstream)
             try:
-                check()
+                PROTECTION.verdict(tunnel)
             except Refused:
                 abort(upstream)
                 upstream.close()
                 raise
-            handed_over = True
-            return remote, upstream, revocation, watches
+            tunnel.streams.append(upstream)
+            return tunnel, address, remote, upstream
         # A protected answer found during the last dial keeps its refusal reason.
-        check()
+        PROTECTION.verdict(tunnel)
         raise DialFailed() from failure
-    finally:
-        if not handed_over:
-            for _revocation, stop in watches:
-                stop()
+    except BaseException:
+        PROTECTION.release(tunnel)
+        raise
 
 
 class DialFailed(Exception):
@@ -546,10 +453,11 @@ class Activity:
         self.last = time.monotonic()
 
 
-async def copy(source, target, activity, revoked):
+async def copy(source, target, activity, tunnel):
     while data := await source.read(65536):
-        if not revoked.write(target, data):
+        if tunnel.revoked:
             return
+        target.write(data)
         activity.touch()
         await target.drain()
 
@@ -579,65 +487,49 @@ async def read_request(reader):
     return connect_target(headers.split(b"\r\n", 1)[0])
 
 
-async def close_tunnel(writers, revoked, drop):
-    """Closes the streams within CLOSE_TIMEOUT_S, aborting whatever is still open at the
-    deadline, and returns only once none is outstanding. `drop` aborts them at once. A
-    revocation aborts the tunnel's own streams, and the close waits for that abort; a stream
-    that never joined the tunnel, such as a refused client, keeps closing on the same budget.
+async def close_tunnel(writers, tunnel, drop):
+    """Closes the streams within CLOSE_TIMEOUT_S and returns once none is still open,
+    aborting any that are at the deadline or when the close is cancelled. `drop` aborts them
+    at once. A revocation has already aborted the tunnel's own streams; any other stream, such
+    as a refused client, keeps closing on the same budget.
     """
-    deadline = time.monotonic() + CLOSE_TIMEOUT_S
+    def finished_by_revocation(writer):
+        return tunnel is not None and tunnel.revoked and writer in tunnel.streams
 
-    def in_tunnel(writer):
-        return revoked is not None and writer in revoked.streams
-
-    def revoking():
-        return revoked is not None and revoked.is_set()
-
-    # A revoked tunnel's own streams are left to the revocation's abort.
-    own = [writer for writer in writers if not (revoking() and in_tunnel(writer))]
+    open_writers = [writer for writer in writers if not finished_by_revocation(writer)]
     if drop:
-        for writer in own:
+        for writer in open_writers:
             abort(writer)
-        graceful = []
-    else:
-        graceful = own
-    for writer in graceful:
+        return
+    deadline = time.monotonic() + CLOSE_TIMEOUT_S
+    for writer in open_writers:
         writer.close()
-    closes = {writer: asyncio.ensure_future(writer.wait_closed()) for writer in graceful}
-    aborted = asyncio.ensure_future(revoked.wait()) if revoked is not None else None
-    # Writers no longer awaited; their tasks stay in `closes` so each result is collected.
-    finished = set()
+    closes = {writer: asyncio.ensure_future(writer.wait_closed()) for writer in open_writers}
+    revocation = (asyncio.ensure_future(tunnel.revocation.wait())
+                  if tunnel is not None and not tunnel.revoked else None)
+
+    def still_open():
+        return [writer for writer, close in closes.items()
+                if not close.done() and not finished_by_revocation(writer)]
+
     try:
-        while True:
-            if aborted is not None and aborted.done():
-                # The revocation's abort has run: the tunnel's own streams are finished.
-                finished |= {writer for writer in closes if in_tunnel(writer)}
-            outstanding = [close for writer, close in closes.items()
-                           if writer not in finished and not close.done()]
-            awaiting_abort = revoking() and not aborted.done()
+        while still_open():
             remaining = deadline - time.monotonic()
-            if not outstanding and not awaiting_abort:
-                return
             if remaining <= 0:
                 break
-            waits = outstanding + ([aborted] if aborted is not None and not aborted.done() else [])
+            waits = [closes[writer] for writer in still_open()]
+            if revocation is not None and not revocation.done():
+                waits.append(revocation)
             await asyncio.wait(waits, timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
-        # The deadline passed: abort every stream still open, each once.
-        stuck = {writer for writer, close in closes.items()
-                 if writer not in finished and not close.done()}
-        if revoking() and not aborted.done():
-            stuck |= {writer for writer in writers if in_tunnel(writer)}
-        for writer in writers:
-            if writer in stuck:
-                abort(writer)
+        for writer in still_open():
+            abort(writer)
     except asyncio.CancelledError:
         # A cancelled close still leaves no stream open behind the slot it gives back.
-        for writer in writers:
-            if writer not in finished and not (writer in closes and closes[writer].done()):
-                abort(writer)
+        for writer in still_open():
+            abort(writer)
         raise
     finally:
-        leftovers = [*closes.values(), *([aborted] if aborted is not None else [])]
+        leftovers = [*closes.values(), *([revocation] if revocation is not None else [])]
         for task in leftovers:
             task.cancel()
         await asyncio.gather(*leftovers, return_exceptions=True)
@@ -653,37 +545,33 @@ def abort(writer):
 async def handle(reader, client):
     global public_tunnels
     upstream = None
+    tunnel = None
     tasks = []
     counted = False
     drop = False
-    revoked = None
-    answer_watches = []
     try:
         host, port = await read_request(reader)
         provider = host in HOSTS and port == 443
         policy, protected = current_protection()
-        if not provider:
+        if provider:
+            addresses = await provider_addresses(host, protected)
+        else:
             check_public_request(host, port, policy, protected)
+            PROTECTION.check_latches(True)
             # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
-            # provider, which is never counted. The latch and the slot are decided together,
-            # so a failure latched at the cap still reports itself.
-            with PROTECTED_LOOKUPS.lock:
-                if PROTECTED_LOOKUPS.failed:
-                    raise Refused("resolution_failed")
-                if public_tunnels >= MAX_PUBLIC_TUNNELS:
-                    raise Refused("too_many_connections")
-                public_tunnels += 1
-                counted = True
-        addresses, guard = await checked_addresses(host, port, provider, protected)
-        remote, upstream, revoked, answer_watches = await open_first(
-            addresses, guard, not provider)
-        PROTECTED_LOOKUPS.acknowledge([watched for watched, _stop in answer_watches], revoked,
-                                      not provider, client)
+            # provider, which is never counted.
+            if public_tunnels >= MAX_PUBLIC_TUNNELS:
+                raise Refused("too_many_connections")
+            public_tunnels += 1
+            counted = True
+            addresses = await public_addresses(host, port, protected)
+        tunnel, address, remote, upstream = await open_first(addresses, not provider, protected)
+        PROTECTION.acknowledge(tunnel, address, client)
         await client.drain()
         activity = Activity()
-        tasks = [asyncio.create_task(copy(reader, upstream, activity, revoked)),
-                 asyncio.create_task(copy(remote, client, activity, revoked))]
-        watches = [asyncio.create_task(revoked.wait())]
+        tasks = [asyncio.create_task(copy(reader, upstream, activity, tunnel)),
+                 asyncio.create_task(copy(remote, client, activity, tunnel))]
+        watches = [asyncio.create_task(tunnel.revocation.wait())]
         if not provider:
             watches.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))
         tasks += watches
@@ -699,7 +587,7 @@ async def handle(reader, client):
             asyncio.TimeoutError):
         pass
     finally:
-        # The address stays watched until both streams are closed or aborted, and a public
+        # The tunnel stays watched until both streams are closed or aborted, and a public
         # tunnel keeps its slot until then, so neither outlives a socket still flushing.
         streams = [writer for writer in (upstream, client) if writer]
         closing = False
@@ -708,7 +596,7 @@ async def handle(reader, client):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             closing = True
-            await close_tunnel(streams, revoked, drop)
+            await close_tunnel(streams, tunnel, drop)
         except asyncio.CancelledError:
             # Cancelled before the close began: nothing has closed the streams, so abort them.
             # A close cancelled midway has already aborted what was open.
@@ -717,9 +605,8 @@ async def handle(reader, client):
                     abort(writer)
             raise
         finally:
-            # Even a cancelled teardown gives back the watches and the slot.
-            for _revocation, stop in answer_watches:
-                stop()
+            if tunnel is not None:
+                PROTECTION.release(tunnel)
             if counted:
                 public_tunnels -= 1
 

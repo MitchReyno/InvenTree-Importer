@@ -56,22 +56,6 @@ def dns(table, stalled=None, delays=None):
 
 
 
-class PublishOnRelease:
-    """Wraps the publication lock: the first release after `then` is set runs it."""
-
-    def __init__(self, lock):
-        self.lock = lock
-        self.then = None
-
-    def __enter__(self):
-        self.lock.acquire()
-
-    def __exit__(self, *_exc):
-        self.lock.release()
-        then, self.then = self.then, None
-        if then:
-            then()
-
 class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.directory = TemporaryDirectory()
@@ -83,7 +67,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         ]
         # Each test gets its own lookup pools, so one test's stalled lookups can't hold slots
         # in the next. Cleanups run last-in first-out: the tests' releases run before these.
-        pools = {"PROTECTED_LOOKUPS": egress.ProtectedLookups(),
+        pools = {"PROTECTION": egress.TurnProtection(),
                  "PROVIDER_DNS": egress.BoundedResolver("test-provider-dns"),
                  "PUBLIC_DNS": egress.BoundedResolver("test-public-dns")}
         for name, pool in pools.items():
@@ -392,7 +376,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             written = await self.handle("api.anthropic.com:443")
             # Queued lookups finish against the fake resolver, never the real one.
             release.set()
-            egress.PROTECTED_LOOKUPS.pool.shutdown(wait=True)
+            egress.PROTECTION.pool.shutdown(wait=True)
         self.assert_refused(written, upstream, "protected_destination")
 
     async def test_bad_port_is_refused_by_name_even_with_the_dns_pool_full(self):
@@ -416,7 +400,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             with self.fake_network(moved, stalled={"inventory.example.com": release}) as upstream:
                 written = await self.handle("api.anthropic.com:443")
                 release.set()
-                egress.PROTECTED_LOOKUPS.pool.shutdown(wait=True)
+                egress.PROTECTION.pool.shutdown(wait=True)
         self.assert_refused(written, upstream, "protected_destination")
 
     async def test_private_suffix_protected_name_reports_protected(self):
@@ -446,7 +430,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                                   delays={"api.anthropic.com": 0.4}) as upstream:
             written = await self.handle("api.anthropic.com:443")
             release.set()
-            egress.PROTECTED_LOOKUPS.pool.shutdown(wait=True)
+            egress.PROTECTION.pool.shutdown(wait=True)
         self.assert_connected(written, upstream, OTHER_PUBLIC)
 
     async def test_protected_lookup_finishing_late_still_blocks_the_provider(self):
@@ -732,9 +716,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         client.transport.abort.assert_called_once()
 
     async def publish(self, name, *addresses):
-        """A protected lookup's answer, published from a resolver thread."""
-        await asyncio.to_thread(egress.PROTECTED_LOOKUPS.publish, name,
-                                {egress.normalized(address) for address in addresses})
+        """A protected lookup's answer, as a landed refresh publishes it on the loop."""
+        egress.PROTECTION.publish(name, {egress.normalized(address) for address in addresses})
 
     async def test_dial_is_refused_when_a_protected_answer_is_replaced_before_it_completes(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
@@ -792,7 +775,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             tunnel = asyncio.create_task(egress.handle(stream, client))
             await self.until_open(client, tunnel)
             # The answer lands with a response already waiting to be relayed.
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+            egress.PROTECTION.publish("inventory.example.com",
                                              {egress.normalized(OTHER_PUBLIC)})
             remote.feed_data(b"response after protection")
             await asyncio.wait_for(tunnel, 2)
@@ -812,7 +795,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             await self.until_open(client, tunnel)
             # The relay is runnable with data before the answer's abort callback is queued.
             remote.feed_data(b"response after protection")
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+            egress.PROTECTION.publish("inventory.example.com",
                                              {egress.normalized(OTHER_PUBLIC)})
             await asyncio.wait_for(tunnel, 2)
         relayed = b"".join(call.args[0] for call in client.write.call_args_list)
@@ -861,14 +844,14 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_answer_published_between_the_dns_check_and_the_dial_refuses(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        checked = egress.checked_addresses
+        checked = egress.public_addresses
 
         async def then_published(*args):
             result = await checked(*args)
             await self.publish("inventory.example.com", PUBLIC)
             return result
 
-        with patch.object(egress, "checked_addresses", then_published):
+        with patch.object(egress, "public_addresses", then_published):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "protected_destination")
 
@@ -925,15 +908,15 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
     async def test_unused_answer_protected_before_the_acknowledgement_refuses_the_host(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
-        acknowledge = egress.PROTECTED_LOOKUPS.acknowledge
+        acknowledge = egress.PROTECTION.acknowledge
 
         def published_first(*args):
             # The unused second answer becomes protected after the dial, before the 200.
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+            egress.PROTECTION.publish("inventory.example.com",
                                              {egress.normalized(OTHER_PUBLIC)})
             return acknowledge(*args)
 
-        with patch.object(egress.PROTECTED_LOOKUPS, "acknowledge", published_first):
+        with patch.object(egress.PROTECTION, "acknowledge", published_first):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assertNotIn(b"200 Connection Established", written)
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
@@ -1005,63 +988,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         provider_client.transport.abort.assert_not_called()
 
     async def publish_failure(self, name):
-        await asyncio.to_thread(egress.PROTECTED_LOOKUPS.publish, name, None)
-
-    async def test_failure_published_as_setup_decides_reports_resolution_failed(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        check = egress.PROTECTED_LOOKUPS.check
-
-        def failed_first(revocations, public_request):
-            # The failure also revokes this request's watch; the latch decides the reason.
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
-            return check(revocations, public_request)
-
-        with patch.object(egress.PROTECTED_LOOKUPS, "check", failed_first):
-            written, upstream = await self.connect("www.ti.com:443", table)
-        self.assert_refused(written, upstream, "resolution_failed")
-
-    async def test_failure_is_seen_only_once_every_public_tunnel_is_revoked(self):
-        lookups = egress.PROTECTED_LOOKUPS
-        first, stop_first = lookups.watch(PUBLIC, True)
-        second, stop_second = lookups.watch(OTHER_PUBLIC, True)
-        self.addCleanup(stop_first)
-        self.addCleanup(stop_second)
-        seen = {}
-        observers = []
-        revoke = first.revoke
-
-        def observed_mark():
-            # Another thread reads the latch while publication is between the two tunnels.
-            def observe():
-                seen["failed"] = lookups.has_failed()
-                seen["second revoked"] = second.is_set()
-            observer = threading.Thread(target=observe)
-            observer.start()
-            observers.append(observer)
-            observer.join(0.1)
-            revoke()
-
-        first.revoke = observed_mark
-        await asyncio.to_thread(lookups.publish, "inventory.example.com", None)
-        await asyncio.to_thread(observers[0].join, 2)
-        self.assertEqual(seen, {"failed": True, "second revoked": True})
-
-    async def test_failure_published_during_the_guard_reports_resolution_failed(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        guard = egress.PROTECTED_LOOKUPS.guard
-
-        def published_first(address, protected, public_request):
-            # The address becomes protected and a lookup fails before the guard decides.
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
-                                             {egress.normalized(PUBLIC)})
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
-            return guard(address, protected, public_request)
-
-        with patch.object(egress.PROTECTED_LOOKUPS, "guard", published_first):
-            written, upstream = await self.connect("www.ti.com:443", table)
-        self.assert_refused(written, upstream, "resolution_failed")
+        egress.PROTECTION.publish(name, None)
 
     async def test_failure_published_before_a_dns_refusal_reports_resolution_failed(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
@@ -1072,57 +999,31 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             try:
                 return target(*args)
             finally:
-                egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
+                egress.PROTECTION.publish("inventory.example.com", None)
 
         with patch.object(egress, "public_target", failed_meanwhile):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "resolution_failed")
 
-    async def test_guard_reads_the_latch_and_addresses_in_one_locked_step(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        lookups = egress.PROTECTED_LOOKUPS
-        lock = PublishOnRelease(lookups.lock)
-        guard = lookups.guard
-
-        def publish_on_release(address, protected, public_request):
-            def publish():
-                lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
-                lookups.publish("inventory.example.com", None)
-            # A guard that released the lock between its two reads would see the address.
-            lock.then = publish
-            return guard(address, protected, public_request)
-
-        with patch.object(lookups, "lock", lock), \
-                patch.object(lookups, "guard", publish_on_release):
-            written, upstream = await self.connect("www.ti.com:443", table)
-        self.assert_refused(written, upstream, "resolution_failed")
-
-    async def test_one_answer_revokes_every_affected_tunnel_before_any_write(self):
-        lookups = egress.PROTECTED_LOOKUPS
-        first, stop_first = lookups.watch(PUBLIC, False)
-        second, stop_second = lookups.watch(PUBLIC, False)
-        self.addCleanup(stop_first)
-        self.addCleanup(stop_second)
-        target = Mock()
-        wrote = []
-        writers = []
-        revoke = first.revoke
-
-        def paused_after_first():
-            # A relay write on the second tunnel arrives while publication is mid-way.
-            revoke()
-            writer = threading.Thread(target=lambda: wrote.append(second.write(target, b"x")))
-            writer.start()
-            writers.append(writer)
-            writer.join(0.1)
-
-        first.revoke = paused_after_first
-        await asyncio.to_thread(lookups.publish, "inventory.example.com",
-                                {egress.normalized(PUBLIC)})
-        await asyncio.to_thread(writers[0].join, 2)
-        self.assertEqual(wrote, [False])
-        target.write.assert_not_called()
+    async def test_a_publication_revokes_every_affected_tunnel_before_it_returns(self):
+        protection = egress.PROTECTION
+        same_address = [protection.register([PUBLIC], False, set()) for _index in range(2)]
+        public_elsewhere = protection.register([OTHER_PUBLIC], True, set())
+        provider_elsewhere = protection.register([OTHER_PUBLIC], False, set())
+        streams = {tunnel: stream_writer() for tunnel in protection.tunnels}
+        for tunnel, writer in streams.items():
+            tunnel.streams.append(writer)
+        protection.publish("inventory.example.com", {egress.normalized(PUBLIC)})
+        # Both tunnels to the address are revoked and aborted, with no await in between.
+        for tunnel in same_address:
+            self.assertTrue(tunnel.revoked)
+            streams[tunnel].transport.abort.assert_called_once()
+        self.assertFalse(public_elsewhere.revoked)
+        protection.publish("archive.example.com", None)
+        # A failure revokes every public tunnel and leaves the provider's alone.
+        self.assertTrue(public_elsewhere.revoked)
+        self.assertFalse(provider_elsewhere.revoked)
+        streams[provider_elsewhere].transport.abort.assert_not_called()
 
     async def test_refused_resolving_connect_still_refreshes_protected_names(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
@@ -1164,7 +1065,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             public = asyncio.create_task(self.handle("www.ti.com:443"))
             self.addAsyncCleanup(self.cancelled, public)
             deadline = time.monotonic() + 2
-            while not egress.PROTECTED_LOOKUPS.has_failed():
+            while not egress.PROTECTION.failed:
                 self.assertLess(time.monotonic(), deadline, "the failure never latched")
                 await asyncio.sleep(0.01)
             self.assertFalse(provider.done())
@@ -1209,7 +1110,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
         table = {"inventory.example.com": ["8.8.8.8"], "api.anthropic.com": [OTHER_PUBLIC]}
         self.guest_dns = Mock(side_effect=dns(table))
-        lookups = egress.PROTECTED_LOOKUPS
+        lookups = egress.PROTECTION
         with patch.object(egress, "MAX_PROTECTED_ADDRESSES", 4), \
                 patch.object(socket, "getaddrinfo", self.guest_dns), \
                 patch.object(egress.asyncio, "open_connection",
@@ -1230,7 +1131,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
         stalled = {"inventory.example.com": threading.Event()}
         self.addCleanup(stalled["inventory.example.com"].set)
-        lookups = egress.PROTECTED_LOOKUPS
+        lookups = egress.PROTECTION
         submitted = []
         submit = lookups.pool.submit
 
@@ -1264,43 +1165,9 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         written, upstream = await self.connect("api.anthropic.com:443", table)
         self.assert_connected(written, upstream, OTHER_PUBLIC)
 
-    async def test_revoked_public_tunnel_keeps_its_slot_until_its_aborts_run(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        self.guest_dns = Mock(side_effect=dns(table))
-        release = asyncio.Event()
-
-        def held_abort(revocation):
-            # The abort runs only once the test releases it.
-            async def fire_when_released():
-                await release.wait()
-                revocation.fire()
-            revocation.loop.call_soon_threadsafe(
-                lambda: revocation.loop.create_task(fire_when_released()))
-
-        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
-                patch.object(egress.Revocation, "schedule_abort", held_abort), \
-                patch.object(socket, "getaddrinfo", self.guest_dns), \
-                patch.object(egress.asyncio, "open_connection",
-                             AsyncMock(return_value=(remote, writer))):
-            tunnel = asyncio.create_task(egress.handle(stream, client))
-            await self.until_open(client, tunnel)
-            await self.publish("inventory.example.com", PUBLIC)
-            remote.feed_data(b"after protection")
-            during_abort = await self.handle("www.ti.com:443")
-            self.assertFalse(tunnel.done())
-            writer.transport.abort.assert_not_called()
-            release.set()
-            await asyncio.wait_for(tunnel, 2)
-        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", during_abort)
-        writer.transport.abort.assert_called_once()
-        client.transport.abort.assert_called_once()
-        self.assertEqual(egress.public_tunnels, 0)
-
     async def test_provider_requests_after_overflow_report_resolution_failed(self):
         self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
-        lookups = egress.PROTECTED_LOOKUPS
+        lookups = egress.PROTECTION
         with patch.object(egress, "MAX_PROTECTED_ADDRESSES", 1):
             await self.publish("inventory.example.com", "9.9.9.1", "9.9.9.2")
         self.assertTrue(lookups.overflowed)
@@ -1376,14 +1243,14 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                              if call.args[0].startswith("inventory.")]
         self.assertEqual(len(protected_lookups), 1)
 
-    async def test_oversized_answer_is_refused_before_any_watch_or_dial(self):
+    async def test_oversized_answer_is_refused_before_any_tunnel_or_dial(self):
         self.write_policy()
         many = [f"93.184.{index // 250}.{index % 250 + 1}" for index in range(33)]
-        watch = Mock(side_effect=egress.PROTECTED_LOOKUPS.watch)
-        with patch.object(egress.PROTECTED_LOOKUPS, "watch", watch):
+        register = Mock(side_effect=egress.PROTECTION.register)
+        with patch.object(egress.PROTECTION, "register", register):
             written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": many})
         self.assert_refused(written, upstream, "destination_refused")
-        watch.assert_not_called()
+        register.assert_not_called()
 
     async def test_protected_name_with_a_mixed_answer_reports_not_public(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
@@ -1399,13 +1266,13 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         table = {"inventory.example.com": [PUBLIC, "10.0.0.2"]}
         wait = asyncio.wait
-        lookups = egress.PROTECTED_LOOKUPS
+        lookups = egress.PROTECTION
 
         async def then_refreshed_publicly(*args, **kwargs):
             result = await wait(*args, **kwargs)
             # A later refresh lands, public-only, before this request decides its reason.
             table["inventory.example.com"] = [PUBLIC]
-            await asyncio.to_thread(lookups.resolve, "inventory.example.com")
+            await lookups.refresh("inventory.example.com")
             return result
 
         with patch.object(egress.asyncio, "wait", then_refreshed_publicly):
@@ -1424,110 +1291,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         for name in names:
             self.assertEqual(looked_up.count(name), 1, name)
         for name in names[1:]:
-            self.assertTrue(egress.PROTECTED_LOOKUPS.known.get(name), name)
-
-    async def test_admission_reads_the_latch_and_addresses_in_one_locked_step(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        lookups = egress.PROTECTED_LOOKUPS
-        lock = PublishOnRelease(lookups.lock)
-        wait = asyncio.wait
-
-        def publish():
-            lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
-            lookups.publish("inventory.example.com", None)
-
-        async def armed_after_refreshes(*args, **kwargs):
-            result = await wait(*args, **kwargs)
-            # The next release is the admission's first read of the shared state.
-            lock.then = publish
-            return result
-
-        with patch.object(lookups, "lock", lock), \
-                patch.object(egress.asyncio, "wait", armed_after_refreshes):
-            written, upstream = await self.connect("www.ti.com:443", table)
-        self.assert_refused(written, upstream, "resolution_failed")
-
-    async def test_latched_failure_takes_precedence_over_a_full_tunnel_cap(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        self.guest_dns = Mock(side_effect=dns(table))
-        release = asyncio.Event()
-
-        def held_abort(revocation):
-            # The revoked tunnel keeps its slot until the test releases its abort.
-            async def fire_when_released():
-                await release.wait()
-                revocation.fire()
-            revocation.loop.call_soon_threadsafe(
-                lambda: revocation.loop.create_task(fire_when_released()))
-
-        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
-                patch.object(egress.Revocation, "schedule_abort", held_abort), \
-                patch.object(socket, "getaddrinfo", self.guest_dns), \
-                patch.object(egress.asyncio, "open_connection",
-                             AsyncMock(return_value=(remote, writer))):
-            tunnel = asyncio.create_task(egress.handle(stream, client))
-            await self.until_open(client, tunnel)
-            await self.publish_failure("inventory.example.com")
-            at_cap = await self.handle("www.ti.com:443")
-            release.set()
-            await asyncio.wait_for(tunnel, 2)
-        self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", at_cap)
-
-    async def test_cap_decision_sees_the_latch_it_was_made_with(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
-        self.guest_dns = Mock(side_effect=dns(table))
-        lookups = egress.PROTECTED_LOOKUPS
-
-        class ObservedCap:
-            """A cap of one that records whether a failure was latched when compared."""
-
-            def __init__(self):
-                self.latched_at_compare = []
-
-            def __le__(self, count):
-                self.latched_at_compare.append(lookups.failed)
-                return 1 <= count
-
-        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
-                patch.object(socket, "getaddrinfo", self.guest_dns), \
-                patch.object(egress.asyncio, "open_connection",
-                             AsyncMock(return_value=(remote, writer))):
-            tunnel = asyncio.create_task(egress.handle(stream, client))
-            await self.until_open(client, tunnel)
-            self.addAsyncCleanup(self.cancelled, tunnel)
-            lock = PublishOnRelease(lookups.lock)
-            cap = ObservedCap()
-            # The failure lands on the admission's first release of the shared lock.
-            lock.then = lambda: lookups.publish("inventory.example.com", None)
-            with patch.object(lookups, "lock", lock), \
-                    patch.object(egress, "MAX_PUBLIC_TUNNELS", cap):
-                at_cap = await self.handle("www.ti.com:443")
-        # The cap was decided before the failure, under the same lock as the latch.
-        self.assertEqual(cap.latched_at_compare, [False])
-        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", at_cap)
-
-    async def test_latched_failure_reports_itself_ahead_of_the_answer_limit(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        many = [f"93.184.{index // 250}.{index % 250 + 1}" for index in range(33)]
-        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": many}
-        checked = egress.checked_addresses
-        watch = Mock(side_effect=egress.PROTECTED_LOOKUPS.watch)
-
-        async def failed_after_admission(*args):
-            result = await checked(*args)
-            egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
-            return result
-
-        with patch.object(egress, "checked_addresses", failed_after_admission), \
-                patch.object(egress.PROTECTED_LOOKUPS, "watch", watch):
-            written, upstream = await self.connect("www.ti.com:443", table)
-        self.assert_refused(written, upstream, "resolution_failed")
-        watch.assert_not_called()
+            self.assertTrue(egress.PROTECTION.known.get(name), name)
 
     async def test_protected_refresh_overdue_at_the_deadline_refuses_the_request(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
@@ -1544,44 +1308,14 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 "www.ti.com:443", table, delays={"inventory.example.com": 0.2})
         self.assert_refused(written, upstream, "resolution_failed")
         # The overdue refresh still published its answer when it landed.
-        self.assertTrue(egress.PROTECTED_LOOKUPS.known.get("inventory.example.com"))
-
-    async def test_verdict_and_acknowledgement_are_one_locked_step(self):
-        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
-        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
-        remote.feed_eof()
-        self.guest_dns = Mock(side_effect=dns({"inventory.example.com": ["8.8.8.8"],
-                                               "www.ti.com": [PUBLIC]}))
-        lookups = egress.PROTECTED_LOOKUPS
-        lock = PublishOnRelease(lookups.lock)
-        acknowledged_first = []
-        acknowledge = lookups.acknowledge
-
-        def publish():
-            written = b"".join(call.args[0] for call in client.write.call_args_list)
-            acknowledged_first.append(b"200 Connection Established" in written)
-            lookups.publish("inventory.example.com", {egress.normalized(PUBLIC)})
-
-        def armed(*args):
-            # The next release ends the acknowledgement's locked step.
-            lock.then = publish
-            return acknowledge(*args)
-
-        with patch.object(socket, "getaddrinfo", self.guest_dns), \
-                patch.object(egress.asyncio, "open_connection",
-                             AsyncMock(return_value=(remote, writer))), \
-                patch.object(lookups, "lock", lock), \
-                patch.object(lookups, "acknowledge", armed):
-            await asyncio.wait_for(egress.handle(stream, client), 2)
-        # A publication waiting on the lock lands only after the 200 has been written.
-        self.assertEqual(acknowledged_first, [True])
+        self.assertTrue(egress.PROTECTION.known.get("inventory.example.com"))
 
     async def test_refused_client_keeps_its_slot_while_it_closes_through_a_revocation(self):
         self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
         stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
         table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
         self.guest_dns = Mock(side_effect=dns(table))
-        lookups = egress.PROTECTED_LOOKUPS
+        lookups = egress.PROTECTION
         acknowledge = lookups.acknowledge
         closing = asyncio.Event()
         finish_close = asyncio.Event()
@@ -1686,7 +1420,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
         self.assertEqual(egress.public_tunnels, 0)
-        self.assertEqual(egress.PROTECTED_LOOKUPS.tunnels, {})
+        self.assertEqual(egress.PROTECTION.tunnels, set())
 
 
 if __name__ == "__main__":
