@@ -297,6 +297,51 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(provider.startswith(b"HTTP/1.1 200"), provider)
         upstream.assert_called_once_with(OTHER_PUBLIC, 443)
 
+    async def test_stalled_protected_lookup_leaves_the_provider_reachable(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+        table = {"inventory.example.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        for public_pages in (False, True):
+            with self.subTest(public_pages=public_pages), \
+                    patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2):
+                self.write_policy(public_pages=public_pages, protected_hosts=["inventory.example.com"])
+                written, upstream = await self.connect(
+                    "api.anthropic.com:443", table, stalled={"inventory.example.com": release})
+                self.assert_connected(written, upstream, OTHER_PUBLIC)
+
+    async def test_protected_target_whose_lookup_stalls_stays_protected(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+        self.write_policy(protected_hosts=["inventory.example.com"])
+        with patch.object(egress, "DNS_TIMEOUT_S", 0.3):
+            written, upstream = await self.connect(
+                "inventory.example.com:443", {"inventory.example.com": [PUBLIC]},
+                stalled={"inventory.example.com": release})
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_tunnel_carries_bytes_unchanged_both_ways(self):
+        self.write_policy()
+        sent = bytes(range(256)) * 64
+        received = b"%PDF-1.7\n" + bytes(reversed(range(256))) * 64
+        stream = asyncio.StreamReader()
+        # The client's half stays open; the upstream ending closes the tunnel.
+        stream.feed_data(b"CONNECT www.ti.com:443 HTTP/1.1\r\n\r\n" + sent)
+        client = Mock()
+        client.drain = AsyncMock()
+        remote = asyncio.StreamReader()
+        remote.feed_data(received)
+        remote.feed_eof()
+        upstream_writer = Mock()
+        upstream_writer.drain = AsyncMock()
+        with patch.object(socket, "getaddrinfo", side_effect=dns({"www.ti.com": [PUBLIC]})), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, upstream_writer))):
+            await egress.handle(stream, client)
+        to_client = b"".join(call.args[0] for call in client.write.call_args_list)
+        to_upstream = b"".join(call.args[0] for call in upstream_writer.write.call_args_list)
+        self.assertEqual(to_client, b"HTTP/1.1 200 Connection Established\r\n\r\n" + received)
+        self.assertEqual(to_upstream, sent)
+
 
 if __name__ == "__main__":
     unittest.main()
