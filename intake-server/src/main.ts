@@ -36,6 +36,7 @@ import {
   loadSavedCredential,
   requireStableAncestors,
   requireUnpublished,
+  requireTrustedPath,
   resolveSecretsDir,
 } from './inventory/credential-store.ts'
 import { registerFrontendAssets } from './api/frontend-assets.ts'
@@ -121,6 +122,8 @@ async function main() {
     const readOrigin = process.env.INTAKE_READ_ORIGIN
     // The checkout too: the frontend dev server may serve any file in it.
     // Resolved once; every later check and file operation uses this same path.
+    // Checked as written first, so a link planted at or above it is never followed.
+    await requireTrustedPath(config.secretsDir)
     const secretsDir = await resolveSecretsDir(config.secretsDir)
     await requireUnpublished(secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
     await requireStableAncestors(secretsDir)

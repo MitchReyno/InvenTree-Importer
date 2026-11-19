@@ -363,9 +363,8 @@ async function main() {
       throw new Error('immutable_decoder_required')
     }
     const apiPort = await freePort()
-    // Replacement read tokens live beside this state, in a directory only the owner can enter.
+    // Replacement read tokens live beside this state; the API creates and checks the directory.
     const secretsDir = resolved.secretsDir ?? join(root, 'secrets')
-    await mkdir(secretsDir, { recursive: true, mode: 0o700 })
     const scope = {
       INTAKE_ACTOR_ID: state.identity.actor,
       INTAKE_TARGET_ID: state.identity.target,

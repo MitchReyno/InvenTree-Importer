@@ -33,6 +33,7 @@ import {
   deleteCredential,
   loadSavedCredential,
   requireStableAncestors,
+  requireTrustedPath,
   requireUnpublished,
   resolveSecretsDir,
   saveCredential,
@@ -481,6 +482,60 @@ test('missing ancestors are created owner-only, one at a time', async (t) => {
   for (const created of ['a', 'a/b', 'a/b/secrets']) {
     assert.equal((await stat(join(parent, created))).mode & 0o777, 0o700, created)
   }
+})
+
+test('a link already planted at the configured path is checked before it is followed', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-planted-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const elsewhere = join(parent, 'elsewhere')
+  await mkdir(elsewhere, { mode: 0o700 })
+  const shared = join(parent, 'shared')
+  await mkdir(shared)
+  await chmod(shared, 0o777)
+  await symlink(elsewhere, join(shared, 'secrets'))
+  const own = join(parent, 'own')
+  await mkdir(own, { mode: 0o700 })
+  await symlink(elsewhere, join(own, 'secrets'))
+
+  // Planted where others can write: refused, though the destination itself would pass.
+  await assert.rejects(requireTrustedPath(join(shared, 'secrets')), {
+    code: 'secret_file_permissions',
+  })
+  // This user's own link in this user's own directory is fine to follow.
+  await requireTrustedPath(join(own, 'secrets'))
+})
+
+test('the server refuses to start through a planted link to another store', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-planted-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const elsewhere = join(parent, 'elsewhere')
+  await saveCredential(elsewhere, PLANTED, TARGET)
+  const shared = join(parent, 'shared')
+  await mkdir(shared)
+  await chmod(shared, 0o777)
+  await symlink(elsewhere, join(shared, 'secrets'))
+  const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href
+  const child = spawn(process.execPath, ['--import', tsx, 'src/main.ts'], {
+    cwd: new URL('..', import.meta.url),
+    env: {
+      PATH: process.env.PATH,
+      INTAKE_ORIGIN: 'http://127.0.0.1:4336',
+      INTAKE_CREDENTIAL_REF: 'credential-fixture',
+      INTAKE_DEV_API_KEY: ENVIRONMENT_TOKEN,
+      INTAKE_READ_ORIGIN: TARGET.origin,
+      INTAKE_SECRETS_DIR: join(shared, 'secrets'),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let output = ''
+  child.stdout.on('data', (chunk) => (output += chunk))
+  child.stderr.on('data', (chunk) => (output += chunk))
+
+  const [code] = await once(child, 'exit', { signal: AbortSignal.timeout(30_000) })
+
+  assert.equal(code, 1)
+  assert.match(output, /"code":"secret_file_permissions"/)
+  assert.ok(!output.includes(PLANTED))
 })
 
 test('overlapping claims leave exactly one owner', async (t) => {

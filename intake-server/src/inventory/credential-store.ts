@@ -158,6 +158,22 @@ export async function requireStableAncestors(directory: string | undefined) {
   }
 }
 
+/**
+ * Checks the configured path as written, before any link in it is followed: every component that
+ * exists, the store included, must pass the ancestor rules, so no entry another user planted is
+ * followed to a store they chose.
+ */
+export async function requireTrustedPath(configured: string | undefined) {
+  if (!configured) {
+    return
+  }
+  const written = resolve(configured)
+  await requireStableAncestors(written)
+  if (await lstat(written).catch(() => undefined)) {
+    await requireStableAncestor(written)
+  }
+}
+
 /** One ancestor: owned by root or this user, unwritable by others unless sticky, no grants. */
 async function requireStableAncestor(ancestor: string) {
   const owner = process.getuid?.()
