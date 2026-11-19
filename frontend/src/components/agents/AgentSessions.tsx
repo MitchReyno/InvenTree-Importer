@@ -17,7 +17,6 @@ import {
   TableWrap,
   onField,
   raisedOnField,
-  onWholeWindow,
 } from '#/components/ui'
 import { SESSION_STATE, STEP_LABEL } from '#/components/processing/ProcessingParts'
 import { PauseButton } from './PauseButton'
@@ -442,9 +441,6 @@ const Group = styled.section`
   ${TableWrap} {
     border: 0;
     border-radius: 0;
-  }
-  ${onWholeWindow} & ${TableWrap} {
-    box-shadow: none;
   }
 `
 

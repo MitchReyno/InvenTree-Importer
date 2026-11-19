@@ -297,6 +297,10 @@ describe('RecordsStage', () => {
       expect(getComputedStyle(rail).boxShadow).toContain('shadow')
       expect(getComputedStyle(list).boxShadow).toContain('shadow')
       expect(getComputedStyle(record).boxShadow).toContain('shadow')
+      expect(within(record).getAllByRole('table').length).toBeGreaterThan(0)
+      for (const table of within(record).getAllByRole('table')) {
+        expect(getComputedStyle(table.parentElement!).boxShadow).toBe('none')
+      }
     } finally {
       document.documentElement.dataset.masthead = 'bar'
     }
