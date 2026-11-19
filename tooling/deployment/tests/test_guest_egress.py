@@ -1476,6 +1476,41 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(tunnel, 2)
         self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", at_cap)
 
+    async def test_cap_decision_sees_the_latch_it_was_made_with(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        lookups = egress.PROTECTED_LOOKUPS
+
+        class ObservedCap:
+            """A cap of one that records whether a failure was latched when compared."""
+
+            def __init__(self):
+                self.latched_at_compare = []
+
+            def __le__(self, count):
+                self.latched_at_compare.append(lookups.failed)
+                return 1 <= count
+
+        with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
+                patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            self.addAsyncCleanup(self.cancelled, tunnel)
+            lock = PublishOnRelease(lookups.lock)
+            cap = ObservedCap()
+            # The failure lands on the admission's first release of the shared lock.
+            lock.then = lambda: lookups.publish("inventory.example.com", None)
+            with patch.object(lookups, "lock", lock), \
+                    patch.object(egress, "MAX_PUBLIC_TUNNELS", cap):
+                at_cap = await self.handle("www.ti.com:443")
+        # The cap was decided before the failure, under the same lock as the latch.
+        self.assertEqual(cap.latched_at_compare, [False])
+        self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", at_cap)
+
 
 if __name__ == "__main__":
     unittest.main()
