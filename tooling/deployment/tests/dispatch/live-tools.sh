@@ -10,7 +10,6 @@ case $INTAKE_TEST_TOOL_PROVIDER in
 esac
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
 guest() { limactl shell --workdir=/ "$vm" sudo "$@"; }
-guest test -S "$dir/web/reader.sock"
 guest install -d -m 0700 -o 1000 -g 1000 "$dir/tool-sessions"
 fixture=$(guest mktemp -d "$dir/tool-sessions/qualification.XXXXXXXX")
 guest chown 1000:1000 "$fixture"

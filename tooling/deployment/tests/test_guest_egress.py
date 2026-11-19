@@ -62,7 +62,6 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.policy = Path(self.directory.name) / "policy.json"
         patches = [
             patch.object(egress, "POLICY_PATH", self.policy),
-            patch.object(egress, "PROTECTED", set()),
             patch.object(egress, "HOSTS", {"api.anthropic.com"}),
         ]
         # Each test gets its own lookup pools, so one test's stalled lookups can't hold slots
@@ -227,10 +226,10 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         written, upstream = await self.connect("api.anthropic.com:443", table)
         self.assert_refused(written, upstream, "protected_destination")
 
-    async def test_environment_protected_host_still_guards_the_provider(self):
+    async def test_protected_host_guards_the_provider_with_web_off(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
         table = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
-        with patch.object(egress, "PROTECTED", {"inventory.example.com"}):
-            written, upstream = await self.connect("api.anthropic.com:443", table)
+        written, upstream = await self.connect("api.anthropic.com:443", table)
         self.assert_refused(written, upstream, "protected_destination")
 
     async def test_provider_host_with_a_private_answer_is_refused(self):

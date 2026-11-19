@@ -293,8 +293,8 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**' --glob '!intake-server/migrations/**'` returns only planning text and the retained `/2` handling. Applied migrations are immutable and keep their historical text.
 - Risks and decisions: none beyond task 4's retired-attempt decision.
 
-- [ ] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
-- [ ] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
+- [x] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
+- [x] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
 - [ ] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
 
 ## Delivery evidence and lifecycle follow-up

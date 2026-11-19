@@ -8,6 +8,7 @@ import { isolatedDatabase } from '../support/database.ts'
 import { sealed } from '#/processing/model.ts'
 import { transaction } from '#/db/database.ts'
 import { migrate } from '#/operations/migrate.ts'
+import { devConfig, processingConfig } from '#/config.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -140,6 +141,30 @@ test('session profiles are stored with instruction bytes matching their digests'
       ),
       pgError('23514'),
     )
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('no profile a worker can run instructs its agent to use the removed bench-web', async () => {
+  const fixture = await processingFixture({ autoStart: false })
+  try {
+    const rows = await fixture.db.pool.query<{ id: string; instruction_bytes: Buffer }>(
+      'SELECT id, instruction_bytes FROM processing_profile ORDER BY id',
+    )
+    const launchable = rows.rows.filter((row) => {
+      const env = { INTAKE_PROCESSING_PROFILE: row.id }
+      try {
+        processingConfig(devConfig(env), env)
+        return true
+      } catch {
+        return false
+      }
+    })
+    assert.ok(launchable.some((row) => row.id === 'shared-vm-agent/3'))
+    for (const row of launchable) {
+      assert.equal(row.instruction_bytes.toString('utf8').includes('bench-web'), false, row.id)
+    }
   } finally {
     await fixture.dispose()
   }

@@ -57,7 +57,7 @@ for (const provider of ['claude', 'codex'] as const) {
         bridge.driver(
           {
             ...turn,
-            text: `Run this synthetic workspace qualification. For Codex use functions.exec with image((await tools.view_image({path: imagePath})).image_url) and text(await tools.exec_command({cmd: command})). For Claude use Read, Write and Bash. The paths below are inside this guest. Inspect ${folder}/image.png visually with your built-in image reader and read its five capital letters. Write ${folder}/qualification.py and execute this Python script which fetches https://www.rfc-editor.org/rfc/rfc9110.txt via bench-web, saves it to ${folder}/rfc.txt, reads it back and extracts its ISSN. Use the intake status tool to record exactly: image=<letters> issn=<value>. Then stop.`,
+            text: `Run this synthetic workspace qualification. For Codex use functions.exec with image((await tools.view_image({path: imagePath})).image_url) and text(await tools.exec_command({cmd: command})). For Claude use Read, Write and Bash. The paths below are inside this guest. Inspect ${folder}/image.png visually with your built-in image reader and read its five capital letters. Write ${folder}/qualification.py and execute this Python script which fetches https://www.rfc-editor.org/rfc/rfc9110.txt with curl through the configured proxy, saves it to ${folder}/rfc.txt, reads it back and extracts its ISSN. Use the intake status tool to record exactly: image=<letters> issn=<value>. Then stop.`,
           },
           context,
         )

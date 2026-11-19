@@ -6,8 +6,6 @@ FROM ${PERSONAL_TOOLS_IMAGE} AS runner
 COPY --from=app /app /app
 COPY tooling/deployment/bridge/guest-egress.py /opt/guest-tools/guest-egress.py
 COPY tooling/deployment/bridge/guest_destinations.py /opt/guest-tools/guest_destinations.py
-COPY tooling/deployment/bridge/web-reader.py /opt/guest-tools/web-reader.py
-COPY --chmod=0555 tooling/deployment/bridge/bench-web /usr/local/bin/bench-web
 WORKDIR /app/intake-server
 CMD ["node","--import","tsx","src/agents/shared-vm/guest-main.ts"]
 

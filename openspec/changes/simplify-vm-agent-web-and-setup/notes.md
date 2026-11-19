@@ -6,6 +6,7 @@ Implementation of `simplify-vm-agent-web-and-setup` (BI-017) started with PR-A (
 
 - **2026-11-19T16:40+11:00, task 1 (PR-A):** Review found that established public tunnels had no limit, so idle ones could crowd the provider out of the 64 MiB egress container. The `shared-vm-execution` delta gained "Public tunnels are bounded" (32 public tunnels, closed after two minutes without data either way; provider tunnels exempt) and the refusal reason `too_many_connections`.
 - **2026-11-20T03:40+11:00, task 5 (PR-B):** `Diagnostics.tsx`, which the plan names, was removed by the settings-debug-mode work. The readiness facts now show in `LocalSetup.tsx` (Settings › Developer and the dev-mode popover) and in Copy debug info (`debug-info.ts`), so the web state is reported there.
+- **2026-11-20T04:10+11:00, task 11 (PR-B):** No reader test case needed moving: PR-A already ported the reader's destination and non-public-answer cases to `test_guest_egress.py`, and its redirect test has no egress equivalent because a CONNECT proxy never follows redirects. The worker smoke test now sends the reader's old private and protected targets to each egress socket instead, and drops the public RFC fetch until a turn can have public pages on.
 
 ## Unexpected challenges
 
