@@ -18,4 +18,4 @@ Implementation of the three masthead options is in progress on `feat/masthead-ap
 
 ## Open items
 
-None.
+- **2026-11-19T13:34+11:00, task 5:** In the app the parts keep the existing scene's scale, so behind the whole window they read smaller and fainter than the larger stand-in images on canvas boards B and C. Scaling field parts up is a design follow-up, not tracked yet.

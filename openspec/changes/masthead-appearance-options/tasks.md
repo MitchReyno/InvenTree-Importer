@@ -141,9 +141,9 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: `pnpm dev` with a headless browser (visible only if the developer wants to watch). For A, B and C, capture light and dark, desktop (1440 × 900) and phone (390 × 844), at the top and scrolled. Sweep every screen under B in both themes for loose text without a patch, and spot-check contrast. Under B, confirm the field paints above the ground and below the bar, page content, the condensed phone row, popovers, dialogs and toasts, and that a toast stays above an open menu overlapping it. Watch for frame-time regressions. Record a demo with the `demo-record` skill. All evidence goes on the PR, not in the repository.
 - Risks: GPU cost on the full-window field; record any tuning in `notes.md`.
 
-- [ ] 5.1 Update the `SettingsAppearance` artboard with the Masthead row and log the change in the design log.
-- [ ] 5.2 Update `frontend/ARCHITECTURE.md` and check that its claims match the code.
-- [ ] 5.3 Run the manual qualification matrix and capture the evidence for the PR.
+- [x] 5.1 Update the `SettingsAppearance` artboard with the Masthead row and log the change in the design log.
+- [x] 5.2 Update `frontend/ARCHITECTURE.md` and check that its claims match the code.
+- [x] 5.3 Run the manual qualification matrix and capture the evidence for the PR.
 - [ ] 5.4 Record the demo and keep it for the PR description.
 - [ ] 5.5 Write `notes.md` entries for departures, tuning and remaining limitations.
 
