@@ -191,7 +191,10 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
   }
 
   return (
-    <SettingRow label="API token" help="Kept on the server and never shown.">
+    <SettingRow
+      label="API token"
+      help="The token the app reads InvenTree with, kept on the server and never shown. Approvals use the approval runner’s own credential, so replacing this one doesn’t change them."
+    >
       <Stack>
         <Status>
           {TOKEN_STATUS[tokenStatus(target, current)]}

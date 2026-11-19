@@ -259,6 +259,8 @@ test('Check and save saves a token InvenTree accepts, clears the field and says 
   renderSettings('inventree')
   const row = screen.getByRole('group', { name: 'API token' })
   expect(await within(row).findByText(/token from the server’s environment/)).toBeVisible()
+  // Replacing the read token is not a fix for approvals, which use their own credential.
+  expect(within(row).getByText(/Approvals use the approval runner’s own credential/)).toBeVisible()
 
   await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
   const field = within(row).getByLabelText('New API token')

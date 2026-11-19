@@ -191,10 +191,42 @@ async function placeLock(directory: string, lock: string) {
   }
 }
 
+/** A recovery lock older than this was left by a starter that died mid-recovery, in ms. */
+const RECOVERY_STALE_MS = 10_000
+
+/**
+ * Removes a lock whose owner has exited, one starter at a time. The recovery lock is taken with
+ * an exclusive mkdir; its holder removes the lock only if it still names the dead owner it saw,
+ * so a lock another starter has claimed meanwhile is never touched. A starter that can't take
+ * the recovery lock is refused rather than guessing.
+ */
+async function recoverStale(directory: string, lock: string, deadOwner: number | undefined) {
+  const recovery = join(directory, `${LOCK_DIRECTORY}.recovery`)
+  try {
+    await mkdir(recovery, { mode: 0o700 })
+  } catch (error) {
+    if (errorCode(error) !== 'EEXIST') {
+      throw error
+    }
+    const age = Date.now() - (await lstat(recovery)).mtimeMs
+    if (age > RECOVERY_STALE_MS) {
+      await rm(recovery, { recursive: true, force: true })
+    }
+    throw new SecretStoreError('secret_store_in_use')
+  }
+  try {
+    if ((await lockOwner(lock)) === deadOwner) {
+      await rm(lock, { recursive: true, force: true })
+    }
+  } finally {
+    await rm(recovery, { recursive: true, force: true })
+  }
+}
+
 /**
  * Claims the store for this process's lifetime, so two servers never keep different tokens in
- * memory over one file. A lock whose owner has exited is moved aside by a rename, which only one
- * starter can win, then claimed afresh. The release runs once and removes only this process's
+ * memory over one file. A lock whose owner has exited is removed under a recovery lock, one starter
+ * at a time, then claimed afresh. The release runs once and removes only this process's
  * lock.
  */
 export async function claimStore(directory: string | undefined): Promise<() => Promise<void>> {
@@ -222,10 +254,7 @@ export async function claimStore(directory: string | undefined): Promise<() => P
       if (owner !== undefined && processAlive(owner)) {
         throw new SecretStoreError('secret_store_in_use')
       }
-      const stale = join(directory, `${LOCK_DIRECTORY}.${randomUUID()}.stale`)
-      // Only one starter's rename finds the stale lock; the others see it gone and retry.
-      await rename(lock, stale).catch(() => undefined)
-      await rm(stale, { recursive: true, force: true })
+      await recoverStale(directory, lock, owner)
     }
   } catch (error) {
     if (error instanceof SecretStoreError) {

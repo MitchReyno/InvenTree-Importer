@@ -373,6 +373,26 @@ test('one running server owns a store; a lock left by an exited one is replaced'
   await successor()
 })
 
+test('starters recovering the same stale lock at once leave exactly one owner', async (t) => {
+  const directory = await secretsDir(t)
+  const lock = join(directory, '.inventory-read-token.lock')
+  await mkdir(lock, { recursive: true, mode: 0o700 })
+  await chmod(directory, 0o700)
+  await writeFile(join(lock, 'pid'), '999999999', { mode: 0o600 })
+
+  const claims = await Promise.allSettled(Array.from({ length: 5 }, () => claimStore(directory)))
+
+  const owners = claims.filter((claim) => claim.status === 'fulfilled')
+  assert.equal(owners.length, 1)
+  for (const claim of claims) {
+    if (claim.status === 'rejected') {
+      assert.equal((claim.reason as { code: string }).code, 'secret_store_in_use')
+    }
+  }
+  assert.equal((await readFile(join(lock, 'pid'), 'utf8')).trim(), String(process.pid))
+  await (owners[0] as PromiseFulfilledResult<() => Promise<void>>).value()
+})
+
 test('overlapping claims leave exactly one owner', async (t) => {
   const directory = await secretsDir(t)
   await mkdir(directory, { mode: 0o700 })
