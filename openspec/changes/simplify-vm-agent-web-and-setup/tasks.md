@@ -15,48 +15,50 @@ Complete and verify a checkbox action, then check it before committing that work
 
 | Task | Type | Prerequisites | Acceptance |
 | --- | --- | --- | --- |
-| 1. Egress proxy public policy and reader removal | Behaviour (tooling) | None | shared-vm-execution: Public destination checks; Protected names that don't resolve publicly; No separate document reader |
+| 1. Egress proxy public policy | Behaviour (tooling) | None | shared-vm-execution: Public destination checks; Protected names that don't resolve publicly |
 | 2. Policy handoff and protected hosts | Behaviour (server and tooling) | Task 1 | shared-vm-execution: Egress applies the sealed web setting; Protected destinations come from the deployment; Scoped guest execution (Public web access off) |
 | 3. Web settings, sealing and the opening message | Behaviour (contracts, server and frontend) | BI-016 merged; tasks 2 and 4 | app-settings: Agent settings section; Deferred settings; processing-agent-sessions: Web settings sealed per attempt; Opening message carries the session's web settings |
 | 4. `shared-vm-agent/3` profile and retired `/2` attempts | Behaviour (server, migration and launcher) | Task 2 | processing-agent-sessions: Web tools run under a new VM profile version; Instructions describe the VM web tools; development-launcher: Processing switches select the profile |
 | 5. Readiness web state | Behaviour (contracts, server and frontend) | Task 4 (the `/3` profile) | operations-backup-restore: Operations liveness and readiness |
 | 6. Tool surface and admission | Behaviour (server) | Tasks 2 and 4 | shared-vm-execution: Claude and Codex VM tool surfaces; Host sessions keep no built-in tools |
-| 7. `pnpm vm:setup` | Behaviour (tooling) | Task 1 (renamed egress file in the provisioning scripts) | development-launcher: One-command VM setup; VM setup is safe to rerun; VM setup checks prerequisites and stops on failure |
+| 7. `pnpm vm:setup` | Behaviour (tooling) | Task 1 (renamed egress file in the provisioning scripts) and task 11 (`browser-policy.sh`) | development-launcher: One-command VM setup; VM setup is safe to rerun; VM setup checks prerequisites and stops on failure |
 | 8. Runner image freshness in `pnpm dev` | Behaviour (tooling) | Task 7 | development-launcher: The runner image is kept current; A failed image refresh stops startup; A missing pairing is refused before the VM starts |
 | 9. Documentation | Documentation | Tasks 1–8 for the facts each document states | Docs match the specs. No retired settings or `bench-web` remain. |
-| 10. Requalification run | Live verification | Tasks 1–9 merged; Mitch's fresh go-ahead | Provider behaviour behind the egress proxy; the `shared-vm-agent/3` profile qualified |
+| 10. Requalification run | Live verification | Tasks 1–9 and 11 merged; Mitch's fresh go-ahead | Provider behaviour behind the egress proxy; the `shared-vm-agent/3` profile qualified |
+| 11. Remove the document reader | Behaviour (tooling) | Tasks 1 and 4 | shared-vm-execution: No separate document reader |
 
-Only task 3 waits for BI-016. Tasks 1, 2 and 4–9 can proceed while it is open. Until task 3 lands, `/3` attempts seal no web fields, so public web access stays off, while provider search already works.
+Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is open. Until task 3 lands, `/3` attempts seal no web fields, so public web access stays off, while provider search already works.
 
 ## PR delivery map
 
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | Plan | This plan and the BI-017 entry | Planning artifacts only | Reviewable before any code | None | `interactive-app`, `docs/simplify-vm-agent-web-and-setup`, `docs(simplify-vm-agent-web-and-setup): plan simple web access and VM setup` | Strict OpenSpec validation, independent review |
-| PR-A | Web policy in the per-turn egress proxy, delivered by the supervisor; reader removed. Public web access stays off until PR-C seals a value. | Tasks 1, 2 | One security boundary: proxy rules and the channel that feeds them, reviewed together | Plan merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-egress`, `feat(simplify-vm-agent-web-and-setup): enforce web policy at the turn egress` | `pnpm test:deployment`, `pnpm test:intake` and `pnpm test:intake:process`, `pnpm test:dev`, `pnpm lint`, guest smoke with the paired VM where available, exact-head review, green CI |
-| PR-B | The `shared-vm-agent/3` profile with its tool surface and admission, retired `/2` attempts, and readiness reporting the web state | Tasks 4, 5, 6 | The profile, its instructions and its tool surface must arrive together, or `/3` would run with tools its instructions don't match. Readiness reports what this PR makes true. | PR-A merged (`WebFetch` is always behind the policy) | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-tools`, `feat(simplify-vm-agent-web-and-setup): give VM agents web search and fetch` | `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:dev`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`, exact-head review, green CI |
+| PR-A | Web policy in the per-turn egress proxy, delivered by the supervisor. The reader stays for `/2`. Public web access stays off until PR-C seals a value. | Tasks 1, 2 | One security boundary: proxy rules and the channel that feeds them, reviewed together | Plan merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-egress`, `feat(simplify-vm-agent-web-and-setup): enforce web policy at the turn egress` | `pnpm test:deployment`, `pnpm test:intake` and `pnpm test:intake:process`, `pnpm test:dev`, `pnpm lint`, guest smoke with the paired VM where available, exact-head review, green CI |
+| PR-B | The `shared-vm-agent/3` profile with its tool surface and admission, retired `/2` attempts, the reader removed, and readiness reporting the web state | Tasks 4, 5, 6, 11 | The profile, its instructions and its tool surface must arrive together, or `/3` would run with tools its instructions don't match. The reader can only go once no launchable profile names it. Readiness reports what this PR makes true. | PR-A merged (`WebFetch` is always behind the policy) | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-tools`, `feat(simplify-vm-agent-web-and-setup): give VM agents web search and fetch` | `pnpm test:deployment`, `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:dev`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`, runner image build, exact-head review, green CI |
 | PR-C | Working web settings, sealed per attempt, and the opening message that reports them | Task 3 | Settings, sealing and what the session is told form one user-visible behaviour | BI-016 merged; PR-B merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-settings`, `feat(simplify-vm-agent-web-and-setup): add web research settings` | `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`, demo video (UI change), exact-head review, green CI |
-| PR-D | One-command setup, image freshness and the documentation rewrite | Tasks 7, 8, 9 | Setup automation and the docs that replace the manual steps belong together | PR-A merged; docs facts from PR-B and PR-C merged first | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-vm-setup`, `feat(simplify-vm-agent-web-and-setup): add pnpm vm:setup` | `pnpm test:dev`, `pnpm lint`, Markdown checks, a recorded fresh `vm:setup` run, exact-head review, green CI |
+| PR-D | One-command setup, image freshness and the documentation rewrite | Tasks 7, 8, 9 | Setup automation and the docs that replace the manual steps belong together | PR-A and PR-B merged; docs facts from PR-C merged first | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-vm-setup`, `feat(simplify-vm-agent-web-and-setup): add pnpm vm:setup` | `pnpm test:dev`, `pnpm lint`, Markdown checks, a recorded fresh `vm:setup` run, exact-head review, green CI |
 | PR-E | Requalification evidence and notes | Task 10 | A live run is separate authority and evidence | PR-A to PR-D merged; Mitch's go-ahead | `interactive-app`, `docs/simplify-vm-agent-web-and-setup-qualification`, `docs(simplify-vm-agent-web-and-setup): record requalification` | Evidence attached to the PR, exact-head review |
 
-## 1. Egress proxy public policy and reader removal
+## 1. Egress proxy public policy
 
 - PR delivery: PR-A.
-- Outcome: one proxy file enforces the provider allowlist and the public destination rules. The reader, `bench-web` and their setup are gone.
+- Outcome: one proxy file enforces the provider allowlist and the public destination rules. The reader and `bench-web` keep working until task 11 removes them, because `/2` instructions still name `bench-web`.
 - Scope and approach:
-  - Rename `tooling/deployment/bridge/claude-egress.py` to `guest-egress.py` and update its callers (`tool-turn.sh`, `personal-claude.sh`, `personal-codex.sh`, `runner.Dockerfile`) and the runner build-context whitelist `runner.Dockerfile.dockerignore`, which also loses `web-reader.py` and `bench-web`.
+  - Rename `tooling/deployment/bridge/claude-egress.py` to `guest-egress.py`. Update its callers (`tool-turn.sh`, `personal-claude.sh`, `personal-codex.sh`, `runner.Dockerfile`) and its entry in the runner build-context whitelist, `runner.Dockerfile.dockerignore`.
   - Add the public branch (design D1): read the policy file, apply the `guest_destinations.py` checks, handle IPv4 and IPv6, connect to a checked address, and send refusal reasons in `X-Bench-Refusal`.
-  - Move the resolution and skip rule for protected names into `guest_destinations.py`.
-  - Replace `public-web.sh` with `browser-policy.sh`, which only installs `guest/browser-seccomp.json` into the guest directory, as `public-web.sh:8-9` does today. Until PR-D, the README points to it in place of `public-web.sh`.
-  - Delete `web-reader.py`, `bench-web`, the `bench-web` install line in `runner.Dockerfile`, and the reader socket check and `/run/web` mount in `tool-turn.sh`.
-  - Port `tests/test_web_reader.py` to `tests/test_guest_egress.py`.
+  - Move the resolution and skip rule for protected names into `guest_destinations.py`. The reader keeps using that module unchanged in behaviour.
+  - Add `tests/test_guest_egress.py` and a root `test:deployment` script.
 - Prerequisites: None.
-- Acceptance: shared-vm-execution › Public destination checks (all scenarios); Protected names that don't resolve publicly; No separate document reader.
+- Acceptance: shared-vm-execution › Public destination checks (all scenarios); Protected names that don't resolve publicly (both scenarios).
 - TDD approach:
   - The baseline is the existing reader tests passing.
   - RED: new egress tests expect public CONNECTs allowed with a policy, refusal reasons, IPv6 answers, port refusal and the skip rule. They fail against the provider-only proxy.
-- Verification: a new root script `pnpm test:deployment` running `python3 -I -m unittest discover -s tooling/deployment/tests -p 'test_*.py'`, added to CI; `uv run --project backend ruff check --config backend/pyproject.toml tooling/deployment` (`pnpm lint:backend` doesn't cover `tooling/deployment`); `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**' --glob '!intake-server/migrations/**'` returns only planning text. Applied migrations are immutable and keep their historical text.
-- Risks and decisions: the long-lived personal egress containers must keep working without a policy file, which a provider-only test covers. The runner image must still build after the whitelist change: build it once and record the result on the PR.
+- Verification:
+  - `pnpm test:deployment`, a new root script running `python3 -I -m unittest discover -s tooling/deployment/tests -p 'test_*.py'`, added to CI. The existing reader tests still pass.
+  - `uv run --project backend ruff check --config backend/pyproject.toml tooling/deployment`, because `pnpm lint:backend` doesn't cover `tooling/deployment`.
+  - Build the runner image once after the whitelist change, and record the result on the PR.
+- Risks and decisions: the long-lived personal egress containers must keep working without a policy file, which a provider-only test covers.
 
 - [ ] 1.1 Run the existing reader and egress tests and record the baseline.
 - [ ] 1.2 RED: write `test_guest_egress.py` covering the cases below, and confirm they fail for the expected reason.
@@ -65,10 +67,8 @@ Only task 3 waits for BI-016. Tasks 1, 2 and 4–9 can proceed while it is open.
   - [ ] 1.2.3 Mixed public and private answers, an IPv6 private answer, a private suffix, an IP literal and a port other than 443 are refused with their reasons.
   - [ ] 1.2.4 A protected name, a subdomain of it and a shared address are refused. A protected name resolving only privately is skipped. A failed lookup gives `resolution_failed` for public hosts only.
   - [ ] 1.2.5 A missing or malformed policy file means provider-only.
-- [ ] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers and image.
-- [ ] 1.4 Remove the reader files, the `bench-web` install, and the socket check and mount. Add `browser-policy.sh`, update the runner `.dockerignore`, port the remaining reader tests and delete the reader test file.
-- [ ] 1.5 Build the runner image, and with the paired VM where available, confirm Chromium starts in a tool worker with the installed policy. Record the result or the VM limitation on the PR.
-- [ ] 1.6 Add the `test:deployment` script and its CI step, run it, the deployment `ruff check`, `pnpm lint` and the reference search, and record the results.
+- [ ] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers, image and whitelist.
+- [ ] 1.4 Add the `test:deployment` script and its CI step, then run it, the deployment `ruff check`, `pnpm lint` and a runner image build, and record the results.
 
 ## 2. Policy handoff and protected hosts
 
@@ -194,7 +194,7 @@ Only task 3 waits for BI-016. Tasks 1, 2 and 4–9 can proceed while it is open.
   - Run `browser-policy.sh` as a setup step.
   - Check the operator key on both sides before provisioning, and make `personal-claude.sh` and `personal-codex.sh` refuse to generate or overwrite a key when the guest already has one (design D8). Shell tests cover the scripts on their own.
   - Add pairing detection around `pair.sh`.
-- Prerequisites: task 1.
+- Prerequisites: tasks 1 and 11.
 - Acceptance: development-launcher › One-command VM setup; VM setup is safe to rerun; VM setup checks prerequisites and stops on failure (all scenarios).
 - TDD approach: RED tests in `tooling/tests/dev-vm-setup.test.cjs` with an injected `exec`, as in `dev-vm.test.cjs`, covering:
   - a fresh run in order;
@@ -243,10 +243,10 @@ Only task 3 waits for BI-016. Tasks 1, 2 and 4–9 can proceed while it is open.
   - The `tooling/deployment/README.md` shared-VM section.
   - `.env.example`.
   - `intake-server/src/agents/ARCHITECTURE.md`, about the reader and egress.
-- Prerequisites: tasks 1–8 for the facts.
+- Prerequisites: tasks 1–8 and 11 for the facts.
 - Acceptance: every doc claim matches the merged code and specs. No `bench-web`, reader or retired web setting is left.
 - TDD approach: documentation only. Verify with reference searches and Markdown checks instead of tests.
-- Verification: `pnpm lint:markdown`, `pnpm format:check`, the reference search from task 1, and a read-through against the specs.
+- Verification: `pnpm lint:markdown`, `pnpm format:check`, the reference search from task 11, and a read-through against the specs.
 - Risks and decisions: none.
 
 - [ ] 9.1 Rewrite the affected sections.
@@ -270,6 +270,30 @@ Only task 3 waits for BI-016. Tasks 1, 2 and 4–9 can proceed while it is open.
 - [ ] 10.1 Ask Mitch for the go-ahead for the live run.
 - [ ] 10.2 Run each case and record the outcomes.
 - [ ] 10.3 Update `notes.md` and the PR with the results and any limitations.
+
+## 11. Remove the document reader
+
+- PR delivery: PR-B.
+- Outcome: the reader, `bench-web` and `public-web.sh` are gone in the same release that makes `/3` the selected profile and retires `/2`. No launchable profile is left instructing agents to use a missing tool.
+- Scope and approach:
+  - Replace `public-web.sh` with `browser-policy.sh`, which only installs `guest/browser-seccomp.json` into the guest directory, as `public-web.sh:8-9` does today. Until PR-D, the README points to it in place of `public-web.sh`.
+  - Delete `web-reader.py`, `bench-web`, the `bench-web` install line in `runner.Dockerfile`, their `runner.Dockerfile.dockerignore` entries, and the reader socket check and `/run/web` mount in `tool-turn.sh`.
+  - Move the reader's remaining useful policy cases into `test_guest_egress.py`, and delete `test_web_reader.py`.
+- Prerequisites: tasks 1 and 4, delivered in the same PR as task 4.
+- Acceptance: shared-vm-execution › No separate document reader.
+- TDD approach: RED tests that fail before the removal:
+  - every profile the launcher can select has stored instructions that don't mention `bench-web`;
+  - a `tool-turn.sh` argument test expects no `/run/web` mount and no reader socket check.
+- Verification:
+  - `pnpm test:deployment`, `pnpm test:dev` and `pnpm test:intake:pg`.
+  - A runner image build.
+  - With the paired VM where available, Chromium starts in a tool worker with the policy that `browser-policy.sh` installed. Record the result, or the VM limitation, on the PR.
+  - `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**' --glob '!intake-server/migrations/**'` returns only planning text and the retained `/2` handling. Applied migrations are immutable and keep their historical text.
+- Risks and decisions: none beyond task 4's retired-attempt decision.
+
+- [ ] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
+- [ ] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
+- [ ] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
 
 ## Delivery evidence and lifecycle follow-up
 

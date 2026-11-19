@@ -218,7 +218,10 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 
 ## Migration, rollout and recovery
 
-- **Order:** BI-016 merges first. This change's PRs then go in the order in `tasks.md`. The egress and policy PR lands before the tool surface PR, so `WebFetch` never runs without the policy.
+- **Order:** follow the PR map in `tasks.md`.
+  - PR-A lands before PR-B, so `WebFetch` never runs without the policy.
+  - PR-B adds the `/3` profile, its tool surface and the `/2` retirement, and removes the reader in one release. No launchable profile is ever left instructing agents to use a tool that is gone.
+  - PR-C waits for BI-016.
 - **Existing setups:**
   - The old `bench-public-reader` container is removed by the next `vm:setup` or image refresh, and is harmless if left.
   - The README tells existing users to run `pnpm vm:setup` once. It keeps their pairing and sign-ins.
