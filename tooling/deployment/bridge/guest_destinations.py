@@ -144,33 +144,28 @@ def check_public_form(host, port, protected):
 
 
 def public_target(host, port, protected, on_resolved=None):
-    """The checked address to connect to for a public CONNECT, or Refused with its reason.
+    """The destination's checked addresses for a public CONNECT, or Refused with its reason.
 
-    Every CONNECT that passes the form check refreshes all protected names, whatever its own
-    answer, and `on_resolved` receives each answer so other connections can use it."""
+    Protected names other than the destination are refreshed and compared by the caller. When
+    the destination is itself a protected name, `on_resolved` receives its answer first."""
     check_public_form(host, port, protected)
     try:
         addresses = resolved_addresses(host)
-    except Refused as error:
-        addresses, failure = None, error
-    else:
-        failure = None
-    if host in protected and on_resolved:
-        # Its own answer joins the protected addresses before the request is refused.
-        on_resolved(host, None if addresses is None else
-                    {address for address in map(normalized, addresses) if public(str(address))})
-    blocked = protected_addresses(set(protected) - {host}, on_resolved)
-    # A private answer reports not_public even for a protected name; a protected name without
-    # its own record is still protected.
-    if failure is not None:
+    except Refused:
+        if host in protected and on_resolved:
+            on_resolved(host, None)
+        # A protected name without its own record is still protected.
         if protected_name(host, protected):
             raise Refused("protected_destination") from None
-        raise failure
+        raise
+    if host in protected and on_resolved:
+        # Its own answer joins the protected addresses before the request is refused.
+        on_resolved(host, {address for address in map(normalized, addresses)
+                           if public(str(address))})
+    # A private answer reports not_public even for a protected name.
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if protected_name(host, protected):
-        raise Refused("protected_destination")
-    if any(normalized(address) in blocked for address in addresses):
         raise Refused("protected_destination")
     return connection_order(addresses)
 

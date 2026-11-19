@@ -1326,6 +1326,24 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
+    async def test_public_connect_looks_each_protected_name_up_once(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_connected(written, upstream, PUBLIC)
+        protected_lookups = [call for call in self.guest_dns.call_args_list
+                             if call.args[0].startswith("inventory.")]
+        self.assertEqual(len(protected_lookups), 1)
+
+    async def test_oversized_answer_is_refused_before_any_watch_or_dial(self):
+        self.write_policy()
+        many = [f"93.184.{index // 250}.{index % 250 + 1}" for index in range(33)]
+        watch = Mock(side_effect=egress.PROTECTED_LOOKUPS.watch)
+        with patch.object(egress.PROTECTED_LOOKUPS, "watch", watch):
+            written, upstream = await self.connect("www.ti.com:443", {"www.ti.com": many})
+        self.assert_refused(written, upstream, "destination_refused")
+        watch.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

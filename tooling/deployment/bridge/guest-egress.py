@@ -41,6 +41,8 @@ HEADER_TIMEOUT_S = 5
 CONNECT_TIMEOUT_S = 10
 # A destination with many answers gets at most this many connection attempts.
 MAX_CONNECT_ATTEMPTS = 3
+# Each answer is watched during setup, so a larger answer set is refused before any watch.
+MAX_ANSWERS = 32
 # Public tunnels open at once, and how long one may sit without data before it closes. Provider
 # tunnels have neither limit: model streams can pause for long stretches.
 MAX_PUBLIC_TUNNELS = 32
@@ -407,24 +409,35 @@ async def checked_addresses(host, port, provider, protected):
             PROTECTED_LOOKUPS.check_overflow()
             raise
         return addresses, protection_guard(protected, False)
-    # Protected names refresh on their own pool, so a stalled destination lookup can't hold up
-    # an answer that revokes another tunnel. Each refresh publishes when it lands.
-    for entry in protected:
-        if literal_address(entry) is None:
-            PROTECTED_LOOKUPS.refresh(entry)
+    # Protected names refresh on the shared per-name pool, joining any refresh in flight, while
+    # the destination resolves; each refresh publishes when it lands, even after this request.
+    refreshes = [PROTECTED_LOOKUPS.refresh(entry)[1] for entry in protected
+                 if literal_address(entry) is None and entry != host]
+    target = asyncio.ensure_future(PUBLIC_DNS.run(
+        public_target, host, port, protected, PROTECTED_LOOKUPS.publish))
+    if refreshes:
+        await asyncio.wait(refreshes, timeout=DNS_TIMEOUT_S)
     try:
-        # Other connections' lookups can still protect this address before or after the dial.
-        addresses = await PUBLIC_DNS.run(
-            public_target, host, port, protected, PROTECTED_LOOKUPS.publish)
-        return addresses, protection_guard(protected, True)
-    except Refused as refusal:
-        # Once a protected lookup has failed, every public refusal reports that first.
-        if PROTECTED_LOOKUPS.has_failed():
-            raise Refused("resolution_failed") from None
+        addresses = await target
+        refusal = None
+    except Refused as error:
+        addresses, refusal = None, error
+    # Once a protected lookup has failed, every public refusal reports that first; a refresh
+    # still running at the deadline refuses this request without failing the turn.
+    if PROTECTED_LOOKUPS.has_failed() or not all(refresh.done() for refresh in refreshes):
+        raise Refused("resolution_failed")
+    if refusal is not None:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
             raise Refused("protected_destination") from None
-        raise
+        raise refusal
+    blocked = PROTECTED_LOOKUPS.latest(protected) | {
+        literal for literal in map(literal_address, protected)
+        if literal is not None and public(str(literal))}
+    if any(normalized(address) in blocked for address in addresses):
+        raise Refused("protected_destination")
+    # Other connections' lookups can still protect this address before or after the dial.
+    return addresses, protection_guard(protected, True)
 
 
 async def open_first(addresses, guard, public_request):
@@ -435,6 +448,8 @@ async def open_first(addresses, guard, public_request):
     host, even when it names an address whose dial failed. Returns the streams, the
     Revocation that drops them and the function that stops watching.
     """
+    if len(addresses) > MAX_ANSWERS:
+        raise Refused("destination_refused")
     watches = [PROTECTED_LOOKUPS.watch(address, public_request) for address in addresses]
 
     def check():
