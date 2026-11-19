@@ -21,3 +21,4 @@ The three masthead options (In the bar, Behind the whole window, Fading down) an
 
 - **2026-11-19T13:34+11:00, task 5:** In the app the parts keep the existing scene's scale, so behind the whole window they read smaller and fainter than the larger stand-in images on canvas boards B and C. Scaling field parts up is a design follow-up, not tracked yet.
 - **2026-11-19T14:31+11:00, archive:** No automated test renders Review's "Batch context" backing or the Review and Processing loading lines; they were checked only by the manual sweep.
+- **2026-11-19T14:36+11:00, archive:** Archiving waits for `settings-debug-mode` to sync first. Both change the app-settings requirement "InvenTree and appearance sections", and its block does not include the Masthead choice, so this change syncs on top of it afterwards.
