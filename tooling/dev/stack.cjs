@@ -1,3 +1,6 @@
+const { join } = require('node:path')
+const { agentWorkerSettings } = require('./settings.cjs')
+
 /**
  * Orders what must exist before the supervisor picks a state root: the database
  * server (and, for local-inventree, the whole local stack), then the identity
@@ -38,6 +41,22 @@ function apiTargetEnv(target, state, key, { readOnly } = {}) {
     INTAKE_CREDENTIAL_REF: target.credentialRef,
     INTAKE_DEV_API_KEY: key,
     INTAKE_READ_ORIGIN: target.origin,
+  }
+}
+
+/**
+ * The agent worker's whole environment: provider and VM settings, the origins its VM egress
+ * protects, its profile, state root and databases. Its own app origin is not passed.
+ */
+function agentChildEnvironment({ resolved, settings, profile, root, state, writerUrl, origins }) {
+  return {
+    ...agentWorkerSettings(resolved, settings, origins),
+    INTAKE_PROCESSING_PROFILE: profile,
+    INTAKE_AGENT_STATE_ROOT: join(root, 'agents'),
+    INTAKE_AGENT_DATABASE_URL: state.processingUrl,
+    INTAKE_AGENT_SCHEDULER_DATABASE_URL:
+      state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl,
+    ...(writerUrl ? { INTAKE_AGENT_WRITER_DATABASE_URL: writerUrl } : {}),
   }
 }
 
@@ -87,6 +106,7 @@ async function startSupervision(settings, target, deps) {
 }
 
 module.exports = {
+  agentChildEnvironment,
   prepareDevelopment,
   apiTargetEnv,
   startsApplyRunner,

@@ -13,14 +13,18 @@ const {
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
-  agentWorkerSettings,
   personalManagementFlag,
   startupSummary,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
 const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
+const {
+  agentChildEnvironment,
+  apiTargetEnv,
+  startsApplyRunner,
+  startSupervision,
+} = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
@@ -441,25 +445,20 @@ async function main() {
         text.includes('DEV_MEDIA_READY'),
       ).ready()
       if (worker) {
-        const providerEnv = agentWorkerSettings(resolved, settings, {
-          appOrigin: publicOrigin,
-          tailnetOrigin: tailnet ? tailnet.origin : undefined,
-          inventoryOrigin: targetEnv.INTAKE_READ_ORIGIN,
-        })
-        await child(
-          'agents',
-          worker.entry,
-          {
-            ...providerEnv,
-            INTAKE_PROCESSING_PROFILE: profile,
-            INTAKE_AGENT_STATE_ROOT: join(root, 'agents'),
-            INTAKE_AGENT_DATABASE_URL: state.processingUrl,
-            INTAKE_AGENT_SCHEDULER_DATABASE_URL:
-              state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl,
-            ...(writerUrl ? { INTAKE_AGENT_WRITER_DATABASE_URL: writerUrl } : {}),
+        const agentEnv = agentChildEnvironment({
+          resolved,
+          settings,
+          profile,
+          root,
+          state,
+          writerUrl,
+          origins: {
+            appOrigin: publicOrigin,
+            tailnetOrigin: tailnet ? tailnet.origin : undefined,
+            inventoryOrigin: targetEnv.INTAKE_READ_ORIGIN,
           },
-          (text) => text.includes(worker.ready),
-        ).ready()
+        })
+        await child('agents', worker.entry, agentEnv, (text) => text.includes(worker.ready)).ready()
       } else {
         await child('processing', 'src/dev/processing-main.ts', {}, (text) =>
           text.includes('DEV_PROCESSING_READY'),

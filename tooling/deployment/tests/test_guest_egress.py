@@ -8,6 +8,7 @@ import sys
 from contextlib import contextmanager
 from tempfile import TemporaryDirectory
 import threading
+import time
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -26,14 +27,17 @@ def answers(*addresses):
             for a in addresses]
 
 
-def dns(table, stalled=None):
+def dns(table, stalled=None, delays=None):
     """A getaddrinfo stand-in: unknown names fail like an NXDOMAIN answer.
 
-    A name in `stalled` blocks until its event is set, like an unresponsive resolver.
+    A name in `stalled` blocks until its event is set, like an unresponsive resolver; a name in
+    `delays` answers after that many seconds.
     """
     def lookup(host, *_args, **_kwargs):
         if stalled and host in stalled:
             stalled[host].wait(10)
+        if delays and host in delays:
+            time.sleep(delays[host])
         if host not in table:
             raise socket.gaierror(socket.EAI_NONAME, "unknown name")
         return answers(*table[host])
@@ -70,13 +74,13 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         return written, upstream
 
     @contextmanager
-    def fake_network(self, table, open_results=None, stalled=None):
+    def fake_network(self, table, open_results=None, stalled=None, delays=None):
         """Patches DNS and upstream connections once; concurrent CONNECTs share it."""
         remote = asyncio.StreamReader()
         remote.feed_eof()
         upstream_writer = Mock()
         upstream_writer.drain = AsyncMock()
-        self.guest_dns = Mock(side_effect=dns(table, stalled))
+        self.guest_dns = Mock(side_effect=dns(table, stalled, delays))
         opened = AsyncMock(side_effect=open_results(remote, upstream_writer) if open_results else None,
                            return_value=(remote, upstream_writer))
         with patch.object(socket, "getaddrinfo", self.guest_dns), \
@@ -371,11 +375,10 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
         release = threading.Event()
         known = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [PUBLIC]}
-        with patch.object(egress, "PROTECTED_LOOKUP_TTL_S", 0), \
-                patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2):
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2):
             written, upstream = await self.connect("api.anthropic.com:443", known)
             self.assert_connected(written, upstream, PUBLIC)
-            # The entry has expired; its refresh stalls, and the provider moves onto that address.
+            # The next refresh stalls, and the provider moves onto the last known address.
             moved = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
             with self.fake_network(moved, stalled={"inventory.example.com": release}) as upstream:
                 written = await self.handle("api.anthropic.com:443")
@@ -390,6 +393,28 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 written, upstream = await self.connect(target, {})
                 self.assert_refused(written, upstream, "protected_destination")
                 self.assertEqual(self.lookups, 0)
+
+    async def test_protected_name_that_moves_is_blocked_at_its_new_address(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        before = {"inventory.example.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        written, upstream = await self.connect("api.anthropic.com:443", before)
+        self.assert_connected(written, upstream, OTHER_PUBLIC)
+        after = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        written, upstream = await self.connect("api.anthropic.com:443", after)
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_provider_answering_near_its_deadline_is_not_held_by_a_stalled_protected_lookup(self):
+        release = threading.Event()
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        with patch.object(egress, "DNS_TIMEOUT_S", 0.6), \
+                patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.4), \
+                self.fake_network(table, stalled={"inventory.example.com": release},
+                                  delays={"api.anthropic.com": 0.4}) as upstream:
+            written = await self.handle("api.anthropic.com:443")
+            release.set()
+            egress.PROTECTED_LOOKUPS.pool.shutdown(wait=True)
+        self.assert_connected(written, upstream, OTHER_PUBLIC)
 
 
 if __name__ == "__main__":

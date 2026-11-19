@@ -8,8 +8,7 @@ import json
 import os
 import socket
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from guest_destinations import (
@@ -71,18 +70,18 @@ class BoundedResolver:
 
 PROVIDER_DNS = BoundedResolver("provider-dns")
 PUBLIC_DNS = BoundedResolver("public-dns")
-# Protected-name lookups for a provider CONNECT get this budget; a lookup still running after
-# it is skipped for that CONNECT, so it can't cost the provider its own DNS deadline.
+# Protected-name lookups for a provider CONNECT run beside the provider's own lookup and get
+# this budget. A name whose refresh is still running after it blocks its last known addresses.
 PROTECTED_LOOKUP_BUDGET_S = 2
-# Successful protected lookups are reused for this long. The egress serves one turn.
-PROTECTED_LOOKUP_TTL_S = 60
 
 
 class ProtectedLookups:
-    """Protected-name addresses for provider CONNECTs, cached per name.
+    """Protected-name addresses for provider CONNECTs.
 
-    Each name has at most one lookup in flight, and a turn has at most a few dozen names, so
-    the work stays bounded without refusing a name for lack of a slot.
+    Every CONNECT refreshes each name, joining a refresh already in flight, so a name that
+    moves is blocked at its new address straight away. A refresh that fails or runs late
+    leaves the name's last known addresses blocking. Each name has at most one refresh in
+    flight and a turn has at most a few dozen names, so the work stays bounded.
     """
 
     def __init__(self):
@@ -92,46 +91,42 @@ class ProtectedLookups:
         self.in_flight = {}
 
     def resolve(self, name):
+        """Fresh addresses for `name`, or None when the lookup fails."""
         try:
             addresses = protected_addresses({name})
         except Refused:
             addresses = None
         with self.lock:
             self.in_flight.pop(name, None)
-            # A failed refresh keeps the last addresses this name was known to have.
             if addresses is not None:
-                self.known[name] = (time.monotonic() + PROTECTED_LOOKUP_TTL_S, addresses)
-        return addresses or set()
+                self.known[name] = addresses
+        return addresses
 
-    def lookup(self, name):
-        """The last known addresses, and the refresh in flight when they are missing or stale.
-
-        Stale addresses keep blocking until a refresh replaces them, so a slow or failed
-        refresh never unblocks an address this name was known to have.
-        """
+    def refresh(self, name):
+        """The name's last known addresses and its refresh in flight."""
         with self.lock:
-            expiry, known = self.known.get(name, (0, set()))
-            if expiry > time.monotonic():
-                return known, None
             if name not in self.in_flight:
                 self.in_flight[name] = self.pool.submit(self.resolve, name)
-            return known, self.in_flight[name]
+            return self.known.get(name, set()), self.in_flight[name]
 
-    def addresses(self, protected):
+    async def deny_set(self, protected):
         blocked = set()
-        pending = []
+        refreshes = []
         for entry in protected:
             literal = literal_address(entry)
             if literal is not None:
                 if public(str(literal)):
                     blocked.add(literal)
                 continue
-            known, refresh = self.lookup(entry)
-            blocked |= known
-            if refresh is not None:
-                pending.append(refresh)
-        done, _late = wait(pending, timeout=PROTECTED_LOOKUP_BUDGET_S)
-        return blocked.union(*(future.result() for future in done))
+            known, future = self.refresh(entry)
+            refreshes.append((known, asyncio.wrap_future(future)))
+        if refreshes:
+            await asyncio.wait([waiter for _known, waiter in refreshes],
+                               timeout=PROTECTED_LOOKUP_BUDGET_S)
+        for known, waiter in refreshes:
+            fresh = waiter.result() if waiter.done() else None
+            blocked |= fresh if fresh is not None else known
+        return blocked
 
 
 PROTECTED_LOOKUPS = ProtectedLookups()
@@ -187,18 +182,31 @@ def connect_target(request_line):
     return host, int(port)
 
 
-def provider_addresses(host, protected):
-    """The provider host's checked IPv4 addresses, or Refused. Blocking; run on PROVIDER_DNS."""
-    if protected_name(host, protected):
-        raise Refused("protected_destination")
+def provider_answers(host):
+    """The provider host's IPv4 answers, or Refused. Blocking; run on PROVIDER_DNS."""
     try:
         answers = socket.getaddrinfo(host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
     except OSError as error:
         raise Refused("resolution_failed") from error
-    # A protected name that fails or stalls is skipped, so the provider stays reachable; public
-    # access for the turn is refused separately by public_target.
-    blocked = PROTECTED_LOOKUPS.addresses(protected)
-    addresses = [answer[4][0] for answer in answers]
+    return [answer[4][0] for answer in answers]
+
+
+async def provider_addresses(host, protected):
+    """The provider host's checked addresses, or Refused.
+
+    Its own lookup and the protected lookups run at the same time under separate deadlines, so
+    a stalled protected name can't cost the provider its DNS deadline. A protected name that
+    fails or stalls is skipped here; public access is refused separately by public_target.
+    """
+    if protected_name(host, protected):
+        raise Refused("protected_destination")
+    deny = asyncio.create_task(PROTECTED_LOOKUPS.deny_set(protected))
+    try:
+        addresses = await PROVIDER_DNS.run(provider_answers, host)
+    except BaseException:
+        deny.cancel()
+        raise
+    blocked = await deny
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if any(normalized(address) in blocked for address in addresses):
@@ -211,7 +219,7 @@ async def checked_addresses(host, port):
     policy = load_policy()
     protected = PROTECTED | (policy["protected_hosts"] if policy else set())
     if host in HOSTS and port == 443:
-        return await PROVIDER_DNS.run(provider_addresses, host, protected)
+        return await provider_addresses(host, protected)
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     check_public_form(host, port, protected)
