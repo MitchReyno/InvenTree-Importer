@@ -236,7 +236,7 @@ test('the API token row never shows a stale or failed read as current', async ()
 const DEFERRED: [SettingsSectionId, string[]][] = [
   ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
   ['inventree', ['API token']],
-  ['defaults', ['Default location', 'Default supplier', 'Tags']],
+  ['defaults', ['Tags']],
 ]
 
 for (const [section, rows] of DEFERRED) {

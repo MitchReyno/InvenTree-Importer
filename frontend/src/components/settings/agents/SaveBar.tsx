@@ -17,17 +17,20 @@ export function SaveBar({
   state,
   busy,
   label = 'Save',
+  savedMessage = MESSAGE.saved,
   onSave,
   onReload,
 }: {
   state: SaveState
   busy: boolean
   label?: string
+  /** What a confirmed save means for this form. */
+  savedMessage?: string
   onSave: () => void
   /** Loads the saved settings into this form, dropping its edit. */
   onReload: () => void
 }) {
-  const message = MESSAGE[state]
+  const message = state === 'saved' ? savedMessage : MESSAGE[state]
 
   return (
     <Bar>

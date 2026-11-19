@@ -62,8 +62,12 @@ export function useSubsectionForm<V extends FieldValues>({
     state: saving.state,
     busy: saving.busy,
     markDirty: () => reportDirty(id, true),
-    save: () =>
-      void form.handleSubmit(async (current) => settle(await saving.save(write(current))))(),
+    save: () => {
+      // The Save shows it is unavailable while one runs; a second press sends nothing.
+      if (!saving.busy) {
+        void form.handleSubmit(async (current) => settle(await saving.save(write(current))))()
+      }
+    },
     reload: () => void saving.reload().then(settle),
   }
 }

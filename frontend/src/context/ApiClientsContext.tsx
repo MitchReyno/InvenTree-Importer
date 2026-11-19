@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import type { AttentionClient } from '#/attention/useBatchAttention'
-import type { CatalogueClient } from '#/catalogue/types'
+import type { BatchDefaultsClient, CatalogueClient } from '#/catalogue/types'
 import type { MediaClient } from '#/media/types'
 import type { OperatorReviewClient } from '#/operator/types'
 import type { AgentsRead, ProcessingClient } from '#/processing/types'
@@ -10,6 +10,7 @@ import type { RecordsClient } from '#/records/useBatchRecords'
 export interface ApiClients {
   agents?: AgentsRead
   attention?: AttentionClient
+  batchDefaults?: BatchDefaultsClient
   catalogue?: CatalogueClient
   media?: MediaClient
   operator?: OperatorReviewClient

@@ -95,10 +95,7 @@ export function catalogueClient(
   }
 }
 
-/**
- * The app-level defaults each new batch copies at creation.
- * @planned task 9.3 the Settings › Batch defaults form reads and saves them.
- */
+/** The app-level defaults each new batch copies at creation. */
 export function batchDefaultsClient(
   baseUrl: string,
   csrfToken: string,
