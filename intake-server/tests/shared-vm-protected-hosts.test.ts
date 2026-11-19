@@ -1,0 +1,134 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import type { ProcessingInputV6Dto } from '@invimport/contracts'
+import { bridgeProtectedHosts, protectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
+import { turnPolicy, writeTurnPolicy } from '#/agents/shared-vm/turn-policy.ts'
+
+test('protected hosts come from every configured origin in a standard form', () => {
+  assert.deepEqual(
+    protectedHosts(
+      [
+        'http://127.0.0.1:4330',
+        'https://Bench.Tailnet.TS.net',
+        'https://inventory.example.com.',
+        'https://inventory.internal:8443/api',
+        'https://[2606:4700::1]',
+        'https://203.0.113.10',
+        'https://bücher.example',
+      ].join(','),
+    ),
+    [
+      '127.0.0.1',
+      '203.0.113.10',
+      '2606:4700::1',
+      'bench.tailnet.ts.net',
+      'inventory.example.com',
+      'inventory.internal',
+      'xn--bcher-kva.example',
+    ],
+  )
+})
+
+test('localhost names are dropped because the egress refuses them anyway', () => {
+  assert.deepEqual(protectedHosts('http://localhost:8000,http://inventree.localhost'), [])
+})
+
+test('an origin that cannot be represented is refused, never dropped', () => {
+  for (const origins of [
+    '',
+    ' , ',
+    'not a url',
+    'ftp://inventory.example.com',
+    'https://inventree',
+    'https://inventory_example.com',
+  ]) {
+    assert.throws(
+      () => protectedHosts(origins),
+      /session_agent_configuration_required/,
+      String(origins),
+    )
+  }
+})
+
+test('more than 32 distinct protected hosts are refused', () => {
+  const origins = Array.from({ length: 33 }, (_value, index) => `https://h${index}.example.com`)
+  assert.throws(() => protectedHosts(origins.join(',')), /session_agent_configuration_required/)
+})
+
+test('the VM tool worker requires its protected origins; other profiles ignore them', () => {
+  assert.throws(
+    () => bridgeProtectedHosts({}, 'shared-vm-agent/2'),
+    /session_agent_configuration_required/,
+  )
+  assert.throws(
+    () =>
+      bridgeProtectedHosts(
+        { INTAKE_AGENT_PROTECTED_ORIGINS: 'https://inventree' },
+        'shared-vm-agent/2',
+      ),
+    /session_agent_configuration_required/,
+  )
+  assert.deepEqual(
+    bridgeProtectedHosts(
+      { INTAKE_AGENT_PROTECTED_ORIGINS: 'http://127.0.0.1:4330,https://inventory.example.com' },
+      'shared-vm-agent/2',
+    ),
+    ['127.0.0.1', 'inventory.example.com'],
+  )
+  assert.deepEqual(bridgeProtectedHosts({}, 'shared-vm-agent/1'), [])
+  assert.deepEqual(bridgeProtectedHosts({}, 'synthetic-session/1'), [])
+})
+
+function manifest(web?: { public_pages: boolean; prefer_datasheets: boolean }) {
+  return { profile_id: 'shared-vm-agent/2', ...(web ? { web } : {}) } as ProcessingInputV6Dto
+}
+
+test('the turn policy follows the sealed setting, and an unsealed attempt has public pages off', () => {
+  const hosts = ['inventory.example.com', '203.0.113.10']
+  assert.deepEqual(turnPolicy(manifest(), hosts), {
+    version: 1,
+    public_pages: false,
+    protected_hosts: hosts,
+  })
+  assert.equal(
+    turnPolicy(manifest({ public_pages: true, prefer_datasheets: false }), hosts).public_pages,
+    true,
+  )
+  assert.equal(
+    turnPolicy(manifest({ public_pages: false, prefer_datasheets: true }), hosts).public_pages,
+    false,
+  )
+})
+
+test('a command whose protected hosts are missing or malformed is refused', () => {
+  for (const value of [
+    undefined,
+    'inventory.example.com',
+    ['Inventory.Example.com'],
+    ['inventree'],
+    [42],
+    Array.from({ length: 33 }, (_value, index) => `h${index}.example.com`),
+  ]) {
+    assert.throws(() => turnPolicy(manifest(), value), /invalid_turn/, JSON.stringify(value))
+  }
+})
+
+test('the policy file is replaced atomically and leaves no temporary file', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'turn-policy-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const path = join(directory, 'policy.json')
+  await writeTurnPolicy(path, turnPolicy(manifest(), ['inventory.example.com']))
+  await writeTurnPolicy(
+    path,
+    turnPolicy(manifest({ public_pages: true, prefer_datasheets: true }), []),
+  )
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), {
+    version: 1,
+    public_pages: true,
+    protected_hosts: [],
+  })
+  assert.deepEqual(await readdir(directory), ['policy.json'])
+})

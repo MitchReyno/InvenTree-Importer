@@ -26301,6 +26301,22 @@
                   "type": "string"
                 }
               },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              },
               "profile_id": {
                 "const": "native-agent/2",
                 "type": "string"
@@ -26843,6 +26859,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "profile_id": {
@@ -28594,6 +28626,22 @@
                   "type": "string"
                 }
               },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              },
               "profile_id": {
                 "const": "shared-vm-agent/1",
                 "type": "string"
@@ -29136,6 +29184,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "profile_id": {
@@ -30887,6 +30951,22 @@
                   "type": "string"
                 }
               },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              },
               "profile_id": {
                 "const": "shared-vm-agent/2",
                 "type": "string"
@@ -31429,6 +31509,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "profile_id": {
@@ -33178,6 +33274,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "profile_id": {
@@ -33682,6 +33794,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "profile_id": {

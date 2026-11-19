@@ -1,4 +1,5 @@
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
+import { bridgeProtectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
 import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -105,9 +106,11 @@ async function main() {
       ) {
         throw new Error('session_agent_configuration_required')
       }
+      const protectedHosts = bridgeProtectedHosts(process.env, config.profileId)
       bridge = await startSessionBridge(
         process.env.INTAKE_VM_PAIR,
         Number(process.env.INTAKE_VM_PORT),
+        { protectedHosts },
       )
     }
     const deps: SessionRunnerDeps = {

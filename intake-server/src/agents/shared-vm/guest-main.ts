@@ -18,6 +18,7 @@ import { isolatedToolTurn } from './tool-client.ts'
 import { nativeTurn } from './native-turn.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { pairing } from './pair.ts'
+import { TURN_POLICY_PATH, turnPolicy, writeTurnPolicy } from './turn-policy.ts'
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 
@@ -90,6 +91,8 @@ async function main() {
     ) {
       throw new Error('wrong_guest_route')
     }
+    // Validated before any effect; probes inspect a finished turn and change no policy.
+    const policy = isolated && !probe ? turnPolicy(manifest, command.protected_hosts) : undefined
     const identity = { lineage: command.lineage, attemptId: command.attemptId, turn: command.turn }
     const cwd = join('/home/node/sessions', identity.lineage)
     const path = join(cwd, command.attemptId + '-' + command.turn)
@@ -169,6 +172,10 @@ async function main() {
           return result
         }
 
+        if (policy) {
+          // The egress proxy allows only provider hosts until this file exists.
+          await writeTurnPolicy(TURN_POLICY_PATH, policy)
+        }
         try {
           const runNative = isolated ? isolatedToolTurn : nativeTurn
           await runNative(

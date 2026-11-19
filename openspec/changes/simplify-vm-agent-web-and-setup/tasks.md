@@ -92,10 +92,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, plus `pnpm test:intake:process` for the bridge and worker start-up; `pnpm test:dev` for the launcher passing the origin settings to the agent worker; `pnpm test:deployment` for the `tool-turn.sh` argument test; `tool-worker-smoke.sh` with the paired VM, showing a public `curl` refused while web is off. If the VM isn't available, record that limitation in the PR.
 - Risks and decisions: the order of the policy write and the worker start matters. The peer writes before it calls the worker, and the test asserts that order.
 
-- [ ] 2.1 Read the coordinator command and peer validation paths, and record the current command shape.
-- [ ] 2.2 RED: add coordinator, peer and mount tests, and confirm the failures.
-- [ ] 2.3 GREEN: implement `protectedHosts()`, the command field, the input `web` schema, peer validation and the atomic write, and the mounts.
-- [ ] 2.4 Stop `tool-turn.sh` passing `INTAKE_VM_PROTECTED_HOSTS` to the per-turn egress, leaving the reader's configuration as it is. The existing reader tests, including public mode with protected hosts, still pass.
+- [x] 2.1 Read the coordinator command and peer validation paths, and record the current command shape.
+- [x] 2.2 RED: add coordinator, peer and mount tests, and confirm the failures.
+- [x] 2.3 GREEN: implement `protectedHosts()`, the command field, the input `web` schema, peer validation and the atomic write, and the mounts.
+- [x] 2.4 Stop `tool-turn.sh` passing `INTAKE_VM_PROTECTED_HOSTS` to the per-turn egress, leaving the reader's configuration as it is. The existing reader tests, including public mode with protected hosts, still pass.
 - [ ] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
 
 ## 3. Web settings, sealing and the opening message

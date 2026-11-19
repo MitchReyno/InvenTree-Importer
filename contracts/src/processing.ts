@@ -130,6 +130,13 @@ const inputV6Shared = {
   media: ProcessingInputV2.properties.media,
   /** Proposals a successor started from; later revisions arrive as inbox items. */
   pinned_proposal_ids: Type.Array(Id, { maxItems: 16, uniqueItems: true }),
+  /** Web settings sealed at queue time; absent on earlier attempts, which run with both off. */
+  web: Type.Optional(
+    object({
+      public_pages: Type.Boolean(),
+      prefer_datasheets: Type.Boolean(),
+    }),
+  ),
 }
 const inputV6Profiles = [
   {

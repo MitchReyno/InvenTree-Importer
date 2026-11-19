@@ -20,7 +20,12 @@ const {
 } = require('./dev/settings.cjs')
 const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
+const {
+  agentProtectedOrigins,
+  apiTargetEnv,
+  startsApplyRunner,
+  startSupervision,
+} = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
@@ -414,6 +419,7 @@ async function main() {
           text.includes('DEV_FAKE_READY'),
         ).ready()
       }
+      const targetEnv = apiTargetEnv(target, state, readKey, { readOnly: resolved.readOnly })
       await child(
         'api',
         'src/main.ts',
@@ -421,7 +427,7 @@ async function main() {
           INTAKE_ORIGIN: publicOrigin,
           INTAKE_DEV_LISTEN_PORT: String(apiPort),
           INTAKE_DATABASE_URL: state.apiUrl,
-          ...apiTargetEnv(target, state, readKey, { readOnly: resolved.readOnly }),
+          ...targetEnv,
           INTAKE_PROCESSING_PROFILE: profile,
           // Lets the connection status name the owned test target.
           INTAKE_TARGET_PROFILE: target.kind,
@@ -441,11 +447,21 @@ async function main() {
       ).ready()
       if (worker) {
         const providerEnv = agentWorkerSettings(resolved, settings)
+        const protectedEnv = resolved.vmPairing
+          ? {
+              INTAKE_AGENT_PROTECTED_ORIGINS: agentProtectedOrigins({
+                appOrigin: publicOrigin,
+                tailnetOrigin: tailnet ? tailnet.origin : undefined,
+                inventoryOrigin: targetEnv.INTAKE_READ_ORIGIN,
+              }),
+            }
+          : {}
         await child(
           'agents',
           worker.entry,
           {
             ...providerEnv,
+            ...protectedEnv,
             INTAKE_PROCESSING_PROFILE: profile,
             INTAKE_AGENT_STATE_ROOT: join(root, 'agents'),
             INTAKE_AGENT_DATABASE_URL: state.processingUrl,

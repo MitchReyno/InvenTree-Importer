@@ -12,8 +12,17 @@ import { NativeSessionError } from '#/agents/failure-model.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
 
+export interface SessionBridgeOptions {
+  /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
+  protectedHosts: readonly string[]
+}
+
 /** A guest connection accepts exactly one session turn. The capability stays on the host. */
-export async function startSessionBridge(directory: string, port: number) {
+export async function startSessionBridge(
+  directory: string,
+  port: number,
+  options: SessionBridgeOptions = { protectedHosts: [] },
+) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_bridge_port')
   }
@@ -140,6 +149,7 @@ export async function startSessionBridge(directory: string, port: number) {
       instructions: turn.instructions,
       text: turn.text,
       tools: turn.tools,
+      ...(toolWorker ? { protected_hosts: options.protectedHosts } : {}),
     }
     let dispatched = false
     try {
