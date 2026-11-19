@@ -123,10 +123,10 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: `Settings.test.tsx`; `pnpm typecheck`.
 - Risks: None beyond task 1's.
 
-- [ ] 4.1 Baseline: run `Settings.test.tsx`.
-- [ ] 4.2 RED: add the masthead-choice and independence tests; confirm they fail.
-- [ ] 4.3 GREEN: add `MastheadChoice` with its three labelled options and descriptions, and add the Masthead row.
-- [ ] 4.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
+- [x] 4.1 Baseline: run `Settings.test.tsx`.
+- [x] 4.2 RED: add the masthead-choice and independence tests; confirm they fail.
+- [x] 4.3 GREEN: add `MastheadChoice` with its three labelled options and descriptions, and add the Masthead row.
+- [x] 4.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
 
 ## 5. Canvas, docs and manual qualification
 

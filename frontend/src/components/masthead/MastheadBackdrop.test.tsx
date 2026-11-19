@@ -109,6 +109,7 @@ test('the whole-window field sits behind the page without a stacking context aro
 test('fading down keeps parts out of the page content column for each page width', () => {
   choose('fade')
   const { rerender } = render(<MastheadBackdrop width="content" />)
+
   const styles = () =>
     [...document.querySelectorAll('style')].map((node) => node.textContent).join('')
 
