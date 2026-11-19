@@ -78,7 +78,7 @@ State transitions and supersession now express revision increments as PostgreSQL
 
 ## Native sessions
 
-The additive input/command/envelope version 4 selects `native-agent/1` and seals the global provider/authentication/model default when an attempt is queued. The existing queue, account lane, currentness, provenance, cancellation and question/answer authorities still apply. The [native agent boundary](../agents/ARCHITECTURE.md) documents supervision, authentication, staged image limits and crash recovery. Existing fixture profiles retain their original bytes and defaults. Native capability is labelled unverified until separately authorized live qualification.
+The additive input/command/envelope version 4 selects `native-agent/1` and seals the provider, authentication and model resolved for the attempt's stage (its own step choice while that provider is on, otherwise the default provider) when an attempt is queued. The existing queue, account lane, currentness, provenance, cancellation and question/answer authorities still apply. The [native agent boundary](../agents/ARCHITECTURE.md) documents supervision, authentication, staged image limits and crash recovery. Existing fixture profiles retain their original bytes and defaults. Native capability is labelled unverified until separately authorized live qualification.
 
 ## Human capture context
 

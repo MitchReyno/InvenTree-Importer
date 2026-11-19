@@ -27,8 +27,9 @@ export const AGENT_MODEL_SUGGESTIONS: Record<AgentProviderId, readonly string[]>
 export const AGENT_SETTINGS_STAGES = ['examine', 'research', 'images', 'inventory'] as const
 export type AgentSettingsStage = (typeof AGENT_SETTINGS_STAGES)[number]
 
-// Models are checked against the model ID pattern on save, which answers invalid_agent_settings.
-const modelText = Type.String({ maxLength: 128 })
+// Bounded loosely here; the model ID pattern and its 128-character limit are checked on save,
+// which answers invalid_agent_settings.
+const modelText = Type.String({ maxLength: 1024 })
 const providerFields = {
   enabled: Type.Boolean(),
   authentication: AgentSelection.properties.authentication,

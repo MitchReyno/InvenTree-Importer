@@ -20,6 +20,8 @@ import { reserveProcessingMedia } from '#/processing/media.ts'
 import { createSessionAttempt } from '#/processing/session-attempts.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { triggerExamine } from '#/processing/examine-trigger.ts'
+import { startProcessing } from '#/processing/commands.ts'
+import { nativeProfileId } from '#/agents/policy.ts'
 import { sessionProfiles } from '#/processing/session-policy.ts'
 import { openingText, runSessionTurn } from '#/agents/session/session-runner.ts'
 
@@ -446,6 +448,71 @@ test('an attempt given a settings read seals that read, not a later save', async
       model: 'gpt-6-luna',
     })
     assert.equal(input.part_description_style, 'Type, key values, package, then variant')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test("native-agent/1 seals each stage's own provider too", async () => {
+  const fixture = await processingFixture({ profileId: nativeProfileId })
+  try {
+    await saveAgentSettings(fixture.api.pool, fixture.config, bothProviders('0'))
+    const capture = await fixture.seedCapture()
+    const queued = (await startProcessing(
+      fixture.api.pool,
+      fixture.config,
+      capture.batch.id,
+      randomUUID(),
+      {
+        schema_version: 'bench-intake-processing/1',
+        expected_capture_revision: capture.batch.revision,
+        subject_ids: [capture.packetA.id],
+        stages: ['reading', 'research'],
+      },
+    )) as { attempt_ids: string[] }
+    const rows = await fixture.db.pool.query<{ stage: string; manifest_bytes: Buffer }>(
+      `SELECT j.stage, i.manifest_bytes FROM processing_attempt a
+       JOIN processing_job j ON j.id=a.job_id JOIN processing_input i ON i.id=a.input_id
+       WHERE a.id = ANY($1::uuid[])`,
+      [queued.attempt_ids],
+    )
+    const sealed = Object.fromEntries(
+      rows.rows.map((row) => [row.stage, JSON.parse(row.manifest_bytes.toString('utf8'))]),
+    )
+    assert.deepEqual(sealed.reading.agent, {
+      provider: 'claude',
+      authentication: 'subscription',
+      model: 'sonnet',
+    })
+    assert.deepEqual(sealed.research.agent, {
+      provider: 'codex',
+      authentication: 'api_key',
+      model: 'gpt-6-luna',
+    })
+    assert.equal(sealed.reading.settings_revision, '1')
+    assert.equal(sealed.research.settings_revision, '1')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a model over 128 characters is an invalid settings error', async () => {
+  const fixture = await processingFixture()
+  try {
+    const long = 'm'.repeat(129)
+    const base = bothProviders('0')
+    for (const input of [
+      {
+        ...base,
+        providers: { ...base.providers, claude: { ...base.providers.claude, default_model: long } },
+      },
+      { ...base, stage_selections: { images: { provider: 'claude' as const, model: long } } },
+    ]) {
+      await assert.rejects(saveAgentSettings(fixture.api.pool, fixture.config, input), {
+        message: 'invalid_agent_settings',
+      })
+    }
+    assert.equal((await readAgentSettings(fixture.api.pool, fixture.config)).revision, '0')
   } finally {
     await fixture.dispose()
   }

@@ -118,6 +118,8 @@ function checkAgentSettings(input: AgentSettingsUpdateDto) {
   const defaultOn =
     input.default_provider !== null && input.providers[input.default_provider].enabled
   const invalid =
+    // Even a provider that is off keeps a model the column can store.
+    PROVIDERS.some((provider) => input.providers[provider].default_model.length > 128) ||
     on.some((provider) => !MODEL_ID.test(input.providers[provider].default_model)) ||
     (on.length > 0 ? !defaultOn : input.default_provider !== null) ||
     AGENT_SETTINGS_STAGES.some((stage) => {

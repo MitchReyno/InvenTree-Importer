@@ -74539,7 +74539,7 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74569,7 +74569,7 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74620,7 +74620,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74646,7 +74646,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74672,7 +74672,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74698,7 +74698,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74775,7 +74775,7 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74805,7 +74805,7 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74856,7 +74856,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74882,7 +74882,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74908,7 +74908,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74934,7 +74934,7 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 128,
+                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74984,7 +74984,7 @@
             ]
           },
           "default_model": {
-            "maxLength": 128,
+            "maxLength": 1024,
             "type": "string"
           }
         }
@@ -75010,7 +75010,7 @@
             ]
           },
           "model": {
-            "maxLength": 128,
+            "maxLength": 1024,
             "type": "string"
           }
         }
