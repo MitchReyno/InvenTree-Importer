@@ -60,6 +60,8 @@ const agentSettingsFields = {
   part_description_style: Type.String({ maxLength: 500 }),
   /** Whether new batches start with Auto tags on. */
   auto_tags_default: Type.Boolean(),
+  /** Web research for VM tool sessions, sealed into each new attempt. */
+  web: object({ public_pages: Type.Boolean(), prefer_datasheets: Type.Boolean() }),
 }
 export const AgentSettings = object({ revision: CursorSequence, ...agentSettingsFields })
 /** The whole settings object, saved under one revision. */

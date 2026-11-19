@@ -19,6 +19,8 @@ export type DisabledControlProps = {
 type Props = {
   /** One line saying why the control is unavailable and what to do instead. */
   explanation: string
+  /** The short tag above the explanation; a control that works elsewhere says why, not when. */
+  badge?: string
   /**
    * Renders the control (checkbox, select, stepper, text field or button) with these props. A text
    * field or textarea must also be `readOnly`: IME composition and autofill can't be cancelled.
@@ -129,7 +131,7 @@ function refuseEditingCommands(wrapper: HTMLDivElement | null) {
  * `disabled`, so it stays focusable and announces the linked explanation. Activation and input are
  * stopped before they reach the control's own handlers, so nothing is sent.
  */
-export function DisabledFeature({ explanation, children }: Props) {
+export function DisabledFeature({ explanation, badge = 'Coming later', children }: Props) {
   const explanationId = useId()
 
   return (
@@ -146,7 +148,7 @@ export function DisabledFeature({ explanation, children }: Props) {
       onDropCapture={(event: DragEvent) => refuse(event)}
     >
       {children({ 'aria-disabled': 'true', 'aria-describedby': explanationId })}
-      <Soon>Coming later</Soon>
+      <Soon>{badge}</Soon>
       <Explanation id={explanationId}>{explanation}</Explanation>
     </Wrapper>
   )

@@ -19,6 +19,9 @@ import {
   type SettingsSectionId,
 } from '#/navigation/app-route'
 
+// Agents reads whether sessions have web access; these tests don't depend on it.
+vi.mock('#/debug/useReadiness', () => ({ useReadiness: () => ({ data: { web: 'available' } }) }))
+
 const batchId = '10000000-0000-4000-8000-000000000001'
 const identity = {
   actor_id: fixtureScope.actorId,
@@ -234,7 +237,7 @@ test('the API token row never shows a stale or failed read as current', async ()
 })
 
 const DEFERRED: [SettingsSectionId, string[]][] = [
-  ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
+  ['agents', ['Fill descriptions for', 'Supplier part descriptions']],
   ['inventree', ['API token']],
   ['defaults', ['Tags']],
 ]

@@ -121,10 +121,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:intake:pg` (attempt sealing against PostgreSQL), `pnpm test:intake:process` (session runner), `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`. A demo video goes on the PR.
 - Risks and decisions: BI-016 may change the input version or the settings shape. Adapt to it, and record the departure in `notes.md`.
 
-- [ ] 3.1 Rebase the `app-settings` delta and this task's approach onto the merged BI-016, and record any differences in `notes.md`.
-- [ ] 3.2 RED: add the contract, settings, sealing, opening-message and frontend tests, and confirm the failures.
-- [ ] 3.3 GREEN: implement the contract fields, defaults, sealing, the opening-message lines and the Settings subsection.
-- [ ] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
+- [x] 3.1 Rebase the `app-settings` delta and this task's approach onto the merged BI-016, and record any differences in `notes.md`.
+- [x] 3.2 RED: add the contract, settings, sealing, opening-message and frontend tests, and confirm the failures.
+- [x] 3.3 GREEN: implement the contract fields, defaults, sealing, the opening-message lines and the Settings subsection.
+- [x] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
 
 ## 4. `shared-vm-agent/3` profile and retired `/2` attempts
 
