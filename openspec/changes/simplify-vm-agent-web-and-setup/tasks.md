@@ -80,7 +80,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - **Coordinator:** `intake-server/src/agents/shared-vm/coordinator.ts` adds a `protected_hosts` command field from a new `protectedHosts()`, keeping public IP literals as protected addresses.
   - **Peer:** `guest-main.ts` validates the field and the optional manifest `web` object, then writes `policy.json` atomically before the worker turn.
   - **Input schema:** add the optional `web` object to the session input schema. It is absent, meaning off, until task 3.
-  - **Retired setting:** `INTAKE_VM_PROTECTED_HOSTS` is no longer read.
+  - **Retired setting:** the per-turn egress no longer receives `INTAKE_VM_PROTECTED_HOSTS` from `tool-turn.sh`. `public-web.sh`, the reader and the `tool-protected-hosts` file keep it until task 11.
 - Prerequisites: task 1.
 - Acceptance: shared-vm-execution › Egress applies the sealed web setting (both scenarios); Protected destinations come from the deployment; Scoped guest execution and tool access › Public web access off.
 - TDD approach:
@@ -95,7 +95,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - [ ] 2.1 Read the coordinator command and peer validation paths, and record the current command shape.
 - [ ] 2.2 RED: add coordinator, peer and mount tests, and confirm the failures.
 - [ ] 2.3 GREEN: implement `protectedHosts()`, the command field, the input `web` schema, peer validation and the atomic write, and the mounts.
-- [ ] 2.4 Remove `INTAKE_VM_PROTECTED_HOSTS` handling and the `tool-protected-hosts` file.
+- [ ] 2.4 Stop `tool-turn.sh` passing `INTAKE_VM_PROTECTED_HOSTS` to the per-turn egress, leaving the reader's configuration as it is. The existing reader tests, including public mode with protected hosts, still pass.
 - [ ] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
 
 ## 3. Web settings, sealing and the opening message
@@ -225,7 +225,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Scope and approach: a digest helper shared with task 7; the launcher's VM start path in `tooling/dev/vm.cjs` and `tooling/dev.cjs`; the `vm_pairing_missing` message.
 - Prerequisites: task 7.
 - Acceptance: development-launcher › The runner image is kept current; A failed image refresh stops startup; A missing pairing is refused before the VM starts (all scenarios).
-- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a stale image with a missing or mismatched host key stopping with `vm_operator_key_mismatch` and leaving both keys unchanged, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
+- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a stale image with a missing or mismatched host key stopping with `vm_operator_key_mismatch` and leaving both keys unchanged, a load that succeeded followed by failed provisioning being repaired on the next start before any relay, a guest service on an old image ID or the wrong origin, a missing or changed browser policy, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
 - Verification: `pnpm test:dev` and `pnpm lint:tooling`.
 - Risks and decisions: the digest input list must include everything the image copies. A test asserts the list against the Dockerfiles' `COPY` sources.
 
@@ -278,6 +278,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Scope and approach:
   - Replace `public-web.sh` with `browser-policy.sh`, which only installs `guest/browser-seccomp.json` into the guest directory, as `public-web.sh:8-9` does today. Until PR-D, the README points to it in place of `public-web.sh`.
   - Delete `web-reader.py`, `bench-web`, the `bench-web` install line in `runner.Dockerfile`, their `runner.Dockerfile.dockerignore` entries, and the reader socket check and `/run/web` mount in `tool-turn.sh`.
+  - Retire `INTAKE_VM_PROTECTED_HOSTS` and the `tool-protected-hosts` file, which only the reader still uses.
   - Move the reader's remaining useful policy cases into `test_guest_egress.py`, and delete `test_web_reader.py`.
 - Prerequisites: tasks 1 and 4, delivered in the same PR as task 4.
 - Acceptance: shared-vm-execution › No separate document reader.

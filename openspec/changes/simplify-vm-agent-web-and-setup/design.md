@@ -97,7 +97,11 @@ The fields are optional, so the input schema version doesn't change. If `setting
 
 No credential is passed.
 
-`INTAKE_VM_PROTECTED_HOSTS` is removed. Its one remaining reader, the long-lived egress started by `personal-*.sh`, has no public branch, so it doesn't need one.
+`INTAKE_VM_PROTECTED_HOSTS` retires in two steps:
+- PR-A stops passing it to the per-turn egress, which takes protected hosts from the policy file. The reader keeps reading it, through `public-web.sh` and its `tool-protected-hosts` file, while `/2` still uses the reader.
+- PR-B removes it together with the reader (task 11).
+
+The long-lived egress containers started by `personal-*.sh` have no public branch, so they never need it.
 
 ### D5. Tool surface and admission
 
@@ -179,7 +183,12 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 - It is a SHA-256 over the sorted `path` and file-content hash of each tracked or untracked, non-ignored file under those sources.
 - The source list is parsed from the Dockerfiles rather than kept by hand, so a new `COPY` is covered automatically. Base images are pinned by digest in the Dockerfile text, which is itself hashed.
 - The build passes it as `--label org.bench-intake.source-digest=<digest>`.
-- Before starting the relays, `pnpm dev` (managed) reads the label from the guest. If it differs, it runs D8's operator key check, then its image, load, browser policy and guest-service steps. A key mismatch stops startup with `vm_operator_key_mismatch` before any provisioning.
+- Before starting the relays, `pnpm dev` (managed) checks each refresh result on its own, so a refresh that failed part-way is repaired on the next start:
+  - the guest image's digest label;
+  - the image ID and `INTAKE_OPERATOR_ORIGIN` of each guest service container;
+  - the SHA-256 of the installed `browser-seccomp.json`.
+- If any of these is wrong, it runs D8's operator key check, then only the steps still needed, in order: image, load, browser policy, guest services. A key mismatch stops startup with `vm_operator_key_mismatch` before any provisioning.
+- `vm:setup` uses the same checks, so the two commands agree on what "current" means.
 - With management off, it only warns.
 
 **Rejected:**

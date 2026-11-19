@@ -120,13 +120,19 @@ When the launcher manages the VM, it SHALL check before booting that the pairing
 
 ### Requirement: The runner image is kept current
 
-Each runner image SHALL carry a digest of the source inputs it was built from. When the launcher manages the VM, it SHALL compare that digest with the checkout before starting the relays. A missing or stale guest image SHALL be rebuilt and loaded, and the guest services that run from it restarted, with the startup output saying so.
+Each runner image SHALL carry a digest of the source inputs it was built from. When the launcher manages the VM, it SHALL check before starting the relays that the guest image digest matches the checkout, that each guest service runs that image for the current origin, and that the browser policy matches the checkout. A missing or stale guest image SHALL be rebuilt and loaded, and the guest services that run from it restarted, with the startup output saying so.
 
 #### Scenario: Guest code changed
 
 - **GIVEN** a managed VM whose runner image was built before a change to `intake-server/src/agents/shared-vm/`
 - **WHEN** `pnpm dev` starts
 - **THEN** it rebuilds and reloads the runner image, restarts the guest services, then starts the relays, and the summary says the image was refreshed
+
+#### Scenario: Refresh failed part-way
+
+- **GIVEN** a previous start loaded the current runner image but failed while reprovisioning the guest services
+- **WHEN** `pnpm dev` starts again
+- **THEN** it sees the services still on the old image and reprovisions them before starting the relays, without rebuilding
 
 #### Scenario: Image current
 
