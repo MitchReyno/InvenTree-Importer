@@ -90,5 +90,5 @@ Assumptions:
 
 - The patch also goes behind other loose text that would otherwise sit on the field, such as section leads, back links and the settings nav, where the manual check finds it below 4.5:1. Headings inside cards and the batch header band already sit on a surface and need none.
 - Option labels follow the artboard titles: "In the bar", "Behind the whole window" and "Fading down".
-- C's band scrolls away with the page, while B's field stays fixed to the viewport. C's band sits behind the bar and the page top, where text is the bar's own, so it needs no patches.
+- C's band scrolls away with the page, while B's field stays fixed to the viewport. C needs no patches: below the bar its parts stay out of the main content column, so page text in the band never has parts behind it. On a phone, where the column is the full width, C's parts show only in the bar's gap.
 - At phone width every option applies, with area-based density keeping the part count low.

@@ -69,13 +69,13 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Outcome: `createElectronicsCurrent` accepts `layout: 'field'`, with density by area within 6–40 parts, spawn heights across the field and a pixel-ratio cap. The `band` layout behaves exactly as before.
 - Scope: `frontend/src/electronics-current/scene.ts`, `scene.test.ts`. Design D4.
 - Acceptance: ui-design-system delta, the density bullet; the "No WebGL 2 or reduced motion" still-frame clause for the field.
-- TDD: new `scene.test.ts` cases for field counts at 1440 × 900, 390 × 844 and 3840 × 2160, and for spawn heights within the field, fail because `layout` is ignored. Existing band counts stay green as the characterization check.
+- TDD: new `scene.test.ts` cases for field counts at 1440 × 900, 390 × 844 and 3840 × 2160, for spawn heights within the field, and for a height-only resize under reduced motion (count updated, parts in bounds, no animation loop) fail because `layout` is ignored and height changes do not relayout. Existing band counts stay green as the characterization check.
 - Verification: the scene test file, then `pnpm typecheck`.
 - Risks: tuning the density constant against the artboards (about 25 parts at 1440 × 900); record the chosen value and any change in `notes.md`.
 
 - [ ] 2.1 Baseline: run `scene.test.ts` and record the existing band counts.
-- [ ] 2.2 RED: add the field-count, bounds and pixel-ratio cases; confirm they fail.
-- [ ] 2.3 GREEN: implement the `layout` option with named constants for density and pixel-ratio cap.
+- [ ] 2.2 RED: add the field-count, bounds, height-only resize and pixel-ratio cases; confirm they fail.
+- [ ] 2.3 GREEN: implement the `layout` option with named constants for density and pixel-ratio cap, and relayout the field when its height changes.
 - [ ] 2.4 Refactor; confirm the band cases are unchanged.
 
 ## 3. Field host, B and C layouts, ground patches
@@ -84,7 +84,7 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Outcome: each style renders as designed.
   - `bar`: as today.
   - `window`: fixed full-window field and dotted ground, translucent blurred bar, raised cards, and a ground patch behind each heading and other loose text on the field, in both themes.
-  - `fade`: a 420px band at the top that scrolls away, with parts clear of the bar's text.
+  - `fade`: a 420px band at the top that scrolls away, with parts clear of the bar's text and out of the main content column below the bar.
   - Exactly one canvas exists at a time.
 - Scope:
   - `frontend/src/components/masthead/ElectronicsCurrent.tsx`: accepts the layout and its mask styling.
@@ -92,22 +92,23 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
   - `Masthead.tsx`: style-dependent ground and bar; mask stops published on the root for C.
   - `App.tsx`: the field host before the content.
   - `GlobalStyle.tsx`: the body ground under `window` styles, limited to the root.
-  - `components/ui/primitives.tsx`: the `onField` patch mixin, applied by `PageTitle`; card shadow under `window`.
+  - `components/ui/primitives.tsx`: the `onField` patch mixin and a `$onField` opt-in on the heading primitives (never on by default); card shadow under `window`.
+  - `components/AppLayout.tsx`: publish the content column's edges on the root for C's mask.
   - Loose headings and text on the field across screens (Batches, Agents, Settings, Records stage and any found later), opting in to `onField`.
   - Tests in `AppMasthead.test.tsx` or `Masthead.test.tsx`.
   - Design D2 and D3.
-- Acceptance: ui-design-system "Behind the whole window", "Behind the whole window in the dark theme", "Headings inside surfaces get no patch", "Fading down", "No WebGL 2 or reduced motion" and "Style changes in place".
-- TDD: component tests with a stubbed `WebGL2RenderingContext` and a mocked scene module. They assert which host mounts for each `data-masthead` value, that the scene receives `layout: 'field'` for B and C, and that switching style disposes the old scene once and leaves one canvas. A primitive test asserts that `PageTitle` carries the patch only under `window` and that a `Heading` in a `Panel` never does. They fail because neither the field host nor the patch exists. Visual layout cannot be asserted in jsdom; task 5 covers it manually.
+- Acceptance: ui-design-system "Behind the whole window", "Behind the whole window in the dark theme", "Headings inside surfaces get no patch", "Compact default keeps its dimming", "Fading down", "No WebGL 2 or reduced motion" and "Style changes in place".
+- TDD: component tests with a stubbed `WebGL2RenderingContext` and a mocked scene module. They assert which host mounts for each `data-masthead` value, that the scene receives `layout: 'field'` for B and C, and that switching style disposes the old scene once and leaves one canvas. A primitive test asserts that a `PageTitle` with `$onField` carries the patch only under `window`, and that the setup panel's `PageTitle` and a `Heading` in a `Panel` never do. A test asserts that under `fade` the content edges reach the field's mask. They fail because neither the field host nor the patch exists. Visual layout cannot be asserted in jsdom; task 5 covers it manually.
 - Verification: the masthead test files; `pnpm lint:frontend` (the literal and contrast checks must pass with token values only); `pnpm build`.
 - Risks: a missed patch on some screen (task 5's sweep catches it). `mask-composite` support for C's combined mask (supported in current evergreen browsers; confirm in the manual run). `backdrop-filter` cost over the canvas.
 
 - [ ] 3.1 Baseline: run the masthead tests and record the result.
 - [ ] 3.2 RED: add the host-selection, layout-option, disposal-on-switch and patch tests; confirm they fail.
 - [ ] 3.3 GREEN: make the layouts render.
-  - [ ] 3.3.1 Add `MastheadField` with the `window` and `fade` canvas boxes and C's mask.
+  - [ ] 3.3.1 Add `MastheadField` with the `window` and `fade` canvas boxes and C's mask (fade, bar text gap with its compact dimming, content-column cut-out), and publish the content edges from `AppLayout`.
   - [ ] 3.3.2 Make the `Masthead` bar and ground depend on the style, and publish its text-gap stops on the root.
   - [ ] 3.3.3 Add the body ground and card elevation under the `window` styles.
-  - [ ] 3.3.4 Add the `onField` patch mixin, apply it in `PageTitle`, and opt in the loose headings and text on each screen.
+  - [ ] 3.3.4 Add the `onField` patch mixin and the `$onField` opt-in, and opt in the loose headings and text placed on the field on each screen.
   - [ ] 3.3.5 Mount the field host from `App.tsx`, chosen during render from `useMastheadStyle()`.
 - [ ] 3.4 Refactor; run `pnpm format`, `pnpm lint:frontend` and `pnpm build`.
 

@@ -45,9 +45,9 @@ Two hosts render `ElectronicsCurrent`:
 | --- | --- | --- | --- |
 | `bar` | `Masthead` (as today) | the bar | horizontal text gap (existing) |
 | `window` | new `MastheadField` in the app shell, before the content | `position: fixed; inset: 0`, behind content (`z-index` token for the background layer) | none: legibility comes from heading patches (D3) |
-| `fade` | `MastheadField` | `position: absolute`, top of the page, 420px tall, scrolls with the page | vertical fade (opaque to 140px, clear at 420px) intersected with the bar's text-gap mask within the bar's height (`mask-composite: intersect`), reusing `Masthead`'s measured stops |
+| `fade` | `MastheadField` | `position: absolute`, top of the page, 420px tall, scrolls with the page | vertical fade (opaque to 140px, clear at 420px), intersected (`mask-composite: intersect`) with the bar's text-gap mask within the bar's height and, below the bar, a cut-out over the main content column |
 
-The host is picked during render from `useMastheadStyle()`, so only one canvas exists at a time. Changing style unmounts the old host, and the existing cleanup releases its scene. The field's mask stops are CSS custom properties, like the bar's. C reuses the bar's existing ResizeObserver stops: `Masthead` sets them on the document root rather than on its own element, so the field can read them.
+The host is picked during render from `useMastheadStyle()`, so only one canvas exists at a time. Changing style unmounts the old host, and the existing cleanup releases its scene. The field's mask stops are CSS custom properties, like the bar's. C reuses the bar's existing ResizeObserver stops, including the compact quarter-strength dimming under the text: `Masthead` sets them on the document root rather than on its own element, so the field can read them. The content column's left and right edges come the same way: `AppLayout` observes its content element with a ResizeObserver (the external system) and publishes `--content-start` and `--content-end` on the root, so the cut-out follows each screen's page width (1240px, or 1500px on Review and Records). On a phone the column is the full width, so below the bar C shows only the ground; parts stay in the bar's gap. That is accepted: the alternative is parts behind page text, or patches that would show as chips below the band.
 
 Ground and chrome by style, all in styled-components keyed off `[data-masthead]` on the root:
 
@@ -62,13 +62,13 @@ Rejected:
 
 ### D3. Ground patches behind text on the field
 
-Under `window`, text that sits directly on the field gets a patch of `masthead-ground`, as the artboard's "Batches" heading does: small horizontal padding with a matching negative margin, so the text does not move, plus the small radius token. Parts pass behind the patch, never the text.
+Under `window` only, text that sits directly on the field gets a patch of `masthead-ground`, as the artboard's "Batches" heading does: small horizontal padding with a matching negative margin, so the text does not move, plus the small radius token. Parts pass behind the patch, never the text.
 
-- **Where:** a shared `onField` css mixin in `components/ui/primitives.tsx`, active only under `[data-masthead='window']`. `PageTitle` applies it. Other loose headings and text opt in where they sit on the field. Each screen is swept: Batches, Agents, Settings (title, section titles and leads, nav, back link), Records stage, and any other text found by the manual check.
-- **Not on surfaces:** headings inside `Panel`, cards, dialogs and the batch header band already sit on `surface` and do not opt in, so no ground-coloured chip appears inside a card.
+- **Where:** a shared `onField` css mixin in `components/ui/primitives.tsx`, active only under `[data-masthead='window']`. Nothing applies it by default, `PageTitle` included: each heading or text opts in where it is placed on the field, through a transient `$onField` prop on the primitives or the mixin in a screen's own styled component. Each screen is swept: Batches, Agents, Settings (title, section titles and leads, nav, back link), Records stage, and any other text found by the manual check.
+- **Not on surfaces:** headings inside `Panel`, cards, dialogs and the batch header band already sit on `surface` and do not opt in, so no ground-coloured chip appears inside a card. For example, the "Local setup required" `PageTitle` in `App.tsx` sits in a `Panel` and stays unpatched.
 - **Themes:** the patch uses the ground token, so it follows the theme with no extra work.
 
-Rejected: applying the patch to every `Heading` and `Subheading` by default. Most of them sit inside panels, where a ground chip on a surface would look wrong.
+Rejected: applying the patch to `PageTitle`, `Heading` or `Subheading` by default. Some of each sit inside panels, where a ground chip on a surface would look wrong.
 
 ### D4. Scene field layout: density by area, a capped pixel ratio
 
@@ -79,7 +79,7 @@ For `'field'`:
 - **Count:** `desiredCount()` uses area, at the bar's reference density of 30 parts per 1280 × 64 px scaled down. The artboards show about 25 parts on 1440 × 900, so the density is a named constant tuned to that. The count is clamped to the same 6–40 range, so a 4K window cannot exceed 40.
 - **Spread:** spawn heights use the full field, and `openHeightNear` already spreads them.
 - **Pixel ratio:** capped at 1.5 for the field (the bar keeps its current ratio). This bounds fill cost on a full-window canvas.
-- **Resize:** follows the existing resize path. For B the canvas is viewport-sized and does not change on scroll, so scrolling never relayouts.
+- **Resize:** today the scene relays out only when the width changes (`laidOutWidth`), which is right for a band of fixed height. The field layout tracks the laid-out height too, so a height-only resize (including the still frame under reduced motion) recomputes the count and places every part within the new bounds. For B the canvas is viewport-sized and does not change on scroll, so scrolling never relayouts.
 
 Rejected: a separate scene module for the field. The flow, catalogue and finishes are identical; only count and bounds differ.
 
@@ -118,10 +118,11 @@ index.html inline script sets both attributes before first paint
 | --- | --- | --- |
 | Preference read, write, fallback and unknown values; pre-paint parity | Vitest unit tests for `masthead-style.ts` and `device-preference.ts` with fake storage; a test that runs the `index.html` inline script in jsdom for each stored combination | Controller logic and the pre-paint rule in jsdom |
 | Masthead and theme choices stay independent | Settings test: change one, assert the other's attribute and selection are unchanged, then remount from storage | jsdom only |
-| Patches only on the field | Primitive test: `PageTitle` gains the patch only under `data-masthead="window"`; a `Heading` inside `Panel` never does | Computed style rules in jsdom (presence, not visual result) |
+| Patches only where placed on the field | Primitive test: a `PageTitle` with `$onField` gains the patch only under `data-masthead="window"`; the setup panel's `PageTitle` and a `Heading` inside `Panel` never do | Computed style rules in jsdom (presence, not visual result) |
+| C keeps parts off page text | Component test: under `fade`, `AppLayout` publishes the content edges on the root and the field's mask uses them | Mask inputs in jsdom; the visual result is checked manually |
 | Settings row is remembered and applies immediately | `Settings.test.tsx`: pick Fading down, assert `data-masthead`, remount from storage | jsdom only |
 | One host per style; switching disposes the old one | Component test with a stubbed `WebGL2RenderingContext` and a mocked scene module: `dispose` is called once on switch and only one canvas exists | Host lifecycle, not GPU behaviour |
-| Field density and bounds | `scene.test.ts`: area-based count at 1440 × 900, 390 × 844 and 3840 × 2160 stays within 6–40; spawn heights fall within the field; `band` counts are unchanged | Pure scene maths |
+| Field density and bounds | `scene.test.ts`: area-based count at 1440 × 900, 390 × 844 and 3840 × 2160 stays within 6–40; spawn heights fall within the field; a height-only resize under reduced motion updates the count and keeps every part in bounds with no animation loop; `band` counts are unchanged | Pure scene maths |
 | Visual fidelity, legibility and fixed/scrolling behaviour for A, B and C, light and dark, desktop and phone | Manual browser run through `pnpm dev` (headless browser where possible), compared with artboards A–C, and with D for B under Dark. Every screen's loose text on B is spot-checked for 4.5:1 and any missing patch added with the browser's contrast tool. Captures go on the PR, and a demo recording is attached per the UI-PR practice | Real rendering; manual evidence |
 | Repository gates | `pnpm typecheck`, `pnpm lint:frontend` (includes the literal and contrast checks), `pnpm test:frontend`, `pnpm build` | Declared frontend checks |
 

@@ -6,9 +6,9 @@
 
 The masthead SHALL be one bar with the electronics current placed by the operator's masthead style: in the bar (option A, the default), behind the whole window (option B), or in a band at the top of the page that fades down (option C). Every style SHALL follow the theme setting. The current SHALL keep its existing behaviour in every style: WebGL 2 detection, lazy loading, reduced-motion still frame, pointer stir, LED pulse and display cycling. It SHALL have a dark finish (outline, crease and fill tints) used under the dark theme, with outlines at least 3:1 against the masthead ground.
 
-- In the bar (A), the bar carries the dotted masthead ground and parts show only in the gap between the bar's text.
+- In the bar (A), the bar carries the dotted masthead ground and parts show only in the gap between the bar's text; at compact width, where the gap is small, parts under the text dim to a quarter strength instead of disappearing, as today.
 - Behind the whole window (B), the dotted masthead ground covers the window and the current stays fixed to the viewport. The bar is a translucent, blurred surface with a bottom rule. Cards are raised with the elevated shadow. Each heading, and any other text, that sits directly on the field has a patch of the masthead ground behind it, so parts pass behind the patch rather than the text.
-- Fading down (C), the dotted ground and the current fill a band at the top of the page that is fully visible to 140px and fades to the page background by 420px, scrolling away with the page. The bar has no ground or rule of its own, and parts within the bar's height show only in the gap between its text.
+- Fading down (C), the dotted ground and the current fill a band at the top of the page that is fully visible to 140px and fades to the page background by 420px, scrolling away with the page. The bar has no ground or rule of its own. Within the bar's height, parts follow the same text-gap rule as In the bar; below the bar, parts stay out of the main content column, so page headings, navigation and leads in the band never have parts behind them.
 - Part density SHALL follow the area the current covers, so a whole-window field is no denser than the bar, within a fixed upper limit on parts.
 
 #### Scenario: Dark masthead
@@ -41,11 +41,17 @@ The masthead SHALL be one bar with the electronics current placed by the operato
 - **WHEN** a card heading or the batch header's title renders
 - **THEN** it shows no ground patch, because it already sits on a surface.
 
+#### Scenario: Compact default keeps its dimming
+
+- **GIVEN** a 390px-wide window and the In the bar style
+- **WHEN** the masthead renders with WebGL 2 available
+- **THEN** parts in the gap show at full strength and parts under the bar's text show at a quarter strength, exactly as before this change.
+
 #### Scenario: Fading down
 
-- **GIVEN** the Fading down style
-- **WHEN** a screen renders and then scrolls down past 420px
-- **THEN** the band shows the dotted ground and parts at full strength behind the bar, fades to the page background by 420px, no part overlaps the bar's text, and the band scrolls away with the page.
+- **GIVEN** the Fading down style on Settings, whose title, nav and section lead sit within the band
+- **WHEN** the screen renders and then scrolls down past 420px
+- **THEN** the band shows the dotted ground and parts behind the bar and in the side margins, fades to the page background by 420px, no part is drawn behind the bar's text or the page's text, and the band scrolls away with the page.
 
 #### Scenario: No WebGL 2 or reduced motion
 
