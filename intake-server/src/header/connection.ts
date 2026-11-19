@@ -140,8 +140,11 @@ export function connectionStatus(
   version?: () => Promise<Response>,
   /** Monotonic milliseconds for the forced-check window, so a clock change can't skip it. */
   elapsed: () => number = () => performance.now(),
-  /** Which read token a probe uses, captured when it starts so the two never disagree. */
-  credential?: () => InventoryCredentialDto,
+  /**
+   * The read token in use: its source is reported with each observation, captured when the
+   * probe starts, and the token itself is used only to keep it out of the version string.
+   */
+  credential?: { state: () => InventoryCredentialDto; current: () => string },
 ): ConnectionStatusReader {
   const scope = {
     actor_id: binding.actorId,
@@ -179,7 +182,9 @@ export function connectionStatus(
       return pending
     }
     const started = generation
-    const source = credential?.()
+    const source = credential?.state()
+    // The probe and the version read send this token, in this same tick.
+    const sent = credential?.current()
     const running: Promise<void> = (async () => {
       const [result, read] = await Promise.all([
         probeResult(send),
@@ -193,7 +198,8 @@ export function connectionStatus(
         at,
         value: {
           ...result,
-          version: result.state === 'reachable' ? read : null,
+          // A target that echoes the token back in its version must not get it into a response.
+          version: result.state === 'reachable' && !(sent && read?.includes(sent)) ? read : null,
           freshness: 'fresh',
           observed_at: new Date(at).toISOString(),
           navigation_url: target.href,
@@ -234,7 +240,7 @@ export function connectionStatus(
         navigation_url: target.href,
         label: target.host,
         kind,
-        ...credential?.(),
+        ...credential?.state(),
       },
     }
   }

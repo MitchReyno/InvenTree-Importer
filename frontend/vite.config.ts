@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
+import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -8,6 +9,47 @@ import { defineConfig } from 'vitest/config'
 
 const frontend = fileURLToPath(new URL('.', import.meta.url))
 const repository = fileURLToPath(new URL('../', import.meta.url))
+
+/** The saved InvenTree read token and its temporary file while being replaced. */
+const CREDENTIAL_FILE = /^(?:inventory-read-token|\.inventory-read-token\..+)$/
+
+/** The file a dev-server request names: `/@fs/` paths are absolute, others are under the root. */
+function requestedFile(url: string | undefined) {
+  let path
+  try {
+    path = decodeURIComponent((url ?? '').split('?')[0])
+  } catch {
+    return undefined
+  }
+  return path.startsWith('/@fs/') ? path.slice('/@fs'.length) : join(frontend, path)
+}
+
+/**
+ * Refuses any dev-server request whose file, after following links, is the saved read token,
+ * whatever name the request used. The deny list below only sees the requested name.
+ */
+function credentialFileGuard(): Plugin {
+  return {
+    name: 'credential-file-guard',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const file = requestedFile(request.url)
+        let real
+        try {
+          real = file && realpathSync(file)
+        } catch {
+          real = undefined
+        }
+        if (real && CREDENTIAL_FILE.test(basename(real))) {
+          response.statusCode = 403
+          response.end()
+          return
+        }
+        next()
+      })
+    },
+  }
+}
 
 function sourceHmrGuard(): Plugin {
   const hashes = new Map<string, string>()
@@ -47,7 +89,9 @@ function sourceHmrGuard(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [sourceHmrGuard(), react()],
+  plugins: [credentialFileGuard(), sourceHmrGuard(), react()],
+  // The app has no public files; without a public directory nothing is served or copied from one.
+  publicDir: false,
   // `#/` names this package's src, matching the intake server's subpath imports.
   resolve: { alias: [{ find: /^#\//, replacement: join(frontend, 'src') + '/' }] },
   envDir: false,

@@ -458,6 +458,24 @@ test('a confirmed save shows the saved token at once, even while the next read i
   expect(within(row).getByRole('button', { name: 'Use the environment token…' })).toBeVisible()
 })
 
+test('a save confirmed before any status read has succeeded still shows the saved token', async () => {
+  const user = userEvent.setup()
+  header.connection.mockImplementation(() => new Promise(() => undefined))
+  header.replaceInventoryCredential.mockResolvedValueOnce({
+    credential_source: 'saved',
+    credential_saved_at: new Date().toISOString(),
+  })
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.type(within(row).getByLabelText('New API token'), 'fresh-read-token')
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+
+  expect(await within(row).findByText(/Using the token saved here on/)).toBeVisible()
+  expect(within(row).getByRole('button', { name: 'Use the environment token…' })).toBeVisible()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
   ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
   ['defaults', ['Tags']],

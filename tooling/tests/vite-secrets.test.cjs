@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { mkdtemp, rm, writeFile } = require('node:fs/promises')
+const { mkdtemp, rm, symlink, writeFile } = require('node:fs/promises')
 const { createRequire } = require('node:module')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
@@ -15,6 +15,11 @@ test('the frontend dev server never serves a saved read token from inside the wo
   await writeFile(join(directory, 'inventory-read-token'), PLANTED, { mode: 0o600 })
   await writeFile(join(directory, '.inventory-read-token.1234.tmp'), PLANTED, { mode: 0o600 })
   await writeFile(join(directory, 'control.txt'), 'served')
+  // A link with an innocent name, in the scanned directory and under the frontend root.
+  await symlink(join(directory, 'inventory-read-token'), join(directory, 'innocent.txt'))
+  const rootLink = join(frontend, `.secrets-link-${process.pid}.txt`)
+  await symlink(join(directory, 'inventory-read-token'), rootLink)
+  t.after(() => rm(rootLink, { force: true }))
   const vitePath = createRequire(join(frontend, 'package.json')).resolve('vite')
   const { createServer } = await import(pathToFileURL(vitePath).href)
   const vite = await createServer({
@@ -31,10 +36,13 @@ test('the frontend dev server never serves a saved read token from inside the wo
   const control = await served('control.txt')
   const token = await served('inventory-read-token')
   const temporary = await served('.inventory-read-token.1234.tmp')
+  const aliased = await served('innocent.txt')
+  const underRoot = await fetch(new URL(`/.secrets-link-${process.pid}.txt`, base))
 
   // The control file proves /@fs reaches this directory at all.
   assert.equal(control.status, 200)
-  for (const response of [token, temporary]) {
+  assert.equal(vite.config.publicDir, '', 'no public directory is served or copied')
+  for (const response of [token, temporary, aliased, underRoot]) {
     assert.equal(response.status, 403)
     assert.ok(!(await response.text()).includes(PLANTED))
   }

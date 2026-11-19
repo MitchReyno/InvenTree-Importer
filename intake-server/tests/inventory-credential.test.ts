@@ -570,7 +570,7 @@ test('a reset ends the forced-check window and an older probe never lands', asyn
     Date.now,
     undefined,
     () => clock,
-    () => holder.state(),
+    holder,
   )
 
   // A forced check opens the 5-second window.

@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url'
 
 /** The built browser app, served as static files; secrets must never live under it. */
 const FRONTEND_ASSETS = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
+const REPOSITORY_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 /** Explicit opt-in only; never discovers a default directory or initializes without a DB. */
 async function configuredMediaStore(env: NodeJS.ProcessEnv, pool?: Pool) {
@@ -108,7 +109,8 @@ async function main() {
   try {
     // A saved replacement other users could reach refuses startup, with or without a database.
     const readOrigin = process.env.INTAKE_READ_ORIGIN
-    await requireUnpublished(config.secretsDir, [FRONTEND_ASSETS])
+    // The checkout too: the frontend dev server may serve any file in it.
+    await requireUnpublished(config.secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
     const saved = await loadSavedCredential(
       config.secretsDir,
       readTargetBinding(config, readOrigin),
@@ -156,7 +158,7 @@ async function main() {
         runtime.readOrigin,
         targetReads?.probe,
         targetReads?.serverVersion,
-        readTarget && (() => readTarget.holder.state()),
+        readTarget?.holder,
       )
       registerHeader(server, config, connection, (batchId) =>
         headerWork(db.pool, headerConfig, batchId),

@@ -40,8 +40,8 @@ export function scopedConnectionStatus(
   origin: string | undefined,
   probe?: () => Promise<Response>,
   version?: () => Promise<Response>,
-  /** Which read token the probes use; reported with each observation, never the token. */
-  credential?: () => InventoryCredentialDto,
+  /** The read token the probes use; only its source is reported, never the token. */
+  credential?: { state: () => InventoryCredentialDto; current: () => string },
 ) {
   const scope = statusBinding(binding)
   const status = connectionStatus(scope, origin, probe, Date.now, version, undefined, credential)

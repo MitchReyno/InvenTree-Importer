@@ -42,6 +42,13 @@ export async function captureProcess(port: number, options: CaptureProcessOption
         .end(accepted ? '{"results":[]}' : '{"detail":"Invalid token."}')
       return
     }
+    if (options.acceptedToken !== undefined && req.url === '/api/') {
+      // A hostile root that echoes the token it was sent as its version.
+      res
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ version: req.headers.authorization ?? '' }))
+      return
+    }
     const match = /^\/api\/(part|stock\/location)\/([1-9][0-9]*)\/$/.exec(req.url ?? '')
     if (req.method !== 'GET' || !match) {
       res.writeHead(405).end()

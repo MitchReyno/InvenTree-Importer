@@ -5,6 +5,7 @@ import {
   InventoryCredentialReplace,
   MAX_INVENTORY_TOKEN_LENGTH,
   type ConnectionStatusDto,
+  type InventoryCredentialDto,
 } from '@invimport/contracts'
 import { Banner, Button, SettingRow, Small, type BannerTone } from '#/components/ui'
 import { TextField } from '#/forms'
@@ -90,12 +91,12 @@ function tokenProblem(token: string) {
 }
 
 /** Which token reads use, from the observation; never the token. */
-function tokenSource(target: Target | undefined) {
-  if (target?.credential_source === 'saved' && target.credential_saved_at) {
-    const savedAt = new Date(target.credential_saved_at).toLocaleString([], SAVED_AT)
+function tokenSource(credential: InventoryCredentialDto | undefined) {
+  if (credential?.credential_source === 'saved' && credential.credential_saved_at) {
+    const savedAt = new Date(credential.credential_saved_at).toLocaleString([], SAVED_AT)
     return `Using the token saved here on ${savedAt}.`
   }
-  if (target?.credential_source === 'environment') {
+  if (credential?.credential_source === 'environment') {
     return 'Using the token from the server’s environment.'
   }
   return null
@@ -127,8 +128,8 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
   // The trigger that gets focus back when the inline form or confirmation closes.
   const [returnFocus, setReturnFocus] = useState<'replace' | 'revert'>()
   useReportDirty(token !== '', onDirtyChange)
-  const source = tokenSource(target)
-  const saved = target?.credential_source === 'saved'
+  const source = tokenSource(observations?.credential)
+  const saved = observations?.credential?.credential_source === 'saved'
 
   function editToken(value: string) {
     setToken(value)
