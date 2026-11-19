@@ -154,9 +154,12 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 
 - [x] 6.1 Run `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend` and `pnpm build` on the final commit.
 - [x] 6.2 Independent read-only review of the exact head against the code guidelines; fix and re-review until a round finds nothing new; name the reviewed SHA.
-- [ ] 6.3 Re-check every claim in the PR body, docs and specs against the code; open the PR with the evidence and demo attached.
-- [ ] 6.4 Selected CI green; merge.
+- [x] 6.3 Re-check every claim in the PR body, docs and specs against the code; open the PR with the evidence and demo attached.
+- [x] 6.4 Selected CI green; merge.
 
 ## Delivery evidence and lifecycle follow-up
+
+- **Plan:** [#219](https://github.com/MitchReyno/InvenTree-Importer/pull/219), reviewed by GPT 6 Astra (clean at `a87d170715a868b6a752e5d717abc74e24796c82`), merged as `295552c6`.
+- **PR-A:** [#222](https://github.com/MitchReyno/InvenTree-Importer/pull/222), reviewed by GPT 6 Astra over nine rounds (clean at `d58b57126f8c084c154f56490622dc4962082f6a`; head `f17726039b67151b4a999b7be1495e22852f3eba` added only notes and task ticks). Selected CI green; squash-merged into `interactive-app` as `c770d6c8`.
 
 Record each PR's reviewed commit, check results and merged state after they happen. There are no indexed BI items to update. Sync the specs and archive the change only when authorized, after `pnpm openspec:overlap --change masthead-appearance-options` is clean.
