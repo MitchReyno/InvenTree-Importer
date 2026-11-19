@@ -3,7 +3,7 @@
 ## Plan context
 
 - **Change:** `apply-design-refresh`.
-- **Items:** [BI-014](../../../docs/PLANNED_FUNCTIONALITY.md#bi-014--design-refresh) is delivered here. Its deferred backend is [BI-015](../../../docs/PLANNED_FUNCTIONALITY.md#bi-015--design-refresh-backend-follow-ups).
+- **Items:** [BI-014](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-014--design-refresh) is delivered here. Its deferred backend is [BI-015](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-015--design-refresh-backend-follow-ups).
 - **Plan:** [proposal](proposal.md) (reuse recommendation: extend the existing `components/ui` library and intake-server command pattern; no new dependency), [design](design.md) (D1–D8) and the delta specs under `specs/`.
 - **Design sources:** the canvas (v58) and design system (v20), and the design change log entries D1–D31, which name each change's screens and likely components.
 - **Branches and subjects:** every branch is `feat/apply-design-refresh-<bundle>`, and every subject is `type(apply-design-refresh): …`.

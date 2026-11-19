@@ -32,9 +32,9 @@ Each design change is listed with its ID (D1–D31) in the design change log kep
 - **Branches:** `feat/apply-design-refresh-<bundle>`, plus this planning branch `docs/apply-design-refresh-plan`.
 - **Subjects:** `type(apply-design-refresh): …`.
 - **Linked items:**
-  - [BI-014](../../../docs/PLANNED_FUNCTIONALITY.md#bi-014--design-refresh) (this change).
-  - [BI-015](../../../docs/PLANNED_FUNCTIONALITY.md#bi-015--design-refresh-backend-follow-ups) holds the backend work this change deliberately defers behind disabled controls.
-  - Builds on [BI-008](../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign) (`redesign-batch-workspace`, Done).
+  - [BI-014](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-014--design-refresh) (this change).
+  - [BI-015](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-015--design-refresh-backend-follow-ups) holds the backend work this change deliberately defers behind disabled controls.
+  - Builds on [BI-008](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign) (`redesign-batch-workspace`, Done).
 
 ## Current behavior and evidence
 
