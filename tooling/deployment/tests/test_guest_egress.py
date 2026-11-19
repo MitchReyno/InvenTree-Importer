@@ -1120,6 +1120,24 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(wrote, [False])
         target.write.assert_not_called()
 
+    async def test_refused_resolving_connect_still_refreshes_protected_names(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC],
+                 "intranet.example.com": ["10.0.0.1"]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            table["inventory.example.com"] = [PUBLIC]
+            refused = await self.handle("intranet.example.com:443")
+            await asyncio.wait_for(tunnel, 2)
+        self.assertIn(b"X-Bench-Refusal: not_public\r\n", refused)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

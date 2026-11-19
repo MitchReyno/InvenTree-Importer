@@ -42,17 +42,18 @@ function localDatabaseUrl(value: string | undefined) {
   if (!value) {
     throw new Error('agent_database_required')
   }
+  // A NUL in any field, encoded or not, would reach the PostgreSQL startup packet.
+  if (value.includes('\0') || /%00/i.test(value)) {
+    throw new Error('local_agent_database_required')
+  }
   let host = ''
   let port = 0
-  let fields: (string | undefined)[] = []
   try {
     const url = new URL(value)
     if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.searchParams.has('hostaddr')) {
       throw new Error('local_agent_database_required')
     }
-    const client = new Client({ connectionString: value })
-    ;({ host, port } = client)
-    fields = [client.database, client.user]
+    ;({ host, port } = new Client({ connectionString: value }))
   } catch {
     throw new Error('local_agent_database_required')
   }
@@ -60,9 +61,7 @@ function localDatabaseUrl(value: string | undefined) {
     !['127.0.0.1', 'localhost', '::1'].includes(host) ||
     !Number.isInteger(port) ||
     port < 1 ||
-    port > 65535 ||
-    // A decoded NUL would reach the PostgreSQL startup packet.
-    fields.some((field) => field?.includes('\0'))
+    port > 65535
   ) {
     throw new Error('local_agent_database_required')
   }
