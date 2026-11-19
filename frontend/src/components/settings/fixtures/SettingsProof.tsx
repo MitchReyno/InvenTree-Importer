@@ -7,7 +7,7 @@ import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
 import { HeaderObservationsProvider } from '#/context'
-import { settingsSection } from '#/navigation/app-route'
+import { settingsSection, settingsSubsection } from '#/navigation/app-route'
 import { useHashRoute } from '#/navigation/useHashRoute'
 import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
@@ -130,6 +130,7 @@ export function SettingsProof() {
         <Page>
           <Settings
             section={settingsSection(route)}
+            subsection={settingsSubsection(route)}
             returnTo={`${batchId}/processing/overview`}
             agents={agents}
             onDirtyChange={() => {}}

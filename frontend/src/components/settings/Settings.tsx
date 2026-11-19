@@ -2,18 +2,23 @@ import styled from 'styled-components'
 import type { agentsClient } from '@invimport/contracts/client'
 import { Banner, SettingsNav, type SettingsSection } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
-import { routeBatchId, type SettingsSectionId } from '#/navigation/app-route'
+import {
+  routeBatchId,
+  type AgentSubsectionId,
+  type SettingsSectionId,
+} from '#/navigation/app-route'
 import { settingsBack } from '#/navigation/settings-return'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
 import { AgentsSection } from './AgentsSection'
 import { AppearanceSection } from './AppearanceSection'
 import { BatchDefaultsSection } from './BatchDefaultsSection'
-import { DescriptionsSection } from './DescriptionsSection'
 import { DeveloperSection } from './DeveloperSection'
 import { InvenTreeSection } from './InvenTreeSection'
 
 type Props = {
   section: SettingsSectionId
+  /** The Agents subsection the route points at, if any. */
+  subsection?: AgentSubsectionId
   /** The route Settings was opened from; none for a direct load. */
   returnTo: string | undefined
   /** Absent where this setup has no agent settings. */
@@ -22,16 +27,33 @@ type Props = {
 }
 
 const SECTIONS: SettingsSection[] = [
-  { id: 'agents', label: 'Agents', href: '#settings/agents', agent: true },
+  {
+    id: 'agents',
+    label: 'Agents',
+    href: '#settings/agents',
+    agent: true,
+    subsections: [
+      { id: 'providers', label: 'Providers', href: '#settings/agents/providers' },
+      { id: 'sessions', label: 'Sessions', href: '#settings/agents/sessions' },
+      { id: 'models', label: 'Provider and model per step', href: '#settings/agents/models' },
+      { id: 'instructions', label: 'Instructions', href: '#settings/agents/instructions' },
+      {
+        id: 'descriptions',
+        label: 'Descriptions and naming',
+        href: '#settings/agents/descriptions',
+      },
+      { id: 'tags', label: 'Tag suggestions', href: '#settings/agents/tags' },
+      { id: 'research', label: 'Web research', href: '#settings/agents/research' },
+    ],
+  },
   { id: 'inventree', label: 'InvenTree', href: '#settings/inventree' },
   { id: 'defaults', label: 'Batch defaults', href: '#settings/defaults' },
-  { id: 'descriptions', label: 'Descriptions and naming', href: '#settings/descriptions' },
   { id: 'appearance', label: 'Appearance', href: '#settings/appearance' },
   { id: 'developer', label: 'Developer', href: '#settings/developer' },
 ]
 
 /** The Settings page: a back link and section nav beside the open section. */
-export function Settings({ section, returnTo, agents, onDirtyChange }: Props) {
+export function Settings({ section, subsection, returnTo, agents, onDirtyChange }: Props) {
   // The batch screen's own read names the batch; Settings never reads it again.
   const { title } = useCachedBatchReads(routeBatchId(returnTo))
 
@@ -42,21 +64,27 @@ export function Settings({ section, returnTo, agents, onDirtyChange }: Props) {
           back={settingsBack(returnTo, title)}
           sections={SECTIONS}
           current={section}
+          currentSubsection={subsection}
           headingLevel="h1"
         />
       </NavColumn>
       <Content>
-        <SectionContent section={section} agents={agents} onDirtyChange={onDirtyChange} />
+        <SectionContent
+          section={section}
+          subsection={subsection}
+          agents={agents}
+          onDirtyChange={onDirtyChange}
+        />
       </Content>
     </Layout>
   )
 }
 
-function SectionContent({ section, agents, onDirtyChange }: Omit<Props, 'returnTo'>) {
+function SectionContent({ section, subsection, agents, onDirtyChange }: Omit<Props, 'returnTo'>) {
   switch (section) {
     case 'agents':
       return agents ? (
-        <AgentsSection client={agents} onDirtyChange={onDirtyChange} />
+        <AgentsSection client={agents} onDirtyChange={onDirtyChange} subsection={subsection} />
       ) : (
         <div role="status">
           <Banner tone="info">Agent settings are unavailable for this setup.</Banner>
@@ -66,8 +94,6 @@ function SectionContent({ section, agents, onDirtyChange }: Omit<Props, 'returnT
       return <InvenTreeSection />
     case 'defaults':
       return <BatchDefaultsSection />
-    case 'descriptions':
-      return <DescriptionsSection />
     case 'appearance':
       return <AppearanceSection />
     case 'developer':

@@ -191,10 +191,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The frontend checks, a browser check of scroll and focus, and a demo recording.
 - Risks: The scroll Effect running twice under StrictMode, which must be idempotent.
 
-- [ ] 5.1 Confirm the routes and `SettingsNav` tests as the baseline.
-- [ ] 5.2 RED: write the navigation, redirect and moved-row tests.
-- [ ] 5.3 GREEN: build routes, nested nav, the subsection split and the moves.
-- [ ] 5.4 Refactor, then run the frontend checks.
+- [x] 5.1 Confirm the routes and `SettingsNav` tests as the baseline.
+- [x] 5.2 RED: write the navigation, redirect and moved-row tests.
+- [x] 5.3 GREEN: build routes, nested nav, the subsection split and the moves.
+- [x] 5.4 Refactor, then run the frontend checks.
 - [ ] 5.5 Record a demo of the sub-nav and attach it to PR-B.
 
 ## 6. Independent providers, agent settings storage, per-step sealing and style delivery
@@ -418,7 +418,7 @@ For each PR:
 
 Then update the BI items to their actual status; BI-016 is Done only after PR-A to PR-E have all merged. Sync and archive the change after delivery, running `pnpm openspec:overlap --change settings-debug-mode` first.
 
-- [ ] PR-A reviewed, published and merged
+- [x] PR-A reviewed, published and merged
 - [ ] PR-B reviewed, published and merged
 - [ ] PR-C reviewed, published and merged
 - [ ] PR-D reviewed, published and merged
