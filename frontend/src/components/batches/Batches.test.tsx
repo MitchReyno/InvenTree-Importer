@@ -215,3 +215,18 @@ test('the page heading carries no helper sentence', async () => {
   expect(await screen.findByRole('heading', { name: 'Batches', level: 1 })).toBeVisible()
   expect(screen.queryByText(/Photograph what's on the bench/)).not.toBeInTheDocument()
 })
+
+test('behind the whole window, the page title takes a ground patch and the list card heading does not', async () => {
+  document.documentElement.dataset.masthead = 'window'
+  try {
+    render(<Batches client={client()} onDirtyChange={vi.fn()} />)
+
+    const patched = (element: HTMLElement) =>
+      getComputedStyle(element).backgroundColor.includes('masthead-ground')
+
+    expect(patched(screen.getByRole('heading', { name: 'Batches', level: 1 }))).toBe(true)
+    expect(patched(await screen.findByRole('heading', { name: /All batches/ }))).toBe(false)
+  } finally {
+    document.documentElement.dataset.masthead = 'bar'
+  }
+})

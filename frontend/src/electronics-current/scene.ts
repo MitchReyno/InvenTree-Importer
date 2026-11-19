@@ -568,6 +568,17 @@ export function createElectronicsCurrent(
     laidOutHeight = height
   }
 
+  /** Scales each part's height in the field to the new height, so none is left outside it. */
+  function fitPartsToHeight(): void {
+    const ratio = height / Math.max(1, laidOutHeight)
+
+    for (const part of parts) {
+      part.body.position.y *= ratio
+    }
+
+    laidOutHeight = height
+  }
+
   /** A band's count follows its width only; a field's follows its area. */
   function layoutIsStale(): boolean {
     return width !== laidOutWidth || (layout === 'field' && height !== laidOutHeight)
@@ -585,6 +596,11 @@ export function createElectronicsCurrent(
     camera.updateProjectionMatrix()
 
     if (!options.reducedMotion) {
+      // The loop adapts the count; a field's parts also keep their place in the new height.
+      if (layout === 'field' && parts.length > 0 && height !== laidOutHeight) {
+        fitPartsToHeight()
+      }
+
       return
     }
 

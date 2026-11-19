@@ -1,4 +1,4 @@
-import { Banner, Button, groundBehindOnField, media, onField } from '#/components/ui'
+import { Banner, Button, media, onField } from '#/components/ui'
 import { Input } from '#/forms'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
@@ -231,7 +231,6 @@ const ListLabel = styled.h2`
   margin: 0 auto 0 0;
   ${type.label}
   color: ${color.muted};
-  ${groundBehindOnField}
 `
 
 const SearchForm = styled.form`
@@ -284,5 +283,4 @@ const Note = styled.p`
   margin: 0;
   padding: ${space[6]} ${space[7]};
   color: ${color.muted};
-  ${groundBehindOnField}
 `

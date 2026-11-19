@@ -569,3 +569,19 @@ test('a field caps its pixel ratio; the band keeps the existing cap', () => {
   expect(currentRenderer().pixelRatio).toBe(2)
   band.dispose()
 })
+
+test('a running field keeps its parts inside a shorter window after a height-only resize', () => {
+  const canvas = sizedCanvas(1440, 900)
+  const controller = startField(canvas, false)
+  runFrames(2)
+
+  setCanvasSize(canvas, 1440, 450)
+  resizeCallback?.()
+  runFrames(1)
+
+  expect(partObjects(currentRenderer().lastScene)).toHaveLength(12)
+  expect(
+    screenOffsets(currentRenderer().lastScene).every((offset) => Math.abs(offset.y) <= 225),
+  ).toBe(true)
+  controller.dispose()
+})

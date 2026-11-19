@@ -30,10 +30,10 @@ export function StepPage({ batchId, step, source, onOpenSession, children }: Pro
       <Head>
         {progress && <StateDisc progress={progress} />}
         <Title>{label}</Title>
-        {progress && progress.jobs > 0 && <Muted>{stepOutcome(progress)}</Muted>}
-        <a href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</a>
+        {progress && progress.jobs > 0 && <FieldNote>{stepOutcome(progress)}</FieldNote>}
+        <CaptureLink href={batchHref(batchId, { tab: 'capture' })}>Evidence in Capture</CaptureLink>
       </Head>
-      {progress?.jobs === 0 && <Muted>No retained work on {label} yet.</Muted>}
+      {progress?.jobs === 0 && <FieldNote>No retained work on {label} yet.</FieldNote>}
       {questions.length > 0 && (
         <Card aria-label="Questions">
           <CardTitle>Questions</CardTitle>
@@ -131,4 +131,13 @@ const Outputs = styled.section`
   display: grid;
   gap: ${space[4]};
   min-width: 0;
+`
+
+/** Text placed directly on the page, which takes a ground patch behind the whole window. */
+const FieldNote = styled(Muted)`
+  ${onField}
+`
+
+const CaptureLink = styled.a`
+  ${onField}
 `

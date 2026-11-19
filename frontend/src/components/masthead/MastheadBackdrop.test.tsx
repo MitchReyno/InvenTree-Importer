@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { createElectronicsCurrent } from '#/electronics-current/scene'
 import { mastheadStyleController, type MastheadStyle } from '#/theme/masthead-style'
+import { Masthead } from './Masthead'
 import { MastheadBackdrop } from './MastheadBackdrop'
 
 vi.mock('#/electronics-current/scene', () => ({ createElectronicsCurrent: vi.fn() }))
@@ -64,20 +65,29 @@ test.each(['window', 'fade'] as const)('draws a decorative field for %s', async 
   expect(createScene.mock.calls[0][1]).toMatchObject({ layout: 'field' })
 })
 
-test('each style change releases the previous scene and leaves one canvas', async () => {
+test('every style change, to and from the bar, releases the previous scene and leaves one', async () => {
   render(
     <StrictMode>
       <MastheadBackdrop width="content" />
+      <Masthead />
     </StrictMode>,
   )
+  await waitFor(() => expect(liveScenes()).toHaveLength(1))
 
-  for (const style of ['window', 'fade', 'window', 'bar'] as const) {
+  for (const style of ['window', 'fade', 'bar', 'fade', 'window', 'bar'] as const) {
     choose(style)
-    await waitFor(() => expect(liveScenes()).toHaveLength(style === 'bar' ? 0 : 1))
-    expect(screen.queryAllByTestId('electronics-current')).toHaveLength(style === 'bar' ? 0 : 1)
+    await waitFor(() => expect(liveScenes()).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(liveScenes()).toHaveLength(1)
+    expect(screen.getAllByTestId('electronics-current')).toHaveLength(1)
+    expect(createScene.mock.lastCall?.[1]).toMatchObject({
+      layout: style === 'bar' ? 'band' : 'field',
+    })
   }
 
-  scenes.forEach((scene) => expect(scene.dispose).toHaveBeenCalledTimes(1))
+  scenes
+    .filter((scene) => !liveScenes().includes(scene))
+    .forEach((scene) => expect(scene.dispose).toHaveBeenCalledTimes(1))
 })
 
 test('a switch before the scene loads never starts the old one', async () => {
