@@ -13,14 +13,18 @@ const {
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
-  agentWorkerSettings,
   personalManagementFlag,
   startupSummary,
   DevelopmentSettingsError,
 } = require('./dev/settings.cjs')
 const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
+const {
+  agentChildEnvironment,
+  apiTargetEnv,
+  startsApplyRunner,
+  startSupervision,
+} = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
@@ -414,6 +418,7 @@ async function main() {
           text.includes('DEV_FAKE_READY'),
         ).ready()
       }
+      const targetEnv = apiTargetEnv(target, state, readKey, { readOnly: resolved.readOnly })
       await child(
         'api',
         'src/main.ts',
@@ -421,7 +426,7 @@ async function main() {
           INTAKE_ORIGIN: publicOrigin,
           INTAKE_DEV_LISTEN_PORT: String(apiPort),
           INTAKE_DATABASE_URL: state.apiUrl,
-          ...apiTargetEnv(target, state, readKey, { readOnly: resolved.readOnly }),
+          ...targetEnv,
           INTAKE_PROCESSING_PROFILE: profile,
           // Lets the connection status name the owned test target.
           INTAKE_TARGET_PROFILE: target.kind,
@@ -440,21 +445,18 @@ async function main() {
         text.includes('DEV_MEDIA_READY'),
       ).ready()
       if (worker) {
-        const providerEnv = agentWorkerSettings(resolved, settings)
-        await child(
-          'agents',
-          worker.entry,
-          {
-            ...providerEnv,
-            INTAKE_PROCESSING_PROFILE: profile,
-            INTAKE_AGENT_STATE_ROOT: join(root, 'agents'),
-            INTAKE_AGENT_DATABASE_URL: state.processingUrl,
-            INTAKE_AGENT_SCHEDULER_DATABASE_URL:
-              state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl,
-            ...(writerUrl ? { INTAKE_AGENT_WRITER_DATABASE_URL: writerUrl } : {}),
-          },
-          (text) => text.includes(worker.ready),
-        ).ready()
+        const agentEnv = agentChildEnvironment({
+          resolved,
+          settings,
+          profile,
+          root,
+          state,
+          writerUrl,
+          publicOrigin,
+          tailnet,
+          targetEnv,
+        })
+        await child('agents', worker.entry, agentEnv, (text) => text.includes(worker.ready)).ready()
       } else {
         await child('processing', 'src/dev/processing-main.ts', {}, (text) =>
           text.includes('DEV_PROCESSING_READY'),

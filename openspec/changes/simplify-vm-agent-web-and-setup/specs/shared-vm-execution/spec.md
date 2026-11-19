@@ -90,7 +90,7 @@ Each tool turn SHALL apply the public web setting sealed in its attempt. The pai
 
 ### Requirement: Public destination checks
 
-With public web access on, the proxy SHALL allow a `CONNECT` only to port 443 of a lowercase DNS name with an alphabetic final label and no private suffix (`.localhost`, `.internal`, `.local`, `.lan`, `.arpa`, `.onion`, `.test`, `.invalid`). Every DNS answer SHALL be a public unicast address, and the proxy SHALL connect to one it checked. Refusals SHALL name their reason: `destination_refused`, `protected_destination`, `not_public` or `resolution_failed`.
+With public web access on, the proxy SHALL allow a `CONNECT` only to port 443 of a lowercase DNS name with an alphabetic final label and no private suffix (`.localhost`, `.internal`, `.local`, `.lan`, `.arpa`, `.onion`, `.test`, `.invalid`). Every DNS answer SHALL be a public unicast address, and the proxy SHALL connect to one it checked. Refusals SHALL name their reason: `destination_refused`, `protected_destination`, `not_public`, `resolution_failed` or `too_many_connections`.
 
 #### Scenario: Public datasheet
 
@@ -115,6 +115,28 @@ With public web access on, the proxy SHALL allow a `CONNECT` only to port 443 of
 - **GIVEN** public web access on
 - **WHEN** the agent asks the proxy for `CONNECT example.com:22`
 - **THEN** it is refused with `destination_refused`
+
+#### Scenario: More than one reason applies
+
+- **GIVEN** a request that more than one refusal reason applies to at the same moment, such as a failed protected lookup and a full tunnel cap
+- **WHEN** the proxy refuses it
+- **THEN** the refusal names any one of those reasons, and the request is still refused
+
+### Requirement: Public tunnels are bounded
+
+Each turn's egress SHALL allow at most 32 public tunnels at once, refusing more with `too_many_connections`, and SHALL close a public tunnel that carries no data in either direction for two minutes. Provider tunnels SHALL count toward neither limit; they have a separate bound of 64 open at once. DNS work SHALL have a deadline, so public traffic can't hold up the provider.
+
+#### Scenario: Public tunnels at the cap
+
+- **GIVEN** a turn with 32 public tunnels open
+- **WHEN** the agent opens another public tunnel and then a provider tunnel
+- **THEN** the public one is refused with `too_many_connections` and the provider one connects
+
+#### Scenario: Idle public tunnel
+
+- **GIVEN** a public tunnel that has carried no data either way for two minutes
+- **WHEN** the egress checks it
+- **THEN** it closes, while a tunnel still receiving a download stays open
 
 ### Requirement: Protected destinations come from the deployment
 
@@ -170,7 +192,7 @@ A protected name that resolves only to non-public addresses SHALL be skipped, be
 
 - **GIVEN** the app at `http://127.0.0.1:4330` and a tailnet name resolving to `100.64.0.0/10`
 - **WHEN** the turn's protected hosts are worked out
-- **THEN** neither name blocks public access, and connections to them are still refused as `not_public`
+- **THEN** neither name blocks public access; a connection to the app's IP literal is refused as `destination_refused`, and one to the tailnet name as `not_public`
 
 #### Scenario: Protected name lookup fails
 

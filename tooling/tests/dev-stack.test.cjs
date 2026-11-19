@@ -1,6 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { prepareDevelopment } = require('../dev/stack.cjs')
+const { agentChildEnvironment, prepareDevelopment } = require('../dev/stack.cjs')
+const { resolveDevelopmentSettings } = require('../dev/settings.cjs')
 
 function recorder(overrides = {}) {
   const calls = []
@@ -251,4 +252,41 @@ test('only a writable mock starts the apply runner', () => {
   assert.equal(startsApplyRunner({ version: 1 }, true), false)
   assert.equal(startsApplyRunner({ version: 2 }, false), false)
   assert.equal(startsApplyRunner({ version: 3 }, true), false)
+})
+
+test('the agent worker launches with its databases and protected origins, never the app origin', () => {
+  const state = {
+    version: 3,
+    processingUrl: 'postgres://127.0.0.1/processing',
+    schedulerUrl: 'postgres://127.0.0.1/scheduler',
+  }
+  const settings = { INTAKE_USE_MOCK_AI_AGENTS: 'false', INTAKE_RUN_AGENTS_IN_VM: 'true' }
+  // The launcher's own values: its tailnet identity and target environment, as dev.cjs has them.
+  const launch = (tailnetIdentity) =>
+    agentChildEnvironment({
+      resolved: resolveDevelopmentSettings(settings, { stateDirectory: '/state' }),
+      settings,
+      profile: 'shared-vm-agent/2',
+      root: '/state/root',
+      state,
+      writerUrl: 'postgres://127.0.0.1/writer',
+      publicOrigin: 'http://127.0.0.1:4330',
+      tailnet: tailnetIdentity,
+      targetEnv: { INTAKE_READ_ORIGIN: 'https://inventory.example.com' },
+    })
+  const tailnet = launch({ origin: 'https://bench.tailnet.ts.net', login: 'owner@example.com' })
+  assert.equal(
+    tailnet.INTAKE_AGENT_PROTECTED_ORIGINS,
+    'http://127.0.0.1:4330,https://bench.tailnet.ts.net,https://inventory.example.com',
+  )
+  assert.equal(
+    launch(undefined).INTAKE_AGENT_PROTECTED_ORIGINS,
+    'http://127.0.0.1:4330,https://inventory.example.com',
+  )
+  assert.equal('INTAKE_ORIGIN' in tailnet, false)
+  assert.equal(tailnet.INTAKE_PROCESSING_PROFILE, 'shared-vm-agent/2')
+  assert.equal(tailnet.INTAKE_AGENT_STATE_ROOT, '/state/root/agents')
+  assert.equal(tailnet.INTAKE_AGENT_DATABASE_URL, state.processingUrl)
+  assert.equal(tailnet.INTAKE_AGENT_SCHEDULER_DATABASE_URL, state.schedulerUrl)
+  assert.equal(tailnet.INTAKE_AGENT_WRITER_DATABASE_URL, 'postgres://127.0.0.1/writer')
 })

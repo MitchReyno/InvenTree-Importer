@@ -39,6 +39,8 @@ test(
     const bridge = await startSessionBridge(
       process.env.INTAKE_VM_PAIR!,
       Number(process.env.INTAKE_VM_PORT),
+      // The live turns reach no deployment, so nothing needs protecting.
+      { protectedHosts: [] },
     )
     t.after(() => bridge.close())
     const capture = await fixture.seedCapture()

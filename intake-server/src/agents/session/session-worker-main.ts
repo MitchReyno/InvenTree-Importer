@@ -1,4 +1,5 @@
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
+import { bridgeProtectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
 import { join } from 'node:path'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -31,19 +32,32 @@ import {
   wakePendingSessions,
 } from './session-execution.ts'
 import { deliverMissingInstructions } from '#/agents/instructions.ts'
+import { localDatabaseUrl, schedulerDatabaseUrl, schedulerReachable } from './database-urls.ts'
 
-function localDatabaseUrl(value: string | undefined) {
-  if (!value) {
-    throw new Error('agent_database_required')
+/**
+ * The paired VM bridge this worker starts, or undefined without one. Checked before any
+ * effect, so a misconfigured worker refuses before it recovers or touches retained sessions.
+ */
+function vmBridgeConfiguration(env: NodeJS.ProcessEnv, profileId: string) {
+  const vmProfile = profileId === 'shared-vm-agent/1' || profileId === 'shared-vm-agent/2'
+  if (!env.INTAKE_VM_PAIR) {
+    if (vmProfile) {
+      throw new Error('session_agent_configuration_required')
+    }
+    return undefined
   }
-  const url = new URL(value)
-  if (
-    !['postgres:', 'postgresql:'].includes(url.protocol) ||
-    !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
-  ) {
-    throw new Error('local_agent_database_required')
+  if (!vmProfile && profileId !== 'synthetic-session/1') {
+    throw new Error('session_agent_configuration_required')
   }
-  return value
+  const port = Number(env.INTAKE_VM_PORT)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('session_agent_configuration_required')
+  }
+  return {
+    pair: env.INTAKE_VM_PAIR,
+    port,
+    protectedHosts: bridgeProtectedHosts(env, profileId),
+  }
 }
 
 /** Explicit supervised process for the session profiles. The web process never launches it. */
@@ -52,6 +66,8 @@ async function main() {
   if (!config.profileId || !isSessionProfile(config.profileId) || !config.channelSecret) {
     throw new Error('session_agent_configuration_required')
   }
+  const vmBridge = vmBridgeConfiguration(process.env, config.profileId)
+  const schedulerUrl = schedulerDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL)
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
@@ -76,6 +92,14 @@ async function main() {
       ownerLost = true
       shutdown.abort()
     })
+    // Pairing files and the listener are checked before recovery changes any retained session.
+    if (vmBridge) {
+      bridge = await startSessionBridge(vmBridge.pair, vmBridge.port, {
+        protectedHosts: vmBridge.protectedHosts,
+      })
+    }
+    // The scheduler takes over recovered work, so it must accept a connection first.
+    await schedulerReachable(schedulerUrl)
     // This process now owns the actor, so no other worker can be running these turns.
     await interruptRunningSessions(db.pool, config)
     const store = process.env.INTAKE_BLOB_ROOT
@@ -91,25 +115,6 @@ async function main() {
       config,
       store,
     })
-    if (
-      (config.profileId === 'shared-vm-agent/1' || config.profileId === 'shared-vm-agent/2') &&
-      !process.env.INTAKE_VM_PAIR
-    ) {
-      throw new Error('session_agent_configuration_required')
-    }
-    if (process.env.INTAKE_VM_PAIR) {
-      if (
-        config.profileId !== 'synthetic-session/1' &&
-        config.profileId !== 'shared-vm-agent/1' &&
-        config.profileId !== 'shared-vm-agent/2'
-      ) {
-        throw new Error('session_agent_configuration_required')
-      }
-      bridge = await startSessionBridge(
-        process.env.INTAKE_VM_PAIR,
-        Number(process.env.INTAKE_VM_PORT),
-      )
-    }
     const deps: SessionRunnerDeps = {
       pool: db.pool,
       config,
@@ -127,7 +132,7 @@ async function main() {
     DBOS.setConfig({
       name: processingApplication,
       applicationVersion: sessionHandlerVersion,
-      systemDatabaseUrl: localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL),
+      systemDatabaseUrl: schedulerUrl,
       executorID: `sessions-${config.actorId}`,
       systemDatabasePoolSize: 3,
       runAdminServer: false,
@@ -163,7 +168,7 @@ async function main() {
     launched = true
     await DBOS.registerQueue(sessionCommandQueue, { workerConcurrency: 8, globalConcurrency: 8 })
     scheduler = await DBOSClient.create({
-      systemDatabaseUrl: localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL),
+      systemDatabaseUrl: schedulerUrl,
       systemDatabasePoolSize: 1,
     })
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {

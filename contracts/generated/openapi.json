@@ -26636,6 +26636,22 @@
                   "type": "string"
                 }
               },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              },
               "part_description_style": {
                 "minLength": 1,
                 "maxLength": 500,
@@ -27183,6 +27199,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "part_description_style": {
@@ -28939,6 +28971,22 @@
                   "type": "string"
                 }
               },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              },
               "part_description_style": {
                 "minLength": 1,
                 "maxLength": 500,
@@ -29486,6 +29534,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "part_description_style": {
@@ -31242,6 +31306,22 @@
                   "type": "string"
                 }
               },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
+                }
+              },
               "part_description_style": {
                 "minLength": 1,
                 "maxLength": 500,
@@ -31789,6 +31869,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "part_description_style": {
@@ -33543,6 +33639,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "part_description_style": {
@@ -34052,6 +34164,22 @@
                 "items": {
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                   "type": "string"
+                }
+              },
+              "web": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "public_pages",
+                  "prefer_datasheets"
+                ],
+                "properties": {
+                  "public_pages": {
+                    "type": "boolean"
+                  },
+                  "prefer_datasheets": {
+                    "type": "boolean"
+                  }
                 }
               },
               "part_description_style": {

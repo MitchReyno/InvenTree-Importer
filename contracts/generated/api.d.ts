@@ -8018,6 +8018,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "native-agent/2";
@@ -8131,6 +8135,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "native-agent/2";
@@ -8501,6 +8509,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/1";
@@ -8614,6 +8626,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/1";
@@ -8984,6 +9000,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/2";
@@ -9097,6 +9117,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "shared-vm-agent/2";
@@ -9467,6 +9491,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
@@ -9575,6 +9603,10 @@ export interface components {
                 sha256: string;
             };
             pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
             part_description_style?: string;
             /** @constant */
             profile_id: "synthetic-session/1";
