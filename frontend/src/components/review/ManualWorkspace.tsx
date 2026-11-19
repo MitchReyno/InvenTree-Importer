@@ -308,7 +308,11 @@ export function ManualWorkspace({
   const disabled = Boolean(busy) || connectionLost || waitingForFirstRead
   let content: ReactNode
   if (!workspace) {
-    content = <Paragraph role="status">Reading retained manual workflow…</Paragraph>
+    content = (
+      <Paragraph $onField role="status">
+        Reading retained manual workflow…
+      </Paragraph>
+    )
   } else if (stage === 'review') {
     content = (
       <ReviewWorkspace

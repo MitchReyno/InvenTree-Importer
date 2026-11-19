@@ -12,6 +12,7 @@ import {
   Paragraph,
   Small,
   TargetChip,
+  groundBehindOnField,
 } from '#/components/ui'
 import { leftOutLots, readyLotIds } from '#/changes/model'
 import type { CaptureSnapshotDto, ManualRunDto, ManualWorkspaceDto } from '@invimport/contracts'
@@ -97,7 +98,7 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
             />
           )}
           {runs.length === 0 && (
-            <Paragraph>Nothing has been added to InvenTree from this batch yet.</Paragraph>
+            <Paragraph $onField>Nothing has been added to InvenTree from this batch yet.</Paragraph>
           )}
           {focusedRunId && !focused && (
             <div role="status">
@@ -236,4 +237,5 @@ const Strip = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[4]} ${space[6]};
+  ${groundBehindOnField}
 `
