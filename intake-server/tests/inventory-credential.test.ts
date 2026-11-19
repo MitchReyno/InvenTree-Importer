@@ -196,6 +196,32 @@ test('a saved file or directory other users can reach is refused, with or withou
   })
 })
 
+test(
+  'an access list granting another user is refused, though the mode bits say owner-only',
+  { skip: process.platform !== 'darwin' && 'only macOS hides access lists from the mode bits' },
+  async (t) => {
+    const directory = await secretsDir(t)
+    await saveCredential(directory, PLANTED, TARGET)
+    const file = join(directory, CREDENTIAL_FILE)
+
+    execFileSync('/bin/chmod', ['+a', 'everyone allow read', file])
+    assert.equal((await stat(file)).mode & 0o777, 0o600)
+    await assert.rejects(loadSavedCredential(directory, TARGET), {
+      code: 'secret_file_permissions',
+    })
+
+    execFileSync('/bin/chmod', ['-N', file])
+    execFileSync('/bin/chmod', ['+a', 'everyone allow read,file_inherit', directory])
+    await assert.rejects(loadSavedCredential(directory, TARGET), {
+      code: 'secret_file_permissions',
+    })
+    await assert.rejects(saveCredential(directory, 'next-token', TARGET), {
+      code: 'secret_file_permissions',
+    })
+    assert.equal(await storedToken(directory), PLANTED)
+  },
+)
+
 test('a linked directory, a linked file or a pipe is refused without blocking', async (t) => {
   const directory = await secretsDir(t)
   const real = `${directory}-real`

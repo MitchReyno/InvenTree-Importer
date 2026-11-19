@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { promisify } from 'node:util'
 import { constants, type Stats } from 'node:fs'
 import { realpathSync } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises'
@@ -8,6 +10,8 @@ import type { SavedCredential } from './credential.ts'
 
 /** The saved read token with the target it was checked against, alone in its file. */
 export const CREDENTIAL_FILE = 'inventory-read-token'
+
+const runFile = promisify(execFile)
 
 /** Group and other permission bits: any of them lets another user near the token. */
 const SHARED_PERMISSIONS = 0o077
@@ -70,10 +74,28 @@ async function requirePrivateDirectory(directory: string): Promise<boolean> {
     }
     throw new SecretStoreError('secret_store_unavailable', { cause: error })
   }
-  if (!info.isDirectory() || !privateTo(info)) {
+  if (!info.isDirectory() || !privateTo(info) || (await hasAccessList(directory))) {
     throw new SecretStoreError('secret_file_permissions')
   }
   return true
+}
+
+/**
+ * Whether an access list grants more than the mode bits show. Only macOS needs asking: a Linux
+ * POSIX ACL widens the group bits, which `privateTo` already refuses.
+ */
+async function hasAccessList(path: string) {
+  if (process.platform !== 'darwin') {
+    return false
+  }
+  let listing
+  try {
+    listing = await runFile('/bin/ls', ['-lde', path])
+  } catch (error) {
+    throw new SecretStoreError('secret_store_unavailable', { cause: error })
+  }
+  // The first line is the entry itself; each line after it is an access list entry.
+  return listing.stdout.trim().split('\n').length > 1
 }
 
 /** Resolves links in the part of the path that exists, keeping the rest as written. */
@@ -182,7 +204,8 @@ export async function loadSavedCredential(
   }
   try {
     const info = await file.stat()
-    if (!info.isFile() || !privateTo(info)) {
+    const shared = !info.isFile() || !privateTo(info)
+    if (shared || (await hasAccessList(join(directory, CREDENTIAL_FILE)))) {
       throw new SecretStoreError('secret_file_permissions')
     }
     if (info.size > MAX_CREDENTIAL_FILE_BYTES) {
@@ -237,6 +260,10 @@ export async function saveCredential(
     await requirePrivateDirectory(directory)
     const file = await open(temporary, 'wx', 0o600)
     try {
+      // A new file can inherit an access list from its directory; check before any token byte.
+      if (await hasAccessList(temporary)) {
+        throw new SecretStoreError('secret_file_permissions')
+      }
       await file.writeFile(content, 'utf8')
       await file.sync()
       // A rename keeps the modification time, which later loads report as saved_at.

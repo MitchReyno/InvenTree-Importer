@@ -476,6 +476,51 @@ test('a save confirmed before any status read has succeeded still shows the save
   expect(within(row).getByRole('button', { name: 'Use the environment token…' })).toBeVisible()
 })
 
+test('a check answered in the same moment a token change is confirmed never publishes', async () => {
+  const user = userEvent.setup()
+  const savedAt = new Date().toISOString()
+
+  let answerCheck: () => void = () => undefined
+
+  let confirm: () => void = () => undefined
+
+  const refused = connection()
+  header.checkConnection.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        answerCheck = () =>
+          resolve({
+            ...refused,
+            target: { ...refused.target, state: 'unavailable', failure_code: 'unauthorized' },
+          })
+      }),
+  )
+  header.replaceInventoryCredential.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        confirm = () => resolve({ credential_source: 'saved', credential_saved_at: savedAt })
+      }),
+  )
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  await within(row).findByText('Accepted')
+  await user.click(within(row).getByRole('button', { name: 'Check now' }))
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.type(within(row).getByLabelText('New API token'), 'fresh-read-token')
+  header.connection.mockImplementation(async () => savedConnection(savedAt))
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+
+  // The check's answer lands first, then the confirmation, before either is awaited further.
+  await act(async () => {
+    answerCheck()
+    confirm()
+  })
+  await within(row).findByRole('button', { name: 'Check now' })
+  expect(await within(row).findByText(/Using the token saved here on/)).toBeVisible()
+
+  expect(within(row).queryByText('Refused')).toBeNull()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
   ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
   ['defaults', ['Tags']],

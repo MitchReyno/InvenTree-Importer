@@ -25,6 +25,12 @@ test('the frontend dev server never serves a saved read token from inside the wo
   await mkdir(page)
   t.after(() => rm(page, { recursive: true, force: true }))
   await symlink(join(directory, 'inventory-read-token'), join(page, 'index.html'))
+  // Sirv also tries an extensionless index, and a path with .htm added.
+  const bare = join(frontend, `secrets-bare-${process.pid}`)
+  await mkdir(bare)
+  t.after(() => rm(bare, { recursive: true, force: true }))
+  await symlink(join(directory, 'inventory-read-token'), join(bare, 'index'))
+  await symlink(join(directory, 'inventory-read-token'), join(bare, 'page.htm'))
   const vitePath = createRequire(join(frontend, 'package.json')).resolve('vite')
   const { createServer } = await import(pathToFileURL(vitePath).href)
   const vite = await createServer({
@@ -49,6 +55,8 @@ test('the frontend dev server never serves a saved read token from inside the wo
   // Without an HTML accept header the static handler answers the directory with its index.
   const directoryIndex = await fetch(new URL(`/secrets-page-${process.pid}/`, base))
   const fsIndex = await fetch(new URL(`/@fs${page}/`, base))
+  const bareIndex = await fetch(new URL(`/secrets-bare-${process.pid}/`, base))
+  const addedExtension = await fetch(new URL(`/secrets-bare-${process.pid}/page`, base))
 
   // The control file proves /@fs reaches this directory at all.
   assert.equal(control.status, 200)
@@ -61,6 +69,8 @@ test('the frontend dev server never serves a saved read token from inside the wo
     rewritten,
     directoryIndex,
     fsIndex,
+    bareIndex,
+    addedExtension,
   ]) {
     assert.equal(response.status, 403)
     assert.ok(!(await response.text()).includes(PLANTED))

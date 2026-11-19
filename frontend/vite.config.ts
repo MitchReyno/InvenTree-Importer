@@ -28,6 +28,12 @@ function requestedFile(url: string | undefined) {
  * Refuses any dev-server request whose file, after following links, is the saved read token,
  * whatever name the request used. The deny list below only sees the requested name.
  */
+/** The paths Vite's static handler (sirv) tries for a request, bare and with its extensions. */
+function staticCandidates(file: string) {
+  const index = join(file, 'index')
+  return ['', '.html', '.htm'].flatMap((extension) => [file + extension, index + extension])
+}
+
 /** Whether a path, after following links, is the saved token; a missing path is not. */
 function isCredential(path: string) {
   try {
@@ -40,8 +46,8 @@ function isCredential(path: string) {
 function credentialFileGuard(): Plugin {
   const refuseCredential: Connect.NextHandleFunction = (request, response, next) => {
     const file = requestedFile(request.url)
-    // A directory request is answered with its index, which may itself be a link.
-    const candidates = file ? [file, join(file, 'index.html')] : []
+    // Every file Vite's static handler may answer this path with, as it tries them.
+    const candidates = file ? staticCandidates(file) : []
     if (candidates.some(isCredential)) {
       response.statusCode = 403
       response.end()

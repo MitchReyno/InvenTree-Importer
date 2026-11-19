@@ -74,6 +74,10 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
       }
       const key = serverQueryKey(scope, 'header-connection')
       await queryClient.cancelQueries({ queryKey: key })
+      // A token command may have finished while the cancel was awaited.
+      if (sentAfter !== tokenCommands.current) {
+        return
+      }
       queryClient.setQueryData(key, result)
     },
   })
@@ -87,6 +91,8 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
     const key = serverQueryKey(scope, 'header-connection')
     try {
       const receipt = await send()
+      // At once, before any await, so no check sent before this can still publish.
+      tokenCommands.current += 1
       // Kept apart from the read, so it shows even when no read has succeeded yet.
       setConfirmed({ value: receipt, at: Date.now() })
       await queryClient.cancelQueries({ queryKey: key })
