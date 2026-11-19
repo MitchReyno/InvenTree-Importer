@@ -145,10 +145,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:intake:pg` (migration and retained attempts), `pnpm test:intake:process` (session runner), `pnpm test:dev` (profile table).
 - Risks and decisions: Mitch confirms the retired-attempt behaviour before implementation (proposal, open decisions). Task 10 qualifies the new profile.
 
-- [ ] 4.1 Confirm the retired-attempt behaviour with Mitch.
-- [ ] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
-- [ ] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
-- [ ] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
+- [x] 4.1 Confirm the retired-attempt behaviour with Mitch.
+- [x] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
+- [x] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
+- [x] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
 
 ## 5. Readiness web state
 
@@ -161,9 +161,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`.
 - Risks and decisions: none.
 
-- [ ] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
-- [ ] 5.2 GREEN: replace the field in contracts, server and frontend.
-- [ ] 5.3 Run the intake, frontend and contract checks, and record the results.
+- [x] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
+- [x] 5.2 GREEN: replace the field in contracts, server and frontend.
+- [x] 5.3 Run the intake, frontend and contract checks, and record the results.
 
 ## 6. Tool surface and admission
 
@@ -179,10 +179,10 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake` (the intake server runs `tsx --test`).
 - Risks and decisions: Codex `shell_environment_policy.set` must show up in `config/read`. If it doesn't, record that in `notes.md` and verify the variable with the smoke test instead.
 
-- [ ] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
-- [ ] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
-- [ ] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
-- [ ] 6.4 Run `pnpm test:intake` and record the results.
+- [x] 6.1 Record the current recorded frames and config fixtures used by the admission tests.
+- [x] 6.2 RED: add admission and adapter tests for each case, and confirm the failures.
+- [x] 6.3 GREEN: update the tool lists, the Codex config, the admission checks, the item check and the policy identity.
+- [x] 6.4 Run `pnpm test:intake` and record the results.
 
 ## 7. `pnpm vm:setup`
 
@@ -293,9 +293,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
   - `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**' --glob '!intake-server/migrations/**'` returns only planning text and the retained `/2` handling. Applied migrations are immutable and keep their historical text.
 - Risks and decisions: none beyond task 4's retired-attempt decision.
 
-- [ ] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
-- [ ] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
-- [ ] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
+- [x] 11.1 RED: add the launchable-profile instruction test and the `tool-turn.sh` argument test, and confirm the failures.
+- [x] 11.2 GREEN: add `browser-policy.sh`, remove the reader files, install line, whitelist entries, socket check and mount, and move the remaining reader test cases.
+- [x] 11.3 Run the checks, the image build, the Chromium check where the VM is available and the reference search, and record the results.
 
 ## Delivery evidence and lifecycle follow-up
 

@@ -9,16 +9,16 @@ const readiness = {
   api_version: 'bench-intake-app/1',
   deployment: 'restricted-local-development',
   identity: 'deferred_T11',
-  research: 'unqualified',
+  web: 'unavailable',
   media: 'configured',
   updates: 'websocket-with-polling-fallback',
   apply: 'separately-supervised-owned-fake-only',
 }
 
-function readinessTransport(ok = true) {
+function readinessTransport(ok = true, overrides: Partial<typeof readiness> = {}) {
   return vi.fn(async () =>
     ok
-      ? new Response(JSON.stringify(readiness), {
+      ? new Response(JSON.stringify({ ...readiness, ...overrides }), {
           headers: { 'content-type': 'application/json' },
         })
       : new Response('{}', { status: 503, headers: { 'content-type': 'application/json' } }),
@@ -48,15 +48,22 @@ test('switching debug mode on stores it on this device', async () => {
   await screen.findByText('Reachable · compatible application version')
 })
 
-test('the local setup check runs when the section opens and describes research honestly', async () => {
+test('the local setup check runs when the section opens and reports the web state', async () => {
   const transport = readinessTransport()
   vi.stubGlobal('fetch', transport)
   render(<DeveloperSection />)
 
   await screen.findByText('Reachable · compatible application version')
   expect(transport).toHaveBeenCalledTimes(1)
-  expect(screen.getByText('Unavailable pending provider qualification')).toBeInTheDocument()
+  expect(screen.getByText('Unavailable for this profile')).toBeInTheDocument()
   expect(screen.queryByLabelText(/credential|key|password/i)).not.toBeInTheDocument()
+})
+
+test('the local setup check shows web access when the VM tool profile has it', async () => {
+  vi.stubGlobal('fetch', readinessTransport(true, { web: 'available' }))
+  render(<DeveloperSection />)
+
+  expect(await screen.findByText('Available in VM sessions')).toBeInTheDocument()
 })
 
 test('a failed local setup check says so and the tools still work', async () => {

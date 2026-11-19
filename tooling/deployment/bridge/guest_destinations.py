@@ -1,6 +1,5 @@
-"""Destination checks shared by the document service and guest provider tunnels."""
+"""Destination checks for the guest egress proxy."""
 import ipaddress
-import os
 import re
 import socket
 
@@ -19,13 +18,6 @@ NON_GLOBAL_V6 = tuple(ipaddress.ip_network(network) for network in (
     "2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20"))
 
 
-def configured_hosts(name):
-    names = set(filter(None, os.environ.get(name, "").lower().split(",")))
-    if any(not DNS_NAME.fullmatch(host) for host in names):
-        raise ValueError("invalid web policy hostname")
-    return names
-
-
 def dns_name(value):
     """A lowercase DNS name of at least two labels within the 253-byte limit."""
     return len(value) <= MAX_DNS_NAME_BYTES and DNS_NAME.fullmatch(value) is not None
@@ -39,21 +31,6 @@ def public(value):
         return not any(address in network for network in NON_GLOBAL_V4)
     return (address in ipaddress.ip_network("2000::/3")
             and not any(address in network for network in NON_GLOBAL_V6))
-
-
-def reader_public(value):
-    """The document reader's address rule, kept unchanged while the reader remains."""
-    address = ipaddress.ip_address(value)
-    return (address.is_global and not address.is_multicast and
-            (address.version == 4 or address in ipaddress.ip_network("2000::/3"))
-            and not getattr(address, "sixtofour", None) and not getattr(address, "teredo", None))
-
-
-def permitted_addresses(answers, protected):
-    blocked = {address[4][0] for host in protected
-               for address in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)}
-    return bool(answers) and all(reader_public(answer[4][0]) and answer[4][0] not in blocked
-                                 for answer in answers)
 
 
 class Refused(Exception):

@@ -122,11 +122,11 @@ tooling/deployment/bridge/personal-codex.sh \
   "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE" "$origin" "$operator_key_file"
 ```
 
-Publish the guest document-reader policy. This command exits after the reader is up.
+Install the guest browser policy, which tool workers start Chromium under.
 
 ```sh
 export INTAKE_VM_PORT=14313
-bash tooling/deployment/bridge/public-web.sh "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE"
+bash tooling/deployment/bridge/browser-policy.sh "$vm" "$guest_directory"
 ```
 
 Turn on real agents in the VM in `.env`. The instance `bench-agent`, the pairing directory above, the guest's `bench-intake-guest` directory, the image `bench-intake-runner:personal` and port 14313 are the defaults, so nothing else is needed; set `INTAKE_VM_NAME`, `INTAKE_VM_PAIR`, `INTAKE_VM_GUEST_DIR`, `INTAKE_VM_RUNNER_IMAGE` or `INTAKE_VM_PORT` only where your setup differs.
@@ -171,9 +171,9 @@ INTAKE_VM_BUILTIN_TOOLS=1 INTAKE_VM_CODEX_SUBSCRIPTION=1 \
   "$vm" "$INTAKE_VM_PORT" "$guest_directory" "$INTAKE_RUNNER_IMAGE"
 ```
 
-Use another free loopback port when `14313` is already taken, and use that same port in `.env` and in both relays. `INTAKE_VM_WEB_MODE=public` on the reader command allows general public HTTPS reads. With that mode, set `INTAKE_VM_PROTECTED_HOSTS` to every public hostname of this app, the inventory server and this machine. The default reader allows RFC Editor, Python documentation and Example Domain. Details and limits are in the [deployment guide](tooling/deployment/README.md#shared-vm-sessions-with-native-tools).
+Use another free loopback port when `14313` is already taken, and use that same port in `.env` and in both relays. Each tool turn's egress proxy allows the provider's hosts and keeps public pages off unless the turn's sealed web setting turns them on. Details and limits are in the [deployment guide](tooling/deployment/README.md#shared-vm-sessions-with-native-tools).
 
-`shared-vm-agent/1` is the same VM with one guest turn and no tool worker; select it with `INTAKE_VM_AGENT_TOOLS=false`. For that profile, skip `public-web.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
+`shared-vm-agent/1` is the same VM with one guest turn and no tool worker; select it with `INTAKE_VM_AGENT_TOOLS=false`. For that profile, skip `browser-policy.sh` and start each relay without `INTAKE_VM_BUILTIN_TOOLS=1`.
 
 While signing in, forward the guest management ports to this machine, one forward in each terminal. Export `vm` there the same way. Keep the forwards open while the settings panels are in use. `ControlPath=none` gives each forward its own connection; through Lima's shared one, `ssh` would hand the forward over and exit.
 

@@ -11,7 +11,7 @@ const readiness = {
   api_version: 'bench-intake-app/1',
   deployment: 'restricted-local-development',
   identity: 'deferred_T11',
-  research: 'unqualified',
+  web: 'unavailable',
   media: 'configured',
   updates: 'websocket-with-polling-fallback',
   apply: 'separately-supervised-owned-fake-only',

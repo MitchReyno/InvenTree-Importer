@@ -15,7 +15,6 @@ from pathlib import Path
 from guest_destinations import (
     Refused,
     check_public_form,
-    configured_hosts,
     connection_order,
     dns_name,
     literal_address,
@@ -26,7 +25,6 @@ from guest_destinations import (
     resolved_addresses,
 )
 
-PROTECTED = configured_hosts("INTAKE_VM_PROTECTED_HOSTS")
 CODEX = os.environ.get("INTAKE_VM_CODEX_SUBSCRIPTION") == "1"
 HOSTS = {"auth.openai.com", "chatgpt.com"} if CODEX else {"api.anthropic.com"}
 SOCKET = Path("/run/egress/codex.sock" if CODEX else "/run/egress/claude.sock")
@@ -350,9 +348,9 @@ async def provider_addresses(host, protected):
 
 
 def current_protection():
-    """This turn's policy and every protected entry: the environment's and the policy's."""
+    """This turn's policy and its protected entries; none without a policy."""
     policy = load_policy()
-    return policy, PROTECTED | (policy["protected_hosts"] if policy else set())
+    return policy, (policy["protected_hosts"] if policy else set())
 
 
 def check_public_request(host, port, policy, protected):

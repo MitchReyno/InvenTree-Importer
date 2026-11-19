@@ -7,13 +7,17 @@ test('session profiles, scripted or real, start the session worker', () => {
     'synthetic-session/1',
     'native-agent/2',
     'shared-vm-agent/1',
-    'shared-vm-agent/2',
+    'shared-vm-agent/3',
   ]) {
     assert.deepEqual(processingWorker(profile), {
       entry: 'src/agents/session/session-worker-main.ts',
       ready: 'session supervisor ready',
     })
   }
+})
+
+test('the retired shared-vm-agent/2 profile no longer starts a worker', () => {
+  assert.equal(processingWorker('shared-vm-agent/2'), null)
 })
 
 test('native-agent/1 keeps the single-result worker', () => {

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Pool } from 'pg'
 import { schemas } from '@invimport/contracts'
 import { bootstrap, type DevConfig } from '#/config.ts'
+import { webAccess } from '#/processing/session-policy.ts'
 import { compatibleSchema } from './compatibility.ts'
 
 export function registerReadiness(
@@ -9,6 +10,8 @@ export function registerReadiness(
   pool: Pool | undefined,
   config: DevConfig,
   media: boolean,
+  /** The configured processing profile, which decides whether sessions have web access. */
+  processingProfile: string | undefined,
 ) {
   const configured = bootstrap(config).status === 'configured'
   app.get(
@@ -40,7 +43,7 @@ export function registerReadiness(
         api_version: 'bench-intake-app/1',
         deployment: 'restricted-local-development',
         identity: 'deferred_T11',
-        research: 'unqualified',
+        web: webAccess(processingProfile),
         media: media ? 'configured' : 'disabled',
         updates: 'websocket-with-polling-fallback',
         apply: 'separately-supervised-owned-fake-only',

@@ -451,12 +451,36 @@ export async function runSessionTurn(
         return 'paused' as const
       }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
+      // No worker runs `shared-vm-agent/2` any more, so whichever worker finds one of its
+      // attempts settles it: queued or requeued by a resume, it fails without starting, its
+      // history kept, instead of waiting for a worker that will never come.
+      if (manifest.profile_id === 'shared-vm-agent/2') {
+        // Counted as a turn, so the session's views find this turn's diagnostic.
+        const retired = await setSessionState(client, attemptId, row.jobId, 'failed', ['queued'], {
+          countTurn: true,
+        })
+        if (retired === 'failed') {
+          await retainSessionFailure(
+            client,
+            sessionFailure(new NativeSessionError('agent_profile_retired'), {
+              attemptId,
+              lineageId: row.jobId,
+              turn: (row.turnCount + 1n).toString(),
+              stage: 'startup',
+              provider: manifest.agent?.provider ?? null,
+              model: manifest.agent?.model ?? null,
+            }),
+          )
+        }
+        await publish(client, row.batchId)
+        return retired === 'failed' ? ('retired' as const) : ('cancelled' as const)
+      }
       // Drain a sealed VM turn on its paired deployment. A VM worker must also leave
       // pre-existing host turns for their original worker.
       if (
-        (manifest.profile_id === 'shared-vm-agent/2' ||
+        (manifest.profile_id === 'shared-vm-agent/3' ||
           manifest.profile_id === 'shared-vm-agent/1' ||
-          config.profileId === 'shared-vm-agent/2' ||
+          config.profileId === 'shared-vm-agent/3' ||
           config.profileId === 'shared-vm-agent/1') &&
         manifest.profile_id !== config.profileId
       ) {
@@ -534,6 +558,9 @@ export async function runSessionTurn(
   }
   if (claimed === 'cancelled') {
     return 'cancelled' as const
+  }
+  if (claimed === 'retired') {
+    return 'failed' as const
   }
   if (claimed === 'archived' || claimed === 'paused' || claimed === 'waiting') {
     return 'queued' as const

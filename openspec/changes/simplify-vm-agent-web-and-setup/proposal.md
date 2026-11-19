@@ -123,7 +123,7 @@ None.
 **Compatibility:**
 - The VM session admission policy identity changes, so conversations admitted under the old policy can't resume and start fresh.
 - Older attempts without web fields run with web access off.
-- Readiness's `research` field is replaced, and the live contract version moves with it.
+- Readiness's `research` field is replaced by `web`. A browser tab left open across the upgrade reports local setup checks as unavailable until it is reloaded.
 
 ## Open decisions and assumptions
 

@@ -2,7 +2,7 @@ const SESSION_PROFILES = new Set([
   'synthetic-session/1',
   'native-agent/2',
   'shared-vm-agent/1',
-  'shared-vm-agent/2',
+  'shared-vm-agent/3',
 ])
 
 /** The agent worker for this profile, or null when the synthetic Processing child runs instead. */

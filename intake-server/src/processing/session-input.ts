@@ -13,11 +13,7 @@ import {
   unseal,
   type RetainedMediaDescriptor,
 } from './model.ts'
-import {
-  sessionProfiles,
-  sessionToolProfileVersion,
-  type SessionProfileId,
-} from './session-policy.ts'
+import { sessionProfiles, type SessionProfileId } from './session-policy.ts'
 
 export type SessionLotStage = 'research' | 'images' | 'inventory'
 
@@ -32,7 +28,7 @@ export function sessionLotInputManifest(
   media: RetainedMediaDescriptor,
   profile:
     | {
-        id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2'
+        id: 'native-agent/2' | 'shared-vm-agent/1' | 'shared-vm-agent/2' | 'shared-vm-agent/3'
         agent: AgentSelectionDto
         settingsRevision: string
         /** Sealed with the attempt, so a later save can't change what a queued session reads. */
@@ -60,7 +56,7 @@ export function sessionLotInputManifest(
     profile_id: profile.id,
     instruction_version: policy.instructionVersion,
     instruction_sha256: policy.instructionDigest,
-    tool_profile_version: sessionToolProfileVersion,
+    tool_profile_version: policy.toolProfileVersion,
     media: { ...media },
     agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,
@@ -139,7 +135,7 @@ export function sessionLeadInputManifest(
     profile_id: profile.id,
     instruction_version: policy.instructionVersion,
     instruction_sha256: policy.instructionDigest,
-    tool_profile_version: sessionToolProfileVersion,
+    tool_profile_version: policy.toolProfileVersion,
     media: { ...media },
     agent: profile.id !== 'synthetic-session/1' ? profile.agent : null,
     settings_revision: profile.id !== 'synthetic-session/1' ? profile.settingsRevision : null,

@@ -40,6 +40,10 @@ test('provider failures keep their existing outcomes', async () => {
     // Only the typed provider error is a login failure, whatever a plain error says.
     [new Error('agent_login_required'), 'agent_turn_failed'],
     [new Error('anything else'), 'agent_turn_failed'],
+    // Tool-policy refusals keep their codes, so the operator sees why the turn stopped.
+    [new NativeSessionError('agent_tool_refused'), 'agent_tool_refused'],
+    [new NativeSessionError('agent_policy_refused'), 'agent_policy_refused'],
+    [new NativeSessionError('agent_timeout'), 'agent_turn_failed'],
   ]
   for (const [error, expected] of cases) {
     const outcome = await nativeTurnOutcome({

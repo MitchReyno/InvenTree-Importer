@@ -22,7 +22,7 @@ function readinessLines(readiness: DebugInfoInput['readiness']) {
     `API version: ${readiness.api_version}`,
     `Deployment: ${readiness.deployment}`,
     `Media: ${readiness.media}`,
-    `Research: ${readiness.research}`,
+    `Web access: ${readiness.web}`,
     `Inventory execution: ${readiness.apply}`,
   ]
 }

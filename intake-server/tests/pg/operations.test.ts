@@ -187,7 +187,7 @@ test(
 test('readiness is read-only, redacted and refuses incompatible schema or context', async () => {
   const fixture = await manualFixture()
   const app = createServer(fixture.config)
-  registerReadiness(app, fixture.api.pool, fixture.config, false)
+  registerReadiness(app, fixture.api.pool, fixture.config, false, 'synthetic-session/1')
   try {
     const response = await app.inject({
       method: 'GET',
@@ -195,7 +195,20 @@ test('readiness is read-only, redacted and refuses incompatible schema or contex
       headers: { host: new URL(fixture.config.origin).host },
     })
     assert.equal(response.statusCode, 200, response.body)
-    assert.equal(response.json().research, 'unqualified')
+    assert.equal(response.json().web, 'unavailable')
+    // The VM tool profile is the one that gives sessions web access.
+    const vmApp = createServer(fixture.config)
+    registerReadiness(vmApp, fixture.api.pool, fixture.config, false, 'shared-vm-agent/3')
+    try {
+      const vm = await vmApp.inject({
+        method: 'GET',
+        url: '/api/v1/readiness',
+        headers: { host: new URL(fixture.config.origin).host },
+      })
+      assert.equal(vm.json().web, 'available')
+    } finally {
+      await vmApp.close()
+    }
     assert.equal(response.body.includes(fixture.config.apiKey), false)
     assert.equal(response.body.includes(fixture.db.url), false)
     const shadow = await fixture.db.pool.connect()

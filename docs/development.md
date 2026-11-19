@@ -62,7 +62,7 @@ The processing switches select one of the existing profiles, which the startup o
 | `true` | `false` | `false` | `synthetic-research/2`, scripted per-stage results |
 | `false` | `true` | `false` | `native-agent/2` |
 | `false` | `false` | `false` | `native-agent/1` |
-| `false` | `true` | `true` | `shared-vm-agent/2`, or `shared-vm-agent/1` without VM tools |
+| `false` | `true` | `true` | `shared-vm-agent/3`, or `shared-vm-agent/1` without VM tools |
 
 The app refuses to start, before any setup, when settings conflict. Examples are the local switch together with a URL; read-only `false` with a real server, because writes to a real InvenTree are not supported; VM agents without sessions; and a switch set to anything other than true or false. Errors never include a value; invalid, retired and conflicting settings are also named.
 

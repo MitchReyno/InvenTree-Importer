@@ -39,7 +39,7 @@ import { localDatabaseUrl, schedulerDatabaseUrl, schedulerReachable } from './da
  * effect, so a misconfigured worker refuses before it recovers or touches retained sessions.
  */
 function vmBridgeConfiguration(env: NodeJS.ProcessEnv, profileId: string) {
-  const vmProfile = profileId === 'shared-vm-agent/1' || profileId === 'shared-vm-agent/2'
+  const vmProfile = profileId === 'shared-vm-agent/1' || profileId === 'shared-vm-agent/3'
   if (!env.INTAKE_VM_PAIR) {
     if (vmProfile) {
       throw new Error('session_agent_configuration_required')
@@ -126,7 +126,7 @@ async function main() {
             ? bridge.driver
             : syntheticSessionDriver,
         'shared-vm-agent/1': bridge?.driver,
-        'shared-vm-agent/2': bridge?.driver,
+        'shared-vm-agent/3': bridge?.driver,
       },
     }
     DBOS.setConfig({

@@ -13,7 +13,7 @@ describe('debugInfoText', () => {
         api_version: 'bench-intake-app/1',
         deployment: 'restricted-local-development',
         identity: 'deferred_T11',
-        research: 'unqualified',
+        web: 'available',
         media: 'disabled',
         updates: 'websocket-with-polling-fallback',
         apply: 'separately-supervised-owned-fake-only',
@@ -30,7 +30,7 @@ describe('debugInfoText', () => {
       'API version: bench-intake-app/1',
       'Deployment: restricted-local-development',
       'Media: disabled',
-      'Research: unqualified',
+      'Web access: available',
       'Inventory execution: separately-supervised-owned-fake-only',
       'Live updates: live, last frame 2 s ago',
     ])

@@ -13,6 +13,7 @@ const categories: Record<string, Category> = {
   agent_home_unavailable: 'configuration',
   agent_home_customizations_refused: 'configuration',
   agent_input_invalid: 'configuration',
+  agent_profile_retired: 'configuration',
   agent_host_customization_refused: 'configuration',
   agent_policy_refused: 'tool_policy',
   agent_tool_refused: 'tool_policy',
@@ -98,13 +99,21 @@ interface Context {
   cliVersion?: string | null
 }
 
+/** Codes whose summary and recovery are more specific than their category's. */
+const codeDescriptions: Partial<Record<string, { summary: string; recovery: string }>> = {
+  agent_profile_retired: {
+    summary: 'This step was queued under an agent profile that has since been retired.',
+    recovery: 'Run the step again to start it under the current profile. Its history is kept.',
+  },
+}
+
 function known(error: unknown) {
   const code =
     error instanceof NativeSessionError && Object.hasOwn(categories, error.code)
       ? error.code
       : 'agent_unknown'
   const category = categories[code] ?? 'internal'
-  return { code, category, ...descriptions[category] }
+  return { code, category, ...descriptions[category], ...codeDescriptions[code] }
 }
 
 /** Construct an allowlisted record; never serialize an Error, stack or provider payload. */

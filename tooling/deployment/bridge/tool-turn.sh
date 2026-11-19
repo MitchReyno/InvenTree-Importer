@@ -27,7 +27,6 @@ trap cleanup EXIT
 trap 'exit 1' TERM HUP INT
 install -d -m 0700 -o 1000 -g 1000 "$turn/rpc" "$turn/reap"
 install -d -m 0700 -o 1000 -g 1000 "$directory/tool-sessions"
-test -S "$directory/web/reader.sock"
 # The supervisor writes this turn's web policy here; egress reads it and the worker never sees it.
 install -d -m 0700 -o 1000 -g 1000 "$turn/egress" "$turn/policy"
 isolated() { docker run --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=128 "$@"; }
@@ -47,7 +46,7 @@ if [ -f "$directory/browser-seccomp.json" ]; then
   set -- --security-opt "seccomp=$directory/browser-seccomp.json" "$@"
 fi
 worker_id=$(isolated -d --name "$name" --memory=640m --tmpfs /tmp:rw,nosuid,nodev,size=64m \
-  --env "$envarg" "$@" --volume "$turn/rpc:/run/turn" --volume "$directory/web:/run/web:ro" \
+  --env "$envarg" "$@" --volume "$turn/rpc:/run/turn" \
   --volume "$directory/tool-sessions:/home/node/sessions" "$image" node --import tsx src/agents/shared-vm/tool-worker.ts)
 i=0
 while [ "$i" -lt 150 ]; do

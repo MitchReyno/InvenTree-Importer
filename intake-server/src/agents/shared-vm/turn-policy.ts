@@ -8,8 +8,8 @@ export const TURN_POLICY_PATH = '/run/policy/policy.json'
 /** The egress proxy ignores a larger file, so a larger policy is refused before it is written. */
 export const MAX_TURN_POLICY_BYTES = 16384
 
-/** Profiles whose sealed web setting may open public pages; none has web access yet. */
-const WEB_ACCESS_PROFILES: ReadonlySet<string> = new Set()
+/** Profiles whose sealed web setting may open public pages. */
+const WEB_ACCESS_PROFILES: ReadonlySet<string> = new Set(['shared-vm-agent/3'])
 
 /** What the guest egress proxy allows for one tool turn; version 1 of its file format. */
 export interface TurnPolicy {

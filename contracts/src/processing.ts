@@ -126,7 +126,6 @@ const inputV6Shared = {
   notes: ProcessingInputV2.properties.notes,
   observations: CaptureSnapshot.properties.observations,
   instruction_sha256: Digest,
-  tool_profile_version: Type.Literal('native-session-tools/1'),
   media: ProcessingInputV2.properties.media,
   /** Proposals a successor started from; later revisions arrive as inbox items. */
   pinned_proposal_ids: Type.Array(Id, { maxItems: 16, uniqueItems: true }),
@@ -140,28 +139,41 @@ const inputV6Shared = {
   /** The saved Part description style, sealed at queue time; absent when none was saved. */
   part_description_style: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
 }
+/** Each profile seals its own tool profile; only `shared-vm-agent/3` has the web tools. */
+const sessionTools = Type.Literal('native-session-tools/1')
 const inputV6Profiles = [
   {
     profile_id: Type.Literal('native-agent/2'),
     instruction_version: Type.Literal('native-agent/2'),
+    tool_profile_version: sessionTools,
     agent: AgentSelection,
     settings_revision: Revision,
   },
   {
     profile_id: Type.Literal('shared-vm-agent/1'),
     instruction_version: Type.Literal('shared-vm-agent/1'),
+    tool_profile_version: sessionTools,
     agent: AgentSelection,
     settings_revision: Revision,
   },
   {
     profile_id: Type.Literal('shared-vm-agent/2'),
     instruction_version: Type.Literal('shared-vm-agent/2'),
+    tool_profile_version: sessionTools,
+    agent: AgentSelection,
+    settings_revision: Revision,
+  },
+  {
+    profile_id: Type.Literal('shared-vm-agent/3'),
+    instruction_version: Type.Literal('shared-vm-agent/3'),
+    tool_profile_version: Type.Literal('native-session-web-tools/1'),
     agent: AgentSelection,
     settings_revision: Revision,
   },
   {
     profile_id: Type.Literal('synthetic-session/1'),
     instruction_version: Type.Literal('synthetic-session/1'),
+    tool_profile_version: sessionTools,
     agent: Type.Null(),
     settings_revision: Type.Null(),
   },
@@ -233,6 +245,7 @@ export const ProcessingCommandV5 = object({
     Type.Literal('native-agent/2'),
     Type.Literal('shared-vm-agent/1'),
     Type.Literal('shared-vm-agent/2'),
+    Type.Literal('shared-vm-agent/3'),
     Type.Literal('synthetic-session/1'),
   ]),
   handler_version: Type.Literal('processing/5'),

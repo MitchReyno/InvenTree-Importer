@@ -2,8 +2,23 @@ import { createHash } from 'node:crypto'
 import { open, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
-export type TurnOutcome =
-  'done' | 'agent_login_required' | 'agent_turn_failed' | 'resume_unavailable'
+/** Tool-policy refusals keep their own codes through the bridge, so the operator sees why. */
+export const REFUSAL_OUTCOMES = ['agent_tool_refused', 'agent_policy_refused'] as const
+
+const TURN_OUTCOMES = [
+  'done',
+  'agent_login_required',
+  'agent_turn_failed',
+  'resume_unavailable',
+  ...REFUSAL_OUTCOMES,
+] as const
+
+export type TurnOutcome = (typeof TURN_OUTCOMES)[number]
+
+/** A refusal code the bridge carries as itself, or undefined for any other value. */
+export function refusalOutcome(value: unknown): (typeof REFUSAL_OUTCOMES)[number] | undefined {
+  return REFUSAL_OUTCOMES.find((outcome) => outcome === value)
+}
 
 // A probe may observe completed work but must never create a journal or run a turn.
 export async function recordedOutcome(
@@ -12,12 +27,7 @@ export async function recordedOutcome(
 ): Promise<TurnOutcome> {
   const digest = commandDigest(command)
   const recorded = await readFile(path, 'utf8')
-  for (const outcome of [
-    'done',
-    'agent_login_required',
-    'agent_turn_failed',
-    'resume_unavailable',
-  ] as const) {
+  for (const outcome of TURN_OUTCOMES) {
     if (recorded === digest + '\n' + outcome + '\n') {
       return outcome
     }

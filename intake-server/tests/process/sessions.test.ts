@@ -18,7 +18,7 @@ import {
 
 type Provider = 'claude' | 'codex'
 
-async function sessionHarness(provider: Provider) {
+async function sessionHarness(provider: Provider, { guestTools = false } = {}) {
   const fixture = await processingFixture()
   const server = await startSessionToolServer({
     pool: fixture.runner.pool,
@@ -48,6 +48,7 @@ async function sessionHarness(provider: Provider) {
   const host = {
     codexExecutable: executable,
     claudeExecutable: executable,
+    guestTools,
     stateRoot,
     env: {
       PATH: process.env.PATH,
@@ -119,6 +120,47 @@ async function sessionHarness(provider: Provider) {
     },
   }
 }
+
+test(
+  'claude: a guest tool session starts with exactly the guest tools and refuses another',
+  { timeout: 60000 },
+  async () => {
+    const admitted = await sessionHarness('claude', { guestTools: true })
+    try {
+      const outcome = await runSessionTurn(
+        admitted.deps('guest-tools'),
+        admitted.session.attempt,
+        new AbortController().signal,
+      )
+      assert.equal(outcome, 'finished', JSON.stringify(await admitted.events()))
+      const started = (await admitted.events()).find((event) => event.event === 'builtins')
+      assert.deepEqual(started?.tools, [
+        'Bash',
+        'Read',
+        'Write',
+        'Edit',
+        'Glob',
+        'Grep',
+        'TodoWrite',
+        'WebSearch',
+        'WebFetch',
+      ])
+    } finally {
+      await admitted.dispose()
+    }
+    const widened = await sessionHarness('claude', { guestTools: true })
+    try {
+      const outcome = await runSessionTurn(
+        widened.deps('guest-extra-tool'),
+        widened.session.attempt,
+        new AbortController().signal,
+      )
+      assert.equal(outcome, 'failed', JSON.stringify(await widened.events()))
+    } finally {
+      await widened.dispose()
+    }
+  },
+)
 
 for (const provider of ['claude', 'codex'] as const) {
   test(

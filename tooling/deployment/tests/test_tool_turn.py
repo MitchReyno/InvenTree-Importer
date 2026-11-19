@@ -2,7 +2,6 @@
 import json
 import os
 from pathlib import Path
-import socket
 import stat
 import re
 import subprocess
@@ -57,11 +56,9 @@ class ToolTurnMounts(unittest.TestCase):
         # One root per run, so a test can run a turn for each provider.
         root = Path(self.directory.name) / provider
         root.mkdir()
+        # No document reader runs in the guest: a turn needs no reader socket.
         guest = root / "guest-dir"
-        (guest / "web").mkdir(parents=True)
-        listener = socket.socket(socket.AF_UNIX)
-        listener.bind(str(guest / "web/reader.sock"))
-        self.addCleanup(listener.close)
+        guest.mkdir()
         bin_dir = root / "bin"
         bin_dir.mkdir()
         for name, body in (("docker", FAKE_DOCKER), ("install", FAKE_INSTALL)):
@@ -140,6 +137,11 @@ class ToolTurnMounts(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertTrue(exposes(source, policy))
         self.assertFalse(exposes(os.path.join(self.directory.name, "turn", "rpc"), policy))
+
+    def test_no_container_mounts_a_document_reader(self):
+        runs = self.run_turn()
+        for suffix in ("", "-peer", "-egress"):
+            self.assertNotIn("/run/web", self.container(runs, suffix))
 
     def test_egress_no_longer_receives_protected_hosts_from_the_environment(self):
         egress = self.container(self.run_turn(), "-egress")

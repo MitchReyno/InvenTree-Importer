@@ -50,6 +50,10 @@ export async function createSessionAttempt(
     pinnedProposalIds?: readonly string[]
   } = {},
 ) {
+  // `shared-vm-agent/2` is retired: no new attempt is sealed for it.
+  if (profileId === 'shared-vm-agent/2') {
+    fail('agent_profile_retired', 409)
+  }
   const lead = job.stage === 'examine' && job.subject_id === null
   // Reading and identifying are replaced by the batch-level Examine session.
   if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
