@@ -287,13 +287,16 @@ describe('RecordsStage', () => {
       const rail = await screen.findByRole('navigation', { name: 'Record types' })
       await user.click(within(rail).getByRole('button', { name: /^Parts/ }))
       const list = screen.getByRole('region', { name: 'Parts' })
-      await user.click(within(list).getAllByRole('button')[0])
+      const first = within(list).getAllByRole('button')[0]
+      await user.click(first)
+      const record = screen.getByRole('region', { name: first.getAttribute('aria-label')! })
 
       expect(
         getComputedStyle(screen.getByRole('navigation', { name: 'Record' })).backgroundColor,
       ).toContain('masthead-ground')
       expect(getComputedStyle(rail).boxShadow).toContain('shadow')
       expect(getComputedStyle(list).boxShadow).toContain('shadow')
+      expect(getComputedStyle(record).boxShadow).toContain('shadow')
     } finally {
       document.documentElement.dataset.masthead = 'bar'
     }
