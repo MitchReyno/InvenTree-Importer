@@ -1,6 +1,7 @@
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 import { bridgeProtectedHosts } from '#/agents/shared-vm/protected-hosts.ts'
 import { join } from 'node:path'
+import { Client } from 'pg'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '#/db/database.ts'
@@ -33,18 +34,25 @@ import {
 } from './session-execution.ts'
 import { deliverMissingInstructions } from '#/agents/instructions.ts'
 
+/**
+ * A PostgreSQL URL for a loopback server, as the `pg` driver will read it. The driver lets
+ * query parameters override the host, so the host it resolves is the one checked.
+ */
 function localDatabaseUrl(value: string | undefined) {
   if (!value) {
     throw new Error('agent_database_required')
   }
-  const url = new URL(value)
-  // `pg` lets a `host` or `hostaddr` parameter override the authority checked here.
-  if (
-    !['postgres:', 'postgresql:'].includes(url.protocol) ||
-    !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
-    url.searchParams.has('host') ||
-    url.searchParams.has('hostaddr')
-  ) {
+  let host = ''
+  try {
+    const url = new URL(value)
+    if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.searchParams.has('hostaddr')) {
+      throw new Error('local_agent_database_required')
+    }
+    host = new Client({ connectionString: value }).host
+  } catch {
+    throw new Error('local_agent_database_required')
+  }
+  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) {
     throw new Error('local_agent_database_required')
   }
   return value

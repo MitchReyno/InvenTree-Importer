@@ -138,6 +138,8 @@ def public_target(host, port, protected, on_resolved=None):
     try:
         addresses = resolved_addresses(host)
     except Refused:
+        if host in protected and on_resolved:
+            on_resolved(host, None)
         if protected_name(host, protected):
             raise Refused("protected_destination") from None
         raise

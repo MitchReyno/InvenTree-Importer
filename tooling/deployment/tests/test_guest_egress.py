@@ -904,16 +904,52 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC, OTHER_PUBLIC]}
         settle = egress.PROTECTED_LOOKUPS.settle
 
-        def published_first(revocations, kept):
+        def published_first(revocations, kept, public_request):
             # The unused second answer becomes protected just before setup settles.
             egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
                                              {egress.normalized(OTHER_PUBLIC)})
-            return settle(revocations, kept)
+            return settle(revocations, kept, public_request)
 
         with patch.object(egress.PROTECTED_LOOKUPS, "settle", published_first):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assertNotIn(b"200 Connection Established", written)
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
+    async def test_failed_lookup_of_a_protected_name_itself_refuses_the_turn(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"www.ti.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+        written, upstream = await self.connect("inventory.example.com:443", table)
+        self.assert_refused(written, upstream, "protected_destination")
+        table["inventory.example.com"] = ["8.8.8.8"]
+        written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+        written, upstream = await self.connect("api.anthropic.com:443", table)
+        self.assert_connected(written, upstream, OTHER_PUBLIC)
+
+    async def test_public_dial_is_refused_when_a_protected_lookup_fails_meanwhile(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC],
+                 "api.anthropic.com": [OTHER_PUBLIC]}
+        dialling = asyncio.Event()
+
+        def slow_public_dial(remote, writer):
+            async def dial(address, _port):
+                if address == PUBLIC:
+                    dialling.set()
+                    await asyncio.sleep(0.3)
+                return remote, writer
+            return dial
+
+        with self.fake_network(table, open_results=slow_public_dial):
+            public = asyncio.create_task(self.handle("www.ti.com:443"))
+            await asyncio.wait_for(dialling.wait(), 2)
+            # A provider CONNECT finds the protected name no longer resolves.
+            del table["inventory.example.com"]
+            provider = await self.handle("api.anthropic.com:443")
+            written = await asyncio.wait_for(public, 2)
+        self.assertTrue(provider.startswith(b"HTTP/1.1 200"), provider)
+        self.assertNotIn(b"200 Connection Established", written)
+        self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", written)
 
 
 if __name__ == "__main__":

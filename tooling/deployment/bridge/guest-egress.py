@@ -182,12 +182,15 @@ class ProtectedLookups:
 
         return revocation, stop
 
-    def settle(self, revocations, kept):
-        """Refuses if any answer was revoked during setup, or stops watching every answer but
-        `kept`. One step under the publication lock, so no answer is published in between."""
+    def settle(self, revocations, kept, public_request):
+        """Refuses if any answer was revoked during setup, or a public request once a protected
+        lookup has failed; otherwise stops watching every answer but `kept`. One step under the
+        publication lock, so nothing is published in between."""
         with self.lock:
             if any(revocation.is_set() for revocation in revocations):
                 raise Refused("protected_destination")
+            if public_request and self.failed:
+                raise Refused("resolution_failed")
             for revocation in revocations:
                 if revocation is not kept:
                     self.tunnels.pop(revocation, None)
@@ -320,6 +323,17 @@ def protection_guard(protected):
     return guard
 
 
+def public_guard(protected):
+    """The protection guard, also refusing once a protected lookup has failed this turn."""
+    protection = protection_guard(protected)
+
+    def guard(address):
+        if PROTECTED_LOOKUPS.failed:
+            raise Refused("resolution_failed")
+        protection(address)
+    return guard
+
+
 def current_protection():
     """This turn's policy and every protected entry: the environment's and the policy's."""
     policy = load_policy()
@@ -344,7 +358,7 @@ async def checked_addresses(host, port, provider, protected):
         # Other connections' lookups can still protect this address before or after the dial.
         addresses = await PUBLIC_DNS.run(
             public_target, host, port, protected, PROTECTED_LOOKUPS.publish)
-        return addresses, protection_guard(protected)
+        return addresses, public_guard(protected)
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):
@@ -352,7 +366,7 @@ async def checked_addresses(host, port, provider, protected):
         raise
 
 
-async def open_first(addresses, guard):
+async def open_first(addresses, guard, public_request):
     """Connects to the first reachable checked address, trying at most a few.
 
     Every answer is watched from before the first dial until setup ends, and the connected
@@ -383,7 +397,8 @@ async def open_first(addresses, guard):
             revocation.streams.append(upstream)
             try:
                 check()
-                PROTECTED_LOOKUPS.settle([watched for watched, _stop in watches], revocation)
+                PROTECTED_LOOKUPS.settle([watched for watched, _stop in watches], revocation,
+                                         public_request)
             except Refused:
                 abort(upstream)
                 upstream.close()
@@ -505,7 +520,7 @@ async def handle(reader, client):
             public_tunnels += 1
             counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
-        remote, upstream, revoked, stop_watching = await open_first(addresses, guard)
+        remote, upstream, revoked, stop_watching = await open_first(addresses, guard, not provider)
         revoked.streams.append(client)
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
