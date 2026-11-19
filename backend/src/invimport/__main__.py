@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -36,6 +37,7 @@ from .digikey.api import DigiKeyError
 from .env import DEFAULT_ENV_FILE, load_env_file
 from .execution.run_control import InvocationFailure
 from .inventree.api import InvenTreeError
+from .inventree.local_dev import apply_local_inventree_default
 
 
 def program_name() -> str:
@@ -107,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
     # Other commands share the ordinary credential setup.
     if args.command != "demo":
         load_env_file(args.env_file)
+        # Once, before any command reads the settings, so every reader sees the same server.
+        apply_local_inventree_default(os.environ, report=lambda line: print(line, file=sys.stderr))
     if args.command in {"orders", "product", "import-orders", "supplier-parts"}:
         from .execution.observation import Observation, observing, operation
         from .execution.transport import protect_import_logs

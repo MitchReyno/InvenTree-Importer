@@ -423,3 +423,89 @@ test('a repeated stop signal other than Ctrl-C quits with its own status and no 
   assert.deepEqual(exits, [143])
   release()
 })
+
+const { resolveGuestDir, checkPairing } = require('../dev/vm.cjs')
+
+test('an explicit guest directory is used as given, without asking the guest', async () => {
+  const { exec, calls } = recordingExec()
+  assert.equal(await resolveGuestDir(PLAN, { exec }), '/var/tmp/bench-paired')
+  assert.equal(calls.length, 0)
+})
+
+test('the default guest directory is bench-intake-guest in the guest home', async () => {
+  const { exec, calls } = recordingExec({ 'limactl shell': '/home/dev.guest' })
+  const dir = await resolveGuestDir({ ...PLAN, guestDir: null }, { exec, env: { PATH: '/bin' } })
+  assert.equal(dir, '/home/dev.guest/bench-intake-guest')
+  assert.deepEqual(calls[0].args, [
+    'shell',
+    '--workdir=/',
+    'bench-agent-test',
+    'sh',
+    '-c',
+    'printf %s "$HOME"',
+  ])
+  assert.deepEqual(calls[0].options.env, { PATH: '/bin' })
+})
+
+test('a failed or unusable guest home lookup is vm_guest_dir_unavailable', async () => {
+  for (const result of [new Error('exit 1'), '', 'relative/home', '/home/with space']) {
+    const { exec } = recordingExec({ 'limactl shell': result })
+    await assert.rejects(resolveGuestDir({ ...PLAN, guestDir: null }, { exec }), {
+      message: 'vm_guest_dir_unavailable',
+    })
+  }
+})
+
+function fakeFiles(entries) {
+  return async (path) => {
+    const kind = entries[path]
+    if (!kind) {
+      const error = new Error('missing')
+      error.code = 'ENOENT'
+      throw error
+    }
+    return { isFile: () => kind === 'file' }
+  }
+}
+
+test('a complete pairing directory passes', async () => {
+  const lstat = fakeFiles({
+    '/pair/ca.pem': 'file',
+    '/pair/cert.pem': 'file',
+    '/pair/key.pem': 'file',
+  })
+  await checkPairing('/pair', { lstat })
+})
+
+test('a missing or incomplete pairing is refused with the step to run', async () => {
+  const { DevelopmentSettingsError, settingsRefusalLines } = require('../dev/settings.cjs')
+  for (const entries of [
+    {},
+    { '/pair/ca.pem': 'file', '/pair/cert.pem': 'file' },
+    { '/pair/ca.pem': 'file', '/pair/cert.pem': 'file', '/pair/key.pem': 'link' },
+  ]) {
+    await assert.rejects(checkPairing('/pair', { lstat: fakeFiles(entries) }), (error) => {
+      assert.ok(error instanceof DevelopmentSettingsError)
+      assert.equal(error.message, 'vm_pairing_missing')
+      const lines = settingsRefusalLines(error).join('\n')
+      assert.match(lines, /INTAKE_VM_PAIR/)
+      assert.match(lines, /README/)
+      return true
+    })
+  }
+})
+
+test('the guest lookup runs the real limactl on PATH by default', async (t) => {
+  const { mkdtemp, writeFile, chmod, rm } = require('node:fs/promises')
+  const { tmpdir } = require('node:os')
+  const { join } = require('node:path')
+  const bin = await mkdtemp(join(tmpdir(), 'fake-lima-'))
+  t.after(() => rm(bin, { recursive: true, force: true }))
+  await writeFile(join(bin, 'limactl'), '#!/bin/sh\nprintf %s /home/fake.guest\n')
+  await chmod(join(bin, 'limactl'), 0o755)
+  const dir = await resolveGuestDir(
+    { ...PLAN, guestDir: null },
+    { env: { PATH: `${bin}:/bin:/usr/bin` } },
+  )
+  assert.equal(dir, '/home/fake.guest/bench-intake-guest')
+})

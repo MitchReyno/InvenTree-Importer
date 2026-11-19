@@ -302,3 +302,32 @@ test('an external URL without a token is refused, as pnpm dev refuses it', async
       error.names.some((entry) => entry.name === 'INTAKE_INVENTREE_TOKEN'),
   )
 })
+
+test('VM agents with a defaulted pairing resolve the same namespace as without the VM', async () => {
+  const stateDir = await tempDirectory()
+  await chmod(stateDir, 0o700)
+  const serverId = 'fedcba9876543210'.repeat(2)
+  await writeFile(join(stateDir, 'inventree-db.json'), serverState(serverId), { mode: 0o600 })
+  const settings = { INTAKE_DEV_STATE: stateDir }
+  const plain = await appStateRoot(settings)
+  const withVm = await appStateRoot({
+    ...settings,
+    INTAKE_USE_MOCK_AI_AGENTS: 'false',
+    INTAKE_RUN_AGENTS_IN_VM: 'true',
+  })
+  assert.equal(withVm, plain)
+  await rm(stateDir, { recursive: true })
+})
+
+test('an empty app-state override counts as unset', async () => {
+  const stateDir = await tempDirectory()
+  await chmod(stateDir, 0o700)
+  const serverId = '0a1b2c3d4e5f6a7b'.repeat(2)
+  await writeFile(join(stateDir, 'inventree-db.json'), serverState(serverId), { mode: 0o600 })
+  const settings = { INTAKE_DEV_STATE: stateDir }
+  assert.equal(
+    await appStateRoot({ ...settings, INTAKE_APP_STATE: '' }),
+    await appStateRoot(settings),
+  )
+  await rm(stateDir, { recursive: true })
+})

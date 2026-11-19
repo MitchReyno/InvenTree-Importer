@@ -47,15 +47,15 @@ pnpm install --frozen-lockfile
 uv sync --project backend --locked
 ```
 
-Leave an existing root `.env` in place and merge the settings from `.env.intake.example` into it. When the checkout has no `.env`, copy the example:
+When the checkout has no `.env` yet, copy the example. Keep an existing `.env` as it is: every setting has a default and explicit values win, so it keeps working. `-n` never overwrites a file:
 
 ```sh
-cp .env.intake.example .env
+cp -n .env.example .env
 ```
 
 `.env` stays gitignored. The launcher reads it once at startup. Shell values win, including empty ones. The file is parsed as data, so write absolute paths and literal values. Restart `pnpm dev` after an edit.
 
-The copied example selects the mock inventory and scripted agents. That start needs no vendor, inventory or model credentials.
+The copied example sets nothing, so the app runs on the mock inventory with scripted agents. That start needs no vendor, inventory or model credentials; fill in only the credentials you need. The example shows every setting with its default.
 
 ### Start the app
 
@@ -92,10 +92,10 @@ docker build --platform linux/arm64 \
   -t "$INTAKE_RUNNER_IMAGE" .
 ```
 
-Create the VM and load the runner into the guest Docker engine. `bench-agent-m1` can be any name of lowercase letters, digits and hyphens.
+Create the VM and load the runner into the guest Docker engine. `bench-agent` is the default name `pnpm dev` uses; another name of lowercase letters, digits and hyphens works when `INTAKE_VM_NAME` names it.
 
 ```sh
-vm=bench-agent-m1
+vm=bench-agent
 limactl start --tty=false --vm-type=vz --name="$vm" tooling/deployment/lima/agent.yaml
 docker save "$INTAKE_RUNNER_IMAGE" | limactl shell --workdir=/ "$vm" sudo docker load
 ```
@@ -129,10 +129,31 @@ export INTAKE_VM_PORT=14313
 bash tooling/deployment/bridge/public-web.sh "$vm" "$guest_directory" "$INTAKE_RUNNER_IMAGE"
 ```
 
+Turn on real agents in the VM in `.env`. The instance `bench-agent`, the pairing directory above, the guest's `bench-intake-guest` directory, the image `bench-intake-runner:personal` and port 14313 are the defaults, so nothing else is needed; set `INTAKE_VM_NAME`, `INTAKE_VM_PAIR`, `INTAKE_VM_GUEST_DIR`, `INTAKE_VM_RUNNER_IMAGE` or `INTAKE_VM_PORT` only where your setup differs.
+
+```dotenv
+INTAKE_USE_MOCK_AI_AGENTS=false
+INTAKE_RUN_AGENTS_IN_VM=true
+```
+
+Stop a running `pnpm dev`, then start it again so it reads the file. It boots the VM, opens the credential tunnels and starts the relays itself. To run them yourself instead, see [running the VM side yourself](#running-the-vm-side-yourself). In **Settings › Agents → Personal Claude subscription**, enter the operator key, choose **Check configuration**, then paste a token from `claude setup-token` and save it. The token stays out of `.env`. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token) describes that command. In **Settings › Agents → ChatGPT subscription**, enter the same key and choose **Sign in with ChatGPT**. Enable device-code sign-in in [ChatGPT security settings](https://chatgpt.com/#settings/Security) first. Choose **Claude** or **Codex**, **Subscription**, and a model, then start a new Processing session.
+
+The guest egress service has to be running during inference. Claude credential management can be offline after a saved token. Rebuilding the runner image is required after a change to guest or provider code, followed by `docker save` and `docker load` into the same VM. `pnpm dev` reloads the coordinator from this checkout.
+
+On a later day, run `pnpm dev`: it starts the VM, tunnels and relays and stops them with the app (the VM only if that run booted it); see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). With `INTAKE_VM_MANAGED=false`, start the same VM, export the same variables and start the same tunnels and relays yourself first. Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
+
+```sh
+limactl start "$vm"
+```
+
+#### Running the VM side yourself
+
+Only with `INTAKE_VM_MANAGED=false` in `.env`. With management on, `pnpm dev` runs these itself, and hand-run forwards would hold the ports it needs.
+
 Start one relay per provider, each in its own terminal. A relay handles one turn at a time and keeps running. It retries until the coordinator is listening, so it can start before `pnpm dev`. Export the variables in that terminal first:
 
 ```sh
-vm=bench-agent-m1
+vm=bench-agent
 export INTAKE_RUNNER_IMAGE=bench-intake-runner:personal
 export INTAKE_VM_PORT=14313
 guest_directory=$(limactl shell --workdir=/ "$vm" sh -c 'printf %s "$HOME/bench-intake-guest"')
@@ -164,25 +185,6 @@ ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.
 ```sh
 ssh -NT -o ExitOnForwardFailure=yes -o ControlPath=none -F "${LIMA_HOME:-$HOME/.lima}/$vm/ssh.config" \
   -L 127.0.0.1:14317:127.0.0.1:14317 "lima-$vm"
-```
-
-Add the runner settings to `.env`. Paste the absolute host directory from `INTAKE_VM_PAIR`; a `$HOME` value in the file stays literal.
-
-```dotenv
-INTAKE_USE_MOCK_AI_AGENTS=false
-INTAKE_RUN_AGENTS_IN_VM=true
-INTAKE_VM_PAIR=<absolute host directory>
-INTAKE_VM_PORT=14313
-```
-
-Stop a running `pnpm dev`, then start it again so it reads the file. In **Settings › Agents → Personal Claude subscription**, enter the operator key, choose **Check configuration**, then paste a token from `claude setup-token` and save it. The token stays out of `.env`. [Claude Code authentication](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token) describes that command. In **Settings › Agents → ChatGPT subscription**, enter the same key and choose **Sign in with ChatGPT**. Enable device-code sign-in in [ChatGPT security settings](https://chatgpt.com/#settings/Security) first. Choose **Claude** or **Codex**, **Subscription**, and a model, then start a new Processing session.
-
-The guest egress service has to be running during inference. Claude credential management can be offline after a saved token. Rebuilding the runner image is required after a change to guest or provider code, followed by `docker save` and `docker load` into the same VM. `pnpm dev` reloads the coordinator from this checkout.
-
-On a later day, start the same VM, export the same variables, then start the same tunnels and relays and run `pnpm dev`. Alternatively, add `INTAKE_VM_NAME`, `INTAKE_VM_GUEST_DIR` and `INTAKE_VM_RUNNER_IMAGE` to `.env`, and `pnpm dev` starts the VM, tunnels and relays itself and stops them with the app (the VM only if that run booted it); see [running the agent VM with the app](docs/development.md#running-the-agent-vm-with-the-app). Leave the pairing directories and the operator key file in place. `limactl stop "$vm"` pauses the VM and keeps its disk.
-
-```sh
-limactl start "$vm"
 ```
 
 ## Root commands
@@ -253,4 +255,4 @@ Read the shared and owning app code guidelines before writing, changing or revie
 
 Licensed under [GPLv3](LICENSE); see [third-party notices](THIRD-PARTY-NOTICES.md). DigiKey/InvenTree are their respective owners' trademarks; this independent tool is not affiliated with or endorsed by them. Vendor API obligations and credential handling are described in the [backend guide](backend/README.md#using-the-digikey-api).
 
-[Local app development](docs/development.md) covers `.env` configuration, fake, read-only and local InvenTree targets, source reload, retained data and native Processing. The [deployment guide](tooling/deployment/README.md) covers packaged installs, image rollback and VM troubleshooting. Start from `.env.intake.example` and merge it into an existing environment file.
+[Local app development](docs/development.md) covers `.env` configuration, fake, read-only and local InvenTree targets, source reload, retained data and native Processing. The [deployment guide](tooling/deployment/README.md) covers packaged installs, image rollback and VM troubleshooting. Start by copying `.env.example` to `.env`; it documents every setting and its default.

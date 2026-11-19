@@ -25,7 +25,7 @@ from ..execution.run_control import (InvocationFailure, abandon_run, complete, i
                                      preview, record_continuity, saved_run)
 from ..execution.stock_preparation import PreparationReview
 from ..execution.stock_workflow import execute_stock, prepare_full_stock, repair_stock, resume_stock
-from ..inventree.api import connect
+from ..inventree.api import InvenTreeNotConfigured, configured_url, connect
 from ..inventree.stockimport import ImportOptions
 from ..stockfile import read_file
 from ..validate import validate
@@ -106,10 +106,22 @@ def _hierarchy(plan: Plan) -> None:
         print(f"  {row['group']}: {row['action']} [{row['id']}] lines={','.join(row['lines'])}", file=sys.stderr)
 
 
+class TargetMismatch(ValueError):
+    """The configured server is not the one the plan was approved for."""
+
+    def __init__(self, configured: str, approved: str) -> None:
+        super().__init__(
+            f"configured InvenTree {configured} differs from the approved plan's {approved}; "
+            "set INVENTREE_URL to the approved server or prepare a new plan"
+        )
+
+
 def _current(plan: Plan | None = None) -> Target:
-    endpoint = normalize_endpoint(os.environ.get("INVENTREE_URL", ""))
-    if plan is not None and endpoint != normalize_endpoint(plan.target.endpoint):
-        raise ValueError("configured target differs from approved plan")
+    endpoint = normalize_endpoint(configured_url())
+    if plan is not None:
+        approved = normalize_endpoint(plan.target.endpoint)
+        if endpoint != approved:
+            raise TargetMismatch(endpoint, approved)
     # The SDK's mutable server_details does not establish immutable DB identity.
     return Target(endpoint)
 
@@ -258,7 +270,7 @@ def run(args: argparse.Namespace) -> int:
             failure = exc
             result = {"format": "invimport-run-error/1", "error": type(exc).__name__,
                       "message": "operation stopped; inspect local status and configuration"}
-            if isinstance(exc, PreparationReview):
+            if isinstance(exc, (PreparationReview, InvenTreeNotConfigured, TargetMismatch)):
                 # These messages are composed by domain validation, never from
                 # raw SDK exceptions/responses. Inventory identifiers are useful
                 # to the operator; events still contain no free-form error text.

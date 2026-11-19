@@ -69,7 +69,7 @@ The tool only provides `invimport`. Tests and lint still go through `pnpm test` 
 
 ### Credentials
 
-Copy the example file, then fill in the missing values in `.env`:
+Copy the example file, then fill in the missing values in `.env`. With the InvenTree settings left empty, the importer uses the local development InvenTree once `pnpm inventree:dev up` has run, and prints which server it uses; set them to work against another server.
 
 ```bash
 cp .env.example .env

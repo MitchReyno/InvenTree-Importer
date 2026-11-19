@@ -50,10 +50,10 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - TDD: settings and VM-module tests first; they fail on the current opt-in and missing defaults.
 - Risks: the renamed default instance; recorded in the design.
 
-- [ ] 1.1 Baseline `pnpm test:dev`.
-- [ ] 1.2 RED: settings tests for the defaults and their marks, explicit values winning, pairing under `INTAKE_DEV_STATE`, the worker environment carrying the resolved pairing and port in managed, unmanaged and scripted VM modes, `codex-login` resolving the same defaults, management default on and opted out, `INTAKE_VM_MANAGED=true` refused with scripted agents, switch validation; VM-module tests for guest-directory resolution and its failure; a pairing-check test.
-- [ ] 1.3 GREEN: implement the defaults, the switch, the summary marks, the pairing check and the guest-directory resolution; build the worker environment from resolved values; wire them in `dev.cjs`.
-- [ ] 1.4 Refactor; run `pnpm format` and the readability checks.
+- [x] 1.1 Baseline `pnpm test:dev`.
+- [x] 1.2 RED: settings tests for the defaults and their marks, explicit values winning, pairing under `INTAKE_DEV_STATE`, the worker environment carrying the resolved pairing and port in managed, unmanaged and scripted VM modes, `codex-login` resolving the same defaults, management default on and opted out, `INTAKE_VM_MANAGED=true` refused with scripted agents, switch validation; VM-module tests for guest-directory resolution and its failure; a pairing-check test.
+- [x] 1.3 GREEN: implement the defaults, the switch, the summary marks, the pairing check and the guest-directory resolution; build the worker environment from resolved values; wire them in `dev.cjs`.
+- [x] 1.4 Refactor; run `pnpm format` and the readability checks.
 
 ## 2. Importer default server and DigiKey locale
 
@@ -64,12 +64,12 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - TDD: pytest cases first; they fail because nothing fills the environment and the locale defaults to AU.
 - Risks: tests reaching the developer's real local instance; the autouse fixture prevents it.
 
-- [ ] 2.1 Baseline `pnpm test:backend`.
-- [ ] 2.2 Add the autouse fixture that points `INTAKE_DEV_STATE` at an empty temporary directory.
-- [ ] 2.3 RED: tests for the default applied and announced without the token, explicit and partial settings untouched, each unsafe state case ignored, the refusal text from a connecting command and from `import-run prepare` through the real CLI, the target mismatch named with both endpoints and no connection for execute, resume and retry of an externally bound plan, offline validation and status still working without a server, the endpoint check seeing the default, and the DigiKey defaults with explicit overrides.
-- [ ] 2.4 GREEN: implement the state read, the one-time default and its announcement, the refusal text and the locale defaults.
-- [ ] 2.5 Add the cross-language constants test (state directory rule, file name, server address).
-- [ ] 2.6 Run `pnpm lint:backend` and the formatters.
+- [x] 2.1 Baseline `pnpm test:backend`.
+- [x] 2.2 Add the autouse fixture that points `INTAKE_DEV_STATE` at an empty temporary directory.
+- [x] 2.3 RED: tests for the default applied and announced without the token, explicit and partial settings untouched, each unsafe state case ignored, the refusal text from a connecting command and from `import-run prepare` through the real CLI, the target mismatch named with both endpoints and no connection for execute, resume and retry of an externally bound plan, offline validation and status still working without a server, the endpoint check seeing the default, and the DigiKey defaults with explicit overrides.
+- [x] 2.4 GREEN: implement the state read, the one-time default and its announcement, the refusal text and the locale defaults.
+- [x] 2.5 Add the cross-language constants test (state directory rule, file name, server address).
+- [x] 2.6 Run `pnpm lint:backend` and the formatters.
 
 ## 3. One template and the docs
 
@@ -78,9 +78,9 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Scope: `.env.example` rewritten, `.env.intake.example` removed, `.gitignore`, `tooling/tests/dev-environment.test.cjs` template check, `README.md` (setup and VM walkthrough, `bench-agent` rename), `backend/README.md`, `docs/development.md`, `tooling/deployment/README.md` where it names the old template or opt-in.
 - Verification: the template test; a fresh-clone check in a temporary clone; Markdown reference check of every changed claim against the code.
 
-- [ ] 3.1 Write the single template and remove the old one; update `.gitignore` and the template test.
-- [ ] 3.2 Update the READMEs and `docs/development.md`.
-- [ ] 3.3 Check every changed claim against the code.
+- [x] 3.1 Write the single template and remove the old one; update `.gitignore` and the template test.
+- [x] 3.2 Update the READMEs and `docs/development.md`.
+- [x] 3.3 Check every changed claim against the code.
 
 ## 4. Qualification and delivery
 
@@ -89,8 +89,13 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Local follow-up outside the repository, with the developer's agreement: add `DIGIKEY_LOCALE_SITE=AU` and `DIGIKEY_LOCALE_CURRENCY=AUD` to the developer's `.env`.
 
 - [ ] 4.1 Run the manual qualification and record the outcomes for the PR.
-- [ ] 4.2 Run the full gate.
-- [ ] 4.3 Independent review rounds until one is clean, at the reviewed head.
+  - [x] 4.1.1 Fresh clone: the copied template starts `pnpm dev` to ready with the mock inventory and scripted agents.
+  - [x] 4.1.2 A fresh `INTAKE_DEV_STATE` with real VM agents refuses with `vm_pairing_missing` before any service or the VM starts.
+  - [x] 4.1.3 An importer command with no InvenTree settings uses the local development InvenTree, names it and prints no token.
+  - [x] 4.1.4 The developer's `.env` resolves to the same managed plan as before with nothing defaulted, and passes the pairing check against its real pairing.
+  - [ ] 4.1.5 The developer's `.env` starts real VM agents in full on this branch (waits until the developer's running app releases the VM and its tunnel ports).
+- [x] 4.2 Run the full gate.
+- [x] 4.3 Independent review rounds until one is clean, at the reviewed head.
 - [ ] 4.4 Open the PR against `interactive-app` with the evidence.
 - [ ] 4.5 Selected CI green.
 - [ ] 4.6 Merge.

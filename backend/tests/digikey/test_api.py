@@ -212,3 +212,23 @@ def test_vendor_decimal_export_preserves_existing_supported_numeric_interface(tr
     request, _ = transport
     request.return_value = Response({"UnitPrice": 0.82})
     assert api.request_json("https://example.com/orders", {}) == {"UnitPrice": 0.82}
+
+
+def test_the_locale_defaults_to_the_us_site_in_dollars(monkeypatch):
+    from invimport.digikey.api import resolve_locale
+
+    for name in ("DIGIKEY_LOCALE_SITE", "DIGIKEY_LOCALE_CURRENCY", "DIGIKEY_LOCALE_LANGUAGE"):
+        monkeypatch.delenv(name, raising=False)
+    assert (lambda l: (l.site, l.currency, l.language))(resolve_locale()) == ("US", "USD", "en")
+    for name in ("DIGIKEY_LOCALE_SITE", "DIGIKEY_LOCALE_CURRENCY", "DIGIKEY_LOCALE_LANGUAGE"):
+        monkeypatch.setenv(name, "")
+    assert (lambda l: (l.site, l.currency, l.language))(resolve_locale()) == ("US", "USD", "en")
+
+
+def test_an_explicit_locale_wins(monkeypatch):
+    from invimport.digikey.api import resolve_locale
+
+    monkeypatch.setenv("DIGIKEY_LOCALE_SITE", "AU")
+    monkeypatch.setenv("DIGIKEY_LOCALE_CURRENCY", "AUD")
+    monkeypatch.delenv("DIGIKEY_LOCALE_LANGUAGE", raising=False)
+    assert (lambda l: (l.site, l.currency, l.language))(resolve_locale()) == ("AU", "AUD", "en")

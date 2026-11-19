@@ -3,6 +3,8 @@
  * children understand. Pure: no files, network or processes.
  */
 
+const { join } = require('node:path')
+
 class DevelopmentSettingsError extends Error {
   /** @param {string} code @param {{ name: string, replacement?: string }[]} names */
   constructor(code, names = []) {
@@ -166,10 +168,6 @@ function resolveProcessing(settings) {
   if (agentsInVm && !sessions) {
     throw new DevelopmentSettingsError('unsupported_agent_settings')
   }
-  const vmPaired = present(settings, 'INTAKE_VM_PAIR') && present(settings, 'INTAKE_VM_PORT')
-  if (agentsInVm && !vmPaired) {
-    throw new DevelopmentSettingsError('vm_pairing_required')
-  }
   if (mockAgents) {
     return {
       profile: sessions ? 'synthetic-session/1' : 'synthetic-research/2',
@@ -206,39 +204,80 @@ function validRelayPort(value) {
   return /^[0-9]+$/.test(value) && Number(value) >= 1 && Number(value) <= 65535
 }
 
-/** The VM `pnpm dev` boots and relays into, or null when the developer runs the VM side themselves. */
-function resolveVmLaunch(settings, { mockAgents, agentsInVm, vmTools, keepRunning }) {
-  if (!present(settings, 'INTAKE_VM_NAME')) {
-    return null
+/** Defaults matching the README's VM walkthrough, so a fresh clone needs only the two switches. */
+const VM_DEFAULTS = {
+  INTAKE_VM_PORT: '14313',
+  INTAKE_VM_NAME: 'bench-agent',
+  INTAKE_VM_RUNNER_IMAGE: 'bench-intake-runner:personal',
+}
+/** The pairing directory's name inside the development state directory. */
+const VM_PAIR_DIRECTORY = 'vm-pair'
+/** Shown for a guest directory that is looked up inside the guest after boot. */
+const GUEST_DIR_DEFAULT_LABEL = 'bench-intake-guest in the guest home'
+
+/** The pairing directory and port the session worker uses whenever agents run in the VM. */
+function resolveVmPairing(settings, stateDirectory, defaulted) {
+  let pair = settings.INTAKE_VM_PAIR
+  if (!present(settings, 'INTAKE_VM_PAIR')) {
+    if (!stateDirectory) {
+      // A programming error in the caller, not a setting the developer can fix.
+      throw new Error('development_state_directory_required')
+    }
+    pair = join(stateDirectory, VM_PAIR_DIRECTORY)
+    defaulted.push('INTAKE_VM_PAIR')
   }
-  if (!agentsInVm || mockAgents) {
+  let port = settings.INTAKE_VM_PORT
+  if (!present(settings, 'INTAKE_VM_PORT')) {
+    port = VM_DEFAULTS.INTAKE_VM_PORT
+    defaulted.push('INTAKE_VM_PORT')
+  } else if (!validRelayPort(port)) {
+    throw new DevelopmentSettingsError('invalid_vm_launch_setting', [{ name: 'INTAKE_VM_PORT' }])
+  }
+  return { pair, port }
+}
+
+/** Whether `pnpm dev` runs the VM side: on for real VM agents unless switched off. */
+function resolveManaged(settings, { mockAgents, agentsInVm }) {
+  const requested = switchValue(settings, 'INTAKE_VM_MANAGED')
+  const realVmAgents = agentsInVm && !mockAgents
+  if (requested === true && !realVmAgents) {
     throw new DevelopmentSettingsError('vm_launch_requires_real_vm_agents', [
-      { name: 'INTAKE_VM_NAME' },
+      { name: 'INTAKE_VM_MANAGED' },
       { name: 'INTAKE_RUN_AGENTS_IN_VM' },
       { name: 'INTAKE_USE_MOCK_AI_AGENTS' },
     ])
   }
-  const missing = Object.keys(VM_LAUNCH_FORMS).filter((name) => !present(settings, name))
-  if (missing.length > 0) {
-    throw new DevelopmentSettingsError(
-      'vm_launch_setting_required',
-      missing.map((name) => ({ name })),
-    )
+  return requested ?? realVmAgents
+}
+
+/** The VM `pnpm dev` boots and relays into; a null guest directory is looked up after boot. */
+function resolveVmLaunch(settings, pairing, { vmTools, keepRunning }, defaulted) {
+  const value = (name) => {
+    if (present(settings, name)) {
+      return settings[name]
+    }
+    defaulted.push(name)
+    return VM_DEFAULTS[name] ?? null
   }
-  const malformed = Object.entries(VM_LAUNCH_FORMS)
-    .filter(([name, form]) => !form.test(settings[name]))
-    .map(([name]) => ({ name }))
-  if (!validRelayPort(settings.INTAKE_VM_PORT)) {
-    malformed.push({ name: 'INTAKE_VM_PORT' })
-  }
+  const name = value('INTAKE_VM_NAME')
+  const guestDir = value('INTAKE_VM_GUEST_DIR')
+  const image = value('INTAKE_VM_RUNNER_IMAGE')
+  const malformed = Object.entries({
+    INTAKE_VM_NAME: name,
+    INTAKE_VM_GUEST_DIR: guestDir,
+    INTAKE_VM_RUNNER_IMAGE: image,
+  })
+    .filter(([key, current]) => current !== null && !VM_LAUNCH_FORMS[key].test(current))
+    .map(([key]) => ({ name: key }))
   if (malformed.length > 0) {
     throw new DevelopmentSettingsError('invalid_vm_launch_setting', malformed)
   }
   return {
-    name: settings.INTAKE_VM_NAME,
-    guestDir: settings.INTAKE_VM_GUEST_DIR,
-    image: settings.INTAKE_VM_RUNNER_IMAGE,
-    port: settings.INTAKE_VM_PORT,
+    name,
+    guestDir,
+    image,
+    pair: pairing.pair,
+    port: pairing.port,
     tools: vmTools,
     keepRunning,
   }
@@ -248,15 +287,30 @@ function resolveVmLaunch(settings, { mockAgents, agentsInVm, vmTools, keepRunnin
  * Resolves every `pnpm dev` switch before any setup. `targetSettings` uses the internal names
  * `developmentTarget` and the child processes read.
  */
-function resolveDevelopmentSettings(settings) {
+function resolveDevelopmentSettings(settings, { stateDirectory } = {}) {
   refuseRetiredSettings(settings)
   const { targetSettings, ignored } = resolveInventory(settings)
   const readOnly = resolveReadOnly(settings, targetSettings.INTAKE_TARGET_PROFILE)
   const { profile, mockAgents, agentsInVm, vmTools } = resolveProcessing(settings)
-  // Checked even without a VM name, like the other switches.
+  // Checked whether or not the VM is managed, like the other switches.
   const keepRunning = switchValue(settings, 'INTAKE_VM_KEEP_RUNNING') ?? false
-  const vm = resolveVmLaunch(settings, { mockAgents, agentsInVm, vmTools, keepRunning })
-  return { targetSettings, readOnly, profile, mockAgents, agentsInVm, ignored, vm }
+  const managed = resolveManaged(settings, { mockAgents, agentsInVm })
+  const defaulted = []
+  const vmPairing = agentsInVm ? resolveVmPairing(settings, stateDirectory, defaulted) : null
+  const vm = managed
+    ? resolveVmLaunch(settings, vmPairing, { vmTools, keepRunning }, defaulted)
+    : null
+  return {
+    targetSettings,
+    readOnly,
+    profile,
+    mockAgents,
+    agentsInVm,
+    ignored,
+    vmPairing,
+    vm,
+    defaulted,
+  }
 }
 
 /** User-facing and internal target names; only the resolved internal values may reach the policy. */
@@ -281,26 +335,41 @@ function targetEnvironment(settings, targetSettings) {
   return { ...others, ...targetSettings }
 }
 
-/** Settings the agent worker receives: the VM pairing, provider access, or nothing for scripted agents. */
-function agentWorkerSettingNames(resolved) {
-  if (resolved.agentsInVm) {
-    return ['INTAKE_VM_PAIR', 'INTAKE_VM_PORT']
+/** Settings the agent worker receives: the resolved VM pairing, provider access, or nothing. */
+function agentWorkerSettings(resolved, settings) {
+  if (resolved.vmPairing) {
+    return { INTAKE_VM_PAIR: resolved.vmPairing.pair, INTAKE_VM_PORT: resolved.vmPairing.port }
   }
   if (resolved.mockAgents) {
-    return []
+    return {}
   }
-  return [
+  const names = [
     'OPENAI_API_KEY',
     'ANTHROPIC_API_KEY',
     'INTAKE_CODEX_EXECUTABLE',
     'INTAKE_CLAUDE_EXECUTABLE',
   ]
+  return Object.fromEntries(
+    names.filter((name) => settings[name]).map((name) => [name, settings[name]]),
+  )
 }
 
 const INVENTORY_NAMES = {
   fake: 'mock',
   'local-inventree': 'local InvenTree',
   'read-only': 'external InvenTree',
+}
+
+/** Each defaulted VM value as `NAME=value`, in the order it was filled in. */
+function defaultedValues(resolved) {
+  const values = {
+    INTAKE_VM_PAIR: resolved.vmPairing?.pair,
+    INTAKE_VM_PORT: resolved.vmPairing?.port,
+    INTAKE_VM_NAME: resolved.vm?.name,
+    INTAKE_VM_GUEST_DIR: GUEST_DIR_DEFAULT_LABEL,
+    INTAKE_VM_RUNNER_IMAGE: resolved.vm?.image,
+  }
+  return resolved.defaulted.map((name) => `${name}=${values[name]}`)
 }
 
 /** What the app runs, in the terms of the switches that chose it. */
@@ -319,6 +388,9 @@ function startupSummary(targetKind, resolved) {
       ? 'kept running afterwards'
       : 'stopped with it if this run starts it'
     lines.push(`VM: ${resolved.vm.name}, started with the app and ${afterwards}.`)
+  }
+  if (resolved.defaulted.length > 0) {
+    lines.push(`Defaults used: ${defaultedValues(resolved).join(', ')}.`)
   }
   return `${lines.join('\n')}\n`
 }
@@ -360,18 +432,27 @@ function withTargetSettingNames(step, settings = {}) {
 
 /** The refusal code, then one line per named variable; values are never included. */
 function settingsRefusalLines(error) {
-  const details = error.names.map(({ name, replacement }) =>
-    replacement ? `  ${name}: use ${replacement}` : `  ${name}`,
-  )
+  const details = error.names.map(({ name, replacement, hint }) => {
+    if (replacement) {
+      return `  ${name}: use ${replacement}`
+    }
+    return hint ? `  ${name}: ${hint}` : `  ${name}`
+  })
   return [error.message, ...details]
 }
 
+/** An absolute guest directory in the form the relay accepts. */
+function validGuestDirectory(path) {
+  return VM_LAUNCH_FORMS.INTAKE_VM_GUEST_DIR.test(path)
+}
+
 module.exports = {
+  validGuestDirectory,
   resolveDevelopmentSettings,
   targetEnvironment,
   settingsRefusalLines,
   withTargetSettingNames,
-  agentWorkerSettingNames,
+  agentWorkerSettings,
   personalManagementFlag,
   startupSummary,
   DevelopmentSettingsError,

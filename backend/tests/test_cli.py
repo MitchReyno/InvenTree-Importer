@@ -56,7 +56,7 @@ def test_product_reports_the_fields(digikey, digikey_env, workspace, capsys):
 def test_product_pricing_flag_adds_the_unit_price(digikey, digikey_env,
                                                   workspace, capsys):
     main(["product", "296-1411-1-ND", "--pricing"])
-    assert "unit_price         0.82 AUD" in capsys.readouterr().out
+    assert "unit_price         0.82 USD" in capsys.readouterr().out
 
 
 def test_product_json_is_a_bare_list(digikey, digikey_env, workspace):

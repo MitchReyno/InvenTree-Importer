@@ -47,6 +47,16 @@ def execution_state_root(tmp_path, monkeypatch):
     monkeypatch.setenv("INVIMPORT_STATE_DIR", str(tmp_path / "execution-state"))
 
 
+@pytest.fixture(autouse=True)
+def development_state_directory(tmp_path_factory, monkeypatch):
+    """Point the local InvenTree lookup at an empty directory, so no test reaches the real one."""
+    # Outside tmp_path: some tests assert on exactly what their tmp_path contains.
+    state = tmp_path_factory.mktemp("dev-state")
+    state.chmod(0o700)
+    monkeypatch.setenv("INTAKE_DEV_STATE", str(state))
+    return state
+
+
 @pytest.fixture
 def digikey():
     """Patch the DigiKey transport and token grant; yields the FakeDigiKey."""

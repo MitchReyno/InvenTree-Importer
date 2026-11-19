@@ -112,6 +112,10 @@ test('default namespaces are scoped to the database server', () => {
   assert.equal(
     developmentStateRoot({ INTAKE_APP_STATE: '/explicit' }, target, { serverId: state.server_id }),
     '/explicit',
+  ) // An empty override counts as unset, as the env template says.
+  assert.equal(
+    developmentStateRoot({ INTAKE_APP_STATE: '' }, target, { serverId: state.server_id }),
+    developmentStateRoot({}, target, { serverId: state.server_id }),
   )
 })
 

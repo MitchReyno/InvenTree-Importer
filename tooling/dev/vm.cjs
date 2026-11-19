@@ -4,7 +4,9 @@
  */
 const { spawn } = require('node:child_process')
 const { constants } = require('node:os')
-const { join } = require('node:path')
+const { join, posix } = require('node:path')
+const { lstat: fsLstat } = require('node:fs/promises')
+const { DevelopmentSettingsError, validGuestDirectory } = require('./settings.cjs')
 const { setTimeout: delay } = require('node:timers/promises')
 
 /** Names the launcher keeps through source reloads and stops the app for when they exit. */
@@ -144,6 +146,61 @@ async function ensureVmRunning(plan, { exec = runCommand, signal, env, write, on
   onBoot()
   await startVm(plan, { exec, signal, env, write })
   return true
+}
+
+/** The pairing files the session worker and the relays need. */
+const PAIRING_FILES = ['ca.pem', 'cert.pem', 'key.pem']
+/** The guest directory's name in the guest user's home, as the README pairs it. */
+const GUEST_DIR_NAME = 'bench-intake-guest'
+
+/** Refuses before any boot or service when the pairing directory lacks its certificates. */
+async function checkPairing(pairDir, { lstat = fsLstat } = {}) {
+  for (const file of PAIRING_FILES) {
+    let stat
+    try {
+      stat = await lstat(join(pairDir, file))
+    } catch {
+      stat = null
+    }
+    if (!stat?.isFile()) {
+      throw new DevelopmentSettingsError('vm_pairing_missing', [
+        {
+          name: 'INTAKE_VM_PAIR',
+          hint: 'pair the VM first (README, "VM agent runner"), or set INTAKE_VM_MANAGED=false',
+        },
+      ])
+    }
+  }
+}
+
+/** The relays' guest directory: the explicit one, or the default looked up in the booted guest. */
+async function resolveGuestDir(
+  plan,
+  { exec = runCommand, env, signal, write = STANDARD_WRITE } = {},
+) {
+  if (plan.guestDir) {
+    return plan.guestDir
+  }
+  let home
+  try {
+    home = await exec(
+      'limactl',
+      ['shell', '--workdir=/', plan.name, 'sh', '-c', 'printf %s "$HOME"'],
+      {
+        timeout: VM_STATUS_TIMEOUT_MS,
+        env,
+        signal,
+        stderr: limaMessages(write),
+      },
+    )
+  } catch {
+    throw new Error('vm_guest_dir_unavailable')
+  }
+  const guestDir = posix.join(home.trim() || '.', GUEST_DIR_NAME)
+  if (!home.trim().startsWith('/') || !validGuestDirectory(guestDir)) {
+    throw new Error('vm_guest_dir_unavailable')
+  }
+  return guestDir
 }
 
 /** Only a VM this run booted is stopped: one that was already running may be in use elsewhere. */
@@ -313,6 +370,8 @@ async function confirmVmChildren(items, { settleMs = CHILD_SETTLE_MS, signal } =
 }
 
 module.exports = {
+  checkPairing,
+  resolveGuestDir,
   runCommand,
   ensureVmRunning,
   vmRunning,

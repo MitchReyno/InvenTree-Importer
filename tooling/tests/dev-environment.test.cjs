@@ -46,6 +46,7 @@ test('the switches load from the file, and retired names still load so the launc
     INTAKE_VM_GUEST_DIR: '/var/tmp/bench-paired',
     INTAKE_VM_RUNNER_IMAGE: 'bench-intake-runner:personal-test',
     INTAKE_VM_KEEP_RUNNING: 'false',
+    INTAKE_VM_MANAGED: 'true',
     INTAKE_TARGET_PROFILE: 'local-inventree',
     INTAKE_PROCESSING_PROFILE: 'native-agent/2',
     INTAKE_PERSONAL_MANAGEMENT: '1',
@@ -148,13 +149,28 @@ test('checkout dotenv variants are ignored by Git while the documented templates
   for (const name of ['.env', '.env.local', '.env.development']) {
     execFileSync('git', ['check-ignore', '--no-index', '--quiet', name], { cwd: repository })
   }
-  for (const name of ['.env.example', '.env.intake.example']) {
-    assert.throws(
-      () =>
-        execFileSync('git', ['check-ignore', '--no-index', '--quiet', name], { cwd: repository }),
-      { status: 1 },
-    )
-  }
+  assert.throws(
+    () =>
+      execFileSync('git', ['check-ignore', '--no-index', '--quiet', '.env.example'], {
+        cwd: repository,
+      }),
+    { status: 1 },
+  )
+})
+
+test('a fresh clone that copies the template runs the mock inventory and scripted agents', async () => {
+  const { copyFile } = require('node:fs/promises')
+  const { resolveDevelopmentSettings } = require('../dev/settings.cjs')
+  const repository = resolve(__dirname, '../..')
+  const root = await directory()
+  await copyFile(join(repository, '.env.example'), join(root, '.env'))
+  const settings = await developmentEnvironment(root, {})
+  const active = Object.entries(settings).filter(([, value]) => value !== '')
+  assert.deepEqual(active, [], 'the template sets no app setting')
+  const resolved = resolveDevelopmentSettings(settings, { stateDirectory: '/state' })
+  assert.equal(resolved.profile, 'synthetic-session/1')
+  assert.equal(resolved.targetSettings.INTAKE_TARGET_PROFILE, 'fake')
+  assert.equal(resolved.vm, null)
 })
 
 test('standalone API child receives runtime settings but no setup/provider or unrelated shell secrets', () => {

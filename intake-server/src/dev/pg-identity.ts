@@ -46,7 +46,8 @@ export function composeFile(): string {
 }
 
 export function stateDirectory(env: Env = process.env): string {
-  return resolve(env.INTAKE_DEV_STATE ?? join(homedir(), '.local/state/bench-intake'))
+  // An empty value counts as unset, as the env template says.
+  return resolve(env.INTAKE_DEV_STATE || join(homedir(), '.local/state/bench-intake'))
 }
 
 /** Reads a private owned file, or returns undefined when it does not exist. */
