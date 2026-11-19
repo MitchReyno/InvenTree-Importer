@@ -18,6 +18,7 @@ import { decodeSessionInput } from '#/processing/session-input.ts'
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 import { serveGuestTurn } from '#/agents/shared-vm/guest-turn.ts'
 import type { nativeTurn } from '#/agents/shared-vm/native-turn.ts'
+import { Frames, protocol } from '#/agents/shared-vm/frames.ts'
 import { pairing } from '#/agents/shared-vm/pair.ts'
 
 const protectedHosts = ['127.0.0.1', 'inventory.example.com']
@@ -78,12 +79,23 @@ async function pairedToolTurn(
     policyPath,
     runNative,
   })
-  // The coordinator settles the attempt either way; the turn must never be left waiting.
-  await session.catch(() => undefined)
+  const result = await session
   const [lineage] = await readdir(sessionsRoot)
   const [journal] = await readdir(join(sessionsRoot, lineage))
   const recorded = await readFile(join(sessionsRoot, lineage, journal), 'utf8')
-  return { outcome: recorded.split('\n')[1] }
+  const {
+    rows: [retained],
+  } = await fixture.db.pool.query<{ session_state: string; slots: string }>(
+    `SELECT s.session_state, (SELECT count(*) FROM agent_slot WHERE attempt_id = $1) AS slots
+       FROM agent_session s WHERE s.attempt_id = $1`,
+    [attempt],
+  )
+  return {
+    outcome: recorded.split('\n')[1],
+    result,
+    sessionState: retained.session_state,
+    slotHeld: retained.slots !== '0',
+  }
 }
 
 test(
@@ -110,7 +122,7 @@ test(
   { timeout: 60000 },
   async (t) => {
     let starts = 0
-    const { outcome } = await pairedToolTurn(t, (root) => ({
+    const { outcome, result, sessionState, slotHeld } = await pairedToolTurn(t, (root) => ({
       policyPath: join(root, 'missing-directory', 'policy.json'),
       runNative: async () => {
         starts++
@@ -118,6 +130,47 @@ test(
     }))
     assert.equal(starts, 0)
     assert.equal(outcome, 'agent_turn_failed')
+    // The coordinator settles the attempt as failed and gives its slot back.
+    assert.equal(result, 'failed')
+    assert.equal(sessionState, 'failed')
+    assert.equal(slotHeld, false)
+  },
+)
+
+test(
+  'a tool-worker peer that cannot publish turn policy is dropped before any command',
+  { timeout: 30000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'bench-old-peer-'))
+    t.after(() => rm(root, { recursive: true, force: true }))
+    await pairedCertificates(root)
+    const port = await freePort()
+    const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port, {
+      protectedHosts,
+    })
+    t.after(() => bridge.close())
+    const socket = connect({
+      ...(await pairing(join(root, 'bench-guest'))),
+      port,
+      host: '127.0.0.1',
+      servername: 'bench-coordinator',
+    })
+    t.after(() => socket.destroy())
+    await once(socket, 'secureConnect')
+    const received: Buffer[] = []
+    socket.on('data', (bytes: Buffer) => received.push(bytes))
+    const frames = new Frames(socket)
+    // The greeting of a supervisor from before turn policies existed.
+    await frames.send({
+      ready: protocol,
+      reapProof: true,
+      terminalProbe: true,
+      builtinTools: true,
+      evidenceFiles: true,
+      claudeSubscription: true,
+    })
+    await once(socket, 'close')
+    assert.deepEqual(received, [])
   },
 )
 

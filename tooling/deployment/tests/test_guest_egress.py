@@ -48,6 +48,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             patch.object(egress, "POLICY_PATH", self.policy),
             patch.object(egress, "PROTECTED", set()),
             patch.object(egress, "HOSTS", {"api.anthropic.com"}),
+            # Protected lookups are cached per egress; each test starts with none.
+            patch.object(egress, "PROTECTED_LOOKUPS", egress.ProtectedLookups()),
         ]
         for item in patches:
             item.start()
@@ -341,6 +343,26 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         to_upstream = b"".join(call.args[0] for call in upstream_writer.write.call_args_list)
         self.assertEqual(to_client, b"HTTP/1.1 200 Connection Established\r\n\r\n" + received)
         self.assertEqual(to_upstream, sent)
+
+    async def test_protected_literal_blocks_the_provider_while_name_lookups_stall(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+        names = [f"h{index}.example.com" for index in range(31)]
+        self.write_policy(public_pages=False, protected_hosts=names + [OTHER_PUBLIC])
+        table = {"api.anthropic.com": [OTHER_PUBLIC]}
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2):
+            written, upstream = await self.connect(
+                "api.anthropic.com:443", table, stalled={name: release for name in names})
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_bad_port_is_refused_by_name_even_with_the_dns_pool_full(self):
+        self.write_policy()
+        full = threading.BoundedSemaphore(1)
+        full.acquire()
+        with patch.object(egress.PUBLIC_DNS, "slots", full):
+            written, upstream = await self.connect("www.ti.com:22", {"www.ti.com": [PUBLIC]})
+        self.assert_refused(written, upstream, "destination_refused")
+        self.assertEqual(self.lookups, 0)
 
 
 if __name__ == "__main__":

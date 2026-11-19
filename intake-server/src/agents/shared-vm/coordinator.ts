@@ -72,6 +72,11 @@ export async function startSessionBridge(
             subscriptions.set(socket, 'codex')
           }
           if (greeting.builtinTools === true) {
+            // An older tool-worker supervisor would ignore protected_hosts and the sealed web
+            // setting, so it never receives a command.
+            if (greeting.turnPolicy !== true) {
+              throw new Error('runner_turn_policy_unsupported')
+            }
             rich.add(socket)
             if (greeting.evidenceFiles === true) {
               evidencePeers.add(socket)

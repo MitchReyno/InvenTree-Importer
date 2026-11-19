@@ -8,11 +8,13 @@ import json
 import os
 import socket
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 
 from guest_destinations import (
     Refused,
+    check_public_form,
     configured_hosts,
     connection_order,
     dns_name,
@@ -69,13 +71,66 @@ class BoundedResolver:
 
 PROVIDER_DNS = BoundedResolver("provider-dns")
 PUBLIC_DNS = BoundedResolver("public-dns")
-# Protected-name lookups for a provider CONNECT run concurrently in this budget; a lookup that
-# stalls is skipped, so it can't cost the provider its own DNS deadline.
+# Protected-name lookups for a provider CONNECT get this budget; a lookup still running after
+# it is skipped for that CONNECT, so it can't cost the provider its own DNS deadline.
 PROTECTED_LOOKUP_BUDGET_S = 2
-PROTECTED_LOOKUP_SLOTS = 8
-PROTECTED_LOOKUPS = ThreadPoolExecutor(max_workers=PROTECTED_LOOKUP_SLOTS,
-                                       thread_name_prefix="protected-dns")
-PROTECTED_LOOKUP_GATE = threading.BoundedSemaphore(PROTECTED_LOOKUP_SLOTS)
+# Successful protected lookups are reused for this long. The egress serves one turn.
+PROTECTED_LOOKUP_TTL_S = 60
+
+
+class ProtectedLookups:
+    """Protected-name addresses for provider CONNECTs, cached per name.
+
+    Each name has at most one lookup in flight, and a turn has at most a few dozen names, so
+    the work stays bounded without refusing a name for lack of a slot.
+    """
+
+    def __init__(self):
+        self.pool = ThreadPoolExecutor(max_workers=DNS_SLOTS, thread_name_prefix="protected-dns")
+        self.lock = threading.Lock()
+        self.known = {}
+        self.in_flight = {}
+
+    def resolve(self, name):
+        try:
+            addresses = protected_addresses({name})
+        except Refused:
+            addresses = None
+        with self.lock:
+            self.in_flight.pop(name, None)
+            if addresses is not None:
+                self.known[name] = (time.monotonic() + PROTECTED_LOOKUP_TTL_S, addresses)
+        return addresses or set()
+
+    def lookup(self, name):
+        """A cached answer, or the future of the one lookup in flight for this name."""
+        with self.lock:
+            cached = self.known.get(name)
+            if cached and cached[0] > time.monotonic():
+                return cached[1]
+            if name not in self.in_flight:
+                self.in_flight[name] = self.pool.submit(self.resolve, name)
+            return self.in_flight[name]
+
+    def addresses(self, protected):
+        blocked = set()
+        pending = []
+        for entry in protected:
+            literal = literal_address(entry)
+            if literal is not None:
+                if public(str(literal)):
+                    blocked.add(literal)
+                continue
+            answer = self.lookup(entry)
+            if isinstance(answer, set):
+                blocked |= answer
+            else:
+                pending.append(answer)
+        done, _late = wait(pending, timeout=PROTECTED_LOOKUP_BUDGET_S)
+        return blocked.union(*(future.result() for future in done))
+
+
+PROTECTED_LOOKUPS = ProtectedLookups()
 
 
 def protected_entry(value):
@@ -128,31 +183,6 @@ def connect_target(request_line):
     return host, int(port)
 
 
-def lookup_protected(entry):
-    try:
-        return protected_addresses({entry})
-    except Refused:
-        return set()
-
-
-def provider_protected_addresses(protected):
-    """Protected addresses known within the lookup budget, for a provider connection.
-
-    A protected name that fails, stalls or finds no free lookup slot is skipped, so the
-    provider stays reachable; public access for the turn is refused separately by
-    public_target. Addresses found in time still block the provider.
-    """
-    futures = []
-    for entry in protected:
-        if not PROTECTED_LOOKUP_GATE.acquire(blocking=False):
-            continue
-        future = PROTECTED_LOOKUPS.submit(lookup_protected, entry)
-        future.add_done_callback(lambda _done: PROTECTED_LOOKUP_GATE.release())
-        futures.append(future)
-    done, _pending = wait(futures, timeout=PROTECTED_LOOKUP_BUDGET_S)
-    return set().union(*(future.result() for future in done))
-
-
 def provider_addresses(host, protected):
     """The provider host's checked IPv4 addresses, or Refused. Blocking; run on PROVIDER_DNS."""
     if protected_name(host, protected):
@@ -161,7 +191,9 @@ def provider_addresses(host, protected):
         answers = socket.getaddrinfo(host, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
     except OSError as error:
         raise Refused("resolution_failed") from error
-    blocked = provider_protected_addresses(protected)
+    # A protected name that fails or stalls is skipped, so the provider stays reachable; public
+    # access for the turn is refused separately by public_target.
+    blocked = PROTECTED_LOOKUPS.addresses(protected)
     addresses = [answer[4][0] for answer in answers]
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
@@ -178,6 +210,7 @@ async def checked_addresses(host, port):
         return await PROVIDER_DNS.run(provider_addresses, host, protected)
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
+    check_public_form(host, port)
     try:
         return await PUBLIC_DNS.run(public_target, host, port, protected)
     except Refused as refusal:

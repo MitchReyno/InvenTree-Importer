@@ -96,12 +96,17 @@ def protected_addresses(protected):
     return blocked
 
 
-def public_target(host, port, protected):
-    """The checked address to connect to for a public CONNECT, or Refused with its reason."""
+def check_public_form(host, port):
+    """Refuses a public CONNECT whose name or port can never be allowed, before any DNS."""
     target_name = (dns_name(host) and host.split(".")[-1].isalpha()
                    and not host.endswith(PRIVATE_SUFFIXES))
     if port != 443 or not target_name:
         raise Refused("destination_refused")
+
+
+def public_target(host, port, protected):
+    """The checked address to connect to for a public CONNECT, or Refused with its reason."""
+    check_public_form(host, port)
     # A private answer reports not_public even for a protected name; a protected name without
     # its own record is still protected.
     try:

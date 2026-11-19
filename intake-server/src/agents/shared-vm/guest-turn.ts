@@ -44,6 +44,8 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     terminalProbe: true,
     builtinTools: isolated,
     evidenceFiles: isolated,
+    // This supervisor publishes each tool turn's egress policy from the command.
+    turnPolicy: isolated,
     claudeSubscription: provider === 'claude',
     codexSubscription: provider === 'codex',
   })
