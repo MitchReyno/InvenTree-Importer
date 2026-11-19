@@ -33,9 +33,8 @@ import {
   deleteCredential,
   loadSavedCredential,
   requireStableAncestors,
-  requireTrustedPath,
   requireUnpublished,
-  resolveSecretsDir,
+  openSecretsDir,
   saveCredential,
 } from '#/inventory/credential-store.ts'
 import {
@@ -322,30 +321,28 @@ test('a secrets directory under an ancestor others can write to is refused', asy
   await mkdir(sticky)
   await chmod(sticky, 0o1777)
 
-  await assert.rejects(requireStableAncestors(await resolveSecretsDir(join(shared, 'secrets'))), {
+  await assert.rejects(openSecretsDir(join(shared, 'secrets')), {
     code: 'secret_file_permissions',
   })
   // A sticky directory, like /tmp, lets only an entry's owner replace it.
-  await requireStableAncestors(await resolveSecretsDir(join(sticky, 'secrets')))
-  await requireStableAncestors(await resolveSecretsDir(join(parent, 'secrets')))
+  await openSecretsDir(join(sticky, 'secrets'))
+  await openSecretsDir(join(parent, 'secrets'))
 })
 
-test('a link under a writable parent is resolved once, so swapping it later redirects nothing', async (t) => {
+test('a link is followed once, at opening, so swapping it later redirects nothing', async (t) => {
   const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
   t.after(() => rm(parent, { recursive: true, force: true }))
   const safe = join(parent, 'safe')
   const other = join(parent, 'other')
-  const shared = join(parent, 'shared')
+  const own = join(parent, 'own')
   await mkdir(safe, { mode: 0o700 })
   await mkdir(other, { mode: 0o700 })
-  await mkdir(shared)
-  await chmod(shared, 0o777)
-  await symlink(safe, join(shared, 'link'))
+  await mkdir(own, { mode: 0o700 })
+  await symlink(safe, join(own, 'link'))
 
-  const resolved = await resolveSecretsDir(join(shared, 'link', 'secrets'))
-  await requireStableAncestors(resolved)
-  await rm(join(shared, 'link'))
-  await symlink(other, join(shared, 'link'))
+  const resolved = (await openSecretsDir(join(own, 'link', 'secrets')))!
+  await rm(join(own, 'link'))
+  await symlink(other, join(own, 'link'))
   await saveCredential(resolved, PLANTED, TARGET)
 
   assert.equal(resolved, join(await realpath(safe), 'secrets'))
@@ -401,7 +398,7 @@ test(
   async () => {
     // Home folders carry `group:everyone deny delete`; the launcher's default lives under one.
     await requireStableAncestors(
-      await resolveSecretsDir(join(homedir(), `.intake-secrets-test-${process.pid}`, 'secrets')),
+      join(await realpath(homedir()), `.intake-secrets-test-${process.pid}`, 'secrets'),
     )
     const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
     const denying = join(parent, 'denying')
@@ -412,11 +409,10 @@ test(
       execFileSync('/bin/chmod', ['+a', 'everyone deny delete', denying])
       execFileSync('/bin/chmod', ['+a', 'everyone allow add_file,delete_child', granting])
 
-      await requireStableAncestors(await resolveSecretsDir(join(denying, 'secrets')))
-      await assert.rejects(
-        requireStableAncestors(await resolveSecretsDir(join(granting, 'secrets'))),
-        { code: 'secret_file_permissions' },
-      )
+      await openSecretsDir(join(denying, 'secrets'))
+      await assert.rejects(openSecretsDir(join(granting, 'secrets')), {
+        code: 'secret_file_permissions',
+      })
     } finally {
       // Cleared first: the deny entry would refuse the removal.
       execFileSync('/bin/chmod', ['-N', denying, granting])
@@ -498,11 +494,41 @@ test('a link already planted at the configured path is checked before it is foll
   await symlink(elsewhere, join(own, 'secrets'))
 
   // Planted where others can write: refused, though the destination itself would pass.
-  await assert.rejects(requireTrustedPath(join(shared, 'secrets')), {
+  await assert.rejects(openSecretsDir(join(shared, 'secrets')), {
     code: 'secret_file_permissions',
   })
   // This user's own link in this user's own directory is fine to follow.
-  await requireTrustedPath(join(own, 'secrets'))
+  assert.equal(await openSecretsDir(join(own, 'secrets')), await realpath(elsewhere))
+})
+
+test('a trusted link that leads through a link planted where others write is refused', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-planted-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const elsewhere = join(parent, 'elsewhere')
+  await mkdir(elsewhere, { mode: 0o700 })
+  const shared = join(parent, 'shared')
+  await mkdir(shared)
+  await chmod(shared, 0o777)
+  await symlink(elsewhere, join(shared, 'inner'))
+  const own = join(parent, 'own')
+  await mkdir(own, { mode: 0o700 })
+  await symlink(join(shared, 'inner'), join(own, 'secrets'))
+
+  await assert.rejects(openSecretsDir(join(own, 'secrets')), {
+    code: 'secret_file_permissions',
+  })
+})
+
+test('missing components are made by the walk, owner-only, each checked', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-planted-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+
+  const opened = await openSecretsDir(join(parent, 'a', 'b', 'secrets'))
+
+  assert.equal(opened, join(await realpath(parent), 'a', 'b', 'secrets'))
+  for (const made of ['a', 'a/b', 'a/b/secrets']) {
+    assert.equal((await stat(join(parent, made))).mode & 0o777, 0o700, made)
+  }
 })
 
 test('the server refuses to start through a planted link to another store', async (t) => {

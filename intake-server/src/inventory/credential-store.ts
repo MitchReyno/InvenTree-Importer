@@ -3,7 +3,17 @@ import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { constants, type Stats } from 'node:fs'
 import { realpathSync } from 'node:fs'
-import { lstat, mkdir, open, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  readlink,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { InventoryCredentialReplace, MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
 import type { SavedCredential } from './credential.ts'
@@ -158,32 +168,86 @@ export async function requireStableAncestors(directory: string | undefined) {
   }
 }
 
+/** Links followed while opening the secrets directory before it counts as a loop. */
+const MAX_LINKS_FOLLOWED = 32
+
 /**
- * Checks the configured path as written, before any link in it is followed: every component that
- * exists, the store included, must pass the ancestor rules, so no entry another user planted is
- * followed to a store they chose.
+ * Opens the secrets directory from the root one component at a time, never following anything
+ * before it is checked: each directory must pass the ancestor rules before the walk goes into
+ * it, each link is checked (with its parent, already checked) before the walk follows it and
+ * checks its target the same way, and a missing component is made with an exclusive mkdir and
+ * then checked. Returns the directory's real path, which every later operation uses.
  */
-export async function requireTrustedPath(configured: string | undefined) {
+export async function openSecretsDir(configured: string | undefined) {
   if (!configured) {
-    return
+    return undefined
   }
-  const written = resolve(configured)
-  await requireStableAncestors(written)
-  if (await lstat(written).catch(() => undefined)) {
-    await requireStableAncestor(written)
+  return walkTrusted(resolve(configured), { followed: 0 }, true)
+}
+
+async function walkTrusted(path: string, links: { followed: number }, store: boolean) {
+  const parts = path.split(sep).filter(Boolean)
+  let current: string = sep
+  for (const [index, part] of parts.entries()) {
+    const next = join(current, part)
+    const last = index === parts.length - 1
+    const info = await entryOrCreated(next)
+    if (info.isSymbolicLink()) {
+      requireTrustedOwner(info)
+      links.followed += 1
+      if (links.followed > MAX_LINKS_FOLLOWED) {
+        throw new SecretStoreError('secret_file_permissions')
+      }
+      const target = resolve(current, await readlink(next))
+      current = await walkTrusted(target, links, store && last)
+      continue
+    }
+    if (!(last && store)) {
+      await requireStableAncestor(next)
+    }
+    current = next
   }
+  return current
+}
+
+/** The entry at a path, made owner-only by an exclusive mkdir if it was missing. */
+async function entryOrCreated(path: string) {
+  const found = await lstat(path).catch((error: unknown) => {
+    if (errorCode(error) === 'ENOENT') {
+      return undefined
+    }
+    throw error
+  })
+  if (found) {
+    return found
+  }
+  await mkdir(path, { mode: 0o700 }).catch((error: unknown) => {
+    if (errorCode(error) !== 'EEXIST') {
+      throw error
+    }
+  })
+  return lstat(path)
 }
 
 /** One ancestor: owned by root or this user, unwritable by others unless sticky, no grants. */
 async function requireStableAncestor(ancestor: string) {
-  const owner = process.getuid?.()
   const info = await lstat(ancestor)
-  const ownedSafely = owner === undefined || info.uid === 0 || info.uid === owner
+  if (info.isSymbolicLink()) {
+    // A link's own mode means nothing (Linux reports 0777); who owns it and its parent decide.
+    requireTrustedOwner(info)
+    return
+  }
   const othersWrite = (info.mode & SHARED_WRITE) !== 0 && (info.mode & STICKY) === 0
-  // A link owned by root or this user can only be changed by whoever can write its parent,
-  // which is checked as the next ancestor.
-  const plainDirectory = info.isDirectory() || info.isSymbolicLink()
-  if (!plainDirectory || !ownedSafely || othersWrite || (await accessListGrants(ancestor))) {
+  if (!info.isDirectory() || othersWrite || (await accessListGrants(ancestor))) {
+    throw new SecretStoreError('secret_file_permissions')
+  }
+  requireTrustedOwner(info)
+}
+
+/** Owned by root or this process's user; nobody else may own an entry on the way to the store. */
+function requireTrustedOwner(info: Stats) {
+  const owner = process.getuid?.()
+  if (owner !== undefined && info.uid !== 0 && info.uid !== owner) {
     throw new SecretStoreError('secret_file_permissions')
   }
 }
@@ -360,14 +424,6 @@ export async function claimStore(directory: string | undefined): Promise<() => P
     throw new SecretStoreError('secret_store_unavailable', { cause: error })
   }
   throw new SecretStoreError('secret_store_in_use')
-}
-
-/**
- * The secrets directory with every link resolved, found once at startup. Every check, the lock
- * and each file operation use this one path, so none can be redirected later.
- */
-export async function resolveSecretsDir(configured: string | undefined) {
-  return configured ? canonical(resolve(configured)) : undefined
 }
 
 /**

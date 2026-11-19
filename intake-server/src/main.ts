@@ -34,10 +34,8 @@ import {
 import {
   claimStore,
   loadSavedCredential,
-  requireStableAncestors,
+  openSecretsDir,
   requireUnpublished,
-  requireTrustedPath,
-  resolveSecretsDir,
 } from './inventory/credential-store.ts'
 import { registerFrontendAssets } from './api/frontend-assets.ts'
 import { configureReadTarget, readTargetBinding } from './inventory/read-target.ts'
@@ -120,13 +118,10 @@ async function main() {
   try {
     // A saved replacement other users could reach refuses startup, with or without a database.
     const readOrigin = process.env.INTAKE_READ_ORIGIN
+    // Opened component by component, nothing followed unchecked; every later step uses its path.
+    const secretsDir = await openSecretsDir(config.secretsDir)
     // The checkout too: the frontend dev server may serve any file in it.
-    // Resolved once; every later check and file operation uses this same path.
-    // Checked as written first, so a link planted at or above it is never followed.
-    await requireTrustedPath(config.secretsDir)
-    const secretsDir = await resolveSecretsDir(config.secretsDir)
     await requireUnpublished(secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
-    await requireStableAncestors(secretsDir)
     releaseStore = await claimStore(secretsDir)
     const saved = await loadSavedCredential(secretsDir, readTargetBinding(config, readOrigin))
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
