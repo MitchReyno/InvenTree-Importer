@@ -3,10 +3,13 @@ import { useNavigationGuard } from '#/navigation/useNavigationGuard'
 import { withEvidence } from '#/operator/evidence-location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test } from 'vitest'
+import { afterEach, expect, test } from 'vitest'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { EvidenceViewer } from './EvidenceViewer'
 import { mediaDisplayLabels } from '#/media/identity-labels'
+import { setDebugMode } from '#/test/debug-mode'
+
+afterEach(() => setDebugMode(false))
 
 const original: MediaVersionDto = {
   id: '20000000-0000-4000-8000-000000000002',
@@ -312,7 +315,8 @@ test('retained group and evidence notes are readable without replacing source id
     'src',
     '/api/v1/batches/batch/media/previews/30000000-0000-4000-8000-000000000003',
   )
-  expect(screen.getAllByText(/Version 2/)).toHaveLength(2)
+  // Note versions are internal and show only in debug mode.
+  expect(screen.queryByText(/Version 2/)).toBeNull()
 })
 
 test('a uniquely named file is labelled by name and kind, with no identifier inline', () => {
@@ -323,7 +327,8 @@ test('a uniquely named file is labelled by name and kind, with no identifier inl
   expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
 })
 
-test('two files with one name are told apart by number, with identifiers only in Details', () => {
+test('two files with one name are told apart by number, with identifiers only in debug mode', () => {
+  setDebugMode(true)
   const second: MediaEvidenceDto = {
     ...evidence,
     id: '10000000-0000-4000-8000-0000000000ee',
@@ -341,12 +346,14 @@ test('two files with one name are told apart by number, with identifiers only in
   expect(source).toHaveTextContent('Packing slip (1) · original')
   expect(source).toHaveTextContent('Packing slip (2) · original')
   expect(source.textContent).not.toMatch(/[0-9a-f]{8}/)
-  expect(screen.getByText('Details').closest('details')?.textContent).toMatch(
+  expect(screen.getByRole('group', { name: 'Debug: Evidence identities' }).textContent).toMatch(
     /evidence [0-9a-f]{8}/,
   )
 })
 
-test('names are numbered across the snapshot it is given, and Details pairs each with its identifier', () => {
+test('names are numbered across the snapshot it is given, and debug mode pairs each with its identifier', () => {
+  setDebugMode(true)
+
   const twin = (id: string): MediaEvidenceDto => ({
     ...evidence,
     id: `10000000-0000-4000-8000-0000000000${id}`,
@@ -369,8 +376,8 @@ test('names are numbered across the snapshot it is given, and Details pairs each
   expect(source).toHaveTextContent('Packing slip (3) · original')
   expect(source).not.toHaveTextContent('Packing slip (1)')
   expect(screen.getByRole('img')).toHaveAccessibleName('Packing slip (2) · original · page 1')
-  expect(screen.getByText('Details').closest('details')?.textContent).toMatch(
-    /Packing slip \(2\) · original: Packing slip · evidence 10000000/,
+  expect(screen.getByRole('group', { name: 'Debug: Evidence identities' }).textContent).toMatch(
+    /Packing slip \(2\) · originalPacking slip · evidence 10000000/,
   )
 })
 

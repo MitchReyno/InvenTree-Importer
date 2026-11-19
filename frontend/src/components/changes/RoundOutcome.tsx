@@ -1,5 +1,14 @@
 import styled from 'styled-components'
-import { Banner, Heading, Link, Panel, Paragraph, Small, Summary, Button } from '#/components/ui'
+import {
+  Banner,
+  Heading,
+  Link,
+  Panel,
+  Paragraph,
+  Small,
+  Button,
+  DebugDetails,
+} from '#/components/ui'
 import { Field } from '#/forms'
 import type { ManualRunDto, PartOutputDto } from '@invimport/contracts'
 import type { RunRecoverySelection } from '#/manual/types'
@@ -290,17 +299,17 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
           </Button>
         </Field>
       )}
-      <details>
-        <Summary>Round details</Summary>
-        <Details>
-          <Small>Run {run.run_id}</Small>
-          <Small>Approval {run.approval_id}</Small>
-          <Small>
-            State {run.state} · certainty {run.effect_certainty} · revision {run.revision}
-          </Small>
-          {run.cancellation_requested && <Small>Cancellation was requested.</Small>}
-        </Details>
-      </details>
+      {run.cancellation_requested && <Small>Cancellation was requested.</Small>}
+      <DebugDetails
+        label="Round details"
+        rows={[
+          { label: 'Run', value: run.run_id },
+          { label: 'Approval', value: run.approval_id },
+          { label: 'State', value: run.state },
+          { label: 'Effect certainty', value: run.effect_certainty },
+          { label: 'Revision', value: run.revision },
+        ]}
+      />
     </Panel>
   )
 }
@@ -308,9 +317,4 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
 const Row = styled.div`
   padding: ${space[6]} 0;
   border-top: 1px solid ${color.line};
-`
-const Details = styled.div`
-  display: grid;
-  gap: ${space[2]};
-  overflow-wrap: anywhere;
 `

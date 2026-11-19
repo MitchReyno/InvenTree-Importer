@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import type { Snapshot } from '#/capture/types'
 import { captureContext, contextDescription } from '#/capture/context'
-import { Paragraph, Small } from '#/components/ui'
+import { DebugDetails, Paragraph, Small } from '#/components/ui'
 
 type Props = { batch: Snapshot; subjectId?: string }
 
@@ -19,9 +19,14 @@ export function CaptureContextSummary({ batch, subjectId }: Props) {
         </Paragraph>
       ))}
       {record && (
-        <Small>
-          Human record {record.id} · version {record.version} · actor {record.actor_id}
-        </Small>
+        <DebugDetails
+          label="Human record"
+          rows={[
+            { label: 'Record', value: record.id },
+            { label: 'Version', value: record.version },
+            { label: 'Actor', value: record.actor_id },
+          ]}
+        />
       )}
     </Context>
   )

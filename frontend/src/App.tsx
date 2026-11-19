@@ -21,6 +21,7 @@ import {
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { LiveUpdates } from './components/operations/LiveUpdates'
+import { PageDebugPanel } from './components/operations/PageDebugPanel'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
@@ -276,6 +277,11 @@ export default function App() {
                       </PageContent>
                     )}
                     {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
+                    {manual && (
+                      <PageContent $width={width}>
+                        <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
+                      </PageContent>
+                    )}
                   </Main>
                 </CompactStatusContext.Provider>
               </HeaderObservationsProvider>

@@ -140,11 +140,11 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - A detail some test or flow relies on, such as the approval binding text, could be hidden. Review each one for operator need.
   - InvenTree record numbers stay visible.
 
-- [ ] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
-- [ ] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
-- [ ] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
-- [ ] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
-- [ ] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
+- [x] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
+- [x] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
+- [x] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
+- [x] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
+- [x] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
 - [ ] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
 
 ## 4. Dev mode popover

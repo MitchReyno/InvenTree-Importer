@@ -1,8 +1,8 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { Paragraph, Summary, raisedOnField } from '#/components/ui'
+import { DebugDetails, Summary, raisedOnField } from '#/components/ui'
 import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
-import { color, radius, space, type, typeVar } from '#/theme/generated/tokens'
+import { color, radius, space, type } from '#/theme/generated/tokens'
 import { MediaWorkspace } from '#/components/media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import { CaptureActions } from './CaptureActions'
@@ -104,16 +104,16 @@ export function EvidencePanel({
           ))}
         </details>
       )}
-      <IdentityDetails>
-        <Summary>Retained source identity</Summary>
-        <Paragraph>Original source: {batch.source_id}</Paragraph>
-        {batch.lots.map((l) => (
-          <Paragraph key={l.id}>
-            {l.label}: contribution {l.contribution_key}
-          </Paragraph>
-        ))}
-        <Paragraph>No stock has been created by capture.</Paragraph>
-      </IdentityDetails>
+      <DebugDetails
+        label="Retained source identity"
+        rows={[
+          { label: 'Original source', value: batch.source_id },
+          ...batch.lots.map((l) => ({
+            label: `${l.label} contribution`,
+            value: l.contribution_key,
+          })),
+        ]}
+      />
     </EvidenceArea>
   )
 }
@@ -133,8 +133,4 @@ const EvidenceLabel = styled.h2`
   margin: 0;
   ${type.label}
   color: ${color.muted};
-`
-const IdentityDetails = styled.details`
-  overflow-wrap: anywhere;
-  font-size: ${typeVar.small.size};
 `

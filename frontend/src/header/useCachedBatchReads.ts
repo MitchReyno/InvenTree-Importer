@@ -20,5 +20,5 @@ export function useCachedBatchReads(batchId: string | undefined) {
     batchId && revision ? serverQueryKey(scope, 'attention', batchId, revision) : undefined,
   )
 
-  return { title: batch?.title, attention }
+  return { title: batch?.title, revision, attention }
 }

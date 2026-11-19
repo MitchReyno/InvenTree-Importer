@@ -1,9 +1,21 @@
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
 import type { ProcessingProposalDto } from '@invimport/contracts'
+import { DebugDetails } from '#/components/ui'
 
-/** Source identities come from the verified retained attempt, not the current capture selection. */
+/**
+ * Source identities come from the verified retained attempt, not the current capture selection.
+ * They are internal IDs, so they show only in debug mode.
+ */
 export function ProcessingSources({ proposal }: { proposal: ProcessingProposalDto }) {
+  return (
+    <DebugDetails label="Candidate sources">
+      <SourceList proposal={proposal} />
+    </DebugDetails>
+  )
+}
+
+function SourceList({ proposal }: { proposal: ProcessingProposalDto }) {
   if ('source_note_ids' in proposal) {
     return (
       <Sources aria-label="Retained candidate sources">
