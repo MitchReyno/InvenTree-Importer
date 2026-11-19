@@ -52,7 +52,7 @@ The full investigation is in Mitch's handover findings for this work, outside th
 ## Scope and non-goals
 
 **In scope:**
-- **Profile version.** The new tool surface and instructions run under a new profile, `shared-vm-agent/3`, added by an additive migration. `/2` and its migration stay as they are, and `/2` attempts that never started fail with `agent_profile_retired`.
+- **Profile version.** The new tool surface and instructions run under a new profile, `shared-vm-agent/3`, added by an additive migration. `/2` and its migration stay as they are, and `/2` attempts reaching a `/3` worker fail with `agent_profile_retired`.
 - **Tool surface.** In VM tool sessions, Claude adds `WebSearch`, `WebFetch`, `Glob`, `Grep` and `TodoWrite`, and Codex sets `web_search = "live"`. Both admission checks and in-turn item checks are updated. The session policy identity changes, and a requalification run follows.
 - **Egress policy.** The per-turn egress proxy enforces the turn's sealed web setting. Provider hosts are always allowed. When web access is on, any public host that passes the shared destination checks is allowed too. Protected hosts are worked out from the deployment's own configuration.
 - **Settings.** "Allow public web pages" (on by default) and "Prefer manufacturer datasheets" (on by default) become working, per-session Settings › Agents switches, sealed into each attempt. Guidance about both is delivered to the session.
@@ -134,7 +134,7 @@ None.
 - Remove `bench-web`.
 - Include `vm:setup` in this change.
 
-**For Mitch to confirm:** `shared-vm-agent/2` attempts that are queued but never started when the upgrade lands fail with `agent_profile_retired`, and the step is run again. The alternative is a `/3` worker that also runs `/2` attempts on the old surface, keeping two tool surfaces in the code. This plan recommends the first.
+**For Mitch to confirm:** any `shared-vm-agent/2` attempt that a `/3` worker finds, whether queued or requeued by a message to a finished session, fails with `agent_profile_retired`, keeping its history, and the step is run again. The alternative is a `/3` worker that also runs `/2` attempts on the old surface, keeping two tool surfaces in the code. This plan recommends the first.
 
 **Assumptions:**
 - "Prefer manufacturer datasheets" is delivered as opening-message guidance, like the Part description style, and doesn't change the digest-checked instructions.

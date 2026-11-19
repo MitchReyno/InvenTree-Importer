@@ -17,8 +17,8 @@ Complete and verify a checkbox action, then check it before committing that work
 | --- | --- | --- | --- |
 | 1. Egress proxy public policy and reader removal | Behaviour (tooling) | None | shared-vm-execution: Public destination checks; Protected names that don't resolve publicly; No separate document reader |
 | 2. Policy handoff and protected hosts | Behaviour (server and tooling) | Task 1 | shared-vm-execution: Egress applies the sealed web setting; Protected destinations come from the deployment; Scoped guest execution (Public web access off) |
-| 3. Web settings and sealing | Behaviour (contracts, server and frontend) | BI-016 merged; task 2 | app-settings: Agent settings section; Deferred settings; processing-agent-sessions: Web settings sealed per attempt |
-| 4. `shared-vm-agent/3` profile and web guidance | Behaviour (server, migration and launcher) | Task 3 | processing-agent-sessions: Web tools run under a new VM profile version; Instructions describe the VM web tools; Opening message carries the session's web settings; development-launcher: Processing switches select the profile |
+| 3. Web settings, sealing and the opening message | Behaviour (contracts, server and frontend) | BI-016 merged; tasks 2 and 4 | app-settings: Agent settings section; Deferred settings; processing-agent-sessions: Web settings sealed per attempt; Opening message carries the session's web settings |
+| 4. `shared-vm-agent/3` profile and retired `/2` attempts | Behaviour (server, migration and launcher) | Task 2 | processing-agent-sessions: Web tools run under a new VM profile version; Instructions describe the VM web tools; development-launcher: Processing switches select the profile |
 | 5. Readiness web state | Behaviour (contracts, server and frontend) | Task 4 (the `/3` profile) | operations-backup-restore: Operations liveness and readiness |
 | 6. Tool surface and admission | Behaviour (server) | Tasks 2 and 4 | shared-vm-execution: Claude and Codex VM tool surfaces; Host sessions keep no built-in tools |
 | 7. `pnpm vm:setup` | Behaviour (tooling) | Task 1 (renamed egress file in the provisioning scripts) | development-launcher: One-command VM setup; VM setup is safe to rerun; VM setup checks prerequisites and stops on failure |
@@ -26,16 +26,16 @@ Complete and verify a checkbox action, then check it before committing that work
 | 9. Documentation | Documentation | Tasks 1–8 for the facts each document states | Docs match the specs. No retired settings or `bench-web` remain. |
 | 10. Requalification run | Live verification | Tasks 1–9 merged; Mitch's fresh go-ahead | Provider behaviour behind the egress proxy; the `shared-vm-agent/3` profile qualified |
 
-Task 7 has no dependency on the settings work, so it can proceed while BI-016 is open.
+Only task 3 waits for BI-016. Tasks 1, 2 and 4–9 can proceed while it is open. Until task 3 lands, `/3` attempts seal no web fields, so public web access stays off, while provider search already works.
 
 ## PR delivery map
 
 | Bundle | Outcome and included work | Task/checklist coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | Plan | This plan and the BI-017 entry | Planning artifacts only | Reviewable before any code | None | `interactive-app`, `docs/simplify-vm-agent-web-and-setup`, `docs(simplify-vm-agent-web-and-setup): plan simple web access and VM setup` | Strict OpenSpec validation, independent review |
-| PR-A | Web policy in the per-turn egress proxy, delivered by the supervisor; reader removed. Web stays off until PR-B seals a value. | Tasks 1, 2 | One security boundary: proxy rules and the channel that feeds them, reviewed together | Plan merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-egress`, `feat(simplify-vm-agent-web-and-setup): enforce web policy at the turn egress` | `pnpm test:deployment`, `pnpm test:intake` and `pnpm test:intake:process`, `pnpm test:dev`, `pnpm lint`, guest smoke with the paired VM where available, exact-head review, green CI |
-| PR-B | Working web settings, sealed per attempt, and the guidance agents receive | Tasks 3, 4 | Settings, sealing and what the session is told form one user-visible behaviour | BI-016 merged; PR-A merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-settings`, `feat(simplify-vm-agent-web-and-setup): add web research settings` | Contracts, intake-server and frontend tests, typecheck, build, demo video (UI change), exact-head review, green CI |
-| PR-C | New provider tool surface, and readiness reporting the web state | Tasks 5, 6 | The tool surface is what makes "web available" true. Both touch admission or the live contract. | PR-A and PR-B merged: `WebFetch` is always behind the policy, and the tool surface belongs to the `/3` profile PR-B adds | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-tools`, `feat(simplify-vm-agent-web-and-setup): give VM agents web search and fetch` | Admission and adapter tests, contract tests, frontend tests, exact-head review, green CI |
+| PR-A | Web policy in the per-turn egress proxy, delivered by the supervisor; reader removed. Public web access stays off until PR-C seals a value. | Tasks 1, 2 | One security boundary: proxy rules and the channel that feeds them, reviewed together | Plan merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-egress`, `feat(simplify-vm-agent-web-and-setup): enforce web policy at the turn egress` | `pnpm test:deployment`, `pnpm test:intake` and `pnpm test:intake:process`, `pnpm test:dev`, `pnpm lint`, guest smoke with the paired VM where available, exact-head review, green CI |
+| PR-B | The `shared-vm-agent/3` profile with its tool surface and admission, retired `/2` attempts, and readiness reporting the web state | Tasks 4, 5, 6 | The profile, its instructions and its tool surface must arrive together, or `/3` would run with tools its instructions don't match. Readiness reports what this PR makes true. | PR-A merged (`WebFetch` is always behind the policy) | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-tools`, `feat(simplify-vm-agent-web-and-setup): give VM agents web search and fetch` | `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:dev`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`, exact-head review, green CI |
+| PR-C | Working web settings, sealed per attempt, and the opening message that reports them | Task 3 | Settings, sealing and what the session is told form one user-visible behaviour | BI-016 merged; PR-B merged | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-settings`, `feat(simplify-vm-agent-web-and-setup): add web research settings` | `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`, demo video (UI change), exact-head review, green CI |
 | PR-D | One-command setup, image freshness and the documentation rewrite | Tasks 7, 8, 9 | Setup automation and the docs that replace the manual steps belong together | PR-A merged; docs facts from PR-B and PR-C merged first | `interactive-app`, `feat/simplify-vm-agent-web-and-setup-vm-setup`, `feat(simplify-vm-agent-web-and-setup): add pnpm vm:setup` | `pnpm test:dev`, `pnpm lint`, Markdown checks, a recorded fresh `vm:setup` run, exact-head review, green CI |
 | PR-E | Requalification evidence and notes | Task 10 | A live run is separate authority and evidence | PR-A to PR-D merged; Mitch's go-ahead | `interactive-app`, `docs/simplify-vm-agent-web-and-setup-qualification`, `docs(simplify-vm-agent-web-and-setup): record requalification` | Evidence attached to the PR, exact-head review |
 
@@ -98,56 +98,61 @@ Task 7 has no dependency on the settings work, so it can proceed while BI-016 is
 - [ ] 2.4 Remove `INTAKE_VM_PROTECTED_HOSTS` handling and the `tool-protected-hosts` file.
 - [ ] 2.5 Run `pnpm test:intake`, the tooling tests and, where available, the VM smoke test. Record the results and any VM limitation.
 
-## 3. Web settings and sealing
+## 3. Web settings, sealing and the opening message
 
-- PR delivery: PR-B.
-- Outcome: "Allow public web pages" and "Prefer manufacturer datasheets" work in Settings › Agents, default on, and are sealed into each attempt.
+- PR delivery: PR-C.
+- Outcome:
+  - "Allow public web pages" and "Prefer manufacturer datasheets" work in Settings › Agents, default on, and are sealed into each attempt.
+  - The opening message tells the session what it may do.
 - Scope and approach:
-  - **Contracts:** add both fields to the agent settings contract and the processing input (`web` object).
+  - **Contracts:** add both fields to the agent settings contract. The processing input's `web` object already exists from task 2.
   - **Server:** read the defaults as on, and seal in `processing/session-attempts.ts` (design D3) following the `part_description_style` pattern from BI-016.
+  - **Opening message:** add the per-session lines in `agents/session/session-runner.ts`, where the description style goes (design D6).
   - **Frontend:** `AgentsSection` Web research subsection with the disclosure text and the disabled state for profiles without web access. Remove the item from the deferred list.
   - **Spec:** rebase the `app-settings` delta onto the merged BI-016 text first.
-- Prerequisites: BI-016 merged; task 2.
-- Acceptance: app-settings › Agent settings section (Turning public web pages off, Profile without web access, Stale settings revision); Deferred settings are disabled and explained; processing-agent-sessions › Web settings sealed per attempt (both scenarios).
+- Prerequisites: BI-016 merged; task 2 (the input field and egress policy); task 4 (the `/3` profile that seals web settings).
+- Acceptance: app-settings › Agent settings section (Turning public web pages off, Profile without web access, Stale settings revision); Deferred settings are disabled and explained; processing-agent-sessions › Web settings sealed per attempt (both scenarios); Opening message carries the session's web settings (both scenarios).
 - TDD approach:
   - RED: settings route tests for defaults and revision conflicts.
   - RED: session-attempt tests for sealing, a save while queued, and other profiles sealing off.
   - RED: decoding a retained input with and without the `web` object.
+  - RED: session-runner tests for the opening text with web on, web off and the preference, with the instruction digest unchanged across settings.
   - RED: frontend tests for the switches, disabled state, save and conflict.
-- Verification: `pnpm test:intake`, `pnpm test:intake:pg` (attempt sealing against PostgreSQL), `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`. A demo video goes on the PR.
+- Verification: `pnpm test:intake`, `pnpm test:intake:pg` (attempt sealing against PostgreSQL), `pnpm test:intake:process` (session runner), `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build`, `pnpm contracts:check`. A demo video goes on the PR.
 - Risks and decisions: BI-016 may change the input version or the settings shape. Adapt to it, and record the departure in `notes.md`.
 
 - [ ] 3.1 Rebase the `app-settings` delta and this task's approach onto the merged BI-016, and record any differences in `notes.md`.
-- [ ] 3.2 RED: add the contract, settings, sealing and frontend tests, and confirm the failures.
-- [ ] 3.3 GREEN: implement the contract fields, defaults, sealing and the Settings subsection.
-- [ ] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
+- [ ] 3.2 RED: add the contract, settings, sealing, opening-message and frontend tests, and confirm the failures.
+- [ ] 3.3 GREEN: implement the contract fields, defaults, sealing, the opening-message lines and the Settings subsection.
+- [ ] 3.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm typecheck`, `pnpm build` and `pnpm contracts:check`, and record the demo video for the PR.
 
-## 4. `shared-vm-agent/3` profile and web guidance
+## 4. `shared-vm-agent/3` profile and retired `/2` attempts
 
 - PR delivery: PR-B.
-- Outcome: VM tool sessions run under a new `shared-vm-agent/3` profile, whose instructions describe search, `WebFetch` and `curl`. The opening message says whether this session may read public pages, with the datasheet preference. Never-started `/2` attempts fail with `agent_profile_retired`.
+- Outcome:
+  - VM tool sessions run under a new `shared-vm-agent/3` profile, whose fixed instructions describe search, `WebFetch` and `curl`.
+  - Any `/2` attempt that reaches a `/3` worker, whether queued or requeued by a resume, fails with `agent_profile_retired`, and its history is kept.
 - Scope and approach:
   - **Profile:** a new additive migration adds the `shared-vm-agent/3` row (instructions, digest, tool profile `native-session-web-tools/1`) and extends the version-pair check, leaving `0026` and the `/2` row untouched (design D10). The launcher's profile table (`tooling/dev/profile.cjs`) and the profile literals in contracts, server and guest code accept `/3`.
-  - **Retired attempts:** the session runner settles never-started `/2` attempts as `agent_profile_retired`.
-  - **Opening message:** add the per-session lines in the same place the description style goes (design D6).
+  - **Retired attempts:** the session runner settles a `/2` attempt before its profile-mismatch guard (`session-runner.ts:445-455`), so neither a fresh claim nor a resume requeued by `queueSessionResume()` (`:280`) can wait forever.
   - **Digests:** add the `/3` digest fixture. The `/2` digest fixture stays unchanged.
-- Prerequisites: task 3.
-- Acceptance: processing-agent-sessions › Web tools run under a new VM profile version (both scenarios); Instructions describe the VM web tools (Host session); Opening message carries the session's web settings (both scenarios); development-launcher › Processing switches select the profile (Profile table).
+- Prerequisites: task 2. Delivered with task 6, so `/3` never runs without its tool surface.
+- Acceptance: processing-agent-sessions › Web tools run under a new VM profile version (all scenarios); Instructions describe the VM web tools (Host session); development-launcher › Processing switches select the profile (Profile table).
 - TDD approach:
-  - RED PostgreSQL tests: the migration adds `/3` with its digest and leaves `/2` byte-identical; a retained `/2` attempt still decodes; a never-started `/2` attempt fails with `agent_profile_retired`.
-  - RED session-runner tests: the opening text with web on, web off and the preference; an unchanged digest across settings; no web text for `native-agent/2`.
+  - RED PostgreSQL tests: the migration adds `/3` with its digest and leaves `/2` byte-identical; a retained `/2` attempt still decodes; a queued `/2` attempt and a finished `/2` session receiving a new message both settle as `agent_profile_retired`.
+  - RED session-runner test: no web text for `native-agent/2`.
   - RED launcher test: tools true selects `/3`.
 - Verification: `pnpm test:intake`, `pnpm test:intake:pg` (migration and retained attempts), `pnpm test:intake:process` (session runner), `pnpm test:dev` (profile table).
 - Risks and decisions: Mitch confirms the retired-attempt behaviour before implementation (proposal, open decisions). Task 10 qualifies the new profile.
 
 - [ ] 4.1 Confirm the retired-attempt behaviour with Mitch.
-- [ ] 4.2 RED: add the migration, retained-attempt, session-runner and launcher tests, and confirm the failures.
-- [ ] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling, the instruction text and the opening-message lines.
+- [ ] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
+- [ ] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
 - [ ] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
 
 ## 5. Readiness web state
 
-- PR delivery: PR-C.
+- PR delivery: PR-B.
 - Outcome: readiness and the local setup diagnostics report whether sessions have web access, instead of `research: unqualified`.
 - Scope and approach: `contracts/src/live.ts`, `operations/readiness.ts`, the `web_ready` log in `main.ts`, and `frontend/src/components/operations/Diagnostics.tsx` (design D7). Update the snapshot fixtures that carry `research`.
 - Prerequisites: task 4.
@@ -162,7 +167,7 @@ Task 7 has no dependency on the settings work, so it can proceed while BI-016 is
 
 ## 6. Tool surface and admission
 
-- PR delivery: PR-C.
+- PR delivery: PR-B.
 - Outcome: Claude VM sessions get `Glob`, `Grep`, `TodoWrite`, `WebSearch` and `WebFetch`. Codex VM sessions get live web search with the proxy set in their shell environment. Host sessions are unchanged.
 - Scope and approach:
   - **Claude:** update `session-adapters.ts` (builtins and the in-turn check) and `claude-session-admission.ts`.
@@ -187,7 +192,7 @@ Task 7 has no dependency on the settings work, so it can proceed while BI-016 is
   - Add `tooling/dev/vm-setup.cjs` and the root script `vm:setup`, reusing `tooling/dev/settings.cjs` and `vm.cjs`.
   - Make `personal-claude.sh` and `personal-codex.sh` replace only their own containers and leave state alone.
   - Run `browser-policy.sh` as a setup step.
-  - Check the operator key on both sides before provisioning (design D8).
+  - Check the operator key on both sides before provisioning, and make `personal-claude.sh` and `personal-codex.sh` refuse to generate or overwrite a key when the guest already has one (design D8). Shell tests cover the scripts on their own.
   - Add pairing detection around `pair.sh`.
 - Prerequisites: task 1.
 - Acceptance: development-launcher › One-command VM setup; VM setup is safe to rerun; VM setup checks prerequisites and stops on failure (all scenarios).
@@ -220,7 +225,7 @@ Task 7 has no dependency on the settings work, so it can proceed while BI-016 is
 - Scope and approach: a digest helper shared with task 7; the launcher's VM start path in `tooling/dev/vm.cjs` and `tooling/dev.cjs`; the `vm_pairing_missing` message.
 - Prerequisites: task 7.
 - Acceptance: development-launcher › The runner image is kept current; A failed image refresh stops startup; A missing pairing is refused before the VM starts (all scenarios).
-- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
+- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a stale image with a missing or mismatched host key stopping with `vm_operator_key_mismatch` and leaving both keys unchanged, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
 - Verification: `pnpm test:dev` and `pnpm lint:tooling`.
 - Risks and decisions: the digest input list must include everything the image copies. A test asserts the list against the Dockerfiles' `COPY` sources.
 

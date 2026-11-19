@@ -137,7 +137,7 @@ Instructions and the tool surface are bound to a profile row by digest, so neith
 
 **Code:** the launcher's profile table maps "tools true" to `/3`. The profile literals in `contracts/src/processing.ts`, `session-input.ts`, `session-policy.ts`, `config.ts`, `tool-worker.ts`, `guest-main.ts` and `coordinator.ts` accept `/3` wherever they accept `/2` today. The new tool surface and web policy apply only to `/3`.
 
-**Retired `/2` attempts:** today a worker leaves another VM profile's attempts waiting forever. A `/3` worker instead settles a never-started `/2` attempt as failed with `agent_profile_retired`, and the operator runs the step again. Finished `/2` sessions keep their history, and a resume of one is unavailable, as for any admission-policy change.
+**Retired `/2` attempts:** today a worker leaves another VM profile's attempts waiting forever (`session-runner.ts:445-455`), and `queueSessionResume()` requeues an existing attempt (`:280`). A `/3` worker instead settles any `/2` attempt it finds, fresh or requeued by a resume, as failed with `agent_profile_retired`, checked before that guard. History and proposals stay, a pending message stays pending, and the operator runs the step again under `/3`.
 
 **Rejected:**
 - *Editing the `/2` instructions in place:* breaks every retained digest.
@@ -160,7 +160,7 @@ Since the contract field changes, the frontend and server move together in one P
 | VM | `limactl list` shows the instance | `limactl start --vm-type=vz --name=<vm> tooling/deployment/lima/agent.yaml`, or start it if stopped |
 | Runner in guest | Guest `docker image inspect` digest label matches | `docker save \| limactl shell … docker load` |
 | Pairing | Host `ca.pem`, `cert.pem` and `key.pem`, and the guest `guest/` directory, both exist | `pair.sh`. One side only: `vm_pairing_mismatch`. |
-| Operator key | The host key file and the guest's `operator/key` both exist and have the same SHA-256 | Generated and installed only when both are missing. One side only, or different contents, refuses with `vm_operator_key_mismatch` and changes neither. The provisioning scripts then reinstall the same key. |
+| Operator key | The host key file and the guest's `operator/key` both exist and have the same SHA-256 | Generated and installed only when both are missing. One side only, or different contents, refuses with `vm_operator_key_mismatch` and changes neither. This check runs before every provisioning path, in setup and in refresh (D9). `personal-claude.sh` and `personal-codex.sh` also enforce it themselves: they never generate a key when the guest has one, and never overwrite a guest key with different contents. |
 | Guest services | Containers exist with the current image and the expected `INTAKE_OPERATOR_ORIGIN` | Run `personal-claude.sh` and `personal-codex.sh`. Both are changed to remove only their own named containers first, and to leave the store, state and key directories alone. |
 
 The guest browser policy (`guest/browser-seccomp.json`, which `tool-turn.sh:46-48` applies when present) is installed by `browser-policy.sh`, the remaining part of the retired `public-web.sh`. `vm:setup` and each image refresh run it again, so the policy follows the checkout.
@@ -179,7 +179,7 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 - It is a SHA-256 over the sorted `path` and file-content hash of each tracked or untracked, non-ignored file under those sources.
 - The source list is parsed from the Dockerfiles rather than kept by hand, so a new `COPY` is covered automatically. Base images are pinned by digest in the Dockerfile text, which is itself hashed.
 - The build passes it as `--label org.bench-intake.source-digest=<digest>`.
-- Before starting the relays, `pnpm dev` (managed) reads the label from the guest. If it differs, it runs D8's image, load and guest-service steps.
+- Before starting the relays, `pnpm dev` (managed) reads the label from the guest. If it differs, it runs D8's operator key check, then its image, load, browser policy and guest-service steps. A key mismatch stops startup with `vm_operator_key_mismatch` before any provisioning.
 - With management off, it only warns.
 
 **Rejected:**
@@ -224,10 +224,10 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
   - The README tells existing users to run `pnpm vm:setup` once. It keeps their pairing and sign-ins.
   - Existing conversations can't resume across the admission policy change.
 - **Rollback:**
-  - PR-C and PR-D revert cleanly.
-  - PR-A adds the optional `web` field to the session input schema, and PR-B starts sealing it. The schema has `additionalProperties: false` (`contracts/src/processing.ts:10-11`), and `decodeSessionInput()` validates retained manifests (`session-input.ts:71-74`). Once any attempt is sealed with `web`, code without the field would reject it, and sealed inputs must not be rewritten.
-  - So after the first `web` input is sealed, neither PR-A's schema support nor PR-B's sealing is reverted. A rollback of PR-A's behaviour keeps the schema field and only forces the egress policy to provider-only. A rollback of PR-B stops sealing new values but keeps decoding existing ones.
-  - Tests in PR-A and PR-B decode a retained input with and without `web`.
+  - PR-D reverts cleanly. PR-B's migration is additive. Reverting PR-B's code once `/3` attempts exist would leave them waiting, so a problem there is fixed forward.
+  - PR-A adds the optional `web` field to the session input schema, and PR-C starts sealing it. The schema has `additionalProperties: false` (`contracts/src/processing.ts:10-11`), and `decodeSessionInput()` validates retained manifests (`session-input.ts:71-74`). Once any attempt is sealed with `web`, code without the field would reject it, and sealed inputs must not be rewritten.
+  - So after the first `web` input is sealed, neither PR-A's schema support nor PR-C's sealing is reverted. A rollback of PR-A's behaviour keeps the schema field and only forces the egress policy to provider-only. A rollback of PR-C stops sealing new values but keeps decoding existing ones.
+  - Tests in PR-A and PR-C decode a retained input with and without `web`.
 - **Observability:** each egress refusal is counted by reason in the turn's diagnostic counters, without hosts.
 
 ## Risks and open decisions

@@ -136,13 +136,19 @@ Each runner image SHALL carry a digest of the source inputs it was built from. W
 
 ### Requirement: A failed image refresh stops startup
 
-If the rebuild or load fails, startup SHALL fail with `vm_runner_image_refresh_failed` before any relay starts, and shutdown SHALL follow the existing stop rules. With VM management off, a stale image SHALL produce a warning naming `pnpm vm:setup`, and nothing is rebuilt.
+If the rebuild or load fails, startup SHALL fail with `vm_runner_image_refresh_failed` before any relay starts, and shutdown SHALL follow the existing stop rules. A refresh SHALL check the operator key as `pnpm vm:setup` does before reprovisioning. With VM management off, a stale image SHALL produce a warning naming `pnpm vm:setup`, and nothing is rebuilt.
 
 #### Scenario: Rebuild fails
 
 - **GIVEN** a stale runner image and a failing build
 - **WHEN** `pnpm dev` starts with VM management
 - **THEN** startup fails with `vm_runner_image_refresh_failed`, no relay starts, and the VM is stopped only if this run booted it and `INTAKE_VM_KEEP_RUNNING` is not true
+
+#### Scenario: Refresh with a missing or mismatched operator key
+
+- **GIVEN** a stale runner image, and a host operator key file that is missing or differs from the guest's key
+- **WHEN** `pnpm dev` starts with VM management
+- **THEN** startup fails with `vm_operator_key_mismatch` before any guest service is reprovisioned, no relay starts, and neither key changes
 
 #### Scenario: Unmanaged VM with a stale image
 

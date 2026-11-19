@@ -4,13 +4,19 @@
 
 ### Requirement: Web tools run under a new VM profile version
 
-VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, a new profile with its own fixed instructions, instruction digest and tool profile version, added without changing `shared-vm-agent/2` or any earlier migration. A worker serving `shared-vm-agent/3` SHALL settle a `shared-vm-agent/2` attempt that never started as failed with `agent_profile_retired`, shown through the existing failure disclosure, and SHALL NOT run it under either surface.
+VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, a new profile with its own fixed instructions, instruction digest and tool profile version, added without changing `shared-vm-agent/2` or any earlier migration. A worker serving `shared-vm-agent/3` SHALL settle any `shared-vm-agent/2` attempt it finds, queued or requeued by a resume, as failed with `agent_profile_retired`, keeping its history, and SHALL NOT run it under either surface.
 
 #### Scenario: Attempt queued before the upgrade
 
 - **GIVEN** a `shared-vm-agent/2` attempt queued before the upgrade and never started
 - **WHEN** the worker now serving `shared-vm-agent/3` claims work
 - **THEN** that attempt fails with `agent_profile_retired` and a summary saying to run the step again, and no provider process starts
+
+#### Scenario: Message to a finished session from before the upgrade
+
+- **GIVEN** a finished `shared-vm-agent/2` session with its transcript and proposals
+- **WHEN** the operator sends it a message after the upgrade
+- **THEN** the requeued attempt fails with `agent_profile_retired` instead of waiting, the session's history and proposals stay, and the message stays pending for a new attempt
 
 #### Scenario: Retained instructions stay valid
 
