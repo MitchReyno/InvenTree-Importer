@@ -46,9 +46,26 @@ function apiTargetEnv(target, state, key, { readOnly } = {}) {
 
 /**
  * The agent worker's whole environment: provider and VM settings, the origins its VM egress
- * protects, its profile, state root and databases. Its own app origin is not passed.
+ * protects, its profile, state root and databases. The protected origins come straight from
+ * the launcher's own values: the app's public origin, its tailnet identity when it has one,
+ * and the inventory origin in the target environment. Its own app origin is not passed.
  */
-function agentChildEnvironment({ resolved, settings, profile, root, state, writerUrl, origins }) {
+function agentChildEnvironment({
+  resolved,
+  settings,
+  profile,
+  root,
+  state,
+  writerUrl,
+  publicOrigin,
+  tailnet,
+  targetEnv,
+}) {
+  const origins = {
+    appOrigin: publicOrigin,
+    tailnetOrigin: tailnet ? tailnet.origin : undefined,
+    inventoryOrigin: targetEnv.INTAKE_READ_ORIGIN,
+  }
   return {
     ...agentWorkerSettings(resolved, settings, origins),
     INTAKE_PROCESSING_PROFILE: profile,

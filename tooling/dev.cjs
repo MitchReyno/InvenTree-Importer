@@ -452,11 +452,9 @@ async function main() {
           root,
           state,
           writerUrl,
-          origins: {
-            appOrigin: publicOrigin,
-            tailnetOrigin: tailnet ? tailnet.origin : undefined,
-            inventoryOrigin: targetEnv.INTAKE_READ_ORIGIN,
-          },
+          publicOrigin,
+          tailnet,
+          targetEnv,
         })
         await child('agents', worker.entry, agentEnv, (text) => text.includes(worker.ready)).ready()
       } else {

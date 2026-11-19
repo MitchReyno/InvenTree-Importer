@@ -261,7 +261,8 @@ test('the agent worker launches with its databases and protected origins, never 
     schedulerUrl: 'postgres://127.0.0.1/scheduler',
   }
   const settings = { INTAKE_USE_MOCK_AI_AGENTS: 'false', INTAKE_RUN_AGENTS_IN_VM: 'true' }
-  const launch = (tailnetOrigin) =>
+  // The launcher's own values: its tailnet identity and target environment, as dev.cjs has them.
+  const launch = (tailnetIdentity) =>
     agentChildEnvironment({
       resolved: resolveDevelopmentSettings(settings, { stateDirectory: '/state' }),
       settings,
@@ -269,13 +270,11 @@ test('the agent worker launches with its databases and protected origins, never 
       root: '/state/root',
       state,
       writerUrl: 'postgres://127.0.0.1/writer',
-      origins: {
-        appOrigin: 'http://127.0.0.1:4330',
-        tailnetOrigin,
-        inventoryOrigin: 'https://inventory.example.com',
-      },
+      publicOrigin: 'http://127.0.0.1:4330',
+      tailnet: tailnetIdentity,
+      targetEnv: { INTAKE_READ_ORIGIN: 'https://inventory.example.com' },
     })
-  const tailnet = launch('https://bench.tailnet.ts.net')
+  const tailnet = launch({ origin: 'https://bench.tailnet.ts.net', login: 'owner@example.com' })
   assert.equal(
     tailnet.INTAKE_AGENT_PROTECTED_ORIGINS,
     'http://127.0.0.1:4330,https://bench.tailnet.ts.net,https://inventory.example.com',

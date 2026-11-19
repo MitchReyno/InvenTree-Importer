@@ -313,14 +313,24 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(release.set)
         table = {"slow.example.com": [PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
         stalled = {"slow.example.com": release}
-        with patch.object(egress, "DNS_TIMEOUT_S", 0.5), \
-                self.fake_network(table, stalled=stalled) as upstream:
-            public = [self.handle("slow.example.com:443") for _ in range(egress.DNS_SLOTS + 1)]
-            *refused, provider = await asyncio.gather(*public, self.handle("api.anthropic.com:443"))
-        for written in refused:
-            self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", written)
+        with self.fake_network(table, stalled=stalled) as upstream:
+            public = [asyncio.create_task(self.handle("slow.example.com:443"))
+                      for _slot in range(egress.DNS_SLOTS)]
+            for task in public:
+                self.addAsyncCleanup(self.cancelled, task)
+            # Every public resolver slot is held by a stalled lookup before the provider asks.
+            deadline = time.monotonic() + 2
+            while sum(call.args[0].startswith("slow.")
+                      for call in self.guest_dns.call_args_list) < egress.DNS_SLOTS:
+                self.assertLess(time.monotonic(), deadline, "public lookups never stalled")
+                await asyncio.sleep(0.01)
+            provider = await asyncio.wait_for(self.handle("api.anthropic.com:443"), 2)
+            self.assertTrue(all(not task.done() for task in public))
+            release.set()
+            refused_or_connected = await asyncio.gather(*public)
         self.assertTrue(provider.startswith(b"HTTP/1.1 200"), provider)
-        upstream.assert_called_once_with(OTHER_PUBLIC, 443)
+        upstream.assert_any_call(OTHER_PUBLIC, 443)
+        self.assertEqual(len(refused_or_connected), egress.DNS_SLOTS)
 
     async def test_stalled_protected_lookup_leaves_the_provider_reachable(self):
         release = threading.Event()
@@ -1147,6 +1157,9 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                     "api.anthropic.com:443", table, stalled=stalled)
                 self.assert_connected(written, upstream, OTHER_PUBLIC)
         self.assertEqual(len(submitted), 1)
+        # Every request stopped waiting on the shared refresh without leaving a waiter behind.
+        refresh = lookups.in_flight["inventory.example.com"]
+        self.assertFalse(refresh._callbacks)
         # One event-loop future follows the lookup, however many requests waited on it.
         self.assertEqual(len(submitted[0]._done_callbacks), 1)
 
