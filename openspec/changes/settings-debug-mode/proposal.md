@@ -33,7 +33,7 @@ Linked items:
   - the Settings rows this change leaves deferred (see Scope).
 
   The index entry and that change's README are narrowed to match.
-- **Debug mode and the Dev mode popover** have no BI item. One is allocated with the `planned-functionality` skill (task 1).
+- **BI-016, Settings rows, independent providers and debug mode** is this change's own index item.
 
 ## Current behavior and evidence
 

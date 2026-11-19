@@ -14,7 +14,7 @@
   - `specs/ui-design-system`;
   - `specs/access-identity`.
 - **Reuse:** extend existing storage, delivery and preference patterns, with no new dependency (proposal, "Reuse and dependency assessment").
-- **Linked items:** BI-015 (Settings part, narrowed in task 1). A new BI item for debug mode and the Dev mode popover is allocated in task 1.
+- **Linked items:** BI-016 (this change) and BI-015 (its Settings part, narrowed in task 1).
 - **Design:** canvas v67, D32 to D35.
 
 ## Completion and commit ordering
@@ -69,10 +69,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: `openspec validate settings-debug-mode --strict`, `pnpm openspec:overlap --change settings-debug-mode`, link check.
 - Risks: Overlap with BI-015 wording.
 
-- [ ] 1.1 Allocate a BI item for debug mode and the Dev mode popover with the `planned-functionality` skill, linking this change.
-- [ ] 1.2 Narrow BI-015 and the `complete-design-refresh-backend` README to the rows this change leaves deferred.
-- [ ] 1.3 Resolve the remaining "requirement text very long" validation warnings by moving lists into scenarios where that reads better.
-- [ ] 1.4 Run validation and the overlap check, and fix the findings.
+- [x] 1.1 Allocate a BI item for debug mode and the Dev mode popover with the `planned-functionality` skill, linking this change.
+- [x] 1.2 Narrow BI-015 and the `complete-design-refresh-backend` README to the rows this change leaves deferred.
+- [x] 1.3 Resolve the remaining "requirement text very long" validation warnings by moving lists into scenarios where that reads better.
+- [x] 1.4 Run validation and the overlap check, and fix the findings.
 - [ ] 1.5 Independent read-only review of the plan, fixing findings until a round finds nothing new.
 - [ ] 1.6 Open PR-P with no reviewers and merge once review is clean and CI is green.
 

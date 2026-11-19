@@ -96,7 +96,7 @@ Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claud
 
 #### BI-015 — Design refresh backend follow-ups
 
-Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. In Settings that is the agent model per step, instructions copied into every new batch, web research switches, app-level batch defaults, the description rules, the InvenTree token row and the import reference prefix, plus Check connection now in the server menu. In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
+Build the backend for the design-refresh controls that BI-014 shipped disabled, each with its reason. BI-016 (`settings-debug-mode`) takes over most of the Settings rows. This item keeps the web research switches, the per-record "Fill descriptions for" switches, the supplier part description source and "Tag every Part with its batch name". In Records it is storing and reading manufacturer part, supplier part and agent-proposed company descriptions, and reading location types and their descriptions; descriptions for agent-proposed categories and parameter templates, which the app lists as not supported yet, belong here too. The rest is deleting written batch notes, and Inventory questions that carry their answer options and the existing record's fields, for the disabled option cards and the comparison's InvenTree column and date code.
 
 - Change: `complete-design-refresh-backend`
 - Status: Proposed
@@ -155,6 +155,16 @@ Repository Markdown is uneven. Some documents are long unbroken paragraphs, head
 - OpenSpec: [improve-markdown-readability](../openspec/changes/improve-markdown-readability/)
 
 ### Unassessed
+
+#### BI-016 — Settings rows, independent providers and debug mode
+
+Make most of the Settings rows that BI-014 shipped disabled work. These are new-batch instructions, the Part description style, a tag-suggestion default, default location and supplier for new batches, an on-demand token check, Replace token for the InvenTree read token, and the import reference shown read-only. Claude and Codex become separately configured providers, and each processing step picks its own provider and model. Settings › Agents gathers every agent-behaviour setting as subsections with sub-nav links. A device-local debug mode hides developer details unless it is on and adds a Debug panel to each screen; the Dev mode pill opens a popover of developer tools.
+
+- Change: `settings-debug-mode`
+- Status: Proposed
+- Size: XL — agent settings contract and sealing, a creation snapshot, a stored read credential, the Settings structure and debug gating across most screens, in five PRs (PR-A to PR-E) after the planning PR.
+- Prerequisites: None. It takes over the Settings rows from BI-015 that it builds; coordinate `.env.example` and launcher edits with `default-env-settings`.
+- OpenSpec: [settings-debug-mode](../openspec/changes/settings-debug-mode/)
 
 #### BI-013 — Preview renditions for media
 

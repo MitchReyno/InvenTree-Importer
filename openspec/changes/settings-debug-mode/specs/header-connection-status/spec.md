@@ -4,15 +4,7 @@
 
 ### Requirement: Connection check on demand
 
-The server menu's "Check connection now" and Settings › InvenTree's "Check now" SHALL run one fresh target check, skipping the cached observation. The checks SHALL be limited to one in flight per target context and to one every 5 seconds. A request inside that window SHALL return the latest result instead of starting another.
-
-The result SHALL tell these apart:
-
-- the target accepted the token;
-- the target refused it (HTTP 401 or 403, reported as `unauthorized`);
-- the target was unreachable or failed otherwise.
-
-The result SHALL update the masthead observation. A check SHALL use only the existing bounded read transport and create no inventory effects.
+The server menu's "Check connection now" and Settings › InvenTree's "Check now" SHALL run one fresh target check, skipping the cached observation, and the result SHALL update the masthead observation. A check SHALL use only the existing bounded read transport and create no inventory effects.
 
 #### Scenario: Check succeeds
 
@@ -20,11 +12,19 @@ The result SHALL update the masthead observation. A check SHALL use only the exi
 - **WHEN** the operator chooses Check connection now
 - **THEN** the menu shows Connected with the new check time, and the masthead indicator updates without waiting for the 30-second cycle
 
+### Requirement: Token refusal reported separately
+
+A check's result SHALL tell an accepted token apart from a refused one (HTTP 401 or 403, reported as `unauthorized`) and from an unreachable or otherwise failing target.
+
 #### Scenario: Token refused
 
 - **GIVEN** a target that answers 401 to the probe
 - **WHEN** the check runs
 - **THEN** the observation is unavailable with `unauthorized`, the menu says the token was refused, and no credential appears in the response or UI
+
+### Requirement: Forced checks are rate limited
+
+Forced checks SHALL be limited to one in flight per target context and one every 5 seconds. A request inside that window SHALL return the latest result instead of starting another.
 
 #### Scenario: Repeated clicks
 

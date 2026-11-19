@@ -30,14 +30,13 @@ The app SHALL keep a debug mode preference on the device, off by default, read a
 
 ### Requirement: Developer details hidden when debug mode is off
 
-With debug mode off, the app SHALL NOT render these:
+With debug mode off, the app SHALL NOT render internal identifiers, hashes, revisions, raw state codes or the page-footer local setup diagnostics. Operator-facing content SHALL stay: summaries, categories, recovery actions, and InvenTree record numbers and links. The design assessment lists the affected screens.
 
-- internal identifiers and technical details: session failure codes and IDs, attempt and question revision IDs, processing source receipt IDs, region strings, retained source identity, note attribution and provenance, capture record IDs, versions and actors;
-- the saved-revision JSON dump, approval binding hashes, round run and approval IDs, attachment version IDs, byte counts and hashes;
-- the raw connection failure code;
-- the page-footer local setup diagnostics.
+#### Scenario: Changes and Capture details with debug mode off
 
-Operator-facing content SHALL stay: summaries, categories, recovery actions, InvenTree record numbers and links. With debug mode on, each of those details SHALL render as a visibly marked debug block in the place it belongs.
+- **GIVEN** debug mode off
+- **WHEN** Ready to add, an Added round, a Part's attachments, an evidence note and a failed batch save are shown
+- **THEN** no approval hash, run or approval ID, attachment version ID, byte count, record ID, actor ID or revision JSON appears, and InvenTree stock and Part numbers with their links still do
 
 #### Scenario: Failed session with debug mode off
 
@@ -57,17 +56,25 @@ Operator-facing content SHALL stay: summaries, categories, recovery actions, Inv
 - **WHEN** any page renders
 - **THEN** no "Local setup and diagnostics" disclosure appears under the content
 
+### Requirement: Developer details marked when debug mode is on
+
+With debug mode on, each detail hidden while it is off SHALL render where it belongs, as a block visibly marked "Debug" and set apart from operator content, with today's sanitization.
+
+#### Scenario: Round details with debug mode on
+
+- **GIVEN** debug mode on
+- **WHEN** an Added round is shown
+- **THEN** its run and approval IDs, effect certainty and plan hash appear in a block marked "Debug" below the round's operator summary
+
 ### Requirement: Debug panel per screen
 
-With debug mode on, Batches, each batch tab (Capture, Processing, Review, Changes), Agents and Settings SHALL show a collapsible Debug panel. It lists:
+With debug mode on, Batches, each batch tab, Agents and Settings SHALL show a collapsible Debug panel. It lists the route, the batch ID and revision, settings revisions, the live-update state and the age of each read the screen uses, marking stale or failed reads. It SHALL use only data the screen already holds, start no request and contain no credentials. With debug mode off it SHALL NOT render.
 
-- the current route;
-- the batch ID and revision where there is one;
-- the agent and batch-default settings revisions on Processing and Settings;
-- the live-update transport state, with the last event time;
-- the age of each read the screen uses, marking stale or failed reads.
+#### Scenario: Panel on a batch tab
 
-The panel SHALL use only data the screen already holds, start no request and contain no credentials. With debug mode off it SHALL NOT render.
+- **GIVEN** debug mode on and Processing open for a batch
+- **WHEN** the Debug panel is expanded
+- **THEN** it lists the route, the batch ID and revision, the agent settings revision, the live-update transport state with its last event time, and each read's age
 
 #### Scenario: Stale read
 
@@ -104,15 +111,23 @@ Settings SHALL have a Developer section holding:
 
 ### Requirement: Dev mode popover
 
-The masthead's Dev mode pill SHALL be a button that opens a labelled dialog popover. It holds:
+The masthead's Dev mode pill SHALL be a button that opens a labelled dialog popover. It holds a one-line build summary, the debug mode switch, a short readiness summary, Check setup again, Reload app data, Copy debug info and a link to Settings › Developer. Readiness SHALL load only when the popover opens.
 
-- a one-line build summary;
-- the debug mode switch;
-- a short readiness summary;
-- Check setup again, Reload app data and Copy debug info;
-- a link to Settings › Developer.
+#### Scenario: Popover contents
 
-Readiness SHALL load only when the popover opens. The popover SHALL be keyboard operable, close on Escape and on outside click, return focus to the pill, and stay within the viewport at 360px. At phone width the pill keeps its shortened label and opens the same popover.
+- **GIVEN** the masthead
+- **WHEN** the operator activates the Dev mode pill
+- **THEN** the popover shows the build summary, the debug mode switch, the readiness summary, the three tools and the Developer link, and the readiness read starts only now
+
+#### Scenario: Readiness unavailable
+
+- **GIVEN** the readiness read fails
+- **WHEN** the popover opens
+- **THEN** it says local setup checks are unavailable, and the switch and other tools still work
+
+### Requirement: Dev mode popover is accessible
+
+The Dev mode popover SHALL be keyboard operable, close on Escape and on an outside click, return focus to the pill, and stay within the viewport at 360px. At phone width the pill keeps its shortened label and opens the same popover.
 
 #### Scenario: Open and close by keyboard
 
@@ -120,8 +135,8 @@ Readiness SHALL load only when the popover opens. The popover SHALL be keyboard 
 - **WHEN** the operator presses Enter, turns debug mode on and presses Escape
 - **THEN** the popover opened with `aria-expanded="true"`, debug mode is on, the popover is closed and focus is back on the pill
 
-#### Scenario: Readiness unavailable
+#### Scenario: Phone width
 
-- **GIVEN** the readiness read fails
-- **WHEN** the popover opens
-- **THEN** it says local setup checks are unavailable, and the switch and other tools still work
+- **GIVEN** a 360px viewport
+- **WHEN** the operator opens the popover from the shortened pill
+- **THEN** the whole popover is visible without horizontal scrolling
