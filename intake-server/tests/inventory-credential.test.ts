@@ -9,6 +9,7 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rm,
   stat,
   symlink,
@@ -32,6 +33,7 @@ import {
   loadSavedCredential,
   requireStableAncestors,
   requireUnpublished,
+  resolveSecretsDir,
   saveCredential,
 } from '#/inventory/credential-store.ts'
 import {
@@ -318,12 +320,35 @@ test('a secrets directory under an ancestor others can write to is refused', asy
   await mkdir(sticky)
   await chmod(sticky, 0o1777)
 
-  await assert.rejects(requireStableAncestors(join(shared, 'secrets')), {
+  await assert.rejects(requireStableAncestors(await resolveSecretsDir(join(shared, 'secrets'))), {
     code: 'secret_file_permissions',
   })
   // A sticky directory, like /tmp, lets only an entry's owner replace it.
-  await requireStableAncestors(join(sticky, 'secrets'))
-  await requireStableAncestors(join(parent, 'secrets'))
+  await requireStableAncestors(await resolveSecretsDir(join(sticky, 'secrets')))
+  await requireStableAncestors(await resolveSecretsDir(join(parent, 'secrets')))
+})
+
+test('a link under a writable parent is resolved once, so swapping it later redirects nothing', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const safe = join(parent, 'safe')
+  const other = join(parent, 'other')
+  const shared = join(parent, 'shared')
+  await mkdir(safe, { mode: 0o700 })
+  await mkdir(other, { mode: 0o700 })
+  await mkdir(shared)
+  await chmod(shared, 0o777)
+  await symlink(safe, join(shared, 'link'))
+
+  const resolved = await resolveSecretsDir(join(shared, 'link', 'secrets'))
+  await requireStableAncestors(resolved)
+  await rm(join(shared, 'link'))
+  await symlink(other, join(shared, 'link'))
+  await saveCredential(resolved, PLANTED, TARGET)
+
+  assert.equal(resolved, join(await realpath(safe), 'secrets'))
+  assert.deepEqual(await readdir(join(safe, 'secrets')), [CREDENTIAL_FILE])
+  assert.deepEqual(await readdir(other), [])
 })
 
 test('one running server owns a store; a lock left by an exited one is replaced', async (t) => {
@@ -336,9 +361,32 @@ test('one running server owns a store; a lock left by an exited one is replaced'
   await again()
 
   // A process that has exited no longer holds the store.
-  await writeFile(join(directory, '.inventory-read-token.lock'), '999999999', { mode: 0o600 })
+  const lock = join(directory, '.inventory-read-token.lock')
+  await mkdir(lock, { mode: 0o700 })
+  await writeFile(join(lock, 'pid'), '999999999', { mode: 0o600 })
   const reclaimed = await claimStore(directory)
+  // A release that runs twice removes nothing it doesn't own.
   await reclaimed()
+  const successor = await claimStore(directory)
+  await reclaimed()
+  await assert.rejects(claimStore(directory), { code: 'secret_store_in_use' })
+  await successor()
+})
+
+test('overlapping claims leave exactly one owner', async (t) => {
+  const directory = await secretsDir(t)
+  await mkdir(directory, { mode: 0o700 })
+
+  const claims = await Promise.allSettled(Array.from({ length: 5 }, () => claimStore(directory)))
+
+  const owners = claims.filter((claim) => claim.status === 'fulfilled')
+  assert.equal(owners.length, 1)
+  for (const claim of claims) {
+    if (claim.status === 'rejected') {
+      assert.equal((claim.reason as { code: string }).code, 'secret_store_in_use')
+    }
+  }
+  await (owners[0] as PromiseFulfilledResult<() => Promise<void>>).value()
 })
 
 test('a saved token is used only for the InvenTree and target context it was checked against', async (t) => {

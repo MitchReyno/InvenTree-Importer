@@ -36,6 +36,7 @@ import {
   loadSavedCredential,
   requireStableAncestors,
   requireUnpublished,
+  resolveSecretsDir,
 } from './inventory/credential-store.ts'
 import { registerFrontendAssets } from './api/frontend-assets.ts'
 import { configureReadTarget, readTargetBinding } from './inventory/read-target.ts'
@@ -119,13 +120,12 @@ async function main() {
     // A saved replacement other users could reach refuses startup, with or without a database.
     const readOrigin = process.env.INTAKE_READ_ORIGIN
     // The checkout too: the frontend dev server may serve any file in it.
-    await requireUnpublished(config.secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
-    await requireStableAncestors(config.secretsDir)
-    releaseStore = await claimStore(config.secretsDir)
-    const saved = await loadSavedCredential(
-      config.secretsDir,
-      readTargetBinding(config, readOrigin),
-    )
+    // Resolved once; every later check and file operation uses this same path.
+    const secretsDir = await resolveSecretsDir(config.secretsDir)
+    await requireUnpublished(secretsDir, [FRONTEND_ASSETS, REPOSITORY_ROOT])
+    await requireStableAncestors(secretsDir)
+    releaseStore = await claimStore(secretsDir)
+    const saved = await loadSavedCredential(secretsDir, readTargetBinding(config, readOrigin))
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
     server = createServer(config, { mediaEnabled: mediaStore !== undefined })
     server.addHook('onClose', releaseStore)
@@ -176,7 +176,7 @@ async function main() {
         headerWork(db.pool, headerConfig, batchId),
       )
       registerInventoryCredential(server, {
-        secretsDir: config.secretsDir,
+        secretsDir: secretsDir,
         target: readTarget,
         fence: () => requireCurrentTargetContext(db.pool, config),
         changed: () => connection.reset(),
@@ -218,7 +218,7 @@ async function main() {
       registerManual(server, db.pool, manualConfig, read, targetReads?.attachments, processing)
     }
     if (existsSync(FRONTEND_ASSETS)) {
-      await registerFrontendAssets(server, FRONTEND_ASSETS, config.secretsDir)
+      await registerFrontendAssets(server, FRONTEND_ASSETS, secretsDir)
     }
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       process.once(signal, () => {

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { constants, type Stats } from 'node:fs'
 import { realpathSync } from 'node:fs'
-import { lstat, mkdir, open, readFile, realpath, rename, rm } from 'node:fs/promises'
+import { lstat, mkdir, open, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { InventoryCredentialReplace, MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
 import type { SavedCredential } from './credential.ts'
@@ -127,12 +127,12 @@ const SHARED_WRITE = 0o022
  * check inspects and the one a later write uses could differ. Each real ancestor must belong to
  * root or this user, and be unwritable by others unless sticky.
  */
-export async function requireStableAncestors(configured: string | undefined) {
-  if (!configured) {
+export async function requireStableAncestors(directory: string | undefined) {
+  if (!directory) {
     return
   }
   const owner = process.getuid?.()
-  let ancestor = dirname(await canonical(resolve(configured)))
+  let ancestor = dirname(directory)
   for (;;) {
     const info = await lstat(ancestor)
     const ownedSafely = owner === undefined || info.uid === 0 || info.uid === owner
@@ -148,8 +148,11 @@ export async function requireStableAncestors(configured: string | undefined) {
   }
 }
 
-/** Marks the store as this process's while it runs; removed on close. */
-const LOCK_FILE = '.inventory-read-token.lock'
+/** Marks the store as this process's while it runs: a directory holding the owner's PID. */
+const LOCK_DIRECTORY = '.inventory-read-token.lock'
+const OWNER_FILE = 'pid'
+/** Claim attempts before giving up, each after removing one stale lock. */
+const MAX_CLAIM_ATTEMPTS = 3
 
 function processAlive(pid: number) {
   try {
@@ -161,38 +164,84 @@ function processAlive(pid: number) {
   }
 }
 
+async function lockOwner(lock: string) {
+  const text = await readFile(join(lock, OWNER_FILE), 'utf8').catch(() => '')
+  const pid = Number(text.trim())
+  return Number.isInteger(pid) && pid > 0 ? pid : undefined
+}
+
+/**
+ * Puts a lock carrying this PID in place in one rename, so no other starter ever sees a lock
+ * without its owner. False when a lock is already there.
+ */
+async function placeLock(directory: string, lock: string) {
+  const prepared = join(directory, `${LOCK_DIRECTORY}.${randomUUID()}.tmp`)
+  await mkdir(prepared, { mode: 0o700 })
+  await writeFile(join(prepared, OWNER_FILE), String(process.pid), { mode: 0o600 })
+  try {
+    await rename(prepared, lock)
+    return true
+  } catch (error) {
+    await rm(prepared, { recursive: true, force: true })
+    const code = errorCode(error)
+    if (code === 'EEXIST' || code === 'ENOTEMPTY') {
+      return false
+    }
+    throw error
+  }
+}
+
 /**
  * Claims the store for this process's lifetime, so two servers never keep different tokens in
- * memory over one file. A lock left by a process that has exited is replaced.
+ * memory over one file. A lock whose owner has exited is moved aside by a rename, which only one
+ * starter can win, then claimed afresh. The release runs once and removes only this process's
+ * lock.
  */
-export async function claimStore(configured: string | undefined): Promise<() => Promise<void>> {
-  const directory = configured && resolve(configured)
+export async function claimStore(directory: string | undefined): Promise<() => Promise<void>> {
   if (!directory) {
     return async () => undefined
   }
   await mkdir(directory, { recursive: true, mode: 0o700 })
   await requirePrivateDirectory(directory)
-  const lock = join(directory, LOCK_FILE)
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const file = await open(lock, 'wx', 0o600)
-      await file.writeFile(String(process.pid))
-      await file.close()
-      return async () => {
-        await rm(lock, { force: true })
+  const lock = join(directory, LOCK_DIRECTORY)
+  try {
+    for (let attempt = 0; attempt < MAX_CLAIM_ATTEMPTS; attempt += 1) {
+      if (await placeLock(directory, lock)) {
+        let released = false
+        return async () => {
+          if (released) {
+            return
+          }
+          released = true
+          if ((await lockOwner(lock)) === process.pid) {
+            await rm(lock, { recursive: true, force: true })
+          }
+        }
       }
-    } catch (error) {
-      if (errorCode(error) !== 'EEXIST') {
-        throw new SecretStoreError('secret_store_unavailable', { cause: error })
+      const owner = await lockOwner(lock)
+      if (owner !== undefined && processAlive(owner)) {
+        throw new SecretStoreError('secret_store_in_use')
       }
+      const stale = join(directory, `${LOCK_DIRECTORY}.${randomUUID()}.stale`)
+      // Only one starter's rename finds the stale lock; the others see it gone and retry.
+      await rename(lock, stale).catch(() => undefined)
+      await rm(stale, { recursive: true, force: true })
     }
-    const holder = Number((await readFile(lock, 'utf8').catch(() => '')).trim())
-    if (Number.isInteger(holder) && holder > 0 && processAlive(holder)) {
-      throw new SecretStoreError('secret_store_in_use')
+  } catch (error) {
+    if (error instanceof SecretStoreError) {
+      throw error
     }
-    await rm(lock, { force: true })
+    throw new SecretStoreError('secret_store_unavailable', { cause: error })
   }
   throw new SecretStoreError('secret_store_in_use')
+}
+
+/**
+ * The secrets directory with every link resolved, found once at startup. Every check, the lock
+ * and each file operation use this one path, so none can be redirected later.
+ */
+export async function resolveSecretsDir(configured: string | undefined) {
+  return configured ? canonical(resolve(configured)) : undefined
 }
 
 /**
