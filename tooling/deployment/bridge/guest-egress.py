@@ -140,6 +140,7 @@ class ProtectedLookups:
         self.known = {}
         self.in_flight = {}
         # Set once a protected name fails to resolve: public hosts are refused for the turn.
+        # Read it only under the lock, so a failure is seen together with its revocations.
         self.failed = False
         # Open provider tunnels: their connected address and the event that drops them.
         self.tunnels = {}
@@ -239,6 +240,20 @@ class ProtectedLookups:
         with self.lock:
             return set().union(*(self.known.get(entry, set()) for entry in protected))
 
+    def has_failed(self):
+        with self.lock:
+            return self.failed
+
+    def guard(self, address, protected, public_request):
+        """Refuses a public request once a protected lookup has failed, then an address any
+        protected name has answered with this turn, as one step under the publication lock."""
+        with self.lock:
+            if public_request and self.failed:
+                raise Refused("resolution_failed")
+            blocked = set().union(*(self.known.get(entry, set()) for entry in protected))
+        if normalized(address) in blocked:
+            raise Refused("protected_destination")
+
 
 PROTECTED_LOOKUPS = ProtectedLookups()
 
@@ -327,22 +342,11 @@ async def provider_addresses(host, protected):
     return connection_order(addresses)
 
 
-def protection_guard(protected):
-    """Refuses an address that a protected lookup has found since it was checked."""
+def protection_guard(protected, public_request):
+    """Refuses an address that a protected lookup has found since it was checked, and a public
+    request once a protected lookup has failed this turn."""
     def guard(address):
-        if normalized(address) in PROTECTED_LOOKUPS.latest(protected):
-            raise Refused("protected_destination")
-    return guard
-
-
-def public_guard(protected):
-    """The protection guard, also refusing once a protected lookup has failed this turn."""
-    protection = protection_guard(protected)
-
-    def guard(address):
-        if PROTECTED_LOOKUPS.failed:
-            raise Refused("resolution_failed")
-        protection(address)
+        PROTECTED_LOOKUPS.guard(address, protected, public_request)
     return guard
 
 
@@ -357,7 +361,7 @@ def check_public_request(host, port, policy, protected):
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
     check_public_form(host, port, protected)
-    if PROTECTED_LOOKUPS.failed:
+    if PROTECTED_LOOKUPS.has_failed():
         raise Refused("resolution_failed")
 
 
@@ -365,12 +369,12 @@ async def checked_addresses(host, port, provider, protected):
     """Addresses to try, in order, all of them checked, and a recheck to run around each dial;
     or Refused."""
     if provider:
-        return await provider_addresses(host, protected), protection_guard(protected)
+        return await provider_addresses(host, protected), protection_guard(protected, False)
     try:
         # Other connections' lookups can still protect this address before or after the dial.
         addresses = await PUBLIC_DNS.run(
             public_target, host, port, protected, PROTECTED_LOOKUPS.publish)
-        return addresses, public_guard(protected)
+        return addresses, protection_guard(protected, True)
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
         if refusal.reason == "resolution_failed" and protected_name(host, protected):

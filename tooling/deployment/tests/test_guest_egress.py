@@ -997,6 +997,48 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "resolution_failed")
 
+    async def test_failure_is_seen_only_once_every_public_tunnel_is_revoked(self):
+        lookups = egress.PROTECTED_LOOKUPS
+        first, stop_first = lookups.watch(PUBLIC, True)
+        second, stop_second = lookups.watch(OTHER_PUBLIC, True)
+        self.addCleanup(stop_first)
+        self.addCleanup(stop_second)
+        seen = {}
+        observers = []
+        mark = first.mark
+
+        def observed_mark():
+            # Another thread reads the latch while publication is between the two tunnels.
+            def observe():
+                seen["failed"] = lookups.has_failed()
+                seen["second revoked"] = second.is_set()
+            observer = threading.Thread(target=observe)
+            observer.start()
+            observers.append(observer)
+            observer.join(0.1)
+            mark()
+
+        first.mark = observed_mark
+        await asyncio.to_thread(lookups.publish, "inventory.example.com", None)
+        await asyncio.to_thread(observers[0].join, 2)
+        self.assertEqual(seen, {"failed": True, "second revoked": True})
+
+    async def test_failure_published_during_the_guard_reports_resolution_failed(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        guard = egress.PROTECTED_LOOKUPS.guard
+
+        def published_first(address, protected, public_request):
+            # The address becomes protected and a lookup fails before the guard decides.
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+                                             {egress.normalized(PUBLIC)})
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
+            return guard(address, protected, public_request)
+
+        with patch.object(egress.PROTECTED_LOOKUPS, "guard", published_first):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+
 
 if __name__ == "__main__":
     unittest.main()

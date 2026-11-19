@@ -364,14 +364,20 @@ for (const misconfiguration of misconfigurations) {
     { timeout: 60000 },
     async (t) => {
       let worker: ChildProcess | undefined
+      // Settles once the worker exits or fails to start, whichever comes first.
+      let finished: Promise<{ code: number | null } | { error: Error }> | undefined
       let root: string | undefined
       const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
       // One ordered teardown: the worker is reaped before its database is dropped.
       t.after(async () => {
-        if (worker && worker.exitCode === null && worker.signalCode === null) {
-          const reaped = once(worker, 'exit')
+        if (worker && finished && worker.exitCode === null && worker.signalCode === null) {
           worker.kill('SIGKILL')
-          await reaped
+          const reaped = await Promise.race([
+            finished,
+            delay(WORKER_EXIT_TIMEOUT_MS).then(() => undefined),
+          ])
+          // An unreaped worker keeps its database: dropping it under a live child is worse.
+          assert.ok(reaped, 'the worker was not reaped after SIGKILL')
         }
         await fixture.dispose()
         if (root) {
@@ -430,16 +436,19 @@ for (const misconfiguration of misconfigurations) {
         },
       )
       worker = spawned
+      finished = new Promise((resolve) => {
+        spawned.once('exit', (code) => resolve({ code }))
+        spawned.once('error', (error) => resolve({ error }))
+      })
       let output = ''
       spawned.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
-      const exited = once(spawned, 'exit')
       const outcome = await Promise.race([
-        exited,
+        finished,
         delay(WORKER_EXIT_TIMEOUT_MS).then(() => 'still running' as const),
       ])
       assert.notEqual(outcome, 'still running', 'the worker did not refuse within its deadline')
-      const [code] = outcome as [number | null]
-      assert.equal(code, 1)
+      assert.ok(typeof outcome === 'object' && 'code' in outcome, 'the worker did not start')
+      assert.equal(outcome.code, 1)
       assert.match(output, new RegExp(`"code":"${misconfiguration.code}"`))
       assert.equal(before, 'running')
       assert.equal(await stateOf(), before)
