@@ -37,9 +37,9 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Prerequisites: the developer's authorization to archive both changes. `split-dev-profile-settings` still has its delivery boxes (5.2–5.4) open although it merged in #202; they are ticked with that evidence first.
 - Verification: `pnpm openspec:overlap --change <name>` clean for each before archiving; `openspec validate --strict` after.
 
-- [ ] 0.1 Get the developer's authorization to archive both changes.
-- [ ] 0.2 Tick `split-dev-profile-settings` 5.2–5.4 citing #202.
-- [ ] 0.3 Run the overlap check and archive both changes; open and merge the archive PR.
+- [x] 0.1 Get the developer's authorization to archive both changes.
+- [x] 0.2 Tick `split-dev-profile-settings` 5.2–5.4 citing #202.
+- [x] 0.3 Run the overlap check and archive both changes; open and merge the archive PR.
 
 ## 1. Launcher VM defaults and management by default
 
@@ -96,6 +96,6 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
   - [ ] 4.1.5 The developer's `.env` starts real VM agents in full on this branch (waits until the developer's running app releases the VM and its tunnel ports).
 - [x] 4.2 Run the full gate.
 - [x] 4.3 Independent review rounds until one is clean, at the reviewed head.
-- [ ] 4.4 Open the PR against `interactive-app` with the evidence.
-- [ ] 4.5 Selected CI green.
-- [ ] 4.6 Merge.
+- [x] 4.4 Open the PR against `interactive-app` with the evidence.
+- [x] 4.5 Selected CI green.
+- [x] 4.6 Merge.
