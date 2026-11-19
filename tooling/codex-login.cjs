@@ -47,7 +47,7 @@ async function appStateRoot(settings) {
   const target = withTargetSettingNames(() => targetModule.developmentTarget(values), settings)
   // The same credential check as `pnpm dev`, so a login never goes to a namespace dev refuses.
   withTargetSettingNames(() => targetModule.developmentCredential(values, target), settings)
-  if (values.INTAKE_APP_STATE !== undefined) {
+  if (values.INTAKE_APP_STATE) {
     return targetModule.developmentStateRoot(values, target, { serverId: '' })
   }
   const serverId = await identity.serverIdentity(values)

@@ -102,7 +102,8 @@ export function developmentStateRoot(
   target: DevelopmentTarget,
   scope: StateScope,
 ): string {
-  if (env.INTAKE_APP_STATE !== undefined) {
+  // An empty value counts as unset, as the env template says.
+  if (env.INTAKE_APP_STATE) {
     return resolve(env.INTAKE_APP_STATE)
   }
   if (!/^[a-f0-9]{32}$/.test(scope.serverId)) {

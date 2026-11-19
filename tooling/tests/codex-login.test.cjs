@@ -318,3 +318,16 @@ test('VM agents with a defaulted pairing resolve the same namespace as without t
   assert.equal(withVm, plain)
   await rm(stateDir, { recursive: true })
 })
+
+test('an empty app-state override counts as unset', async () => {
+  const stateDir = await tempDirectory()
+  await chmod(stateDir, 0o700)
+  const serverId = '0a1b2c3d4e5f6a7b'.repeat(2)
+  await writeFile(join(stateDir, 'inventree-db.json'), serverState(serverId), { mode: 0o600 })
+  const settings = { INTAKE_DEV_STATE: stateDir }
+  assert.equal(
+    await appStateRoot({ ...settings, INTAKE_APP_STATE: '' }),
+    await appStateRoot(settings),
+  )
+  await rm(stateDir, { recursive: true })
+})

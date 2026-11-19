@@ -40,6 +40,7 @@ def test_the_state_directory_follows_the_launcher_rule(tmp_path, monkeypatch):
     assert development_state_directory({"INTAKE_DEV_STATE": str(tmp_path)}) == tmp_path.resolve()
     monkeypatch.setenv("HOME", str(tmp_path))
     assert development_state_directory({}) == tmp_path / ".local/state/bench-intake"
+    assert development_state_directory({"INTAKE_DEV_STATE": ""}) == tmp_path / ".local/state/bench-intake"
 
 
 def test_a_ready_local_instance_becomes_the_default_and_the_token_is_never_reported(

@@ -33,7 +33,8 @@ _PRIVATE_MODE_BITS = 0o077
 def development_state_directory(environ: Mapping[str, str]) -> Path:
     """`INTAKE_DEV_STATE`, else the home directory's bench-intake state, as `pg-identity.ts` resolves it."""
     configured = environ.get("INTAKE_DEV_STATE")
-    if configured is not None:
+    # An empty value counts as unset, as the env template says.
+    if configured:
         return Path(configured).resolve()
     return Path.home() / DEFAULT_STATE_DIRECTORY
 

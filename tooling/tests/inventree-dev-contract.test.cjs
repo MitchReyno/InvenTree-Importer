@@ -37,5 +37,6 @@ test('the importer finds the state directory by the same rule', async () => {
   const defaultDirectory = pythonConstant('DEFAULT_STATE_DIRECTORY')
   assert.equal(stateDirectory({}), join(homedir(), defaultDirectory))
   assert.equal(stateDirectory({ INTAKE_DEV_STATE: '/tmp/x/../state' }), '/tmp/state')
+  assert.equal(stateDirectory({ INTAKE_DEV_STATE: '' }), join(homedir(), defaultDirectory))
   assert.match(python, /environ\.get\("INTAKE_DEV_STATE"\)/)
 })
