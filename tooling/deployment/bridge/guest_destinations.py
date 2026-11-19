@@ -143,26 +143,20 @@ def check_public_form(host, port, protected):
         raise Refused("destination_refused")
 
 
-def public_target(host, port, protected, on_resolved=None):
+def public_target(host, port, protected):
     """The destination's checked addresses for a public CONNECT, or Refused with its reason.
 
-    Protected names other than the destination are refreshed and compared by the caller. When
-    the destination is itself a protected name, `on_resolved` receives its answer first."""
+    The caller answers an exact protected name from its own refresh, and compares the result
+    with every protected name's addresses."""
     check_public_form(host, port, protected)
     try:
         addresses = resolved_addresses(host)
     except Refused:
-        if host in protected and on_resolved:
-            on_resolved(host, None)
-        # A protected name without its own record is still protected.
+        # A protected subdomain without its own record is still protected.
         if protected_name(host, protected):
             raise Refused("protected_destination") from None
         raise
-    if host in protected and on_resolved:
-        # Its own answer joins the protected addresses before the request is refused.
-        on_resolved(host, {address for address in map(normalized, addresses)
-                           if public(str(address))})
-    # A private answer reports not_public even for a protected name.
+    # A private answer reports not_public even under a protected name.
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if protected_name(host, protected):

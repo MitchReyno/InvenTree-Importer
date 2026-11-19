@@ -411,20 +411,30 @@ async def checked_addresses(host, port, provider, protected):
         return addresses, protection_guard(protected, False)
     # Protected names refresh on the shared per-name pool, joining any refresh in flight, while
     # the destination resolves; each refresh publishes when it lands, even after this request.
-    refreshes = [PROTECTED_LOOKUPS.refresh(entry)[1] for entry in protected
-                 if literal_address(entry) is None and entry != host]
-    target = asyncio.ensure_future(PUBLIC_DNS.run(
-        public_target, host, port, protected, PROTECTED_LOOKUPS.publish))
+    refreshes = {entry: PROTECTED_LOOKUPS.refresh(entry)[1] for entry in protected
+                 if literal_address(entry) is None}
+    # A protected name asked for directly is answered by its own refresh, not looked up twice.
+    exact = refreshes.get(host)
+    target = None if exact else asyncio.ensure_future(PUBLIC_DNS.run(
+        public_target, host, port, protected))
     if refreshes:
-        await asyncio.wait(refreshes, timeout=DNS_TIMEOUT_S)
-    try:
-        addresses = await target
-        refusal = None
-    except Refused as error:
-        addresses, refusal = None, error
+        await asyncio.wait(refreshes.values(), timeout=DNS_TIMEOUT_S)
+    refusal = None
+    if target is not None:
+        try:
+            addresses = await target
+        except Refused as error:
+            refusal = error
     # Once a protected lookup has failed, every public refusal reports that first; a refresh
     # still running at the deadline refuses this request without failing the turn.
-    if PROTECTED_LOOKUPS.has_failed() or not all(refresh.done() for refresh in refreshes):
+    if PROTECTED_LOOKUPS.has_failed():
+        raise Refused("resolution_failed")
+    if exact is not None:
+        # The name is protected whatever its lookup says. Its refresh keeps only public answers,
+        # so an empty one means it resolved privately.
+        resolved_privately = exact.done() and not exact.result()
+        raise Refused("not_public" if resolved_privately else "protected_destination")
+    if not all(refresh.done() for refresh in refreshes.values()):
         raise Refused("resolution_failed")
     if refusal is not None:
         # A protected name stays protected when its lookup runs out of time or slots.

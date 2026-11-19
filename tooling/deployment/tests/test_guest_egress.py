@@ -1143,26 +1143,67 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         client.transport.abort.assert_called_once()
 
     async def test_failed_protected_lookup_still_refreshes_the_other_names(self):
-        # Names are refreshed in sorted order, so the failing one comes first.
         self.write_policy(public_pages=True,
                           protected_hosts=["inventory.example.com", "archive.example.com"])
         stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
         table = {"inventory.example.com": ["8.8.8.8"], "archive.example.com": ["9.9.9.9"],
                  "api.anthropic.com": [OTHER_PUBLIC], "www.ti.com": [PUBLIC]}
+        held = threading.Event()
+        self.addCleanup(held.set)
         self.guest_dns = Mock(side_effect=dns(table))
         with patch.object(socket, "getaddrinfo", self.guest_dns), \
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, writer))):
             provider = asyncio.create_task(egress.handle(stream, client))
             await self.until_open(client, provider)
-            # The archive stops resolving and the inventory moves onto the provider's address.
+            # The archive stops resolving and the inventory moves onto the provider's address,
+            # but the inventory's answer is held until the archive's failure has latched.
             del table["archive.example.com"]
             table["inventory.example.com"] = [OTHER_PUBLIC]
-            refused = await self.handle("www.ti.com:443")
+            self.guest_dns.side_effect = dns(table, stalled={"inventory.example.com": held})
+            public = asyncio.create_task(self.handle("www.ti.com:443"))
+            self.addAsyncCleanup(self.cancelled, public)
+            deadline = time.monotonic() + 2
+            while not egress.PROTECTED_LOOKUPS.has_failed():
+                self.assertLess(time.monotonic(), deadline, "the failure never latched")
+                await asyncio.sleep(0.01)
+            self.assertFalse(provider.done())
+            held.set()
+            refused = await asyncio.wait_for(public, 2)
             await asyncio.wait_for(provider, 2)
         self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", refused)
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
+
+    async def test_connect_to_a_protected_name_refreshes_it_while_public_dns_is_full(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+
+        async def full(*_args):
+            raise egress.Refused("resolution_failed")
+
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            table["inventory.example.com"] = [PUBLIC]
+            # A slow answer, so both requests arrive while one refresh is in flight.
+            self.guest_dns.side_effect = dns(table, delays={"inventory.example.com": 0.2})
+            before = self.guest_dns.call_count
+            with patch.object(egress.PUBLIC_DNS, "run", full):
+                first, second = await asyncio.gather(self.handle("inventory.example.com:443"),
+                                                     self.handle("inventory.example.com:443"))
+            await asyncio.wait_for(tunnel, 2)
+            lookups = self.guest_dns.call_args_list[before:]
+        for written in (first, second):
+            self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+        # Both requests joined one refresh, and its answer revoked the open tunnel.
+        self.assertEqual(len(lookups), 1)
+        writer.transport.abort.assert_called_once()
+
     async def test_rotating_protected_answers_past_the_bound_fail_the_turn_closed(self):
         self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
         stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
