@@ -177,9 +177,17 @@ const singleSend: typeof fetch = async (input, init) => {
   })
 }
 
-/** Transport defense in depth, NOT approval or request-journal authority. Only T03 apply may receive this closure. */
-export function inventoryTransport(input: TargetProfile, send: typeof fetch = singleSend) {
+/**
+ * Transport defense in depth, NOT approval or request-journal authority. Only T03 apply may receive this closure.
+ * `credential` supplies the token per request when it can change at runtime; it defaults to the profile's.
+ */
+export function inventoryTransport(
+  input: TargetProfile,
+  send: typeof fetch = singleSend,
+  credential?: () => string,
+) {
   const profile = structuredClone(input)
+  const currentCredential = credential ?? (() => profile.credential)
   const destination = origin(profile.origin)
   const protectedHosts = profile.protectedOrigins.map((value) => host(origin(value)))
 
@@ -202,7 +210,7 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       redirect: 'manual',
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
-        authorization: `Token ${profile.credential}`,
+        authorization: `Token ${currentCredential()}`,
         'content-type': 'application/json',
         ...headers,
       },

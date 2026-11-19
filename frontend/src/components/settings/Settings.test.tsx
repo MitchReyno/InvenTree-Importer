@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { useState, type ReactNode } from 'react'
 import type { AgentSettingsDto, ConnectionStatusDto } from '@invimport/contracts'
-import type { agentsClient } from '@invimport/contracts/client'
+import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
 import { agentSettings } from '#/test/agent-settings'
 import { serverQueryKey } from '#/queries/scope'
@@ -57,6 +57,8 @@ function connection(): ConnectionStatusDto {
       navigation_url: 'https://inventory.example.test/',
       label: 'Bench target',
       version: '1.1.0',
+      credential_source: 'environment',
+      credential_saved_at: null,
     },
   } as ConnectionStatusDto
 }
@@ -64,6 +66,8 @@ function connection(): ConnectionStatusDto {
 const header = {
   connection: vi.fn(async () => connection()),
   checkConnection: vi.fn(async () => connection()),
+  replaceInventoryCredential: vi.fn(),
+  revertInventoryCredential: vi.fn(),
   work: vi.fn(async () => ({
     ...identity,
     observed_at: new Date().toISOString(),
@@ -136,6 +140,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  header.connection.mockImplementation(async () => connection())
+  header.replaceInventoryCredential.mockReset()
+  header.revertInventoryCredential.mockReset()
 })
 
 test('the section nav lists every section, marks the current one and the Agents item carries the AI mark', async () => {
@@ -233,9 +240,135 @@ test('the API token row never shows a stale or failed read as current', async ()
   ).toBeVisible()
 })
 
+function savedConnection(savedAt: string): ConnectionStatusDto {
+  const base = connection()
+  return {
+    ...base,
+    target: { ...base.target, credential_source: 'saved', credential_saved_at: savedAt },
+  }
+}
+
+test('Check and save saves a token InvenTree accepts, clears the field and says a saved token is in use', async () => {
+  const user = userEvent.setup()
+  const savedAt = new Date().toISOString()
+  header.replaceInventoryCredential.mockResolvedValueOnce({
+    credential_source: 'saved',
+    credential_saved_at: savedAt,
+  })
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  expect(await within(row).findByText(/token from the server’s environment/)).toBeVisible()
+
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  const field = within(row).getByLabelText('New API token')
+  // Write-only: the field starts empty and hides what is typed.
+  expect(field).toHaveValue('')
+  expect(field).toHaveAttribute('type', 'password')
+  await user.type(field, 'fresh-read-token')
+  header.connection.mockImplementation(async () => savedConnection(savedAt))
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+
+  expect(await within(row).findByText('Saved. Reads now use this token.')).toBeVisible()
+  expect(header.replaceInventoryCredential).toHaveBeenCalledWith({ token: 'fresh-read-token' })
+  expect(within(row).queryByLabelText('New API token')).toBeNull()
+  expect(await within(row).findByText(/Using the token saved here on/)).toBeVisible()
+  expect(screen.queryByText(/fresh-read-token/)).toBeNull()
+})
+
+test('a refused or unchecked token says so, saves nothing and keeps what was typed', async () => {
+  const user = userEvent.setup()
+  header.replaceInventoryCredential
+    .mockRejectedValueOnce(new IntakeRequestError(422, 'token_refused'))
+    .mockRejectedValueOnce(new IntakeRequestError(503, 'target_unavailable'))
+    .mockRejectedValueOnce(new IntakeRequestError(503, 'secret_store_unavailable'))
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.type(within(row).getByLabelText('New API token'), 'candidate-token')
+  const save = within(row).getByRole('button', { name: 'Check and save' })
+
+  await user.click(save)
+  expect(await within(row).findByText(/InvenTree refused this token/)).toBeVisible()
+  await user.click(save)
+  expect(await within(row).findByText(/couldn’t be reached to check this token/)).toBeVisible()
+  await user.click(save)
+  expect(await within(row).findByText(/Set INTAKE_SECRETS_DIR/)).toBeVisible()
+
+  expect(within(row).getByLabelText('New API token')).toHaveValue('candidate-token')
+})
+
+test('a token with spaces is refused in the browser and never sent', async () => {
+  const user = userEvent.setup()
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+  expect(within(row).getByText('Paste a token first.')).toBeVisible()
+  await user.type(within(row).getByLabelText('New API token'), 'two words')
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+  expect(within(row).getByText(/has no spaces/)).toBeVisible()
+  expect(header.replaceInventoryCredential).not.toHaveBeenCalled()
+})
+
+test('a typed token holds the navigation guard until it is saved or cancelled', async () => {
+  const user = userEvent.setup()
+  const dirty = vi.fn()
+  render(
+    <HeaderObservationsProvider client={header}>
+      <CachedBatch title="Mouser 3381-22">
+        <Settings
+          section="inventree"
+          subsection={undefined}
+          returnTo={undefined}
+          agents={agents()}
+          onDirtyChange={dirty}
+        />
+      </CachedBatch>
+    </HeaderObservationsProvider>,
+  )
+  const row = screen.getByRole('group', { name: 'API token' })
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.type(within(row).getByLabelText('New API token'), 'x')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(within(row).getByRole('button', { name: 'Cancel' }))
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('Use the environment token asks first, then deletes the saved token', async () => {
+  const user = userEvent.setup()
+  const savedAt = new Date().toISOString()
+  header.connection.mockImplementation(async () => savedConnection(savedAt))
+  header.revertInventoryCredential.mockResolvedValueOnce({
+    credential_source: 'environment',
+    credential_saved_at: null,
+  })
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+
+  await user.click(await within(row).findByRole('button', { name: 'Use the environment token…' }))
+  const confirm = within(row).getByRole('group', { name: 'Use the environment token' })
+  await user.click(within(confirm).getByRole('button', { name: 'Keep the saved token' }))
+  expect(header.revertInventoryCredential).not.toHaveBeenCalled()
+
+  await user.click(within(row).getByRole('button', { name: 'Use the environment token…' }))
+  header.connection.mockImplementation(async () => connection())
+  await user.click(
+    within(row).getByRole('button', { name: 'Delete and use the environment token' }),
+  )
+  expect(await within(row).findByText(/Reads use the environment token again/)).toBeVisible()
+  expect(header.revertInventoryCredential).toHaveBeenCalledTimes(1)
+  expect(await within(row).findByText(/token from the server’s environment/)).toBeVisible()
+})
+
+test('Use the environment token is offered only while a saved token is in use', async () => {
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  await within(row).findByText(/token from the server’s environment/)
+  expect(within(row).queryByRole('button', { name: 'Use the environment token…' })).toBeNull()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
   ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
-  ['inventree', ['API token']],
   ['defaults', ['Tags']],
 ]
 

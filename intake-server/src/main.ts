@@ -31,6 +31,9 @@ import {
   type ReadOperation,
   type TargetBinding,
 } from './inventory/transport.ts'
+import { CredentialHolder } from './inventory/credential.ts'
+import { loadSavedCredential } from './inventory/credential-store.ts'
+import { registerInventoryCredential } from './inventory/credential-routes.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -58,6 +61,9 @@ function startupFailureCode(error: unknown) {
     'media_root_required',
     'media_store_identity_mismatch',
     'database_version_quarantined',
+    'secret_file_permissions',
+    'secret_file_invalid',
+    'invalid_secrets_directory',
   ]
   return error instanceof Error && safe.includes(error.message)
     ? error.message
@@ -97,6 +103,8 @@ async function main() {
 
   let server: ReturnType<typeof createServer> | undefined
   try {
+    // A saved replacement other users could read refuses startup, with or without a database.
+    const saved = await loadSavedCredential(config.secretsDir)
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
     server = createServer(config, { mediaEnabled: mediaStore !== undefined })
     registerReadiness(server, db?.pool, config, mediaStore !== undefined)
@@ -107,16 +115,23 @@ async function main() {
       registerLive(server, db.pool, config)
       server.addHook('onClose', closeDatabase)
       // Only the read closure crosses the capture boundary. No browser-supplied origin/key.
-      const transport =
+      const readProfile =
         process.env.INTAKE_READ_ORIGIN && config.apiKey && bootstrap(config).status === 'configured'
-          ? inventoryTransport({
-              kind: 'protected-read-only',
+          ? {
+              kind: 'protected-read-only' as const,
               origin: process.env.INTAKE_READ_ORIGIN,
               targetId: config.targetId,
               contextId: config.targetContextId,
               protectedOrigins: [process.env.INTAKE_READ_ORIGIN],
               credential: config.apiKey,
-            })
+            }
+          : undefined
+      const credential = readProfile
+        ? new CredentialHolder(readProfile.credential, saved)
+        : undefined
+      const transport =
+        readProfile && credential
+          ? inventoryTransport(readProfile, undefined, () => credential.current())
           : undefined
       const targetReads = transport
         ? bindReadOnlyTarget(transport, {
@@ -143,18 +158,31 @@ async function main() {
       const headerConfig = { ...manualConfig, ...processing }
       registerProcessing(server, db.pool, processing, lockCaptureForEdit)
       registerAgents(server, db.pool, processing)
+      const connection = scopedConnectionStatus(
+        db.pool,
+        config,
+        runtime.readOrigin,
+        targetReads?.probe,
+        targetReads?.serverVersion,
+      )
       registerHeader(
         server,
         config,
-        scopedConnectionStatus(
-          db.pool,
-          config,
-          runtime.readOrigin,
-          targetReads?.probe,
-          targetReads?.serverVersion,
-        ),
+        connection,
         (batchId) => headerWork(db.pool, headerConfig, batchId),
+        credential && (() => credential.state()),
       )
+      registerInventoryCredential(server, {
+        secretsDir: config.secretsDir,
+        holder: credential,
+        // A one-off transport for the candidate; the token in use is untouched until it passes.
+        probeWith: (token) =>
+          inventoryTransport({ ...readProfile!, credential: token }).probe({
+            targetId: config.targetId,
+            contextId: config.targetContextId,
+          }),
+        changed: () => connection.reset(),
+      })
       if (mediaStore) {
         // Region crops are cached privately beside, never inside, the blob store.
         registerMediaRoutes(

@@ -46,9 +46,25 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
       queryClient.setQueryData(key, result)
     },
   })
+
+  // The server forgets its observation when the token changes; read the new one at once.
+  async function observeNewToken() {
+    const key = serverQueryKey(scope, 'header-connection')
+    await queryClient.cancelQueries({ queryKey: key })
+    await queryClient.invalidateQueries({ queryKey: key })
+  }
+
+  const replaceToken = useMutation({
+    mutationFn: (token: string) => client.replaceInventoryCredential({ token }),
+    onSuccess: observeNewToken,
+  })
+  const revertToken = useMutation({
+    mutationFn: () => client.revertInventoryCredential(),
+    onSuccess: observeNewToken,
+  })
   useOnForeground(() => {
     void connection.refetch()
     void work.refetch()
   })
-  return { now, connection, work, check }
+  return { now, connection, work, check, replaceToken, revertToken }
 }

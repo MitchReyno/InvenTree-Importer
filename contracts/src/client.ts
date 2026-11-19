@@ -11,7 +11,7 @@ import type {
   ManualRun,
   PreparationTree,
 } from '../generated/api.d.ts'
-import type { HeaderWorkQueryDto } from './header.ts'
+import type { HeaderWorkQueryDto, InventoryCredentialReplaceDto } from './header.ts'
 import type { CaptureListQueryDto } from './capture.ts'
 import type { CatalogueModelDto } from './catalogue.ts'
 import type { BatchDefaultsUpdateDto } from './batch-defaults.ts'
@@ -274,6 +274,13 @@ export function headerClient(baseUrl: string, csrfToken: string, transport: type
     connection: () => successfulData(client.GET('/api/v1/connection-status')),
     /** Probes now; a check in flight or one in the last 5 seconds returns the latest result. */
     checkConnection: () => successfulData(client.POST('/api/v1/connection-status/check')),
+
+    /** Checks the token against InvenTree, then saves it for every later read. */
+    replaceInventoryCredential: (input: InventoryCredentialReplaceDto) =>
+      successfulData(client.PUT('/api/v1/inventory-credential', { body: input })),
+
+    /** Deletes the saved token, so reads use the environment token again. */
+    revertInventoryCredential: () => successfulData(client.DELETE('/api/v1/inventory-credential')),
     work: (query: HeaderWorkQueryDto = {}) =>
       successfulData(client.GET('/api/v1/header-work', { params: { query } })),
   }

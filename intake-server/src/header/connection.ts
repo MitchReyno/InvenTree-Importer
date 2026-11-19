@@ -49,7 +49,8 @@ function navigation(origin: string | undefined): URL | null {
   }
 }
 
-async function probeResult(
+/** Classifies one bounded probe; shared with the token check, so both judge a token alike. */
+export async function probeResult(
   probe: () => Promise<Response>,
 ): Promise<Pick<Observation, 'state' | 'failure_code'>> {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -123,6 +124,11 @@ async function versionResult(read: () => Promise<Response>): Promise<string | nu
 export type ConnectionStatusReader = (() => Promise<ConnectionStatusDto>) & {
   /** Probes now, unless a probe is in flight or a forced check ran in the last 5 seconds. */
   check: () => Promise<ConnectionStatusDto>
+  /**
+   * Forgets the observation and the forced-check window, for a new read token. A probe already
+   * running with the old token can no longer become the observation.
+   */
+  reset: () => void
 }
 
 /** One fixed profile owns one bounded cached observation and one coalesced probe. */
@@ -145,6 +151,8 @@ export function connectionStatus(
   let completed: { at: number; value: Observation } | undefined
   let pending: Promise<void> | undefined
   let lastForced: number | undefined
+  // Counts resets, so a probe started before one can't publish after it.
+  let generation = 0
 
   function unconfigured(): ConnectionStatusDto | undefined {
     if (url && probe) {
@@ -165,11 +173,18 @@ export function connectionStatus(
   }
 
   function probeNow(target: URL, send: () => Promise<Response>) {
-    pending ??= (async () => {
+    if (pending) {
+      return pending
+    }
+    const started = generation
+    const running: Promise<void> = (async () => {
       const [result, read] = await Promise.all([
         probeResult(send),
         version ? versionResult(version) : Promise.resolve(null),
       ])
+      if (started !== generation) {
+        return
+      }
       const at = now()
       completed = {
         at,
@@ -184,9 +199,20 @@ export function connectionStatus(
         },
       }
     })().finally(() => {
-      pending = undefined
+      if (pending === running) {
+        pending = undefined
+      }
     })
-    return pending
+    pending = running
+    return running
+  }
+
+  /** Probes until an observation stands; a reset mid-probe drops that probe's result. */
+  async function observe(target: URL, send: () => Promise<Response>) {
+    await probeNow(target, send)
+    while (!completed) {
+      await probeNow(target, send)
+    }
   }
 
   function latest(): ConnectionStatusDto {
@@ -206,7 +232,7 @@ export function connectionStatus(
       return none
     }
     if (!completed || now() - completed.at >= CACHE_MS || now() < completed.at) {
-      await probeNow(url!, probe!)
+      await observe(url!, probe!)
     }
     return latest()
   }
@@ -217,7 +243,7 @@ export function connectionStatus(
       return none
     }
     if (pending) {
-      await pending
+      await observe(url!, probe!)
       return latest()
     }
     // The window runs from when the last forced check finished, however long it took.
@@ -228,10 +254,17 @@ export function connectionStatus(
     ) {
       return latest()
     }
-    await probeNow(url!, probe!)
+    await observe(url!, probe!)
     lastForced = elapsed()
     return latest()
   }
 
-  return Object.assign(read, { check })
+  function reset() {
+    generation += 1
+    completed = undefined
+    pending = undefined
+    lastForced = undefined
+  }
+
+  return Object.assign(read, { check, reset })
 }

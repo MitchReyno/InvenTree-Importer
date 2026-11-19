@@ -76,6 +76,8 @@ function client(): HeaderClient {
     connection: vi.fn(async () => connection()),
     checkConnection: vi.fn(async () => connection()),
     work: vi.fn(async () => work()),
+    replaceInventoryCredential: vi.fn(),
+    revertInventoryCredential: vi.fn(),
   }
 }
 

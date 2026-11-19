@@ -1000,6 +1000,172 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory-credential": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["InventoryCredentialReplace"];
+                };
+            };
+            responses: {
+                /** @description InventoryCredential */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryCredential"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description InventoryCredential */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryCredential"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/header-work": {
         parameters: {
             query?: never;
@@ -6872,6 +7038,8 @@ export interface components {
                 label: string | null;
                 version?: string | null;
                 kind?: "owned_test" | "configured";
+                credential_source?: "environment" | "saved";
+                credential_saved_at?: string | null;
             };
         };
         HeaderWorkQuery: {
@@ -6960,6 +7128,13 @@ export interface components {
             work_truncated: boolean;
             sessions_truncated: boolean;
             lane_occupied: boolean;
+        };
+        InventoryCredentialReplace: {
+            token: string;
+        };
+        InventoryCredential: {
+            credential_source: "environment" | "saved";
+            credential_saved_at: string | null;
         };
         AttentionItem: {
             key: string;
@@ -19166,6 +19341,8 @@ export type CatalogueCandidates = components['schemas']['CatalogueCandidates']
 export type ConnectionStatus = components['schemas']['ConnectionStatus']
 export type HeaderWorkQuery = components['schemas']['HeaderWorkQuery']
 export type HeaderWork = components['schemas']['HeaderWork']
+export type InventoryCredentialReplace = components['schemas']['InventoryCredentialReplace']
+export type InventoryCredential = components['schemas']['InventoryCredential']
 export type AttentionItem = components['schemas']['AttentionItem']
 export type BatchAttention = components['schemas']['BatchAttention']
 export type InventoryModel = components['schemas']['InventoryModel']

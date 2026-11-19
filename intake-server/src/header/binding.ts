@@ -51,5 +51,5 @@ export function scopedConnectionStatus(
     return result
   }
 
-  return Object.assign(fenced(status), { check: fenced(status.check) })
+  return Object.assign(fenced(status), { check: fenced(status.check), reset: status.reset })
 }

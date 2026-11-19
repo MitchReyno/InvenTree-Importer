@@ -142,6 +142,23 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "PUT /api/v1/inventory-credential",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "InventoryCredential",
+      "requestSchema": "InventoryCredentialReplace"
+    }
+  ],
+  [
+    "DELETE /api/v1/inventory-credential",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "InventoryCredential"
+    }
+  ],
+  [
     "GET /api/v1/header-work",
     {
       "timeoutMs": 10000,

@@ -62,6 +62,21 @@ test('defaults give a writable mock inventory and scripted sessions on the host'
   assert.deepEqual(resolved.ignored, [])
 })
 
+test('the secrets directory is an absolute path from the operator, or left for the launcher to default', () => {
+  assert.equal(resolveDevelopmentSettings({}).secretsDir, null)
+  assert.equal(
+    resolveDevelopmentSettings({ INTAKE_SECRETS_DIR: '/owned/secrets' }).secretsDir,
+    '/owned/secrets',
+  )
+  assert.throws(
+    () => resolveDevelopmentSettings({ INTAKE_SECRETS_DIR: 'secrets' }),
+    (error) =>
+      error instanceof DevelopmentSettingsError &&
+      error.message === 'invalid_development_setting' &&
+      error.names[0].name === 'INTAKE_SECRETS_DIR',
+  )
+})
+
 test('VM agents need sessions; their pairing and port default under the state directory', () => {
   refusal(
     { INTAKE_RUN_AGENTS_IN_VM: 'true', INTAKE_USE_AGENT_SESSIONS: 'false', ...VM },

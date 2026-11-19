@@ -10,7 +10,7 @@ import type {
   ConnectionStatusDto,
 } from '@invimport/contracts'
 import type { BatchDefaultsClient, CatalogueClient } from '#/catalogue/types'
-import type { agentsClient } from '@invimport/contracts/client'
+import { IntakeRequestError, type agentsClient } from '@invimport/contracts/client'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
@@ -90,14 +90,29 @@ const agents = {
   deliverInstructions: async () => ({ sessions: 0 }),
 } as unknown as ReturnType<typeof agentsClient>
 
-// Staged for the demo: once checked, InvenTree has refused the token, and later reads say so.
+// Staged for the demo: once checked, InvenTree has refused the token, and later reads say so,
+// until a replacement is saved. The fixture refuses a replacement spelled `refused-token`.
 let tokenRefused = false
+let savedAt: string | null = null
 
 const header: HeaderClient = {
   checkConnection: async () => {
     await new Promise((resolve) => setTimeout(resolve, 900))
-    tokenRefused = true
+    tokenRefused = savedAt === null
     return header.connection()
+  },
+  replaceInventoryCredential: async ({ token }) => {
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    if (token === 'refused-token') {
+      throw new IntakeRequestError(422, 'token_refused')
+    }
+    tokenRefused = false
+    savedAt = new Date().toISOString()
+    return { credential_source: 'saved', credential_saved_at: savedAt }
+  },
+  revertInventoryCredential: async () => {
+    savedAt = null
+    return { credential_source: 'environment', credential_saved_at: null }
   },
   connection: async (): Promise<ConnectionStatusDto> =>
     ({
@@ -111,6 +126,8 @@ const header: HeaderClient = {
         navigation_url: 'https://inventory.example.test/',
         label: 'Bench test InvenTree',
         version: tokenRefused ? null : '1.1.0',
+        credential_source: savedAt ? 'saved' : 'environment',
+        credential_saved_at: savedAt,
       },
     }) as ConnectionStatusDto,
   work: async () => ({

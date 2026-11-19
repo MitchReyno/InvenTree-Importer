@@ -8,6 +8,34 @@ import { SessionLatestStatus, SessionState } from './sessions.ts'
 const choice = <const T extends readonly string[]>(values: T) =>
   Type.Union(values.map((value) => Type.Literal(value)))
 
+/** The read token in use: the server's environment token, or one saved through Settings. */
+export const InventoryCredentialSource = choice(['environment', 'saved'])
+
+/** Longest replacement token accepted, in characters. */
+export const MAX_INVENTORY_TOKEN_LENGTH = 4096
+
+/** A replacement read token. Write-only: no response ever carries it. */
+export const InventoryCredentialReplace = Type.Object(
+  {
+    token: Type.String({
+      minLength: 1,
+      maxLength: MAX_INVENTORY_TOKEN_LENGTH,
+      // Printable ASCII without spaces, as InvenTree issues them.
+      pattern: '^[!-~]+$',
+    }),
+  },
+  { additionalProperties: false },
+)
+
+/** Which read token is in use after a replace or revert. */
+export const InventoryCredential = Type.Object(
+  {
+    credential_source: InventoryCredentialSource,
+    credential_saved_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
+  },
+  { additionalProperties: false },
+)
+
 export const ConnectionStatus = Type.Object(
   {
     actor_id: Id,
@@ -42,6 +70,12 @@ export const ConnectionStatus = Type.Object(
         ),
         /** The owned test target or a configured InvenTree; absent means configured. */
         kind: Type.Optional(choice(['owned_test', 'configured'])),
+        /** Which read token reads use; never the token itself. */
+        credential_source: Type.Optional(InventoryCredentialSource),
+        /** When the saved token was written; null while the environment token is in use. */
+        credential_saved_at: Type.Optional(
+          Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
+        ),
       },
       { additionalProperties: false },
     ),
@@ -152,4 +186,13 @@ export const HeaderWork = object({
 export type HeaderWorkDto = Static<typeof HeaderWork>
 export type HeaderWorkQueryDto = Static<typeof HeaderWorkQuery>
 
-export const headerSchemas = { ConnectionStatus, HeaderWorkQuery, HeaderWork }
+export type InventoryCredentialReplaceDto = Static<typeof InventoryCredentialReplace>
+export type InventoryCredentialDto = Static<typeof InventoryCredential>
+
+export const headerSchemas = {
+  ConnectionStatus,
+  HeaderWorkQuery,
+  HeaderWork,
+  InventoryCredentialReplace,
+  InventoryCredential,
+}

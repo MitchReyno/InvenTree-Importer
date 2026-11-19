@@ -1,5 +1,6 @@
 import { Bootstrap, validate, type BootstrapDto } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
+import { isAbsolute } from 'node:path'
 import type { ProcessingConfig } from './processing/attempts.ts'
 import { canonicalSourceUrl } from './research/source-policy.ts'
 import {
@@ -17,6 +18,8 @@ export interface DevConfig {
   apiKey?: string
   /** The owned test fake in development, otherwise a configured InvenTree. */
   targetKind?: 'owned_test' | 'configured'
+  /** Owner-only directory for a replacement read token; without it, replacement is refused. */
+  secretsDir?: string
 }
 
 export interface RuntimeFeatures {
@@ -34,6 +37,7 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
     apiKey: env.INTAKE_DEV_API_KEY,
     targetKind:
       env.INTAKE_TARGET_PROFILE === 'fake' ? ('owned_test' as const) : ('configured' as const),
+    secretsDir: env.INTAKE_SECRETS_DIR || undefined,
   }
   const url = new URL(config.origin)
   if (url.hostname !== '127.0.0.1' || url.protocol !== 'http:' || url.origin !== config.origin) {
@@ -41,6 +45,10 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
   }
   if (!/^[a-zA-Z0-9_-]{1,128}$/.test(config.credentialRef)) {
     throw new Error('invalid_credential_reference')
+  }
+  // Relative paths would follow the server's working directory, not the operator's intent.
+  if (config.secretsDir !== undefined && !isAbsolute(config.secretsDir)) {
+    throw new Error('invalid_secrets_directory')
   }
   validate('Bootstrap', bootstrap(config))
   return Object.freeze(config)

@@ -24,11 +24,17 @@ PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings st
 - **2026-11-19, task 9 (PR-D):** Providers and "Provider and model per step" are one form with one Save, but Sessions sits between them on the page. `ProvidersAndSteps` renders both subsections around the Sessions subsection it is given, and shows the same Save under the default provider and under the steps. The sessions stepper moved from the provider form to Sessions, with its own Save.
 - **2026-11-19, task 9 (PR-D):** The provider On control, "Suggest tags for new batches" and the step choices are a checkbox and selects, not a `Switch`: the design system keeps `Switch` for settings that apply at once, and these wait for Save. A step's model is a text field with the provider's presets as suggestions, so a model outside them can be typed.
 
+- **2026-11-19, task 11 (PR-E):** Connection status reports the token in use as `target.credential_source` and `target.credential_saved_at`, not a bare `saved_at`, so the name says what was saved. The commands answer with the same two fields.
+- **2026-11-19, task 11 (PR-E):** The plan asked for request-log redaction. Fastify's request logging is off and no handler logs a body, so there is nothing to redact. The tests plant a token and check every response, error and startup line for it instead.
+- **2026-11-19, task 11 (PR-E):** Startup loads the saved token before the database and media setup, so a file other users can read stops the server with `secret_file_permissions` whether or not a database is configured.
+
 ## Unexpected challenges
 
 - **2026-11-19, task 9 (PR-D):** React Hook Form 7.91's `reset()` drops its field refs, so an uncontrolled textarea kept showing the old text after Reload until it re-registered. `useSubsectionForm` sets each field after the reset.
 
 - **2026-11-19T14:40+11:00, task 2:** pnpm refuses nested workspace scripts (`pnpm typecheck`) when `node_modules` is a symlink to the main checkout (`ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH`). The worktree uses its own `pnpm install --frozen-lockfile` instead; the lockfile is unchanged.
+
+- **2026-11-19, task 11 (PR-E):** `inventoryTransport` deep-copies its profile with `structuredClone`, which can't copy a function, so the `CredentialHolder` can't sit in the profile. The transport takes an optional third argument that supplies the token per request.
 
 ## Decisions made during implementation
 
@@ -38,6 +44,10 @@ PR-A (debug mode and the Dev mode popover) merged in #225, PR-B (the Settings st
 - **2026-11-19, task 6 (PR-C):** An over-long description style or instruction text is refused by the contract (400) before the settings checks run. `invalid_agent_settings` (422) covers the provider and step rules, any model over 128 characters, and text PostgreSQL can't store unchanged (NUL or an unpaired surrogate).
 - **2026-11-19, task 6 (PR-C):** The style is sealed as an optional `part_description_style` on the session input, so inputs sealed before it still decode; it is left out when no style is saved.
 - **2026-11-19, task 8 (PR-C):** The connection reader stays callable and gains `check()`, so existing reads and tests are unchanged. The check mutation lives in the shared header observations, so the server menu and Settings share one pending state.
+
+- **2026-11-19, task 11 (PR-E):** `saved_at` is the saved file's modification time, which the rename keeps; there is no second metadata file to keep in step. The secrets directory must be owner-only too, or startup and saving refuse it.
+- **2026-11-19, task 11 (PR-E):** Replacing the token needs a configured read target. Without `INTAKE_DEV_API_KEY` the app is in setup mode, bootstrap keeps depending only on that key, and the commands answer `setup_required`.
+- **2026-11-19, task 11 (PR-E):** A reset of the connection reader counts generations, so a probe still running with the old token can't become the observation after a replace or revert; a read or check waiting on it probes again.
 
 ## Open items
 
