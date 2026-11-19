@@ -144,31 +144,66 @@ export async function requireStableAncestors(directory: string | undefined) {
   if (!directory) {
     return
   }
-  const owner = process.getuid?.()
   let ancestor = dirname(directory)
   for (;;) {
-    // Ancestors that don't exist yet are created later by this process, owner-only.
-    const info = await lstat(ancestor).catch((error: unknown) => {
-      if (errorCode(error) === 'ENOENT') {
-        return undefined
-      }
-      throw error
-    })
+    // Ancestors that don't exist yet are created later, top-down, each checked as it is made.
+    if (await lstat(ancestor).catch(() => undefined)) {
+      await requireStableAncestor(ancestor)
+    }
     const parent = dirname(ancestor)
-    if (!info) {
-      ancestor = parent
-      continue
-    }
-    const ownedSafely = owner === undefined || info.uid === 0 || info.uid === owner
-    const othersWrite = (info.mode & SHARED_WRITE) !== 0 && (info.mode & STICKY) === 0
-    if (!ownedSafely || othersWrite || (await accessListGrants(ancestor))) {
-      throw new SecretStoreError('secret_file_permissions')
-    }
     if (parent === ancestor) {
       return
     }
     ancestor = parent
   }
+}
+
+/** One ancestor: owned by root or this user, unwritable by others unless sticky, no grants. */
+async function requireStableAncestor(ancestor: string) {
+  const owner = process.getuid?.()
+  const info = await lstat(ancestor)
+  const ownedSafely = owner === undefined || info.uid === 0 || info.uid === owner
+  const othersWrite = (info.mode & SHARED_WRITE) !== 0 && (info.mode & STICKY) === 0
+  // A link owned by root or this user can only be changed by whoever can write its parent,
+  // which is checked as the next ancestor.
+  const plainDirectory = info.isDirectory() || info.isSymbolicLink()
+  if (!plainDirectory || !ownedSafely || othersWrite || (await accessListGrants(ancestor))) {
+    throw new SecretStoreError('secret_file_permissions')
+  }
+}
+
+/**
+ * Creates the secrets directory one component at a time from the top, checking each before
+ * going deeper, so no component can be slipped in by another user between a check and the
+ * next mkdir. Every created or found ancestor must pass the ancestor rules; the directory
+ * itself must be owner-only.
+ */
+async function createPrivateDirectory(directory: string) {
+  const missing: string[] = []
+  let existing = directory
+  while (!(await lstat(existing).catch(() => undefined))) {
+    missing.unshift(existing)
+    const parent = dirname(existing)
+    if (parent === existing) {
+      break
+    }
+    existing = parent
+  }
+  for (const component of missing) {
+    try {
+      await mkdir(component, { mode: 0o700 })
+    } catch (error) {
+      if (errorCode(error) !== 'EEXIST') {
+        throw error
+      }
+    }
+    if (component !== directory) {
+      await requireStableAncestor(component)
+    }
+  }
+  // Every ancestor again, now all exist: one made by someone else just before the walk counts.
+  await requireStableAncestors(directory)
+  await requirePrivateDirectory(directory)
 }
 
 /** Marks the store as this process's while it runs: a directory holding the owner's PID. */
@@ -187,10 +222,36 @@ function processAlive(pid: number) {
   }
 }
 
-async function lockOwner(lock: string) {
-  const text = await readFile(join(lock, OWNER_FILE), 'utf8').catch(() => '')
+/** Who holds the lock: absent, a PID, or unreadable (which is never treated as stale). */
+async function lockOwner(lock: string): Promise<'absent' | 'unknown' | number> {
+  let text
+  try {
+    text = await readFile(join(lock, OWNER_FILE), 'utf8')
+  } catch (error) {
+    if (errorCode(error) !== 'ENOENT') {
+      return 'unknown'
+    }
+    return (await lstat(lock).catch(() => undefined)) ? 'unknown' : 'absent'
+  }
   const pid = Number(text.trim())
-  return Number.isInteger(pid) && pid > 0 ? pid : undefined
+  return Number.isInteger(pid) && pid > 0 ? pid : 'unknown'
+}
+
+/**
+ * Removes a lock by first renaming it aside in one step. Deleting it in place would briefly
+ * leave an empty directory, which another starter's rename could replace with its own lock.
+ */
+async function removeLock(directory: string, lock: string) {
+  const aside = join(directory, `${LOCK_DIRECTORY}.${randomUUID()}.removed`)
+  try {
+    await rename(lock, aside)
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') {
+      return
+    }
+    throw error
+  }
+  await rm(aside, { recursive: true, force: true })
 }
 
 /**
@@ -220,7 +281,7 @@ async function placeLock(directory: string, lock: string) {
  * so a lock another starter has claimed meanwhile is never touched. A starter that can't take
  * the recovery lock is refused rather than guessing.
  */
-async function recoverStale(directory: string, lock: string, deadOwner: number | undefined) {
+async function recoverStale(directory: string, lock: string, deadOwner: number) {
   const recovery = join(directory, `${LOCK_DIRECTORY}.recovery`)
   try {
     await mkdir(recovery, { mode: 0o700 })
@@ -233,7 +294,7 @@ async function recoverStale(directory: string, lock: string, deadOwner: number |
   }
   try {
     if ((await lockOwner(lock)) === deadOwner) {
-      await rm(lock, { recursive: true, force: true })
+      await removeLock(directory, lock)
     }
   } finally {
     await rm(recovery, { recursive: true, force: true })
@@ -250,8 +311,7 @@ export async function claimStore(directory: string | undefined): Promise<() => P
   if (!directory) {
     return async () => undefined
   }
-  await mkdir(directory, { recursive: true, mode: 0o700 })
-  await requirePrivateDirectory(directory)
+  await createPrivateDirectory(directory)
   const lock = join(directory, LOCK_DIRECTORY)
   try {
     for (let attempt = 0; attempt < MAX_CLAIM_ATTEMPTS; attempt += 1) {
@@ -263,12 +323,16 @@ export async function claimStore(directory: string | undefined): Promise<() => P
           }
           released = true
           if ((await lockOwner(lock)) === process.pid) {
-            await rm(lock, { recursive: true, force: true })
+            await removeLock(directory, lock)
           }
         }
       }
       const owner = await lockOwner(lock)
-      if (owner !== undefined && processAlive(owner)) {
+      if (owner === 'absent') {
+        // Released meanwhile: try the atomic claim again rather than recovering anything.
+        continue
+      }
+      if (owner === 'unknown' || processAlive(owner)) {
         throw new SecretStoreError('secret_store_in_use')
       }
       await recoverStale(directory, lock, owner)
@@ -431,8 +495,7 @@ export async function saveCredential(
   })
   let savedAt: string
   try {
-    await mkdir(directory, { recursive: true, mode: 0o700 })
-    await requirePrivateDirectory(directory)
+    await createPrivateDirectory(directory)
     const file = await open(temporary, 'wx', 0o600)
     try {
       // A new file can inherit an access list from its directory; check before any token byte.

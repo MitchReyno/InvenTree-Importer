@@ -443,6 +443,46 @@ test('a recovery left mid-way is never expired: claims stay refused until it is 
   await owner()
 })
 
+test('a lock whose owner cannot be read is never recovered', async (t) => {
+  const directory = await secretsDir(t)
+  await mkdir(directory, { mode: 0o700 })
+  const lock = join(directory, '.inventory-read-token.lock')
+  await mkdir(lock, { mode: 0o700 })
+  await writeFile(join(lock, 'pid'), 'not-a-pid', { mode: 0o600 })
+
+  await assert.rejects(claimStore(directory), { code: 'secret_store_in_use' })
+
+  assert.equal(await readFile(join(lock, 'pid'), 'utf8'), 'not-a-pid', 'the lock is untouched')
+})
+
+test('a directory slipped in above the store by someone else is caught when the store is made', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  // As if created between the startup check and the store's own mkdir.
+  const slipped = join(parent, 'slipped')
+  await mkdir(slipped)
+  await chmod(slipped, 0o777)
+  const directory = join(await realpath(parent), 'slipped', 'nested', 'secrets')
+
+  await assert.rejects(claimStore(directory), { code: 'secret_file_permissions' })
+  await assert.rejects(saveCredential(directory, PLANTED, TARGET), {
+    code: 'secret_file_permissions',
+  })
+})
+
+test('missing ancestors are created owner-only, one at a time', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-ancestors-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const directory = join(await realpath(parent), 'a', 'b', 'secrets')
+
+  const release = await claimStore(directory)
+  await release()
+
+  for (const created of ['a', 'a/b', 'a/b/secrets']) {
+    assert.equal((await stat(join(parent, created))).mode & 0o777, 0o700, created)
+  }
+})
+
 test('overlapping claims leave exactly one owner', async (t) => {
   const directory = await secretsDir(t)
   await mkdir(directory, { mode: 0o700 })
