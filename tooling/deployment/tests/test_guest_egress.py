@@ -1644,6 +1644,50 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         client.transport.abort.assert_called_once()
         self.assertEqual(egress.public_tunnels, 0)
 
+    async def test_cancelled_relay_join_still_closes_and_releases_everything(self):
+        self.write_policy()
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        draining = asyncio.Event()
+        release = asyncio.Event()
+        self.addCleanup(release.set)
+
+        drains = []
+
+        async def stubborn_drain():
+            # After the 200, a relay write whose drain outlasts its own cancellation.
+            drains.append(None)
+            if len(drains) == 1:
+                return
+            draining.set()
+            cancelled = False
+            while not release.is_set():
+                try:
+                    await release.wait()
+                except asyncio.CancelledError:
+                    cancelled = True
+            if cancelled:
+                raise asyncio.CancelledError()
+
+        client.drain = AsyncMock(side_effect=stubborn_drain)
+        self.guest_dns = Mock(side_effect=dns({"www.ti.com": [PUBLIC]}))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            remote.feed_data(b"response")
+            await asyncio.wait_for(draining.wait(), 2)
+            stream.feed_eof()
+            await asyncio.sleep(0.05)
+            self.assertFalse(tunnel.done())
+            tunnel.cancel()
+            release.set()
+            await asyncio.gather(tunnel, return_exceptions=True)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+        self.assertEqual(egress.public_tunnels, 0)
+        self.assertEqual(egress.PROTECTED_LOOKUPS.tunnels, {})
+
 
 if __name__ == "__main__":
     unittest.main()

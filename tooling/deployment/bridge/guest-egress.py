@@ -699,15 +699,25 @@ async def handle(reader, client):
             asyncio.TimeoutError):
         pass
     finally:
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
         # The address stays watched until both streams are closed or aborted, and a public
         # tunnel keeps its slot until then, so neither outlives a socket still flushing.
+        streams = [writer for writer in (upstream, client) if writer]
+        closing = False
         try:
-            await close_tunnel([writer for writer in (upstream, client) if writer], revoked, drop)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            closing = True
+            await close_tunnel(streams, revoked, drop)
+        except asyncio.CancelledError:
+            # Cancelled before the close began: nothing has closed the streams, so abort them.
+            # A close cancelled midway has already aborted what was open.
+            if not closing:
+                for writer in streams:
+                    abort(writer)
+            raise
         finally:
-            # Even a cancelled close gives back the watches and the slot.
+            # Even a cancelled teardown gives back the watches and the slot.
             for _revocation, stop in answer_watches:
                 stop()
             if counted:
