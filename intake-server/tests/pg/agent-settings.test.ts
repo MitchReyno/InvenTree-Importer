@@ -689,13 +689,14 @@ test('a VM web session opens with its sealed web research, outside the instructi
       assert.doesNotMatch(turn.instructions, /Public web pages are|Prefer manufacturer datasheets/)
       return (JSON.parse(turn.text) as { instructions: string }).instructions
     }
-    const on = await opening({ public_pages: true, prefer_datasheets: true }, 'research')
-    assert.match(on, /Public web pages are allowed/)
-    assert.match(on, /Prefer manufacturer datasheets over distributor pages/)
-    const off = await opening({ public_pages: false, prefer_datasheets: false }, 'images')
-    assert.match(off, /Public web pages are not available/)
-    assert.match(off, /rely on search results and the staged evidence/)
-    assert.doesNotMatch(off, /Prefer manufacturer datasheets/)
+    // Mixed pairs, so each line follows its own setting.
+    const pagesOnly = await opening({ public_pages: true, prefer_datasheets: false }, 'research')
+    assert.match(pagesOnly, /Public web pages are allowed/)
+    assert.doesNotMatch(pagesOnly, /Prefer manufacturer datasheets/)
+    const datasheetsOnly = await opening({ public_pages: false, prefer_datasheets: true }, 'images')
+    assert.match(datasheetsOnly, /Public web pages are not available/)
+    assert.match(datasheetsOnly, /rely on search results and the staged evidence/)
+    assert.match(datasheetsOnly, /Prefer manufacturer datasheets over distributor pages/)
     assert.equal(turns.length, 2)
   } finally {
     await fixture.dispose()
