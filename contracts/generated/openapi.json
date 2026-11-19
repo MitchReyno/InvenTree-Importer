@@ -74569,6 +74569,7 @@
                     "id",
                     "category",
                     "summary",
+                    "recovery",
                     "details_available"
                   ],
                   "properties": {
@@ -74618,6 +74619,10 @@
                     },
                     "summary": {
                       "maxLength": 256,
+                      "type": "string"
+                    },
+                    "recovery": {
+                      "maxLength": 512,
                       "type": "string"
                     },
                     "details_available": {
@@ -74821,6 +74826,7 @@
               "id",
               "category",
               "summary",
+              "recovery",
               "details_available"
             ],
             "properties": {
@@ -74870,6 +74876,10 @@
               },
               "summary": {
                 "maxLength": 256,
+                "type": "string"
+              },
+              "recovery": {
+                "maxLength": 512,
                 "type": "string"
               },
               "details_available": {
@@ -81838,6 +81848,7 @@
           "id",
           "category",
           "summary",
+          "recovery",
           "details_available",
           "attempt_id",
           "lineage_id",
@@ -81851,7 +81862,6 @@
           "cli_version",
           "provider_session_id",
           "causes",
-          "recovery",
           "truncated"
         ],
         "properties": {
@@ -81901,6 +81911,10 @@
           },
           "summary": {
             "maxLength": 256,
+            "type": "string"
+          },
+          "recovery": {
+            "maxLength": 512,
             "type": "string"
           },
           "details_available": {
@@ -82017,10 +82031,6 @@
               }
             }
           },
-          "recovery": {
-            "maxLength": 512,
-            "type": "string"
-          },
           "truncated": {
             "type": "boolean"
           }
@@ -82033,6 +82043,7 @@
           "id",
           "category",
           "summary",
+          "recovery",
           "details_available"
         ],
         "properties": {
@@ -82082,6 +82093,10 @@
           },
           "summary": {
             "maxLength": 256,
+            "type": "string"
+          },
+          "recovery": {
+            "maxLength": 512,
             "type": "string"
           },
           "details_available": {

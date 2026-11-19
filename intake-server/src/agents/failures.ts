@@ -52,8 +52,8 @@ export async function latestSessionFailures(client: Pool | PoolClient, attemptId
   const summaries = new Map<string, SessionFailureSummaryDto>()
   for (const row of result.rows) {
     validate('SessionFailure', row.diagnostic)
-    const { id, category, summary, details_available } = row.diagnostic
-    summaries.set(row.attempt_id, { id, category, summary, details_available })
+    const { id, category, summary, recovery, details_available } = row.diagnostic
+    summaries.set(row.attempt_id, { id, category, summary, recovery, details_available })
   }
   return summaries
 }

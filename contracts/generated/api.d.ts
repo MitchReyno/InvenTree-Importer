@@ -17162,6 +17162,7 @@ export interface components {
                     id: string;
                     category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
                     summary: string;
+                    recovery: string;
                     details_available: boolean;
                 };
                 latest_status: {
@@ -17208,6 +17209,7 @@ export interface components {
                 id: string;
                 category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
                 summary: string;
+                recovery: string;
                 details_available: boolean;
             };
             job_id: string;
@@ -18475,6 +18477,7 @@ export interface components {
             id: string;
             category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
             summary: string;
+            recovery: string;
             details_available: boolean;
             attempt_id: string;
             lineage_id: string;
@@ -18492,13 +18495,13 @@ export interface components {
                 code: string;
                 summary: string;
             }[];
-            recovery: string;
             truncated: boolean;
         };
         SessionFailureSummary: {
             id: string;
             category: "authentication" | "configuration" | "tool_policy" | "validation" | "evidence" | "provider_network" | "timeout" | "interrupted" | "internal";
             summary: string;
+            recovery: string;
             details_available: boolean;
         };
         EvidenceRegion: {
