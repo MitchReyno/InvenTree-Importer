@@ -80,7 +80,8 @@ export function ProvidersAndSteps({
       {noProvider && <Small role="alert">Turn on at least one provider to save providers.</Small>}
       <SaveBar
         state={state}
-        busy={busy || waiting}
+        busy={busy}
+        waiting={waiting}
         dirty={dirty}
         onSave={submit}
         onReload={() => {

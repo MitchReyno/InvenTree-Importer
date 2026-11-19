@@ -38,7 +38,8 @@ export function TagSuggestionsForm(props: SubsectionFormProps) {
           </CheckboxLabel>
           <SaveBar
             state={state}
-            busy={busy || waiting}
+            busy={busy}
+            waiting={waiting}
             savedMessage="Saved. Batches created from now on start with this; existing batches keep theirs."
             onSave={save}
             onReload={reload}

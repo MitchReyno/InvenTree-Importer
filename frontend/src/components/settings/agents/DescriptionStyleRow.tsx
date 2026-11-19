@@ -50,7 +50,8 @@ export function DescriptionStyleRow(props: SubsectionFormProps) {
           </Small>
           <SaveBar
             state={state}
-            busy={busy || waiting}
+            busy={busy}
+            waiting={waiting}
             onSave={save}
             onReload={reload}
             onDiscard={discard}

@@ -53,7 +53,8 @@ export function InstructionsForm(props: SubsectionFormProps) {
             )}
             <SaveBar
               state={state}
-              busy={busy || waiting}
+              busy={busy}
+              waiting={waiting}
               savedMessage="Saved. Batches created from now on start with these instructions; existing batches keep theirs."
               onSave={save}
               onReload={reload}

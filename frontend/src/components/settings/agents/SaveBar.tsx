@@ -27,6 +27,7 @@ export function SaveBar({
   label = 'Save',
   savedMessage = MESSAGE.saved,
   dirty = false,
+  waiting = false,
   onSave,
   onReload,
   onDiscard,
@@ -38,6 +39,8 @@ export function SaveBar({
   savedMessage?: string
   /** Whether the form has an edit, which Discard my edit can drop. */
   dirty?: boolean
+  /** Another subsection's save is running: this Save waits, recovery stays available. */
+  waiting?: boolean
   onSave: () => void
   /** Loads the saved settings into this form, dropping its edit. */
   onReload: () => void
@@ -46,7 +49,7 @@ export function SaveBar({
 }) {
   const message = state === 'saved' ? savedMessage : MESSAGE[state]
   // Until a Reload shows what is saved, another Save could hide an earlier one's outcome.
-  const blocked = busy || RELOAD[state] !== undefined
+  const blocked = busy || waiting || RELOAD[state] !== undefined
 
   return (
     <Bar>

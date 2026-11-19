@@ -739,6 +739,10 @@ test('a second subsection waits for the first save, then saves on its revision',
   fireEvent.change(instructions, { target: { value: 'Mine' } })
   const save = within(card('Instructions')).getByRole('button', { name: 'Save' })
   expect(save).toHaveAttribute('aria-disabled', 'true')
+  // The draft can still be discarded while it waits.
+  expect(
+    within(card('Instructions')).getByRole('button', { name: 'Discard my edit' }),
+  ).not.toHaveAttribute('aria-disabled')
   fireEvent.click(save)
   expect(api.saveSettings).toHaveBeenCalledTimes(1)
   await act(async () => finish({ ...initial, revision: '8', session_concurrency: 2 }))
