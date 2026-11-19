@@ -13,6 +13,7 @@ import {
 import type { CaptureBinding } from '#/capture/model.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
 import { fail } from '#/processing/model.ts'
+import { storableText } from '#/db/storable-text.ts'
 import { agentProviderSettings, agentSettings } from './schema.ts'
 
 export const DEFAULT_SESSION_CONCURRENCY = 3
@@ -126,10 +127,10 @@ function checkAgentSettings(input: AgentSettingsUpdateDto) {
   const defaultOn =
     input.default_provider !== null && input.providers[input.default_provider].enabled
   const invalid =
-    // Even a provider that is off keeps a model the column can store, and PostgreSQL text holds
-    // no NUL.
+    // Even a provider that is off keeps a model the column can store. Text with a NUL can't be
+    // stored, and an unpaired surrogate would be changed on the way in.
     PROVIDERS.some((provider) => input.providers[provider].default_model.length > 128) ||
-    storedText(input).some((text) => text.includes('\u0000')) ||
+    storedText(input).some((text) => !storableText(text)) ||
     on.some((provider) => !MODEL_ID.test(input.providers[provider].default_model)) ||
     (on.length > 0 ? !defaultOn : input.default_provider !== null) ||
     AGENT_SETTINGS_STAGES.some((stage) => {

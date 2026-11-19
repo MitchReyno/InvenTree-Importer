@@ -508,6 +508,7 @@ test('an over-long model or text with a NUL is an invalid settings error', async
       },
       { ...base, part_description_style: 'Type\u0000value' },
       { ...base, new_batch_instructions: 'Count\u0000reels' },
+      { ...base, new_batch_instructions: 'Count \ud800 reels' },
       {
         ...base,
         providers: { ...base.providers, claude: { ...base.providers.claude, default_model: long } },

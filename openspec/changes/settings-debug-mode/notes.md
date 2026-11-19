@@ -28,7 +28,7 @@ PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings
 ## Decisions made during implementation
 
 - **2026-11-19, task 6 (PR-C):** The model suggestion lists moved to contracts (`AGENT_MODEL_SUGGESTIONS`), because the server needs each provider's first suggestion for unsaved settings and the migration backfill.
-- **2026-11-19, task 6 (PR-C):** An over-long description style or instruction text is refused by the contract (400) before the settings checks run; `invalid_agent_settings` (422) covers the provider and step rules only.
+- **2026-11-19, task 6 (PR-C):** An over-long description style or instruction text is refused by the contract (400) before the settings checks run. `invalid_agent_settings` (422) covers the provider and step rules, any model over 128 characters, and text PostgreSQL can't store unchanged (NUL or an unpaired surrogate).
 - **2026-11-19, task 6 (PR-C):** The style is sealed as an optional `part_description_style` on the session input, so inputs sealed before it still decode; it is left out when no style is saved.
 - **2026-11-19, task 8 (PR-C):** The connection reader stays callable and gains `check()`, so existing reads and tests are unchanged. The check mutation lives in the shared header observations, so the server menu and Settings share one pending state.
 

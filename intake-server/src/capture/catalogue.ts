@@ -11,6 +11,7 @@ import {
 import { strictJson } from '@invimport/contracts/json'
 import type { ListOperation, ReadOperation } from '#/inventory/transport.ts'
 import { readBoundedBody } from './bounded-body.ts'
+import { storableText } from '#/db/storable-text.ts'
 import { fail } from './model.ts'
 
 export type { ListOperation }
@@ -69,7 +70,12 @@ function boundedText(value: unknown, { required }: { required: boolean }): strin
   if (value === null && !required) {
     return ''
   }
-  if (typeof value !== 'string' || [...value].length > TEXT_MAX_CHARACTERS) {
+  // Text a record or observation can't store, such as NUL or an unpaired surrogate, is refused.
+  if (
+    typeof value !== 'string' ||
+    [...value].length > TEXT_MAX_CHARACTERS ||
+    !storableText(value)
+  ) {
     invalid()
   }
   if (required && (value.length === 0 || [...value].length > 256)) {

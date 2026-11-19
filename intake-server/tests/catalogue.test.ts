@@ -337,3 +337,16 @@ test('valid pages up to the page limit parse; the snapshot budget covers every p
     'later requests receive only the remaining budget',
   )
 })
+
+test('a record whose name cannot be stored is unavailable, never found', async () => {
+  for (const name of ['Drawer\u00004', 'Drawer \ud800']) {
+    const catalogue = reader(
+      async () => page([]),
+      async () =>
+        new Response(JSON.stringify(location(41, name)), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    assert.deepEqual(await catalogue.record('location', '41'), { status: 'unavailable' })
+  }
+})
