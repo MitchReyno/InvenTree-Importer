@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { constants, type Stats } from 'node:fs'
-import { realpathSync } from 'node:fs'
+import { realpathSync, statSync } from 'node:fs'
 import {
   lstat,
   mkdir,
@@ -198,7 +198,12 @@ async function walkTrusted(path: string, links: { followed: number }, store: boo
       if (links.followed > MAX_LINKS_FOLLOWED) {
         throw new SecretStoreError('secret_file_permissions')
       }
-      const target = resolve(current, await readlink(next))
+      const written = await readlink(next)
+      // `..` after a link means the link's parent on disk, not the path's: refused, not guessed.
+      if (written.split(/[\\/]/).includes('..')) {
+        throw new SecretStoreError('secret_file_permissions')
+      }
+      const target = resolve(current, written)
       current = await walkTrusted(target, links, store && last)
       continue
     }
@@ -440,10 +445,50 @@ export async function requireUnpublished(
   const secrets = await canonical(resolve(directory))
   for (const root of published) {
     const served = await canonical(resolve(root))
-    if (within(secrets, served) || within(served, secrets)) {
+    // Spellings first, then identities: one directory can have two real paths (macOS volumes).
+    const overlapping =
+      within(secrets, served) ||
+      within(served, secrets) ||
+      containsIdentity(secrets, served) ||
+      containsIdentity(served, secrets)
+    if (overlapping) {
       throw new SecretStoreError('invalid_secrets_directory')
     }
   }
+}
+
+/** A directory's identity, which no spelling of its path can change. */
+function identity(info: Stats) {
+  return `${info.dev}:${info.ino}`
+}
+
+/** The identities of a path and every ancestor that exists, after following links. */
+function chainIdentities(path: string) {
+  const found = new Set<string>()
+  let current = path
+  for (;;) {
+    try {
+      found.add(identity(statSync(current)))
+    } catch {
+      // A part not yet created has no identity; its ancestors still do.
+    }
+    const parent = dirname(current)
+    if (parent === current) {
+      return found
+    }
+    current = parent
+  }
+}
+
+/** Whether `inner` is `outer` or below it, judged by directory identity. */
+function containsIdentity(inner: string, outer: string) {
+  let outerInfo
+  try {
+    outerInfo = statSync(outer)
+  } catch {
+    return false
+  }
+  return chainIdentities(inner).has(identity(outerInfo))
 }
 
 /**
@@ -463,7 +508,7 @@ export async function servesOutside(directory: string | undefined) {
       // A file that doesn't exist is answered as not found anyway.
       return true
     }
-    return !within(actual, secrets)
+    return !within(actual, secrets) && !containsIdentity(actual, secrets)
   }
 }
 

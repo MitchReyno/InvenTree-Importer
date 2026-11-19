@@ -1,6 +1,7 @@
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { once } from 'node:events'
 import {
   chmod,
@@ -36,6 +37,7 @@ import {
   requireUnpublished,
   openSecretsDir,
   saveCredential,
+  servesOutside,
 } from '#/inventory/credential-store.ts'
 import {
   registerInventoryCredential,
@@ -562,6 +564,43 @@ test('the server refuses to start through a planted link to another store', asyn
   assert.equal(code, 1)
   assert.match(output, /"code":"secret_file_permissions"/)
   assert.ok(!output.includes(PLANTED))
+})
+
+test(
+  'a secrets directory under the published app through another spelling of the same directory is refused',
+  {
+    skip:
+      !existsSync('/System/Volumes/Data/private') &&
+      'needs the macOS data-volume alias, which names the same directories twice',
+  },
+  async (t) => {
+    const parent = await realpath(await mkdtemp(join(tmpdir(), 'intake-alias-')))
+    t.after(() => rm(parent, { recursive: true, force: true }))
+    const dist = join(parent, 'dist')
+    await mkdir(dist)
+    const aliased = join('/System/Volumes/Data', dist, 'secrets')
+    await mkdir(join(dist, 'secrets'), { mode: 0o700 })
+    await saveCredential(join(dist, 'secrets'), PLANTED, TARGET)
+
+    await assert.rejects(requireUnpublished(aliased, [dist]), {
+      code: 'invalid_secrets_directory',
+    })
+    const serves = await servesOutside(aliased)
+    assert.equal(serves(join(dist, 'secrets', CREDENTIAL_FILE)), false)
+    assert.equal(serves(join(dist, 'index.html')), true)
+  },
+)
+
+test('a link whose target climbs with .. is refused rather than guessed', async (t) => {
+  const parent = await mkdtemp(join(tmpdir(), 'intake-climb-'))
+  t.after(() => rm(parent, { recursive: true, force: true }))
+  const own = join(parent, 'own')
+  await mkdir(join(own, 'inner'), { recursive: true, mode: 0o700 })
+  await symlink('inner/../inner', join(own, 'secrets'))
+
+  await assert.rejects(openSecretsDir(join(own, 'secrets')), {
+    code: 'secret_file_permissions',
+  })
 })
 
 test('overlapping claims leave exactly one owner', async (t) => {
