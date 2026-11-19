@@ -83,7 +83,14 @@ class ToolTurnMounts(unittest.TestCase):
         self.assertIsNotNone(written, peer)
         self.assertIsNotNone(read, egress)
         # The egress reads the very directory the supervisor writes.
-        self.assertEqual(written.group(1), read.group(1))
+        policy = written.group(1)
+        self.assertEqual(policy, read.group(1))
+        # No worker bind exposes that directory, under any path or through a parent.
+        sources = re.findall(r"(?:--volume|-v) ([^:\s]+):", worker)
+        sources += re.findall(r"source=([^,\s]+)", worker)
+        for source in sources:
+            self.assertFalse(policy == source or policy.startswith(source.rstrip("/") + "/"),
+                             f"worker mounts {source}")
         self.assertNotIn("/run/policy", worker)
 
     def test_egress_no_longer_receives_protected_hosts_from_the_environment(self):

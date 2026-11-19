@@ -260,6 +260,12 @@ class ProtectedLookups:
         with self.lock:
             return set().union(*(self.known.get(entry, set()) for entry in protected))
 
+    def check_overflow(self):
+        """Refuses every request once the turn's protected addresses have passed their bound."""
+        with self.lock:
+            if self.overflowed:
+                raise Refused("resolution_failed")
+
     def has_failed(self):
         with self.lock:
             return self.failed
@@ -393,7 +399,14 @@ async def checked_addresses(host, port, provider, protected):
     """Addresses to try, in order, all of them checked, and a recheck to run around each dial;
     or Refused."""
     if provider:
-        return await provider_addresses(host, protected), protection_guard(protected, False)
+        # Past the protected-address bound, every request reports that, whatever its DNS says.
+        PROTECTED_LOOKUPS.check_overflow()
+        try:
+            addresses = await provider_addresses(host, protected)
+        except Refused:
+            PROTECTED_LOOKUPS.check_overflow()
+            raise
+        return addresses, protection_guard(protected, False)
     try:
         # Other connections' lookups can still protect this address before or after the dial.
         addresses = await PUBLIC_DNS.run(

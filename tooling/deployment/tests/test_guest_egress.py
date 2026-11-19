@@ -1227,13 +1227,18 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
         table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
         self.guest_dns = Mock(side_effect=dns(table))
+        release = asyncio.Event()
 
-        def late_abort(revocation):
+        def held_abort(revocation):
+            # The abort runs only once the test releases it.
+            async def fire_when_released():
+                await release.wait()
+                revocation.fire()
             revocation.loop.call_soon_threadsafe(
-                revocation.loop.call_later, 0.3, revocation.fire)
+                lambda: revocation.loop.create_task(fire_when_released()))
 
         with patch.object(egress, "MAX_PUBLIC_TUNNELS", 1), \
-                patch.object(egress.Revocation, "schedule_abort", late_abort), \
+                patch.object(egress.Revocation, "schedule_abort", held_abort), \
                 patch.object(socket, "getaddrinfo", self.guest_dns), \
                 patch.object(egress.asyncio, "open_connection",
                              AsyncMock(return_value=(remote, writer))):
@@ -1241,14 +1246,28 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             await self.until_open(client, tunnel)
             await self.publish("inventory.example.com", PUBLIC)
             remote.feed_data(b"after protection")
-            await asyncio.sleep(0.1)
             during_abort = await self.handle("www.ti.com:443")
+            self.assertFalse(tunnel.done())
+            writer.transport.abort.assert_not_called()
+            release.set()
             await asyncio.wait_for(tunnel, 2)
         self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", during_abort)
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
         self.assertEqual(egress.public_tunnels, 0)
 
+    async def test_provider_requests_after_overflow_report_resolution_failed(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        lookups = egress.PROTECTED_LOOKUPS
+        with patch.object(egress, "MAX_PROTECTED_ADDRESSES", 1):
+            await self.publish("inventory.example.com", "9.9.9.1", "9.9.9.2")
+        self.assertTrue(lookups.overflowed)
+        # A private provider answer and a protected one would each refuse earlier otherwise.
+        for answer in ("10.0.0.1", "9.9.9.1"):
+            with self.subTest(answer=answer):
+                table = {"api.anthropic.com": [answer], "inventory.example.com": ["9.9.9.1"]}
+                written, upstream = await self.connect("api.anthropic.com:443", table)
+                self.assert_refused(written, upstream, "resolution_failed")
 
 if __name__ == "__main__":
     unittest.main()
