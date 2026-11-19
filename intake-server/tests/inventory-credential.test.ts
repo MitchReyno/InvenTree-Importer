@@ -1,12 +1,25 @@
 import { test, type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  open,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
+import { createServer as httpServer } from 'node:http'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
 import { createServer } from '#/api/server.ts'
 import { bootstrap, devConfig } from '#/config.ts'
 import { connectionStatus } from '#/header/connection.ts'
@@ -15,17 +28,20 @@ import {
   CREDENTIAL_FILE,
   deleteCredential,
   loadSavedCredential,
+  requireUnpublished,
   saveCredential,
 } from '#/inventory/credential-store.ts'
 import {
   registerInventoryCredential,
   type InventoryCredentialRoutes,
 } from '#/inventory/credential-routes.ts'
+import { configureReadTarget } from '#/inventory/read-target.ts'
 import { inventoryTransport } from '#/inventory/transport.ts'
 
 const ENVIRONMENT_TOKEN = 'environment-token-synthetic'
 // Planted so every response and log line can be searched for it.
 const PLANTED = 'planted-replacement-0123456789abcdef'
+const TARGET = { origin: 'https://inventory.example.invalid', targetContextId: 'context-1' }
 
 const config = devConfig({
   INTAKE_ORIGIN: 'http://127.0.0.1:4334',
@@ -52,139 +68,239 @@ function json(status: number) {
   })
 }
 
-async function credentialServer(routes: Partial<InventoryCredentialRoutes> = {}) {
+/** The token as stored, read back through the file's JSON. */
+async function storedToken(directory: string) {
+  const text = await readFile(join(directory, CREDENTIAL_FILE), 'utf8')
+  return (JSON.parse(text) as { token: string }).token
+}
+
+type Overrides = Partial<Omit<InventoryCredentialRoutes, 'target'>> & {
+  holder?: CredentialHolder
+  probeWith?: (token: string) => Promise<Response>
+  noTarget?: boolean
+}
+
+async function credentialServer(overrides: Overrides = {}) {
   const app = createServer(config)
   const probes: string[] = []
   let changes = 0
-  const holder = routes.holder ?? new CredentialHolder(ENVIRONMENT_TOKEN, null)
-  registerInventoryCredential(app, {
-    secretsDir: undefined,
-    holder,
-    probeWith: async (token) => {
+  let fences = 0
+  const holder = overrides.holder ?? new CredentialHolder(ENVIRONMENT_TOKEN, null)
+  const probeWith =
+    overrides.probeWith ??
+    (async (token: string) => {
       probes.push(token)
       return json(200)
-    },
+    })
+  registerInventoryCredential(app, {
+    secretsDir: overrides.secretsDir,
+    target: overrides.noTarget ? undefined : { holder, binding: TARGET, probeWith },
+    fence:
+      overrides.fence ??
+      (async () => {
+        fences += 1
+      }),
     changed: () => {
       changes += 1
     },
-    ...routes,
   })
   // Reading bootstrap boots the server, so it comes after every route is registered.
-  const csrf = await csrfToken(app)
-  const headers = {
-    host: '127.0.0.1:4334',
-    origin: config.origin,
-    'x-intake-csrf': csrf,
-    'content-type': 'application/json',
-  }
+  const csrf = (
+    (
+      await app.inject({
+        method: 'GET',
+        url: '/api/v1/bootstrap',
+        headers: { host: '127.0.0.1:4334' },
+      })
+    ).json() as { csrf_token: string }
+  ).csrf_token
+  const headers = { host: '127.0.0.1:4334', origin: config.origin, 'x-intake-csrf': csrf }
   return {
     app,
     holder,
     probes,
     changes: () => changes,
+    fences: () => fences,
     replace: (token: string) =>
       app.inject({
         method: 'PUT',
         url: '/api/v1/inventory-credential',
-        headers,
+        headers: { ...headers, 'content-type': 'application/json' },
         payload: JSON.stringify({ token }),
       }),
-    revert: () => {
-      // No body, so no content type, as the browser client sends it.
-      const { 'content-type': _json, ...bodyless } = headers
-      return app.inject({
-        method: 'DELETE',
-        url: '/api/v1/inventory-credential',
-        headers: bodyless,
-      })
-    },
+    // No body, so no content type, as the browser client sends it.
+    revert: (extra: Record<string, string> = headers) =>
+      app.inject({ method: 'DELETE', url: '/api/v1/inventory-credential', headers: extra }),
   }
-}
-
-async function csrfToken(app: ReturnType<typeof createServer>) {
-  const response = await app.inject({
-    method: 'GET',
-    url: '/api/v1/bootstrap',
-    headers: { host: '127.0.0.1:4334' },
-  })
-  return (response.json() as { csrf_token: string }).csrf_token
 }
 
 test('a saved token is an owner-only file, written whole, in an owner-only directory', async (t) => {
   const directory = await secretsDir(t)
 
-  const saved = await saveCredential(directory, PLANTED)
+  const saved = await saveCredential(directory, PLANTED, TARGET)
 
   const file = join(directory, CREDENTIAL_FILE)
-  assert.equal(await readFile(file, 'utf8'), PLANTED)
+  assert.equal(await storedToken(directory), PLANTED)
   assert.equal((await stat(file)).mode & 0o777, 0o600)
   assert.equal((await stat(directory)).mode & 0o777, 0o700)
   assert.deepEqual(await readdir(directory), [CREDENTIAL_FILE], 'no temporary file is left')
-  assert.deepEqual(await loadSavedCredential(directory), saved)
+  assert.deepEqual(await loadSavedCredential(directory, TARGET), saved)
 })
 
-test('replacing a saved token swaps the file whole', async (t) => {
+test('a replacement is a new file renamed into place, never the old one rewritten', async (t) => {
   const directory = await secretsDir(t)
-  await saveCredential(directory, 'first-token')
+  await saveCredential(directory, 'first-token', TARGET)
+  const old = await open(join(directory, CREDENTIAL_FILE), 'r')
+  t.after(() => old.close())
 
-  await saveCredential(directory, PLANTED)
+  await saveCredential(directory, PLANTED, TARGET)
 
-  assert.equal(await readFile(join(directory, CREDENTIAL_FILE), 'utf8'), PLANTED)
+  // The old file's contents are untouched: a reader mid-way never sees a mixture.
+  assert.match(await old.readFile('utf8'), /first-token/)
+  assert.equal(await storedToken(directory), PLANTED)
   assert.deepEqual(await readdir(directory), [CREDENTIAL_FILE])
 })
 
-test('a saved file or directory other users can read is refused, not used', async (t) => {
+test('a failure to flush the directory after the rename still reports the token saved', async (t) => {
   const directory = await secretsDir(t)
-  await saveCredential(directory, PLANTED)
+  const failing = {
+    syncDirectory: async () => {
+      throw new Error('EIO')
+    },
+  }
+
+  const saved = await saveCredential(directory, PLANTED, TARGET, failing)
+  await deleteCredential(directory, failing)
+
+  assert.equal(saved.token, PLANTED)
+  assert.deepEqual(await readdir(directory), [])
+})
+
+test('a saved file or directory other users can reach is refused, with or without a token', async (t) => {
+  const directory = await secretsDir(t)
+  await saveCredential(directory, PLANTED, TARGET)
   const file = join(directory, CREDENTIAL_FILE)
 
   await chmod(file, 0o644)
-  await assert.rejects(loadSavedCredential(directory), { code: 'secret_file_permissions' })
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
 
   await chmod(file, 0o600)
   await chmod(directory, 0o750)
-  await assert.rejects(loadSavedCredential(directory), { code: 'secret_file_permissions' })
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
+
+  await rm(file)
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
+  await assert.rejects(saveCredential(directory, PLANTED, TARGET), {
+    code: 'secret_file_permissions',
+  })
 })
 
-test('a saved file that is not a token is refused', async (t) => {
+test('a linked directory, a linked file or a pipe is refused without blocking', async (t) => {
+  const directory = await secretsDir(t)
+  const real = `${directory}-real`
+  await mkdir(real, { mode: 0o700 })
+  await symlink(real, directory)
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
+  await rm(directory)
+
+  await mkdir(directory, { mode: 0o700 })
+  await saveCredential(real, PLANTED, TARGET)
+  await symlink(join(real, CREDENTIAL_FILE), join(directory, CREDENTIAL_FILE))
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
+  await rm(join(directory, CREDENTIAL_FILE))
+
+  execFileSync('mkfifo', ['-m', '600', join(directory, CREDENTIAL_FILE)])
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_permissions' })
+})
+
+test('a saved token is used only for the InvenTree and target context it was checked against', async (t) => {
+  const directory = await secretsDir(t)
+  await saveCredential(directory, PLANTED, TARGET)
+
+  assert.equal(
+    (await loadSavedCredential(directory, { ...TARGET, origin: 'https://other.invalid' }))?.token,
+    undefined,
+  )
+  assert.equal(
+    (await loadSavedCredential(directory, { ...TARGET, targetContextId: 'context-2' }))?.token,
+    undefined,
+  )
+  assert.equal(await loadSavedCredential(directory, undefined), null)
+  assert.equal((await loadSavedCredential(directory, TARGET))?.token, PLANTED)
+})
+
+test('a saved file that is not a token and its target is refused', async (t) => {
   const directory = await secretsDir(t)
   await mkdir(directory, { mode: 0o700 })
-  await writeFile(join(directory, CREDENTIAL_FILE), 'two words\n', { mode: 0o600 })
+  await writeFile(join(directory, CREDENTIAL_FILE), PLANTED, { mode: 0o600 })
 
-  await assert.rejects(loadSavedCredential(directory), { code: 'secret_file_invalid' })
+  await assert.rejects(loadSavedCredential(directory, TARGET), { code: 'secret_file_invalid' })
 })
 
 test('without a secrets directory nothing is saved or loaded', async () => {
-  assert.equal(await loadSavedCredential(undefined), null)
-  await assert.rejects(saveCredential(undefined, PLANTED), { code: 'secret_store_unavailable' })
+  assert.equal(await loadSavedCredential(undefined, TARGET), null)
+  await assert.rejects(saveCredential(undefined, PLANTED, TARGET), {
+    code: 'secret_store_unavailable',
+  })
   await deleteCredential(undefined)
 })
 
-test('a relative secrets directory is refused at configuration', () => {
+test('a relative secrets directory, or one overlapping the published app, is refused', async (t) => {
+  const directory = await secretsDir(t)
+  const published = join(directory, '..', 'dist')
+  await mkdir(published)
+
   assert.throws(
     () => devConfig({ INTAKE_SECRETS_DIR: 'secrets' }),
     new Error('invalid_secrets_directory'),
   )
+  await assert.rejects(requireUnpublished(join(published, 'secrets'), [published]), {
+    code: 'invalid_secrets_directory',
+  })
+  await assert.rejects(requireUnpublished(join(directory, '..'), [published]), {
+    code: 'invalid_secrets_directory',
+  })
+  await requireUnpublished(directory, [published])
 })
 
-test('Check and save probes the candidate first and saves only a token InvenTree accepts', async (t) => {
+test('Check and save fences the target, probes the candidate, then saves only an accepted token', async (t) => {
   const directory = await secretsDir(t)
-  const server = await credentialServer({ secretsDir: directory })
+  let release: () => void = () => undefined
+  let probing: () => void = () => undefined
+  const probed = new Promise<void>((resolve) => {
+    probing = resolve
+  })
+  const server = await credentialServer({
+    secretsDir: directory,
+    probeWith: async () => {
+      probing()
+      await new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return json(200)
+    },
+  })
 
-  const response = await server.replace(PLANTED)
+  const pending = server.replace(PLANTED)
+  await probed
+  // While InvenTree is answering, nothing is written and the token in use is unchanged.
+  await assert.rejects(readdir(directory), { code: 'ENOENT' })
+  assert.equal(server.holder.current(), ENVIRONMENT_TOKEN)
+  release()
+  const response = await pending
 
   assert.equal(response.statusCode, 200)
-  assert.deepEqual(server.probes, [PLANTED])
   const body = response.json() as { credential_source: string; credential_saved_at: string }
   assert.equal(body.credential_source, 'saved')
   assert.ok(!Number.isNaN(Date.parse(body.credential_saved_at)))
   assert.equal(server.holder.current(), PLANTED)
   assert.equal(server.changes(), 1)
-  assert.equal(await readFile(join(directory, CREDENTIAL_FILE), 'utf8'), PLANTED)
+  assert.equal(server.fences(), 2, 'before the probe and before the write')
+  assert.equal(await storedToken(directory), PLANTED)
   assert.ok(!response.body.includes(PLANTED))
 })
 
-test('a refused token or an unreachable InvenTree writes nothing and keeps the token in use', async (t) => {
+test('a refused token, an unreachable InvenTree or a rotated context writes nothing', async (t) => {
   const directory = await secretsDir(t)
   const refusing = await credentialServer({
     secretsDir: directory,
@@ -196,36 +312,85 @@ test('a refused token or an unreachable InvenTree writes nothing and keeps the t
       throw new Error('connect ECONNREFUSED')
     },
   })
+  let fenceCalls = 0
+  const rotated = await credentialServer({
+    secretsDir: directory,
+    fence: async () => {
+      fenceCalls += 1
+      if (fenceCalls === 2) {
+        const { fail } = await import('#/capture/model.ts')
+        fail('target_context_changed', 409)
+      }
+    },
+  })
 
   const refused = await refusing.replace(PLANTED)
   const failed = await unreachable.replace(PLANTED)
+  const moved = await rotated.replace(PLANTED)
 
   assert.equal(refused.statusCode, 422)
   assert.equal((refused.json() as { code: string }).code, 'token_refused')
   assert.equal(failed.statusCode, 503)
   assert.equal((failed.json() as { code: string }).code, 'target_unavailable')
-  for (const server of [refusing, unreachable]) {
+  assert.equal(moved.statusCode, 409)
+  assert.equal((moved.json() as { code: string }).code, 'target_context_changed')
+  for (const server of [refusing, unreachable, rotated]) {
     assert.equal(server.holder.current(), ENVIRONMENT_TOKEN)
     assert.equal(server.changes(), 0)
   }
   await assert.rejects(readdir(directory), { code: 'ENOENT' })
-  assert.ok(!refused.body.includes(PLANTED) && !failed.body.includes(PLANTED))
+  for (const response of [refused, failed, moved]) {
+    assert.ok(!response.body.includes(PLANTED))
+  }
 })
 
-test('without a secrets directory, replacement is refused before InvenTree is asked', async () => {
-  const server = await credentialServer({ secretsDir: undefined })
+test('a second change while one runs is refused, not queued', async (t) => {
+  const directory = await secretsDir(t)
+  let release: () => void = () => undefined
+  let probing: () => void = () => undefined
+  const probed = new Promise<void>((resolve) => {
+    probing = resolve
+  })
+  const server = await credentialServer({
+    secretsDir: directory,
+    probeWith: async () => {
+      probing()
+      await new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return json(200)
+    },
+  })
 
-  const response = await server.replace(PLANTED)
+  const first = server.replace(PLANTED)
+  await probed
+  const second = await server.revert()
+  release()
 
-  assert.equal(response.statusCode, 503)
-  assert.equal((response.json() as { code: string }).code, 'secret_store_unavailable')
-  assert.deepEqual(server.probes, [])
-  assert.equal(server.holder.current(), ENVIRONMENT_TOKEN)
+  assert.equal(second.statusCode, 409)
+  assert.equal((second.json() as { code: string }).code, 'credential_change_in_progress')
+  assert.equal((await first).statusCode, 200)
+  assert.equal(server.holder.current(), PLANTED)
+})
+
+test('without a secrets directory or a read target, replacement is refused before InvenTree is asked', async () => {
+  const unstored = await credentialServer({ secretsDir: undefined })
+  const untargeted = await credentialServer({ secretsDir: '/unused', noTarget: true })
+
+  const noStore = await unstored.replace(PLANTED)
+  const noTarget = await untargeted.replace(PLANTED)
+
+  assert.equal(noStore.statusCode, 503)
+  assert.equal((noStore.json() as { code: string }).code, 'secret_store_unavailable')
+  assert.equal(noTarget.statusCode, 503)
+  assert.equal((noTarget.json() as { code: string }).code, 'setup_required')
+  assert.deepEqual(unstored.probes, [])
+  assert.equal(unstored.holder.current(), ENVIRONMENT_TOKEN)
 })
 
 test('Use the environment token deletes the saved file and reads use the environment token', async (t) => {
   const directory = await secretsDir(t)
-  const saved = await saveCredential(directory, PLANTED)
+  const saved = await saveCredential(directory, PLANTED, TARGET)
   const server = await credentialServer({
     secretsDir: directory,
     holder: new CredentialHolder(ENVIRONMENT_TOKEN, saved),
@@ -243,28 +408,45 @@ test('Use the environment token deletes the saved file and reads use the environ
   assert.equal(server.changes(), 1)
 })
 
-test('token commands need the CSRF token and refuse malformed tokens without echoing them', async (t) => {
+test('both commands need the CSRF token, and malformed tokens are refused without an echo', async (t) => {
   const directory = await secretsDir(t)
-  const server = await credentialServer({ secretsDir: directory })
-  const spaced = `${PLANTED} with spaces`
-  const long = 'x'.repeat(4097) + PLANTED
+  const saved = await saveCredential(directory, PLANTED, TARGET)
+  const server = await credentialServer({
+    secretsDir: directory,
+    holder: new CredentialHolder(ENVIRONMENT_TOKEN, saved),
+  })
+  const plain = { host: '127.0.0.1:4334', origin: config.origin }
 
-  const unauthorised = await server.app.inject({
+  const unauthorisedPut = await server.app.inject({
     method: 'PUT',
     url: '/api/v1/inventory-credential',
-    headers: { host: '127.0.0.1:4334', origin: config.origin, 'content-type': 'application/json' },
+    headers: { ...plain, 'content-type': 'application/json' },
     payload: JSON.stringify({ token: PLANTED }),
   })
-  const malformed = await server.replace(spaced)
-  const tooLong = await server.replace(long)
+  const unauthorisedDelete = await server.revert(plain)
+  const malformed = await server.replace(`${PLANTED} with spaces`)
+  const tooLong = await server.replace('x'.repeat(MAX_INVENTORY_TOKEN_LENGTH + 1) + PLANTED)
 
-  assert.equal(unauthorised.statusCode, 403)
+  assert.equal(unauthorisedPut.statusCode, 403)
+  assert.equal(unauthorisedDelete.statusCode, 403)
+  assert.equal(await storedToken(directory), PLANTED, 'the refused DELETE removed nothing')
   assert.equal(malformed.statusCode, 400)
   assert.ok([400, 413].includes(tooLong.statusCode))
   assert.deepEqual(server.probes, [])
-  for (const response of [unauthorised, malformed, tooLong]) {
+  for (const response of [unauthorisedPut, unauthorisedDelete, malformed, tooLong]) {
     assert.ok(!response.body.includes(PLANTED))
   }
+})
+
+test('the longest token is accepted even when every character is JSON-escaped', async (t) => {
+  const directory = await secretsDir(t)
+  const server = await credentialServer({ secretsDir: directory })
+  const escaped = '"'.repeat(MAX_INVENTORY_TOKEN_LENGTH)
+
+  const response = await server.replace(escaped)
+
+  assert.equal(response.statusCode, 200)
+  assert.deepEqual(server.probes, [escaped])
 })
 
 test('a read already sent keeps its token, and the next read uses the replacement', async () => {
@@ -277,10 +459,10 @@ test('a read already sent keeps its token, and the next read uses the replacemen
   const transport = inventoryTransport(
     {
       kind: 'protected-read-only',
-      origin: 'https://inventory.example.invalid',
+      origin: TARGET.origin,
       targetId: binding.targetId,
       contextId: binding.targetContextId,
-      protectedOrigins: ['https://inventory.example.invalid'],
+      protectedOrigins: [TARGET.origin],
       credential: ENVIRONMENT_TOKEN,
     },
     async (_url, init) => {
@@ -301,49 +483,92 @@ test('a read already sent keeps its token, and the next read uses the replacemen
   assert.deepEqual(sent, [`Token ${ENVIRONMENT_TOKEN}`, `Token ${PLANTED}`])
 })
 
-test('a reset drops the observation and the forced-check window, and an older probe never lands', async () => {
-  const outcomes = [json(401), json(200)]
+test('a reset ends the forced-check window and an older probe never lands', async () => {
+  let clock = 0
+  const outcomes = [json(200), json(401), json(200), json(200)]
   let release: () => void = () => undefined
-  const status = connectionStatus(binding, 'https://inventory.example.invalid/', async () => {
-    const outcome = outcomes.shift()!
-    if (outcome.status === 401) {
-      await new Promise<void>((resolve) => {
-        release = resolve
-      })
-    }
-    return outcome
-  })
+  const holder = new CredentialHolder(ENVIRONMENT_TOKEN, null)
+  const status = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    async () => {
+      const outcome = outcomes.shift()!
+      if (outcome.status === 401) {
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+      }
+      return outcome
+    },
+    Date.now,
+    undefined,
+    () => clock,
+    () => holder.state(),
+  )
 
+  // A forced check opens the 5-second window.
+  await status.check()
+  assert.equal(outcomes.length, 3)
+  // The next forced check, started with the old token, is still running at the swap.
+  clock = 6000
   const old = status.check()
   await new Promise((resolve) => setImmediate(resolve))
+  holder.replace({ token: PLANTED, savedAt: '2026-11-19T00:00:00.000Z' })
   status.reset()
-  const fresh = status.check()
+  const fresh = await status.check()
+  // The old check finishes later, so its window, were it kept, would end later too.
+  clock = 7000
   release()
+  const settled = await old
 
-  assert.equal((await old).target.state, 'reachable')
-  assert.equal((await fresh).target.state, 'reachable')
-  assert.equal((await status()).target.failure_code, null)
+  assert.equal(fresh.target.state, 'reachable')
+  assert.equal(fresh.target.credential_source, 'saved')
+  assert.equal(settled.target.failure_code, null, 'the old probe never became the observation')
+  assert.equal(settled.target.credential_source, 'saved')
+  // The window is the new token's own, from 6000: at 11500 it has ended and a check probes.
+  clock = 11500
+  const remaining = outcomes.length
+  await status.check()
+  assert.equal(outcomes.length, remaining - 1)
 })
 
-test('a saved token survives a restart, and bootstrap still reflects only the injected key', async (t) => {
+test('after a restart the transport reads with the saved token; bootstrap still follows the injected key', async (t) => {
   const directory = await secretsDir(t)
-  await saveCredential(directory, PLANTED)
+  const seen: string[] = []
+  const inventory = httpServer((request, response) => {
+    seen.push(request.headers.authorization ?? '')
+    response.writeHead(200, { 'content-type': 'application/json' }).end('{"results":[]}')
+  })
+  inventory.listen(0, '127.0.0.1')
+  await once(inventory, 'listening')
+  t.after(() => inventory.close())
+  const address = inventory.address() as { port: number }
+  const readOrigin = `http://127.0.0.1:${address.port}`
   const restarted = devConfig({
     INTAKE_ORIGIN: 'http://127.0.0.1:4334',
     INTAKE_CREDENTIAL_REF: 'credential-fixture',
+    INTAKE_DEV_API_KEY: ENVIRONMENT_TOKEN,
     INTAKE_SECRETS_DIR: directory,
   })
+  const before = configureReadTarget(restarted, readOrigin, null)!
+  await saveCredential(directory, PLANTED, before.binding)
 
-  const holder = new CredentialHolder('', await loadSavedCredential(restarted.secretsDir))
+  const saved = await loadSavedCredential(restarted.secretsDir, before.binding)
+  const after = configureReadTarget(restarted, readOrigin, saved)!
+  await after.transport.probe({
+    targetId: restarted.targetId,
+    contextId: restarted.targetContextId,
+  })
 
-  assert.equal(holder.current(), PLANTED)
-  assert.equal(bootstrap(restarted).status, 'setup_required')
+  assert.deepEqual(seen, [`Token ${PLANTED}`])
+  assert.equal(after.holder.state().credential_source, 'saved')
+  assert.equal(bootstrap(restarted).status, 'configured')
   assert.ok(!JSON.stringify(bootstrap(restarted)).includes(PLANTED))
 })
 
 test('the server refuses to start with a saved token other users can read, without printing it', async (t) => {
   const directory = await secretsDir(t)
-  await saveCredential(directory, PLANTED)
+  await saveCredential(directory, PLANTED, TARGET)
   await chmod(join(directory, CREDENTIAL_FILE), 0o644)
   const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href
   const child = spawn(process.execPath, ['--import', tsx, 'src/main.ts'], {
@@ -353,6 +578,7 @@ test('the server refuses to start with a saved token other users can read, witho
       INTAKE_ORIGIN: 'http://127.0.0.1:4335',
       INTAKE_CREDENTIAL_REF: 'credential-fixture',
       INTAKE_DEV_API_KEY: ENVIRONMENT_TOKEN,
+      INTAKE_READ_ORIGIN: TARGET.origin,
       INTAKE_SECRETS_DIR: directory,
     },
     stdio: ['ignore', 'pipe', 'pipe'],

@@ -141,6 +141,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   header.connection.mockImplementation(async () => connection())
+  header.checkConnection.mockImplementation(async () => connection())
   header.replaceInventoryCredential.mockReset()
   header.revertInventoryCredential.mockReset()
 })
@@ -365,6 +366,74 @@ test('Use the environment token is offered only while a saved token is in use', 
   const row = screen.getByRole('group', { name: 'API token' })
   await within(row).findByText(/token from the server’s environment/)
   expect(within(row).queryByRole('button', { name: 'Use the environment token…' })).toBeNull()
+})
+
+test('while Check and save runs the field is read-only, and focus moves into and back out of the form', async () => {
+  const user = userEvent.setup()
+
+  let finish: () => void = () => undefined
+
+  header.replaceInventoryCredential.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () =>
+          resolve({ credential_source: 'saved', credential_saved_at: new Date().toISOString() })
+      }),
+  )
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  const field = within(row).getByLabelText('New API token')
+  expect(field).toHaveFocus()
+  await user.type(field, 'fresh-read-token')
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+  expect(await within(row).findByRole('button', { name: 'Checking…' })).toBeVisible()
+  expect(field).toHaveAttribute('readonly')
+  await user.click(within(row).getByRole('button', { name: 'Checking…' }))
+  expect(header.replaceInventoryCredential).toHaveBeenCalledTimes(1)
+
+  await act(async () => finish())
+  expect(await within(row).findByRole('button', { name: 'Replace token…' })).toHaveFocus()
+})
+
+test('a check sent before a token change never replaces the status read after it', async () => {
+  const user = userEvent.setup()
+  const savedAt = new Date().toISOString()
+
+  let answerCheck: () => void = () => undefined
+
+  const refused = connection()
+  header.checkConnection.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        answerCheck = () =>
+          resolve({
+            ...refused,
+            target: { ...refused.target, state: 'unavailable', failure_code: 'unauthorized' },
+          })
+      }),
+  )
+  header.replaceInventoryCredential.mockResolvedValueOnce({
+    credential_source: 'saved',
+    credential_saved_at: savedAt,
+  })
+  renderSettings('inventree')
+  const row = screen.getByRole('group', { name: 'API token' })
+  await within(row).findByText('Accepted')
+
+  await user.click(within(row).getByRole('button', { name: 'Check now' }))
+  await user.click(within(row).getByRole('button', { name: 'Replace token…' }))
+  await user.type(within(row).getByLabelText('New API token'), 'fresh-read-token')
+  header.connection.mockImplementation(async () => savedConnection(savedAt))
+  await user.click(within(row).getByRole('button', { name: 'Check and save' }))
+  expect(await within(row).findByText(/Using the token saved here on/)).toBeVisible()
+  await act(async () => answerCheck())
+  // The check has settled once its button reads Check now again.
+  await within(row).findByRole('button', { name: 'Check now' })
+
+  expect(within(row).getByText('Accepted')).toBeVisible()
+  expect(within(row).queryByText('Refused')).toBeNull()
 })
 
 const DEFERRED: [SettingsSectionId, string[]][] = [

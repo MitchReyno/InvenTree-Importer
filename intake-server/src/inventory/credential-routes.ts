@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import {
+  MAX_INVENTORY_TOKEN_LENGTH,
   schemas,
   type InventoryCredentialDto,
   type InventoryCredentialReplaceDto,
@@ -7,18 +8,21 @@ import {
 import { readModelError } from '#/api/errors.ts'
 import { fail } from '#/capture/model.ts'
 import { probeResult } from '#/header/connection.ts'
-import type { CredentialHolder } from './credential.ts'
 import { deleteCredential, saveCredential, SecretStoreError } from './credential-store.ts'
+import type { ReadTarget } from './read-target.ts'
 
-/** Room for the longest token plus its JSON wrapping, in bytes. */
-const CREDENTIAL_BODY_LIMIT_BYTES = 8192
+/**
+ * The longest token with every character JSON-escaped (`"` and `\` take two bytes), plus the
+ * object around it, in bytes.
+ */
+const CREDENTIAL_BODY_LIMIT_BYTES = MAX_INVENTORY_TOKEN_LENGTH * 2 + 64
 
 export interface InventoryCredentialRoutes {
   secretsDir: string | undefined
   /** Absent when no read target is configured, so there is no token to replace. */
-  holder: CredentialHolder | undefined
-  /** Sends the connection probe with a candidate token instead of the one in use. */
-  probeWith: (token: string) => Promise<Response>
+  target: Pick<ReadTarget, 'binding' | 'holder' | 'probeWith'> | undefined
+  /** Refuses when the retained target context is no longer this server's. */
+  fence: () => Promise<void>
   /** Runs after the token in use changes, so no observation of the old one survives. */
   changed: () => void
 }
@@ -36,7 +40,7 @@ async function storing<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /** Probes before saving: only a token InvenTree accepts is written. */
-async function requireAccepted(probeWith: InventoryCredentialRoutes['probeWith'], token: string) {
+async function requireAccepted(probeWith: ReadTarget['probeWith'], token: string) {
   const outcome = await probeResult(() => probeWith(token))
   if (outcome.failure_code === 'unauthorized') {
     fail('token_refused', 422)
@@ -51,36 +55,47 @@ export function registerInventoryCredential(
   app: FastifyInstance,
   routes: InventoryCredentialRoutes,
 ) {
-  // One change at a time, so a replace and a revert can't interleave their file and holder updates.
-  let latest: Promise<unknown> = Promise.resolve()
+  // One change at a time; another arriving meanwhile is refused rather than queued past its
+  // caller's deadline.
+  let changing = false
 
-  function exclusive<T>(run: () => Promise<T>): Promise<T> {
-    const next = latest.then(run, run)
-    latest = next.catch(() => undefined)
-    return next
+  async function exclusive<T>(run: () => Promise<T>): Promise<T> {
+    if (changing) {
+      fail('credential_change_in_progress', 409)
+    }
+    changing = true
+    try {
+      return await run()
+    } finally {
+      changing = false
+    }
   }
 
-  function requireHolder(): CredentialHolder {
-    if (!routes.holder) {
+  function requireTarget() {
+    if (!routes.target) {
       fail('setup_required', 503)
     }
-    return routes.holder
+    return routes.target
   }
 
   async function replace(token: string): Promise<InventoryCredentialDto> {
-    const holder = requireHolder()
+    const { holder, binding, probeWith } = requireTarget()
     if (!routes.secretsDir) {
       fail('secret_store_unavailable', 503)
     }
-    await requireAccepted(routes.probeWith, token)
-    const saved = await storing(() => saveCredential(routes.secretsDir, token))
+    await routes.fence()
+    await requireAccepted(probeWith, token)
+    // The context may have rotated while InvenTree answered.
+    await routes.fence()
+    const saved = await storing(() => saveCredential(routes.secretsDir, token, binding))
     holder.replace(saved)
     routes.changed()
     return holder.state()
   }
 
   async function revert(): Promise<InventoryCredentialDto> {
-    const holder = requireHolder()
+    const { holder } = requireTarget()
+    await routes.fence()
     await storing(() => deleteCredential(routes.secretsDir))
     holder.revert()
     routes.changed()

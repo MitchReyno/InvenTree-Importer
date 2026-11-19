@@ -1,25 +1,36 @@
 import { randomUUID } from 'node:crypto'
-import { constants } from 'node:fs'
-import { mkdir, open, rename, rm, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { constants, type Stats } from 'node:fs'
+import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import { InventoryCredentialReplace, MAX_INVENTORY_TOKEN_LENGTH } from '@invimport/contracts'
 import type { SavedCredential } from './credential.ts'
 
-/** The saved read token, alone in its file. */
+/** The saved read token with the target it was checked against, alone in its file. */
 export const CREDENTIAL_FILE = 'inventory-read-token'
 
 /** Group and other permission bits: any of them lets another user near the token. */
 const SHARED_PERMISSIONS = 0o077
 
+/** Token, origin, context ID and JSON punctuation fit well inside this, in bytes. */
+const MAX_CREDENTIAL_FILE_BYTES = 16 * 1024
+
 const TOKEN_PATTERN = new RegExp(InventoryCredentialReplace.properties.token.pattern!)
+
+/** The InvenTree a saved token was checked against; a token is only ever sent back there. */
+export interface CredentialBinding {
+  origin: string
+  targetContextId: string
+}
 
 export type SecretStoreFailure =
   /** No secrets directory is configured, or it can't be written. */
   | 'secret_store_unavailable'
-  /** The saved file or its directory can be read by other users, or isn't a plain file. */
+  /** The directory or file is shared with other users, owned by another, or not plain. */
   | 'secret_file_permissions'
-  /** The saved file doesn't hold a token. */
+  /** The saved file doesn't hold a token and its target. */
   | 'secret_file_invalid'
+  /** The secrets directory overlaps a directory the server publishes. */
+  | 'invalid_secrets_directory'
 
 export class SecretStoreError extends Error {
   readonly code: SecretStoreFailure
@@ -30,50 +41,136 @@ export class SecretStoreError extends Error {
   }
 }
 
-function missing(error: unknown) {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+/** Post-commit steps a test can make fail. */
+export interface StoreEffects {
+  /** Flushes the directory entry after a rename or delete. */
+  syncDirectory: (directory: string) => Promise<void>
 }
 
-async function requirePrivateDirectory(directory: string) {
-  const info = await stat(directory)
-  if (!info.isDirectory() || (info.mode & SHARED_PERMISSIONS) !== 0) {
+function errorCode(error: unknown) {
+  return error instanceof Error && 'code' in error ? error.code : undefined
+}
+
+/** Owner-only, owned by this process's user, and the thing itself rather than a link to it. */
+function privateTo(info: Stats) {
+  const owner = process.getuid?.()
+  const ownedHere = owner === undefined || info.uid === owner
+  return ownedHere && (info.mode & SHARED_PERMISSIONS) === 0
+}
+
+/** The directory's own entry, never followed; false when it doesn't exist yet. */
+async function requirePrivateDirectory(directory: string): Promise<boolean> {
+  let info
+  try {
+    info = await lstat(directory)
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') {
+      return false
+    }
+    throw new SecretStoreError('secret_store_unavailable', { cause: error })
+  }
+  if (!info.isDirectory() || !privateTo(info)) {
     throw new SecretStoreError('secret_file_permissions')
+  }
+  return true
+}
+
+/** Resolves links in the part of the path that exists, keeping the rest as written. */
+async function canonical(path: string): Promise<string> {
+  try {
+    return await realpath(path)
+  } catch (error) {
+    const parent = dirname(path)
+    if (errorCode(error) !== 'ENOENT' || parent === path) {
+      throw error
+    }
+    return join(await canonical(parent), basename(path))
   }
 }
 
+function within(inner: string, outer: string) {
+  return inner === outer || inner.startsWith(outer.endsWith(sep) ? outer : outer + sep)
+}
+
 /**
- * Reads the saved token, or null when none is saved. A file other users could read refuses
- * startup rather than being used or repaired.
+ * Refuses a secrets directory inside, or containing, a directory the server publishes, where
+ * owner-only modes would not stop the server itself from sending the file.
+ */
+export async function requireUnpublished(
+  directory: string | undefined,
+  published: readonly string[],
+) {
+  if (!directory) {
+    return
+  }
+  const secrets = await canonical(resolve(directory))
+  for (const root of published) {
+    const served = await canonical(resolve(root))
+    if (within(secrets, served) || within(served, secrets)) {
+      throw new SecretStoreError('invalid_secrets_directory')
+    }
+  }
+}
+
+function parseSaved(text: string, savedAt: string) {
+  let value: unknown
+  try {
+    value = JSON.parse(text)
+  } catch (error) {
+    throw new SecretStoreError('secret_file_invalid', { cause: error })
+  }
+  const record = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+  const { token, origin, target_context_id: targetContextId } = record
+  const wellFormed =
+    typeof token === 'string' &&
+    token.length <= MAX_INVENTORY_TOKEN_LENGTH &&
+    TOKEN_PATTERN.test(token) &&
+    typeof origin === 'string' &&
+    typeof targetContextId === 'string'
+  if (!wellFormed) {
+    throw new SecretStoreError('secret_file_invalid')
+  }
+  return { saved: { token, savedAt }, binding: { origin, targetContextId } }
+}
+
+/**
+ * Reads the saved token, or null when none is saved or it was checked against another target.
+ * A directory or file other users could reach refuses startup rather than being used or
+ * repaired. The file is opened without following links or blocking on a pipe.
  */
 export async function loadSavedCredential(
   directory: string | undefined,
+  binding: CredentialBinding | undefined,
 ): Promise<SavedCredential | null> {
-  if (!directory) {
+  if (!directory || !(await requirePrivateDirectory(directory))) {
     return null
   }
   let file
   try {
-    file = await open(join(directory, CREDENTIAL_FILE), constants.O_RDONLY | constants.O_NOFOLLOW)
+    file = await open(
+      join(directory, CREDENTIAL_FILE),
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    )
   } catch (error) {
-    if (missing(error)) {
+    if (errorCode(error) === 'ENOENT') {
       return null
     }
     throw new SecretStoreError('secret_file_permissions', { cause: error })
   }
   try {
     const info = await file.stat()
-    if (!info.isFile() || (info.mode & SHARED_PERMISSIONS) !== 0) {
+    if (!info.isFile() || !privateTo(info)) {
       throw new SecretStoreError('secret_file_permissions')
     }
-    await requirePrivateDirectory(directory)
-    if (info.size > MAX_INVENTORY_TOKEN_LENGTH) {
+    if (info.size > MAX_CREDENTIAL_FILE_BYTES) {
       throw new SecretStoreError('secret_file_invalid')
     }
-    const token = await file.readFile('utf8')
-    if (!TOKEN_PATTERN.test(token) || token.length > MAX_INVENTORY_TOKEN_LENGTH) {
-      throw new SecretStoreError('secret_file_invalid')
-    }
-    return { token, savedAt: info.mtime.toISOString() }
+    const stored = parseSaved(await file.readFile('utf8'), info.mtime.toISOString())
+    const sameTarget =
+      binding !== undefined &&
+      stored.binding.origin === binding.origin &&
+      stored.binding.targetContextId === binding.targetContextId
+    return sameTarget ? stored.saved : null
   } finally {
     await file.close()
   }
@@ -91,24 +188,32 @@ async function syncDirectory(directory: string) {
 
 /**
  * Replaces the saved token whole: writes an owner-only temporary file, then renames it over the
- * old one, so a failure leaves the previous file as it was.
+ * old one. The rename is the commit point. A failure before it leaves the previous file as it
+ * was; flushing the directory afterwards is best effort and can't undo it.
  */
 export async function saveCredential(
   directory: string | undefined,
   token: string,
+  binding: CredentialBinding,
+  effects: StoreEffects = { syncDirectory },
 ): Promise<SavedCredential> {
   if (!directory) {
     throw new SecretStoreError('secret_store_unavailable')
   }
   const target = join(directory, CREDENTIAL_FILE)
   const temporary = join(directory, `.${CREDENTIAL_FILE}.${randomUUID()}.tmp`)
+  const content = JSON.stringify({
+    origin: binding.origin,
+    target_context_id: binding.targetContextId,
+    token,
+  })
   let savedAt: string
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 })
     await requirePrivateDirectory(directory)
     const file = await open(temporary, 'wx', 0o600)
     try {
-      await file.writeFile(token, 'utf8')
+      await file.writeFile(content, 'utf8')
       await file.sync()
       // A rename keeps the modification time, which later loads report as saved_at.
       savedAt = (await file.stat()).mtime.toISOString()
@@ -116,7 +221,6 @@ export async function saveCredential(
       await file.close()
     }
     await rename(temporary, target)
-    await syncDirectory(directory)
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined)
     if (error instanceof SecretStoreError) {
@@ -124,21 +228,28 @@ export async function saveCredential(
     }
     throw new SecretStoreError('secret_store_unavailable', { cause: error })
   }
+  await effects.syncDirectory(directory).catch(() => undefined)
   return { token, savedAt }
 }
 
-/** Deletes the saved token; nothing saved is already the wanted outcome. */
-export async function deleteCredential(directory: string | undefined) {
-  if (!directory) {
+/**
+ * Deletes the saved token; nothing saved is already the wanted outcome. The unlink is the
+ * commit point, and the directory flush after it is best effort.
+ */
+export async function deleteCredential(
+  directory: string | undefined,
+  effects: StoreEffects = { syncDirectory },
+) {
+  if (!directory || !(await requirePrivateDirectory(directory))) {
     return
   }
   try {
     await rm(join(directory, CREDENTIAL_FILE))
-    await syncDirectory(directory)
   } catch (error) {
-    if (missing(error)) {
+    if (errorCode(error) === 'ENOENT') {
       return
     }
     throw new SecretStoreError('secret_store_unavailable', { cause: error })
   }
+  await effects.syncDirectory(directory).catch(() => undefined)
 }

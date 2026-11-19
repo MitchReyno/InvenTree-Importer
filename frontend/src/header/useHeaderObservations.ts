@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { InventoryCredentialDto } from '@invimport/contracts'
 import { serverQueryKey } from '#/queries/scope'
 import { useNow } from '#/browser/useNow'
 import { useOnForeground } from '#/browser/useOnForeground'
@@ -31,37 +33,52 @@ export function useHeaderObservations(client: HeaderClient, batchId?: string) {
     },
     refetchInterval: poll === false ? HEADER_POLL_MS : poll,
   })
+  // Counts token commands, so a check sent before one can't describe the token after it.
+  const tokenCommands = useRef(0)
   // One shared check, so the server menu and Settings can't both send one; its result replaces
   // the connection read everywhere.
   const check = useMutation({
     mutationFn: async () => {
+      const sentAfter = tokenCommands.current
       const result = await client.checkConnection()
       assertHeaderScope(result, scope)
-      return result
+      return { result, sentAfter }
     },
     // A read already running started before the check, so it must not replace the result.
-    onSuccess: async (result) => {
+    onSuccess: async ({ result, sentAfter }) => {
+      if (sentAfter !== tokenCommands.current) {
+        return
+      }
       const key = serverQueryKey(scope, 'header-connection')
       await queryClient.cancelQueries({ queryKey: key })
       queryClient.setQueryData(key, result)
     },
   })
 
-  // The server forgets its observation when the token changes; read the new one at once.
-  async function observeNewToken() {
-    const key = serverQueryKey(scope, 'header-connection')
-    await queryClient.cancelQueries({ queryKey: key })
-    await queryClient.invalidateQueries({ queryKey: key })
+  /**
+   * Sends a token command straight to the server, never through a mutation that would keep the
+   * token in a shared cache. Whatever the outcome, the server may have a new observation, so
+   * the connection is read again.
+   */
+  async function tokenCommand(send: () => Promise<InventoryCredentialDto>) {
+    try {
+      return await send()
+    } finally {
+      tokenCommands.current += 1
+      const key = serverQueryKey(scope, 'header-connection')
+      await queryClient.cancelQueries({ queryKey: key })
+      void queryClient.invalidateQueries({ queryKey: key })
+    }
   }
 
-  const replaceToken = useMutation({
-    mutationFn: (token: string) => client.replaceInventoryCredential({ token }),
-    onSuccess: observeNewToken,
-  })
-  const revertToken = useMutation({
-    mutationFn: () => client.revertInventoryCredential(),
-    onSuccess: observeNewToken,
-  })
+  function replaceToken(token: string) {
+    return tokenCommand(() => client.replaceInventoryCredential({ token }))
+  }
+
+  function revertToken() {
+    return tokenCommand(() => client.revertInventoryCredential())
+  }
+
   useOnForeground(() => {
     void connection.refetch()
     void work.refetch()

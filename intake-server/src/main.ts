@@ -7,7 +7,7 @@ import { createServer } from './api/server.ts'
 import { registerLive } from './live/routes.ts'
 import { compatibleSchema } from './operations/compatibility.ts'
 import { registerReadiness } from './operations/readiness.ts'
-import { bootstrap, devConfig, processingConfig } from './config.ts'
+import { devConfig, processingConfig } from './config.ts'
 import { database } from './db/database.ts'
 import type { Pool } from 'pg'
 import { readMediaStoreIdentity } from './media/store-identity.ts'
@@ -31,12 +31,15 @@ import {
   type ReadOperation,
   type TargetBinding,
 } from './inventory/transport.ts'
-import { CredentialHolder } from './inventory/credential.ts'
-import { loadSavedCredential } from './inventory/credential-store.ts'
+import { loadSavedCredential, requireUnpublished } from './inventory/credential-store.ts'
+import { configureReadTarget, readTargetBinding } from './inventory/read-target.ts'
 import { registerInventoryCredential } from './inventory/credential-routes.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+
+/** The built browser app, served as static files; secrets must never live under it. */
+const FRONTEND_ASSETS = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
 
 /** Explicit opt-in only; never discovers a default directory or initializes without a DB. */
 async function configuredMediaStore(env: NodeJS.ProcessEnv, pool?: Pool) {
@@ -103,8 +106,13 @@ async function main() {
 
   let server: ReturnType<typeof createServer> | undefined
   try {
-    // A saved replacement other users could read refuses startup, with or without a database.
-    const saved = await loadSavedCredential(config.secretsDir)
+    // A saved replacement other users could reach refuses startup, with or without a database.
+    const readOrigin = process.env.INTAKE_READ_ORIGIN
+    await requireUnpublished(config.secretsDir, [FRONTEND_ASSETS])
+    const saved = await loadSavedCredential(
+      config.secretsDir,
+      readTargetBinding(config, readOrigin),
+    )
     const mediaStore = await configuredMediaStore(process.env, db?.pool)
     server = createServer(config, { mediaEnabled: mediaStore !== undefined })
     registerReadiness(server, db?.pool, config, mediaStore !== undefined)
@@ -115,24 +123,8 @@ async function main() {
       registerLive(server, db.pool, config)
       server.addHook('onClose', closeDatabase)
       // Only the read closure crosses the capture boundary. No browser-supplied origin/key.
-      const readProfile =
-        process.env.INTAKE_READ_ORIGIN && config.apiKey && bootstrap(config).status === 'configured'
-          ? {
-              kind: 'protected-read-only' as const,
-              origin: process.env.INTAKE_READ_ORIGIN,
-              targetId: config.targetId,
-              contextId: config.targetContextId,
-              protectedOrigins: [process.env.INTAKE_READ_ORIGIN],
-              credential: config.apiKey,
-            }
-          : undefined
-      const credential = readProfile
-        ? new CredentialHolder(readProfile.credential, saved)
-        : undefined
-      const transport =
-        readProfile && credential
-          ? inventoryTransport(readProfile, undefined, () => credential.current())
-          : undefined
+      const readTarget = configureReadTarget(config, readOrigin, saved)
+      const transport = readTarget?.transport
       const targetReads = transport
         ? bindReadOnlyTarget(transport, {
             targetId: config.targetId,
@@ -164,23 +156,15 @@ async function main() {
         runtime.readOrigin,
         targetReads?.probe,
         targetReads?.serverVersion,
+        readTarget && (() => readTarget.holder.state()),
       )
-      registerHeader(
-        server,
-        config,
-        connection,
-        (batchId) => headerWork(db.pool, headerConfig, batchId),
-        credential && (() => credential.state()),
+      registerHeader(server, config, connection, (batchId) =>
+        headerWork(db.pool, headerConfig, batchId),
       )
       registerInventoryCredential(server, {
         secretsDir: config.secretsDir,
-        holder: credential,
-        // A one-off transport for the candidate; the token in use is untouched until it passes.
-        probeWith: (token) =>
-          inventoryTransport({ ...readProfile!, credential: token }).probe({
-            targetId: config.targetId,
-            contextId: config.targetContextId,
-          }),
+        target: readTarget,
+        fence: () => requireCurrentTargetContext(db.pool, config),
         changed: () => connection.reset(),
       })
       if (mediaStore) {
@@ -219,9 +203,12 @@ async function main() {
       )
       registerManual(server, db.pool, manualConfig, read, targetReads?.attachments, processing)
     }
-    const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
-    if (existsSync(assets)) {
-      await server.register(fastifyStatic, { root: assets, index: 'index.html', dotfiles: 'deny' })
+    if (existsSync(FRONTEND_ASSETS)) {
+      await server.register(fastifyStatic, {
+        root: FRONTEND_ASSETS,
+        index: 'index.html',
+        dotfiles: 'deny',
+      })
     }
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       process.once(signal, () => {

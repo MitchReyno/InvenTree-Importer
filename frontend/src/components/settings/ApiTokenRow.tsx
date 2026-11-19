@@ -39,9 +39,13 @@ const OUTCOME = {
     tone: 'bad',
     text: 'The server has nowhere to save a token. Set INTAKE_SECRETS_DIR in the server’s environment, then try again.',
   },
+  credential_change_in_progress: {
+    tone: 'warn',
+    text: 'Another token change is still running. Nothing was changed; try again in a moment.',
+  },
   unconfirmed: {
     tone: 'warn',
-    text: 'The server didn’t confirm the change. The line above shows which token is in use after the next read.',
+    text: 'The server didn’t confirm the change. The line above shows which token is in use once the next read arrives.',
   },
 } satisfies Record<string, { tone: BannerTone; text: string }>
 
@@ -53,7 +57,8 @@ function commandOutcome(error: unknown): Outcome {
   if (
     code === 'token_refused' ||
     code === 'target_unavailable' ||
-    code === 'secret_store_unavailable'
+    code === 'secret_store_unavailable' ||
+    code === 'credential_change_in_progress'
   ) {
     return code
   }
@@ -84,15 +89,21 @@ function tokenProblem(token: string) {
   return undefined
 }
 
-function TokenSource({ target }: { target: Target | undefined }) {
+/** Which token reads use, from the observation; never the token. */
+function tokenSource(target: Target | undefined) {
   if (target?.credential_source === 'saved' && target.credential_saved_at) {
     const savedAt = new Date(target.credential_saved_at).toLocaleString([], SAVED_AT)
-    return <Small>Using the token saved here on {savedAt}.</Small>
+    return `Using the token saved here on ${savedAt}.`
   }
   if (target?.credential_source === 'environment') {
-    return <Small>Using the token from the server’s environment.</Small>
+    return 'Using the token from the server’s environment.'
   }
   return null
+}
+
+/** A stable callback ref, so the element is focused once, when it appears. */
+function focusOnMount(node: HTMLElement | null) {
+  node?.focus()
 }
 
 type Props = {
@@ -105,15 +116,19 @@ type Props = {
 
 /**
  * Settings › InvenTree › API token: its status, which token is in use, and a write-only field
- * to replace it. The field is never filled from the server.
+ * to replace it. The field is never filled from the server, and the token is held only here.
  */
 export function ApiTokenRow({ target, current, observations, onDirtyChange }: Props) {
   const [mode, setMode] = useState<'idle' | 'replacing' | 'confirmingRevert'>('idle')
   const [token, setToken] = useState('')
   const [problem, setProblem] = useState<string>()
   const [outcome, setOutcome] = useState<Outcome>()
+  const [pending, setPending] = useState<'replace' | 'revert'>()
+  // The trigger that gets focus back when the inline form or confirmation closes.
+  const [returnFocus, setReturnFocus] = useState<'replace' | 'revert'>()
   useReportDirty(token !== '', onDirtyChange)
-  const busy = Boolean(observations?.replaceToken.isPending || observations?.revertToken.isPending)
+  const source = tokenSource(target)
+  const saved = target?.credential_source === 'saved'
 
   function editToken(value: string) {
     setToken(value)
@@ -121,14 +136,19 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
     onDirtyChange?.(value !== '')
   }
 
-  function closeReplace() {
-    editToken('')
+  function open(next: 'replacing' | 'confirmingRevert') {
+    setOutcome(undefined)
+    setMode(next)
+  }
+
+  function close(focus: 'replace' | 'revert') {
+    setReturnFocus(focus)
     setMode('idle')
   }
 
   async function checkAndSave(event: FormEvent) {
     event.preventDefault()
-    if (!observations || busy) {
+    if (!observations || pending) {
       return
     }
     const found = tokenProblem(token)
@@ -137,30 +157,37 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
       return
     }
     setOutcome(undefined)
+    setPending('replace')
     try {
-      await observations.replaceToken.mutateAsync(token)
-      closeReplace()
+      await observations.replaceToken(token)
+      editToken('')
+      close('replace')
       setOutcome('saved')
     } catch (error) {
       setOutcome(commandOutcome(error))
+    } finally {
+      setPending(undefined)
     }
   }
 
   async function revertToEnvironment() {
-    if (!observations || busy) {
+    if (!observations || pending) {
       return
     }
     setOutcome(undefined)
+    setPending('revert')
     try {
-      await observations.revertToken.mutateAsync()
+      await observations.revertToken()
       setOutcome('reverted')
+      // The revert trigger goes once the environment token is in use.
+      close('replace')
     } catch (error) {
       setOutcome(commandOutcome(error))
+      close('revert')
+    } finally {
+      setPending(undefined)
     }
-    setMode('idle')
   }
-
-  const saved = target?.credential_source === 'saved'
 
   return (
     <SettingRow label="API token" help="Kept on the server and never shown.">
@@ -173,30 +200,24 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
             </Small>
           )}
         </Status>
-        <TokenSource target={target} />
-        {mode === 'idle' && (
+        {source && <Small>{source}</Small>}
+        {mode === 'idle' && observations && (
           <Actions>
-            {observations && <CheckConnectionButton check={observations.check} label="Check now" />}
-            {observations && (
+            <CheckConnectionButton check={observations.check} label="Check now" />
+            <Button
+              ref={returnFocus === 'replace' ? focusOnMount : undefined}
+              variant="ghost"
+              size="sm"
+              onClick={() => open('replacing')}
+            >
+              Replace token…
+            </Button>
+            {saved && (
               <Button
+                ref={returnFocus === 'revert' ? focusOnMount : undefined}
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setOutcome(undefined)
-                  setMode('replacing')
-                }}
-              >
-                Replace token…
-              </Button>
-            )}
-            {observations && saved && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setOutcome(undefined)
-                  setMode('confirmingRevert')
-                }}
+                onClick={() => open('confirmingRevert')}
               >
                 Use the environment token…
               </Button>
@@ -206,27 +227,30 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
         {mode === 'replacing' && (
           <Form aria-label="Replace token" onSubmit={(event) => void checkAndSave(event)}>
             <TextField
+              ref={focusOnMount}
               label="New API token"
               type="password"
               autoComplete="off"
               spellCheck={false}
               value={token}
+              readOnly={pending === 'replace'}
               error={problem}
               help="A read-only token from InvenTree. It’s checked with InvenTree before it’s saved, and never shown again."
               onChange={(event) => editToken(event.target.value)}
             />
             <Actions>
-              <Button type="submit" size="sm" aria-disabled={busy || undefined}>
-                {observations?.replaceToken.isPending ? 'Checking…' : 'Check and save'}
+              <Button type="submit" size="sm" aria-disabled={pending ? true : undefined}>
+                {pending === 'replace' ? 'Checking…' : 'Check and save'}
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                aria-disabled={busy || undefined}
+                aria-disabled={pending ? true : undefined}
                 onClick={() => {
-                  if (!busy) {
-                    closeReplace()
+                  if (!pending) {
+                    editToken('')
+                    close('replace')
                   }
                 }}
               >
@@ -244,20 +268,19 @@ export function ApiTokenRow({ target, current, observations, onDirtyChange }: Pr
               <Button
                 variant="warn"
                 size="sm"
-                aria-disabled={busy || undefined}
+                aria-disabled={pending ? true : undefined}
                 onClick={() => void revertToEnvironment()}
               >
-                {observations?.revertToken.isPending
-                  ? 'Deleting…'
-                  : 'Delete and use the environment token'}
+                {pending === 'revert' ? 'Deleting…' : 'Delete and use the environment token'}
               </Button>
               <Button
+                ref={focusOnMount}
                 variant="ghost"
                 size="sm"
-                aria-disabled={busy || undefined}
+                aria-disabled={pending ? true : undefined}
                 onClick={() => {
-                  if (!busy) {
-                    setMode('idle')
+                  if (!pending) {
+                    close('revert')
                   }
                 }}
               >

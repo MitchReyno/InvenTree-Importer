@@ -20,7 +20,12 @@ const {
 } = require('./dev/settings.cjs')
 const { launch, stop, startupGroup, failureCode } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
-const { apiTargetEnv, startsApplyRunner, startSupervision } = require('./dev/stack.cjs')
+const {
+  apiTargetEnv,
+  startsApplyRunner,
+  startSupervision,
+  supervisedEnv,
+} = require('./dev/stack.cjs')
 const { readTailnetIdentity, tailscaleOption } = require('./dev/tailnet.cjs')
 const { claimSupervisorLock, processStartedAt } = require('./dev/supervisor-lock.cjs')
 const { bindSessionEnd, finishOwnedRun } = require('./dev/session.cjs')
@@ -367,7 +372,6 @@ async function main() {
       INTAKE_TARGET_CONTEXT_ID: state.identity.context,
       INTAKE_PROCESSING_CHANNEL_SECRET: state.channelSecret,
       INTAKE_BLOB_ROOT: state.blobRoot,
-      INTAKE_SECRETS_DIR: secretsDir,
     }
     const profile = resolved.profile
     const worker = processingWorker(profile)
@@ -399,7 +403,7 @@ async function main() {
           name,
           process.execPath,
           entry.endsWith('.cjs') ? [entry] : applicationArgs(entry),
-          { cwd: intake, env: { ...env, ...scope, ...extra } },
+          { cwd: intake, env: supervisedEnv(env, scope, extra) },
           ready,
         )
         children.push(owned)
@@ -429,6 +433,7 @@ async function main() {
           INTAKE_PROCESSING_PROFILE: profile,
           // Lets the connection status name the owned test target.
           INTAKE_TARGET_PROFILE: target.kind,
+          INTAKE_SECRETS_DIR: secretsDir,
         },
         (text) => text.includes('"web_ready"'),
       ).ready()

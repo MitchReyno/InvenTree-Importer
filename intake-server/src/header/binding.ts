@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { targets } from '#/db/schema.ts'
 import { fail } from '#/capture/model.ts'
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
 import type { DevConfig } from '#/config.ts'
 import { connectionStatus } from './connection.ts'
 
@@ -40,9 +40,11 @@ export function scopedConnectionStatus(
   origin: string | undefined,
   probe?: () => Promise<Response>,
   version?: () => Promise<Response>,
+  /** Which read token the probes use; reported with each observation, never the token. */
+  credential?: () => InventoryCredentialDto,
 ) {
   const scope = statusBinding(binding)
-  const status = connectionStatus(scope, origin, probe, Date.now, version)
+  const status = connectionStatus(scope, origin, probe, Date.now, version, undefined, credential)
 
   const fenced = (run: () => Promise<ConnectionStatusDto>) => async () => {
     await requireHeaderContext(pool, scope)

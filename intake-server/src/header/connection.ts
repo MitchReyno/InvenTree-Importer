@@ -1,4 +1,4 @@
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { ConnectionStatusDto, InventoryCredentialDto } from '@invimport/contracts'
 import { InventoryTransportError } from '#/inventory/transport.ts'
 import type { DevConfig } from '#/config.ts'
 import { readBoundedBody } from '#/capture/bounded-body.ts'
@@ -140,6 +140,8 @@ export function connectionStatus(
   version?: () => Promise<Response>,
   /** Monotonic milliseconds for the forced-check window, so a clock change can't skip it. */
   elapsed: () => number = () => performance.now(),
+  /** Which read token a probe uses, captured when it starts so the two never disagree. */
+  credential?: () => InventoryCredentialDto,
 ): ConnectionStatusReader {
   const scope = {
     actor_id: binding.actorId,
@@ -177,6 +179,7 @@ export function connectionStatus(
       return pending
     }
     const started = generation
+    const source = credential?.()
     const running: Promise<void> = (async () => {
       const [result, read] = await Promise.all([
         probeResult(send),
@@ -196,6 +199,7 @@ export function connectionStatus(
           navigation_url: target.href,
           label: target.host,
           kind,
+          ...source,
         },
       }
     })().finally(() => {
@@ -254,8 +258,12 @@ export function connectionStatus(
     ) {
       return latest()
     }
+    const started = generation
     await observe(url!, probe!)
-    lastForced = elapsed()
+    // A check that began with the old token can't charge the new token's window.
+    if (started === generation) {
+      lastForced = elapsed()
+    }
     return latest()
   }
 
