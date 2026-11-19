@@ -595,6 +595,15 @@ test('a VM web attempt seals the saved web research at queue time; other profile
       'shared-vm-agent/3',
     )
     const host = await queueLotAttempt(fixture, capture, capture.packetB.id, 'research')
+    // The other VM profile has no web access, so it seals both off too.
+    const vmTools = await queueLotAttempt(
+      fixture,
+      capture,
+      capture.packetB.id,
+      'images',
+      undefined,
+      'shared-vm-agent/1',
+    )
     // Turned off while the attempt waits for a slot: it keeps what it was queued with.
     await saveAgentSettings(fixture.api.pool, fixture.config, {
       ...bothProviders('1'),
@@ -608,6 +617,10 @@ test('a VM web attempt seals the saved web research at queue time; other profile
     const retained = sealed(earlier)
     assert.equal('web' in decodeSessionInput(retained.bytes, retained.digest), false)
     assert.deepEqual((await sealedInput(fixture, host.inputId)).web, {
+      public_pages: false,
+      prefer_datasheets: false,
+    })
+    assert.deepEqual((await sealedInput(fixture, vmTools.inputId)).web, {
       public_pages: false,
       prefer_datasheets: false,
     })
@@ -629,10 +642,24 @@ test('a VM web attempt seals the saved web research at queue time; other profile
   }
 })
 
-test('the opening message carries the sealed web research, outside the instructions', async () => {
-  const fixture = await processingFixture()
+test('a VM web session opens with its sealed web research, outside the instructions', async () => {
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+  const root = await mkdtemp(join(tmpdir(), 'web-research-'))
   try {
     const capture = await fixture.seedCapture()
+    const turns: { text: string; instructions: string }[] = []
+    const deps = {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot: root, env: {} },
+      toolUrl: 'http://127.0.0.1:1/unused',
+      drivers: {
+        'shared-vm-agent/3': async (turn: { text: string; instructions: string }) => {
+          turns.push({ text: turn.text, instructions: turn.instructions })
+          throw new Error('stop after the opening turn')
+        },
+      },
+    }
     const opening = async (
       web: { public_pages: boolean; prefer_datasheets: boolean },
       stage: 'research' | 'images',
@@ -647,10 +674,15 @@ test('the opening message carries the sealed web research, outside the instructi
         undefined,
         'shared-vm-agent/3',
       )
-      const input = await sealedInput(fixture, attempt.inputId)
-      // The settings never change the profile's digest-verified instructions.
-      assert.equal(input.instruction_sha256, sessionProfiles['shared-vm-agent/3'].instructionDigest)
-      return (JSON.parse(openingText(input, 0, false)) as { instructions: string }).instructions
+      await runSessionTurn(deps, attempt.attemptId, new AbortController().signal)
+      const turn = turns.at(-1)!
+      // The instructions the driver receives are the profile's digest-verified bytes.
+      assert.equal(
+        createHash('sha256').update(turn.instructions, 'utf8').digest('hex'),
+        sessionProfiles['shared-vm-agent/3'].instructionDigest,
+      )
+      assert.doesNotMatch(turn.instructions, /Public web pages are|Prefer manufacturer datasheets/)
+      return (JSON.parse(turn.text) as { instructions: string }).instructions
     }
     const on = await opening({ public_pages: true, prefer_datasheets: true }, 'research')
     assert.match(on, /Public web pages are allowed/)
@@ -659,10 +691,24 @@ test('the opening message carries the sealed web research, outside the instructi
     assert.match(off, /Public web pages are not available/)
     assert.match(off, /rely on search results and the staged evidence/)
     assert.doesNotMatch(off, /Prefer manufacturer datasheets/)
-    // A session without VM tools gets no web lines.
+    assert.equal(turns.length, 2)
+  } finally {
+    await fixture.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a session without VM tools opens with no web research lines', async () => {
+  const fixture = await processingFixture()
+  try {
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      ...bothProviders('0'),
+      web: { public_pages: true, prefer_datasheets: true },
+    })
+    const capture = await fixture.seedCapture()
     const host = await queueLotAttempt(fixture, capture, capture.packetB.id, 'research')
-    const hostText = openingText(await sealedInput(fixture, host.inputId), 0, false)
-    assert.doesNotMatch(hostText, /Public web pages|manufacturer datasheets/)
+    const text = openingText(await sealedInput(fixture, host.inputId), 0, false)
+    assert.doesNotMatch(text, /Public web pages|manufacturer datasheets/)
   } finally {
     await fixture.dispose()
   }
