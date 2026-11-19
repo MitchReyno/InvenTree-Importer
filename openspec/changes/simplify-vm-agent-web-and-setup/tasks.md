@@ -44,10 +44,11 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - PR delivery: PR-A.
 - Outcome: one proxy file enforces the provider allowlist and the public destination rules. The reader, `bench-web` and their setup are gone.
 - Scope and approach:
-  - Rename `tooling/deployment/bridge/claude-egress.py` to `guest-egress.py` and update its callers (`tool-turn.sh`, `personal-claude.sh`, `personal-codex.sh`, `runner.Dockerfile`).
+  - Rename `tooling/deployment/bridge/claude-egress.py` to `guest-egress.py` and update its callers (`tool-turn.sh`, `personal-claude.sh`, `personal-codex.sh`, `runner.Dockerfile`) and the runner build-context whitelist `runner.Dockerfile.dockerignore`, which also loses `web-reader.py` and `bench-web`.
   - Add the public branch (design D1): read the policy file, apply the `guest_destinations.py` checks, handle IPv4 and IPv6, connect to a checked address, and send refusal reasons in `X-Bench-Refusal`.
   - Move the resolution and skip rule for protected names into `guest_destinations.py`.
-  - Delete `web-reader.py`, `bench-web`, `public-web.sh`, the `bench-web` install line in `runner.Dockerfile`, and the reader socket check and `/run/web` mount in `tool-turn.sh`.
+  - Replace `public-web.sh` with `browser-policy.sh`, which only installs `guest/browser-seccomp.json` into the guest directory, as `public-web.sh:8-9` does today. Until PR-D, the README points to it in place of `public-web.sh`.
+  - Delete `web-reader.py`, `bench-web`, the `bench-web` install line in `runner.Dockerfile`, and the reader socket check and `/run/web` mount in `tool-turn.sh`.
   - Port `tests/test_web_reader.py` to `tests/test_guest_egress.py`.
 - Prerequisites: None.
 - Acceptance: shared-vm-execution › Public destination checks (all scenarios); Protected names that don't resolve publicly; No separate document reader.
@@ -55,7 +56,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
   - The baseline is the existing reader tests passing.
   - RED: new egress tests expect public CONNECTs allowed with a policy, refusal reasons, IPv6 answers, port refusal and the skip rule. They fail against the provider-only proxy.
 - Verification: a new root script `pnpm test:deployment` running `python3 -I -m unittest discover -s tooling/deployment/tests -p 'test_*.py'`, added to CI; `uv run --project backend ruff check --config backend/pyproject.toml tooling/deployment` (`pnpm lint:backend` doesn't cover `tooling/deployment`); `rg -n 'bench-web|web-reader|public-web|reader.sock' --glob '!openspec/changes/archive/**'` returns only planning text.
-- Risks and decisions: the long-lived personal egress containers must keep working without a policy file. Covered by a provider-only test.
+- Risks and decisions: the long-lived personal egress containers must keep working without a policy file, which a provider-only test covers. The runner image must still build after the whitelist change: build it once and record the result on the PR.
 
 - [ ] 1.1 Run the existing reader and egress tests and record the baseline.
 - [ ] 1.2 RED: write `test_guest_egress.py` covering the cases below, and confirm they fail for the expected reason.
@@ -65,8 +66,9 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
   - [ ] 1.2.4 A protected name, a subdomain of it and a shared address are refused. A protected name resolving only privately is skipped. A failed lookup gives `resolution_failed` for public hosts only.
   - [ ] 1.2.5 A missing or malformed policy file means provider-only.
 - [ ] 1.3 GREEN: implement `guest-egress.py` and the `guest_destinations.py` changes, and update the callers and image.
-- [ ] 1.4 Remove the reader files, the `bench-web` install, and the socket check and mount. Port the remaining reader tests and delete the reader test file.
-- [ ] 1.5 Add the `test:deployment` script and its CI step, run it, the deployment `ruff check`, `pnpm lint` and the reference search, and record the results.
+- [ ] 1.4 Remove the reader files, the `bench-web` install, and the socket check and mount. Add `browser-policy.sh`, update the runner `.dockerignore`, port the remaining reader tests and delete the reader test file.
+- [ ] 1.5 Build the runner image, and with the paired VM where available, confirm Chromium starts in a tool worker with the installed policy. Record the result or the VM limitation on the PR.
+- [ ] 1.6 Add the `test:deployment` script and its CI step, run it, the deployment `ruff check`, `pnpm lint` and the reference search, and record the results.
 
 ## 2. Policy handoff and protected hosts
 
@@ -74,7 +76,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Outcome: each tool turn's egress proxy receives the sealed web setting and the deployment's protected hosts from the supervisor, through a channel the worker can't reach.
 - Scope and approach:
   - **Tool turn:** `tool-turn.sh` creates `$turn/policy` and mounts it read-write in the peer and read-only in egress, not in the worker (design D2).
-  - **Configuration handoff:** the launcher (`tooling/dev.cjs`) passes the app and inventory origins to the agent worker, and `session-worker-main.ts` validates them and gives them to `startSessionBridge()` (design D4).
+  - **Configuration handoff:** the launcher (`tooling/dev.cjs`) sets `INTAKE_AGENT_PROTECTED_ORIGINS` for the agent worker, and `session-worker-main.ts` validates it and gives it to `startSessionBridge()` (design D4).
   - **Coordinator:** `intake-server/src/agents/shared-vm/coordinator.ts` adds a `protected_hosts` command field from a new `protectedHosts()`, keeping public IP literals as protected addresses.
   - **Peer:** `guest-main.ts` validates the field and the optional manifest `web` object, then writes `policy.json` atomically before the worker turn.
   - **Input schema:** add the optional `web` object to the session input schema. It is absent, meaning off, until task 3.
@@ -83,7 +85,8 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Acceptance: shared-vm-execution › Egress applies the sealed web setting (both scenarios); Protected destinations come from the deployment; Scoped guest execution and tool access › Public web access off.
 - TDD approach:
   - RED: coordinator tests expect `protected_hosts` worked out from the configured origins, keeping public IP literals and dropping loopback and private names.
-  - RED: a launcher test expects the agent worker's environment to carry the origins, and a worker test expects `session_agent_configuration_required` when they are missing.
+  - RED: launcher tests expect the agent worker's `INTAKE_AGENT_PROTECTED_ORIGINS` to hold the loopback and inventory origins, plus the tailnet origin when `INTAKE_DEV_TAILSCALE` is on, while its `INTAKE_ORIGIN` stays loopback. A worker test expects `session_agent_configuration_required` when the list is missing or malformed.
+  - RED: decoding a retained input with and without the `web` object.
   - RED: peer tests expect `policy.json` contents and refusal of invalid host lists.
   - RED: a `tool-turn.sh` argument test expects the policy mount absent from the worker's `docker run` arguments.
 - Verification: `pnpm test:intake`, plus `pnpm test:intake:process` for the bridge and worker start-up; `pnpm test:dev` for the launcher passing the origin settings to the agent worker; `pnpm test:deployment` for the `tool-turn.sh` argument test; `tool-worker-smoke.sh` with the paired VM, showing a public `curl` refused while web is off. If the VM isn't available, record that limitation in the PR.
@@ -178,6 +181,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Scope and approach:
   - Add `tooling/dev/vm-setup.cjs` and the root script `vm:setup`, reusing `tooling/dev/settings.cjs` and `vm.cjs`.
   - Make `personal-claude.sh` and `personal-codex.sh` replace only their own containers and leave state alone.
+  - Run `browser-policy.sh` as a setup step.
   - Add pairing detection around `pair.sh`.
 - Prerequisites: task 1.
 - Acceptance: development-launcher › One-command VM setup; VM setup is safe to rerun; VM setup checks prerequisites and stops on failure (all scenarios).
@@ -209,7 +213,7 @@ Tasks 5 and 7 have no dependency on the settings work, so they can proceed while
 - Scope and approach: a digest helper shared with task 7; the launcher's VM start path in `tooling/dev/vm.cjs` and `tooling/dev.cjs`; the `vm_pairing_missing` message.
 - Prerequisites: task 7.
 - Acceptance: development-launcher › The runner image is kept current; A failed image refresh stops startup; A missing pairing is refused before the VM starts (all scenarios).
-- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load and restart before the relays), a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
+- TDD approach: RED launcher tests for a matching digest (no build), a mismatch (rebuild, load, `browser-policy.sh` and restart before the relays), a `.dockerignore` change invalidating the digest, a failed rebuild (`vm_runner_image_refresh_failed` and the stop rules), unmanaged (warning only), and the refusal text naming `pnpm vm:setup`.
 - Verification: `pnpm test:dev` and `pnpm lint:tooling`.
 - Risks and decisions: the digest input list must include everything the image copies. A test asserts the list against the Dockerfiles' `COPY` sources.
 

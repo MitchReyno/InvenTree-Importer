@@ -90,8 +90,9 @@ The fields are optional, so the input schema version doesn't change. If `setting
 - The skip for "resolves only to non-public addresses" happens in the egress proxy, because only the guest's DNS is authoritative for what the agent would reach.
 
 **Configuration handoff.** Today the agent worker receives neither the app origin nor the inventory target. `tooling/dev.cjs:417-455` gives `INTAKE_ORIGIN` and `apiTargetEnv()` only to the API child, and `session-worker-main.ts:108` passes the bridge only the pairing directory and port. So:
-- the launcher passes the same non-secret origin settings to the agent worker. Standalone deployments set them the way they already do for the API (`intake-server/src/config.ts`);
-- `session-worker-main.ts` validates them, and refuses to start the bridge with `session_agent_configuration_required` when they are missing or malformed;
+- the worker's own `INTAKE_ORIGIN` stays the loopback origin. `devConfig()` requires that (`intake-server/src/config.ts:40-42`), and the tailnet origin only reaches the tailnet child (`tooling/dev.cjs:286,421,504`);
+- instead, the launcher gives the agent worker a separate internal input, `INTAKE_AGENT_PROTECTED_ORIGINS`: a comma-separated list of absolute origins, holding the loopback app origin, the tailnet origin when `INTAKE_DEV_TAILSCALE` is on, and each InvenTree origin the app reads or writes. The launcher always sets it, so it isn't an operator setting. A deployment not started by `pnpm dev` sets it next to its other worker settings;
+- for `shared-vm-agent/2`, `session-worker-main.ts` validates that list, and refuses to start the bridge with `session_agent_configuration_required` when it is missing or malformed;
 - it then hands them to `startSessionBridge()`, which the coordinator uses for each turn.
 
 No credential is passed.
@@ -143,6 +144,8 @@ Since the contract field changes, the frontend and server move together in one P
 | Operator key | The key file exists | Created by the provisioning script, which already does this |
 | Guest services | Containers exist with the current image and the expected `INTAKE_OPERATOR_ORIGIN` | Run `personal-claude.sh` and `personal-codex.sh`. Both are changed to remove only their own named containers first, and to leave the store, state and key directories alone. |
 
+The guest browser policy (`guest/browser-seccomp.json`, which `tool-turn.sh:46-48` applies when present) is installed by `browser-policy.sh`, the remaining part of the retired `public-web.sh`. `vm:setup` and each image refresh run it again, so the policy follows the checkout.
+
 The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP_RUNNING` is true. The run ends by printing the two `.env` switches and the sign-in step.
 
 **Rejected:**
@@ -152,7 +155,7 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 ### D9. Runner image freshness
 
 - The digest covers every input of the runner image's build chain:
-  - `app.Dockerfile`, `runner.Dockerfile` and the guest image context `tooling/deployment/guest/`;
+  - `app.Dockerfile` and `runner.Dockerfile`, their Dockerfile-specific `.dockerignore` files (which decide the build context), and the guest image context `tooling/deployment/guest/`;
   - every build-context `COPY` source in those Dockerfiles, skipping `COPY --from` stage copies. Today that includes `contracts/src`, `contracts/generated`, `frontend`, `intake-server/src` and `intake-server/migrations`, `media-decoder/src`, `backend/src`, `backend/config`, `backend/pyproject.toml` and `uv.lock`, the workspace manifests and lockfile, `tooling/openapi-generator/package.json`, `LICENSE`, and the bridge files the runner copies.
 - It is a SHA-256 over the sorted `path` and file-content hash of each tracked or untracked, non-ignored file under those sources.
 - The source list is parsed from the Dockerfiles rather than kept by hand, so a new `COPY` is covered automatically. Base images are pinned by digest in the Dockerfile text, which is itself hashed.
@@ -202,9 +205,10 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
   - The README tells existing users to run `pnpm vm:setup` once. It keeps their pairing and sign-ins.
   - Existing conversations can't resume across the admission policy change.
 - **Rollback:**
-  - PR-A, PR-C and PR-D revert cleanly. PR-A adds the optional `web` schema field, but nothing seals it before PR-B.
-  - PR-B is forward-only once an attempt has been sealed with `web` fields. The session input schema has `additionalProperties: false` (`contracts/src/processing.ts:10-11`), and `decodeSessionInput()` validates retained manifests (`session-input.ts:71-74`). Code without the field would reject those inputs, and sealed inputs must not be rewritten.
-  - So a problem after PR-B is fixed forward, for example by forcing the egress policy to provider-only. PR-B's tests include decoding a retained input with and without `web`.
+  - PR-C and PR-D revert cleanly.
+  - PR-A adds the optional `web` field to the session input schema, and PR-B starts sealing it. The schema has `additionalProperties: false` (`contracts/src/processing.ts:10-11`), and `decodeSessionInput()` validates retained manifests (`session-input.ts:71-74`). Once any attempt is sealed with `web`, code without the field would reject it, and sealed inputs must not be rewritten.
+  - So after the first `web` input is sealed, neither PR-A's schema support nor PR-B's sealing is reverted. A rollback of PR-A's behaviour keeps the schema field and only forces the egress policy to provider-only. A rollback of PR-B stops sealing new values but keeps decoding existing ones.
+  - Tests in PR-A and PR-B decode a retained input with and without `web`.
 - **Observability:** each egress refusal is counted by reason in the turn's diagnostic counters, without hosts.
 
 ## Risks and open decisions

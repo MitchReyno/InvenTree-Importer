@@ -132,9 +132,15 @@ The coordinator SHALL work out each turn's protected hosts from the deployment's
 - **WHEN** the agent connects to a public DNS name that resolves to `203.0.113.10`
 - **THEN** the proxy refuses with `protected_destination`
 
+#### Scenario: App served on the tailnet
+
+- **GIVEN** `pnpm dev` with `INTAKE_DEV_TAILSCALE` on and a tailnet name that resolves publicly
+- **WHEN** a VM tool turn starts
+- **THEN** that name is among the turn's protected hosts, while the agent worker's own app origin stays loopback
+
 #### Scenario: Origin settings missing for the agent worker
 
-- **GIVEN** VM tool sessions whose agent worker didn't receive the app and inventory origins
+- **GIVEN** VM tool sessions whose agent worker didn't receive the list of protected origins
 - **WHEN** the worker starts its VM bridge
 - **THEN** it refuses with `session_agent_configuration_required`, and no turn is dispatched
 
