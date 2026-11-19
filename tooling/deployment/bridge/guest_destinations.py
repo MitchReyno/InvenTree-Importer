@@ -96,17 +96,23 @@ def protected_addresses(protected):
     return blocked
 
 
-def check_public_form(host, port):
-    """Refuses a public CONNECT whose name or port can never be allowed, before any DNS."""
-    target_name = (dns_name(host) and host.split(".")[-1].isalpha()
-                   and not host.endswith(PRIVATE_SUFFIXES))
-    if port != 443 or not target_name:
+def check_public_form(host, port, protected):
+    """Refuses a public CONNECT whose name or port can never be allowed, before any DNS.
+
+    A configured protected name with a private suffix, such as `inventory.internal`, reports
+    protected_destination rather than the generic suffix refusal.
+    """
+    if port != 443 or not dns_name(host) or not host.split(".")[-1].isalpha():
+        raise Refused("destination_refused")
+    if host.endswith(PRIVATE_SUFFIXES):
+        if protected_name(host, protected):
+            raise Refused("protected_destination")
         raise Refused("destination_refused")
 
 
 def public_target(host, port, protected):
     """The checked address to connect to for a public CONNECT, or Refused with its reason."""
-    check_public_form(host, port)
+    check_public_form(host, port, protected)
     # A private answer reports not_public even for a protected name; a protected name without
     # its own record is still protected.
     try:

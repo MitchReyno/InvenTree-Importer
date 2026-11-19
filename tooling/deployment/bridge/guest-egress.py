@@ -98,19 +98,24 @@ class ProtectedLookups:
             addresses = None
         with self.lock:
             self.in_flight.pop(name, None)
+            # A failed refresh keeps the last addresses this name was known to have.
             if addresses is not None:
                 self.known[name] = (time.monotonic() + PROTECTED_LOOKUP_TTL_S, addresses)
         return addresses or set()
 
     def lookup(self, name):
-        """A cached answer, or the future of the one lookup in flight for this name."""
+        """The last known addresses, and the refresh in flight when they are missing or stale.
+
+        Stale addresses keep blocking until a refresh replaces them, so a slow or failed
+        refresh never unblocks an address this name was known to have.
+        """
         with self.lock:
-            cached = self.known.get(name)
-            if cached and cached[0] > time.monotonic():
-                return cached[1]
+            expiry, known = self.known.get(name, (0, set()))
+            if expiry > time.monotonic():
+                return known, None
             if name not in self.in_flight:
                 self.in_flight[name] = self.pool.submit(self.resolve, name)
-            return self.in_flight[name]
+            return known, self.in_flight[name]
 
     def addresses(self, protected):
         blocked = set()
@@ -121,11 +126,10 @@ class ProtectedLookups:
                 if public(str(literal)):
                     blocked.add(literal)
                 continue
-            answer = self.lookup(entry)
-            if isinstance(answer, set):
-                blocked |= answer
-            else:
-                pending.append(answer)
+            known, refresh = self.lookup(entry)
+            blocked |= known
+            if refresh is not None:
+                pending.append(refresh)
         done, _late = wait(pending, timeout=PROTECTED_LOOKUP_BUDGET_S)
         return blocked.union(*(future.result() for future in done))
 
@@ -210,7 +214,7 @@ async def checked_addresses(host, port):
         return await PROVIDER_DNS.run(provider_addresses, host, protected)
     if policy is None or not policy["public_pages"]:
         raise Refused("destination_refused")
-    check_public_form(host, port)
+    check_public_form(host, port, protected)
     try:
         return await PUBLIC_DNS.run(public_target, host, port, protected)
     except Refused as refusal:

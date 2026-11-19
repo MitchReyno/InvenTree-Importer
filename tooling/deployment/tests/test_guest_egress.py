@@ -350,9 +350,12 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         names = [f"h{index}.example.com" for index in range(31)]
         self.write_policy(public_pages=False, protected_hosts=names + [OTHER_PUBLIC])
         table = {"api.anthropic.com": [OTHER_PUBLIC]}
-        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2):
-            written, upstream = await self.connect(
-                "api.anthropic.com:443", table, stalled={name: release for name in names})
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2), \
+                self.fake_network(table, stalled={name: release for name in names}) as upstream:
+            written = await self.handle("api.anthropic.com:443")
+            # Queued lookups finish against the fake resolver, never the real one.
+            release.set()
+            egress.PROTECTED_LOOKUPS.pool.shutdown(wait=True)
         self.assert_refused(written, upstream, "protected_destination")
 
     async def test_bad_port_is_refused_by_name_even_with_the_dns_pool_full(self):
@@ -363,6 +366,30 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             written, upstream = await self.connect("www.ti.com:22", {"www.ti.com": [PUBLIC]})
         self.assert_refused(written, upstream, "destination_refused")
         self.assertEqual(self.lookups, 0)
+
+    async def test_stale_protected_addresses_keep_blocking_while_a_refresh_stalls(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        release = threading.Event()
+        known = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [PUBLIC]}
+        with patch.object(egress, "PROTECTED_LOOKUP_TTL_S", 0), \
+                patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.2):
+            written, upstream = await self.connect("api.anthropic.com:443", known)
+            self.assert_connected(written, upstream, PUBLIC)
+            # The entry has expired; its refresh stalls, and the provider moves onto that address.
+            moved = {"inventory.example.com": [OTHER_PUBLIC], "api.anthropic.com": [OTHER_PUBLIC]}
+            with self.fake_network(moved, stalled={"inventory.example.com": release}) as upstream:
+                written = await self.handle("api.anthropic.com:443")
+                release.set()
+                egress.PROTECTED_LOOKUPS.pool.shutdown(wait=True)
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_private_suffix_protected_name_reports_protected(self):
+        self.write_policy(protected_hosts=["inventory.internal"])
+        for target in ("inventory.internal:443", "api.inventory.internal:443"):
+            with self.subTest(target=target):
+                written, upstream = await self.connect(target, {})
+                self.assert_refused(written, upstream, "protected_destination")
+                self.assertEqual(self.lookups, 0)
 
 
 if __name__ == "__main__":

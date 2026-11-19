@@ -98,6 +98,17 @@ function originHost(origin: string): string | undefined {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return configurationRequired()
   }
+  // An origin is scheme, host and port only: no credentials, path, query or fragment. The raw
+  // check also catches an empty `?` or `#`, which URL drops.
+  const originOnly =
+    url.username === '' &&
+    url.password === '' &&
+    url.pathname === '/' &&
+    !/[@?#]/.test(origin) &&
+    !/^https?:\/\/[^/]+\/./i.test(origin)
+  if (!originOnly) {
+    return configurationRequired()
+  }
   // WHATWG hosts are already lowercase with international names in punycode.
   const bracketless = url.hostname.replace(/^\[(.*)\]$/, '$1')
   const host = bracketless.endsWith('.') ? bracketless.slice(0, -1) : bracketless
