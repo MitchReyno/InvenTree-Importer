@@ -424,8 +424,11 @@ async def checked_addresses(host, port, provider, protected):
     exact = refreshes.get(host)
     target = None if exact else asyncio.ensure_future(PUBLIC_DNS.run(
         public_target, host, port, protected))
+    # Refreshes still running at the deadline stay overdue for this request, even if they land
+    # while the destination lookup finishes; they keep running and publish when they do.
+    overdue = set()
     if refreshes:
-        await asyncio.wait(refreshes.values(), timeout=DNS_TIMEOUT_S)
+        _landed, overdue = await asyncio.wait(refreshes.values(), timeout=DNS_TIMEOUT_S)
     refusal = None
     if target is not None:
         try:
@@ -437,7 +440,7 @@ async def checked_addresses(host, port, provider, protected):
     if exact is not None:
         # The name is protected whatever its lookup says, but the answer this request waited on
         # reports not_public if it held any private address, as it would for any other host.
-        answer = exact.result() if exact.done() else None
+        answer = None if exact in overdue else exact.result()
         with PROTECTED_LOOKUPS.lock:
             if PROTECTED_LOOKUPS.failed:
                 raise Refused("resolution_failed")
@@ -449,7 +452,7 @@ async def checked_addresses(host, port, provider, protected):
     with PROTECTED_LOOKUPS.lock:
         if PROTECTED_LOOKUPS.failed:
             raise Refused("resolution_failed")
-        if not all(refresh.done() for refresh in refreshes.values()):
+        if overdue:
             raise Refused("resolution_failed")
         if refusal is not None:
             # A protected name stays protected when its lookup runs out of time or slots.

@@ -1529,6 +1529,23 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assert_refused(written, upstream, "resolution_failed")
         watch.assert_not_called()
 
+    async def test_protected_refresh_overdue_at_the_deadline_refuses_the_request(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+
+        async def slow_destination(*_args):
+            # The destination answers after the protected refresh has landed late.
+            await asyncio.sleep(0.3)
+            return [PUBLIC]
+
+        with patch.object(egress, "DNS_TIMEOUT_S", 0.1), \
+                patch.object(egress.PUBLIC_DNS, "run", slow_destination):
+            written, upstream = await self.connect(
+                "www.ti.com:443", table, delays={"inventory.example.com": 0.2})
+        self.assert_refused(written, upstream, "resolution_failed")
+        # The overdue refresh still published its answer when it landed.
+        self.assertTrue(egress.PROTECTED_LOOKUPS.known.get("inventory.example.com"))
+
 
 if __name__ == "__main__":
     unittest.main()
