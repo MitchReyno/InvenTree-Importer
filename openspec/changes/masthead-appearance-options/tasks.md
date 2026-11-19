@@ -56,12 +56,12 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - Verification: `pnpm --filter frontend exec vitest run src/theme` (or the project's equivalent single-file run), then `pnpm typecheck`.
 - Risks: the pre-paint script and the controller must agree; a parity test covers it.
 
-- [ ] 1.1 Baseline: run the existing theme tests and record that they pass.
-- [ ] 1.2 RED: write failing tests.
-  - [ ] 1.2.1 Masthead-style controller: default `bar`, stored values, unknown values, throwing or missing storage, and subscribers notified on change.
-  - [ ] 1.2.2 Pre-paint parity: the `index.html` script sets the same `data-masthead` as the controller for each stored value, and its `data-theme` result is unchanged.
-- [ ] 1.3 GREEN: extract `device-preference.ts` from `theme.ts`, add the masthead-style controller and `useMastheadStyle`, wire it in `main.tsx`, and extend the inline script.
-- [ ] 1.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
+- [x] 1.1 Baseline: run the existing theme tests and record that they pass.
+- [x] 1.2 RED: write failing tests.
+  - [x] 1.2.1 Masthead-style controller: default `bar`, stored values, unknown values, throwing or missing storage, and subscribers notified on change.
+  - [x] 1.2.2 Pre-paint parity: the `index.html` script sets the same `data-masthead` as the controller for each stored value, and its `data-theme` result is unchanged.
+- [x] 1.3 GREEN: extract `device-preference.ts` from `theme.ts`, add the masthead-style controller and `useMastheadStyle`, wire it in `main.tsx`, and extend the inline script.
+- [x] 1.4 Refactor; run `pnpm format` and `pnpm lint:frontend`.
 
 ## 2. Scene field layout
 
