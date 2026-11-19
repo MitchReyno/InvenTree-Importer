@@ -451,9 +451,10 @@ export async function runSessionTurn(
         return 'paused' as const
       }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
-      // No worker runs `shared-vm-agent/2` any more, so its tool worker serves its attempts a
-      // last time: queued or requeued by a resume, each fails without starting, its history kept.
-      if (manifest.profile_id === 'shared-vm-agent/2' && config.profileId === 'shared-vm-agent/3') {
+      // No worker runs `shared-vm-agent/2` any more, so whichever worker finds one of its
+      // attempts settles it: queued or requeued by a resume, it fails without starting, its
+      // history kept, instead of waiting for a worker that will never come.
+      if (manifest.profile_id === 'shared-vm-agent/2') {
         // Counted as a turn, so the session's views find this turn's diagnostic.
         const retired = await setSessionState(client, attemptId, row.jobId, 'failed', ['queued'], {
           countTurn: true,

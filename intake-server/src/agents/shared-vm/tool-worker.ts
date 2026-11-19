@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
 import { validate } from '@invimport/contracts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
+import { refusalOutcome } from './journal.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames } from './frames.ts'
 import { providerProxy } from './provider-proxy.ts'
@@ -69,6 +70,8 @@ try {
     if (error instanceof NativeSessionError && error.message === 'agent_login_required') {
       outcome = 'agent_login_required'
     }
+    // A tool-policy refusal keeps its code, so the operator sees why the turn stopped.
+    outcome = (error instanceof NativeSessionError && refusalOutcome(error.code)) || outcome
     await frames.send({ outcome }).catch(() => {})
   }
 } finally {

@@ -10,7 +10,6 @@ import {
   requireCodexSessionConfig,
   rememberAdmission,
   hasAdmission,
-  GUEST_SHELL_PROXY,
 } from '#/agents/session/session-admission.ts'
 
 test('unknown or malformed native versions are refused', () => {
@@ -79,7 +78,10 @@ test('a guest tool session is admitted with live web search and the shell proxy 
     sandbox_mode: 'danger-full-access',
     web_search: 'live',
     features: { ...host.features, shell_tool: true, view_image: true },
-    shell_environment_policy: { set: { ...GUEST_SHELL_PROXY } },
+    // Literal values: the guest's provider proxy listens on 127.0.0.1:14316.
+    shell_environment_policy: {
+      set: { HTTPS_PROXY: 'http://127.0.0.1:14316', NO_PROXY: '127.0.0.1,localhost' },
+    },
   }
   requireCodexSessionConfig(guest, true)
   for (const change of [

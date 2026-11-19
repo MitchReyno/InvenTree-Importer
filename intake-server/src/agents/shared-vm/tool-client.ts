@@ -1,6 +1,7 @@
 import { evidenceRequest } from './evidence-request.ts'
 import { ResearchReapPendingError } from '#/research/errors.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
+import { refusalOutcome } from './journal.ts'
 import { connect } from 'node:net'
 import { once } from 'node:events'
 import { evidenceReplyLimit, Frames } from './frames.ts'
@@ -21,6 +22,10 @@ export const isolatedToolTurn: typeof nativeTurn = async (context, opening, requ
       })
       if (message.outcome === 'agent_login_required') {
         throw new NativeSessionError('agent_login_required')
+      }
+      const refusal = refusalOutcome(message.outcome)
+      if (refusal) {
+        throw new NativeSessionError(refusal)
       }
       if (message.outcome === 'done') {
         return

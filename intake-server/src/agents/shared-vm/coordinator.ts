@@ -9,12 +9,21 @@ import { ResearchReapPendingError } from '#/research/errors.ts'
 import { evidenceReplyLimit, Frames, protocol, readBounded } from './frames.ts'
 import { SessionResumeUnavailable } from '#/agents/session/session-adapters.ts'
 import { NativeSessionError } from '#/agents/failure-model.ts'
+import { refusalOutcome } from './journal.ts'
 import { pairing } from './pair.ts'
 import { settled } from '#/events/settled.ts'
 
 export interface SessionBridgeOptions {
   /** Hosts each tool turn's egress proxy refuses; see `bridgeProtectedHosts`. */
   protectedHosts: readonly string[]
+}
+
+/** The failure code a settled guest turn reports, or undefined for anything else. */
+function settledFailure(value: unknown) {
+  if (value === 'agent_login_required' || value === 'agent_turn_failed') {
+    return value
+  }
+  return refusalOutcome(value)
 }
 
 /**
@@ -181,9 +190,10 @@ export async function startSessionBridge(
           dispatched = false
           throw new SessionResumeUnavailable()
         }
-        if (msg.failure === 'agent_login_required' || msg.failure === 'agent_turn_failed') {
+        const failure = settledFailure(msg.failure)
+        if (failure) {
           dispatched = false
-          throw new NativeSessionError(msg.failure)
+          throw new NativeSessionError(failure)
         }
         if (
           msg.provider &&
@@ -307,8 +317,9 @@ export async function startSessionBridge(
           if (outcome === 'resume_unavailable') {
             throw new SessionResumeUnavailable()
           }
-          if (outcome === 'agent_login_required' || outcome === 'agent_turn_failed') {
-            throw new NativeSessionError(outcome)
+          const failure = settledFailure(outcome)
+          if (failure) {
+            throw new NativeSessionError(failure)
           }
         }
         throw new ResearchReapPendingError()

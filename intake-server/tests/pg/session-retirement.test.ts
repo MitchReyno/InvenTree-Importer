@@ -18,8 +18,11 @@ const retiredProfile = {
 }
 
 /** A `shared-vm-agent/3` worker whose provider must never start for a retired attempt. */
-async function retiringWorker(t: TestContext) {
-  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
+async function retiringWorker(
+  t: TestContext,
+  profileId: 'shared-vm-agent/1' | 'shared-vm-agent/3' = 'shared-vm-agent/3',
+) {
+  const fixture = await processingFixture({ profileId })
   t.after(() => fixture.dispose())
   const root = await mkdtemp(join(tmpdir(), 'session-retirement-'))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -30,8 +33,8 @@ async function retiringWorker(t: TestContext) {
     host: { codexExecutable: 'unused', claudeExecutable: 'unused', stateRoot: root, env: {} },
     toolUrl: 'http://127.0.0.1:1/unused',
     drivers: {
-      'shared-vm-agent/3': async () => {
-        started.push('shared-vm-agent/3')
+      [profileId]: async () => {
+        started.push(profileId)
       },
     },
   }
@@ -122,4 +125,18 @@ test('a message to a finished shared-vm-agent/2 session fails the requeued attem
     finished.attempt,
   ])
   assert.equal(kept.rowCount, 1)
+})
+
+test('a worker without VM tools also settles a retired attempt instead of leaving it waiting', async (t) => {
+  const { fixture, deps, started } = await retiringWorker(t, 'shared-vm-agent/1')
+  const capture = await fixture.seedCapture()
+  const queued = await lotSession(fixture, capture, capture.packetA, {
+    state: 'queued',
+    profile: retiredProfile,
+  })
+  assert.equal(await runSessionTurn(deps, queued.attempt, new AbortController().signal), 'failed')
+  const settled = await settledSession(fixture, queued.attempt)
+  assert.deepEqual(started, [])
+  assert.equal(settled.state, 'failed')
+  assert.match(settled.shown?.recovery ?? '', /Run the step again/)
 })

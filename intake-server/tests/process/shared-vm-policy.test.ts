@@ -19,6 +19,7 @@ import { sealed } from '#/processing/model.ts'
 import { decodeSessionInput } from '#/processing/session-input.ts'
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 import { serveGuestTurn } from '#/agents/shared-vm/guest-turn.ts'
+import { NativeSessionError } from '#/agents/failure-model.ts'
 import type { nativeTurn } from '#/agents/shared-vm/native-turn.ts'
 import { Frames, protocol } from '#/agents/shared-vm/frames.ts'
 import { pairing } from '#/agents/shared-vm/pair.ts'
@@ -93,11 +94,16 @@ async function pairedToolTurn(
        FROM agent_session s WHERE s.attempt_id = $1`,
     [attempt],
   )
+  const failures = await fixture.db.pool.query<{ code: string }>(
+    "SELECT diagnostic->>'code' AS code FROM agent_session_failure WHERE attempt_id=$1",
+    [attempt],
+  )
   return {
     outcome: recorded.split('\n')[1],
     result,
     sessionState: retained.session_state,
     slotHeld: retained.slots !== '0',
+    failureCodes: failures.rows.map((row) => row.code),
   }
 }
 
@@ -117,6 +123,26 @@ test(
     })
     assert.deepEqual(seen, [{ version: 1, public_pages: false, protected_hosts: protectedHosts }])
     assert.equal(outcome, 'done')
+  },
+)
+
+test(
+  'a tool-policy refusal in the VM keeps its code through the journal and the coordinator',
+  { timeout: 60000 },
+  async (t) => {
+    for (const code of ['agent_tool_refused', 'agent_policy_refused']) {
+      await t.test(code, async (t) => {
+        const { outcome, result, failureCodes } = await pairedToolTurn(t, (root) => ({
+          policyPath: join(root, 'policy', 'policy.json'),
+          runNative: async () => {
+            throw new NativeSessionError(code)
+          },
+        }))
+        assert.equal(outcome, code)
+        assert.equal(result, 'failed')
+        assert.deepEqual(failureCodes, [code])
+      })
+    }
   },
 )
 
