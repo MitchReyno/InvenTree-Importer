@@ -132,6 +132,18 @@ The coordinator SHALL work out each turn's protected hosts from the deployment's
 - **WHEN** the agent connects to a public DNS name that resolves to `1.1.1.1`
 - **THEN** the proxy refuses with `protected_destination`
 
+#### Scenario: Inventory origin with a trailing dot
+
+- **GIVEN** the app reads InvenTree at `https://inventory.example.com.`
+- **WHEN** the turn's protected hosts are worked out
+- **THEN** `inventory.example.com` is protected, and the agent can't reach it or a public alias of its address
+
+#### Scenario: Protected origin that can't be represented
+
+- **GIVEN** a configured origin whose host still isn't a DNS name or IP literal after being put in standard form
+- **WHEN** the agent worker starts its VM bridge
+- **THEN** it refuses with `session_agent_configuration_required`, and no turn is dispatched
+
 #### Scenario: Private-suffix inventory name with a public address
 
 - **GIVEN** the app reads InvenTree at `https://inventory.internal`, which resolves in the guest to a public address

@@ -85,6 +85,8 @@ The fields are optional, so the input schema version doesn't change. If `setting
 - the app's own origin, which is the tailnet name when `INTAKE_DEV_TAILSCALE` is on.
 
 **Entries:** an entry is a DNS name or an IP address literal.
+- Each host is put in a standard form before it is checked: the host from the WHATWG URL parser (lowercase, with international names in punycode), a trailing dot removed, and IPv6 brackets removed.
+- An entry that still doesn't match the proxy's DNS-name or IP-literal form makes the worker refuse to start the bridge with `session_agent_configuration_required`. It is never dropped, because dropping it would leave that host unprotected.
 - A public IP literal is kept as a protected address, so a DNS name aliasing it is refused.
 - Loopback and other non-public IP literals are dropped, because no public name can resolve to them past the address check.
 - DNS names are kept whatever their suffix. An inventory host such as `inventory.internal` can resolve to a public address in the guest, and its address must still block public aliases.
@@ -202,7 +204,7 @@ The VM is stopped at the end only if this run started it, unless `INTAKE_VM_KEEP
 | --- | --- | --- | --- |
 | Web settings | Agent settings row | Existing revision check (`settings-debug-mode`) | A stale save is refused as a conflict |
 | Sealed web fields | Attempt input | Immutable after queue | Absent means off |
-| Protected hosts | Coordinator, per turn | Recomputed each turn, never stored | Invalid names are dropped. A public name that fails to resolve gives `resolution_failed` for public hosts. |
+| Protected hosts | Coordinator, per turn | Recomputed each turn, never stored | Names are put in a standard form first. One that still can't be represented stops the bridge from starting; it is never dropped. A public name that fails to resolve gives `resolution_failed` for public hosts. |
 | Turn policy file | Peer writes, egress reads | Per turn directory, removed by `tool-turn.sh` cleanup | Missing or invalid means provider-only |
 | Runner image digest | Image label | Content digest | A failed refresh gives `vm_runner_image_refresh_failed` before the relays start |
 | Pairing, keys, sign-ins | Guest and host private directories | Never replaced by setup | A one-sided pairing gives `vm_pairing_mismatch` |

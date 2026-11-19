@@ -84,7 +84,7 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Prerequisites: task 1.
 - Acceptance: shared-vm-execution › Egress applies the sealed web setting (both scenarios); Protected destinations come from the deployment; Scoped guest execution and tool access › Public web access off.
 - TDD approach:
-  - RED: coordinator tests expect `protected_hosts` worked out from the configured origins, keeping every DNS name (including private suffixes such as `.internal`) and public IP literals, and dropping non-public IP literals.
+  - RED: coordinator tests expect `protected_hosts` worked out from the configured origins, keeping every DNS name (including private suffixes such as `.internal`) and public IP literals, and dropping non-public IP literals. A trailing-dot origin becomes the bare name, and a host that can't be represented refuses bridge start-up rather than being dropped.
   - RED: launcher tests expect the agent worker's `INTAKE_AGENT_PROTECTED_ORIGINS` to hold the loopback and inventory origins, plus the tailnet origin when `INTAKE_DEV_TAILSCALE` is on, while its `INTAKE_ORIGIN` stays loopback. A worker test expects `session_agent_configuration_required` when the list is missing or malformed.
   - RED: decoding a retained input with and without the `web` object.
   - RED: peer tests expect `policy.json` contents and refusal of invalid host lists.
