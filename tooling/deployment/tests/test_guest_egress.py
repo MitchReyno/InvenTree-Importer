@@ -820,6 +820,41 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
         self.assertEqual(dialled, [PUBLIC])
 
+    async def test_late_older_answer_never_replaces_a_newer_protected_address(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        lookups = egress.PROTECTED_LOOKUPS
+        older, newer = lookups.ticket(), lookups.ticket()
+        lookups.publish("inventory.example.com", {egress.normalized(OTHER_PUBLIC)}, newer)
+        lookups.publish("inventory.example.com", {egress.normalized("8.8.8.8")}, older)
+        # The next refresh times out, so the provider check uses the newest known answer.
+        stalled = {"inventory.example.com": threading.Event()}
+        self.addCleanup(stalled["inventory.example.com"].set)
+        table = {"api.anthropic.com": [OTHER_PUBLIC], "inventory.example.com": ["8.8.8.8"]}
+        with patch.object(egress, "PROTECTED_LOOKUP_BUDGET_S", 0.05):
+            written, upstream = await self.connect("api.anthropic.com:443", table, stalled=stalled)
+        self.assert_refused(written, upstream, "protected_destination")
+
+    async def test_only_address_protected_during_its_failed_dial_keeps_the_reason(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC]}
+        dialling = asyncio.Event()
+        release = asyncio.Event()
+
+        def fails(_remote, _writer):
+            async def dial(_address, _port):
+                dialling.set()
+                await release.wait()
+                raise ConnectionRefusedError("unreachable")
+            return dial
+
+        with self.fake_network(table, open_results=fails):
+            public = asyncio.create_task(self.handle("www.ti.com:443"))
+            await asyncio.wait_for(dialling.wait(), 2)
+            await self.publish("inventory.example.com", PUBLIC)
+            release.set()
+            written = await asyncio.wait_for(public, 2)
+        self.assertIn(b"X-Bench-Refusal: protected_destination\r\n", written)
+
 
 if __name__ == "__main__":
     unittest.main()

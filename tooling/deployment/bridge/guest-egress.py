@@ -130,36 +130,55 @@ class ProtectedLookups:
     Every CONNECT refreshes each name, joining a refresh already in flight, so a name that
     moves is blocked at its new address straight away. A refresh that fails or runs late
     leaves the name's last known addresses blocking. Each name has at most one refresh in
-    flight and a turn has at most a few dozen names, so the work stays bounded.
+    flight and a turn has at most a few dozen names, so the work stays bounded. Each lookup
+    takes a ticket as it starts, so an answer that finishes late never replaces a newer one.
     """
 
     def __init__(self):
         self.pool = ThreadPoolExecutor(max_workers=DNS_SLOTS, thread_name_prefix="protected-dns")
         self.lock = threading.Lock()
         self.known = {}
+        self.versions = {}
+        self.issued = 0
         self.in_flight = {}
         # Open provider tunnels: their connected address and the event that drops them.
         self.tunnels = {}
 
-    def resolve(self, name):
+    def resolve(self, name, ticket):
         """Fresh addresses for `name`, or None when the lookup fails."""
         try:
             addresses = protected_addresses({name})
         except Refused:
             addresses = None
+        if addresses is not None:
+            self.publish(name, addresses, ticket)
         with self.lock:
             self.in_flight.pop(name, None)
-        if addresses is not None:
-            self.publish(name, addresses)
         return addresses
 
-    def publish(self, name, addresses):
-        """Records a successful answer for `name`, from either path, and drops every open
-        provider tunnel connected to one of its addresses. A failed lookup publishes nothing,
-        so the last known addresses stay. Wake-ups are queued under the lock, so a later
-        answer can't replace this one before its watchers are woken."""
+    def ticket(self):
+        """Orders lookups by when they started."""
         with self.lock:
-            self.known[name] = addresses
+            self.issued += 1
+            return self.issued
+
+    def publisher(self):
+        """A publish callback for lookups starting now."""
+        ticket = self.ticket()
+        return lambda name, addresses: self.publish(name, addresses, ticket)
+
+    def publish(self, name, addresses, ticket=None):
+        """Records a successful answer for `name`, from either path, unless a later lookup
+        has already answered, and revokes every tunnel to one of its addresses, since even a
+        superseded answer shows the address was protected. A failed lookup publishes nothing,
+        so the last known addresses stay."""
+        with self.lock:
+            if ticket is None:
+                self.issued += 1
+                ticket = self.issued
+            if ticket > self.versions.get(name, 0):
+                self.known[name] = addresses
+                self.versions[name] = ticket
             for address, revocation in self.tunnels.values():
                 if address in addresses:
                     revocation.mark()
@@ -183,7 +202,8 @@ class ProtectedLookups:
         """The name's last known addresses and its refresh in flight."""
         with self.lock:
             if name not in self.in_flight:
-                self.in_flight[name] = self.pool.submit(self.resolve, name)
+                self.issued += 1
+                self.in_flight[name] = self.pool.submit(self.resolve, name, self.issued)
             return self.known.get(name, set()), self.in_flight[name]
 
     async def deny_set(self, protected):
@@ -328,7 +348,7 @@ async def checked_addresses(host, port, provider, protected):
     try:
         # Other connections' lookups can still protect this address before or after the dial.
         addresses = await PUBLIC_DNS.run(
-            public_target, host, port, protected, PROTECTED_LOOKUPS.publish)
+            public_target, host, port, protected, PROTECTED_LOOKUPS.publisher())
         return addresses, protection_guard(protected)
     except Refused as refusal:
         # A protected name stays protected when its lookup runs out of time or slots.
@@ -374,6 +394,8 @@ async def open_first(addresses, guard):
                 raise
             kept = index
             return remote, upstream, revocation, stop_watching
+        # A protected answer found during the last dial keeps its refusal reason.
+        check()
         raise failure
     finally:
         for index, (_revocation, stop) in enumerate(watches):

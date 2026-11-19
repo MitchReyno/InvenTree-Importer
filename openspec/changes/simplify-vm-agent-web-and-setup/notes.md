@@ -22,6 +22,7 @@ Implementation of `simplify-vm-agent-web-and-setup` (BI-017) started with PR-A (
 - **2026-11-19T15:19+11:00, task 1 (PR-A):** The proxy tries checked addresses IPv4 first, up to three, instead of only the first answer. The guest's Docker bridge has no IPv6 route, so a dual-stack site whose first answer was IPv6 would otherwise fail.
 - **2026-11-19T16:04+11:00, task 1 (PR-A):** Provider and public DNS run on separate four-slot resolver pools with a 10-second deadline per CONNECT. A full pool refuses with `resolution_failed` instead of queueing, so stalled public lookups can't hold up the provider. A shared default executor was rejected because a burst of slow public lookups queued provider traffic behind it.
 - **2026-11-19T16:04+11:00, task 1 (PR-A):** A protected name whose target lookup fails is still `protected_destination`, while a successful private answer stays `not_public`. Both orders were needed: the tailnet scenario wants `not_public`, and an unregistered subdomain of the InvenTree host must not look merely unresolvable.
+- **2026-11-19T18:10+11:00, task 1 (PR-A):** Revocation is the point where a protected answer is published. From then on the relay makes no write, and both streams are aborted in the same event-loop pass. Bytes the transport had already buffered before that point can still reach the socket until the abort runs. Guarding asyncio's own nonblocking sends was rejected: it would mean replacing the transport write path, to hold back bytes the proxy accepted before it knew the address was protected.
 
 ## Open items
 
