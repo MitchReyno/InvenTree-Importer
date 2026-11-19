@@ -28,7 +28,7 @@ interface Candidate {
   batch_id: string
   stream_id: string
   lead_job_id: string | null
-  /** Changes when evidence becomes ready or the batch or its media change, so a skipped batch retries. */
+  /** Changes when evidence becomes ready, or the batch, its media or the agent settings change, so a skipped batch retries. */
   signature: string
 }
 
@@ -55,6 +55,9 @@ async function candidates(
          -- Note and capture edits change it too, so trimming an oversized note retries the batch.
          || ':' || b.revision::text || ':'
          || coalesce((SELECT mb.revision::text FROM public.media_batch mb WHERE mb.batch_id=b.id),'')
+         -- Settings sealed into the lead input too: shortening the style retries an oversized batch.
+         || ':' || coalesce((SELECT s.revision::text FROM public.agent_settings s
+           WHERE s.actor_id=$1 AND s.target_id=$2 AND s.target_context_id=$3),'')
          AS signature
      FROM public.capture_batch b
      WHERE b.actor_id=$1 AND b.target_id=$2 AND b.target_context_id=$3 AND NOT b.archived
@@ -167,12 +170,12 @@ export async function triggerExamine(
           notified.push(version.version_id)
         }
       } else {
-        if (profileId !== 'synthetic-session/1') {
-          // No saved agent default: the lead session waits until the operator chooses one.
-          const settings = await readAgentSettings(client, config)
-          if (!resolveSelection(settings, 'examine')) {
-            return
-          }
+        // No provider resolves: the lead session waits until the operator turns one on. The
+        // read that decided is the one the attempt seals.
+        const settings =
+          profileId === 'synthetic-session/1' ? undefined : await readAgentSettings(client, config)
+        if (settings && !resolveSelection(settings, 'examine')) {
+          return
         }
         const media = await lockBatchMediaInputs(client, config, candidate.batch_id)
         if (!media.versions.length) {
@@ -188,7 +191,7 @@ export async function triggerExamine(
           '1',
           media,
           null,
-          { lockSettings: false },
+          { lockSettings: false, settings },
         )
         await executeDatabaseQuery(
           queryDatabase(client).insert(processingJobs).values({

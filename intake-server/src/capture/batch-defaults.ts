@@ -10,8 +10,6 @@ import {
   type CatalogueRecordDto,
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '#/db/database.ts'
-// Schema only: Capture reads the agent rows' batch fields without loading the agents runtime.
-import { agentSettings } from '#/agents/schema.ts'
 import type { CatalogueReader, CatalogueRecordLookup } from './catalogue.ts'
 import { fail, type CaptureBinding as Binding } from './model.ts'
 import { batchDefaults } from './schema.ts'
@@ -213,27 +211,28 @@ export async function resolveCreationDefaults(
   binding: Binding,
   catalogue: CatalogueReader | undefined,
 ): Promise<CreationDefaults> {
-  const [row, agentRows] = await Promise.all([
-    savedRow(pool, binding),
-    executeDatabaseQuery(
-      queryDatabase(pool)
-        .select({
-          autoTags: agentSettings.autoTagsDefault,
-          instructions: agentSettings.newBatchInstructions,
-        })
-        .from(agentSettings)
-        .where(
-          and(
-            eq(agentSettings.actorId, binding.actorId),
-            eq(agentSettings.targetId, binding.targetId),
-            eq(agentSettings.targetContextId, binding.targetContextId),
-          ),
-        ),
-    ),
-  ])
+  // One statement, so the copied defaults and agent fields were saved together.
+  const saved = await pool.query<{
+    location_pk: string | null
+    supplier_pk: string | null
+    auto_tags: boolean | null
+    instructions: string | null
+  }>(
+    `SELECT
+       (SELECT location_pk::text FROM public.batch_defaults
+         WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3) AS location_pk,
+       (SELECT supplier_pk::text FROM public.batch_defaults
+         WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3) AS supplier_pk,
+       (SELECT auto_tags_default FROM public.agent_settings
+         WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3) AS auto_tags,
+       (SELECT new_batch_instructions FROM public.agent_settings
+         WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3) AS instructions`,
+    [binding.actorId, binding.targetId, binding.targetContextId],
+  )
+  const row = saved.rows[0]
   const { location, supplier } = await fencedLookups(pool, binding, catalogue, {
-    location: row?.locationPk ?? null,
-    supplier: row?.supplierPk ?? null,
+    location: row.location_pk === null ? null : BigInt(row.location_pk),
+    supplier: row.supplier_pk === null ? null : BigInt(row.supplier_pk),
   })
   return {
     ...(location?.status === 'found' && location.record.kind === 'location'
@@ -242,8 +241,8 @@ export async function resolveCreationDefaults(
     ...(supplier?.status === 'found' && supplier.record.kind === 'supplier'
       ? { supplier: supplier.record }
       : {}),
-    autoTags: agentRows[0]?.autoTags ?? false,
-    instructions: agentRows[0]?.instructions ?? '',
+    autoTags: row.auto_tags ?? false,
+    instructions: row.instructions ?? '',
     notices: [...notice('location', location), ...notice('supplier', supplier)],
   }
 }

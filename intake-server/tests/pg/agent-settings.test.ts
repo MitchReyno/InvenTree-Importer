@@ -4,7 +4,11 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AgentSettingsUpdateDto, ProcessingInputV6Dto } from '@invimport/contracts'
+import type {
+  AgentSettingsDto,
+  AgentSettingsUpdateDto,
+  ProcessingInputV6Dto,
+} from '@invimport/contracts'
 import { processingFixture } from '../support/processing.ts'
 import { seedPhoto } from '../support/sessions.ts'
 import { singleProvider } from '../support/agent-settings.ts'
@@ -51,6 +55,7 @@ async function queueLotAttempt(
   capture: Awaited<ReturnType<Fixture['seedCapture']>>,
   lotId: string,
   stage: 'research' | 'images',
+  settings?: AgentSettingsDto,
 ) {
   return transaction(fixture.api.pool, async (client) => {
     const media = await reserveProcessingMedia(client, fixture.config, capture.batch, [lotId])
@@ -64,6 +69,7 @@ async function queueLotAttempt(
       '1',
       media.get(lotId)!,
       null,
+      { settings },
     )
     await client.query(
       `INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state)
@@ -416,6 +422,30 @@ test('each actor reads only its own provider rows', async () => {
       assert.equal(theirs.providers.claude.default_model, 'opus')
       assert.equal(theirs.providers.codex.enabled, false)
     }
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('an attempt given a settings read seals that read, not a later save', async () => {
+  const fixture = await processingFixture()
+  try {
+    await saveAgentSettings(fixture.api.pool, fixture.config, bothProviders('0'))
+    const read = await readAgentSettings(fixture.api.pool, fixture.config)
+    // Saved after the read: both providers off, no style.
+    const { revision, ...off } = unsavedAgentSettings()
+    await saveAgentSettings(fixture.api.pool, fixture.config, { ...off, expected_revision: '1' })
+    const capture = await fixture.seedCapture()
+    const attempt = await queueLotAttempt(fixture, capture, capture.packetA.id, 'research', read)
+    const input = await sealedInput(fixture, attempt.inputId)
+    assert.equal(revision, '0')
+    assert.equal(input.settings_revision, '1')
+    assert.deepEqual(input.agent, {
+      provider: 'codex',
+      authentication: 'api_key',
+      model: 'gpt-6-luna',
+    })
+    assert.equal(input.part_description_style, 'Type, key values, package, then variant')
   } finally {
     await fixture.dispose()
   }
