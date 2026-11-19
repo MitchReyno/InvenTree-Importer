@@ -6,7 +6,7 @@ import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
 import type { AgentSubsectionId } from '#/navigation/app-route'
 import { useRetainedPollInterval, useServerScope } from '#/context'
-import { Banner, Button, Paragraph, SettingRow, Small } from '#/components/ui'
+import { Banner, Button, Paragraph, SettingRow } from '#/components/ui'
 import { color, space } from '#/theme/generated/tokens'
 import { AgentSettingsForm } from '#/components/agents/AgentSettingsForm'
 import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
@@ -61,7 +61,12 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   // Syncs the page with the route's location hash. Headings render before the settings load, so
   // the target exists on the first run; the ref keeps a refetch from moving focus again.
   useEffect(() => {
-    if (!subsection || focused.current === subsection) {
+    if (!subsection) {
+      // Back on the section itself: the next subsection link scrolls and focuses again.
+      focused.current = undefined
+      return
+    }
+    if (focused.current === subsection) {
       return
     }
     const heading = document.getElementById(subsectionHeadingId(subsection))
@@ -94,7 +99,9 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
           </div>
         )}
         {!settings.isFetchedAfterMount && (
-          <Paragraph role="status">Loading saved settings…</Paragraph>
+          <Paragraph role="status" $onField>
+            Loading saved settings…
+          </Paragraph>
         )}
         {loaded && (
           <AgentSettingsForm
@@ -137,7 +144,9 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
             </SettingRow>
           </SettingsCard>
         ) : (
-          <Small role="status">Waiting for the saved settings…</Small>
+          <Paragraph role="status" $onField>
+            Waiting for the saved settings…
+          </Paragraph>
         )}
       </AgentSubsection>
       <AgentSubsection

@@ -100,7 +100,19 @@ function renderSettings(
     subsection?: AgentSubsectionId
   } = {},
 ) {
-  return render(
+  return render(settingsElement(section, subsection, { returnTo, client }))
+}
+
+/** The Settings page as the app mounts it; `rerender` with another route keeps it mounted. */
+function settingsElement(
+  section: SettingsSectionId,
+  subsection: AgentSubsectionId | undefined,
+  {
+    returnTo,
+    client = agents(),
+  }: { returnTo?: string; client?: ReturnType<typeof agentsClient> } = {},
+) {
+  return (
     <HeaderObservationsProvider client={header}>
       <CachedBatch title="Mouser 3381-22">
         <Settings
@@ -111,7 +123,7 @@ function renderSettings(
           onDirtyChange={vi.fn()}
         />
       </CachedBatch>
-    </HeaderObservationsProvider>,
+    </HeaderObservationsProvider>
   )
 }
 
@@ -358,7 +370,23 @@ test('the old Descriptions and naming link opens that Agents subsection', () => 
 
   expect(screen.getByRole('heading', { level: 2, name: 'Agents' })).toBeInTheDocument()
   expect(screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })).toHaveFocus()
-  expect(screen.getByRole('group', { name: 'Fill descriptions for' })).toBeInTheDocument()
+  const fill = screen.getByRole('group', { name: 'Fill descriptions for' })
+  // Agents already write Part descriptions, so only that switch shows on.
+  expect(within(fill).getByRole('switch', { name: 'Parts · up to 250' })).toBeChecked()
+  expect(within(fill).getByRole('switch', { name: 'Companies · up to 500' })).not.toBeChecked()
+})
+
+test('going back to Agents and then to the same subsection focuses its heading again', () => {
+  const client = agents()
+  const view = renderSettings('agents', { subsection: 'descriptions', client })
+  const heading = screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })
+  expect(heading).toHaveFocus()
+  heading.blur()
+
+  view.rerender(settingsElement('agents', undefined, { client }))
+  view.rerender(settingsElement('agents', 'descriptions', { client }))
+
+  expect(heading).toHaveFocus()
 })
 
 test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', () => {

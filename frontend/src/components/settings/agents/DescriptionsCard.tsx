@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { SettingRow, Switch } from '#/components/ui'
 import { TextArea } from '#/forms'
 import { space } from '#/theme/generated/tokens'
-import { SettingsCard } from '../SettingsCard'
+import { SettingsCard } from '#/components/settings/SettingsCard'
 
 const NOT_USED = "Not available yet: agents don't follow these rules, and nothing here is stored."
 

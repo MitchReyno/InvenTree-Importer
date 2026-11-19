@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, space, type, typeVar } from '#/theme/generated/tokens'
 import type { AgentSubsectionId } from '#/navigation/app-route'
+import { onField } from '#/components/ui'
 
 type AgentSubsectionProps = {
   id: AgentSubsectionId
@@ -44,16 +45,18 @@ const Head = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${space[1]};
-  scroll-margin-top: ${space[8]};
 `
 
 const Title = styled.h3`
   margin: 0;
+  scroll-margin-top: ${space[8]};
   ${type.h3}
+  ${onField}
 `
 
 const Lead = styled.p`
   margin: 0;
   font-size: ${typeVar.small.size};
   color: ${color.muted};
+  ${onField}
 `

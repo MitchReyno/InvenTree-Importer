@@ -54,7 +54,7 @@ export function SettingsNav({
             {section.agent ? <AiMark size="sm">{section.label}</AiMark> : section.label}
           </Section>
           {section.id === current && section.subsections && (
-            <Subsections aria-label={`${section.label} sections`}>
+            <Subsections role="group" aria-label={`${section.label} sections`}>
               {section.subsections.map((subsection) => (
                 <Subsection
                   key={subsection.id}

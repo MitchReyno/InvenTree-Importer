@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { agentsClient } from '@invimport/contracts/client'
-import { Banner, SettingsNav, type SettingsSection } from '#/components/ui'
+import { Banner, SettingsNav, media, type SettingsSection } from '#/components/ui'
 import { space } from '#/theme/generated/tokens'
 import {
   routeBatchId,
@@ -111,6 +111,12 @@ const Layout = styled.div`
 const NavColumn = styled.div`
   flex: 1 1 200px;
   max-width: 240px;
+  /* Beside the content the nav stays in view, so a subsection link never scrolls its siblings away. */
+  position: sticky;
+  top: ${space[8]};
+  ${media.stacked} {
+    position: static;
+  }
 `
 
 const Content = styled.div`
