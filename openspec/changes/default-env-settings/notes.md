@@ -1,6 +1,6 @@
 # Implementation notes
 
-Defaults for the behavioural env settings, VM management on by default, the importer's local-InvenTree fallback, US DigiKey defaults and one `.env.example`. Planned in #213 and delivered in #215. Still open: task 4.1.5, a full start of the developer's `.env` with real VM agents.
+Defaults for the behavioural env settings, VM management on by default, the importer's local-InvenTree fallback, US DigiKey defaults and one `.env.example`. Planned in #213 and delivered in #215. All tasks are complete.
 
 ## Changes to the plan
 
@@ -13,6 +13,7 @@ None.
 - **2026-11-19T01:30+11:00, task 4:** Running the default guest-directory lookup against the real VM failed with `defaultExec is not defined`: `resolveGuestDir` defaulted to a name `vm.cjs` no longer has, and every unit test injected its own `exec`. It now defaults to `runCommand`, and a regression test runs the lookup through a fake `limactl` on `PATH`.
 - **2026-11-19T12:18+11:00, task 4:** Qualifying full `pnpm dev` starts was slowed by a heavily loaded machine (load averages 25–75, including a six-day-old orphaned `yes` process not from this work), which tripped the launcher's fixed 30-second startup limits, and then by the developer's own `pnpm dev` holding port 4330 and the VM. The fresh-clone start passed on `INTAKE_DEV_PORT=4341` with a private app state. The developer's `.env` was qualified by resolving it with this branch and running the new pairing check against its real pairing, which gave the same plan as before with nothing defaulted, because a second managed run would compete with the developer's running app for the VM.
 - **2026-11-19T12:34+11:00, task 0:** The two launcher changes were archived in #211, outside this change, before #215 merged; `development-launcher` is now in the main specs and `pnpm openspec:overlap --change default-env-settings` reports no sync conflicts. Task 0 is ticked on that evidence.
+- **2026-11-19T12:54+11:00, task 4.1.5:** With the developer's own app stopped, `pnpm dev` from the main checkout at `fb780cb6` ran on the developer's `.env` alone: local InvenTree (read-only), `shared-vm-agent/2`, booted `bench-agent-m1-local` and was ready in 75 s, with both relays connected, both tunnels up, Claude and ChatGPT credential status 200, and the session supervisor ready. Ctrl-C stopped the app, relays, tunnels and the VM it booted in 7 s.
 
 ## Decisions made during implementation
 
@@ -27,6 +28,5 @@ None.
 
 ## Open items
 
-- Task 4.1.5: a full start of the developer's `.env` with real VM agents on this branch, once the developer's own running app releases the VM and the credential-tunnel ports. Its settings resolution and pairing check (4.1.4) already pass.
 
 - Tooling `.cjs` files are not linted for undefined names (`no-undef`), which let the missing default above pass ESLint; worth a separate lint change.

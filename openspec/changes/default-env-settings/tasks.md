@@ -88,12 +88,12 @@ One PR carries tasks 1–4: the defaults, the template that documents them and t
 - Verification: a fresh-clone run (temporary clone, copied template, `pnpm dev` reaches ready with the mock inventory and scripted agents); the developer's own `.env` still starts real VM agents unchanged; a fresh `INTAKE_DEV_STATE` with real VM agents refuses with `vm_pairing_missing` before boot; an importer command with no settings uses the local InvenTree and names it.
 - Local follow-up outside the repository, with the developer's agreement: add `DIGIKEY_LOCALE_SITE=AU` and `DIGIKEY_LOCALE_CURRENCY=AUD` to the developer's `.env`.
 
-- [ ] 4.1 Run the manual qualification and record the outcomes for the PR.
+- [x] 4.1 Run the manual qualification and record the outcomes for the PR.
   - [x] 4.1.1 Fresh clone: the copied template starts `pnpm dev` to ready with the mock inventory and scripted agents.
   - [x] 4.1.2 A fresh `INTAKE_DEV_STATE` with real VM agents refuses with `vm_pairing_missing` before any service or the VM starts.
   - [x] 4.1.3 An importer command with no InvenTree settings uses the local development InvenTree, names it and prints no token.
   - [x] 4.1.4 The developer's `.env` resolves to the same managed plan as before with nothing defaulted, and passes the pairing check against its real pairing.
-  - [ ] 4.1.5 The developer's `.env` starts real VM agents in full on this branch (waits until the developer's running app releases the VM and its tunnel ports).
+  - [x] 4.1.5 The developer's `.env` starts real VM agents in full on the merged code.
 - [x] 4.2 Run the full gate.
 - [x] 4.3 Independent review rounds until one is clean, at the reviewed head.
 - [x] 4.4 Open the PR against `interactive-app` with the evidence.
