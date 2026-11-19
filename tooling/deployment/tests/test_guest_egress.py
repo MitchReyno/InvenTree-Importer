@@ -1138,6 +1138,27 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
+    async def test_failed_protected_lookup_still_refreshes_the_other_names(self):
+        # Names are refreshed in sorted order, so the failing one comes first.
+        self.write_policy(public_pages=True,
+                          protected_hosts=["inventory.example.com", "archive.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "archive.example.com": ["9.9.9.9"],
+                 "api.anthropic.com": [OTHER_PUBLIC], "www.ti.com": [PUBLIC]}
+        self.guest_dns = Mock(side_effect=dns(table))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            provider = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, provider)
+            # The archive stops resolving and the inventory moves onto the provider's address.
+            del table["archive.example.com"]
+            table["inventory.example.com"] = [OTHER_PUBLIC]
+            refused = await self.handle("www.ti.com:443")
+            await asyncio.wait_for(provider, 2)
+        self.assertIn(b"X-Bench-Refusal: resolution_failed\r\n", refused)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
 
 if __name__ == "__main__":
     unittest.main()

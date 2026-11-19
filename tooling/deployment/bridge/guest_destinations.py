@@ -95,11 +95,13 @@ def protected_addresses(protected, on_resolved=None):
 
     A name that resolves only to non-public addresses adds nothing: the public-address rule
     already refuses them. A name that doesn't resolve leaves its addresses unknown, so this
-    raises and the caller refuses public access for the turn. `on_resolved(name, addresses)`
-    receives each name's answer as soon as it arrives, or None when its lookup fails.
+    raises and the caller refuses public access for the turn, but only after every other name
+    is refreshed. `on_resolved(name, addresses)` receives each name's answer as soon as it
+    arrives, or None when its lookup fails.
     """
     blocked = set()
-    for entry in protected:
+    failure = None
+    for entry in sorted(protected):
         literal = literal_address(entry)
         if literal is not None:
             if public(str(literal)):
@@ -107,14 +109,17 @@ def protected_addresses(protected, on_resolved=None):
             continue
         try:
             answers = resolved_addresses(entry)
-        except Refused:
+        except Refused as error:
             if on_resolved:
                 on_resolved(entry, None)
-            raise
+            failure = failure or error
+            continue
         addresses = {address for address in map(normalized, answers) if public(str(address))}
         if on_resolved:
             on_resolved(entry, addresses)
         blocked |= addresses
+    if failure is not None:
+        raise failure
     return blocked
 
 

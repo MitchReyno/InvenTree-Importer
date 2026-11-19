@@ -425,6 +425,19 @@ const misconfigurations: Misconfiguration[] = [
       }
     },
   },
+  {
+    label: 'whose scheduler database authority is a socket path',
+    code: 'local_agent_database_required',
+    prepare: async (root) => {
+      await pairedCertificates(root)
+      return {
+        INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins,
+        INTAKE_VM_PAIR: join(root, 'bench-coordinator'),
+        INTAKE_AGENT_SCHEDULER_DATABASE_URL:
+          'postgres://dbos@%2Ffixture/scheduler_db?host=127.0.0.1',
+      }
+    },
+  },
 ]
 
 for (const misconfiguration of misconfigurations) {
