@@ -112,14 +112,24 @@ export async function readAgentSettings(
   }
 }
 
+function storedText(input: AgentSettingsUpdateDto) {
+  return [
+    input.new_batch_instructions,
+    input.part_description_style,
+    ...PROVIDERS.map((provider) => input.providers[provider].default_model),
+  ]
+}
+
 /** Refuses settings that could seal an attempt on a provider that is off or an invalid model. */
 function checkAgentSettings(input: AgentSettingsUpdateDto) {
   const on = PROVIDERS.filter((provider) => input.providers[provider].enabled)
   const defaultOn =
     input.default_provider !== null && input.providers[input.default_provider].enabled
   const invalid =
-    // Even a provider that is off keeps a model the column can store.
+    // Even a provider that is off keeps a model the column can store, and PostgreSQL text holds
+    // no NUL.
     PROVIDERS.some((provider) => input.providers[provider].default_model.length > 128) ||
+    storedText(input).some((text) => text.includes('\u0000')) ||
     on.some((provider) => !MODEL_ID.test(input.providers[provider].default_model)) ||
     (on.length > 0 ? !defaultOn : input.default_provider !== null) ||
     AGENT_SETTINGS_STAGES.some((stage) => {

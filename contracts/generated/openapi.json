@@ -74539,7 +74539,6 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74569,7 +74568,6 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74620,7 +74618,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74646,7 +74643,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74672,7 +74668,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74698,7 +74693,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74775,7 +74769,6 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74805,7 +74798,6 @@
                     ]
                   },
                   "default_model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74856,7 +74848,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74882,7 +74873,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74908,7 +74898,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74934,7 +74923,6 @@
                     ]
                   },
                   "model": {
-                    "maxLength": 1024,
                     "type": "string"
                   }
                 }
@@ -74984,7 +74972,6 @@
             ]
           },
           "default_model": {
-            "maxLength": 1024,
             "type": "string"
           }
         }
@@ -75010,7 +74997,6 @@
             ]
           },
           "model": {
-            "maxLength": 1024,
             "type": "string"
           }
         }

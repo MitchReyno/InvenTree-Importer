@@ -496,12 +496,18 @@ test("native-agent/1 seals each stage's own provider too", async () => {
   }
 })
 
-test('a model over 128 characters is an invalid settings error', async () => {
+test('an over-long model or text with a NUL is an invalid settings error', async () => {
   const fixture = await processingFixture()
   try {
     const long = 'm'.repeat(129)
     const base = bothProviders('0')
     for (const input of [
+      {
+        ...base,
+        stage_selections: { images: { provider: 'claude' as const, model: 'm'.repeat(2000) } },
+      },
+      { ...base, part_description_style: 'Type\u0000value' },
+      { ...base, new_batch_instructions: 'Count\u0000reels' },
       {
         ...base,
         providers: { ...base.providers, claude: { ...base.providers.claude, default_model: long } },
