@@ -14,6 +14,11 @@ function RecordsScreen({ read }: { read: () => Promise<string> }) {
     queryFn: read,
     retry: false,
   })
+  // Processing and Settings › Agents hold this read; the panel takes it from the cache.
+  useQuery({
+    queryKey: serverQueryKey(fixtureScope, 'agent-settings'),
+    queryFn: async () => ({ revision: '12' }),
+  })
 
   return (
     <>
@@ -57,5 +62,6 @@ test('a failed read shows as failed with the age of its data, and opening sends 
   await waitFor(() => expect(panel).toHaveTextContent(`records/${batchId}failed · data`))
   expect(panel).toHaveTextContent(`Route#${batchId}/review/records`)
   expect(panel).toHaveTextContent(`Batch${batchId}`)
+  expect(panel).toHaveTextContent('Agent settings revision12')
   expect(read).toHaveBeenCalledTimes(2)
 })

@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { HumanNote } from '#/components/capture/HumanNote'
 import { AttachmentOutcome } from '#/components/changes/AttachmentOutcome'
 import { PartAttachments } from '#/components/changes/PartAttachments'
+import { RoundOutcome } from '#/components/changes/RoundOutcome'
+import { RetiredLots } from '#/components/operator/RetiredLots'
 import { setDebugMode } from '#/test/debug-mode'
 
 const digest = 'f'.repeat(64)
@@ -73,6 +75,59 @@ const cases: { name: string; ui: () => ReactElement; operator: string; internal:
     ),
     operator: 'Attachment #311 was verified',
     internal: digest,
+  },
+  {
+    name: 'an Added round keeps its run and approval IDs for debug mode',
+    ui: () => (
+      <RoundOutcome
+        run={
+          {
+            run_id: 'run-5d1e',
+            approval_id: 'approval-77b0',
+            preparation_id: 'preparation-1',
+            batch_id: 'batch-1',
+            revision: '3',
+            round_number: '1',
+            state: 'settled_complete',
+            effect_certainty: 'confirmed',
+            confirmed_stock_ids: [],
+            attributed_stock_ids: [],
+            cancellation_requested: false,
+            dispatch_state: 'finished',
+            operations: [],
+            cursor: { stream_id: 'stream-1', sequence: '1' },
+          } as never
+        }
+        busy={false}
+        command={() => {}}
+        targetUrl={null}
+      />
+    ),
+    operator: 'Round 1',
+    internal: 'run-5d1e',
+  },
+  {
+    name: 'a retired lot keeps its retired revision for debug mode',
+    ui: () => (
+      <RetiredLots
+        batch={{ lots: [{ id: 'lot-new', label: 'Packet A2' }] } as never}
+        review={
+          {
+            retired_lots: [
+              {
+                lot_id: 'lot-old-4c1a',
+                label: 'Packet A',
+                action: 'split',
+                successor_lot_ids: ['lot-new'],
+                retired_revision: '41',
+              },
+            ],
+          } as never
+        }
+      />
+    ),
+    operator: 'Into Packet A2',
+    internal: 'lot-old-4c1a',
   },
 ]
 

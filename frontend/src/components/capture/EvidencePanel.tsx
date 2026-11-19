@@ -111,6 +111,7 @@ export function EvidencePanel({
           ...batch.lots.map((l) => ({
             label: `${l.label} contribution`,
             value: l.contribution_key,
+            key: l.id,
           })),
         ]}
       />

@@ -328,6 +328,7 @@ export function ReadyToAdd({
                 ...preview.effects.map((effect) => ({
                   label: effect.lot_label,
                   value: effect.barcode,
+                  key: effect.lot_id,
                 })),
               ]}
             />

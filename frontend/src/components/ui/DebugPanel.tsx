@@ -1,7 +1,8 @@
 import styled from 'styled-components'
 import { useDebugMode } from '#/debug/debug-mode'
 import { color, radius, size, space, type } from '#/theme/generated/tokens'
-import { DebugRows, type DebugRow } from './DebugDetails'
+import { DebugRows, type DebugRow } from './DebugRows'
+import { raisedOnField } from './field'
 
 type DebugPanelProps = {
   /** The screen it describes, e.g. "Processing › Research". */
@@ -34,6 +35,7 @@ const Panel = styled.details`
   border-radius: ${radius.card};
   background: ${color.surface};
   overflow: hidden;
+  ${raisedOnField}
 `
 
 const Summary = styled.summary`

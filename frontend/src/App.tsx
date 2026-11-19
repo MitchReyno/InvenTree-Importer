@@ -22,6 +22,7 @@ import {
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { LiveUpdates } from './components/operations/LiveUpdates'
 import { PageDebugPanel } from './components/operations/PageDebugPanel'
+import { useDebugMode } from './debug/debug-mode'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
@@ -45,6 +46,7 @@ import {
 
 export default function App() {
   const { route, settingsReturn, navigationBlocked, onDirtyChange } = useNavigationGuard()
+  const { enabled: debug } = useDebugMode()
   const bootstrapQuery = useQuery({
     queryKey: ['bootstrap', location.origin],
     queryFn: () => intakeClient(location.origin).bootstrap(),
@@ -277,7 +279,7 @@ export default function App() {
                       </PageContent>
                     )}
                     {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                    {manual && (
+                    {manual && debug && (
                       <PageContent $width={width}>
                         <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
                       </PageContent>

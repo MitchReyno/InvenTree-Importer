@@ -2,6 +2,7 @@ import userEvent from '@testing-library/user-event'
 import { act, render, screen, within } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { expect, it } from 'vitest'
+import { setDebugMode } from '#/test/debug-mode'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -140,6 +141,11 @@ it('names each photo by its file, with its group and what it feeds, and keeps co
     '#b/capture',
   )
   expect(within(bench).queryByText(/region 0,0/)).toBeNull()
+  setDebugMode(true)
+  expect(within(bench).getAllByRole('group', { name: 'Debug: Region' })[0]).toHaveTextContent(
+    /region 0,0/,
+  )
+  setDebugMode(false)
   expect(
     within(bench).getAllByRole('button', {
       name: 'Source: Examine, Read from the photo. Show details.',

@@ -2,11 +2,7 @@ import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { useDebugMode } from '#/debug/debug-mode'
 import { color, radius, space, type } from '#/theme/generated/tokens'
-
-export type DebugRow = {
-  label: string
-  value: ReactNode
-}
+import { DebugRows, type DebugRow } from './DebugRows'
 
 type DebugDetailsProps = {
   /** Names the block for assistive technology, e.g. "Round details". */
@@ -36,20 +32,6 @@ export function DebugDetails({ label, rows, children }: DebugDetailsProps) {
   )
 }
 
-/** A label and value list in the debug style; shared with `DebugPanel`. */
-export function DebugRows({ rows }: { rows: DebugRow[] }) {
-  return (
-    <Rows>
-      {rows.map((row) => (
-        <Row key={row.label}>
-          <dt>{row.label}</dt>
-          <dd>{row.value}</dd>
-        </Row>
-      ))}
-    </Rows>
-  )
-}
-
 const Block = styled.div`
   display: flex;
   flex-direction: column;
@@ -71,24 +53,4 @@ const Tag = styled.span`
   align-self: flex-start;
   color: ${color.devFg};
   ${type.label}
-`
-
-const Rows = styled.dl`
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
-  gap: ${space[1]} ${space[4]};
-  margin: 0;
-`
-
-const Row = styled.div`
-  display: contents;
-  dt {
-    color: ${color.muted};
-  }
-  dd {
-    margin: 0;
-    min-width: 0;
-    overflow-wrap: anywhere;
-    ${type.mono}
-  }
 `

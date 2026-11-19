@@ -145,7 +145,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
 - [x] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
 - [x] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
-- [x] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
+- [ ] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
 
 ## 4. Dev mode popover
 

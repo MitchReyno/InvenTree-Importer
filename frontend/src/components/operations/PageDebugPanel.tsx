@@ -1,8 +1,9 @@
 import { DebugPanel, type DebugRow } from '#/components/ui'
-import { useUpdateHealth, type UpdateHealth } from '#/context'
-import { useDebugMode } from '#/debug/debug-mode'
+import { useServerScope, useUpdateHealth, type UpdateHealth } from '#/context'
 import { useDebugReads, type DebugRead } from '#/debug/useDebugReads'
 import { useCachedBatchReads } from '#/header/useCachedBatchReads'
+import { serverQueryKey } from '#/queries/scope'
+import { useCachedData } from '#/queries/useCachedData'
 
 type PageDebugPanelProps = {
   /** The hash route without `#`; empty for Batches. */
@@ -52,23 +53,22 @@ function liveUpdates(health: UpdateHealth, now: number) {
   return `${health.state} · ${last}${health.truncated ? ' · stream truncated' : ''}`
 }
 
-/** The page's Debug panel: route, batch identity, live updates and each mounted read. */
+/**
+ * The page's Debug panel: route, batch identity, settings revision, live updates and each mounted
+ * read. Every hook here only reads state the page already holds; `App` mounts it in debug mode.
+ */
 export function PageDebugPanel({ route, batchId }: PageDebugPanelProps) {
-  const { enabled } = useDebugMode()
-
-  // The hooks below only read state the page already holds; the panel renders nothing when off.
-  return enabled ? <PanelContent route={route} batchId={batchId} /> : null
-}
-
-function PanelContent({ route, batchId }: PageDebugPanelProps) {
+  const scope = useServerScope()
   const health = useUpdateHealth()
   const reads = useDebugReads()
   const batch = useCachedBatchReads(batchId)
+  const agentSettings = useCachedData<{ revision: string }>(serverQueryKey(scope, 'agent-settings'))
   const now = Date.now()
   const rows: DebugRow[] = [
     { label: 'Route', value: `#${route}` },
     ...(batchId ? [{ label: 'Batch', value: batchId }] : []),
     ...(batch.revision ? [{ label: 'Batch revision', value: batch.revision }] : []),
+    ...(agentSettings ? [{ label: 'Agent settings revision', value: agentSettings.revision }] : []),
     { label: 'Live updates', value: liveUpdates(health, now) },
     ...reads.map((read) => ({ label: read.name, value: readState(read, now) })),
   ]
