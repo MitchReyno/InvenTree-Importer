@@ -1511,6 +1511,24 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cap.latched_at_compare, [False])
         self.assertIn(b"X-Bench-Refusal: too_many_connections\r\n", at_cap)
 
+    async def test_latched_failure_reports_itself_ahead_of_the_answer_limit(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        many = [f"93.184.{index // 250}.{index % 250 + 1}" for index in range(33)]
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": many}
+        checked = egress.checked_addresses
+        watch = Mock(side_effect=egress.PROTECTED_LOOKUPS.watch)
+
+        async def failed_after_admission(*args):
+            result = await checked(*args)
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com", None)
+            return result
+
+        with patch.object(egress, "checked_addresses", failed_after_admission), \
+                patch.object(egress.PROTECTED_LOOKUPS, "watch", watch):
+            written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+        watch.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

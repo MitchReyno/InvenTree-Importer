@@ -471,8 +471,11 @@ async def open_first(addresses, guard, public_request):
     host, even when it names an address whose dial failed. Returns the streams, the
     Revocation that drops them and the function that stops watching.
     """
-    if len(addresses) > MAX_ANSWERS:
-        raise Refused("destination_refused")
+    # A latched failure or overflow reports itself ahead of the answer limit.
+    with PROTECTED_LOOKUPS.lock:
+        PROTECTED_LOOKUPS.verdict([], public_request)
+        if len(addresses) > MAX_ANSWERS:
+            raise Refused("destination_refused")
     watches = [PROTECTED_LOOKUPS.watch(address, public_request) for address in addresses]
 
     def check():
