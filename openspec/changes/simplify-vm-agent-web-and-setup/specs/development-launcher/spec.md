@@ -2,6 +2,56 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Processing switches select the profile
+
+The development launcher SHALL select the processing profile from `INTAKE_USE_MOCK_AI_AGENTS` (default true), `INTAKE_USE_AGENT_SESSIONS` (default true), `INTAKE_RUN_AGENTS_IN_VM` (default false) and `INTAKE_VM_AGENT_TOOLS` (default true), and SHALL pass only the resulting existing profile ID to its child processes.
+
+#### Scenario: Profile table
+
+- **GIVEN** each combination below, with other switches at their defaults
+- **WHEN** the launcher resolves the profile
+- **THEN** it selects:
+
+| Mock agents | Sessions | VM | Other | Profile |
+|---|---|---|---|---|
+| true | false | false | | `synthetic-research/2` |
+| true | true | false | | `synthetic-session/1` on the host |
+| true | true | true | | `synthetic-session/1` through the VM bridge |
+| false | false | false | | `native-agent/1` |
+| false | true | false | | `native-agent/2` |
+| false | true | true | tools false | `shared-vm-agent/1` |
+| false | true | true | tools true | `shared-vm-agent/3` |
+
+#### Scenario: Defaults
+
+- **GIVEN** no processing switches
+- **WHEN** `pnpm dev` starts
+- **THEN** the profile is `synthetic-session/1` on the host, and the startup output names it.
+
+#### Scenario: Unsupported combination
+
+- **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true` with `INTAKE_USE_AGENT_SESSIONS=false`
+- **WHEN** the launcher resolves the profile
+- **THEN** it refuses with `unsupported_agent_settings` before any setup.
+
+#### Scenario: VM pairing required
+
+- **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true` with an explicit `INTAKE_VM_PORT` that is not a port from 1 to 65535
+- **WHEN** the launcher resolves the profile
+- **THEN** it refuses with `invalid_vm_launch_setting` before any setup, naming `INTAKE_VM_PORT`.
+
+#### Scenario: VM pairing defaults
+
+- **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true` without `INTAKE_VM_PAIR` and `INTAKE_VM_PORT`
+- **WHEN** the launcher resolves the profile
+- **THEN** it uses the default pairing directory and port 14313 instead of refusing.
+
+#### Scenario: VM credential management
+
+- **GIVEN** `INTAKE_RUN_AGENTS_IN_VM=true`
+- **WHEN** the UI process starts
+- **THEN** it serves the personal credential management proxy; with the VM switch off it does not.
+
 ### Requirement: A missing pairing is refused before the VM starts
 
 When the launcher manages the VM, it SHALL check before booting that the pairing directory holds `ca.pem`, `cert.pem` and `key.pem`, and SHALL otherwise refuse with `vm_pairing_missing`, naming `INTAKE_VM_PAIR` and telling the developer to run `pnpm vm:setup`, without booting the VM.
@@ -32,13 +82,19 @@ When the launcher manages the VM, it SHALL check before booting that the pairing
 
 ### Requirement: VM setup is safe to rerun
 
-`pnpm vm:setup` SHALL skip each step whose result is already in place. It SHALL NOT replace an existing pairing, operator key, provider sign-in or VM disk. A pairing present on only one side SHALL stop the run with `vm_pairing_mismatch`, naming both directories and removing neither.
+`pnpm vm:setup` SHALL skip each step whose result is already in place. It SHALL NOT replace an existing pairing, operator key, provider sign-in or VM disk, and SHALL create an operator key only when neither side has one. A pairing present on only one side SHALL stop the run with `vm_pairing_mismatch`, naming both directories and removing neither.
 
 #### Scenario: Rerun on a working setup
 
 - **GIVEN** a VM that `pnpm vm:setup` already prepared, with a saved Claude token and a ChatGPT sign-in
 - **WHEN** the developer runs `pnpm vm:setup` again
 - **THEN** it reports each step as already done, and the pairing, operator key and both sign-ins are unchanged
+
+#### Scenario: Operator key on one side only
+
+- **GIVEN** an existing pairing whose guest operator key is present but whose host key file is missing, or whose two keys differ
+- **WHEN** `pnpm vm:setup` reaches the operator key step
+- **THEN** it stops with `vm_operator_key_mismatch`, generates nothing and overwrites neither key
 
 #### Scenario: Pairing only half present
 

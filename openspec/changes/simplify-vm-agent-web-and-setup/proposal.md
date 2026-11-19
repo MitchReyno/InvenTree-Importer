@@ -4,7 +4,7 @@
 
 Agents in the shared VM (`shared-vm-agent/2`) can barely use the web, and getting them that far takes a long manual setup.
 
-- **Web access is narrow and hidden.** The only route is `bench-web`, a `curl` wrapper around a separate document reader. By default the reader allows three sites, none of them useful for parts research. Agents aren't told it exists, and there is no search.
+- **Web access is narrow and hidden.** The only route is `bench-web`, a `curl` wrapper around a separate document reader. By default the reader allows three sites, none of them useful for parts research. The fixed instructions mention it only for those three sites, and there is no search.
 - **The provider tools that would help are off.** Claude's `WebSearch` and `WebFetch` and Codex's `web_search` are all refused, even though the VM sandbox contains everything that runs locally.
 - **Setup is long and fragile.** A fresh clone needs about a dozen manual commands: build three images, create the VM, load the image, pair, and provision both providers and the reader. Web policy is set through shell variables passed to a one-off script, including a hand-written list of protected hostnames. Guest code changes need a manual rebuild and reload.
 
@@ -32,7 +32,7 @@ Checked against `interactive-app` at `1d20c6fc`.
 | Network | The tool worker runs with `--network=none`. The CLI reaches its provider through `HTTPS_PROXY=http://127.0.0.1:14316`, which forwards to a per-turn CONNECT proxy that allows only the provider's hosts. | `tooling/deployment/bridge/tool-turn.sh:33-51`; `intake-server/src/agents/environment.ts:68`; `shared-vm/provider-proxy.ts`; `bridge/claude-egress.py:11` |
 | Web reads | `bench-web` sends one URL over `/run/web/reader.sock` to a long-lived reader container. Its policy covers https only, DNS-name and public-address checks, protected hosts, 4 redirects and 2 MiB. The default mode is `listed`, with three sites. | `bridge/web-reader.py`, `guest_destinations.py`, `bench-web`, `public-web.sh` |
 | Reader lifecycle | Started by hand with `public-web.sh`. `tool-turn.sh` refuses to run without its socket. Not started by `pnpm dev`. | `tool-turn.sh:30`; `README.md:126-130` |
-| What agents are told | Nothing about web access. | `intake-server/src/agents/session/session-runner.ts` |
+| What agents are told | The profile's fixed instructions say to use `bench-web` with HTTPS URLs on the three listed sites, nothing more. | `intake-server/migrations/0026_shared_vm_tools.sql:11` |
 | Settings | "Web research" switches render disabled. | `openspec/specs/app-settings/spec.md` › Deferred settings |
 | Readiness | Always reports `research: 'unqualified'`, a label for the retired fixture broker. | `operations/readiness.ts:43`; `contracts/src/live.ts:38`; `main.ts:206` |
 | Setup | Images, VM, pairing, provider provisioning and the reader are all manual. `pnpm dev` refuses with `vm_pairing_missing` until they are done. | `README.md:75-140`; `development-launcher` spec |
@@ -52,6 +52,7 @@ The full investigation is in Mitch's handover findings for this work, outside th
 ## Scope and non-goals
 
 **In scope:**
+- **Profile version.** The new tool surface and instructions run under a new profile, `shared-vm-agent/3`, added by an additive migration. `/2` and its migration stay as they are, and `/2` attempts that never started fail with `agent_profile_retired`.
 - **Tool surface.** In VM tool sessions, Claude adds `WebSearch`, `WebFetch`, `Glob`, `Grep` and `TodoWrite`, and Codex sets `web_search = "live"`. Both admission checks and in-turn item checks are updated. The session policy identity changes, and a requalification run follows.
 - **Egress policy.** The per-turn egress proxy enforces the turn's sealed web setting. Provider hosts are always allowed. When web access is on, any public host that passes the shared destination checks is allowed too. Protected hosts are worked out from the deployment's own configuration.
 - **Settings.** "Allow public web pages" (on by default) and "Prefer manufacturer datasheets" (on by default) become working, per-session Settings › Agents switches, sealed into each attempt. Guidance about both is delivered to the session.
@@ -132,6 +133,8 @@ None.
 - Merge the web policy into the egress proxy.
 - Remove `bench-web`.
 - Include `vm:setup` in this change.
+
+**For Mitch to confirm:** `shared-vm-agent/2` attempts that are queued but never started when the upgrade lands fail with `agent_profile_retired`, and the step is run again. The alternative is a `/3` worker that also runs `/2` attempts on the old surface, keeping two tool surfaces in the code. This plan recommends the first.
 
 **Assumptions:**
 - "Prefer manufacturer datasheets" is delivered as opening-message guidance, like the Part description style, and doesn't change the digest-checked instructions.

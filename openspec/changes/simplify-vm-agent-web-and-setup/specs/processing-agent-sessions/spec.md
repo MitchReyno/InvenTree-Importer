@@ -2,6 +2,22 @@
 
 ## ADDED Requirements
 
+### Requirement: Web tools run under a new VM profile version
+
+VM tool sessions with the web tool surface SHALL run under `shared-vm-agent/3`, a new profile with its own fixed instructions, instruction digest and tool profile version, added without changing `shared-vm-agent/2` or any earlier migration. A worker serving `shared-vm-agent/3` SHALL settle a `shared-vm-agent/2` attempt that never started as failed with `agent_profile_retired`, shown through the existing failure disclosure, and SHALL NOT run it under either surface.
+
+#### Scenario: Attempt queued before the upgrade
+
+- **GIVEN** a `shared-vm-agent/2` attempt queued before the upgrade and never started
+- **WHEN** the worker now serving `shared-vm-agent/3` claims work
+- **THEN** that attempt fails with `agent_profile_retired` and a summary saying to run the step again, and no provider process starts
+
+#### Scenario: Retained instructions stay valid
+
+- **GIVEN** retained `shared-vm-agent/2` attempts and their sealed instruction digests
+- **WHEN** the new profile is added
+- **THEN** the `shared-vm-agent/2` profile row and its digest are unchanged, so those attempts still decode and display
+
 ### Requirement: Web settings sealed per attempt
 
 Each attempt queued for a profile that gives sessions web access SHALL seal "Allow public web pages" and "Prefer manufacturer datasheets" as read from the saved agent settings, with the settings revision it read. Later saves SHALL NOT change a queued or running attempt. An attempt sealed before these fields existed SHALL run with both off. Attempts for other profiles SHALL seal both as off.

@@ -14,7 +14,7 @@
 
 #### Scenario: Web state follows the profile
 
-- **GIVEN** the `shared-vm-agent/2` profile, and separately the `synthetic-session/1` profile
+- **GIVEN** the `shared-vm-agent/3` profile, and separately the `synthetic-session/1` profile
 - **WHEN** readiness is requested
 - **THEN** it reports `web: available` for the first and `web: unavailable` for the second, and the local setup diagnostics show the same state instead of a fixed provider-qualification message
 

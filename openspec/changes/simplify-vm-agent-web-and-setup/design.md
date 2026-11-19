@@ -12,7 +12,7 @@ This change crosses five boundaries, but each one extends an existing pattern. T
 | Turn delivery | Coordinator to peer over paired TLS | `shared-vm/coordinator.ts:138-155` sends `manifest`, `tools`, `text`, `instructions`. `guest-main.ts:73` validates `ProcessingInputV6`. `:127-139` writes the reap receipt to `/run/reap`, visible only to the peer and `tool-turn.sh`. |
 | CLI proxying | `agents/environment.ts:66-78` | Sets `HTTPS_PROXY=http://127.0.0.1:14316` for subscription routes. `shared-vm/provider-proxy.ts` forwards it to `/run/egress/<provider>.sock`. |
 | Settings and sealing | Agent settings (`agents/settings.ts`) and `processing/session-attempts.ts` | `settings-debug-mode` (BI-016, unmerged, `docs/settings-debug-mode` at `f44736ef`) restructures Settings › Agents. It also seals per-step selections and the Part description style into the attempt input. |
-| Instructions | `agents/session/session-runner.ts` | Fixed instructions are digest-verified per profile (`processing/authority.ts:73,110-113`, `session-runner.ts:458`) |
+| Instructions | `processing_profile` rows, read by `agents/session/session-runner.ts` | Each profile's fixed instruction bytes and digest are inserted by a migration. `shared-vm-agent/2` comes from `migrations/0026_shared_vm_tools.sql:11`, and its text tells agents to use `bench-web` on three listed sites. Attempts seal `instruction_sha256`, and the runner refuses a mismatch (`session-runner.ts:457-461`). A worker leaves attempts of another VM profile waiting (`:445-455`). |
 | Setup | README and `bridge/*.sh`; `tooling/dev/vm.cjs` | `pair.sh` needs new directories. `personal-claude.sh` and `personal-codex.sh` use `docker run --name` and fail if the container exists. Each management container takes one `INTAKE_OPERATOR_ORIGIN`. |
 
 **Complexity:** large but conventional. The risky parts are the security of the policy handoff and the provider tool behaviour behind the egress proxy, which only a live run proves.
@@ -72,7 +72,7 @@ coordinator ──TLS──▶ peer (supervisor) ──writes──▶ $turn/pol
 The shared session input gains an optional `web` object, `{ public_pages: boolean, prefer_datasheets: boolean }`. It is set by `createSessionAttempt` from the saved agent settings, exactly as `settings-debug-mode` seals `part_description_style`.
 
 - Absent means both off.
-- Profiles other than `shared-vm-agent/2` always seal both as off.
+- Profiles other than `shared-vm-agent/3` always seal both as off.
 - Defaults are on: a settings row with no saved value reads as on.
 
 The fields are optional, so the input schema version doesn't change. If `settings-debug-mode` has bumped the input version by then, these fields join that version. That decision is recorded in `notes.md` during implementation.
@@ -92,7 +92,7 @@ The fields are optional, so the input schema version doesn't change. If `setting
 **Configuration handoff.** Today the agent worker receives neither the app origin nor the inventory target. `tooling/dev.cjs:417-455` gives `INTAKE_ORIGIN` and `apiTargetEnv()` only to the API child, and `session-worker-main.ts:108` passes the bridge only the pairing directory and port. So:
 - the worker's own `INTAKE_ORIGIN` stays the loopback origin. `devConfig()` requires that (`intake-server/src/config.ts:40-42`), and the tailnet origin only reaches the tailnet child (`tooling/dev.cjs:286,421,504`);
 - instead, the launcher gives the agent worker a separate internal input, `INTAKE_AGENT_PROTECTED_ORIGINS`: a comma-separated list of absolute origins, holding the loopback app origin, the tailnet origin when `INTAKE_DEV_TAILSCALE` is on, and each InvenTree origin the app reads or writes. The launcher always sets it, so it isn't an operator setting. A deployment not started by `pnpm dev` sets it next to its other worker settings;
-- for `shared-vm-agent/2`, `session-worker-main.ts` validates that list, and refuses to start the bridge with `session_agent_configuration_required` when it is missing or malformed;
+- for `shared-vm-agent/3`, `session-worker-main.ts` validates that list, and refuses to start the bridge with `session_agent_configuration_required` when it is missing or malformed;
 - it then hands them to `startSessionBridge()`, which the coordinator uses for each turn.
 
 No credential is passed.
@@ -121,8 +121,27 @@ No credential is passed.
 
 ### D6. Guidance
 
-- **Fixed instructions:** a short web-tools paragraph is added to the `shared-vm-agent/2` fixed instructions only. This changes that profile's digest, which requalification covers.
+- **Fixed instructions:** the new `shared-vm-agent/3` profile (D10) carries instructions describing search, `WebFetch` and `curl`, with no `bench-web`.
 - **Opening message:** the session runner adds the per-session lines (web on or off, datasheet preference), the same channel the description style uses. The digest is unaffected.
+
+### D10. A new profile version, `shared-vm-agent/3`
+
+Instructions and the tool surface are bound to a profile row by digest, so neither can change in place.
+
+**Migration:** a new additive migration:
+- adds the `shared-vm-agent/3` row, with new instruction bytes and digest;
+- adds a new tool profile version, `native-session-web-tools/1`;
+- extends `processing_profile_version_pair_check`.
+
+`0026` and the `/2` row are never edited.
+
+**Code:** the launcher's profile table maps "tools true" to `/3`. The profile literals in `contracts/src/processing.ts`, `session-input.ts`, `session-policy.ts`, `config.ts`, `tool-worker.ts`, `guest-main.ts` and `coordinator.ts` accept `/3` wherever they accept `/2` today. The new tool surface and web policy apply only to `/3`.
+
+**Retired `/2` attempts:** today a worker leaves another VM profile's attempts waiting forever. A `/3` worker instead settles a never-started `/2` attempt as failed with `agent_profile_retired`, and the operator runs the step again. Finished `/2` sessions keep their history, and a resume of one is unavailable, as for any admission-policy change.
+
+**Rejected:**
+- *Editing the `/2` instructions in place:* breaks every retained digest.
+- *A side table of historical instruction versions under `/2`:* old attempts would run with the new tool surface under instructions naming a removed `bench-web`.
 
 ### D7. Readiness reports the real web state
 
@@ -141,7 +160,7 @@ Since the contract field changes, the frontend and server move together in one P
 | VM | `limactl list` shows the instance | `limactl start --vm-type=vz --name=<vm> tooling/deployment/lima/agent.yaml`, or start it if stopped |
 | Runner in guest | Guest `docker image inspect` digest label matches | `docker save \| limactl shell … docker load` |
 | Pairing | Host `ca.pem`, `cert.pem` and `key.pem`, and the guest `guest/` directory, both exist | `pair.sh`. One side only: `vm_pairing_mismatch`. |
-| Operator key | The key file exists | Created by the provisioning script, which already does this |
+| Operator key | The host key file and the guest's `operator/key` both exist and have the same SHA-256 | Generated and installed only when both are missing. One side only, or different contents, refuses with `vm_operator_key_mismatch` and changes neither. The provisioning scripts then reinstall the same key. |
 | Guest services | Containers exist with the current image and the expected `INTAKE_OPERATOR_ORIGIN` | Run `personal-claude.sh` and `personal-codex.sh`. Both are changed to remove only their own named containers first, and to leave the store, state and key directories alone. |
 
 The guest browser policy (`guest/browser-seccomp.json`, which `tool-turn.sh:46-48` applies when present) is installed by `browser-policy.sh`, the remaining part of the retired `public-web.sh`. `vm:setup` and each image refresh run it again, so the policy follows the checkout.

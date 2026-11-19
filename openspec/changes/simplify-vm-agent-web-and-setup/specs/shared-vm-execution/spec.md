@@ -26,7 +26,7 @@ The guest SHALL provide a distinct working directory per session, shell, script 
 
 ### Requirement: Claude VM tool surface
 
-A Claude `shared-vm-agent/2` session SHALL be admitted only when it reports exactly `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `TodoWrite`, `WebSearch` and `WebFetch` plus the app's MCP tools, with no slash commands, setting sources or other MCP servers. Using any other tool SHALL end the turn with `agent_tool_refused`.
+A Claude `shared-vm-agent/3` session SHALL be admitted only when it reports exactly `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `TodoWrite`, `WebSearch` and `WebFetch` plus the app's MCP tools, with no slash commands, setting sources or other MCP servers. Using any other tool SHALL end the turn with `agent_tool_refused`.
 
 #### Scenario: Claude session admitted
 
@@ -42,7 +42,7 @@ A Claude `shared-vm-agent/2` session SHALL be admitted only when it reports exac
 
 ### Requirement: Codex VM tool surface
 
-A Codex `shared-vm-agent/2` session SHALL be admitted only when its effective config has the shell, image viewing and `web_search = "live"`, with code mode, apps, plugins, memories, multi-agent, bundled skills and the request-permissions tool off. Its turns SHALL accept command, file change, image view and `webSearch` items as well as app tool calls.
+A Codex `shared-vm-agent/3` session SHALL be admitted only when its effective config has the shell, image viewing and `web_search = "live"`, with code mode, apps, plugins, memories, multi-agent, bundled skills and the request-permissions tool off. Its turns SHALL accept command, file change, image view and `webSearch` items as well as app tool calls.
 
 #### Scenario: Codex search item
 
@@ -128,8 +128,8 @@ The coordinator SHALL work out each turn's protected hosts from the deployment's
 
 #### Scenario: InvenTree configured by public address
 
-- **GIVEN** the app reads InvenTree at `https://203.0.113.10`
-- **WHEN** the agent connects to a public DNS name that resolves to `203.0.113.10`
+- **GIVEN** the app reads InvenTree at `https://1.1.1.1`
+- **WHEN** the agent connects to a public DNS name that resolves to `1.1.1.1`
 - **THEN** the proxy refuses with `protected_destination`
 
 #### Scenario: App served on the tailnet

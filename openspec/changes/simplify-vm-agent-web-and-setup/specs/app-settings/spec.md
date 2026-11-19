@@ -124,7 +124,7 @@ The cards SHALL keep the existing personal Claude credential (save, replace, rem
 
 #### Scenario: Profile without web access
 
-- **GIVEN** a profile other than `shared-vm-agent/2`
+- **GIVEN** a profile other than `shared-vm-agent/3`
 - **WHEN** Settings › Agents opens
 - **THEN** both Web research switches are disabled with an explanation that this profile's sessions have no web access, and their saved values are unchanged
 
