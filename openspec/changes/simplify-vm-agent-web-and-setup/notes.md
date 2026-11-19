@@ -5,6 +5,7 @@ Implementation of `simplify-vm-agent-web-and-setup` (BI-017) started with PR-A (
 ## Changes to the plan
 
 - **2026-11-19T16:40+11:00, task 1 (PR-A):** Review found that established public tunnels had no limit, so idle ones could crowd the provider out of the 64 MiB egress container. The `shared-vm-execution` delta gained "Public tunnels are bounded" (32 public tunnels, closed after two minutes without data either way; provider tunnels exempt) and the refusal reason `too_many_connections`.
+- **2026-11-20T03:40+11:00, task 5 (PR-B):** `Diagnostics.tsx`, which the plan names, was removed by the settings-debug-mode work. The readiness facts now show in `LocalSetup.tsx` (Settings › Developer and the dev-mode popover) and in Copy debug info (`debug-info.ts`), so the web state is reported there.
 
 ## Unexpected challenges
 

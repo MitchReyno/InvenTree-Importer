@@ -17919,8 +17919,7 @@ export interface components {
             deployment: "restricted-local-development";
             /** @constant */
             identity: "deferred_T11";
-            /** @constant */
-            research: "unqualified";
+            web: "available" | "unavailable";
             media: "configured" | "disabled";
             /** @constant */
             updates: "websocket-with-polling-fallback";

@@ -35,7 +35,8 @@ export const Readiness = object({
   api_version: Type.Literal('bench-intake-app/1'),
   deployment: Type.Literal('restricted-local-development'),
   identity: Type.Literal('deferred_T11'),
-  research: Type.Literal('unqualified'),
+  /** Whether the processing profile gives sessions web access. */
+  web: Type.Union([Type.Literal('available'), Type.Literal('unavailable')]),
   media: Type.Union([Type.Literal('configured'), Type.Literal('disabled')]),
   updates: Type.Literal('websocket-with-polling-fallback'),
   apply: Type.Literal('separately-supervised-owned-fake-only'),

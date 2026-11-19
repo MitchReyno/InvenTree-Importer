@@ -161,8 +161,8 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:frontend`, `pnpm lint:frontend`, `pnpm contracts:check`.
 - Risks and decisions: none.
 
-- [ ] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
-- [ ] 5.2 GREEN: replace the field in contracts, server and frontend.
+- [x] 5.1 RED: add the readiness and diagnostics tests, and confirm the failures.
+- [x] 5.2 GREEN: replace the field in contracts, server and frontend.
 - [ ] 5.3 Run the intake, frontend and contract checks, and record the results.
 
 ## 6. Tool surface and admission

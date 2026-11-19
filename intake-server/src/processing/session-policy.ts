@@ -33,6 +33,11 @@ export const sessionProfiles = {
 } as const
 export type SessionProfileId = keyof typeof sessionProfiles
 
+/** Whether sessions under this processing profile have web access; only the VM tool profile does. */
+export function webAccess(profileId: string | undefined): 'available' | 'unavailable' {
+  return profileId === 'shared-vm-agent/3' ? 'available' : 'unavailable'
+}
+
 export function isSessionProfile(profileId: string): profileId is SessionProfileId {
   return Object.hasOwn(sessionProfiles, profileId)
 }

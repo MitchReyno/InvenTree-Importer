@@ -76721,7 +76721,7 @@
           "api_version",
           "deployment",
           "identity",
-          "research",
+          "web",
           "media",
           "updates",
           "apply"
@@ -76743,9 +76743,17 @@
             "const": "deferred_T11",
             "type": "string"
           },
-          "research": {
-            "const": "unqualified",
-            "type": "string"
+          "web": {
+            "anyOf": [
+              {
+                "const": "available",
+                "type": "string"
+              },
+              {
+                "const": "unavailable",
+                "type": "string"
+              }
+            ]
           },
           "media": {
             "anyOf": [
