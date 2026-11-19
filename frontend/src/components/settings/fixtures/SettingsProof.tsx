@@ -1,13 +1,22 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import type { AgentSettingsDto, ConnectionStatusDto } from '@invimport/contracts'
+import type {
+  AgentSettingsDto,
+  AgentSettingsUpdateDto,
+  BatchDefaultsDto,
+  BatchDefaultsUpdateDto,
+  CatalogueModelDto,
+  CatalogueRecordDto,
+  ConnectionStatusDto,
+} from '@invimport/contracts'
+import type { BatchDefaultsClient, CatalogueClient } from '#/catalogue/types'
 import type { agentsClient } from '@invimport/contracts/client'
 import { createServerQueryClient } from '#/queries/client'
 import { serverQueryKey } from '#/queries/scope'
 import { ServerStateProvider } from '#/components/query/ServerStateProvider'
 import { GlobalStyle } from '#/components/GlobalStyle'
-import { HeaderObservationsProvider } from '#/context'
-import { settingsSection } from '#/navigation/app-route'
+import { ApiClientsProvider, HeaderObservationsProvider } from '#/context'
+import { settingsSection, settingsSubsection } from '#/navigation/app-route'
 import { useHashRoute } from '#/navigation/useHashRoute'
 import { space } from '#/theme/generated/tokens'
 import type { HeaderClient } from '#/header/types'
@@ -28,8 +37,16 @@ const batchId = '10000000-0000-4000-8000-000000000001'
 
 let saved: AgentSettingsDto = {
   revision: '7',
-  selection: { provider: 'claude', authentication: 'subscription', model: 'opus' },
+  providers: {
+    claude: { enabled: true, authentication: 'subscription', default_model: 'opus' },
+    codex: { enabled: false, authentication: 'subscription', default_model: 'gpt-6.1-sol' },
+  },
+  default_provider: 'claude',
+  stage_selections: {},
   session_concurrency: 3,
+  new_batch_instructions: '',
+  part_description_style: '',
+  auto_tags_default: false,
 }
 
 function session(index: number, running: boolean) {
@@ -56,16 +73,8 @@ function session(index: number, running: boolean) {
  */
 const agents = {
   settings: async () => saved,
-  saveSettings: async (input: {
-    expected_revision: string
-    selection: AgentSettingsDto['selection']
-    session_concurrency: number
-  }) => {
-    saved = {
-      revision: String(Number(saved.revision) + 1),
-      selection: input.selection,
-      session_concurrency: input.session_concurrency,
-    }
+  saveSettings: async ({ expected_revision, ...fields }: AgentSettingsUpdateDto) => {
+    saved = { ...fields, revision: String(Number(expected_revision) + 1) }
     return saved
   },
   sessions: async () => ({
@@ -81,19 +90,27 @@ const agents = {
   deliverInstructions: async () => ({ sessions: 0 }),
 } as unknown as ReturnType<typeof agentsClient>
 
+// Staged for the demo: once checked, InvenTree has refused the token, and later reads say so.
+let tokenRefused = false
+
 const header: HeaderClient = {
+  checkConnection: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    tokenRefused = true
+    return header.connection()
+  },
   connection: async (): Promise<ConnectionStatusDto> =>
     ({
       ...identity,
       target: {
         kind: 'owned_test',
-        state: 'reachable',
+        state: tokenRefused ? 'unavailable' : 'reachable',
         freshness: 'fresh',
         observed_at: new Date().toISOString(),
-        failure_code: null,
+        failure_code: tokenRefused ? 'unauthorized' : null,
         navigation_url: 'https://inventory.example.test/',
         label: 'Bench test InvenTree',
-        version: '1.1.0',
+        version: tokenRefused ? null : '1.1.0',
       },
     }) as ConnectionStatusDto,
   work: async () => ({
@@ -119,6 +136,82 @@ function batchReads() {
 }
 
 /** Settings opened from a batch's Processing tab; the hash picks the section. */
+const locations: CatalogueRecordDto[] = [
+  {
+    kind: 'location',
+    pk: '11',
+    name: 'Incoming',
+    description: 'Parts waiting for check-in',
+    path: 'Bench/Incoming',
+    parent_pk: null,
+    structural: false,
+  },
+  {
+    kind: 'location',
+    pk: '12',
+    name: 'Drawer 4',
+    description: 'Resistors',
+    path: 'Bench/Drawer 4',
+    parent_pk: null,
+    structural: false,
+  },
+]
+const suppliers: CatalogueRecordDto[] = [
+  { kind: 'supplier', pk: '7', name: 'Mouser Electronics', description: '', manufacturer: false },
+  { kind: 'supplier', pk: '8', name: 'DigiKey', description: '', manufacturer: false },
+]
+const records = { location: locations, supplier: suppliers }
+
+/** In-memory catalogue for the Settings pickers. */
+const catalogue = {
+  candidatesAll: async (model: CatalogueModelDto) => ({
+    model,
+    target_context_id: scope.targetContextId,
+    candidates: records[model],
+    coverage: { loaded: records[model].length, total: records[model].length, truncated: false },
+  }),
+  searchAll: async (model: CatalogueModelDto, query: string) => ({
+    model,
+    target_context_id: scope.targetContextId,
+    query,
+    results: records[model].filter((record) =>
+      record.name.toLowerCase().includes(query.toLowerCase()),
+    ),
+    coverage: { loaded: 0, total: 0, truncated: false },
+    exact_id: { status: 'not_requested' as const },
+  }),
+} as unknown as CatalogueClient
+
+// The saved supplier was deleted in InvenTree, so Settings says so.
+let savedDefaults: BatchDefaultsDto = {
+  revision: '2',
+  location: { pk: '11', label: 'Incoming', status: 'found' },
+  supplier: { pk: '9', label: null, status: 'not_found' },
+}
+
+const batchDefaults = {
+  read: async () => savedDefaults,
+  save: async ({ expected_revision, location_pk, supplier_pk }: BatchDefaultsUpdateDto) => {
+    const named = (list: CatalogueRecordDto[], pk: string | null) => {
+      const record = list.find((item) => item.pk === pk)
+      if (!pk) {
+        return null
+      }
+      // A saved record InvenTree no longer has stays saved, reported as not found.
+      return record
+        ? { pk, label: record.name, status: 'found' as const }
+        : { pk, label: null, status: 'not_found' as const }
+    }
+
+    savedDefaults = {
+      revision: String(Number(expected_revision) + 1),
+      location: named(locations, location_pk),
+      supplier: named(suppliers, supplier_pk),
+    }
+    return savedDefaults
+  },
+} as unknown as BatchDefaultsClient
+
 export function SettingsProof() {
   const [cache] = useState(batchReads)
   const route = useHashRoute('settings')
@@ -127,14 +220,17 @@ export function SettingsProof() {
     <ServerStateProvider scope={scope} client={cache}>
       <GlobalStyle />
       <HeaderObservationsProvider client={header}>
-        <Page>
-          <Settings
-            section={settingsSection(route)}
-            returnTo={`${batchId}/processing/overview`}
-            agents={agents}
-            onDirtyChange={() => {}}
-          />
-        </Page>
+        <ApiClientsProvider value={{ catalogue, batchDefaults }}>
+          <Page>
+            <Settings
+              section={settingsSection(route)}
+              subsection={settingsSubsection(route)}
+              returnTo={`${batchId}/processing/overview`}
+              agents={agents}
+              onDirtyChange={() => {}}
+            />
+          </Page>
+        </ApiClientsProvider>
       </HeaderObservationsProvider>
     </ServerStateProvider>
   )

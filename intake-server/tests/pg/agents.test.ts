@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
-import { readAgentSettings, saveAgentSettings } from '#/agents/settings.ts'
+import { singleProvider } from '../support/agent-settings.ts'
+import { readAgentSettings, saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
 import { listAgentSessions } from '#/agents/session/sessions.ts'
 import { claimProcessingCommand, acceptEnvelope } from '#/processing/runner.ts'
 import { acquireAgentSupervisor } from '#/agents/worker.ts'
@@ -21,11 +22,10 @@ test('native settings bind at queue time, conflict safely, survive completion an
   const fixture = await processingFixture({ profileId: nativeProfileId })
   try {
     const capture = await fixture.seedCapture()
-    assert.deepEqual(await readAgentSettings(fixture.api.pool, fixture.config), {
-      revision: '0',
-      selection: null,
-      session_concurrency: 3,
-    })
+    assert.deepEqual(
+      await readAgentSettings(fixture.api.pool, fixture.config),
+      unsavedAgentSettings(),
+    )
     const start = {
       schema_version: 'bench-intake-processing/1',
       expected_capture_revision: capture.batch.revision,
@@ -37,10 +37,14 @@ test('native settings bind at queue time, conflict safely, survive completion an
       startProcessing(fixture.api.pool, fixture.config, capture.batch.id, randomUUID(), request),
       { message: 'agent_default_required' },
     )
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      expected_revision: '0',
-      selection: first,
-    })
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '0',
+        selection: first,
+      }),
+    )
     const queued = receipt(
       await startProcessing(
         fixture.api.pool,
@@ -50,15 +54,23 @@ test('native settings bind at queue time, conflict safely, survive completion an
         request,
       ),
     )
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      expected_revision: '1',
-      selection: second,
-    })
-    await assert.rejects(
-      saveAgentSettings(fixture.api.pool, fixture.config, {
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
         expected_revision: '1',
-        selection: first,
+        selection: second,
       }),
+    )
+    await assert.rejects(
+      saveAgentSettings(
+        fixture.api.pool,
+        fixture.config,
+        singleProvider({
+          expected_revision: '1',
+          selection: first,
+        }),
+      ),
       { message: 'revision_conflict' },
     )
     let history = await listAgentSessions(fixture.api.pool, fixture.config)
@@ -120,7 +132,7 @@ test('native settings bind at queue time, conflict safely, survive completion an
     )
     assert.deepEqual(
       await readAgentSettings(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }),
-      { revision: '0', selection: null, session_concurrency: 3 },
+      unsavedAgentSettings(),
     )
     await assert.rejects(
       listAgentSessions(
@@ -168,10 +180,14 @@ test('session history pages every retained attempt in queue order and refuses id
   const fixture = await processingFixture({ profileId: nativeProfileId })
   try {
     const capture = await fixture.seedCapture()
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      expected_revision: '0',
-      selection: first,
-    })
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '0',
+        selection: first,
+      }),
+    )
     const ids = new Set<string>()
     for (let index = 0; index < 53; index++) {
       const queued = receipt(
@@ -225,10 +241,14 @@ test('a native prompt shows requested automation as context but never offers it 
       notes: { batch: null, order: null },
       drafts: [],
     })
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      expected_revision: '0',
-      selection: first,
-    })
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        expected_revision: '0',
+        selection: first,
+      }),
+    )
     const queued = receipt(
       await startProcessing(fixture.api.pool, fixture.config, capture.batch.id, randomUUID(), {
         schema_version: 'bench-intake-processing/1',

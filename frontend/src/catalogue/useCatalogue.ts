@@ -11,18 +11,22 @@ const CANDIDATE_STALE_MS = 5 * 60_000
 /**
  * Bounded candidate snapshot plus strict search for one model. Both are scoped to the actor,
  * target and context query key, so a scope change never reuses another target's records.
+ * Without a batch (Settings) it reads the same catalogue through the batch-free routes.
  */
 export function useCatalogue(
   client: CatalogueClient | undefined,
-  batchId: string,
+  batchId: string | null,
   model: CatalogueModelDto,
   enabled: boolean,
 ) {
   const scope = useServerScope()
   const candidates = useQuery({
-    queryKey: serverQueryKey(scope, 'catalogue-candidates', batchId, model),
+    queryKey: serverQueryKey(scope, 'catalogue-candidates', batchId ?? 'settings', model),
     queryFn: async () => {
-      const result = await client!.candidates(batchId, model)
+      const result =
+        batchId === null
+          ? await client!.candidatesAll(model)
+          : await client!.candidates(batchId, model)
       if (result.target_context_id !== scope.targetContextId || result.model !== model) {
         throw new Error('catalogue_scope_mismatch')
       }
@@ -34,7 +38,10 @@ export function useCatalogue(
   })
   const search = useCallback<PickerSearch>(
     async (query, signal) => {
-      const result = await client!.search(batchId, model, query, signal)
+      const result =
+        batchId === null
+          ? await client!.searchAll(model, query, signal)
+          : await client!.search(batchId, model, query, signal)
       if (result.target_context_id !== scope.targetContextId || result.model !== model) {
         throw new Error('catalogue_scope_mismatch')
       }

@@ -1,35 +1,44 @@
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import styled from 'styled-components'
-import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
+import type { AgentSettingsDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey } from '#/queries/scope'
+import type { AgentSubsectionId } from '#/navigation/app-route'
 import { useRetainedPollInterval, useServerScope } from '#/context'
-import { Banner, Button, Link, Paragraph, SettingRow, Small, Switch } from '#/components/ui'
-import { color, space, typeVar } from '#/theme/generated/tokens'
-import { AgentSettingsForm } from '#/components/agents/AgentSettingsForm'
+import { Banner, Button, Paragraph, SettingRow } from '#/components/ui'
 import { ChatGPTSignIn } from '#/components/agents/ChatGPTSignIn'
 import { PauseAllAgents } from '#/components/agents/PauseAllAgents'
 import { PersonalClaudeCredential } from '#/components/agents/PersonalClaudeCredential'
-import { slotUse } from '#/components/agents/slot-use'
 import { useChatGPTSignIn } from '#/components/agents/useChatGPTSignIn'
 import { usePersonalClaudeCredential } from '#/components/agents/usePersonalClaudeCredential'
-import { Select, TextArea } from '#/forms'
 import { SettingsCard } from './SettingsCard'
+import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
+import { AgentSubsection, subsectionHeadingId } from './agents/AgentSubsection'
+import { DescriptionsCard } from './agents/DescriptionsCard'
+import { SlotMeter } from './agents/SlotMeter'
+import { WebResearchRow } from './agents/WebResearchRow'
+import { DescriptionStyleRow } from './agents/DescriptionStyleRow'
+import { InstructionsForm } from './agents/InstructionsForm'
+import { ProvidersAndSteps } from './agents/ProvidersAndSteps'
+import { SessionsForm } from './agents/SessionsForm'
+import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
+import { useDirtyForms } from './agents/useDirtyForms'
+import type { PageSave } from './agents/useSubsectionForm'
 
 type Props = {
   client: ReturnType<typeof agentsClient>
   onDirtyChange: (dirty: boolean) => void
+  /** The subsection the route points at; the page scrolls to it and focuses its heading. */
+  subsection?: AgentSubsectionId
 }
 
-const STEPS = ['Examine', 'Research', 'Images', 'Inventory']
-
 /**
- * Settings › Agents: the stored agent settings, the credential panels behind each provider card,
- * Pause all and the deferred "More control" card. The panels' state lives here, so it mounts and
- * unmounts with the section and the provider cards mirror the panels.
+ * Settings › Agents: every setting that shapes agent behaviour, in subsections. The credential
+ * panels' state lives here, so it mounts and unmounts with the section and the provider cards
+ * mirror the panels.
  */
-export function AgentsSection({ client, onDirtyChange }: Props) {
+export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
   const credential = usePersonalClaudeCredential()
@@ -48,40 +57,110 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
     queryFn: () => client.sessions(),
     refetchInterval: poll === false ? 10000 : poll,
   })
-  const loaded = settings.isFetchedAfterMount && settings.data
-
-  /** A read already running is older than the confirmed settings, so it must not replace them. */
-  async function adoptLoaded(confirmed: AgentSettingsDto) {
-    await queryClient.cancelQueries({ queryKey: settingsKey })
-    queryClient.setQueryData(settingsKey, confirmed)
+  // Forms open only once a read has succeeded this visit, never on cached settings after a
+  // failed one; a later failed refresh keeps them, and their drafts, open.
+  const [readThisVisit, setReadThisVisit] = useState(false)
+  if (!readThisVisit && settings.isFetchedAfterMount && settings.isSuccess) {
+    setReadThisVisit(true)
+  }
+  const loaded = readThisVisit && settings.data
+  const ready = Boolean(loaded)
+  const focused = useRef<AgentSubsectionId | undefined>(undefined)
+  const reportDirty = useDirtyForms(onDirtyChange)
+  // The newest settings a save or reload confirmed, ahead of the cache while it is updated.
+  const newest = useRef<AgentSettingsDto | undefined>(undefined)
+  // Revisions this page's own saves produced; an edit may move past those, never past others.
+  const localSaves = useRef(new Set<string>())
+  // One subsection saves at a time; the ref answers at once, the state shows the others waiting.
+  const saveTurn = useRef(false)
+  const [saving, setSaving] = useState(false)
+  const pageSave: PageSave = {
+    running: saving,
+    start: () => {
+      if (saveTurn.current) {
+        return false
+      }
+      saveTurn.current = true
+      setSaving(true)
+      return true
+    },
+    finish: () => {
+      saveTurn.current = false
+      setSaving(false)
+    },
   }
 
-  return (
-    <SettingsSection
-      title="Agents"
-      lead="How agent sessions run for every batch. A running turn finishes with the settings it started with."
-      agent
-    >
-      {(settings.isError || settings.fetchStatus === 'paused') && (
-        <div role="alert">
-          <Banner
-            tone="warn"
-            action={<Button onClick={() => void settings.refetch()}>Retry</Button>}
-          >
-            Settings unavailable. Unsaved input is preserved.
-          </Banner>
-        </div>
-      )}
-      {!settings.isFetchedAfterMount && (
-        <Paragraph role="status">Loading saved settings…</Paragraph>
-      )}
-      {loaded && (
-        <AgentSettingsForm
-          initial={settings.data}
-          client={client}
-          onDirtyChange={onDirtyChange}
-          providerStatus={{ claude: credential.card, codex: signIn.card }}
-          onLoaded={(loaded) => void adoptLoaded(loaded)}
+  // Syncs the page with the route's location hash. Headings render before the settings load, so
+  // the target exists on the first run; the ref keeps a refetch from moving focus again.
+  useEffect(() => {
+    if (!subsection) {
+      // Back on the section itself: the next subsection link scrolls and focuses again.
+      focused.current = undefined
+      return
+    }
+    // Loading the settings replaces the first subsections' headings; focus follows the new one
+    // only when it was lost with the old, never taking it from where the operator moved it.
+    const lost = document.activeElement === document.body
+    if (focused.current === subsection && !lost) {
+      return
+    }
+    const heading = document.getElementById(subsectionHeadingId(subsection))
+    heading?.scrollIntoView?.({ block: 'start' })
+    heading?.focus()
+    focused.current = subsection
+  }, [subsection, ready])
+
+  /**
+   * Publishes confirmed settings and answers with what is current. A read that was already
+   * running, or a reload older than a save confirmed meanwhile, never replaces newer settings.
+   */
+  function adoptLoaded(confirmed: AgentSettingsDto, source: 'save' | 'reload') {
+    if (source === 'save') {
+      localSaves.current.add(confirmed.revision)
+    }
+    const latest = newestRevision(
+      confirmed,
+      newest.current,
+      queryClient.getQueryData<AgentSettingsDto>(settingsKey),
+    )
+    if (latest !== confirmed) {
+      return latest
+    }
+    newest.current = confirmed
+    void queryClient.cancelQueries({ queryKey: settingsKey }).then(() => {
+      // Only the newest of several confirmations in flight is published.
+      if (newest.current === confirmed) {
+        queryClient.setQueryData(settingsKey, confirmed)
+      }
+    })
+    return confirmed
+  }
+
+  const unavailable = (settings.isError || settings.fetchStatus === 'paused') && (
+    <div role="alert">
+      <Banner tone="warn" action={<Button onClick={() => void settings.refetch()}>Retry</Button>}>
+        Settings unavailable. Unsaved input is preserved.
+      </Banner>
+    </div>
+  )
+  const waiting = (
+    <Paragraph role="status" $onField>
+      Waiting for the saved settings…
+    </Paragraph>
+  )
+  const form = loaded && {
+    client,
+    loaded: settings.data,
+    onLoaded: adoptLoaded,
+    localSaves: localSaves.current,
+    pageSave,
+    reportDirty,
+  }
+  const sessionsSubsection = (
+    <AgentSubsection id="sessions" title="Sessions">
+      {form ? (
+        <SessionsForm
+          {...form}
           slots={
             <SlotMeter
               list={sessions.data}
@@ -89,146 +168,71 @@ export function AgentsSection({ client, onDirtyChange }: Props) {
               limit={settings.data.session_concurrency}
             />
           }
-        />
-      )}
-      {loaded && (
-        <>
-          <SettingsCard aria-label="Pause">
+          pause={
             <SettingRow
               label="Pause all agents"
               help="Paused batches keep their place and resume where they stopped."
             >
               <PauseAllAgents pauseAll={client.pauseAll} list={sessions.data} />
             </SettingRow>
-          </SettingsCard>
-          <SettingsCard aria-label="Sign-in">
-            <SettingRow
-              label="Personal subscriptions"
-              help="Sign the shared VM's runners in to your own Claude or ChatGPT subscription."
-            >
-              <Panels>
-                <PersonalClaudeCredential credential={credential} />
-                <ChatGPTSignIn signIn={signIn} />
-              </Panels>
-            </SettingRow>
-          </SettingsCard>
-          <MoreControl />
+          }
+        />
+      ) : (
+        waiting
+      )}
+    </AgentSubsection>
+  )
+
+  return (
+    <SettingsSection
+      title="Agents"
+      lead="Everything that shapes how agents work, for every batch. A running turn finishes with the settings it started with."
+      agent
+    >
+      {unavailable}
+      {form ? (
+        <ProvidersAndSteps
+          {...form}
+          status={{ claude: credential.card, codex: signIn.card }}
+          credentials={{
+            claude: <PersonalClaudeCredential credential={credential} />,
+            codex: <ChatGPTSignIn signIn={signIn} />,
+          }}
+          sessions={sessionsSubsection}
+        />
+      ) : (
+        <>
+          <AgentSubsection id="providers" title="Providers">
+            {!settings.isFetchedAfterMount && (
+              <Paragraph role="status" $onField>
+                Loading saved settings…
+              </Paragraph>
+            )}
+          </AgentSubsection>
+          {sessionsSubsection}
+          <AgentSubsection id="models" title="Provider and model per step">
+            {waiting}
+          </AgentSubsection>
         </>
       )}
+      <AgentSubsection id="instructions" title="Instructions">
+        {form ? <InstructionsForm {...form} /> : waiting}
+      </AgentSubsection>
+      <AgentSubsection
+        id="descriptions"
+        title="Descriptions and naming"
+        lead="How agents write the free-text fields InvenTree shows. Existing records keep their text unless you change it in Review."
+      >
+        <DescriptionsCard style={form ? <DescriptionStyleRow {...form} /> : waiting} />
+      </AgentSubsection>
+      <AgentSubsection id="tags" title="Tag suggestions">
+        {form ? <TagSuggestionsForm {...form} /> : waiting}
+      </AgentSubsection>
+      <AgentSubsection id="research" title="Web research">
+        <SettingsCard aria-label="Web research">
+          <WebResearchRow />
+        </SettingsCard>
+      </AgentSubsection>
     </SettingsSection>
   )
 }
-
-type SlotMeterProps = {
-  list: AgentSessionListDto | undefined
-  failed: boolean
-  /** The saved limit, which the server applies; an unsaved stepper value isn't in force yet. */
-  limit: number
-}
-
-/** "3 of 3 in use · 1 queued", from the agent sessions list, with a link to it. */
-function SlotMeter({ list, failed, limit }: SlotMeterProps) {
-  if (failed) {
-    return <Small>Slot use unavailable.</Small>
-  }
-  if (!list || list.sessions_supported === false) {
-    return null
-  }
-  const { inUse, queued } = slotUse(list.sessions)
-  const use =
-    queued > 0 ? `${inUse} of ${limit} in use · ${queued} queued` : `${inUse} of ${limit} in use`
-
-  return (
-    <Meter>
-      <span>{use}</span>
-      <Link href="#agents">See sessions</Link>
-    </Meter>
-  )
-}
-
-/** Controls the design adds that the app can't store yet; each is disabled and explained. */
-function MoreControl() {
-  return (
-    <SettingsCard aria-label="More control">
-      <SettingRow
-        label="Model per step"
-        help="A lighter model for Images, the strongest for Examine."
-        disabledReason="Not available yet: every step uses the model above."
-      >
-        {({ disabled }) => (
-          <Steps>
-            {STEPS.map((step) => (
-              <label key={step}>
-                {step}
-                <Select defaultValue="same" {...disabled}>
-                  <option value="same">Same as above</option>
-                </Select>
-              </label>
-            ))}
-          </Steps>
-        )}
-      </SettingRow>
-      <SettingRow
-        label="Instructions for every new batch"
-        help="Copied into a new batch's instructions, where you can change them."
-        disabledReason="Not available yet: write instructions in each batch's Capture › Batch settings."
-      >
-        {({ named, disabled }) => <TextArea rows={3} readOnly {...named} {...disabled} />}
-      </SettingRow>
-      <SettingRow
-        label="Web research"
-        help="Research reads public pages from an isolated browser."
-        disabledReason="Not available yet: these switches aren't stored, so research is unchanged."
-      >
-        {({ disabled }) => (
-          <Steps>
-            <Switch
-              label="Allow public web pages"
-              checked={false}
-              onChange={() => {}}
-              {...disabled}
-            />
-            <Switch
-              label="Prefer manufacturer datasheets over distributor pages"
-              checked={false}
-              onChange={() => {}}
-              {...disabled}
-            />
-          </Steps>
-        )}
-      </SettingRow>
-    </SettingsCard>
-  )
-}
-
-const Panels = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: ${space[6]};
-  fieldset {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: ${space[4]};
-    margin: ${space[4]} 0 0;
-    border: 1px solid ${color.line};
-  }
-`
-
-const Meter = styled.span`
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: ${space[4]};
-  font-size: ${typeVar.small.size};
-`
-
-const Steps = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: ${space[3]};
-  label {
-    gap: ${space[4]};
-  }
-`

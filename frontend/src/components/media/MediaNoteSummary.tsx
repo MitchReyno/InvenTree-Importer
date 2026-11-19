@@ -1,6 +1,6 @@
 import type { MediaSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { Small, Summary, localTime } from '#/components/ui'
+import { DebugDetails, Small, localTime } from '#/components/ui'
 
 type Props = { title: string; note: MediaSnapshotDto['evidence'][number]['note'] }
 
@@ -13,16 +13,15 @@ export function MediaNoteSummary({ title, note }: Props) {
     <div>
       <strong>{title} · Human context</strong>
       <Text>{note.text || 'Empty human note.'}</Text>
-      <Small>
-        Version {note.version}
-        {saved && ` · ${saved}`}
-      </Small>
-      <details>
-        <Summary>Note provenance</Summary>
-        <Small>
-          Record {note.id} · actor {note.actor_id}
-        </Small>
-      </details>
+      {saved && <Small>Saved {saved}</Small>}
+      <DebugDetails
+        label="Note provenance"
+        rows={[
+          { label: 'Version', value: note.version },
+          { label: 'Record', value: note.id },
+          { label: 'Actor', value: note.actor_id },
+        ]}
+      />
     </div>
   )
 }

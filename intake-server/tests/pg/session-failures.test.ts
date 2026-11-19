@@ -111,6 +111,9 @@ for (const mode of ['retained', 'storage_failure', 'reap_pending'] as const) {
       const history = (await fixture.http('/agent-sessions')).value as AgentSessionListDto
       assert.equal(history.sessions[0].failure?.id, failure.id)
       assert.equal('causes' in history.sessions[0].failure!, false)
+      // Recovery shows with the summary, without the details read.
+      assert.equal(history.sessions[0].failure?.recovery, failure.recovery)
+      assert.ok(failure.recovery.length > 0)
       const timeline = (
         await fixture.http(`/batches/${capture.batch.id}/processing/${session.job}/session`)
       ).value as SessionTimelineDto

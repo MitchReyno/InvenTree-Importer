@@ -137,6 +137,8 @@ const inputV6Shared = {
       prefer_datasheets: Type.Boolean(),
     }),
   ),
+  /** The saved Part description style, sealed at queue time; absent when none was saved. */
+  part_description_style: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
 }
 const inputV6Profiles = [
   {

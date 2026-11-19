@@ -17,6 +17,8 @@ interface Props {
   health: UpdateHealth
   /** The Open InvenTree link, or the reason there is none. */
   inventree: ReactNode
+  /** Check connection now. */
+  check: ReactNode
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -29,6 +31,7 @@ export function ConnectionStatus({
   now,
   health,
   inventree,
+  check,
   open,
   onOpenChange,
 }: Props) {
@@ -64,6 +67,7 @@ export function ConnectionStatus({
         now={now}
         health={health}
         inventree={inventree}
+        check={check}
       />
     </HeaderDisclosure>
   )

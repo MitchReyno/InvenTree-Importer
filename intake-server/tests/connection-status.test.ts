@@ -109,7 +109,7 @@ test('freshness expires at60 seconds and a backward clock cannot preserve green'
 test('successful HTTP without JSON, denied API and redirects never become reachable', async () => {
   for (const [status, contentType, failure] of [
     [200, 'text/html', 'unexpected_response'],
-    [401, 'application/json', 'http_error'],
+    [500, 'application/json', 'http_error'],
     [302, 'application/json', 'redirect_refused'],
   ] as const) {
     const read = connectionStatus(
@@ -279,4 +279,88 @@ test('the scoped status keeps the target kind, so the owned mock is labelled as 
     const read = connectionStatus(scoped, undefined)
     assert.equal((await read()).target.kind, targetKind)
   }
+})
+
+test('a forced check skips the cache, reuses one in flight and is held to one per 5 seconds', async () => {
+  let clock = 100000
+  let calls = 0
+  let settle: ((value: Response) => void) | undefined
+  const healthy = () => new Response('{}', { headers: { 'content-type': 'application/json' } })
+  const status = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    () => {
+      calls += 1
+      return new Promise<Response>((resolve) => {
+        settle = resolve
+      })
+    },
+    () => clock,
+    undefined,
+    () => clock,
+  )
+  // A background read completes; a forced check right after it still probes.
+  const background = status()
+  settle?.(healthy())
+  await background
+  clock += 1000
+  const forced = status.check()
+  const again = status.check()
+  assert.equal(calls, 2, 'the second click reuses the check in flight')
+  settle?.(new Response('{}', { status: 401, headers: { 'content-type': 'application/json' } }))
+  const checked = await forced
+  assert.deepEqual(await again, checked)
+  assert.equal(checked.target.failure_code, 'unauthorized')
+  assert.equal(checked.target.observed_at, new Date(clock).toISOString())
+  // The background read sees the forced result without probing.
+  assert.deepEqual(await status(), checked)
+  clock += 2000
+  assert.deepEqual(await status.check(), checked, 'inside the window: the latest result')
+  assert.equal(calls, 2)
+  clock += 3000
+  const later = status.check()
+  assert.equal(calls, 3)
+  settle?.(healthy())
+  assert.equal((await later).target.state, 'reachable')
+})
+
+test('a refused token is told apart from other failures', async () => {
+  for (const [status, failure] of [
+    [401, 'unauthorized'],
+    [403, 'unauthorized'],
+    [500, 'http_error'],
+  ] as const) {
+    const read = connectionStatus(
+      binding,
+      'https://inventory.example.invalid/',
+      async () => new Response('{}', { status, headers: { 'content-type': 'application/json' } }),
+    )
+    assert.equal((await read.check()).target.failure_code, failure)
+  }
+})
+
+test('the forced-check window runs from when a slow check finished', async () => {
+  let clock = 100000
+  let calls = 0
+  let settle: ((value: Response) => void) | undefined
+  const status = connectionStatus(
+    binding,
+    'https://inventory.example.invalid/',
+    () => {
+      calls += 1
+      return new Promise<Response>((resolve) => {
+        settle = resolve
+      })
+    },
+    () => clock,
+    undefined,
+    () => clock,
+  )
+  const slow = status.check()
+  clock += 4000
+  settle?.(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+  await slow
+  clock += 2000
+  await status.check()
+  assert.equal(calls, 1, 'two seconds after it finished, no new probe')
 })

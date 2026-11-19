@@ -1,68 +1,101 @@
-import styled from 'styled-components'
-import { SettingRow, Switch } from '#/components/ui'
-import { Select } from '#/forms'
-import { space } from '#/theme/generated/tokens'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Banner, Button, Paragraph, SettingRow, Switch } from '#/components/ui'
+import { serverQueryKey } from '#/queries/scope'
+import { useApiClients, useServerScope } from '#/context'
+import type { BatchDefaultsDto } from '@invimport/contracts'
+import { BatchDefaultsForm } from './BatchDefaultsForm'
 import { SettingsCard } from './SettingsCard'
+import { newestRevision } from './newest-revision'
 import { SettingsSection } from './SettingsSection'
 
-const NOT_STORED = 'Not available yet: set this for each batch in Capture › Batch settings.'
+/** Settings › Batch defaults: the location and supplier each new batch starts with. */
+export function BatchDefaultsSection({
+  onDirtyChange,
+}: {
+  onDirtyChange: (dirty: boolean) => void
+}) {
+  const { batchDefaults } = useApiClients()
+  const scope = useServerScope()
+  const queryClient = useQueryClient()
+  const key = serverQueryKey(scope, 'batch-defaults')
+  const saved = useQuery({
+    queryKey: key,
+    queryFn: () => batchDefaults!.read(),
+    enabled: batchDefaults !== undefined,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+  })
 
-/** Settings › Batch defaults: app-level defaults for new batches, which the app can't store yet. */
-export function BatchDefaultsSection() {
+  // The form opens only once a read has succeeded this visit, never on cached defaults; a later
+  // failed refresh keeps it, and its choice, open.
+  const [readThisVisit, setReadThisVisit] = useState(false)
+  if (!readThisVisit && saved.isFetchedAfterMount && saved.isSuccess) {
+    setReadThisVisit(true)
+  }
+  const loaded = readThisVisit ? saved.data : undefined
+
+  /**
+   * Publishes confirmed defaults and answers with the newest known. A read already running, or a
+   * reload older than what a refresh loaded meanwhile, never replaces newer defaults.
+   */
+  function adopt(confirmed: BatchDefaultsDto) {
+    const latest = newestRevision(confirmed, queryClient.getQueryData<BatchDefaultsDto>(key))
+    if (latest !== confirmed) {
+      return latest
+    }
+    void queryClient
+      .cancelQueries({ queryKey: key })
+      .then(() => queryClient.setQueryData(key, confirmed))
+    return confirmed
+  }
+
   return (
     <SettingsSection
       title="Batch defaults"
-      lead="New batches start with these. Each batch can change them in Capture › Batch settings."
+      lead="New batches start with these. Each batch can change them in Capture › Batch settings; existing batches keep theirs."
     >
-      <SettingsCard aria-label="Batch defaults">
+      {!batchDefaults && (
+        <div role="status">
+          <Banner tone="info">Batch defaults are unavailable for this setup.</Banner>
+        </div>
+      )}
+      {(saved.isError || saved.fetchStatus === 'paused') && (
+        <div role="alert">
+          <Banner tone="warn" action={<Button onClick={() => void saved.refetch()}>Retry</Button>}>
+            Batch defaults unavailable. Unsaved input is preserved.
+          </Banner>
+        </div>
+      )}
+      {batchDefaults && !loaded && !saved.isError && (
+        <Paragraph role="status" $onField>
+          Loading saved defaults…
+        </Paragraph>
+      )}
+      {batchDefaults && loaded && (
+        <BatchDefaultsForm
+          client={batchDefaults}
+          loaded={loaded}
+          onLoaded={adopt}
+          onDirtyChange={onDirtyChange}
+        />
+      )}
+      <SettingsCard aria-label="Tags">
         <SettingRow
-          label="Default location"
-          help="Where new stock goes unless a lot says otherwise."
-          disabledReason={NOT_STORED}
+          label="Tags"
+          help="Tag suggestions are under Agents › Tag suggestions."
+          disabledReason="Not available yet: add the tag in Capture › Batch settings for now."
         >
-          {({ named, disabled }) => (
-            <Select defaultValue="" {...named} {...disabled}>
-              <option value="">No default location</option>
-            </Select>
-          )}
-        </SettingRow>
-        <SettingRow
-          label="Default supplier"
-          help="Leave empty for salvage and bench batches."
-          disabledReason={NOT_STORED}
-        >
-          {({ named, disabled }) => (
-            <Select defaultValue="" {...named} {...disabled}>
-              <option value="">No supplier</option>
-            </Select>
-          )}
-        </SettingRow>
-        <SettingRow label="Tags" disabledReason={NOT_STORED}>
           {({ disabled }) => (
-            <Column>
-              <Switch
-                label="Suggest tags automatically"
-                checked={false}
-                onChange={() => {}}
-                {...disabled}
-              />
-              <Switch
-                label="Tag every Part with its batch name"
-                checked={false}
-                onChange={() => {}}
-                {...disabled}
-              />
-            </Column>
+            <Switch
+              label="Tag every Part with its batch name"
+              checked={false}
+              onChange={() => {}}
+              {...disabled}
+            />
           )}
         </SettingRow>
       </SettingsCard>
     </SettingsSection>
   )
 }
-
-const Column = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: ${space[3]};
-`

@@ -14,7 +14,7 @@ import {
   type ProcessingInputV5Dto,
   type ProcessingInputV3Dto,
   type ProcessingInputV4Dto,
-  type AgentSettingsDto,
+  type AgentSelectionDto,
   type ProcessingCommandDto,
   type ProcessingQuestionSpecDto,
   type ProcessingProposalDto,
@@ -361,7 +361,8 @@ export function nativeInputManifest(
   dependencies: string[],
   answerId: string | null,
   media: RetainedMediaDescriptor,
-  settings: Pick<AgentSettingsDto, 'revision' | 'selection'>,
+  /** The selection resolved for this stage, or the one a retained input sealed. */
+  settings: { revision: string; selection: AgentSelectionDto | undefined },
 ): ProcessingInputV4Dto {
   if (!settings.selection || settings.revision === '0') {
     fail('agent_default_required', 422)

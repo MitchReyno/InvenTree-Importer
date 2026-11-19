@@ -1,6 +1,6 @@
 # Implementation notes
 
-The three masthead options (In the bar, Behind the whole window, Fading down) and the Settings › Appearance choice are delivered in one PR from `feat/masthead-appearance-options` (PR-A). Publication and merge are recorded after they happen.
+The three masthead options (In the bar, Behind the whole window, Fading down) and the Settings › Appearance choice were delivered in [#222](https://github.com/MitchReyno/InvenTree-Importer/pull/222), merged into `interactive-app` on 2026-11-19. The plan merged in [#219](https://github.com/MitchReyno/InvenTree-Importer/pull/219).
 
 ## Changes to the plan
 
@@ -20,3 +20,5 @@ The three masthead options (In the bar, Behind the whole window, Fading down) an
 ## Open items
 
 - **2026-11-19T13:34+11:00, task 5:** In the app the parts keep the existing scene's scale, so behind the whole window they read smaller and fainter than the larger stand-in images on canvas boards B and C. Scaling field parts up is a design follow-up, not tracked yet.
+- **2026-11-19T14:31+11:00, archive:** No automated test renders Review's "Batch context" backing or the Review and Processing loading lines; they were checked only by the manual sweep.
+- **2026-11-19T14:36+11:00, archive:** Archiving waits for `settings-debug-mode` to sync first. Both modify the app-settings requirement "InvenTree and appearance sections" as whole blocks, so neither order preserves both: after it syncs, rewrite this change's MODIFIED block from the synced requirement, adding both Masthead sentences (the choice, and its independence from the theme) and the three scenarios "Masthead choice is remembered", "Masthead and theme stay independent" and "Storage unavailable", then sync and archive.

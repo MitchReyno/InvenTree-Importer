@@ -1,10 +1,11 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { test, expect, vi } from 'vitest'
+import { afterEach, beforeEach, test, expect, vi } from 'vitest'
 import { render } from '#/test/render'
 import type { SessionFailureDto } from '@invimport/contracts'
 import { SessionFailureDetails } from './SessionFailureDetails'
 import { SessionPanel } from '#/components/processing/SessionPanel'
+import { debugModeController } from '#/debug/debug-mode'
 
 const details: SessionFailureDto = {
   id: 'failure',
@@ -26,6 +27,29 @@ const details: SessionFailureDto = {
   recovery: 'Check CLI configuration.',
   truncated: false,
 }
+
+// The technical details are a debug-mode disclosure; most tests here exercise it.
+beforeEach(() => {
+  window.localStorage.clear()
+  act(() => debugModeController().setEnabled(true))
+})
+
+afterEach(() => {
+  act(() => debugModeController().setEnabled(false))
+})
+
+test('with debug mode off, recovery shows and no details are offered or read', () => {
+  act(() => debugModeController().setEnabled(false))
+  const load = vi.fn().mockResolvedValue(details)
+  render(<SessionFailureDetails attemptId="attempt" failure={details} load={load} />)
+
+  expect(screen.getByText('Tool policy')).toBeVisible()
+  expect(screen.getByText('Check CLI configuration.')).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Show details' })).not.toBeInTheDocument()
+  expect(screen.queryByText('agent_tool_refused')).not.toBeInTheDocument()
+  expect(load).not.toHaveBeenCalled()
+})
+
 test('details load lazily, open by keyboard, close and reuse the retained result', async () => {
   const load = vi.fn().mockResolvedValue(details)
   render(<SessionFailureDetails attemptId="attempt" failure={details} load={load} />)
@@ -34,6 +58,7 @@ test('details load lazily, open by keyboard, close and reuse the retained result
   button.focus()
   await userEvent.keyboard('{Enter}')
   expect(await screen.findByText('agent_tool_refused')).toBeVisible()
+  expect(screen.getByRole('group', { name: 'Debug: Failure details' })).toBeVisible()
   expect(button).toHaveAttribute('aria-expanded', 'true')
   expect(screen.getAllByText('Unavailable')).toHaveLength(3)
   await userEvent.keyboard('{Enter}')

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import type { AgentSettingsDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '#/db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
 import { supersedeJobAttempts } from './supersede.ts'
@@ -25,7 +25,14 @@ export async function queueJob(
   media: LockedMediaInputs,
   pinnedProposalIds: readonly string[] = [],
   /** agent_writer reads Agent settings without the row lock it has no privilege for. */
-  { lockSettings = true }: { lockSettings?: boolean } = {},
+  {
+    lockSettings = true,
+    settings,
+  }: {
+    lockSettings?: boolean
+    /** Settings already read in this transaction, so several attempts seal the same read. */
+    settings?: AgentSettingsDto
+  } = {},
 ) {
   const jobs = await executeDatabaseQuery(
     queryDatabase(client)
@@ -72,7 +79,7 @@ export async function queueJob(
     parentInputId,
     null,
     pinnedProposalIds,
-    { lockSettings },
+    { lockSettings, settings },
   )
   if (priorJob) {
     await executeDatabaseQuery(

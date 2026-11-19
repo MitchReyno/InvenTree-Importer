@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   agentsClient,
   attentionClient,
+  batchDefaultsClient,
   recordsClient,
   captureClient,
   catalogueClient,
@@ -21,6 +22,8 @@ import {
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { LiveUpdates } from './components/operations/LiveUpdates'
+import { PageDebugPanel } from './components/operations/PageDebugPanel'
+import { useDebugMode } from './debug/debug-mode'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
@@ -29,8 +32,7 @@ import styled from 'styled-components'
 import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
-import { appPage, routeBatchId, settingsSection } from './navigation/app-route'
-import { Diagnostics } from './components/operations/Diagnostics'
+import { appPage, routeBatchId, settingsSection, settingsSubsection } from './navigation/app-route'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
 import { MastheadBackdrop } from './components/masthead/MastheadBackdrop'
@@ -45,6 +47,7 @@ import {
 
 export default function App() {
   const { route, settingsReturn, navigationBlocked, onDirtyChange } = useNavigationGuard()
+  const { enabled: debug } = useDebugMode()
   const bootstrapQuery = useQuery({
     queryKey: ['bootstrap', location.origin],
     queryFn: () => intakeClient(location.origin).bootstrap(),
@@ -109,6 +112,13 @@ export default function App() {
       bootstrap?.csrf_token ? catalogueClient(location.origin, bootstrap.csrf_token) : undefined,
     [bootstrap],
   )
+  const batchDefaults = useMemo(
+    () =>
+      bootstrap?.csrf_token
+        ? batchDefaultsClient(location.origin, bootstrap.csrf_token)
+        : undefined,
+    [bootstrap],
+  )
   const media = useMemo(
     () =>
       bootstrap?.csrf_token && bootstrap.media_enabled === true
@@ -134,13 +144,14 @@ export default function App() {
     () => ({
       agents: agents ?? undefined,
       attention,
+      batchDefaults,
       catalogue,
       media,
       operator,
       processing,
       records,
     }),
-    [agents, attention, catalogue, media, operator, processing, records],
+    [agents, attention, batchDefaults, catalogue, media, operator, processing, records],
   )
   const currentBatch = routeBatchId(route)
   const page = appPage(route)
@@ -172,6 +183,7 @@ export default function App() {
     content = (
       <Settings
         section={settingsSection(route)}
+        subsection={settingsSubsection(route)}
         returnTo={settingsReturn}
         agents={agents}
         onDirtyChange={onDirtyChange}
@@ -277,9 +289,9 @@ export default function App() {
                       </PageContent>
                     )}
                     {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                    {manual && (
+                    {manual && debug && (
                       <PageContent $width={width}>
-                        <Diagnostics />
+                        <PageDebugPanel route={route ?? ''} batchId={currentBatch} />
                       </PageContent>
                     )}
                   </Main>

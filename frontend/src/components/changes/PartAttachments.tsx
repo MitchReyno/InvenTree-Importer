@@ -1,5 +1,5 @@
 import type { ManualPartAttachmentDto } from '@invimport/contracts'
-import { Paragraph, Small, Summary } from '#/components/ui'
+import { DebugDetails, Paragraph, Small } from '#/components/ui'
 import { Field } from '#/forms'
 
 export function PartAttachments({ attachments }: { attachments: ManualPartAttachmentDto[] }) {
@@ -26,15 +26,18 @@ export function PartAttachments({ attachments }: { attachments: ManualPartAttach
               ? `Reuse original attachment #${attachment.prior_remote_pk}; no upload is authorized`
               : 'Create a generic file attachment; keep the primary image unchanged'}
           </Small>
-          <details>
-            <Summary>Exact selected file and destination</Summary>
-            <Small>Version {attachment.version_id}</Small>
-            <Small>SHA-256 {attachment.blob_sha256}</Small>
-            <Small>
-              {attachment.byte_size} bytes · {attachment.media_type}
-            </Small>
-            {attachment.prior_run_id && <Small>Original run {attachment.prior_run_id}</Small>}
-          </details>
+          <DebugDetails
+            label="Exact selected file and destination"
+            rows={[
+              { label: 'Version', value: attachment.version_id },
+              { label: 'SHA-256', value: attachment.blob_sha256 },
+              { label: 'Bytes', value: attachment.byte_size },
+              { label: 'Media type', value: attachment.media_type },
+              ...(attachment.prior_run_id
+                ? [{ label: 'Original run', value: attachment.prior_run_id }]
+                : []),
+            ]}
+          />
         </Field>
       ))}
     </>

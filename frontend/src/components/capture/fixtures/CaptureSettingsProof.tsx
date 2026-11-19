@@ -90,21 +90,27 @@ const coverage = (model: CatalogueModelDto) => ({
   truncated: false,
 })
 
-const catalogue: CatalogueClient = {
-  candidates: async (_id, model) => ({
-    model,
-    target_context_id: scope.targetContextId,
-    candidates: records[model],
-    coverage: coverage(model),
-  }),
-  search: async (_id, model, q) => ({
-    model,
-    target_context_id: scope.targetContextId,
-    query: q,
-    results: [],
-    coverage: coverage(model),
-    exact_id: { status: 'not_requested' },
-  }),
+const candidatesAll = async (model: CatalogueModelDto) => ({
+  model,
+  target_context_id: scope.targetContextId,
+  candidates: records[model],
+  coverage: coverage(model),
+})
+
+const searchAll = async (model: CatalogueModelDto, q: string) => ({
+  model,
+  target_context_id: scope.targetContextId,
+  query: q,
+  results: [],
+  coverage: coverage(model),
+  exact_id: { status: 'not_requested' as const },
+})
+
+const catalogue = {
+  candidates: (_id: string, model: CatalogueModelDto) => candidatesAll(model),
+  search: (_id: string, model: CatalogueModelDto, q: string) => searchAll(model, q),
+  candidatesAll,
+  searchAll,
 } as CatalogueClient
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))

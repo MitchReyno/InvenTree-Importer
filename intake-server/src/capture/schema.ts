@@ -11,6 +11,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+import type { CaptureCreationNoticeDto } from '@invimport/contracts'
+
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
 // Reviewed migration SQL owns constraints, triggers and indexes; these are driver row types.
@@ -81,7 +83,23 @@ export const captureBatches = pgTable('capture_batch', {
   revision: bigint({ mode: 'bigint' }).notNull().default(1n),
   archived: boolean().notNull().default(false),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Written once at creation; the batch identity trigger keeps it unchanged afterwards. */
+  creationNotices: jsonb('creation_notices').$type<CaptureCreationNoticeDto[]>(),
 })
+
+/** App-level defaults each new batch copies at creation. */
+export const batchDefaults = pgTable(
+  'batch_defaults',
+  {
+    actorId: uuid('actor_id').notNull(),
+    targetId: uuid('target_id').notNull(),
+    targetContextId: uuid('target_context_id').notNull(),
+    revision: bigint({ mode: 'bigint' }).notNull(),
+    locationPk: bigint('location_pk', { mode: 'bigint' }),
+    supplierPk: bigint('supplier_pk', { mode: 'bigint' }),
+  },
+  (table) => [primaryKey({ columns: [table.actorId, table.targetId, table.targetContextId] })],
+)
 
 export const captureSubjects = pgTable('capture_subject', {
   batchId: uuid('batch_id').notNull(),

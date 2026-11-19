@@ -80,6 +80,26 @@ async function retainIdempotencyRecord(
 }
 
 /** Caller owns the domain transaction. No network effects or automatic retries are permitted here. */
+/**
+ * The response retained for this key, read without a lock so a caller can skip work that must
+ * happen before its transaction. A different payload under the key is a conflict.
+ */
+export async function retainedResponse(
+  client: PoolClient,
+  scope: CommandScope,
+  payload: unknown,
+): Promise<unknown> {
+  const prior = await findIdempotencyRecord(client, { ...scope })
+  if (!prior) {
+    return undefined
+  }
+  verifyBytes(prior.semanticBytes, prior.semanticDigest)
+  if (!prior.semanticBytes.equals(Buffer.from(canonicalRecord(payload)))) {
+    throw new CommandPayloadConflict()
+  }
+  return JSON.parse(prior.responseBytes.toString('utf8')) as unknown
+}
+
 export async function idempotent(
   client: PoolClient,
   scope: CommandScope,

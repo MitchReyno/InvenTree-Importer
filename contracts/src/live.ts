@@ -44,3 +44,4 @@ export const liveSchemas = { LiveCursor, LiveSubscribe, LiveFrame, Readiness }
 export type LiveCursorDto = Static<typeof LiveCursor>
 export type LiveSubscribeDto = Static<typeof LiveSubscribe>
 export type LiveFrameDto = Static<typeof LiveFrame>
+export type ReadinessDto = Static<typeof Readiness>

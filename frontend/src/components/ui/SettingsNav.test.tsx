@@ -36,3 +36,39 @@ test('links back to where Settings was opened, then lists the sections', () => {
     within(nav).getByRole('link', { name: 'Agents' }).querySelector('[data-ai-mark]'),
   ).not.toBeNull()
 })
+
+test("lists an open section's subsections under it and marks the one the route points at", () => {
+  const withSubsections = [
+    {
+      ...sections[0],
+      subsections: [
+        { id: 'providers', label: 'Providers', href: '#settings/agents/providers' },
+        { id: 'models', label: 'Provider and model per step', href: '#settings/agents/models' },
+      ],
+    },
+    ...sections.slice(1),
+  ]
+  const { rerender } = render(
+    <SettingsNav
+      back={{ label: 'Batches', href: '#' }}
+      sections={withSubsections}
+      current="agents"
+      currentSubsection="models"
+    />,
+  )
+  const group = screen.getByLabelText('Agents sections')
+  expect(within(group).getByRole('link', { name: 'Provider and model per step' })).toHaveAttribute(
+    'aria-current',
+    'location',
+  )
+  expect(within(group).getByRole('link', { name: 'Providers' })).not.toHaveAttribute('aria-current')
+
+  rerender(
+    <SettingsNav
+      back={{ label: 'Batches', href: '#' }}
+      sections={withSubsections}
+      current="inventree"
+    />,
+  )
+  expect(screen.queryByLabelText('Agents sections')).toBeNull()
+})

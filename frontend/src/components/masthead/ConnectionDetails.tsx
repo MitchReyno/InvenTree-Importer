@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import { color, size, space, typeVar } from '#/theme/generated/tokens'
+import { color, space, typeVar } from '#/theme/generated/tokens'
 import { LIVE_UPDATE_FRESH_MS } from '#/components/operations/LiveUpdates'
-import { Button, DisabledFeature, KeyValue, media } from '#/components/ui'
+import { Button, DebugDetails, KeyValue } from '#/components/ui'
 import { observationFresh, safeTargetNavigation, timestampFresh } from '#/header/observations'
 import { DevBadge } from './DevBadge'
 import { type UpdateHealth } from '#/context'
@@ -16,6 +16,8 @@ interface Props {
   health: UpdateHealth
   /** The Open InvenTree link, or the reason there is none. */
   inventree: ReactNode
+  /** Check connection now. */
+  check: ReactNode
 }
 
 const SHORT_TIME: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
@@ -24,7 +26,7 @@ function shortTime(at: string | number) {
   return new Date(at).toLocaleTimeString([], SHORT_TIME)
 }
 
-/** The server menu: host, last check and the Dev badge, then its actions; diagnostics sit in Details. */
+/** The server menu: host, last check and the Dev badge, then its actions; diagnostics show in debug mode. */
 export function ConnectionDetails({
   target,
   apiUnavailable,
@@ -32,6 +34,7 @@ export function ConnectionDetails({
   now,
   health,
   inventree,
+  check,
 }: Props) {
   const apiFresh = apiChecked > 0 && timestampFresh(apiChecked, now)
   const targetFresh =
@@ -89,6 +92,9 @@ export function ConnectionDetails({
           },
         ]}
       />
+      {targetFresh && !apiUnavailable && target?.failure_code === 'unauthorized' && (
+        <Line>InvenTree refused the read token. It is set in the server's environment.</Line>
+      )}
       {target?.kind === 'owned_test' && (
         <Line>Approvals write only to this test InvenTree, never to a real one.</Line>
       )}
@@ -98,19 +104,12 @@ export function ConnectionDetails({
       <DevBadge />
       <Actions aria-label="Server">
         {inventree}
-        <DisabledFeature explanation="Checking the connection on demand is not available yet; it is checked every 30 seconds.">
-          {(disabled) => (
-            <Button variant="ghost" size="sm" {...disabled}>
-              Check connection now
-            </Button>
-          )}
-        </DisabledFeature>
+        {check}
         <Button as="a" variant="ghost" size="sm" href="#settings/inventree">
           Server settings
         </Button>
       </Actions>
-      <Details>
-        <summary>Details</summary>
+      <DebugDetails label="Connection details">
         <p>{apiStatus}</p>
         <p>Last API read: {apiChecked ? shortTime(apiChecked) : 'Not yet checked'}</p>
         <p>{transport}</p>
@@ -130,7 +129,7 @@ export function ConnectionDetails({
           A reachable read does not establish complete permissions, inventory-write capability or
           provider availability.
         </p>
-      </Details>
+      </DebugDetails>
     </Body>
   )
 }
@@ -157,22 +156,4 @@ const Actions = styled.nav`
   gap: ${space[2]};
   padding-top: ${space[4]};
   border-top: 1px solid ${color.line};
-`
-
-const Details = styled.details`
-  align-self: stretch;
-  font-size: ${typeVar.small.size};
-  color: ${color.muted};
-  overflow-wrap: anywhere;
-  summary {
-    cursor: pointer;
-  }
-  p {
-    margin: ${space[2]} 0 0;
-  }
-  ${media.compact} {
-    summary {
-      line-height: ${size.touch};
-    }
-  }
 `

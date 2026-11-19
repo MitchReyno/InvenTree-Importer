@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
+import { setDebugMode } from '#/test/debug-mode'
 import { onlineManager } from '@tanstack/react-query'
 import { validate, type CaptureSnapshotDto, type ProcessingSnapshotDto } from '@invimport/contracts'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
@@ -11,6 +12,7 @@ import type { ProcessingClient } from './processing/types'
 import { ApiClientsProvider } from './context'
 import { useState, useSyncExternalStore } from 'react'
 import { createDrawerRestore, type DrawerRestoreStore } from './processing/drawer-restore'
+import { agentSettings } from '#/test/agent-settings'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const subjectId = '20000000-0000-4000-8000-000000000002'
@@ -252,8 +254,11 @@ test('cold mount pins only the fresh question state, never the stale warm-cache 
     await fresh.promise
   })
   const form = await screen.findByRole('form', { name: 'Pinned application question' })
-  expect(within(form).getByText(/question revision 2/)).toBeInTheDocument()
-  expect(within(form).queryByText(/question revision 1/)).not.toBeInTheDocument()
+  setDebugMode(true)
+  const identity = within(form).getByRole('group', { name: 'Debug: Question identity' })
+  expect(identity).toHaveTextContent('Question revision2')
+  expect(identity).not.toHaveTextContent('Question revision1')
+  setDebugMode(false)
   expect(within(form).getByText('How many are in Packet A?')).toBeInTheDocument()
   expect(within(form).queryByText('The new current question')).not.toBeInTheDocument()
   await user.type(within(form).getByLabelText('Quantity'), '51')
@@ -396,9 +401,13 @@ test('retained V2 provenance and media blockers stay visible without replacing a
   client.read.mockResolvedValue(withMedia)
   mount(client)
   expect(await screen.findByText(/Relevant media is still being prepared/)).toBeInTheDocument()
+  // Source identities are internal and show only in debug mode.
+  expect(screen.queryByRole('list', { name: 'Retained candidate sources' })).toBeNull()
+  setDebugMode(true)
   const sources = screen.getByRole('list', { name: 'Retained candidate sources' })
   expect(within(sources).getByText('a0000000-0000-4000-8000-000000000008')).toBeInTheDocument()
   expect(within(sources).getByText('a0000000-0000-4000-8000-000000000007')).toBeInTheDocument()
+  setDebugMode(false)
   expect(client.start).not.toHaveBeenCalled()
   expect(client.answer).not.toHaveBeenCalled()
 })
@@ -1537,11 +1546,7 @@ test('the batch is shown paused from its own read, whatever the account-wide lis
               next_before: null,
               sessions_supported: true,
             })),
-            settings: vi.fn(async () => ({
-              revision: '1',
-              selection: null,
-              session_concurrency: 1,
-            })),
+            settings: vi.fn(async () => agentSettings('1', null, { session_concurrency: 1 })),
             pause: vi.fn(async () => undefined),
           },
         }}

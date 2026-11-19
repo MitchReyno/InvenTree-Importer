@@ -13,12 +13,12 @@ import { color, radius, space, type } from '#/theme/generated/tokens'
 import {
   Button,
   Count,
+  DebugDetails,
   Pill,
   SegmentedControl,
   SourceChip,
   linkTouchArea,
   Small,
-  Summary,
   VisuallyHidden,
 } from '#/components/ui'
 import { Label, TextArea } from '#/forms'
@@ -505,10 +505,10 @@ export function ExamineView({
                               location.hash = capture
                             }}
                           />
-                          <details>
-                            <Summary>Details</Summary>
-                            <Muted>{region(observation)}</Muted>
-                          </details>
+                          <DebugDetails
+                            label="Region"
+                            rows={[{ label: 'Region', value: region(observation) }]}
+                          />
                         </Reading>
                         {lot ? (
                           <a

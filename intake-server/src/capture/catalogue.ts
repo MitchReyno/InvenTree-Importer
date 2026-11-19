@@ -11,13 +11,21 @@ import {
 import { strictJson } from '@invimport/contracts/json'
 import type { ListOperation, ReadOperation } from '#/inventory/transport.ts'
 import { readBoundedBody } from './bounded-body.ts'
+import { storableText } from '#/db/storable-text.ts'
 import { fail } from './model.ts'
 
 export type { ListOperation }
 
+export type CatalogueRecordLookup =
+  | { status: 'found'; record: CatalogueRecordDto }
+  | { status: 'not_found' }
+  | { status: 'unavailable' }
+
 export interface CatalogueReader {
   search(model: CatalogueModelDto, query: string): Promise<CatalogueSearchDto>
   candidates(model: CatalogueModelDto): Promise<CatalogueCandidatesDto>
+  /** One record by PK, for saved defaults: a missing or unreachable record is a status, not an error. */
+  record(model: CatalogueModelDto, pk: string): Promise<CatalogueRecordLookup>
 }
 
 interface CatalogueTarget {
@@ -62,7 +70,12 @@ function boundedText(value: unknown, { required }: { required: boolean }): strin
   if (value === null && !required) {
     return ''
   }
-  if (typeof value !== 'string' || [...value].length > TEXT_MAX_CHARACTERS) {
+  // Text a record or observation can't store, such as NUL or an unpaired surrogate, is refused.
+  if (
+    typeof value !== 'string' ||
+    [...value].length > TEXT_MAX_CHARACTERS ||
+    !storableText(value)
+  ) {
     invalid()
   }
   if (required && (value.length === 0 || [...value].length > 256)) {
@@ -221,6 +234,14 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
     }
     const bytes = await responseBytes(response, DETAIL_BODY_MAX_BYTES)
     const value: unknown = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+    // Another record's answer is invalid, never this record's absence.
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      exactPk((value as Record<string, unknown>).pk) !== pk
+    ) {
+      invalid()
+    }
     const record = decodeRecord(model, value)
     if (record === null) {
       return { status: 'not_found' as const }
@@ -229,6 +250,20 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
       invalid()
     }
     return { status: 'found' as const, record }
+  }
+
+  async function record(model: CatalogueModelDto, pk: string): Promise<CatalogueRecordLookup> {
+    if (inFlight >= MAX_CONCURRENT_READS) {
+      return { status: 'unavailable' }
+    }
+    inFlight += 1
+    try {
+      return await exactId(model, pk)
+    } catch {
+      return { status: 'unavailable' }
+    } finally {
+      inFlight -= 1
+    }
   }
 
   async function search(model: CatalogueModelDto, query: string): Promise<CatalogueSearchDto> {
@@ -304,5 +339,5 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
     return result
   }
 
-  return { search, candidates }
+  return { search, candidates, record }
 }

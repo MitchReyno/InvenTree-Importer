@@ -24,6 +24,8 @@ export const SessionFailureSummary = Type.Object(
     id: Id,
     category: SessionFailureCategory,
     summary: text(256),
+    /** What the operator can do next; carried here so it shows without the details read. */
+    recovery: text(512),
     details_available: Type.Boolean(),
   },
   { additionalProperties: false },
@@ -46,7 +48,6 @@ export const SessionFailure = Type.Object(
       Type.Object({ code: text(80), summary: text(256) }, { additionalProperties: false }),
       { maxItems: 4 },
     ),
-    recovery: text(512),
     truncated: Type.Boolean(),
   },
   { additionalProperties: false },

@@ -10,15 +10,17 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     throw new Error('invalid_runtime_role')
   }
   await grantResearch(pool, role, purpose)
-  await pool.query(`GRANT SELECT ON schema_migration,agent_settings,agent_session,
+  await pool.query(`GRANT SELECT ON schema_migration,agent_settings,agent_provider_settings,agent_session,
     agent_session_outbox,agent_session_inbox,agent_session_cursor,agent_slot,agent_session_failure,processing_proposal_stale,
     agent_batch_pause TO ${role};`)
   if (purpose === 'api') {
     // Operators queue inbox items and mark proposals stale by correction; agents write the outbox.
     await pool.query(
-      `GRANT INSERT ON agent_settings,agent_session,agent_session_inbox,processing_proposal_stale TO ${role};
+      `GRANT INSERT ON agent_settings,agent_provider_settings,agent_session,agent_session_inbox,processing_proposal_stale TO ${role};
       GRANT INSERT, DELETE ON agent_batch_pause TO ${role};
-      GRANT UPDATE(revision,provider,authentication,model,session_concurrency) ON agent_settings TO ${role};`,
+      GRANT UPDATE(revision,provider,authentication,model,session_concurrency,default_provider,
+        stage_selections,new_batch_instructions,part_description_style,auto_tags_default) ON agent_settings TO ${role};
+      GRANT UPDATE(enabled,authentication,default_model) ON agent_provider_settings TO ${role};`,
     )
   } else {
     await pool.query(
@@ -68,7 +70,7 @@ export async function grantAgentWriter(pool: Pool, role: string) {
   await grantProjection(pool, role)
   await grantCaptureAgentWrites(pool, role)
   await grantMedia(pool, role, 'processing')
-  await pool.query(`GRANT SELECT ON schema_migration,command,agent_settings,agent_session,agent_session_outbox,
+  await pool.query(`GRANT SELECT ON schema_migration,command,agent_settings,agent_provider_settings,agent_session,agent_session_outbox,
       agent_session_inbox,agent_session_cursor,agent_slot,processing_proposal_stale,processing_profile,processing_input,
       processing_job,processing_attempt,processing_dependency,processing_lane,processing_message,processing_proposal,
       processing_question,processing_answer,processing_transition,agent_batch_pause TO ${role};

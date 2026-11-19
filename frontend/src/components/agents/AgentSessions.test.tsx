@@ -1,7 +1,9 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from '#/test/render'
 import { AgentSessions } from './AgentSessions'
+import { debugModeController } from '#/debug/debug-mode'
+import { agentSettings } from '#/test/agent-settings'
 import type { AgentSessionListDto, SessionFailureDto } from '@invimport/contracts'
 
 const selection = {
@@ -87,7 +89,7 @@ function client(list: Partial<AgentSessionListDto> = {}) {
       sessions_supported: true,
       ...list,
     })),
-    settings: vi.fn(async () => ({ revision: '1', selection, session_concurrency: 3 })),
+    settings: vi.fn(async () => agentSettings('1', selection)),
     saveSettings: vi.fn(),
   }
 }
@@ -227,7 +229,7 @@ test('a setup without agent sessions says the server profile runs none', async (
 test('history failure is visible and does not start a session or hide it as a successful empty queue', async () => {
   const failing = {
     sessions: vi.fn().mockRejectedValue(new Error('offline')),
-    settings: vi.fn(async () => ({ revision: '1', selection, session_concurrency: 3 })),
+    settings: vi.fn(async () => agentSettings('1', selection)),
     saveSettings: vi.fn(),
   }
   render(<AgentSessions client={failing} batches={batches} />)
@@ -237,6 +239,7 @@ test('history failure is visible and does not start a session or hide it as a su
 })
 
 test('a failed session opens its retained diagnostics from its row without sending anything', async () => {
+  act(() => debugModeController().setEnabled(true))
   const failed: Session = {
     ...base,
     attempt_id: 'failed-one',
@@ -248,6 +251,7 @@ test('a failed session opens its retained diagnostics from its row without sendi
       id: 'failure',
       category: 'tool_policy',
       summary: 'An operation was refused.',
+      recovery: 'Check CLI configuration.',
       details_available: true,
     },
   }
@@ -262,6 +266,7 @@ test('a failed session opens its retained diagnostics from its row without sendi
   fireEvent.click(within(row).getByRole('button', { name: 'Show details' }))
   await waitFor(() => expect(api.failure).toHaveBeenCalledWith('failed-one', 'failure'))
   expect(api.sessions).toHaveBeenCalledOnce()
+  act(() => debugModeController().setEnabled(false))
 })
 
 const failureDetails: SessionFailureDto = {

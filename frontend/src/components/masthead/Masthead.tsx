@@ -11,7 +11,7 @@ import {
   onWholeWindow,
 } from '#/components/ui'
 import { useMastheadStyle } from '#/theme/masthead-style'
-import { DevBadge } from './DevBadge'
+import { DevModeButton } from './DevModeButton'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
 
 type MastheadProps = {
@@ -20,7 +20,7 @@ type MastheadProps = {
   status?: ReactNode
 }
 
-/** One bar with the electronics current: wordmark, Dev badge, breadcrumb, then the status group. */
+/** One bar with the electronics current: wordmark, Dev mode button, breadcrumb, then the status group. */
 export function Masthead({ breadcrumb, status }: MastheadProps) {
   const { style } = useMastheadStyle()
   const header = useRef<HTMLElement>(null)
@@ -48,7 +48,7 @@ export function Masthead({ breadcrumb, status }: MastheadProps) {
           <Wordmark href="#" aria-label="Bench Intake, Batches">
             Bench <span>Intake</span>
           </Wordmark>
-          <DevBadge shorten />
+          <DevModeButton />
           {breadcrumb && breadcrumb.length > 0 && (
             <Crumbs data-compact="hidden">
               <span aria-hidden="true">/</span>

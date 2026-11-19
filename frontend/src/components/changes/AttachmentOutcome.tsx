@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import { color, space } from '#/theme/generated/tokens'
 import type { ManualRunDto } from '@invimport/contracts'
-import { Paragraph, Small, Button } from '#/components/ui'
+import { Paragraph, Button, DebugDetails } from '#/components/ui'
 
 type Attachment = NonNullable<ManualRunDto['attachments']>[number]
 
@@ -30,9 +30,13 @@ export function AttachmentOutcome({ attachment, busy, recover }: Props) {
           retained; this does not authorize replacement or another stock record.
         </Paragraph>
       )}
-      <Small>
-        {attachment.byte_size} bytes · SHA-256 {attachment.blob_sha256}
-      </Small>
+      <DebugDetails
+        label="Attachment bytes"
+        rows={[
+          { label: 'Bytes', value: attachment.byte_size },
+          { label: 'SHA-256', value: attachment.blob_sha256 },
+        ]}
+      />
       {attachment.recovery_action && (
         <Button disabled={busy} onClick={recover}>
           {attachment.recovery_action === 'verify_attachment'

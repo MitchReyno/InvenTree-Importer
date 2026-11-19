@@ -1,17 +1,23 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { useState, type ReactNode } from 'react'
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { AgentSettingsDto, ConnectionStatusDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
+import { agentSettings } from '#/test/agent-settings'
 import { serverQueryKey } from '#/queries/scope'
 import { HeaderObservationsProvider } from '#/context'
 import { MASTHEAD_STORAGE_KEY, mastheadStyleController } from '#/theme/masthead-style'
 import { THEME_STORAGE_KEY, themeController } from '#/theme/theme'
 import { Settings } from './Settings'
-import type { SettingsSectionId } from '#/navigation/app-route'
+import {
+  settingsSection,
+  settingsSubsection,
+  type AgentSubsectionId,
+  type SettingsSectionId,
+} from '#/navigation/app-route'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const identity = {
@@ -22,11 +28,9 @@ const identity = {
 
 function agents() {
   return {
-    settings: vi.fn(async () => ({
-      revision: '7',
-      selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
-      session_concurrency: 3,
-    })),
+    settings: vi.fn(async () =>
+      agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+    ),
     saveSettings: vi.fn(),
     sessions: vi.fn(async () => ({
       sessions: [],
@@ -59,6 +63,7 @@ function connection(): ConnectionStatusDto {
 
 const header = {
   connection: vi.fn(async () => connection()),
+  checkConnection: vi.fn(async () => connection()),
   work: vi.fn(async () => ({
     ...identity,
     observed_at: new Date().toISOString(),
@@ -88,14 +93,37 @@ function renderSettings(
   {
     returnTo,
     client = agents(),
+    subsection,
+  }: {
+    returnTo?: string
+    client?: ReturnType<typeof agentsClient>
+    subsection?: AgentSubsectionId
+  } = {},
+) {
+  return render(settingsElement(section, subsection, { returnTo, client }))
+}
+
+/** The Settings page as the app mounts it; `rerender` with another route keeps it mounted. */
+function settingsElement(
+  section: SettingsSectionId,
+  subsection: AgentSubsectionId | undefined,
+  {
+    returnTo,
+    client = agents(),
   }: { returnTo?: string; client?: ReturnType<typeof agentsClient> } = {},
 ) {
-  return render(
+  return (
     <HeaderObservationsProvider client={header}>
       <CachedBatch title="Mouser 3381-22">
-        <Settings section={section} returnTo={returnTo} agents={client} onDirtyChange={vi.fn()} />
+        <Settings
+          section={section}
+          subsection={subsection}
+          returnTo={returnTo}
+          agents={client}
+          onDirtyChange={vi.fn()}
+        />
       </CachedBatch>
-    </HeaderObservationsProvider>,
+    </HeaderObservationsProvider>
   )
 }
 
@@ -113,17 +141,19 @@ afterEach(() => {
 test('the section nav lists every section, marks the current one and the Agents item carries the AI mark', async () => {
   renderSettings('agents')
   const nav = screen.getByRole('navigation', { name: 'Settings' })
+  const subsections = within(nav).getByLabelText('Agents sections')
   const items = within(nav)
     .getAllByRole('link')
     .slice(1)
+    .filter((link) => !subsections.contains(link))
     .map((link) => [link.textContent, link.getAttribute('href')])
 
   expect(items).toEqual([
     ['Agents', '#settings/agents'],
     ['InvenTree', '#settings/inventree'],
     ['Batch defaults', '#settings/defaults'],
-    ['Descriptions and naming', '#settings/descriptions'],
     ['Appearance', '#settings/appearance'],
+    ['Developer', '#settings/developer'],
   ])
   const current = within(nav).getByRole('link', { name: 'Agents' })
   expect(current).toHaveAttribute('aria-current', 'page')
@@ -160,14 +190,53 @@ test('InvenTree shows the observed server, its last check and Open InvenTree wit
   expect(screen.queryByText(/token=/i)).toBeNull()
 })
 
+test('the API token row shows Refused after Check now, and the import reference is read-only', async () => {
+  const user = userEvent.setup()
+  const refused = connection()
+  header.checkConnection.mockResolvedValueOnce({
+    ...refused,
+    target: { ...refused.target, state: 'unavailable', failure_code: 'unauthorized' },
+  })
+  renderSettings('inventree')
+  const token = screen.getByRole('group', { name: 'API token' })
+  expect(await within(token).findByText('Accepted')).toBeVisible()
+  await user.click(within(token).getByRole('button', { name: 'Check now' }))
+  expect(await within(token).findByText('Refused')).toBeVisible()
+  expect(header.checkConnection).toHaveBeenCalledTimes(1)
+  const reference = screen.getByRole('group', { name: 'Import reference' })
+  expect(reference).toHaveTextContent('bi1:‹batch source›:‹lot›')
+  expect(within(reference).queryByRole('textbox')).toBeNull()
+})
+
+test('the API token row never shows a stale or failed read as current', async () => {
+  const old = connection()
+  header.connection.mockResolvedValueOnce({
+    ...old,
+    target: {
+      ...old.target,
+      freshness: 'stale',
+      observed_at: new Date(Date.now() - 120_000).toISOString(),
+    },
+  })
+  const view = renderSettings('inventree')
+  const token = screen.getByRole('group', { name: 'API token' })
+  // Once the stale observation has loaded, its check time shows beside Unavailable.
+  expect(await within(token).findByText(/checked/)).toBeVisible()
+  expect(within(token).getByText('Unavailable')).toBeVisible()
+  view.unmount()
+
+  header.connection.mockRejectedValueOnce(new Error('offline'))
+  renderSettings('inventree')
+  await screen.findByText('InvenTree unreachable')
+  expect(
+    within(screen.getByRole('group', { name: 'API token' })).getByText('Unavailable'),
+  ).toBeVisible()
+})
+
 const DEFERRED: [SettingsSectionId, string[]][] = [
-  ['agents', ['Model per step', 'Instructions for every new batch', 'Web research']],
-  ['inventree', ['API token', 'Import reference prefix']],
-  ['defaults', ['Default location', 'Default supplier', 'Tags']],
-  [
-    'descriptions',
-    ['Fill descriptions for', 'Part description style', 'Supplier part descriptions'],
-  ],
+  ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
+  ['inventree', ['API token']],
+  ['defaults', ['Tags']],
 ]
 
 for (const [section, rows] of DEFERRED) {
@@ -176,7 +245,7 @@ for (const [section, rows] of DEFERRED) {
     const client = agents()
     renderSettings(section, { client })
     if (section === 'agents') {
-      await screen.findByRole('group', { name: 'Model per step' })
+      await screen.findByRole('group', { name: 'Fill descriptions for' })
     }
 
     for (const name of rows) {
@@ -292,4 +361,91 @@ test('without an agents client the Agents section says so and the other sections
     'href',
     '#settings/appearance',
   )
+})
+
+test('Agents lists its subsections under its nav link, each linking to its own route', () => {
+  renderSettings('agents')
+  const group = screen.getByLabelText('Agents sections')
+
+  expect(
+    within(group)
+      .getAllByRole('link')
+      .map((link) => [link.textContent, link.getAttribute('href')]),
+  ).toEqual([
+    ['Providers', '#settings/agents/providers'],
+    ['Sessions', '#settings/agents/sessions'],
+    ['Provider and model per step', '#settings/agents/models'],
+    ['Instructions', '#settings/agents/instructions'],
+    ['Descriptions and naming', '#settings/agents/descriptions'],
+    ['Tag suggestions', '#settings/agents/tags'],
+    ['Web research', '#settings/agents/research'],
+  ])
+  // Headings show before the saved settings load, so a link always has somewhere to land.
+  expect(screen.getByRole('heading', { level: 3, name: 'Web research' })).toBeInTheDocument()
+})
+
+test('a subsection link focuses its heading and marks the link current', () => {
+  renderSettings('agents', { subsection: 'descriptions' })
+
+  const heading = screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })
+  expect(heading).toHaveFocus()
+  expect(
+    within(screen.getByLabelText('Agents sections')).getByRole('link', {
+      name: 'Descriptions and naming',
+    }),
+  ).toHaveAttribute('aria-current', 'location')
+})
+
+test('the old Descriptions and naming link opens that Agents subsection', () => {
+  const route = 'settings/descriptions'
+  renderSettings(settingsSection(route), { subsection: settingsSubsection(route) })
+
+  expect(screen.getByRole('heading', { level: 2, name: 'Agents' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })).toHaveFocus()
+  const fill = screen.getByRole('group', { name: 'Fill descriptions for' })
+  // Agents already write Part descriptions, so only that switch shows on.
+  expect(within(fill).getByRole('switch', { name: 'Parts · up to 250' })).toBeChecked()
+  expect(within(fill).getByRole('switch', { name: 'Companies · up to 500' })).not.toBeChecked()
+})
+
+test('a direct link to Providers focuses its heading once the settings have loaded', async () => {
+  const client = agents()
+
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  vi.mocked(client.settings).mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (answer = resolve)),
+  )
+  renderSettings('agents', { subsection: 'providers', client })
+  expect(screen.getByRole('heading', { level: 3, name: 'Providers' })).toHaveFocus()
+  await act(async () => answer(agentSettings('7', null)))
+  await screen.findByRole('group', { name: 'Claude' })
+  expect(screen.getByRole('heading', { level: 3, name: 'Providers' })).toHaveFocus()
+})
+
+test('going back to Agents and then to the same subsection focuses its heading again', () => {
+  const client = agents()
+  const view = renderSettings('agents', { subsection: 'descriptions', client })
+  const heading = screen.getByRole('heading', { level: 3, name: 'Descriptions and naming' })
+  expect(heading).toHaveFocus()
+  heading.blur()
+
+  view.rerender(settingsElement('agents', undefined, { client }))
+  view.rerender(settingsElement('agents', 'descriptions', { client }))
+
+  expect(heading).toHaveFocus()
+})
+
+test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', async () => {
+  const agentsView = renderSettings('agents')
+  expect(
+    await screen.findByRole('group', { name: 'Suggest tags automatically' }),
+  ).toBeInTheDocument()
+  agentsView.unmount()
+
+  renderSettings('defaults')
+  expect(screen.queryByText('Suggest tags automatically')).toBeNull()
+  expect(
+    screen.getByRole('switch', { name: 'Tag every Part with its batch name' }),
+  ).toBeInTheDocument()
 })

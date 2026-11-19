@@ -99,13 +99,13 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`.
 - Risks: Tests asserting the footer `Diagnostics` (`src/Diagnostics.test.tsx`) move to the Developer section.
 
-- [ ] 2.1 Confirm the theme controller pattern and the existing Diagnostics tests as the baseline.
-- [ ] 2.2 RED: write the preference, Developer section, footer and Copy debug info tests and see them fail.
-- [ ] 2.3 GREEN: build the preference controller, the two components, the Developer section and route, and Reload and Copy.
-  - [ ] 2.3.1 Reload app data invalidates queries without touching form drafts or the navigation guard.
-  - [ ] 2.3.2 `debugInfoText()` is pure and lists only build, route, readiness and transport fields.
-- [ ] 2.4 Refactor, then run the full frontend checks.
-- [ ] 2.5 Verify acceptance, including keyboard use of the switch in both themes.
+- [x] 2.1 Confirm the theme controller pattern and the existing Diagnostics tests as the baseline.
+- [x] 2.2 RED: write the preference, Developer section, footer and Copy debug info tests and see them fail.
+- [x] 2.3 GREEN: build the preference controller, the two components, the Developer section and route, and Reload and Copy.
+  - [x] 2.3.1 Reload app data invalidates queries without touching form drafts or the navigation guard.
+  - [x] 2.3.2 `debugInfoText()` is pure and lists only build, route, readiness and transport fields.
+- [x] 2.4 Refactor, then run the full frontend checks.
+- [x] 2.5 Verify acceptance, including keyboard use of the switch in both themes.
 
 ## 3. Gate developer details and add Debug panels
 
@@ -140,12 +140,12 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - A detail some test or flow relies on, such as the approval binding text, could be hidden. Review each one for operator need.
   - InvenTree record numbers stay visible.
 
-- [ ] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
-- [ ] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
-- [ ] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
-- [ ] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
-- [ ] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
-- [ ] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
+- [x] 3.1 Inventory the call sites against the proposal list, and confirm nothing new was added since planning.
+- [x] 3.2 RED: parameterized off and on tests for the call sites, and Debug panel tests.
+- [x] 3.3 GREEN: add `recovery` to the failure summary, then wrap each call site in `DebugDetails`, removing its bespoke disclosure.
+- [x] 3.4 GREEN: add `DebugPanel` to Batches, Capture, Processing, Review, Changes, Agents and Settings.
+- [x] 3.5 Refactor shared row-building into a small hook per screen family if it repeats, then run the frontend checks.
+- [x] 3.6 Verify in the browser at desktop and 390px widths in both themes, attaching screenshots to the PR.
 
 ## 4. Dev mode popover
 
@@ -161,11 +161,11 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The frontend checks, plus a browser check at 360px.
 - Risks: The masthead's decorative layer clipping the popover, which `Popover` already portals around.
 
-- [ ] 4.1 Confirm the `Popover` API and the masthead tests as the baseline.
-- [ ] 4.2 RED: write the popover tests.
-- [ ] 4.3 GREEN: build `DevModeButton` and its content.
-- [ ] 4.4 Refactor, then run the frontend checks and the 360px browser check.
-- [ ] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
+- [x] 4.1 Confirm the `Popover` API and the masthead tests as the baseline.
+- [x] 4.2 RED: write the popover tests.
+- [x] 4.3 GREEN: build `DevModeButton` and its content.
+- [x] 4.4 Refactor, then run the frontend checks and the 360px browser check.
+- [x] 4.5 Record a demo with `demo-record` covering the popover, the debug switch and one screen off and on, and attach it to PR-A.
 
 ## 5. Settings structure and Agents subsections
 
@@ -191,11 +191,11 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The frontend checks, a browser check of scroll and focus, and a demo recording.
 - Risks: The scroll Effect running twice under StrictMode, which must be idempotent.
 
-- [ ] 5.1 Confirm the routes and `SettingsNav` tests as the baseline.
-- [ ] 5.2 RED: write the navigation, redirect and moved-row tests.
-- [ ] 5.3 GREEN: build routes, nested nav, the subsection split and the moves.
-- [ ] 5.4 Refactor, then run the frontend checks.
-- [ ] 5.5 Record a demo of the sub-nav and attach it to PR-B.
+- [x] 5.1 Confirm the routes and `SettingsNav` tests as the baseline.
+- [x] 5.2 RED: write the navigation, redirect and moved-row tests.
+- [x] 5.3 GREEN: build routes, nested nav, the subsection split and the moves.
+- [x] 5.4 Refactor, then run the frontend checks.
+- [x] 5.5 Record a demo of the sub-nav and attach it to PR-B.
 
 ## 6. Independent providers, agent settings storage, per-step sealing and style delivery
 
@@ -235,15 +235,15 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
   - Grants missing for new columns or tables, which the test tier catches.
   - A missed `selection` reader, which the typecheck catches.
 
-- [ ] 6.1 Confirm the settings, sealing and delivery code paths and every `selection` reader as the baseline.
-- [ ] 6.2 RED: write the resolver and server tests.
-- [ ] 6.3 GREEN: add the migration, the backfill and the grants.
-- [ ] 6.4 GREEN: replace `selection` in the contracts, regenerate the client and update every reader.
-- [ ] 6.5 GREEN: add the settings read and write, the old-column mirror and the validation.
-- [ ] 6.6 GREEN: resolve and seal each stage's provider and model.
-- [ ] 6.7 GREEN: deliver the style.
-- [ ] 6.8 GREEN: adapt the current form, its tests and the fixture to the new shape.
-- [ ] 6.9 Refactor, then run the server suites, the full frontend checks and the readability checks.
+- [x] 6.1 Confirm the settings, sealing and delivery code paths and every `selection` reader as the baseline.
+- [x] 6.2 RED: write the resolver and server tests.
+- [x] 6.3 GREEN: add the migration, the backfill and the grants.
+- [x] 6.4 GREEN: replace `selection` in the contracts, regenerate the client and update every reader.
+- [x] 6.5 GREEN: add the settings read and write, the old-column mirror and the validation.
+- [x] 6.6 GREEN: resolve and seal each stage's provider and model.
+- [x] 6.7 GREEN: deliver the style.
+- [x] 6.8 GREEN: adapt the current form, its tests and the fixture to the new shape.
+- [x] 6.9 Refactor, then run the server suites, the full frontend checks and the readability checks.
 
 ## 7. Batch defaults storage and new-batch snapshot
 
@@ -276,10 +276,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The server suites, the contracts check, and the frontend checks for the banner.
 - Risks: The catalogue lookup sits outside the creation transaction, so a record deleted between the lookup and the insert is accepted. That is acceptable, because the batch later reconciles through the existing review freshness.
 
-- [ ] 7.1 Confirm the `create()` and catalogue reader paths as the baseline.
-- [ ] 7.2 RED: write the route and snapshot tests.
-- [ ] 7.3 GREEN: build the routes, the catalogue lookups, the snapshot through the existing writes, `creation_notices` and the Capture banner.
-- [ ] 7.4 Refactor, then run the server suites.
+- [x] 7.1 Confirm the `create()` and catalogue reader paths as the baseline.
+- [x] 7.2 RED: write the route and snapshot tests.
+- [x] 7.3 GREEN: build the routes, the catalogue lookups, the snapshot through the existing writes, `creation_notices` and the Capture banner.
+- [x] 7.4 Refactor, then run the server suites.
 
 ## 8. Forced connection check
 
@@ -300,10 +300,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The server suites and the frontend checks.
 - Risks: A probe deadline longer than the click rate, which in-flight reuse covers.
 
-- [ ] 8.1 Confirm the cache and failure-code paths as the baseline.
-- [ ] 8.2 RED: write the server and frontend tests.
-- [ ] 8.3 GREEN: build the route and cache sharing, the `unauthorized` code, and both UI entry points.
-- [ ] 8.4 Refactor, then run the server and frontend checks.
+- [x] 8.1 Confirm the cache and failure-code paths as the baseline.
+- [x] 8.2 RED: write the server and frontend tests.
+- [x] 8.3 GREEN: build the route and cache sharing, the `unauthorized` code, and both UI entry points.
+- [x] 8.4 Refactor, then run the server and frontend checks.
 
 ## 9. Settings forms for the new rows
 
@@ -337,10 +337,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The full frontend checks, and a browser pass of every Settings page against canvas v67.
 - Risks: One revision is shared across agent subsections. A save in one form must send the loaded values for fields it doesn't own, not another form's unsaved state. On a fresh setup, saving any other subsection before a provider is on must succeed.
 
-- [ ] 9.1 Confirm the PR-B structure and the PR-C contracts are merged, and set the baseline.
-- [ ] 9.2 RED: write the form tests.
-- [ ] 9.3 GREEN: build each subsection form and the Batch defaults form, removing their `DisabledFeature` wrappers.
-- [ ] 9.4 Refactor, then run the frontend checks.
+- [x] 9.1 Confirm the PR-B structure and the PR-C contracts are merged, and set the baseline.
+- [x] 9.2 RED: write the form tests.
+- [x] 9.3 GREEN: build each subsection form and the Batch defaults form, removing their `DisabledFeature` wrappers.
+- [x] 9.4 Refactor, then run the frontend checks.
 - [ ] 9.5 Record a demo of the working rows and attach it to PR-D.
 
 ## 10. Documentation and notes
@@ -358,9 +358,9 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: Link checks; each claim checked against the code before pushing.
 - Risks: None.
 
-- [ ] 10.1 Update the architecture docs and READMEs.
-- [ ] 10.2 Update the index and design log statuses.
-- [ ] 10.3 Write `notes.md` with the final open items.
+- [x] 10.1 Update the architecture docs and READMEs.
+- [x] 10.2 Update the index and design log statuses.
+- [x] 10.3 Write `notes.md` with the final open items.
 
 ## 11. Replace the read token
 
@@ -418,8 +418,8 @@ For each PR:
 
 Then update the BI items to their actual status; BI-016 is Done only after PR-A to PR-E have all merged. Sync and archive the change after delivery, running `pnpm openspec:overlap --change settings-debug-mode` first.
 
-- [ ] PR-A reviewed, published and merged
-- [ ] PR-B reviewed, published and merged
-- [ ] PR-C reviewed, published and merged
+- [x] PR-A reviewed, published and merged
+- [x] PR-B reviewed, published and merged
+- [x] PR-C reviewed, published and merged
 - [ ] PR-D reviewed, published and merged
 - [ ] PR-E reviewed, published and merged

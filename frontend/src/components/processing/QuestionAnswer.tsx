@@ -7,7 +7,7 @@ import {
   type ProcessingAnswerDto,
   type ProcessingQuestionDto,
 } from '@invimport/contracts'
-import { Small, Banner, QuestionCard, Button } from '#/components/ui'
+import { Small, Banner, QuestionCard, Button, DebugDetails } from '#/components/ui'
 import { Fieldset, Input, Label, TextArea, OptionRow } from '#/forms'
 
 interface Props {
@@ -273,9 +273,13 @@ export function QuestionAnswer({
           )
         }
       />
-      <Small>
-        Attempt {question.attempt_id.slice(0, 8)} · question revision {question.revision}
-      </Small>
+      <DebugDetails
+        label="Question identity"
+        rows={[
+          { label: 'Attempt', value: question.attempt_id },
+          { label: 'Question revision', value: question.revision },
+        ]}
+      />
       <Small>
         {question.assumption
           ? 'This human answer updates the saved lot or note and reaches the agent session.'

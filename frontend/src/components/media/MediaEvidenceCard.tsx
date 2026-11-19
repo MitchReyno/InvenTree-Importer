@@ -2,7 +2,7 @@ import type { MediaIdentityLabels } from '#/media/identity-labels'
 import styled from 'styled-components'
 import { color, radius, space, typeVar } from '#/theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
-import { Link, Paragraph, Small, Subheading, Summary, Button } from '#/components/ui'
+import { Button, DebugDetails, Link, Small, Subheading } from '#/components/ui'
 import { mediaResource } from '#/media/types'
 import { previewImage } from '#/media/images'
 
@@ -50,13 +50,16 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
           <Link href={mediaResource(batchId, 'versions', version.id)} download>
             Download retained {version.kind}
           </Link>
-          <details>
-            <Summary>Retained byte identity</Summary>
-            <Paragraph>
-              {version.byte_size} bytes · SHA-256 {version.digest}
-            </Paragraph>
-            {version.decoder_build && <Paragraph>{version.decoder_build}</Paragraph>}
-          </details>
+          <DebugDetails
+            label="Retained byte identity"
+            rows={[
+              { label: 'Bytes', value: version.byte_size },
+              { label: 'SHA-256', value: version.digest },
+              ...(version.decoder_build
+                ? [{ label: 'Decoder build', value: version.decoder_build }]
+                : []),
+            ]}
+          />
         </Version>
       ))}
     </Card>

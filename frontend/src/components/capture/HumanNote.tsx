@@ -1,4 +1,4 @@
-import { ActionsMenu, Paragraph, Small, Summary } from '#/components/ui'
+import { ActionsMenu, DebugDetails, Paragraph, Small } from '#/components/ui'
 import type { Snapshot } from '#/capture/types'
 import styled from 'styled-components'
 import { color, space, typeVar } from '#/theme/generated/tokens'
@@ -22,14 +22,13 @@ export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; ba
       </Heading>
       <Paragraph>{note.text || '(Empty original note)'}</Paragraph>
       <Small>{written}</Small>
-      <details>
-        <Summary>Note attribution</Summary>
-        <Small>
-          Actor {note.actor_id}
-          <br />
-          Note {note.id}
-        </Small>
-      </details>
+      <DebugDetails
+        label="Note attribution"
+        rows={[
+          { label: 'Actor', value: note.actor_id },
+          { label: 'Note', value: note.id },
+        ]}
+      />
     </NoteCard>
   )
 }

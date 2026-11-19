@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { processingFixture } from '../support/processing.ts'
 import { lotSession } from '../support/sessions.ts'
 import { runSessionTurn, type SessionDriver } from '#/agents/session/session-runner.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { startSessionBridge } from '#/agents/shared-vm/coordinator.ts'
 
@@ -26,11 +27,15 @@ test(
       authentication: 'subscription',
       model: 'haiku',
     } as const
-    await saveAgentSettings(fixture.api.pool, fixture.config, {
-      selection,
-      expected_revision: '0',
-      session_concurrency: 2,
-    })
+    await saveAgentSettings(
+      fixture.api.pool,
+      fixture.config,
+      singleProvider({
+        selection,
+        expected_revision: '0',
+        session_concurrency: 2,
+      }),
+    )
     const bridge = await startSessionBridge(
       process.env.INTAKE_VM_PAIR!,
       Number(process.env.INTAKE_VM_PORT),

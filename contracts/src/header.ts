@@ -26,6 +26,8 @@ export const ConnectionStatus = Type.Object(
             'redirect_refused',
             'unexpected_response',
             'unavailable',
+            /** The target refused the read token (HTTP 401 or 403). */
+            'unauthorized',
           ]),
           Type.Null(),
         ]),

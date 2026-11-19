@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   customType,
   jsonb,
   pgTable,
@@ -11,10 +12,13 @@ import {
 } from 'drizzle-orm/pg-core'
 import type {
   AgentSelectionDto,
+  AgentSettingsDto,
   SessionInboxItemDto,
   SessionOutboxItemDto,
   SessionStateDto,
 } from '@invimport/contracts'
+
+type AgentStageSelectionsDto = AgentSettingsDto['stage_selections']
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
@@ -29,8 +33,34 @@ export const agentSettings = pgTable(
     authentication: text().$type<AgentSelectionDto['authentication']>().notNull(),
     model: text().notNull(),
     sessionConcurrency: smallint('session_concurrency').notNull().default(3),
+    defaultProvider: text('default_provider').$type<AgentSelectionDto['provider']>(),
+    stageSelections: jsonb('stage_selections')
+      .$type<AgentStageSelectionsDto>()
+      .notNull()
+      .default({}),
+    newBatchInstructions: text('new_batch_instructions').notNull().default(''),
+    partDescriptionStyle: text('part_description_style').notNull().default(''),
+    autoTagsDefault: boolean('auto_tags_default').notNull().default(false),
   },
   (table) => [primaryKey({ columns: [table.actorId, table.targetId, table.targetContextId] })],
+)
+/** One row per provider, written with its parent `agent_settings` row and under its revision. */
+export const agentProviderSettings = pgTable(
+  'agent_provider_settings',
+  {
+    actorId: uuid('actor_id').notNull(),
+    targetId: uuid('target_id').notNull(),
+    targetContextId: uuid('target_context_id').notNull(),
+    provider: text().$type<AgentSelectionDto['provider']>().notNull(),
+    enabled: boolean().notNull(),
+    authentication: text().$type<AgentSelectionDto['authentication']>().notNull(),
+    defaultModel: text('default_model').notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.actorId, table.targetId, table.targetContextId, table.provider],
+    }),
+  ],
 )
 export const agentSessions = pgTable('agent_session', {
   attemptId: uuid('attempt_id').primaryKey(),

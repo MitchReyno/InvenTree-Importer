@@ -71,7 +71,7 @@ It has no revision of its own: it is written in the same transaction as its pare
 
 **New `batch_defaults` table.** It has the same key, a `revision`, `location_pk` and `supplier_pk`.
 
-- `PUT /api/v1/batch-defaults` saves it with the same revision conflict (412).
+- `PUT /api/v1/batch-defaults` saves it with the same revision conflict (412). A newly chosen PK must resolve to an existing record first (`batch_default_not_found`, 422, or `catalogue_unavailable`, 503, when it can't be checked); a saved PK whose record was deleted later can still be kept or cleared. Reads, saves and creation check the current target context before and after their catalogue lookups.
 - `GET /api/v1/batch-defaults` resolves each saved PK through the catalogue single-record lookup. For each it returns `{pk, label, status: 'found' | 'not_found' | 'unavailable'}`, so the pickers can show the saved record's name, or say it wasn't found or couldn't be checked. Absence from the bounded candidate list (`CATALOGUE_CANDIDATE_LIMIT`, `capture/catalogue.ts`) is never taken as "not found".
 - The Settings pickers use new batch-free catalogue routes for both `candidates` and `search`, matching what `useCatalogue` calls inside a batch.
 
@@ -146,7 +146,7 @@ So creation reuses the Capture write paths instead of inserting rows directly.
    - apply the location through the existing default-location write;
    - apply the supplier and Auto tags through the existing settings-intent write, which also writes `capture_context`;
    - insert the version-1 whole-batch `capture_instruction` with the creating actor, when instructions are set.
-3. **Missing defaults:** a default that doesn't resolve is skipped. Its reason is stored on a new nullable `capture_batch.creation_notices` column (`jsonb`, e.g. `[{"field":"location","code":"default_not_found"}]`) and returned on the capture snapshot. It is never stored as a `capture_note`, which Processing treats as human evidence (`processing/model.ts:137-147`). Capture shows it as an info banner the operator can dismiss.
+3. **Missing defaults:** a default that doesn't resolve is skipped. Its reason is stored on a new nullable `capture_batch.creation_notices` column (`jsonb`, e.g. `[{"field":"location","code":"default_not_found"}]`) and returned on the capture snapshot. It is written with the batch row, so no `UPDATE` grant is needed. It is never stored as a `capture_note`, which Processing treats as human evidence (`processing/model.ts:137-147`). Capture shows it as an info banner the operator can dismiss.
 
 Rejected: live inheritance from the app-level values. It would silently change existing batches and their review freshness.
 
@@ -204,17 +204,16 @@ Reads already in flight finish with the old value. A refused or failed probe wri
 
 ### Debug mode as a device-local controller plus two components
 
-`frontend/src/debug/debug-mode.ts` copies the theme controller:
+`frontend/src/debug/debug-mode.ts` follows the masthead-style controller (`frontend/src/theme/masthead-style.ts`):
 
-- key `bench-intake.debug`;
-- try/catch read and write;
-- an in-memory fallback;
-- `useDebugMode()` through `useSyncExternalStore`.
+- it reads and writes key `bench-intake.debug` (`on` or `off`) through the shared `readPreference`/`writePreference` helpers (`frontend/src/theme/device-preference.ts`), which tolerate missing or throwing storage;
+- an in-memory value keeps the choice for the session when storage fails;
+- `useDebugMode()` reads it through `useSyncExternalStore`.
 
 There are two display components in `components/ui`:
 
 - **`DebugDetails`** renders its children in a dashed block marked "Debug" only when debug mode is on. Each of the about 15 call sites in the proposal wraps its technical content in it, replacing the bespoke `<details>` disclosures.
-- **`DebugPanel`** is a collapsible panel taking `rows: {label, value}[]`, rendered by each main screen. Batch screens build the rows from data they already hold: the route, batch ID and revision, `LiveUpdatesContext` state, and the `dataUpdatedAt`, `status` and `fetchStatus` of the `useQuery` results the screen already holds, so the panel re-renders with them. Reading `getQueryState` from the query client isn't reactive and isn't used.
+- **`DebugPanel`** is a collapsible panel taking `rows: {label, value}[]`. `App` renders one `PageDebugPanel` under every page, named from the route, so each screen gets it without its own wiring. Its rows are the route, the batch ID and revision (from the cached batch read), the agent settings revision (from the cached `agent-settings` read, when a screen holds it), `LiveUpdatesContext` state, and every read mounted on the screen. `useDebugReads` subscribes to the TanStack query cache, as `useCachedData` does, and lists the queries that have an observer, with their status, fetch state and data age, so it re-renders as they change and starts no request.
 
 Rejected:
 
@@ -282,7 +281,6 @@ The `ConnectionDetails` copy of the badge stays a static pill, as the server men
 - **`capture/grants.ts`:**
   - `SELECT` on `agent_settings` and `agent_provider_settings`, because batch creation reads them;
   - `SELECT, INSERT, UPDATE` on `batch_defaults`;
-  - `UPDATE` on the new `capture_batch.creation_notices` column.
 
 The Capture and Media Postgres suites run under a Capture-only role (`grantFoundation` plus `grantCapture`), so they catch a missing grant.
 
@@ -345,9 +343,9 @@ The Capture and Media Postgres suites run under a Capture-only role (`grantFound
 
 Existing attempts and batches are untouched.
 
-The old `provider`, `authentication` and `model` columns are kept. Saves keep writing the default provider's values into them. A later change drops them once this ships.
+The old `provider`, `authentication` and `model` columns are kept, and saves keep writing the default provider's values into them, so the data stays consistent for a later change that drops them.
 
-**Rollback.** Revert the app code. Older code still reads valid `provider`, `authentication` and `model` columns and ignores the new columns and tables. A saved replacement token is ignored by older code, which falls back to `INTAKE_DEV_API_KEY`. There is no inventory effect, and the import reference is unchanged.
+**Rollback.** Code from before this change refuses a database that has migration `0032`, because startup requires its exact migration list (`operations/compatibility.ts`). Rolling back therefore means restoring the archive taken before the upgrade (intake-server README, "Coherent archive and quarantined restore"), and settings, batch defaults and batches saved after the upgrade are lost. Take that archive before upgrading. A saved replacement token is not in the archive's database and is ignored by older code, which falls back to `INTAKE_DEV_API_KEY`. There is no inventory effect, and the import reference is unchanged.
 
 **Rollout.** Debug mode starts off on every device, so the first load after deploy hides the developer details. Switching it on restores them.
 

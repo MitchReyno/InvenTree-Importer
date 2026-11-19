@@ -29,6 +29,7 @@ import {
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { nativeProfileId } from '#/agents/policy.ts'
+import { singleProvider } from '../support/agent-settings.ts'
 import { saveAgentSettings } from '#/agents/settings.ts'
 import { stageNativePrompt, verifyInspectedSources } from '#/agents/prompt.ts'
 import { startProcessing } from '#/processing/commands.ts'
@@ -553,10 +554,14 @@ test('a native attempt sealed before a removal stages none of the removed item a
     'INSERT INTO media_evidence_note(id,batch_id,evidence_id,revision,text,actor_id) VALUES($1,$2,$3,1,$4,$5)',
     [noteId, batchId, photo.evidence, noteText, fixture.identity.actor],
   )
-  await saveAgentSettings(fixture.api.pool, fixture.config, {
-    expected_revision: '0',
-    selection: { provider: 'codex', authentication: 'subscription', model: 'gpt-test-one' },
-  })
+  await saveAgentSettings(
+    fixture.api.pool,
+    fixture.config,
+    singleProvider({
+      expected_revision: '0',
+      selection: { provider: 'codex', authentication: 'subscription', model: 'gpt-test-one' },
+    }),
+  )
   const batch = (await fixture.http(`/batches/${batchId}`)).value as { revision: string }
   const queued = (await startProcessing(fixture.api.pool, fixture.config, batchId, randomUUID(), {
     schema_version: 'bench-intake-processing/1',
