@@ -150,7 +150,7 @@ export function protectedHosts(origins: string): string[] {
 
 /** Protected hosts for the worker's VM bridge; only the tool-worker profile needs them. */
 export function bridgeProtectedHosts(env: NodeJS.ProcessEnv, profileId: string): string[] {
-  if (profileId !== 'shared-vm-agent/2') {
+  if (profileId !== 'shared-vm-agent/3') {
     return []
   }
   const origins = env.INTAKE_AGENT_PROTECTED_ORIGINS

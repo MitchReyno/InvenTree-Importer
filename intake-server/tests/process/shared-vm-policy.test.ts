@@ -37,7 +37,7 @@ async function pairedToolTurn(
   const sessionsRoot = join(root, 'guest-sessions')
   await mkdir(join(root, 'reap'))
   await mkdir(join(root, 'policy'))
-  const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
   t.after(() => fixture.dispose())
   const port = await freePort()
   const bridge = await startSessionBridge(join(root, 'bench-coordinator'), port, {
@@ -48,7 +48,7 @@ async function pairedToolTurn(
   const { attempt } = await lotSession(fixture, capture, capture.packetA, {
     state: 'queued',
     profile: {
-      id: 'shared-vm-agent/2',
+      id: 'shared-vm-agent/3',
       agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
       settingsRevision: '1',
     },
@@ -59,7 +59,7 @@ async function pairedToolTurn(
       config: fixture.config,
       host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
       toolUrl: 'http://127.0.0.1:1',
-      drivers: { 'shared-vm-agent/2': bridge.driver },
+      drivers: { 'shared-vm-agent/3': bridge.driver },
     },
     attempt,
     AbortSignal.timeout(30000),
@@ -147,7 +147,7 @@ test(
     const root = await mkdtemp(join(tmpdir(), 'bench-no-hosts-'))
     t.after(() => rm(root, { recursive: true, force: true }))
     await pairedCertificates(root)
-    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
     const bridge = await startSessionBridge(join(root, 'bench-coordinator'), await freePort())
     t.after(() => bridge.close())
@@ -155,7 +155,7 @@ test(
     const { attempt } = await lotSession(fixture, capture, capture.packetA, {
       state: 'queued',
       profile: {
-        id: 'shared-vm-agent/2',
+        id: 'shared-vm-agent/3',
         agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
         settingsRevision: '1',
       },
@@ -166,7 +166,7 @@ test(
         config: fixture.config,
         host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
         toolUrl: 'http://127.0.0.1:1',
-        drivers: { 'shared-vm-agent/2': bridge.driver },
+        drivers: { 'shared-vm-agent/3': bridge.driver },
       },
       attempt,
       AbortSignal.timeout(30000),
@@ -195,7 +195,7 @@ test(
     const sessionsRoot = join(root, 'guest-sessions')
     await mkdir(join(root, 'reap'))
     await mkdir(join(root, 'policy'))
-    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
     const port = await freePort()
     // The coordinator passes its list through; the supervisor is the one that must refuse it.
@@ -207,7 +207,7 @@ test(
     const { attempt } = await lotSession(fixture, capture, capture.packetA, {
       state: 'queued',
       profile: {
-        id: 'shared-vm-agent/2',
+        id: 'shared-vm-agent/3',
         agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
         settingsRevision: '1',
       },
@@ -219,7 +219,7 @@ test(
         config: fixture.config,
         host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
         toolUrl: 'http://127.0.0.1:1',
-        drivers: { 'shared-vm-agent/2': bridge.driver },
+        drivers: { 'shared-vm-agent/3': bridge.driver },
       },
       attempt,
       AbortSignal.any([stop.signal, AbortSignal.timeout(30000)]),
@@ -263,13 +263,13 @@ test(
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), 'bench-bad-opening-'))
     t.after(() => rm(root, { recursive: true, force: true }))
-    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
     t.after(() => fixture.dispose())
     const capture = await fixture.seedCapture()
     const { attempt } = await lotSession(fixture, capture, capture.packetA, {
       state: 'queued',
       profile: {
-        id: 'shared-vm-agent/2',
+        id: 'shared-vm-agent/3',
         agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
         settingsRevision: '1',
       },
@@ -577,7 +577,7 @@ for (const misconfiguration of misconfigurations) {
       // Settles once the worker exits or fails to start, whichever comes first.
       let finished: Promise<{ code: number | null } | { error: Error }> | undefined
       let root: string | undefined
-      const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+      const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
       // One ordered teardown: the worker is reaped before its database is dropped.
       t.after(async () => {
         if (worker && finished && worker.exitCode === null && worker.signalCode === null) {
@@ -598,7 +598,7 @@ for (const misconfiguration of misconfigurations) {
       const { attempt } = await lotSession(fixture, capture, capture.packetA, {
         state: 'running',
         profile: {
-          id: 'shared-vm-agent/2',
+          id: 'shared-vm-agent/3',
           agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
           settingsRevision: '1',
         },
@@ -639,7 +639,7 @@ for (const misconfiguration of misconfigurations) {
             INTAKE_TARGET_ID: fixture.config.targetId,
             INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
             INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
-            INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/2',
+            INTAKE_PROCESSING_PROFILE: 'shared-vm-agent/3',
             ...overrides,
           },
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -667,13 +667,13 @@ for (const misconfiguration of misconfigurations) {
 }
 
 test('retained session inputs decode with and without sealed web settings', async (t) => {
-  const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+  const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
   t.after(() => fixture.dispose())
   const capture = await fixture.seedCapture()
   const { attempt } = await lotSession(fixture, capture, capture.packetA, {
     state: 'queued',
     profile: {
-      id: 'shared-vm-agent/2',
+      id: 'shared-vm-agent/3',
       agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
       settingsRevision: '1',
     },

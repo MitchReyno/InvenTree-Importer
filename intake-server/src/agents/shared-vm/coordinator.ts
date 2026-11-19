@@ -108,7 +108,7 @@ export async function startSessionBridge(
   await once(server, 'listening')
 
   const driver: SessionDriver = async (turn, context) => {
-    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/2'
+    const toolWorker = context.manifest.profile_id === 'shared-vm-agent/3'
     if (toolWorker && !options) {
       throw new Error('protected_hosts_required')
     }
@@ -116,7 +116,7 @@ export async function startSessionBridge(
     const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
     const subscription =
       (context.manifest.profile_id === 'shared-vm-agent/1' ||
-        context.manifest.profile_id === 'shared-vm-agent/2') &&
+        context.manifest.profile_id === 'shared-vm-agent/3') &&
       context.manifest.agent?.authentication === 'subscription'
         ? context.manifest.agent.provider
         : undefined
@@ -225,7 +225,7 @@ export async function startSessionBridge(
         if (
           typeof msg.mcp === 'string' &&
           (context.manifest.profile_id === 'shared-vm-agent/1' ||
-            context.manifest.profile_id === 'shared-vm-agent/2')
+            context.manifest.profile_id === 'shared-vm-agent/3')
         ) {
           const response = await fetch(turn.toolUrl, {
             method: 'POST',

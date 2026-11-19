@@ -97,21 +97,21 @@ test('non-public literals do not use the protected-host budget', () => {
 
 test('the VM tool worker requires its protected origins; other profiles ignore them', () => {
   assert.throws(
-    () => bridgeProtectedHosts({}, 'shared-vm-agent/2'),
+    () => bridgeProtectedHosts({}, 'shared-vm-agent/3'),
     /session_agent_configuration_required/,
   )
   assert.throws(
     () =>
       bridgeProtectedHosts(
         { INTAKE_AGENT_PROTECTED_ORIGINS: 'https://inventree' },
-        'shared-vm-agent/2',
+        'shared-vm-agent/3',
       ),
     /session_agent_configuration_required/,
   )
   assert.deepEqual(
     bridgeProtectedHosts(
       { INTAKE_AGENT_PROTECTED_ORIGINS: 'http://127.0.0.1:4330,https://inventory.example.com' },
-      'shared-vm-agent/2',
+      'shared-vm-agent/3',
     ),
     ['inventory.example.com'],
   )
@@ -119,23 +119,29 @@ test('the VM tool worker requires its protected origins; other profiles ignore t
   assert.deepEqual(bridgeProtectedHosts({}, 'synthetic-session/1'), [])
 })
 
-function manifest(web?: { public_pages: boolean; prefer_datasheets: boolean }) {
-  return { profile_id: 'shared-vm-agent/2', ...(web ? { web } : {}) } as ProcessingInputV6Dto
+function manifest(
+  web?: { public_pages: boolean; prefer_datasheets: boolean },
+  profileId = 'shared-vm-agent/3',
+) {
+  return { profile_id: profileId, ...(web ? { web } : {}) } as ProcessingInputV6Dto
 }
 
-test('no current profile opens public pages, whatever its sealed setting says', () => {
+test('only shared-vm-agent/3 opens public pages, and only when its sealed setting says so', () => {
   const hosts = ['inventory.example.com', '203.0.113.10']
-  assert.deepEqual(turnPolicy(manifest(), hosts), {
+  assert.deepEqual(turnPolicy(manifest({ public_pages: true, prefer_datasheets: false }), hosts), {
     version: 1,
-    public_pages: false,
+    public_pages: true,
     protected_hosts: hosts,
   })
-  for (const web of [
-    { public_pages: true, prefer_datasheets: false },
-    { public_pages: false, prefer_datasheets: true },
-  ]) {
-    assert.equal(turnPolicy(manifest(web), hosts).public_pages, false, JSON.stringify(web))
-  }
+  // Sealed off, or sealed before the field existed: closed.
+  assert.equal(
+    turnPolicy(manifest({ public_pages: false, prefer_datasheets: true }), hosts).public_pages,
+    false,
+  )
+  assert.equal(turnPolicy(manifest(), hosts).public_pages, false)
+  // The retired profile never opens them, whatever it carries.
+  const retired = manifest({ public_pages: true, prefer_datasheets: true }, 'shared-vm-agent/2')
+  assert.equal(turnPolicy(retired, hosts).public_pages, false)
 })
 
 test('the largest valid policy fits the size the egress proxy reads', () => {

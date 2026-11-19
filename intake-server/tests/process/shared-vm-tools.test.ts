@@ -23,7 +23,7 @@ for (const provider of ['claude', 'codex'] as const) {
       const folder = '/home/node/sessions/' + fixtureName
       const marker = process.env.INTAKE_TEST_IMAGE_WORD
       assert.match(marker ?? '', /^[A-Z]{5}$/)
-      const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+      const fixture = await processingFixture({ profileId: 'shared-vm-agent/3' })
       t.after(() => fixture.dispose())
       const stateRoot = await mkdtemp(join(tmpdir(), 'bench-tool-test-'))
       t.after(() => rm(stateRoot, { recursive: true, force: true }))
@@ -44,7 +44,7 @@ for (const provider of ['claude', 'codex'] as const) {
       const { attempt } = await lotSession(fixture, capture, capture.packetA, {
         state: 'queued',
         profile: {
-          id: 'shared-vm-agent/2',
+          id: 'shared-vm-agent/3',
           agent: {
             provider,
             authentication: 'subscription',
@@ -67,7 +67,7 @@ for (const provider of ['claude', 'codex'] as const) {
           config: fixture.config,
           host: { stateRoot, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
           toolUrl: server.url,
-          drivers: { 'shared-vm-agent/2': driver },
+          drivers: { 'shared-vm-agent/3': driver },
         },
         attempt,
         AbortSignal.timeout(190000),

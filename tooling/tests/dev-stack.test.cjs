@@ -266,7 +266,7 @@ test('the agent worker launches with its databases and protected origins, never 
     agentChildEnvironment({
       resolved: resolveDevelopmentSettings(settings, { stateDirectory: '/state' }),
       settings,
-      profile: 'shared-vm-agent/2',
+      profile: 'shared-vm-agent/3',
       root: '/state/root',
       state,
       writerUrl: 'postgres://127.0.0.1/writer',
@@ -284,7 +284,7 @@ test('the agent worker launches with its databases and protected origins, never 
     'http://127.0.0.1:4330,https://inventory.example.com',
   )
   assert.equal('INTAKE_ORIGIN' in tailnet, false)
-  assert.equal(tailnet.INTAKE_PROCESSING_PROFILE, 'shared-vm-agent/2')
+  assert.equal(tailnet.INTAKE_PROCESSING_PROFILE, 'shared-vm-agent/3')
   assert.equal(tailnet.INTAKE_AGENT_STATE_ROOT, '/state/root/agents')
   assert.equal(tailnet.INTAKE_AGENT_DATABASE_URL, state.processingUrl)
   assert.equal(tailnet.INTAKE_AGENT_SCHEDULER_DATABASE_URL, state.schedulerUrl)

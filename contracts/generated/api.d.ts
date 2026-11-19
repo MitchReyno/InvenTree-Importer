@@ -8011,8 +8011,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -8027,6 +8025,8 @@ export interface components {
             profile_id: "native-agent/2";
             /** @constant */
             instruction_version: "native-agent/2";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
@@ -8128,8 +8128,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -8144,6 +8142,8 @@ export interface components {
             profile_id: "native-agent/2";
             /** @constant */
             instruction_version: "native-agent/2";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
@@ -8502,8 +8502,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -8518,6 +8516,8 @@ export interface components {
             profile_id: "shared-vm-agent/1";
             /** @constant */
             instruction_version: "shared-vm-agent/1";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
@@ -8619,8 +8619,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -8635,6 +8633,8 @@ export interface components {
             profile_id: "shared-vm-agent/1";
             /** @constant */
             instruction_version: "shared-vm-agent/1";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
@@ -8993,8 +8993,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -9009,6 +9007,8 @@ export interface components {
             profile_id: "shared-vm-agent/2";
             /** @constant */
             instruction_version: "shared-vm-agent/2";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
@@ -9110,8 +9110,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -9126,6 +9124,8 @@ export interface components {
             profile_id: "shared-vm-agent/2";
             /** @constant */
             instruction_version: "shared-vm-agent/2";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: {
                 provider: "codex" | "claude";
                 authentication: "api_key" | "subscription";
@@ -9484,8 +9484,497 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
+            part_description_style?: string;
             /** @constant */
-            tool_profile_version: "native-session-tools/1";
+            profile_id: "shared-vm-agent/3";
+            /** @constant */
+            instruction_version: "shared-vm-agent/3";
+            /** @constant */
+            tool_profile_version: "native-session-web-tools/1";
+            agent: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+            /** Format: int64 */
+            settings_revision: string;
+            /** @constant */
+            stage: "examine";
+            subject_id: null;
+            subject: null;
+            linked_part: null;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/6";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            web?: {
+                public_pages: boolean;
+                prefer_datasheets: boolean;
+            };
+            part_description_style?: string;
+            /** @constant */
+            profile_id: "shared-vm-agent/3";
+            /** @constant */
+            instruction_version: "shared-vm-agent/3";
+            /** @constant */
+            tool_profile_version: "native-session-web-tools/1";
+            agent: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+            /** Format: int64 */
+            settings_revision: string;
+            stage: "research" | "images" | "inventory";
+            subject_id: string;
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                /** @constant */
+                reexamine?: true;
+                excluded?: {
+                    reason: string;
+                    at: string;
+                };
+                formed_at?: string;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        description?: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        description?: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/6";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
             media: {
                 manifest: string;
                 sha256: string;
@@ -9500,6 +9989,8 @@ export interface components {
             profile_id: "synthetic-session/1";
             /** @constant */
             instruction_version: "synthetic-session/1";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: null;
             settings_revision: null;
             /** @constant */
@@ -9596,8 +10087,6 @@ export interface components {
                 observed_at: string;
             }[];
             instruction_sha256: string;
-            /** @constant */
-            tool_profile_version: "native-session-tools/1";
             media: {
                 manifest: string;
                 sha256: string;
@@ -9612,6 +10101,8 @@ export interface components {
             profile_id: "synthetic-session/1";
             /** @constant */
             instruction_version: "synthetic-session/1";
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
             agent: null;
             settings_revision: null;
             stage: "research" | "images" | "inventory";
@@ -9884,7 +10375,7 @@ export interface components {
             attempt_id: string;
             input_id: string;
             input_sha256: string;
-            profile_id: "native-agent/2" | "shared-vm-agent/1" | "shared-vm-agent/2" | "synthetic-session/1";
+            profile_id: "native-agent/2" | "shared-vm-agent/1" | "shared-vm-agent/2" | "shared-vm-agent/3" | "synthetic-session/1";
             /** @constant */
             handler_version: "processing/5";
             command_id: string;
@@ -14697,7 +15188,7 @@ export interface components {
             attempt_id: string;
             input_id: string;
             input_sha256: string;
-            profile_id: "native-agent/2" | "shared-vm-agent/1" | "shared-vm-agent/2" | "synthetic-session/1";
+            profile_id: "native-agent/2" | "shared-vm-agent/1" | "shared-vm-agent/2" | "shared-vm-agent/3" | "synthetic-session/1";
             /** @constant */
             handler_version: "processing/5";
             command_id: string;

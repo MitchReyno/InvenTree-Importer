@@ -30,7 +30,7 @@ try {
   const manifest = message.manifest as ProcessingInputV6Dto
   const identity = message.identity as SessionDriverContext['identity']
   if (
-    manifest.profile_id !== 'shared-vm-agent/2' ||
+    manifest.profile_id !== 'shared-vm-agent/3' ||
     manifest.agent?.provider !== provider ||
     manifest.agent.authentication !== 'subscription' ||
     !/^[0-9a-f-]{36}$/.test(identity.lineage)

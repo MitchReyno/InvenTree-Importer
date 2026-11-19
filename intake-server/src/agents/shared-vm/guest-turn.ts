@@ -96,7 +96,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
   const manifest = command.manifest as ProcessingInputV6Dto
   if (
     isolated
-      ? manifest.profile_id !== 'shared-vm-agent/2'
+      ? manifest.profile_id !== 'shared-vm-agent/3'
       : !['synthetic-session/1', 'shared-vm-agent/1'].includes(manifest.profile_id)
   ) {
     throw new Error('invalid_profile')
@@ -105,7 +105,7 @@ export async function serveGuestTurn(socket: TLSSocket, options: GuestTurnOption
     provider &&
     !(
       (manifest.profile_id === 'shared-vm-agent/1' ||
-        manifest.profile_id === 'shared-vm-agent/2') &&
+        manifest.profile_id === 'shared-vm-agent/3') &&
       manifest.agent?.provider === provider &&
       manifest.agent.authentication === 'subscription'
     )

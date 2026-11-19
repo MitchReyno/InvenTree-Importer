@@ -178,7 +178,7 @@ function resolveProcessing(settings) {
   }
   if (agentsInVm) {
     return {
-      profile: vmTools ? 'shared-vm-agent/2' : 'shared-vm-agent/1',
+      profile: vmTools ? 'shared-vm-agent/3' : 'shared-vm-agent/1',
       mockAgents,
       agentsInVm,
       vmTools,

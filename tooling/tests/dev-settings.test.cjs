@@ -45,7 +45,7 @@ test('the processing switches select each supported profile', () => {
     ],
     [
       { INTAKE_USE_MOCK_AI_AGENTS: 'false', INTAKE_RUN_AGENTS_IN_VM: 'true', ...VM },
-      'shared-vm-agent/2',
+      'shared-vm-agent/3',
     ],
   ]
   for (const [settings, profile] of cases) {
@@ -641,7 +641,7 @@ test('the startup summary names the managed VM and every default it filled in', 
   const summary = startupSummary('fake', resolveDevelopmentSettings(REAL_VM_AGENTS, STATE))
   assert.equal(
     summary,
-    'Inventory: mock (writable).\nProcessing: shared-vm-agent/2 in the VM.\n' +
+    'Inventory: mock (writable).\nProcessing: shared-vm-agent/3 in the VM.\n' +
       'VM: bench-agent, started with the app and stopped with it if this run starts it.\n' +
       'Defaults used: INTAKE_VM_PAIR=/state/vm-pair, INTAKE_VM_PORT=14313, ' +
       'INTAKE_VM_NAME=bench-agent, INTAKE_VM_GUEST_DIR=bench-intake-guest in the guest home, ' +

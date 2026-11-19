@@ -145,9 +145,9 @@ Only task 3 waits for BI-016. Tasks 1, 2, 4–9 and 11 can proceed while it is o
 - Verification: `pnpm test:intake`, `pnpm test:intake:pg` (migration and retained attempts), `pnpm test:intake:process` (session runner), `pnpm test:dev` (profile table).
 - Risks and decisions: Mitch confirms the retired-attempt behaviour before implementation (proposal, open decisions). Task 10 qualifies the new profile.
 
-- [ ] 4.1 Confirm the retired-attempt behaviour with Mitch.
-- [ ] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
-- [ ] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
+- [x] 4.1 Confirm the retired-attempt behaviour with Mitch.
+- [x] 4.2 RED: add the migration, retained-attempt, resume, session-runner and launcher tests, and confirm the failures.
+- [x] 4.3 GREEN: add the migration, the profile literals, the launcher mapping, the retired-attempt handling and the instruction text.
 - [ ] 4.4 Run `pnpm test:intake`, `pnpm test:intake:pg`, `pnpm test:intake:process` and `pnpm test:dev`, and record the results.
 
 ## 5. Readiness web state
