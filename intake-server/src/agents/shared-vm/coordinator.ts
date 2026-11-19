@@ -17,11 +17,14 @@ export interface SessionBridgeOptions {
   protectedHosts: readonly string[]
 }
 
-/** A guest connection accepts exactly one session turn. The capability stays on the host. */
+/**
+ * A guest connection accepts exactly one session turn. The capability stays on the host. Without
+ * `options` the bridge refuses tool turns, whose egress needs the deployment's protected hosts.
+ */
 export async function startSessionBridge(
   directory: string,
   port: number,
-  options: SessionBridgeOptions = { protectedHosts: [] },
+  options?: SessionBridgeOptions,
 ) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('invalid_bridge_port')
@@ -106,6 +109,9 @@ export async function startSessionBridge(
 
   const driver: SessionDriver = async (turn, context) => {
     const toolWorker = context.manifest.profile_id === 'shared-vm-agent/2'
+    if (toolWorker && !options) {
+      throw new Error('protected_hosts_required')
+    }
     // The tool relay starts its provider tunnel, worker and paired supervisor on a cold VM.
     const deadline = Date.now() + (toolWorker ? 45_000 : 15_000)
     const subscription =
@@ -154,7 +160,7 @@ export async function startSessionBridge(
       instructions: turn.instructions,
       text: turn.text,
       tools: turn.tools,
-      ...(toolWorker ? { protected_hosts: options.protectedHosts } : {}),
+      ...(toolWorker ? { protected_hosts: options!.protectedHosts } : {}),
     }
     let dispatched = false
     try {

@@ -140,6 +140,50 @@ test(
 )
 
 test(
+  'a bridge started without protected hosts refuses tool turns',
+  { timeout: 60000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'bench-no-hosts-'))
+    t.after(() => rm(root, { recursive: true, force: true }))
+    await pairedCertificates(root)
+    const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
+    t.after(() => fixture.dispose())
+    const bridge = await startSessionBridge(join(root, 'bench-coordinator'), await freePort())
+    t.after(() => bridge.close())
+    const capture = await fixture.seedCapture()
+    const { attempt } = await lotSession(fixture, capture, capture.packetA, {
+      state: 'queued',
+      profile: {
+        id: 'shared-vm-agent/2',
+        agent: { provider: 'claude', authentication: 'subscription', model: 'haiku' },
+        settingsRevision: '1',
+      },
+    })
+    const result = await runSessionTurn(
+      {
+        pool: fixture.runner.pool,
+        config: fixture.config,
+        host: { stateRoot: root, env: {}, claudeExecutable: '/unused', codexExecutable: '/unused' },
+        toolUrl: 'http://127.0.0.1:1',
+        drivers: { 'shared-vm-agent/2': bridge.driver },
+      },
+      attempt,
+      AbortSignal.timeout(30000),
+    )
+    const {
+      rows: [retained],
+    } = await fixture.db.pool.query<{ session_state: string; slots: string }>(
+      `SELECT s.session_state, (SELECT count(*) FROM agent_slot WHERE attempt_id = $1) AS slots
+         FROM agent_session s WHERE s.attempt_id = $1`,
+      [attempt],
+    )
+    assert.equal(result, 'failed')
+    assert.equal(retained.session_state, 'failed')
+    assert.equal(retained.slots, '0')
+  },
+)
+
+test(
   'a malformed protected-host list is refused before the supervisor writes anything',
   { timeout: 60000 },
   async (t) => {

@@ -157,6 +157,8 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         for content in ("not json", json.dumps({"version": 1, "public_pages": "yes", "protected_hosts": []}),
                         json.dumps({"version": 2, "public_pages": True, "protected_hosts": []}),
                         json.dumps({"version": 1, "public_pages": True, "protected_hosts": ["Bad Host"]}),
+                        json.dumps({"version": 1, "public_pages": True,
+                                    "protected_hosts": ["2606:4700::1111%eth0"]}),
                         json.dumps({"version": True, "public_pages": True, "protected_hosts": []}),
                         json.dumps({"version": 1, "public_pages": True, "protected_hosts": [], "extra": 1}),
                         '{"version": 1, "public_pages": false, "public_pages": true, "protected_hosts": []}',
@@ -1023,7 +1025,7 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(stop_second)
         seen = {}
         observers = []
-        mark = first.mark
+        revoke = first.revoke
 
         def observed_mark():
             # Another thread reads the latch while publication is between the two tunnels.
@@ -1034,9 +1036,9 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
             observer.start()
             observers.append(observer)
             observer.join(0.1)
-            mark()
+            revoke()
 
-        first.mark = observed_mark
+        first.revoke = observed_mark
         await asyncio.to_thread(lookups.publish, "inventory.example.com", None)
         await asyncio.to_thread(observers[0].join, 2)
         self.assertEqual(seen, {"failed": True, "second revoked": True})
@@ -1091,6 +1093,32 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
                 patch.object(lookups, "guard", publish_on_release):
             written, upstream = await self.connect("www.ti.com:443", table)
         self.assert_refused(written, upstream, "resolution_failed")
+
+    async def test_one_answer_revokes_every_affected_tunnel_before_any_write(self):
+        lookups = egress.PROTECTED_LOOKUPS
+        first, stop_first = lookups.watch(PUBLIC, False)
+        second, stop_second = lookups.watch(PUBLIC, False)
+        self.addCleanup(stop_first)
+        self.addCleanup(stop_second)
+        target = Mock()
+        wrote = []
+        writers = []
+        revoke = first.revoke
+
+        def paused_after_first():
+            # A relay write on the second tunnel arrives while publication is mid-way.
+            revoke()
+            writer = threading.Thread(target=lambda: wrote.append(second.write(target, b"x")))
+            writer.start()
+            writers.append(writer)
+            writer.join(0.1)
+
+        first.revoke = paused_after_first
+        await asyncio.to_thread(lookups.publish, "inventory.example.com",
+                                {egress.normalized(PUBLIC)})
+        await asyncio.to_thread(writers[0].join, 2)
+        self.assertEqual(wrote, [False])
+        target.write.assert_not_called()
 
 
 if __name__ == "__main__":

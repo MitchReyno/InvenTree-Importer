@@ -158,6 +158,7 @@ test('a command whose protected hosts are missing or malformed is refused', () =
     'inventory.example.com',
     ['Inventory.Example.com'],
     ['inventree'],
+    ['2606:4700::1111%eth0'],
     [42],
     Array.from({ length: 33 }, (_value, index) => `h${index}.example.com`),
   ]) {

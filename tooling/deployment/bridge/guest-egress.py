@@ -86,21 +86,23 @@ PROTECTED_LOOKUP_BUDGET_S = 2
 
 
 class Revocation:
-    """Marks a tunnel's address protected. Marking takes effect as the resolver publishes, and
-    every relay write checks it under the same lock, so no byte is relayed after an answer is
-    published. The streams are then aborted on the event loop."""
+    """Marks a tunnel's address protected. Revocation happens under the publication lock, and
+    every relay write checks it under that same lock, so once an answer is published no tunnel
+    it affects relays another byte. The streams are then aborted on the event loop."""
 
-    def __init__(self):
+    def __init__(self, lock):
         self.loop = asyncio.get_running_loop()
-        self.lock = threading.Lock()
+        self.lock = lock
         self.revoked = False
         self.event = asyncio.Event()
         self.streams = []
 
-    def mark(self):
-        """Revokes the tunnel; called from any thread."""
-        with self.lock:
-            self.revoked = True
+    def revoke(self):
+        """Revokes the tunnel. The caller holds the publication lock."""
+        self.revoked = True
+
+    def schedule_abort(self):
+        """Aborts the tunnel's streams on its event loop; called from any thread."""
         self.loop.call_soon_threadsafe(self.fire)
 
     def fire(self):
@@ -109,8 +111,7 @@ class Revocation:
             abort(writer)
 
     def is_set(self):
-        with self.lock:
-            return self.revoked
+        return self.revoked
 
     def write(self, target, data):
         """Writes `data` unless the tunnel is revoked; returns whether it wrote."""
@@ -163,20 +164,23 @@ class ProtectedLookups:
         with self.lock:
             if addresses is None:
                 self.failed = True
-                for _address, revocation, public_request in self.tunnels.values():
-                    if public_request:
-                        revocation.mark()
-                return
-            self.known[name] = self.known.get(name, set()) | set(addresses)
-            for address, revocation, _public_request in self.tunnels.values():
-                if address in addresses:
-                    revocation.mark()
+                affected = [revocation for _address, revocation, public_request
+                            in self.tunnels.values() if public_request]
+            else:
+                self.known[name] = self.known.get(name, set()) | set(addresses)
+                affected = [revocation for address, revocation, _public_request
+                            in self.tunnels.values() if address in addresses]
+            # Every affected tunnel is revoked before any abort is queued.
+            for revocation in affected:
+                revocation.revoke()
+            for revocation in affected:
+                revocation.schedule_abort()
 
     def watch(self, address, public_request):
         """A Revocation fired once any protected lookup shows `address` is protected, or, for
         a public request, once a protected lookup fails; and a function that stops watching.
         Register before the first check, so no update falls between them."""
-        revocation = Revocation()
+        revocation = Revocation(self.lock)
         with self.lock:
             self.tunnels[revocation] = (normalized(address), revocation, public_request)
 
@@ -259,7 +263,9 @@ PROTECTED_LOOKUPS = ProtectedLookups()
 
 
 def protected_entry(value):
-    return isinstance(value, str) and (dns_name(value) or literal_address(value) is not None)
+    # A zone such as `%eth0` would stop the literal matching the same unscoped address.
+    return isinstance(value, str) and "%" not in value and (
+        dns_name(value) or literal_address(value) is not None)
 
 
 def unique_object(pairs):

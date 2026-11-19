@@ -20,7 +20,8 @@ export function protectedEntry(value: unknown): value is string {
     return false
   }
   const dnsName = value.length <= MAX_DNS_NAME_BYTES && PROTECTED_DNS_NAME.test(value)
-  return dnsName || isIP(value) !== 0
+  // A zone such as `%eth0` would stop the literal matching the same unscoped address.
+  return dnsName || (isIP(value) !== 0 && !value.includes('%'))
 }
 
 /** An origin written out in full: scheme, `//` and a non-empty authority. */
