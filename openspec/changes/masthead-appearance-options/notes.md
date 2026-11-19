@@ -1,6 +1,6 @@
 # Implementation notes
 
-Implementation of the three masthead options is in progress on `feat/masthead-appearance-options` (PR-A).
+The three masthead options (In the bar, Behind the whole window, Fading down) and the Settings › Appearance choice are delivered in one PR from `feat/masthead-appearance-options` (PR-A). Publication and merge are recorded after they happen.
 
 ## Changes to the plan
 

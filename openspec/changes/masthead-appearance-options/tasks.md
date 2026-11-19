@@ -144,16 +144,16 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
 - [x] 5.1 Update the `SettingsAppearance` artboard with the Masthead row and log the change in the design log.
 - [x] 5.2 Update `frontend/ARCHITECTURE.md` and check that its claims match the code.
 - [x] 5.3 Run the manual qualification matrix and capture the evidence for the PR.
-- [ ] 5.4 Record the demo and keep it for the PR description.
-- [ ] 5.5 Write `notes.md` entries for departures, tuning and remaining limitations.
+- [x] 5.4 Record the demo and keep it for the PR description.
+- [x] 5.5 Write `notes.md` entries for departures, tuning and remaining limitations.
 
 ## 6. Review and delivery
 
 - PR delivery: PR-A.
 - Outcome: a reviewed, green PR into `interactive-app`, merged per the repository's standing merge practice.
 
-- [ ] 6.1 Run `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend` and `pnpm build` on the final commit.
-- [ ] 6.2 Independent read-only review of the exact head against the code guidelines; fix and re-review until a round finds nothing new; name the reviewed SHA.
+- [x] 6.1 Run `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend` and `pnpm build` on the final commit.
+- [x] 6.2 Independent read-only review of the exact head against the code guidelines; fix and re-review until a round finds nothing new; name the reviewed SHA.
 - [ ] 6.3 Re-check every claim in the PR body, docs and specs against the code; open the PR with the evidence and demo attached.
 - [ ] 6.4 Selected CI green; merge.
 
