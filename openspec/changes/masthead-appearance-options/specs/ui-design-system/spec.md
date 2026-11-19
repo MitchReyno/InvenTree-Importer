@@ -13,7 +13,7 @@ The masthead SHALL be one bar with the electronics current placed by the operato
 
 #### Scenario: Dark masthead
 
-- **GIVEN** the dark theme and the In the bar style
+- **GIVEN** the dark theme, the In the bar style and a window wider than the compact breakpoint
 - **WHEN** the masthead renders with WebGL 2 available
 - **THEN** the parts use the dark finish on the dark masthead ground, remain visible, and never overlap header text.
 
@@ -41,15 +41,15 @@ The masthead SHALL be one bar with the electronics current placed by the operato
 - **WHEN** a card heading or the batch header's title renders
 - **THEN** it shows no ground patch, because it already sits on a surface.
 
-#### Scenario: Compact default keeps its dimming
+#### Scenario: Compact width keeps its dimming
 
-- **GIVEN** a 390px-wide window and the In the bar style
+- **GIVEN** a 390px-wide window, the In the bar or Fading down style, and either theme
 - **WHEN** the masthead renders with WebGL 2 available
-- **THEN** parts in the gap show at full strength and parts under the bar's text show at a quarter strength, exactly as before this change.
+- **THEN** parts in the bar's gap show at full strength and parts under the bar's text show at a quarter strength, as In the bar does before this change, and Fading down draws no parts behind page text below the bar.
 
 #### Scenario: Fading down
 
-- **GIVEN** the Fading down style on Settings, whose title, nav and section lead sit within the band
+- **GIVEN** the Fading down style on Settings, in a window wider than the compact breakpoint, where the title, nav and section lead sit within the band
 - **WHEN** the screen renders and then scrolls down past 420px
 - **THEN** the band shows the dotted ground and parts behind the bar and in the side margins, fades to the page background by 420px, no part is drawn behind the bar's text or the page's text, and the band scrolls away with the page.
 

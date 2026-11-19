@@ -97,8 +97,8 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
   - Loose headings and text on the field across screens (Batches, Agents, Settings, Records stage and any found later), opting in to `onField`.
   - Tests in `AppMasthead.test.tsx` or `Masthead.test.tsx`.
   - Design D2 and D3.
-- Acceptance: ui-design-system "Behind the whole window", "Behind the whole window in the dark theme", "Headings inside surfaces get no patch", "Compact default keeps its dimming", "Fading down", "No WebGL 2 or reduced motion" and "Style changes in place".
-- TDD: component tests with a stubbed `WebGL2RenderingContext` and a mocked scene module. They assert which host mounts for each `data-masthead` value, that the scene receives `layout: 'field'` for B and C, and that switching style disposes the old scene once and leaves one canvas. A primitive test asserts that a `PageTitle` with `$onField` carries the patch only under `window`, and that the setup panel's `PageTitle` and a `Heading` in a `Panel` never do. A test asserts that under `fade` the content edges reach the field's mask. They fail because neither the field host nor the patch exists. Visual layout cannot be asserted in jsdom; task 5 covers it manually.
+- Acceptance: ui-design-system "Behind the whole window", "Behind the whole window in the dark theme", "Headings inside surfaces get no patch", "Compact width keeps its dimming", "Fading down", "No WebGL 2 or reduced motion" and "Style changes in place".
+- TDD: component tests with a stubbed `WebGL2RenderingContext` and a mocked scene module. They assert which host mounts for each `data-masthead` value, that the scene receives `layout: 'field'` for B and C, and that switching style (A→B, B→C, C→B, and once while the lazy import is pending, under StrictMode) disposes the old scene once and leaves one canvas and one live scene. A primitive test asserts that a `PageTitle` with `$onField` carries the patch only under `window`, and that the setup panel's `PageTitle` and a `Heading` in a `Panel` never do. A test asserts that under `fade` the content edges reach the field's mask. They fail because neither the field host nor the patch exists. Visual layout cannot be asserted in jsdom; task 5 covers it manually.
 - Verification: the masthead test files; `pnpm lint:frontend` (the literal and contrast checks must pass with token values only); `pnpm build`.
 - Risks: a missed patch on some screen (task 5's sweep catches it). `mask-composite` support for C's combined mask (supported in current evergreen browsers; confirm in the manual run). `backdrop-filter` cost over the canvas.
 
@@ -109,7 +109,7 @@ One PR carries tasks 1–6. The preference, the scene layout, the layouts and th
   - [ ] 3.3.2 Make the `Masthead` bar and ground depend on the style, and publish its text-gap stops on the root.
   - [ ] 3.3.3 Add the body ground and card elevation under the `window` styles.
   - [ ] 3.3.4 Add the `onField` patch mixin and the `$onField` opt-in, and opt in the loose headings and text placed on the field on each screen.
-  - [ ] 3.3.5 Mount the field host from `App.tsx`, chosen during render from `useMastheadStyle()`.
+  - [ ] 3.3.5 Mount the field host from `App.tsx`, chosen during render from `useMastheadStyle()` and keyed by the style.
 - [ ] 3.4 Refactor; run `pnpm format`, `pnpm lint:frontend` and `pnpm build`.
 
 ## 4. Appearance row
