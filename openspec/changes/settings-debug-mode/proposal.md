@@ -205,11 +205,17 @@ Recommended direction: extend the existing settings storage and delivery paths, 
 
 ## Open decisions and assumptions
 
-These are assumptions taken without asking, for Mitch to confirm or change in review:
+Decided (Mitch, 2026-11-19):
 
-1. **Which rows to build.** This change builds the rows listed under "Implemented Settings rows" and keeps the others "Coming later", following the feasibility evidence in "Current behavior and evidence".
-2. **Debug mode storage.** It is device-local and off by default, including in development builds.
-3. **Failure details.** With debug mode off, a failed session still shows its category, summary and recovery action. Only "Show details" (codes and IDs) needs debug mode. This narrows `processing-agent-sessions`, which today shows details to everyone.
-4. **Where debug mode lives.** It is in a new Settings › Developer section rather than Appearance.
-5. **Which tag setting moves.** Only "Suggest tags automatically" moves to Agents. "Tag every Part with its batch name" stays in Batch defaults, because it is deterministic rather than agent behaviour.
-6. **Snapshot, not inheritance.** Batch defaults and instructions are copied into a batch when it is created. Later changes to the app-level values don't touch existing batches.
+- **Debug mode storage.** It is device-local and off by default, including in development builds.
+- **Failure details.** With debug mode off, a failed session still shows its category, summary and recovery action. Only "Show details" (codes and IDs) needs debug mode. This narrows `processing-agent-sessions`, which today shows details to everyone.
+- **Where debug mode lives.** It is in a new Settings › Developer section rather than Appearance.
+- **Snapshot, not inheritance.** Batch defaults and instructions are copied into a batch when it is created. Later changes to the app-level values don't touch existing batches.
+
+Open:
+
+1. **Which rows to build.** This change builds the rows listed under "Implemented Settings rows" and keeps the others "Coming later", following the feasibility evidence in "Current behavior and evidence". Mitch asked for more explanation on 2026-11-19 and hasn't confirmed it yet.
+
+Assumed:
+
+- **Which tag setting moves.** Only "Suggest tags automatically" moves to Agents. "Tag every Part with its batch name" stays in Batch defaults, because it is deterministic rather than agent behaviour.

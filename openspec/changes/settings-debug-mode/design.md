@@ -199,4 +199,4 @@ Existing attempts and batches are untouched.
 - **Hidden details while developing.** Developers lose at-a-glance IDs until they switch debug mode on. Mitigation: the switch is one click from the Dev mode pill.
 - **Description style quality is model-dependent.** The style is guidance, not validation, so agents may drift from it. Validation stays the same.
 - **BI-015 overlap.** `complete-design-refresh-backend` must be narrowed in the same planning PR so the two changes don't claim the same rows.
-- **Open decisions** for Mitch, as listed in the proposal: which rows are built now, device-local debug mode, failure details only in debug mode, the Developer section's placement, and the snapshot rather than inheritance model.
+- **Open decision:** which rows are built now (proposal, "Open decisions and assumptions"). The rest were decided by Mitch on 2026-11-19.
