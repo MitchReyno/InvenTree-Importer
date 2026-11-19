@@ -263,9 +263,6 @@ test(
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), 'bench-bad-opening-'))
     t.after(() => rm(root, { recursive: true, force: true }))
-    const sessionsRoot = join(root, 'guest-sessions')
-    await mkdir(join(root, 'reap'))
-    await mkdir(join(root, 'policy'))
     const fixture = await processingFixture({ profileId: 'shared-vm-agent/2' })
     t.after(() => fixture.dispose())
     const capture = await fixture.seedCapture()
@@ -286,51 +283,62 @@ test(
       [attempt],
     )
     const manifest = decodeSessionInput(retained.manifest_bytes, retained.manifest_digest)
-    // The coordinator end of a plain local connection, sending a command it would never build.
-    const listener = createServer()
-    listener.listen(0, '127.0.0.1')
-    await once(listener, 'listening')
-    t.after(() => listener.close())
-    const accepted = once(listener, 'connection')
-    const guest = netConnect((listener.address() as AddressInfo).port, '127.0.0.1')
-    t.after(() => guest.destroy())
-    const [coordinator] = (await accepted) as [Socket]
-    t.after(() => coordinator.destroy())
-    const frames = new Frames(coordinator)
-    const coordinatorSide = (async () => {
-      await frames.read()
-      await frames.send({
-        protocol,
-        lineage: randomUUID(),
-        attemptId: attempt,
-        turn: '1',
-        manifest,
-        protected_hosts: [],
-        text: 42,
-        instructions: '',
-        tools: [],
+    const valid = { text: 'Lot packet A', instructions: '', tools: [] }
+    for (const [label, opening] of [
+      ['text that is not a string', { ...valid, text: 42 }],
+      ['a resume that is not a string', { ...valid, resume: 42 }],
+      ['an empty resume', { ...valid, resume: '' }],
+    ] as const) {
+      await t.test(label, async (t) => {
+        const turnRoot = join(root, label.replaceAll(' ', '-'))
+        const sessionsRoot = join(turnRoot, 'guest-sessions')
+        await mkdir(join(turnRoot, 'reap'), { recursive: true })
+        await mkdir(join(turnRoot, 'policy'))
+        // The coordinator end of a plain local connection, sending a command it would never build.
+        const listener = createServer()
+        listener.listen(0, '127.0.0.1')
+        await once(listener, 'listening')
+        t.after(() => listener.close())
+        const accepted = once(listener, 'connection')
+        const guest = netConnect((listener.address() as AddressInfo).port, '127.0.0.1')
+        t.after(() => guest.destroy())
+        const [coordinator] = (await accepted) as [Socket]
+        t.after(() => coordinator.destroy())
+        const frames = new Frames(coordinator)
+        const coordinatorSide = (async () => {
+          await frames.read()
+          await frames.send({
+            protocol,
+            lineage: randomUUID(),
+            attemptId: attempt,
+            turn: '1',
+            manifest,
+            protected_hosts: [],
+            ...opening,
+          })
+        })()
+        let starts = 0
+        await assert.rejects(
+          serveGuestTurn(guest as unknown as TLSSocket, {
+            provider: 'claude',
+            isolated: true,
+            reapProof: true,
+            sessionsRoot,
+            reapPath: join(turnRoot, 'reap', 'turn'),
+            policyPath: join(turnRoot, 'policy', 'policy.json'),
+            runNative: async () => {
+              starts++
+            },
+          }),
+          /invalid_opening/,
+        )
+        await coordinatorSide
+        assert.equal(starts, 0)
+        assert.deepEqual(await readdir(join(turnRoot, 'policy')), [])
+        assert.deepEqual(await readdir(join(turnRoot, 'reap')), [])
+        assert.equal(await readdir(sessionsRoot).catch(() => 'absent'), 'absent')
       })
-    })()
-    let starts = 0
-    await assert.rejects(
-      serveGuestTurn(guest as unknown as TLSSocket, {
-        provider: 'claude',
-        isolated: true,
-        reapProof: true,
-        sessionsRoot,
-        reapPath: join(root, 'reap', 'turn'),
-        policyPath: join(root, 'policy', 'policy.json'),
-        runNative: async () => {
-          starts++
-        },
-      }),
-      /invalid_opening/,
-    )
-    await coordinatorSide
-    assert.equal(starts, 0)
-    assert.deepEqual(await readdir(join(root, 'policy')), [])
-    assert.deepEqual(await readdir(join(root, 'reap')), [])
-    assert.equal(await readdir(sessionsRoot).catch(() => 'absent'), 'absent')
+    }
   },
 )
 

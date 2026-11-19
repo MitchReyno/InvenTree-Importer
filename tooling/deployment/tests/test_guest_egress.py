@@ -1302,6 +1302,30 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(written.startswith(b"HTTP/1.1 502 Bad Gateway\r\n"), written)
         self.assertNotIn(b"X-Bench-Refusal", written)
 
+    async def test_protected_refresh_runs_while_a_destination_lookup_stalls(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("www.ti.com:443")
+        table = {"inventory.example.com": ["8.8.8.8"], "www.ti.com": [PUBLIC],
+                 "slow.example.com": [OTHER_PUBLIC]}
+        stalled = {"slow.example.com": threading.Event()}
+        self.addCleanup(stalled["slow.example.com"].set)
+        self.guest_dns = Mock(side_effect=dns(table, stalled=stalled))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            table["inventory.example.com"] = [PUBLIC]
+            held = asyncio.create_task(self.handle("slow.example.com:443"))
+            self.addAsyncCleanup(self.cancelled, held)
+            # The open tunnel is revoked while the new request's own lookup is still held.
+            await asyncio.wait_for(tunnel, 2)
+            self.assertFalse(held.done())
+            stalled["slow.example.com"].set()
+            await asyncio.wait_for(held, 2)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

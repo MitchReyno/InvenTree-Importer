@@ -41,7 +41,10 @@ function nativeOpening(command: Record<string, unknown>) {
     typeof command.text !== 'string' ||
     typeof command.instructions !== 'string' ||
     !Array.isArray(command.tools) ||
-    command.tools.some((tool) => typeof tool !== 'string')
+    command.tools.some((tool) => typeof tool !== 'string') ||
+    // Absent means a fresh conversation; anything else present must name one to resume.
+    (command.resume !== undefined &&
+      (typeof command.resume !== 'string' || command.resume.length === 0))
   ) {
     throw new Error('invalid_opening')
   }
@@ -49,7 +52,7 @@ function nativeOpening(command: Record<string, unknown>) {
     text: command.text,
     instructions: command.instructions,
     tools: command.tools as string[],
-    resume: typeof command.resume === 'string' ? command.resume : undefined,
+    resume: command.resume as string | undefined,
   }
 }
 

@@ -407,6 +407,11 @@ async def checked_addresses(host, port, provider, protected):
             PROTECTED_LOOKUPS.check_overflow()
             raise
         return addresses, protection_guard(protected, False)
+    # Protected names refresh on their own pool, so a stalled destination lookup can't hold up
+    # an answer that revokes another tunnel. Each refresh publishes when it lands.
+    for entry in protected:
+        if literal_address(entry) is None:
+            PROTECTED_LOOKUPS.refresh(entry)
     try:
         # Other connections' lookups can still protect this address before or after the dial.
         addresses = await PUBLIC_DNS.run(
