@@ -758,6 +758,25 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         writer.transport.abort.assert_called_once()
         client.transport.abort.assert_called_once()
 
+    async def test_buffered_bytes_are_not_relayed_once_the_address_is_protected(self):
+        self.write_policy(public_pages=False, protected_hosts=["inventory.example.com"])
+        stream, remote, client, writer = await self.held_tunnel("api.anthropic.com:443")
+        self.guest_dns = Mock(side_effect=dns({"api.anthropic.com": [OTHER_PUBLIC]}))
+        with patch.object(socket, "getaddrinfo", self.guest_dns), \
+                patch.object(egress.asyncio, "open_connection",
+                             AsyncMock(return_value=(remote, writer))):
+            tunnel = asyncio.create_task(egress.handle(stream, client))
+            await self.until_open(client, tunnel)
+            # The answer lands with a response already waiting to be relayed.
+            egress.PROTECTED_LOOKUPS.publish("inventory.example.com",
+                                             {egress.normalized(OTHER_PUBLIC)})
+            remote.feed_data(b"response after protection")
+            await asyncio.wait_for(tunnel, 2)
+        relayed = b"".join(call.args[0] for call in client.write.call_args_list)
+        self.assertNotIn(b"response after protection", relayed)
+        writer.transport.abort.assert_called_once()
+        client.transport.abort.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

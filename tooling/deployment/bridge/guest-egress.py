@@ -85,6 +85,26 @@ PUBLIC_DNS = BoundedResolver("public-dns")
 PROTECTED_LOOKUP_BUDGET_S = 2
 
 
+class Revocation:
+    """Fires once a protected lookup shows a tunnel's address is protected. Firing aborts the
+    tunnel's streams there and then, so no copy task relays another byte."""
+
+    def __init__(self):
+        self.event = asyncio.Event()
+        self.streams = []
+
+    def fire(self):
+        self.event.set()
+        for writer in self.streams:
+            abort(writer)
+
+    def is_set(self):
+        return self.event.is_set()
+
+    async def wait(self):
+        await self.event.wait()
+
+
 class ProtectedLookups:
     """Protected-name addresses for provider CONNECTs.
 
@@ -121,23 +141,24 @@ class ProtectedLookups:
         answer can't replace this one before its watchers are woken."""
         with self.lock:
             self.known[name] = addresses
-            for address, loop, event in self.tunnels.values():
+            for address, loop, revocation in self.tunnels.values():
                 if address in addresses:
-                    loop.call_soon_threadsafe(event.set)
+                    loop.call_soon_threadsafe(revocation.fire)
 
     def watch(self, address):
-        """An event set once any protected lookup shows `address` is protected, and a function
-        that stops watching. Register before the first check, so no update falls between them."""
-        event = asyncio.Event()
+        """A Revocation fired once any protected lookup shows `address` is protected, and a
+        function that stops watching. Register before the first check, so no update falls
+        between them."""
+        revocation = Revocation()
         key = object()
         with self.lock:
-            self.tunnels[key] = (normalized(address), asyncio.get_running_loop(), event)
+            self.tunnels[key] = (normalized(address), asyncio.get_running_loop(), revocation)
 
         def stop():
             with self.lock:
                 self.tunnels.pop(key, None)
 
-        return event, stop
+        return revocation, stop
 
     def refresh(self, name):
         """The name's last known addresses and its refresh in flight."""
@@ -302,7 +323,7 @@ async def open_first(addresses, guard):
 
     Each address is watched from before its first check until the tunnel closes, so a
     protected lookup finishing at any point stops it before or while it relays. Returns the
-    streams, the event that drops them and the function that stops watching.
+    streams, the Revocation that drops them and the function that stops watching.
     """
     failure = OSError("no checked address")
     for address in addresses[:MAX_CONNECT_ATTEMPTS]:
@@ -318,6 +339,7 @@ async def open_first(addresses, guard):
         except BaseException:
             stop_watching()
             raise
+        revoked.streams.append(upstream)
         # Lets wake-ups queued by lookups that finished during the dial run first.
         await asyncio.sleep(0)
         try:
@@ -349,8 +371,10 @@ class Activity:
         self.last = time.monotonic()
 
 
-async def copy(source, target, activity):
+async def copy(source, target, activity, revoked):
     while data := await source.read(65536):
+        if revoked.is_set():
+            return
         activity.touch()
         target.write(data)
         await target.drain()
@@ -382,9 +406,14 @@ async def read_request(reader):
 
 
 async def close_tunnel(writers, revoked, drop):
-    """Closes the streams, giving them CLOSE_TIMEOUT_S to flush. Aborts them at once when
-    `drop` is set, at the deadline, or as soon as `revoked` shows their address is protected."""
-    if drop or (revoked is not None and revoked.is_set()):
+    """Closes the streams, giving them CLOSE_TIMEOUT_S to flush, and aborts them at once when
+    `drop` is set or at the deadline. A fired `revoked`, even mid-close, has aborted them."""
+    def fired():
+        return revoked is not None and revoked.is_set()
+
+    if fired():
+        return
+    if drop:
         for writer in writers:
             abort(writer)
         return
@@ -400,7 +429,7 @@ async def close_tunnel(writers, revoked, drop):
     for waiter in pending:
         waiter.cancel()
     await asyncio.gather(*pending, return_exceptions=True)
-    if closing not in done or (revoked is not None and revoked.is_set()):
+    if closing not in done and not fired():
         for writer in writers:
             abort(writer)
 
@@ -434,11 +463,12 @@ async def handle(reader, client):
             counted = True
         addresses, guard = await checked_addresses(host, port, provider, protected)
         remote, upstream, revoked, stop_watching = await open_first(addresses, guard)
+        revoked.streams.append(client)
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
         activity = Activity()
-        tasks = [asyncio.create_task(copy(reader, upstream, activity)),
-                 asyncio.create_task(copy(remote, client, activity))]
+        tasks = [asyncio.create_task(copy(reader, upstream, activity, revoked)),
+                 asyncio.create_task(copy(remote, client, activity, revoked))]
         watches = [asyncio.create_task(revoked.wait())]
         if not provider:
             watches.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))

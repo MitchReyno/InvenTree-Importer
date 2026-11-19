@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, open, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ProcessingInputV6Dto } from '@invimport/contracts'
@@ -170,7 +170,15 @@ test('the policy file is replaced atomically and leaves no temporary file', asyn
   t.after(() => rm(directory, { recursive: true, force: true }))
   const path = join(directory, 'policy.json')
   await writeTurnPolicy(path, turnPolicy(manifest(), ['inventory.example.com']))
+  // A reader that opened the old policy keeps reading it whole; an in-place rewrite would not.
+  const earlier = await open(path)
+  t.after(() => earlier.close())
   await writeTurnPolicy(path, turnPolicy(manifest(), ['203.0.113.10']))
+  assert.deepEqual(JSON.parse(await earlier.readFile('utf8')), {
+    version: 1,
+    public_pages: false,
+    protected_hosts: ['inventory.example.com'],
+  })
   assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), {
     version: 1,
     public_pages: false,

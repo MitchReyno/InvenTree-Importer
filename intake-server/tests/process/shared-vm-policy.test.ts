@@ -295,6 +295,19 @@ const misconfigurations: Misconfiguration[] = [
       }
     },
   },
+  {
+    label: 'without a scheduler database',
+    code: 'agent_database_required',
+    // Everything else is valid, so the worker would otherwise go on to recover sessions.
+    prepare: async (root) => {
+      await pairedCertificates(root)
+      return {
+        INTAKE_AGENT_PROTECTED_ORIGINS: validOrigins,
+        INTAKE_VM_PAIR: join(root, 'bench-coordinator'),
+        INTAKE_AGENT_SCHEDULER_DATABASE_URL: '',
+      }
+    },
+  },
 ]
 
 for (const misconfiguration of misconfigurations) {

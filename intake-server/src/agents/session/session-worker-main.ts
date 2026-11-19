@@ -80,6 +80,7 @@ async function main() {
     throw new Error('session_agent_configuration_required')
   }
   const vmBridge = vmBridgeConfiguration(process.env, config.profileId)
+  const schedulerUrl = localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL)
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
@@ -142,7 +143,7 @@ async function main() {
     DBOS.setConfig({
       name: processingApplication,
       applicationVersion: sessionHandlerVersion,
-      systemDatabaseUrl: localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL),
+      systemDatabaseUrl: schedulerUrl,
       executorID: `sessions-${config.actorId}`,
       systemDatabasePoolSize: 3,
       runAdminServer: false,
@@ -178,7 +179,7 @@ async function main() {
     launched = true
     await DBOS.registerQueue(sessionCommandQueue, { workerConcurrency: 8, globalConcurrency: 8 })
     scheduler = await DBOSClient.create({
-      systemDatabaseUrl: localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL),
+      systemDatabaseUrl: schedulerUrl,
       systemDatabasePoolSize: 1,
     })
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
