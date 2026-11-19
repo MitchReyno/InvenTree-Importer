@@ -16,12 +16,14 @@ const read = (settings: AgentSettingsDto): Values => ({ text: settings.new_batch
 
 /** Settings › Agents › Instructions: the text copied into each new batch's instructions. */
 export function InstructionsForm(props: SubsectionFormProps) {
-  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
-    ...props,
-    id: 'instructions',
-    read,
-    write: ({ text }) => ({ new_batch_instructions: text }),
-  })
+  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
+    {
+      ...props,
+      id: 'instructions',
+      read,
+      write: ({ text }) => ({ new_batch_instructions: text }),
+    },
+  )
   const tooLong = form.formState.errors.text
 
   return (
@@ -51,11 +53,12 @@ export function InstructionsForm(props: SubsectionFormProps) {
             )}
             <SaveBar
               state={state}
-              busy={busy}
+              busy={busy || waiting}
               savedMessage="Saved. Batches created from now on start with these instructions; existing batches keep theirs."
               onSave={save}
               onReload={reload}
               onDiscard={discard}
+              dirty={dirty}
             />
           </Stack>
         )}

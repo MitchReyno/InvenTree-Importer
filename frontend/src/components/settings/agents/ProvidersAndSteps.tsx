@@ -37,12 +37,14 @@ export function ProvidersAndSteps({
   /** The Sessions subsection, placed between Providers and the steps. */
   sessions: ReactNode
 }) {
-  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
-    ...props,
-    id: 'providers',
-    read: providerFormValues,
-    write: providerFormUpdate,
-  })
+  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
+    {
+      ...props,
+      id: 'providers',
+      read: providerFormValues,
+      write: providerFormUpdate,
+    },
+  )
   const [reset, setReset] = useState<readonly AgentSettingsStage[]>([])
   const [noProvider, setNoProvider] = useState(false)
   const values = form.watch()
@@ -78,7 +80,8 @@ export function ProvidersAndSteps({
       {noProvider && <Small role="alert">Turn on at least one provider to save providers.</Small>}
       <SaveBar
         state={state}
-        busy={busy}
+        busy={busy || waiting}
+        dirty={dirty}
         onSave={submit}
         onReload={() => {
           setReset([])

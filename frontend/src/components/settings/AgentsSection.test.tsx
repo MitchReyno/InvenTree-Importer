@@ -698,6 +698,61 @@ test('when Reload keeps failing, Discard drops the edit and releases the guard',
   expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
 })
 
+test('turning off the last provider can be discarded, restoring it and releasing the guard', async () => {
+  const dirty = vi.fn()
+  const api = client()
+  api.settings.mockResolvedValue(bothOn)
+  await renderAgents(api, dirty)
+  for (const name of ['Claude', 'Codex']) {
+    fireEvent.click(
+      within(screen.getByRole('group', { name })).getByRole('checkbox', { name: 'On' }),
+    )
+  }
+  fireEvent.click(within(card('Default provider')).getByRole('button', { name: 'Discard my edit' }))
+  expect(
+    within(screen.getByRole('group', { name: 'Codex' })).getByRole('checkbox', { name: 'On' }),
+  ).toBeChecked()
+  expect(screen.getByRole('combobox', { name: 'Research provider' })).toHaveValue('codex')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('a second subsection waits for the first save, then saves on its revision', async () => {
+  const api = client()
+
+  let finish: (value: AgentSettingsDto) => void = () => undefined
+
+  api.saveSettings
+    .mockImplementationOnce(() => new Promise<AgentSettingsDto>((resolve) => (finish = resolve)))
+    .mockImplementationOnce(async (input) => {
+      const { expected_revision: _, ...fields } = input
+      return { ...fields, revision: '9' }
+    })
+  await renderAgents(api)
+  fireEvent.click(
+    within(screen.getAllByRole('group', { name: 'Sessions at once' }).at(-1)!).getByRole('button', {
+      name: 'One fewer',
+    }),
+  )
+  fireEvent.click(within(card('Sessions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.saveSettings).toHaveBeenCalledTimes(1))
+  const instructions = screen.getByRole('textbox', { name: 'Instructions for every new batch' })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+  const save = within(card('Instructions')).getByRole('button', { name: 'Save' })
+  expect(save).toHaveAttribute('aria-disabled', 'true')
+  fireEvent.click(save)
+  expect(api.saveSettings).toHaveBeenCalledTimes(1)
+  await act(async () => finish({ ...initial, revision: '8', session_concurrency: 2 }))
+  fireEvent.click(within(card('Instructions')).getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenLastCalledWith(
+      agentSettingsUpdate('8', initialSelection, {
+        session_concurrency: 2,
+        new_batch_instructions: 'Mine',
+      }),
+    ),
+  )
+})
+
 test('Suggest tags for new batches saves on its own', async () => {
   const api = await renderAgents()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Suggest tags for new batches' }))

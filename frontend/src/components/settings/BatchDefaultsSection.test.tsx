@@ -231,3 +231,14 @@ test('after an unconfirmed save, Save waits for a Reload', async () => {
   await user.click(save)
   expect(api.batchDefaults.save).toHaveBeenCalledTimes(1)
 })
+
+test('any choice can be discarded, restoring the saved records and releasing the guard', async () => {
+  const user = userEvent.setup()
+  const dirty = vi.fn()
+  await renderDefaults(clients(), dirty)
+  await user.click(screen.getByRole('button', { name: 'No default location' }))
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Discard my edit' }))
+  expect(screen.getByRole('button', { name: 'No default location' })).toBeVisible()
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})

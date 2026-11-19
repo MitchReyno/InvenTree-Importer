@@ -176,6 +176,7 @@ export function BatchDefaultsForm({
             onSave={() => void save()}
             onReload={() => void reload()}
             onDiscard={discard}
+            dirty={edit !== null}
           />
           {(state === 'missing' || state === 'unchecked') && (
             <Small role="alert">{REFUSED[state]}</Small>

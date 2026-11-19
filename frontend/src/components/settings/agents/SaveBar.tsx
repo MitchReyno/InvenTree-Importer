@@ -26,6 +26,7 @@ export function SaveBar({
   busy,
   label = 'Save',
   savedMessage = MESSAGE.saved,
+  dirty = false,
   onSave,
   onReload,
   onDiscard,
@@ -35,6 +36,8 @@ export function SaveBar({
   label?: string
   /** What a confirmed save means for this form. */
   savedMessage?: string
+  /** Whether the form has an edit, which Discard my edit can drop. */
+  dirty?: boolean
   onSave: () => void
   /** Loads the saved settings into this form, dropping its edit. */
   onReload: () => void
@@ -59,6 +62,11 @@ export function SaveBar({
       >
         {state === 'saving' ? 'Saving…' : label}
       </Button>
+      {dirty && !busy && !RELOAD[state] && (
+        <Button type="button" variant="ghost" onClick={() => onDiscard()}>
+          Discard my edit
+        </Button>
+      )}
       {RELOAD[state] && (
         <div role="alert">
           <Banner

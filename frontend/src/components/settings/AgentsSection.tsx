@@ -24,6 +24,7 @@ import { ProvidersAndSteps } from './agents/ProvidersAndSteps'
 import { SessionsForm } from './agents/SessionsForm'
 import { TagSuggestionsForm } from './agents/TagSuggestionsForm'
 import { useDirtyForms } from './agents/useDirtyForms'
+import type { PageSave } from './agents/useSubsectionForm'
 
 type Props = {
   client: ReturnType<typeof agentsClient>
@@ -70,6 +71,24 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
   const newest = useRef<AgentSettingsDto | undefined>(undefined)
   // Revisions this page's own saves produced; an edit may move past those, never past others.
   const localSaves = useRef(new Set<string>())
+  // One subsection saves at a time; the ref answers at once, the state shows the others waiting.
+  const saveTurn = useRef(false)
+  const [saving, setSaving] = useState(false)
+  const pageSave: PageSave = {
+    running: saving,
+    start: () => {
+      if (saveTurn.current) {
+        return false
+      }
+      saveTurn.current = true
+      setSaving(true)
+      return true
+    },
+    finish: () => {
+      saveTurn.current = false
+      setSaving(false)
+    },
+  }
 
   // Syncs the page with the route's location hash. Headings render before the settings load, so
   // the target exists on the first run; the ref keeps a refetch from moving focus again.
@@ -134,6 +153,7 @@ export function AgentsSection({ client, onDirtyChange, subsection }: Props) {
     loaded: settings.data,
     onLoaded: adoptLoaded,
     localSaves: localSaves.current,
+    pageSave,
     reportDirty,
   }
   const sessionsSubsection = (

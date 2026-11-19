@@ -17,8 +17,21 @@ export type SubsectionFormProps = {
   onLoaded: (settings: AgentSettingsDto, source: 'save' | 'reload') => AgentSettingsDto
   /** Revisions this page's own saves produced, which an edit may safely move past. */
   localSaves: ReadonlySet<string>
+  /**
+   * One save at a time across the page: every subsection writes the same settings, so a second
+   * save sent under the same revision would refuse itself.
+   */
+  pageSave: PageSave
   /** Reports this form's unsaved input to the shared navigation guard. */
   reportDirty: (form: string, dirty: boolean) => void
+}
+
+export type PageSave = {
+  /** Whether a subsection's save is running. */
+  running: boolean
+  /** Takes the page's save turn; false while another subsection's save runs. */
+  start: () => boolean
+  finish: () => void
 }
 
 type Owned = Partial<Omit<AgentSettingsUpdateDto, 'expected_revision'>>
@@ -54,6 +67,7 @@ export function useSubsectionForm<V extends FieldValues>({
   loaded,
   onLoaded,
   localSaves,
+  pageSave,
   reportDirty,
   read,
   write,
@@ -95,6 +109,9 @@ export function useSubsectionForm<V extends FieldValues>({
     form,
     state: saving.state,
     busy: saving.busy,
+    // Another subsection's save makes this Save wait; the draft stays editable meanwhile.
+    waiting: pageSave.running && !saving.busy,
+    dirty: base !== undefined,
     markDirty: () => {
       const start = base ?? loaded
       saving.edited()
@@ -110,7 +127,7 @@ export function useSubsectionForm<V extends FieldValues>({
     },
     /** `check` runs after the conflict check, for rules beyond the fields' own validation. */
     save: (check?: (values: V) => boolean) => {
-      if (pending.current || saving.busy) {
+      if (pending.current || saving.busy || !pageSave.start()) {
         return
       }
       pending.current = true
@@ -129,6 +146,7 @@ export function useSubsectionForm<V extends FieldValues>({
         })()
         .finally(() => {
           pending.current = false
+          pageSave.finish()
         })
     },
     reload: () => void saving.reload().then(settle),

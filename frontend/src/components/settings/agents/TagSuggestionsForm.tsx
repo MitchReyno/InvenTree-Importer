@@ -12,12 +12,14 @@ const read = (settings: AgentSettingsDto): Values => ({ auto: settings.auto_tags
 
 /** Settings › Agents › Tag suggestions: whether new batches start with Auto tags on. */
 export function TagSuggestionsForm(props: SubsectionFormProps) {
-  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
-    ...props,
-    id: 'tags',
-    read,
-    write: ({ auto }) => ({ auto_tags_default: auto }),
-  })
+  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
+    {
+      ...props,
+      id: 'tags',
+      read,
+      write: ({ auto }) => ({ auto_tags_default: auto }),
+    },
+  )
 
   return (
     <SettingsCard aria-label="Tag suggestions">
@@ -36,11 +38,12 @@ export function TagSuggestionsForm(props: SubsectionFormProps) {
           </CheckboxLabel>
           <SaveBar
             state={state}
-            busy={busy}
+            busy={busy || waiting}
             savedMessage="Saved. Batches created from now on start with this; existing batches keep theirs."
             onSave={save}
             onReload={reload}
             onDiscard={discard}
+            dirty={dirty}
           />
         </Stack>
       </SettingRow>

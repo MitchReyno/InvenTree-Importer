@@ -24,12 +24,14 @@ export function SessionsForm({
   /** The Pause all agents row. */
   pause: ReactNode
 }) {
-  const { form, state, busy, markDirty, save, reload, discard } = useSubsectionForm({
-    ...props,
-    id: 'sessions',
-    read,
-    write: ({ sessions }) => ({ session_concurrency: sessions }),
-  })
+  const { form, state, busy, waiting, dirty, markDirty, save, reload, discard } = useSubsectionForm(
+    {
+      ...props,
+      id: 'sessions',
+      read,
+      write: ({ sessions }) => ({ session_concurrency: sessions }),
+    },
+  )
 
   return (
     <SettingsCard aria-label="Sessions">
@@ -58,11 +60,12 @@ export function SessionsForm({
           </Small>
           <SaveBar
             state={state}
-            busy={busy}
+            busy={busy || waiting}
             savedMessage="Saved. The limit applies now: running turns finish, and queued sessions start as slots free up."
             onSave={save}
             onReload={reload}
             onDiscard={discard}
+            dirty={dirty}
           />
         </Stack>
       </SettingRow>
