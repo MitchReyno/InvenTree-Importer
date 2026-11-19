@@ -49,8 +49,14 @@ export function configureReadTarget(
   return {
     binding,
     holder,
-    transport: inventoryTransport(profile, undefined, () => holder.current()),
+    transport: inventoryTransport(profile, undefined, {
+      credential: () => holder.current(),
+      refuseEcho: true,
+    }),
     // A one-off transport for the candidate, so a refused token never reaches the holder.
-    probeWith: (token) => inventoryTransport({ ...profile, credential: token }).probe(target),
+    probeWith: (token) =>
+      inventoryTransport({ ...profile, credential: token }, undefined, { refuseEcho: true }).probe(
+        target,
+      ),
   }
 }

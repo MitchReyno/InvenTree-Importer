@@ -177,6 +177,13 @@ const singleSend: typeof fetch = async (input, init) => {
   })
 }
 
+export interface TransportOptions {
+  /** Supplies the token per request when it can change at runtime; defaults to the profile's. */
+  credential?: () => string
+  /** Ends any response that echoes the request's token, for reads whose results reach a browser. */
+  refuseEcho?: boolean
+}
+
 export class TokenEchoError extends Error {
   readonly code = 'target_echoed_token'
 
@@ -218,15 +225,15 @@ export function withoutEcho(response: Response, token: string): Response {
 
 /**
  * Transport defense in depth, NOT approval or request-journal authority. Only T03 apply may receive this closure.
- * `credential` supplies the token per request when it can change at runtime; it defaults to the profile's.
+ * Options apply only to the app's reads; the approval runner's transport keeps the defaults.
  */
 export function inventoryTransport(
   input: TargetProfile,
   send: typeof fetch = singleSend,
-  credential?: () => string,
+  options: TransportOptions = {},
 ) {
   const profile = structuredClone(input)
-  const currentCredential = credential ?? (() => profile.credential)
+  const currentCredential = options.credential ?? (() => profile.credential)
   const destination = origin(profile.origin)
   const protectedHosts = profile.protectedOrigins.map((value) => host(origin(value)))
 
@@ -259,7 +266,7 @@ export function inventoryTransport(
       await response.body?.cancel()
       throw new InventoryTransportError()
     }
-    return withoutEcho(response, token)
+    return options.refuseEcho ? withoutEcho(response, token) : response
   }
 
   function requireOwnedMutationTarget() {

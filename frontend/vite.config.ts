@@ -28,16 +28,21 @@ function requestedFile(url: string | undefined) {
  * Refuses any dev-server request whose file, after following links, is the saved read token,
  * whatever name the request used. The deny list below only sees the requested name.
  */
+/** Whether a path, after following links, is the saved token; a missing path is not. */
+function isCredential(path: string) {
+  try {
+    return CREDENTIAL_FILE.test(basename(realpathSync(path)))
+  } catch {
+    return false
+  }
+}
+
 function credentialFileGuard(): Plugin {
   const refuseCredential: Connect.NextHandleFunction = (request, response, next) => {
     const file = requestedFile(request.url)
-    let real
-    try {
-      real = file && realpathSync(file)
-    } catch {
-      real = undefined
-    }
-    if (real && CREDENTIAL_FILE.test(basename(real))) {
+    // A directory request is answered with its index, which may itself be a link.
+    const candidates = file ? [file, join(file, 'index.html')] : []
+    if (candidates.some(isCredential)) {
       response.statusCode = 403
       response.end()
       return

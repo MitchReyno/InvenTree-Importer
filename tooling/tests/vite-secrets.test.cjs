@@ -46,11 +46,22 @@ test('the frontend dev server never serves a saved read token from inside the wo
   const rewritten = await fetch(new URL(`/secrets-page-${process.pid}/`, base), {
     headers: { accept: 'text/html' },
   })
+  // Without an HTML accept header the static handler answers the directory with its index.
+  const directoryIndex = await fetch(new URL(`/secrets-page-${process.pid}/`, base))
+  const fsIndex = await fetch(new URL(`/@fs${page}/`, base))
 
   // The control file proves /@fs reaches this directory at all.
   assert.equal(control.status, 200)
   assert.equal(vite.config.publicDir, '', 'no public directory is served or copied')
-  for (const response of [token, temporary, aliased, underRoot, rewritten]) {
+  for (const response of [
+    token,
+    temporary,
+    aliased,
+    underRoot,
+    rewritten,
+    directoryIndex,
+    fsIndex,
+  ]) {
     assert.equal(response.status, 403)
     assert.ok(!(await response.text()).includes(PLANTED))
   }

@@ -537,7 +537,7 @@ test('a read already sent keeps its token, and the next read uses the replacemen
       await held
       return json(200)
     },
-    () => holder.current(),
+    { credential: () => holder.current(), refuseEcho: true },
   )
   const target = { targetId: binding.targetId, contextId: binding.targetContextId }
 
@@ -581,7 +581,7 @@ test('a target that echoes the token it was sent ends that read with an error, n
       })
       return new Response(stream, { headers: { 'content-type': 'application/json' } })
     },
-    () => holder.current(),
+    { credential: () => holder.current(), refuseEcho: true },
   )
   const target = { targetId: binding.targetId, contextId: binding.targetContextId }
 
@@ -589,6 +589,31 @@ test('a target that echoes the token it was sent ends that read with an error, n
     const response = await transport.read(target, { kind: 'get_location', pk: '7' })
     await assert.rejects(response.text(), { code: 'target_echoed_token' })
   }
+})
+
+test('the approval transport, without the read option, keeps a response that contains its token', async () => {
+  const transport = inventoryTransport(
+    {
+      kind: 'protected-read-only',
+      origin: TARGET.origin,
+      targetId: binding.targetId,
+      contextId: binding.targetContextId,
+      protectedOrigins: [TARGET.origin],
+      credential: PLANTED,
+    },
+    async () =>
+      new Response(JSON.stringify({ pk: 7, note: PLANTED }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+  )
+
+  const response = await transport.read(
+    { targetId: binding.targetId, contextId: binding.targetContextId },
+    { kind: 'get_location', pk: '7' },
+  )
+
+  // Its outcomes are unchanged: the caller still receives the body it would have before.
+  assert.deepEqual(await response.json(), { pk: 7, note: PLANTED })
 })
 
 test('a response without the token passes through unchanged', async () => {
