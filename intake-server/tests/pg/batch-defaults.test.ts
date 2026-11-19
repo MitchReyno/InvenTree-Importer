@@ -282,6 +282,12 @@ test('a new batch copies the defaults into its first revision through the picker
 
     // A later change applies only to batches created after it.
     await api.saveDefaults('1', '12', null)
+    await saveAgentSettings(api.db.pool, api.binding, {
+      ...fields,
+      expected_revision: '1',
+      auto_tags_default: true,
+      new_batch_instructions: 'Weigh small parts instead of counting.',
+    })
     const reread = (await api.http(`/batches/${batch.id}`)).value as CaptureSnapshotDto
     assert.deepEqual(reread.defaults.location, batch.defaults.location)
     const next = await api.createBatch()
@@ -290,6 +296,14 @@ test('a new batch copies the defaults into its first revision through the picker
       next.observations.some((item) => item.model === 'company'),
       false,
     )
+    const copied = await api.db.pool.query<{ batch_id: string; text: string }>(
+      'SELECT batch_id,text FROM capture_instruction WHERE batch_id = ANY($1::uuid[])',
+      [[batch.id, next.id]],
+    )
+    assert.deepEqual(Object.fromEntries(copied.rows.map((row) => [row.batch_id, row.text])), {
+      [batch.id]: 'Count reels by their labels.',
+      [next.id]: 'Weigh small parts instead of counting.',
+    })
   } finally {
     await api.dispose()
   }

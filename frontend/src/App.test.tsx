@@ -1262,13 +1262,57 @@ test('Settings opened from Agents goes back to it across sections, and the guard
   await act(async () => {
     location.hash = '#settings/agents'
   })
-  fireEvent.change(await screen.findByRole('combobox', { name: 'Model' }), {
-    target: { value: 'opus' },
-  })
+  fireEvent.change(
+    await screen.findByRole('textbox', { name: 'Instructions for every new batch' }),
+    {
+      target: { value: 'opus' },
+    },
+  )
   fireEvent.click(screen.getByRole('link', { name: 'Back to Agents' }))
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
   expect(location.hash).toBe('#settings/agents')
-  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('opus')
+  expect(screen.getByRole('textbox', { name: 'Instructions for every new batch' })).toHaveValue(
+    'opus',
+  )
+})
+
+test('with unsaved agent settings, the Agents sub-nav still moves within the page', async () => {
+  history.replaceState(null, '', '#agents')
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    if (path.endsWith('/agent-settings')) {
+      return response(
+        agentSettings('7', { provider: 'claude', authentication: 'subscription', model: 'sonnet' }),
+      )
+    }
+    if (path.endsWith('/agent-sessions')) {
+      return response({ sessions: [], next_before: null, sessions_supported: true })
+    }
+    return headerRead(path) ?? navigationFallback(path)
+  })
+  render(<App />)
+  await screen.findByRole('link', { name: 'Agent settings' })
+  await act(async () => {
+    location.hash = '#settings/agents'
+  })
+  const instructions = await screen.findByRole('textbox', {
+    name: 'Instructions for every new batch',
+  })
+  fireEvent.change(instructions, { target: { value: 'Mine' } })
+
+  fireEvent.click(screen.getByRole('link', { name: 'Provider and model per step' }))
+  await waitFor(() => expect(location.hash).toBe('#settings/agents/models'))
+  await waitFor(() =>
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Provider and model per step' }),
+    ).toHaveFocus(),
+  )
+  expect(instructions).toHaveValue('Mine')
+
+  // Leaving Settings is still guarded.
+  fireEvent.click(screen.getByRole('link', { name: 'Back to Agents' }))
+  expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
+  expect(location.hash).toBe('#settings/agents/models')
 })
 
 test('a refused browser Back from unsaved settings keeps the return route for a reload', async () => {
@@ -1290,9 +1334,12 @@ test('a refused browser Back from unsaved settings keeps the return route for a 
   await act(async () => {
     location.hash = '#settings/agents'
   })
-  fireEvent.change(await screen.findByRole('combobox', { name: 'Model' }), {
-    target: { value: 'opus' },
-  })
+  fireEvent.change(
+    await screen.findByRole('textbox', { name: 'Instructions for every new batch' }),
+    {
+      target: { value: 'opus' },
+    },
+  )
 
   await act(async () => {
     history.back()
@@ -1300,7 +1347,9 @@ test('a refused browser Back from unsaved settings keeps the return route for a 
   })
   expect(location.hash).toBe('#settings/agents')
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
-  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('opus')
+  expect(screen.getByRole('textbox', { name: 'Instructions for every new batch' })).toHaveValue(
+    'opus',
+  )
   cleanup()
   render(<App />)
   expect(await screen.findByRole('link', { name: 'Back to Agents' })).toHaveAttribute(

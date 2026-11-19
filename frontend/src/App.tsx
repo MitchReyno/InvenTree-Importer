@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   agentsClient,
   attentionClient,
+  batchDefaultsClient,
   recordsClient,
   captureClient,
   catalogueClient,
@@ -111,6 +112,13 @@ export default function App() {
       bootstrap?.csrf_token ? catalogueClient(location.origin, bootstrap.csrf_token) : undefined,
     [bootstrap],
   )
+  const batchDefaults = useMemo(
+    () =>
+      bootstrap?.csrf_token
+        ? batchDefaultsClient(location.origin, bootstrap.csrf_token)
+        : undefined,
+    [bootstrap],
+  )
   const media = useMemo(
     () =>
       bootstrap?.csrf_token && bootstrap.media_enabled === true
@@ -136,13 +144,14 @@ export default function App() {
     () => ({
       agents: agents ?? undefined,
       attention,
+      batchDefaults,
       catalogue,
       media,
       operator,
       processing,
       records,
     }),
-    [agents, attention, catalogue, media, operator, processing, records],
+    [agents, attention, batchDefaults, catalogue, media, operator, processing, records],
   )
   const currentBatch = routeBatchId(route)
   const page = appPage(route)

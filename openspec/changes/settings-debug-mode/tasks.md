@@ -337,10 +337,10 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: The full frontend checks, and a browser pass of every Settings page against canvas v67.
 - Risks: One revision is shared across agent subsections. A save in one form must send the loaded values for fields it doesn't own, not another form's unsaved state. On a fresh setup, saving any other subsection before a provider is on must succeed.
 
-- [ ] 9.1 Confirm the PR-B structure and the PR-C contracts are merged, and set the baseline.
-- [ ] 9.2 RED: write the form tests.
-- [ ] 9.3 GREEN: build each subsection form and the Batch defaults form, removing their `DisabledFeature` wrappers.
-- [ ] 9.4 Refactor, then run the frontend checks.
+- [x] 9.1 Confirm the PR-B structure and the PR-C contracts are merged, and set the baseline.
+- [x] 9.2 RED: write the form tests.
+- [x] 9.3 GREEN: build each subsection form and the Batch defaults form, removing their `DisabledFeature` wrappers.
+- [x] 9.4 Refactor, then run the frontend checks.
 - [ ] 9.5 Record a demo of the working rows and attach it to PR-D.
 
 ## 10. Documentation and notes
@@ -358,9 +358,9 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: Link checks; each claim checked against the code before pushing.
 - Risks: None.
 
-- [ ] 10.1 Update the architecture docs and READMEs.
-- [ ] 10.2 Update the index and design log statuses.
-- [ ] 10.3 Write `notes.md` with the final open items.
+- [x] 10.1 Update the architecture docs and READMEs.
+- [x] 10.2 Update the index and design log statuses.
+- [x] 10.3 Write `notes.md` with the final open items.
 
 ## 11. Replace the read token
 
@@ -419,7 +419,7 @@ For each PR:
 Then update the BI items to their actual status; BI-016 is Done only after PR-A to PR-E have all merged. Sync and archive the change after delivery, running `pnpm openspec:overlap --change settings-debug-mode` first.
 
 - [x] PR-A reviewed, published and merged
-- [ ] PR-B reviewed, published and merged
-- [ ] PR-C reviewed, published and merged
+- [x] PR-B reviewed, published and merged
+- [x] PR-C reviewed, published and merged
 - [ ] PR-D reviewed, published and merged
 - [ ] PR-E reviewed, published and merged

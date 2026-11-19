@@ -1,9 +1,9 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useQueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { useState, type ReactNode } from 'react'
-import type { ConnectionStatusDto } from '@invimport/contracts'
+import type { AgentSettingsDto, ConnectionStatusDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { fixtureScope, render } from '#/test/render'
 import { agentSettings } from '#/test/agent-settings'
@@ -234,20 +234,9 @@ test('the API token row never shows a stale or failed read as current', async ()
 })
 
 const DEFERRED: [SettingsSectionId, string[]][] = [
-  [
-    'agents',
-    [
-      'Model per step',
-      'Instructions for every new batch',
-      'Fill descriptions for',
-      'Part description style',
-      'Supplier part descriptions',
-      'Suggest tags automatically',
-      'Web research',
-    ],
-  ],
+  ['agents', ['Fill descriptions for', 'Supplier part descriptions', 'Web research']],
   ['inventree', ['API token']],
-  ['defaults', ['Default location', 'Default supplier', 'Tags']],
+  ['defaults', ['Tags']],
 ]
 
 for (const [section, rows] of DEFERRED) {
@@ -256,7 +245,7 @@ for (const [section, rows] of DEFERRED) {
     const client = agents()
     renderSettings(section, { client })
     if (section === 'agents') {
-      await screen.findByRole('group', { name: 'Model per step' })
+      await screen.findByRole('group', { name: 'Fill descriptions for' })
     }
 
     for (const name of rows) {
@@ -419,6 +408,21 @@ test('the old Descriptions and naming link opens that Agents subsection', () => 
   expect(within(fill).getByRole('switch', { name: 'Companies · up to 500' })).not.toBeChecked()
 })
 
+test('a direct link to Providers focuses its heading once the settings have loaded', async () => {
+  const client = agents()
+
+  let answer: (value: AgentSettingsDto) => void = () => undefined
+
+  vi.mocked(client.settings).mockImplementation(
+    () => new Promise<AgentSettingsDto>((resolve) => (answer = resolve)),
+  )
+  renderSettings('agents', { subsection: 'providers', client })
+  expect(screen.getByRole('heading', { level: 3, name: 'Providers' })).toHaveFocus()
+  await act(async () => answer(agentSettings('7', null)))
+  await screen.findByRole('group', { name: 'Claude' })
+  expect(screen.getByRole('heading', { level: 3, name: 'Providers' })).toHaveFocus()
+})
+
 test('going back to Agents and then to the same subsection focuses its heading again', () => {
   const client = agents()
   const view = renderSettings('agents', { subsection: 'descriptions', client })
@@ -432,9 +436,11 @@ test('going back to Agents and then to the same subsection focuses its heading a
   expect(heading).toHaveFocus()
 })
 
-test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', () => {
+test('tag suggestions moved to Agents, leaving batch-name tags in Batch defaults', async () => {
   const agentsView = renderSettings('agents')
-  expect(screen.getByRole('group', { name: 'Suggest tags automatically' })).toBeInTheDocument()
+  expect(
+    await screen.findByRole('group', { name: 'Suggest tags automatically' }),
+  ).toBeInTheDocument()
   agentsView.unmount()
 
   renderSettings('defaults')

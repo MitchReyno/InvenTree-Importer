@@ -1,7 +1,6 @@
-import { useId } from 'react'
+import { useId, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { SettingRow, Switch } from '#/components/ui'
-import { TextArea } from '#/forms'
 import { space } from '#/theme/generated/tokens'
 import { SettingsCard } from '#/components/settings/SettingsCard'
 
@@ -24,12 +23,13 @@ const SUPPLIER_TEXT = [
   { id: 'part', label: 'Use the Part description' },
 ]
 
-/** Settings › Agents › Descriptions and naming: rules for agent-written descriptions, not stored yet. */
-export function DescriptionsCard() {
+/** Settings › Agents › Descriptions and naming: the saved Part description style, then the rules still to come. */
+export function DescriptionsCard({ style }: { style: ReactNode }) {
   const name = useId()
 
   return (
     <SettingsCard aria-label="Descriptions and naming">
+      {style}
       <SettingRow label="Fill descriptions for" help="New records only." disabledReason={NOT_USED}>
         {({ disabled }) => (
           <Column>
@@ -44,13 +44,6 @@ export function DescriptionsCard() {
             ))}
           </Column>
         )}
-      </SettingRow>
-      <SettingRow
-        label="Part description style"
-        help="A pattern agents follow, written in plain words."
-        disabledReason={NOT_USED}
-      >
-        {({ named, disabled }) => <Style rows={3} readOnly {...named} {...disabled} />}
       </SettingRow>
       <SettingRow label="Supplier part descriptions" disabledReason={NOT_USED}>
         {({ named, disabled }) => (
@@ -79,8 +72,4 @@ const Column = styled.div`
   flex-direction: column;
   align-items: flex-start;
   gap: ${space[3]};
-`
-
-const Style = styled(TextArea)`
-  width: 100%;
 `
