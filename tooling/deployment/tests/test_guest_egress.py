@@ -1392,6 +1392,37 @@ class EgressPolicy(unittest.IsolatedAsyncioTestCase):
         self.assert_refused(written, upstream, "not_public")
         self.assertEqual(self.lookups, 1)
 
+    async def test_exact_name_reason_comes_from_the_refresh_it_waited_on(self):
+        self.write_policy(public_pages=True, protected_hosts=["inventory.example.com"])
+        table = {"inventory.example.com": [PUBLIC, "10.0.0.2"]}
+        wait = asyncio.wait
+        lookups = egress.PROTECTED_LOOKUPS
+
+        async def then_refreshed_publicly(*args, **kwargs):
+            result = await wait(*args, **kwargs)
+            # A later refresh lands, public-only, before this request decides its reason.
+            table["inventory.example.com"] = [PUBLIC]
+            await asyncio.to_thread(lookups.resolve, "inventory.example.com")
+            return result
+
+        with patch.object(egress.asyncio, "wait", then_refreshed_publicly):
+            written, upstream = await self.connect("inventory.example.com:443", table)
+        self.assert_refused(written, upstream, "not_public")
+
+    async def test_protected_names_beyond_the_resolver_slots_all_refresh(self):
+        names = [f"name{index}.example.com" for index in range(egress.DNS_SLOTS + 2)]
+        self.write_policy(public_pages=True, protected_hosts=names)
+        # The first name in sorted order fails; every later one still refreshes.
+        table = {name: [f"9.9.9.{index}"] for index, name in enumerate(names) if index}
+        table["www.ti.com"] = [PUBLIC]
+        written, upstream = await self.connect("www.ti.com:443", table)
+        self.assert_refused(written, upstream, "resolution_failed")
+        looked_up = [call.args[0].rstrip(".") for call in self.guest_dns.call_args_list]
+        for name in names:
+            self.assertEqual(looked_up.count(name), 1, name)
+        for name in names[1:]:
+            self.assertTrue(egress.PROTECTED_LOOKUPS.known.get(name), name)
+
 
 if __name__ == "__main__":
     unittest.main()

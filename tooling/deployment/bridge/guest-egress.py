@@ -145,8 +145,6 @@ class ProtectedLookups:
         self.pool = ThreadPoolExecutor(max_workers=DNS_SLOTS, thread_name_prefix="protected-dns")
         self.lock = threading.Lock()
         self.known = {}
-        # Whether a name's latest answer included a non-public address.
-        self.answered_privately = {}
         self.in_flight = {}
         # Set once a protected name fails to resolve: public hosts are refused for the turn.
         # Read it only under the lock, so a failure is seen together with its revocations.
@@ -158,20 +156,21 @@ class ProtectedLookups:
         self.tunnels = {}
 
     def resolve(self, name):
-        """Fresh addresses for `name`, or None when the lookup fails."""
+        """This lookup's public addresses for `name` and whether its answer was empty or held
+        any private address; or None when the lookup fails."""
         try:
             answers = [normalized(answer) for answer in resolved_addresses(name)]
         except Refused:
             addresses = None
+            result = None
         else:
             # Only public answers are blocked; a private one is already refused by address.
             addresses = {answer for answer in answers if public(str(answer))}
-            with self.lock:
-                self.answered_privately[name] = not answers or len(addresses) < len(set(answers))
+            result = (addresses, not answers or len(addresses) < len(set(answers)))
         self.publish(name, addresses)
         with self.lock:
             self.in_flight.pop(name, None)
-        return addresses
+        return result
 
     def publish(self, name, addresses):
         """Adds a successful answer for `name`, from either path, to the addresses it blocks
@@ -248,7 +247,8 @@ class ProtectedLookups:
     async def deny_set(self, protected):
         blocked = set()
         refreshes = []
-        for entry in protected:
+        # Sorted, so which names win a resolver slot doesn't depend on hash order.
+        for entry in sorted(protected):
             literal = literal_address(entry)
             if literal is not None:
                 if public(str(literal)):
@@ -260,7 +260,7 @@ class ProtectedLookups:
                                timeout=PROTECTED_LOOKUP_BUDGET_S)
         for known, waiter in refreshes:
             fresh = waiter.result() if waiter.done() else None
-            blocked |= known | (fresh or set())
+            blocked |= known | (fresh[0] if fresh else set())
         return blocked
 
     def latest(self, protected):
@@ -418,7 +418,8 @@ async def checked_addresses(host, port, provider, protected):
         return addresses, protection_guard(protected, False)
     # Protected names refresh on the shared per-name pool, joining any refresh in flight, while
     # the destination resolves; each refresh publishes when it lands, even after this request.
-    refreshes = {entry: PROTECTED_LOOKUPS.refresh(entry)[1] for entry in protected
+    # Sorted, so which names win a resolver slot doesn't depend on hash order.
+    refreshes = {entry: PROTECTED_LOOKUPS.refresh(entry)[1] for entry in sorted(protected)
                  if literal_address(entry) is None}
     # A protected name asked for directly is answered by its own refresh, not looked up twice.
     exact = refreshes.get(host)
@@ -434,14 +435,16 @@ async def checked_addresses(host, port, provider, protected):
             refusal = error
     # Once a protected lookup has failed, every public refusal reports that first; a refresh
     # still running at the deadline refuses this request without failing the turn.
+    if exact is not None:
+        # The name is protected whatever its lookup says, but the answer this request waited on
+        # reports not_public if it held any private address, as it would for any other host.
+        answer = exact.result() if exact.done() else None
+        with PROTECTED_LOOKUPS.lock:
+            if PROTECTED_LOOKUPS.failed:
+                raise Refused("resolution_failed")
+        raise Refused("not_public" if answer and answer[1] else "protected_destination")
     if PROTECTED_LOOKUPS.has_failed():
         raise Refused("resolution_failed")
-    if exact is not None:
-        # The name is protected whatever its lookup says, but an answer with any private address
-        # reports not_public, as it would for any other host.
-        with PROTECTED_LOOKUPS.lock:
-            private = exact.done() and PROTECTED_LOOKUPS.answered_privately.get(host, False)
-        raise Refused("not_public" if private else "protected_destination")
     if not all(refresh.done() for refresh in refreshes.values()):
         raise Refused("resolution_failed")
     if refusal is not None:
