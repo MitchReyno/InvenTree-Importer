@@ -195,7 +195,7 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - [x] 5.2 RED: write the navigation, redirect and moved-row tests.
 - [x] 5.3 GREEN: build routes, nested nav, the subsection split and the moves.
 - [x] 5.4 Refactor, then run the frontend checks.
-- [ ] 5.5 Record a demo of the sub-nav and attach it to PR-B.
+- [x] 5.5 Record a demo of the sub-nav and attach it to PR-B.
 
 ## 6. Independent providers, agent settings storage, per-step sealing and style delivery
 
