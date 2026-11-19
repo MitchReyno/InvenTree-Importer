@@ -1,9 +1,13 @@
+import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 import readability from './tooling/eslint/readability.mjs'
 import typedRules from './tooling/eslint/typed-rules.mjs'
 
 const frontendSources = ['frontend/src/**/*.{ts,tsx}']
+// Plain JavaScript run by Node: the dev launcher, its tests and other repository tools.
+const toolingScripts = ['tooling/**/*.cjs', 'intake-server/scripts/**/*.cjs']
+const toolingModules = ['tooling/**/*.mjs', 'intake-server/scripts/**/*.mjs']
 // The frontend lints itself through frontend/eslint.config.js; these packages have no config of their own.
 const packageSources = [
   'intake-server/src/**/*.ts',
@@ -55,6 +59,17 @@ export default [
         { ignoreRestSiblings: true, varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
       ],
     },
+  },
+  // An undefined name in plain JavaScript only fails when that line runs, so catch it here.
+  {
+    files: toolingScripts,
+    languageOptions: { sourceType: 'commonjs', globals: globals.node },
+    rules: { 'no-undef': 'error' },
+  },
+  {
+    files: toolingModules,
+    languageOptions: { sourceType: 'module', globals: globals.nodeBuiltin },
+    rules: { 'no-undef': 'error' },
   },
   {
     // Frontend lint owns its rules and reports unused disables; knowing the plugins here keeps its
