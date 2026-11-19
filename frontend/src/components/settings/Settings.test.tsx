@@ -124,6 +124,7 @@ test('the section nav lists every section, marks the current one and the Agents 
     ['Batch defaults', '#settings/defaults'],
     ['Descriptions and naming', '#settings/descriptions'],
     ['Appearance', '#settings/appearance'],
+    ['Developer', '#settings/developer'],
   ])
   const current = within(nav).getByRole('link', { name: 'Agents' })
   expect(current).toHaveAttribute('aria-current', 'page')

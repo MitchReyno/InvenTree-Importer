@@ -99,12 +99,12 @@ Task 8's frontend part, the Check now and Check connection now buttons, ships in
 - Verification: `pnpm typecheck`, `pnpm lint:frontend`, `pnpm test:frontend`, `pnpm build`.
 - Risks: Tests asserting the footer `Diagnostics` (`src/Diagnostics.test.tsx`) move to the Developer section.
 
-- [ ] 2.1 Confirm the theme controller pattern and the existing Diagnostics tests as the baseline.
-- [ ] 2.2 RED: write the preference, Developer section, footer and Copy debug info tests and see them fail.
-- [ ] 2.3 GREEN: build the preference controller, the two components, the Developer section and route, and Reload and Copy.
-  - [ ] 2.3.1 Reload app data invalidates queries without touching form drafts or the navigation guard.
-  - [ ] 2.3.2 `debugInfoText()` is pure and lists only build, route, readiness and transport fields.
-- [ ] 2.4 Refactor, then run the full frontend checks.
+- [x] 2.1 Confirm the theme controller pattern and the existing Diagnostics tests as the baseline.
+- [x] 2.2 RED: write the preference, Developer section, footer and Copy debug info tests and see them fail.
+- [x] 2.3 GREEN: build the preference controller, the two components, the Developer section and route, and Reload and Copy.
+  - [x] 2.3.1 Reload app data invalidates queries without touching form drafts or the navigation guard.
+  - [x] 2.3.2 `debugInfoText()` is pure and lists only build, route, readiness and transport fields.
+- [x] 2.4 Refactor, then run the full frontend checks.
 - [ ] 2.5 Verify acceptance, including keyboard use of the switch in both themes.
 
 ## 3. Gate developer details and add Debug panels

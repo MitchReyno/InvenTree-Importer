@@ -30,7 +30,6 @@ import { color, typeVar } from './theme/generated/tokens'
 import { Main, PageContent } from './components/AppLayout'
 import { pageWidthFor } from './navigation/batch-route'
 import { appPage, routeBatchId, settingsSection } from './navigation/app-route'
-import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { AppMasthead } from './components/masthead/AppMasthead'
 import { MastheadBackdrop } from './components/masthead/MastheadBackdrop'
@@ -277,11 +276,6 @@ export default function App() {
                       </PageContent>
                     )}
                     {batchPage ? content : <PageContent $width={width}>{content}</PageContent>}
-                    {manual && (
-                      <PageContent $width={width}>
-                        <Diagnostics />
-                      </PageContent>
-                    )}
                   </Main>
                 </CompactStatusContext.Provider>
               </HeaderObservationsProvider>

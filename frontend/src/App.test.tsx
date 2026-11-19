@@ -361,6 +361,8 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
       name: 'Review 1 lot',
     }),
   ).toHaveAttribute('href', `#${batchId}/review/lots?filter=needs_review`)
+  // Local setup lives in Settings › Developer, not under every page.
+  expect(screen.queryByText('Local setup and diagnostics')).not.toBeInTheDocument()
   expect(screen.queryByText('Archived packet')).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
   expect(await screen.findByText('Archived packet')).toBeVisible()

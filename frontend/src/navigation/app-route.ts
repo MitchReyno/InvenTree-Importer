@@ -7,6 +7,7 @@ export const SETTINGS_SECTIONS = [
   'defaults',
   'descriptions',
   'appearance',
+  'developer',
 ] as const
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]
