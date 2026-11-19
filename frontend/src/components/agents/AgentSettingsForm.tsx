@@ -245,7 +245,15 @@ export function AgentSettingsForm({
                     aria-label={option.label}
                     aria-describedby={`${fieldId}-${option.id}-status`}
                     {...register('provider', {
-                      onChange: () => setValue('model', '', { shouldDirty: true }),
+                      // Each provider keeps its own sign-in and model; a provider that is off
+                      // starts with no model chosen.
+                      onChange: (event) => {
+                        const saved = loaded.providers[event.target.value as Provider]
+                        setValue('authentication', saved.authentication, { shouldDirty: true })
+                        setValue('model', saved.enabled ? saved.default_model : '', {
+                          shouldDirty: true,
+                        })
+                      },
                     })}
                   />
                   <span>

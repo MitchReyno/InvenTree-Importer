@@ -92,6 +92,31 @@ test('switching providers requires choosing a new model and shows host authentic
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
 })
 
+test("switching between two configured providers keeps each one's own sign-in and model", async () => {
+  const api = client()
+  const both = agentSettings('7', sonnet, {
+    providers: {
+      claude: { enabled: true, authentication: 'subscription', default_model: 'sonnet' },
+      codex: { enabled: true, authentication: 'api_key', default_model: 'gpt-6-luna' },
+    },
+  })
+  render(<AgentSettingsForm initial={both} client={api} onDirtyChange={vi.fn()} {...status} />)
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
+  expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('gpt-6-luna')
+  expect(screen.getByRole('button', { name: 'API key' })).toHaveAttribute('aria-pressed', 'true')
+  fireEvent.click(screen.getByRole('radio', { name: 'Claude' }))
+  fireEvent.click(screen.getByRole('radio', { name: 'Codex' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        default_provider: 'codex',
+        providers: both.providers,
+      }),
+    ),
+  )
+})
+
 for (const action of ['Save', 'Discard and reload']) {
   test(`a pristine ${action} protects navigation and cannot clear a new owner's dirty guard after unmount`, async () => {
     const api = client()

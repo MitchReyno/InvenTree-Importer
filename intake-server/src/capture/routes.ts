@@ -102,8 +102,14 @@ export function registerCapture(
       '/api/v1/batches',
       { schema: { body: schemas.BatchCreate, response: { 201: schemas.CaptureSnapshot } } },
       async (req, reply) => {
+        // A bad key or a replay never reaches InvenTree for the defaults.
+        const key = commandKey(req)
+        const retained = await repo.retainedCreate(key, req.body)
+        if (retained) {
+          return reply.code(201).send(retained)
+        }
         const defaults = await resolveCreationDefaults(pool, config, catalogue)
-        return reply.code(201).send(await repo.create(commandKey(req), req.body, defaults))
+        return reply.code(201).send(await repo.create(key, req.body, defaults))
       },
     )
     scope.get(

@@ -9,7 +9,7 @@ import { onLeadIdentity } from '#/processing/stable-identity.ts'
 import { lockCaptureForInputSettlement } from '#/capture/repository.ts'
 import { claimSessionSlot } from '#/agents/session/slots.ts'
 import { singleProvider } from '../support/agent-settings.ts'
-import { saveAgentSettings } from '#/agents/settings.ts'
+import { saveAgentSettings, unsavedAgentSettings } from '#/agents/settings.ts'
 import { queueSessionResume, runSessionTurn } from '#/agents/session/session-runner.ts'
 
 test('a stable identity queues the lot’s Research and Images, pinned to it, as agent_writer', async (t) => {
@@ -360,6 +360,46 @@ test('on native-agent/2, a stable identity queues successors as agent_writer wit
     assert.equal(row.attempt_state, 'queued')
     assert.deepEqual(pinned(row), [identity.id])
   }
+})
+
+test('with no provider on, a stable identity stands and queues no successors', async (t) => {
+  const { fixture, batchId, lot, successors, identities } = await formedBatch(t)
+  const crystal = await lot('16 mhz crystal')
+  const before = await successors(crystal.id)
+  await fixture.db.pool.query(
+    "UPDATE processing_attempt SET state='cancelled' WHERE id = ANY($1::uuid[])",
+    [before.map((row) => row.attempt_id)],
+  )
+  // Both providers turned off while the lead session runs.
+  const current = await fixture.http('/agent-settings')
+  const { revision: _revision, ...off } = unsavedAgentSettings()
+  await saveAgentSettings(fixture.api.pool, fixture.config, {
+    ...off,
+    expected_revision: (current.value as { revision: string }).revision,
+  })
+  const [identity] = await identities(crystal.id)
+  const native = { ...fixture.config, profileId: 'native-agent/2' as const }
+  const outcome = await transaction(fixture.writer.pool, async (client) => {
+    const capture = await lockCaptureForInputSettlement(client, native, batchId)
+    return onLeadIdentity(
+      client,
+      native,
+      capture.snapshot,
+      identityFor(crystal.id, crystal.observation_set_version!),
+      identity.id,
+    )
+  })
+  assert.equal(outcome, 'waiting')
+  const after = await successors(crystal.id)
+  assert.deepEqual(
+    after.map((row) => row.attempt_id).sort(),
+    before.map((row) => row.attempt_id).sort(),
+    'no new attempts',
+  )
+  const kept = await fixture.db.pool.query('SELECT 1 FROM processing_proposal WHERE id=$1', [
+    identity.id,
+  ])
+  assert.equal(kept.rowCount, 1)
 })
 
 test('a republished identity replaces a successor that has not started', async (t) => {

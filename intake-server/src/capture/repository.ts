@@ -43,7 +43,7 @@ import {
   readSettingNotes,
   readSettingsIntent,
 } from './settings-intent.ts'
-import { appendEvent, idempotent, sha256 } from '#/db/authority.ts'
+import { appendEvent, idempotent, retainedResponse, sha256 } from '#/db/authority.ts'
 import { readEvidenceObservations } from './evidence-observation-read.ts'
 import {
   applyObservationEdit,
@@ -1319,6 +1319,21 @@ export function captureRepository(pool: Pool, config: Binding) {
         await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         return snapshot(c, config, id)
       })
+    },
+    /** The batch a replayed creation key already made, before any defaults are looked up. */
+    async retainedCreate(key: string, input: { title: string; note: string }) {
+      return transaction(pool, (c) =>
+        retainedResponse(
+          c,
+          {
+            actorId: config.actorId,
+            action: 'capture_create',
+            resourceKey: `${config.targetId}:${config.targetContextId}:batches`,
+            key,
+          },
+          input,
+        ),
+      )
     },
     /** `defaults` are the app-level values resolved for this batch before the transaction. */
     async create(key: string, input: { title: string; note: string }, defaults?: CreationDefaults) {

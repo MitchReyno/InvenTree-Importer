@@ -18,6 +18,7 @@ import {
   AUTO_TAGS_REQUESTED,
   automationIntentNotes,
   captureContextNotes,
+  captureContextRecords,
 } from '#/capture/context-input.ts'
 
 const records: Record<CatalogueModelDto, Map<string, CatalogueRecordDto>> = {
@@ -114,13 +115,14 @@ async function captureApi() {
     path: string,
     body?: unknown,
     method = body === undefined ? 'GET' : 'POST',
+    key: string | null = randomUUID(),
   ) => {
     const response = await fetch(`${config.origin}/api/v1${path}`, {
       method,
       headers: {
         origin: config.origin,
         'x-intake-csrf': token,
-        'idempotency-key': randomUUID(),
+        ...(key === null ? {} : { 'idempotency-key': key }),
         'content-type': 'application/json',
       },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -277,6 +279,12 @@ test('a new batch copies the defaults into its first revision through the picker
       .join('\n')
     assert.match(sealed, /"pk":"7"/)
     assert.match(sealed, new RegExp(AUTO_TAGS_REQUESTED))
+    // Review hashes the same context records into each lot's review facts.
+    const reviewed = captureContextRecords(withLot, lot.id).map((record) => record.value.supplier)
+    assert.deepEqual(
+      reviewed.map((value) => (value.mode === 'set' ? value.value.pk : value.mode)),
+      ['7'],
+    )
 
     // A later change applies only to batches created after it.
     await api.saveDefaults('1', '12', null)
@@ -374,6 +382,30 @@ test('a rotated target context refuses batch defaults and a batch that would cop
     const created = await api.http('/batches', { title: 'After rotation', note: '' })
     assert.equal(created.status, 409)
     assert.equal(created.value.code, 'target_context_changed')
+  } finally {
+    await api.dispose()
+  }
+})
+
+test('a bad key, a replayed creation or a conflicting payload never looks up the defaults', async () => {
+  const api = await captureApi()
+  try {
+    await api.saveDefaults('0', '11', '7')
+    const body = { title: 'Reel drawer', note: '' }
+    const lookups = () => api.state.lookups
+    let before = lookups()
+    assert.equal((await api.http('/batches', body, 'POST', null)).status, 400)
+    assert.equal(lookups(), before, 'missing key')
+    const key = randomUUID()
+    const first = await api.http('/batches', body, 'POST', key)
+    assert.equal(first.status, 201)
+    before = lookups()
+    const replay = await api.http('/batches', body, 'POST', key)
+    assert.equal(replay.status, 201)
+    assert.deepEqual(replay.value, first.value)
+    const conflict = await api.http('/batches', { ...body, title: 'Other' }, 'POST', key)
+    assert.equal(conflict.status, 409)
+    assert.equal(lookups(), before, 'replay and conflict')
   } finally {
     await api.dispose()
   }

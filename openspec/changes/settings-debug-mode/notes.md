@@ -19,6 +19,8 @@ PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings
 
 - **2026-11-19, review round 2 (PR-C):** Batch defaults and batch creation check the current target context before and after their catalogue lookups and again inside the write transaction, like the existing Capture catalogue routes. They don't lock `target`: a rotation committing between that last check and the write's commit can still land the write in the retired context. Closing that window would need the Capture role to hold `UPDATE` on `target` (as the executor does for its `FOR UPDATE`), which widens its authority, so it is accepted as for every other Capture write.
 
+- **2026-11-19, review round 3 (PR-C):** Turning both providers off is now a valid save, so a stable identity published by a running Examine lead could no longer queue its Research and Images successors. Queuing them threw and rolled back the proposal with it. `onLeadIdentity` now keeps the proposal and queues only the stages a provider resolves for (`waiting` when none). Successors left unqueued that way aren't queued automatically once a provider is turned back on.
+
 ## Unexpected challenges
 
 - **2026-11-19T14:40+11:00, task 2:** pnpm refuses nested workspace scripts (`pnpm typecheck`) when `node_modules` is a symlink to the main checkout (`ERR_PNPM_UNSAFE_TASK_RUN_STATE_PATH`). The worktree uses its own `pnpm install --frozen-lockfile` instead; the lockfile is unchanged.
@@ -31,6 +33,8 @@ PR-A (debug mode and the Dev mode popover) merged in #225 and PR-B (the Settings
 - **2026-11-19, task 8 (PR-C):** The connection reader stays callable and gains `check()`, so existing reads and tests are unchanged. The check mutation lives in the shared header observations, so the server menu and Settings share one pending state.
 
 ## Open items
+
+- Successors a stable identity couldn't queue while no provider was on stay unqueued after a provider is turned on, until the lot's identity is published again or the operator starts the stages.
 
 - `simplify-vm-agent-web-and-setup` (BI-017, #223) modifies app-settings › "Agent settings section" and "Deferred settings are disabled and explained", written against this change's versions. Sync this change first; that change rebases onto it, so `pnpm openspec:overlap` reports those requirements until then.
 

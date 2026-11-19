@@ -92,7 +92,7 @@ export function ConnectionDetails({
           },
         ]}
       />
-      {target?.failure_code === 'unauthorized' && (
+      {targetFresh && !apiUnavailable && target?.failure_code === 'unauthorized' && (
         <Line>InvenTree refused the read token. It is set in the server's environment.</Line>
       )}
       {target?.kind === 'owned_test' && (

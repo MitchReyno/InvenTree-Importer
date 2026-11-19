@@ -11,6 +11,9 @@ import { checkJobCapacity, queueJob } from './jobs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
 import { SUCCESSOR_STAGES } from './supersede.ts'
+import { isSessionProfile } from './session-policy.ts'
+import { readAgentSettings } from '#/agents/settings.ts'
+import { resolveSelection } from '#/agents/resolve-selection.ts'
 
 export { SUCCESSOR_STAGES } from './supersede.ts'
 
@@ -65,7 +68,7 @@ export async function onLeadIdentity(
   snapshot: CaptureSnapshotDto,
   proposal: ProcessingProposalV5Dto,
   proposalId: string,
-): Promise<'queued' | 'revised' | 'not_stable' | null> {
+): Promise<'queued' | 'revised' | 'waiting' | 'not_stable' | null> {
   const version = reliedObservationSet(proposal)
   if (version === null) {
     return null
@@ -137,13 +140,32 @@ export async function onLeadIdentity(
   if (!toQueue.length) {
     return 'revised'
   }
-  await checkJobCapacity(client, snapshot.id, [lotId], [...toQueue])
-  for (const stage of toQueue) {
+  // With no provider on, the identity proposal still stands; its successors aren't queued.
+  const queueable = await stagesWithProvider(client, config, toQueue)
+  if (!queueable.length) {
+    return 'waiting'
+  }
+  await checkJobCapacity(client, snapshot.id, [lotId], [...queueable])
+  for (const stage of queueable) {
     await queueJob(client, config, snapshot, lotId, stage, [], media, [proposalId], {
       lockSettings: false,
     })
   }
   return 'queued'
+}
+
+/** The stages a provider resolves for now; the synthetic profile needs none. */
+async function stagesWithProvider<T extends string>(
+  client: PoolClient,
+  config: ProcessingConfig,
+  stages: readonly T[],
+) {
+  const profile = config.profileId
+  if (!profile || !isSessionProfile(profile) || profile === 'synthetic-session/1') {
+    return [...stages]
+  }
+  const settings = await readAgentSettings(client, config)
+  return stages.filter((stage) => resolveSelection(settings, stage))
 }
 
 /** Claim-time check: every identity a successor was pinned to is still current. */
