@@ -8,6 +8,7 @@ import json
 import os
 import socket
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -40,6 +41,10 @@ HEADER_TIMEOUT_S = 5
 CONNECT_TIMEOUT_S = 10
 # A destination with many answers gets at most this many connection attempts.
 MAX_CONNECT_ATTEMPTS = 3
+# Public tunnels open at once, and how long one may sit without data before it closes. Provider
+# tunnels have neither limit: model streams can pause for long stretches.
+MAX_PUBLIC_TUNNELS = 32
+PUBLIC_IDLE_TIMEOUT_S = 120
 # All DNS work for one CONNECT, including protected-host lookups, must finish within this.
 DNS_TIMEOUT_S = 10
 # Lookups in flight per path; a stalled lookup keeps its slot until its thread returns.
@@ -128,6 +133,12 @@ class ProtectedLookups:
             blocked |= fresh if fresh is not None else known
         return blocked
 
+    def latest(self, protected):
+        """Every address a protected name is known to have now, including lookups that
+        finished after their budget."""
+        with self.lock:
+            return set().union(*(self.known.get(entry, set()) for entry in protected))
+
 
 PROTECTED_LOOKUPS = ProtectedLookups()
 
@@ -206,7 +217,8 @@ async def provider_addresses(host, protected):
     except BaseException:
         deny.cancel()
         raise
-    blocked = await deny
+    # Lookups that finished after the budget, while the provider lookup ran, still count.
+    blocked = await deny | PROTECTED_LOOKUPS.latest(protected)
     if not addresses or not all(public(address) for address in addresses):
         raise Refused("not_public")
     if any(normalized(address) in blocked for address in addresses):
@@ -249,23 +261,57 @@ async def refuse(client, reason):
     await client.drain()
 
 
-async def copy(source, target):
+class Activity:
+    """When a tunnel last carried data in either direction."""
+
+    def __init__(self):
+        self.last = time.monotonic()
+
+    def touch(self):
+        self.last = time.monotonic()
+
+
+async def copy(source, target, activity):
     while data := await source.read(65536):
+        activity.touch()
         target.write(data)
         await target.drain()
 
 
+async def idle_watch(activity, timeout):
+    """Returns once the tunnel has carried no data either way for `timeout` seconds."""
+    while (remaining := activity.last + timeout - time.monotonic()) > 0:
+        await asyncio.sleep(remaining)
+
+
+# Public CONNECTs being set up or tunnelling; the egress serves them on one event loop.
+public_tunnels = 0
+
+
 async def handle(reader, client):
+    global public_tunnels
     upstream = None
     tasks = []
+    counted = False
     try:
         headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), HEADER_TIMEOUT_S)
         host, port = connect_target(headers.split(b"\r\n", 1)[0])
+        provider = host in HOSTS and port == 443
+        if not provider:
+            # Counted before any DNS work, so idle or slow public tunnels can't crowd out the
+            # provider, which is never counted.
+            if public_tunnels >= MAX_PUBLIC_TUNNELS:
+                raise Refused("too_many_connections")
+            public_tunnels += 1
+            counted = True
         remote, upstream = await open_first(await checked_addresses(host, port))
         client.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         await client.drain()
-        tasks = [asyncio.create_task(copy(reader, upstream)),
-                 asyncio.create_task(copy(remote, client))]
+        activity = Activity()
+        tasks = [asyncio.create_task(copy(reader, upstream, activity)),
+                 asyncio.create_task(copy(remote, client, activity))]
+        if not provider:
+            tasks.append(asyncio.create_task(idle_watch(activity, PUBLIC_IDLE_TIMEOUT_S)))
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     except Refused as refusal:
         await refuse(client, refusal.reason)
@@ -273,6 +319,8 @@ async def handle(reader, client):
             asyncio.TimeoutError):
         pass
     finally:
+        if counted:
+            public_tunnels -= 1
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
